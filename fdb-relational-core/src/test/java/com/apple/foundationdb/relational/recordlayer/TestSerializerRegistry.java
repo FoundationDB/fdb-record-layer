@@ -23,9 +23,10 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+
 import com.google.protobuf.Message;
 
-public class TestSerializerRegistry implements SerializerRegistry{
+public class TestSerializerRegistry implements SerializerRegistry {
     @Override
     public <M extends Message> RecordSerializer<M> loadSerializer(KeySpacePath storePath) {
         return (RecordSerializer<M>) DynamicMessageRecordSerializer.instance();

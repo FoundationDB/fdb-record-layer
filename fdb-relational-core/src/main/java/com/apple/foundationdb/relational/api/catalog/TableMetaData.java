@@ -21,11 +21,13 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.recordlayer.ddl.ColumnDescriptor;
+
 import com.google.protobuf.Descriptors;
+
+import java.util.Set;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Set;
 
 public interface TableMetaData {
 

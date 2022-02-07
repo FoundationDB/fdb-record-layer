@@ -36,12 +36,11 @@ import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -49,6 +48,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class RecordStoreStatement implements Statement {
     private final RecordStoreConnection conn;
@@ -61,7 +63,6 @@ public class RecordStoreStatement implements Statement {
     public RelationalResultSet executeQuery(String query, Options options, QueryProperties queryProperties) throws RelationalException {
         throw new OperationUnsupportedException("No language is currently supported");
     }
-
 
     @Override
     @Nonnull
@@ -252,7 +253,6 @@ public class RecordStoreStatement implements Statement {
         return count;
     }
 
-
     @Override
     public Continuation getContinuation() {
         throw new OperationUnsupportedException("Not Implemented in the Relational layer");
@@ -290,7 +290,6 @@ public class RecordStoreStatement implements Statement {
 
         return new String[]{schema, tableN};
     }
-
 
     private @Nonnull Scannable getSourceScannable(@Nonnull Options options, @Nonnull Table table) {
         Scannable source;

@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+
 import com.google.protobuf.Message;
 
 /**

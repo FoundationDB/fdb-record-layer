@@ -21,9 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
-import com.apple.foundationdb.relational.api.NestableTuple;
 
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;

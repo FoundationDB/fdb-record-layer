@@ -28,7 +28,7 @@ import com.apple.foundationdb.relational.api.QueryProperties;
 
 import javax.annotation.Nonnull;
 
-public class QueryPropertiesUtils {
+public final class QueryPropertiesUtils {
     public static ExecuteProperties getExecuteProperties(@Nonnull QueryProperties queryProperties) {
         ExecuteProperties.Builder builder = ExecuteProperties.newBuilder()
                 .setIsolationLevel(queryProperties.isSnapshotIsolation() ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE)
@@ -45,5 +45,8 @@ public class QueryPropertiesUtils {
     public static ScanProperties getScanProperties(@Nonnull QueryProperties queryProperties) {
         ExecuteProperties executeProperties = getExecuteProperties(queryProperties);
         return new ScanProperties(executeProperties, queryProperties.isReverse());
+    }
+
+    private QueryPropertiesUtils() {
     }
 }

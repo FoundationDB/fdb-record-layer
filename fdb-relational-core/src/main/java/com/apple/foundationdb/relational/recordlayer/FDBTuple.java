@@ -21,13 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
-import com.apple.foundationdb.relational.api.NestableTuple;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
 
 class FDBTuple extends AbstractTuple {
     private Tuple tuple;
@@ -81,7 +82,7 @@ class FDBTuple extends AbstractTuple {
         }
         try {
             final List<Object> nestedList = tuple.getNestedList(position);
-            return nestedList.stream().map((obj) -> {
+            return nestedList.stream().map(obj -> {
                 if (obj instanceof Tuple) {
                     return new FDBTuple((Tuple) obj);
                 } else {

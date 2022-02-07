@@ -24,11 +24,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.Statement;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

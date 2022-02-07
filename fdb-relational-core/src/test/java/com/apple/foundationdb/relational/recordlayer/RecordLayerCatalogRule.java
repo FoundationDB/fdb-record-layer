@@ -29,17 +29,17 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -47,6 +47,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+
+import javax.annotation.Nonnull;
 
 public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCallback, Catalog {
     private final Supplier<KeySpace> keySpaceSupplier;
@@ -58,7 +60,7 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
     private final Map<String, Object> metrics = new HashMap<>();
 
-    public RecordLayerCatalogRule(){
+    public RecordLayerCatalogRule() {
         this.keySpaceSupplier = this::getKeySpaceForSetup;
     }
 
@@ -68,8 +70,8 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
     @Override
     public void afterEach(ExtensionContext context) {
-        try(FDBRecordContext ctx = fdbDatabase.openContext()) {
-            for(RecordLayerDatabase db :databases) {
+        try (FDBRecordContext ctx = fdbDatabase.openContext()) {
+            for (RecordLayerDatabase db :databases) {
                 db.clearDatabase(ctx);
             }
         }
@@ -101,10 +103,10 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     public RelationalDatabase getDatabase(@Nonnull URI dbUrl) throws RelationalException {
         try {
             return engine.getCatalog().getDatabase(dbUrl);
-        }catch(RelationalException ve){
-            if(ve.getErrorCode().equals(RelationalException.ErrorCode.INVALID_PATH)){
-                throw new RelationalException("Database is unknown or does not exist: <" + dbUrl + ">", RelationalException.ErrorCode.UNDEFINED_DATABASE,ve);
-            }else{
+        } catch (RelationalException ve) {
+            if (ve.getErrorCode().equals(RelationalException.ErrorCode.INVALID_PATH)) {
+                throw new RelationalException("Database is unknown or does not exist: <" + dbUrl + ">", RelationalException.ErrorCode.UNDEFINED_DATABASE, ve);
+            } else {
                 throw ve;
             }
         }
@@ -112,10 +114,10 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
     @Override
     public void deleteDatabase(@Nonnull URI dbUrl) throws RelationalException {
-       try(final Transaction txn = new RecordContextTransaction(fdbDatabase.openContext())){
-           engine.getConstantActionFactory().getDeleteDatabaseContantAction(dbUrl,Options.create()).execute(txn);
-           txn.commit();
-       }
+        try (final Transaction txn = new RecordContextTransaction(fdbDatabase.openContext())) {
+            engine.getConstantActionFactory().getDeleteDatabaseContantAction(dbUrl, Options.create()).execute(txn);
+            txn.commit();
+        }
     }
 
     @Override
@@ -129,14 +131,14 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     }
 
     public void createDatabase(URI dbUri, DatabaseTemplate dbTemplate) {
-        try(final Transaction txn= new RecordContextTransaction(fdbDatabase.openContext())){
-            engine.getConstantActionFactory().getCreateDatabaseConstantAction(dbUri,dbTemplate, Options.create()).execute(txn);
+        try (final Transaction txn = new RecordContextTransaction(fdbDatabase.openContext())) {
+            engine.getConstantActionFactory().getCreateDatabaseConstantAction(dbUri, dbTemplate, Options.create()).execute(txn);
             txn.commit();
         }
     }
 
     public void createSchemaTemplate(RecordLayerTemplate template) {
-        try(final Transaction txn= new RecordContextTransaction(fdbDatabase.openContext())){
+        try (final Transaction txn = new RecordContextTransaction(fdbDatabase.openContext())) {
             engine.getConstantActionFactory().getCreateSchemaTemplateConstantAction(template, Options.create()).execute(txn);
             txn.commit();
         }

@@ -21,17 +21,18 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.DatabaseConnection;
-import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.RelationalDriver;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import java.net.URI;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.net.URI;
 
 public class RecordLayerDriver implements RelationalDriver {
     private final RecordLayerEngine engine;
@@ -43,7 +44,6 @@ public class RecordLayerDriver implements RelationalDriver {
 
     @Override
     public DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
-        int formatVersion = parseFormatVersion(url, connectionOptions);
         /*
          * Basic Algorithm for Opening a connection:
          *
@@ -58,7 +58,6 @@ public class RecordLayerDriver implements RelationalDriver {
         ((RecordLayerDatabase) frl).setConnection(conn);
         return conn;
     }
-
 
     @Override
     public int getMajorVersion() {

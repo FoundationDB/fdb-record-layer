@@ -38,7 +38,7 @@ public class DropSchemaConstantAction implements ConstantAction {
     private final Options options;
     private final KeySpace keySpace;
 
-    public DropSchemaConstantAction(URI schemaUrl, KeySpace keySpace,MutableRecordMetaDataStore metaDataStore, Options options) {
+    public DropSchemaConstantAction(URI schemaUrl, KeySpace keySpace, MutableRecordMetaDataStore metaDataStore, Options options) {
         this.schemaUrl = schemaUrl;
         this.metaDataStore = metaDataStore;
         this.options = options;
@@ -50,7 +50,7 @@ public class DropSchemaConstantAction implements ConstantAction {
         KeySpacePath schemaPath = KeySpaceUtils.getSchemaPath(schemaUrl, keySpace);
         FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
 
-        FDBRecordStore.deleteStore(ctx,schemaPath);
+        FDBRecordStore.deleteStore(ctx, schemaPath);
         metaDataStore.removeSchemaMapping(schemaUrl);
     }
 }

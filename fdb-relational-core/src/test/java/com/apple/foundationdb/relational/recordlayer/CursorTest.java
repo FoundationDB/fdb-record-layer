@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -195,7 +196,6 @@ public class CursorTest {
                 Assertions.fail("failed to parse ");
             } finally {
 
-
                 if (resultSet != null) {
                     resultSet.close();
                 }
@@ -253,7 +253,7 @@ public class CursorTest {
         } catch (InvalidProtocolBufferException e) {
             Assertions.fail("failed to parse ");
         } finally {
-            if(resultSet != null) {
+            if (resultSet != null) {
                 resultSet.close();
             }
         }

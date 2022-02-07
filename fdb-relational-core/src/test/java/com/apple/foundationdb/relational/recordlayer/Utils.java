@@ -30,11 +30,11 @@ import java.util.function.Supplier;
 /**
  * set of utility functions to generate PB objects for testing.
  */
-public class Utils {
+public final class Utils {
 
     static Random r = new Random(42);
 
-    static volatile long sequencer = 0;
+    static volatile long sequencer;
 
     static Iterable<Restaurant.RestaurantRecord> generateRestaurantRecords(int count) {
         return generateList(count, Utils::generateRestaurantRecord);
@@ -90,10 +90,13 @@ public class Utils {
 
         List<T> result = new ArrayList<>();
 
-        for(int i = 0; i < count; ++i) {
+        for (int i = 0; i < count; i++) {
             result.add(supplier.get());
         }
 
         return result;
+    }
+
+    private Utils() {
     }
 }

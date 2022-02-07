@@ -21,10 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.IsolationLevel;
-import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Message;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
@@ -56,7 +57,6 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     public boolean getBoolean(String fieldName) throws RelationalException {
         return getBoolean(getPosition(fieldName));
     }
-
 
     @Override
     public long getLong(int position) throws RelationalException {
@@ -111,7 +111,6 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     public double getDouble(String fieldName) throws RelationalException {
         return getDouble(getPosition(fieldName));
     }
-
 
     @Override
     public Object getObject(String fieldName) throws RelationalException {
@@ -186,7 +185,6 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     public RelationalResultSetMetaData getMetaData() throws RelationalException {
         return new RecordResultSetMetaData(getFieldNames());
     }
-
 
     /* ****************************************************************************************************************/
     /* protected helper methods*/

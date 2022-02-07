@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.query.AndClause;
 import com.apple.foundationdb.relational.recordlayer.query.OrClause;
 import com.apple.foundationdb.relational.recordlayer.query.RelationalQuery;
 import com.apple.foundationdb.relational.recordlayer.query.ValueComparisonClause;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,14 +66,13 @@ public class QueryTest {
     }
 
     @AfterEach
-    public final void tearDown(){
+    public final void tearDown() {
         catalog.deleteDatabase(URI.create("/query_test"));
     }
 
-
     @Test
     void canExecuteABasicQuery() {
-        try(DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())){
+        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (Statement s = dbConn.createStatement()) {
@@ -91,7 +91,7 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumns() {
-        try(DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())){
+        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (Statement s = dbConn.createStatement()) {
@@ -114,7 +114,7 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumnsWithSimpleWhereClause() {
-        try(DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())){
+        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (Statement s = dbConn.createStatement()) {
@@ -134,7 +134,7 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumnsWithOrClause() {
-        try(DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())){
+        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (Statement s = dbConn.createStatement()) {
@@ -156,7 +156,7 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumnsWithAndClause() {
-        try(DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())){
+        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (Statement s = dbConn.createStatement()) {

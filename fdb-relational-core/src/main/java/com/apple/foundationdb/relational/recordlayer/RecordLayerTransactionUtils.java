@@ -24,8 +24,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
 import javax.annotation.Nonnull;
 
-public class RecordLayerTransactionUtils {
+public final class RecordLayerTransactionUtils {
     public static RecordContextTransaction wrapRecordContext(@Nonnull FDBRecordContext recordContext) {
         return new RecordContextTransaction(recordContext);
+    }
+
+    private RecordLayerTransactionUtils() {
     }
 }

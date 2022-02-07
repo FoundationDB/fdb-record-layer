@@ -28,35 +28,38 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 public class KeySpacePathParsingTest {
     private final KeySpace testSpace = getKeySpaceForTesting();
+
     @Test
     void testParsingKeySpacePath() {
         URI expected = URI.create("/prod/testApp/12345");
-        KeySpacePath path = KeySpaceUtils.uriToPath(expected,testSpace);
+        KeySpacePath path = KeySpaceUtils.uriToPath(expected, testSpace);
         final URI uri = KeySpaceUtils.pathToUri(path);
-        Assertions.assertEquals(expected,uri,"Invalid parsing of URI or KeySpacePaths");
+        Assertions.assertEquals(expected, uri, "Invalid parsing of URI or KeySpacePaths");
     }
 
     @Test
     void cannotParseEmptyUri() {
-        RelationalException ve = Assertions.assertThrows(RelationalException.class,()->KeySpaceUtils.uriToPath(URI.create(""),testSpace));
-        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH,ve.getErrorCode(),"Incorrect returned error code");
+        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> KeySpaceUtils.uriToPath(URI.create(""), testSpace));
+        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH, ve.getErrorCode(), "Incorrect returned error code");
     }
 
     @Test
     void testUrlNotValidForKeySpace() {
         //throws the right exception when we can't parse an entry
-        RelationalException ve = Assertions.assertThrows(RelationalException.class,()->KeySpaceUtils.uriToPath(URI.create("/prod/testApp/notAUser"),testSpace));
-        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH,ve.getErrorCode(),"Incorrect returned error code");
+        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> KeySpaceUtils.uriToPath(URI.create("/prod/testApp/notAUser"), testSpace));
+        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH, ve.getErrorCode(), "Incorrect returned error code");
     }
 
     @Test
@@ -141,16 +144,16 @@ public class KeySpacePathParsingTest {
          */
         final KeySpace keySpace = sampleKeySpace();
         KeySpacePath parsedMain = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/"), keySpace);
-        KeySpacePath expectedMain = keySpace.path("testRoot").add("domainId",1234L).add("database",1L).add("firstStore");
-        Assertions.assertEquals(expectedMain,parsedMain,"Incorrectly parsed the first store path");
+        KeySpacePath expectedMain = keySpace.path("testRoot").add("domainId", 1234L).add("database", 1L).add("firstStore");
+        Assertions.assertEquals(expectedMain, parsedMain, "Incorrectly parsed the first store path");
 
-        KeySpacePath parsedServer = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/1"),keySpace);
-        KeySpacePath expectedServer = keySpace.path("testRoot").add("domainId",1234L).add("database",1L).add("secondStore",1L);
-        Assertions.assertEquals(expectedServer,parsedServer,"Incorrectly parsed the second store path");
+        KeySpacePath parsedServer = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/1"), keySpace);
+        KeySpacePath expectedServer = keySpace.path("testRoot").add("domainId", 1234L).add("database", 1L).add("secondStore", 1L);
+        Assertions.assertEquals(expectedServer, parsedServer, "Incorrectly parsed the second store path");
 
-        KeySpacePath parsedDatabase = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/2"),keySpace);
-        KeySpacePath expectedDatabase = keySpace.path("testRoot").add("domainId",1234L).add("database",1L).add("thirdStore",2L);
-        Assertions.assertEquals(expectedDatabase,parsedDatabase,"Incorrectly parsed the second store path");
+        KeySpacePath parsedDatabase = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/2"), keySpace);
+        KeySpacePath expectedDatabase = keySpace.path("testRoot").add("domainId", 1234L).add("database", 1L).add("thirdStore", 2L);
+        Assertions.assertEquals(expectedDatabase, parsedDatabase, "Incorrectly parsed the second store path");
     }
 
     @Test
@@ -190,8 +193,8 @@ public class KeySpacePathParsingTest {
                                 .addSubdirectory(new KeySpaceDirectory("User", KeySpaceDirectory.KeyType.LONG))));
     }
 
-    private KeySpace sampleKeySpace(){
-        final KeySpaceDirectory ds1 = new KeySpaceDirectory("domainId",KeySpaceDirectory.KeyType.LONG);
+    private KeySpace sampleKeySpace() {
+        final KeySpaceDirectory ds1 = new KeySpaceDirectory("domainId", KeySpaceDirectory.KeyType.LONG);
         final KeySpaceDirectory database1 = new KeySpaceDirectory("database", KeySpaceDirectory.KeyType.LONG);
         final KeySpaceDirectory main = new KeySpaceDirectory("firstStore", KeySpaceDirectory.KeyType.NULL);
         // in reality, the following items are actually DirectoryLayerDirectory instances; since we don't really want to
@@ -199,13 +202,13 @@ public class KeySpacePathParsingTest {
         // "S" = 1
         // "C" = 2
         // "DSY" = 3
-        final KeySpaceDirectory server = new KeySpaceDirectory("secondStore", KeySpaceDirectory.KeyType.LONG,1L);
-        final KeySpaceDirectory databaseStore = new KeySpaceDirectory("thirdStore", KeySpaceDirectory.KeyType.LONG,2L);
-        final KeySpaceDirectory fourthStore = new KeySpaceDirectory("fourthStore", KeySpaceDirectory.KeyType.LONG,3L);
+        final KeySpaceDirectory server = new KeySpaceDirectory("secondStore", KeySpaceDirectory.KeyType.LONG, 1L);
+        final KeySpaceDirectory databaseStore = new KeySpaceDirectory("thirdStore", KeySpaceDirectory.KeyType.LONG, 2L);
+        final KeySpaceDirectory fourthStore = new KeySpaceDirectory("fourthStore", KeySpaceDirectory.KeyType.LONG, 3L);
         ds1.addSubdirectory(database1);
         database1.addSubdirectory(server).addSubdirectory(main).addSubdirectory(databaseStore).addSubdirectory(fourthStore);
 
-        final KeySpaceDirectory base = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING,"testRoot");
+        final KeySpaceDirectory base = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING, "testRoot");
         base.addSubdirectory(ds1);
         return new KeySpace(base);
     }

@@ -28,20 +28,22 @@ import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.DirectoryScannable;
+
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nonnull;
 
 public class RecordLayerMetaData implements RelationalDatabaseMetaData {
     private final RecordStoreConnection conn;
@@ -51,7 +53,6 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
         this.conn = conn;
         this.keySpace = keySpace;
     }
-
 
     @Override
     @Nonnull
@@ -110,7 +111,6 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
     public URI getDatabasePath() {
         return conn.frl.getPath();
     }
-
 
     private String formatFieldType(Descriptors.FieldDescriptor field, Descriptors.FieldDescriptor.Type t) {
         String typeStr = "";

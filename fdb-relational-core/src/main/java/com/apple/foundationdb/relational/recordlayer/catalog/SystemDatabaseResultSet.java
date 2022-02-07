@@ -27,8 +27,8 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractRecordLayerResultSet;
-import com.apple.foundationdb.relational.recordlayer.Scannable;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
+import com.apple.foundationdb.relational.recordlayer.Scannable;
 
 public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     private final Scannable systemScannable;
@@ -37,11 +37,10 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     private final boolean commitOnClose;
     private final String[] fields;
 
-    private boolean nextCalled = false;
+    private boolean nextCalled;
     private ResumableIterator<KeyValue> currentScanner;
     private Continuation currentContinuation;
     private KeyValue nextKeyValue;
-
 
     public SystemDatabaseResultSet(Transaction txn,
                                    Scannable directoryScannable,
@@ -71,7 +70,7 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
         nextCalled = true;
         if (currentScanner == null) {
             // TODO (yhatem) discuss how to implement metadata query continuations
-            currentScanner = systemScannable.openScan(txn,null,null, null, options);
+            currentScanner = systemScannable.openScan(txn, null, null, null, options);
         }
         boolean hasNext =  currentScanner.hasNext();
         if (hasNext) {

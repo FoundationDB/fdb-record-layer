@@ -144,15 +144,15 @@ public class QueryProperties {
     }
 
     public static class Builder {
-        private boolean isSnapshotIsolation = false;
-        private int skip = 0;
-        private int rowLimit = 0;
-        private long timeLimit = 0L;
+        private boolean isSnapshotIsolation;
+        private int skip;
+        private int rowLimit;
+        private long timeLimit;
         private int scannedRecordsLimit = Integer.MAX_VALUE;
         private long scannedBytesLimit = Long.MAX_VALUE;
-        private boolean failOnScanLimitReached = false;
-        private boolean loadAllRecordsImmediately = false;
-        private boolean reverse = false;
+        private boolean failOnScanLimitReached;
+        private boolean loadAllRecordsImmediately;
+        private boolean reverse;
 
         public Builder setIsSnapshotIsolation(boolean isSnapshotIsolation) {
             this.isSnapshotIsolation = isSnapshotIsolation;

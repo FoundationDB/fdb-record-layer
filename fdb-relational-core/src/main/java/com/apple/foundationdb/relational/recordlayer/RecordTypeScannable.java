@@ -31,9 +31,10 @@ import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import java.util.function.Function;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.function.Function;
 
 public abstract class RecordTypeScannable<CursorT> implements Scannable {
 

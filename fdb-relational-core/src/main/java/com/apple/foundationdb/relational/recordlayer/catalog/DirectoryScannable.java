@@ -37,19 +37,20 @@ import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.EmptyTuple;
 import com.apple.foundationdb.relational.recordlayer.KeyBuilder;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
-import com.apple.foundationdb.relational.recordlayer.Scannable;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
+import com.apple.foundationdb.relational.recordlayer.Scannable;
 import com.apple.foundationdb.relational.recordlayer.TupleUtils;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.List;
 import java.util.function.Function;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DirectoryScannable implements Scannable {
     private final KeySpace keySpace;
@@ -126,7 +127,7 @@ public class DirectoryScannable implements Scannable {
         return path.listSubdirectoryAsync(ctx, subdirName, null, ScanProperties.FORWARD_SCAN);
     }
 
-    private static class ListingGenerator implements TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<ResolvedKeySpacePath>> {
+    private static final class ListingGenerator implements TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<ResolvedKeySpacePath>> {
         private final int position;
         private final KeySpacePath path;
         private final List<KeySpaceDirectory> subDirectories;
@@ -136,7 +137,6 @@ public class DirectoryScannable implements Scannable {
             this.path = path;
             this.subDirectories = subDirectories;
         }
-
 
         @Override
         public RecordCursor<ResolvedKeySpacePath> apply(FDBRecordContext fdbRecordContext, ScanProperties scanProperties, byte[] bytes) {

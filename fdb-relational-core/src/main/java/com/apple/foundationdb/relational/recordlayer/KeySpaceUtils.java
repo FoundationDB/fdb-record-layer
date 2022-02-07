@@ -27,15 +27,16 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
-public class KeySpaceUtils {
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+public final class KeySpaceUtils {
 
     @Nonnull
     public static URI pathToUri(@Nonnull KeySpacePath dbPath) {
@@ -269,6 +270,9 @@ public class KeySpaceUtils {
             dbDirectory.addSubdirectory(new KeySpaceDirectory(schemaId, KeySpaceDirectory.KeyType.STRING, schemaId));
         }
         return dbDirectory;
+    }
+
+    private KeySpaceUtils() {
     }
 
 }

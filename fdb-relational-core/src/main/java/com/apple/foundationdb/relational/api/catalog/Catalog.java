@@ -20,12 +20,13 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import java.net.URI;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 
 /**
  * Representation of a metadata catalog.

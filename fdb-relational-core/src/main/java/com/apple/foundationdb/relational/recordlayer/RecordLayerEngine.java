@@ -89,7 +89,6 @@ public class RecordLayerEngine {
         Relational.registerDriver(driver);
     }
 
-
     public Catalog getCatalog() {
         return catalog;
     }

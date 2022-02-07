@@ -23,8 +23,9 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
+
+import javax.annotation.Nonnull;
 
 public interface MutableRecordMetaDataStore extends RecordMetaDataStore {
     /**

@@ -57,8 +57,6 @@ public class OperationOption<T> {
         DOWNGRADE_ISOLATION,
     }
 
-    ;
-
     public enum SchemaExistenceCheck {
         /**
          * No special action. This should be used with care, since if the schema already has records,

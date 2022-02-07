@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 
 import java.net.URI;

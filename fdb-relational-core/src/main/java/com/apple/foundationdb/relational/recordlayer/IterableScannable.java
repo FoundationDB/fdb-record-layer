@@ -26,11 +26,13 @@ import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.common.collect.Iterators;
+
+import java.util.function.Function;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.function.Function;
 
 /**
  * A {@code Scannable} which moves over an {@code Iterable}.

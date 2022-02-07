@@ -25,23 +25,24 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerDatabase;
 import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 
-public class RecordLayerCatalog implements Catalog {
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+public final class RecordLayerCatalog implements Catalog {
     private static final int DEFAULT_FORMAT_VERSION = 8;
     //pluggable
     private final DatabaseLocator databaseFinder;
@@ -56,7 +57,6 @@ public class RecordLayerCatalog implements Catalog {
     @Nullable
     private final FDBStoreTimer storeTimer;
     private final int formatVersion;
-
 
     private RecordLayerCatalog(DatabaseLocator locator,
                                MutableRecordMetaDataStore metaDataStore,
@@ -76,7 +76,7 @@ public class RecordLayerCatalog implements Catalog {
 
     @Override
     public RelationalResultSet listDatabases(@Nonnull Transaction txn) throws RelationalException {
-        return new SystemDatabaseResultSet(txn,new DirectoryScannable(keySpace), QueryProperties.DEFAULT,false);
+        return new SystemDatabaseResultSet(txn, new DirectoryScannable(keySpace), QueryProperties.DEFAULT, false);
     }
 
     @Nonnull

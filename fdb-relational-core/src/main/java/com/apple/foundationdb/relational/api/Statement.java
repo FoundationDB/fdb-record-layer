@@ -21,10 +21,12 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.Iterator;
+
+import javax.annotation.Nonnull;
 
 public interface Statement extends AutoCloseable {
 
@@ -50,7 +52,6 @@ public interface Statement extends AutoCloseable {
      */
     @Nonnull
     RelationalResultSet executeQuery(@Nonnull Queryable query, @Nonnull Options options) throws RelationalException;
-
 
     @Nonnull
     RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException;

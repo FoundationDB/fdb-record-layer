@@ -37,12 +37,14 @@ import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Message;
+
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.function.Function;
-import java.util.stream.Stream;
 
 /**
  * A Scannable that plans and executes a query.
@@ -90,8 +92,8 @@ public class QueryScannable implements Scannable {
             }, true);
         } else {
             return new ResumableIteratorImpl<>(Stream.of(plan.toString())
-                    .map((Function<String, KeyValue>) s -> new ImmutableKeyValue(EmptyTuple.INSTANCE, new ValueTuple(s)))
-                    .iterator(),
+                            .map((Function<String, KeyValue>) s -> new ImmutableKeyValue(EmptyTuple.INSTANCE, new ValueTuple(s)))
+                            .iterator(),
                     continuation);
         }
     }

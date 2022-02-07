@@ -20,8 +20,9 @@
 
 package com.apple.foundationdb.relational.api;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
+
+import javax.annotation.Nonnull;
 
 public class ImmutableKeyValue implements KeyValue {
     private final NestableTuple key;

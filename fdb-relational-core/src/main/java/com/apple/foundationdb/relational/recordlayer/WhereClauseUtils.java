@@ -25,21 +25,22 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.WhereClause;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.AndClause;
 import com.apple.foundationdb.relational.recordlayer.query.OrClause;
 import com.apple.foundationdb.relational.recordlayer.query.ValueComparisonClause;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 /**
  * Package-private class to support conversions between Relational API Where clause expressions and RecordLayer
  * QueryComponent expressions.
  */
-class WhereClauseUtils {
+final class WhereClauseUtils {
 
     static QueryComponent convertClause(WhereClause clause) {
         if (clause instanceof ValueComparisonClause) {
@@ -108,5 +109,8 @@ class WhereClauseUtils {
                 throw new IllegalArgumentException("Unexpected comparison type <" + cType + ">");
         }
         return compType;
+    }
+
+    private WhereClauseUtils() {
     }
 }

@@ -26,10 +26,11 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.util.function.Function;
 
-public class RecordLayerIterator<T> implements ResumableIterator<KeyValue> {
+import javax.annotation.Nonnull;
+
+public final class RecordLayerIterator<T> implements ResumableIterator<KeyValue> {
     private final RecordCursor<T> recordCursor;
     private final Function<T, KeyValue> transform;
     private RecordCursorResult<T> result;

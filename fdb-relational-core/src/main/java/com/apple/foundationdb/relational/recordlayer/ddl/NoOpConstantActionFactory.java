@@ -22,14 +22,15 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
-public class NoOpConstantActionFactory implements ConstantActionFactory {
+import javax.annotation.Nonnull;
+
+public final class NoOpConstantActionFactory implements ConstantActionFactory {
     public static final NoOpConstantActionFactory INSTANCE = new NoOpConstantActionFactory();
 
     private NoOpConstantActionFactory() {

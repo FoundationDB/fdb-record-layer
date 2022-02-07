@@ -22,9 +22,10 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import java.net.URI;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.net.URI;
 
 /**
  * A Driver which is used to connect to a Relational Database.

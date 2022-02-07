@@ -59,7 +59,6 @@ public class CreateSchemaConstantAction implements ConstantAction {
         this.formatVersion = formatVersion;
     }
 
-
     @Override
     public void execute(Transaction txn) throws RelationalException {
         //TODO(bfines) error handling

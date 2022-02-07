@@ -26,16 +26,17 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.concurrent.NotThreadSafe;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
+import javax.annotation.concurrent.NotThreadSafe;
 
 @NotThreadSafe
 @ConnectionScoped

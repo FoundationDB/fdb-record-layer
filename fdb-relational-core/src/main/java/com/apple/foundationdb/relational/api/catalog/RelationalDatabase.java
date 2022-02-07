@@ -34,7 +34,6 @@ import javax.annotation.Nonnull;
 @ConnectionScoped
 public interface RelationalDatabase extends AutoCloseable {
 
-
     /**
      * To force verification that the schema exists, set {@link OperationOption#forceVerifyDdl()}.
      *

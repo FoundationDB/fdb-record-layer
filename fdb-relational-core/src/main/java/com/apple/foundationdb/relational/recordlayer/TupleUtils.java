@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.NestableTuple;
 
-public class TupleUtils {
+public final class TupleUtils {
 
     static Tuple toFDBTuple(NestableTuple relationalTuple) {
         if (!(relationalTuple instanceof FDBTuple)) {
@@ -35,5 +35,8 @@ public class TupleUtils {
 
     public static NestableTuple toRelationalTuple(Tuple key) {
         return new FDBTuple(key);
+    }
+
+    private TupleUtils() {
     }
 }

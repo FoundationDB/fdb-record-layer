@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -59,12 +60,12 @@ public class RecordTypeKeyTest {
         recordBuilder.setRecordTypeKey(0);
         recordBuilder.setPrimaryKey(Key.Expressions.recordType());
 
-        builder.addIndex("RestaurantRecord",new Index("record_rt_covering_idx",
+        builder.addIndex("RestaurantRecord", new Index("record_rt_covering_idx",
                 Key.Expressions.keyWithValue(
-                        Key.Expressions.concat(Key.Expressions.recordType(),Key.Expressions.field("rest_no"),Key.Expressions.field("name")),2), IndexTypes.VALUE));
+                        Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("rest_no"), Key.Expressions.field("name")), 2), IndexTypes.VALUE));
         final RecordTypeBuilder reviewerBuilder = builder.getRecordType("RestaurantReviewer");
         reviewerBuilder.setRecordTypeKey(1);
-        reviewerBuilder.setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(),Key.Expressions.field("id")));
+        reviewerBuilder.setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id")));
 
         catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
 
@@ -88,8 +89,8 @@ public class RecordTypeKeyTest {
             try (Statement s = dbConn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
-                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record),Options.create());
-                Assertions.assertEquals(1,count,"Incorrect returned insertion count");
+                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
+                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
                 Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setId(id + 1).setName("review").build();
                 count = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer), Options.create());
@@ -120,8 +121,8 @@ public class RecordTypeKeyTest {
             try (Statement s = dbConn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
-                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record),Options.create());
-                Assertions.assertEquals(1,count,"Incorrect returned insertion count");
+                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
+                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
                 TableScan scan = TableScan.newBuilder()
                         .withTableName("RestaurantRecord")
@@ -138,21 +139,21 @@ public class RecordTypeKeyTest {
 
     @Test
     void canGetWithRecordTypeInPrimaryKey() {
-        try(DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())){
+        try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();
-            try(Statement s = dbConn.createStatement()){
+            try (Statement s = dbConn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setId(id).setName("review_1").build();
-                int count = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer),Options.create());
-                Assertions.assertEquals(1,count,"Incorrect returned insertion count");
+                int count = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer), Options.create());
+                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-                try(final RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", id), Options.create())){
-                    Assertions.assertTrue(rrs.next(),"Did not return a record from a GET");
+                try (final RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", id), Options.create())) {
+                    Assertions.assertTrue(rrs.next(), "Did not return a record from a GET");
                     //this should return the full protobuf, so it should support message parsing
-                    Assertions.assertTrue(rrs.supportsMessageParsing(),"Does not support message parsing!");
+                    Assertions.assertTrue(rrs.supportsMessageParsing(), "Does not support message parsing!");
                     Message m = rrs.parseMessage();
-                    Assertions.assertEquals(reviewer,m,"Did not return the correct message!");
+                    Assertions.assertEquals(reviewer, m, "Did not return the correct message!");
                 }
             }
         }
@@ -160,24 +161,24 @@ public class RecordTypeKeyTest {
 
     @Test
     void canGetWithRecordTypeKeyIndex() {
-        try(DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())){
+        try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();
-            try(Statement s = dbConn.createStatement()){
+            try (Statement s = dbConn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
-                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record),Options.create());
-                Assertions.assertEquals(1,count,"Incorrect returned insertion count");
+                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
+                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-                try(final RelationalResultSet rrs = s.executeGet("RestaurantRecord",
+                try (final RelationalResultSet rrs = s.executeGet("RestaurantRecord",
                         new KeySet().setKeyColumn("rest_no", id),
-                        Options.create().withOption(OperationOption.index("record_rt_covering_idx")))){
-                    Assertions.assertTrue(rrs.next(),"Did not return a record from a GET");
+                        Options.create().withOption(OperationOption.index("record_rt_covering_idx")))) {
+                    Assertions.assertTrue(rrs.next(), "Did not return a record from a GET");
                     //this should be doing an index fetch, so it's not the full protobuf
-                    if(rrs.supportsMessageParsing()){
+                    if (rrs.supportsMessageParsing()) {
                         Message m = rrs.parseMessage();
-                        Assertions.assertEquals(record,m,"Did not return the correct message!");
-                    }else {
+                        Assertions.assertEquals(record, m, "Did not return the correct message!");
+                    } else {
                         //match the records returned
                         Assertions.assertEquals(record.getName(), rrs.getString("name"), "Incorrect returned name!");
                         Assertions.assertEquals(record.getRestNo(), rrs.getLong("rest_no"), "Incorrect returned Rest no!");

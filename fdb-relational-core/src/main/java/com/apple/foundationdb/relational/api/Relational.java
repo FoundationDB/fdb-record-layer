@@ -22,16 +22,17 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class Relational {
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+public final class Relational {
     private static final CopyOnWriteArrayList<RelationalDriver> registeredDrivers = new CopyOnWriteArrayList<>();
 
     public static DatabaseConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) {
-        return connect(url,null,connectionOptions);
+        return connect(url, null, connectionOptions);
     }
 
     public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) {
@@ -64,5 +65,8 @@ public class Relational {
 
     public static void deregisterDriver(@Nonnull RelationalDriver driver) {
         registeredDrivers.remove(driver);
+    }
+
+    private Relational() {
     }
 }

@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.AfterEach;
@@ -51,14 +52,14 @@ public class TransactionConfigTest {
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @BeforeEach
-    public final void setupCatalog(){
+    public final void setupCatalog() {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
 
         catalog.createDatabase(URI.create("/record_layer_transaction_config_test"),
                 DatabaseTemplate.newBuilder()
-                        .withSchema("test","RestaurantRecord")
+                        .withSchema("test", "RestaurantRecord")
                         .build());
     }
 
@@ -67,14 +68,13 @@ public class TransactionConfigTest {
         catalog.deleteDatabase(URI.create("/record_layer_transaction_config_test"));
     }
 
-
     @Test
     void testRecordInsertionWithTimeOutInConfig() {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_transaction_config_test");
-        try(DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction(testTransactionConfig());
             conn.setSchema("test");
-            try(Statement s = conn.createStatement()) {
+            try (Statement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
                 s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r), Options.create());

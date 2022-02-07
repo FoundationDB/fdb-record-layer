@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Message;
 
 /**
@@ -144,4 +145,3 @@ public interface RelationalResultSet extends AutoCloseable {
      */
     Continuation getContinuation();
 }
-

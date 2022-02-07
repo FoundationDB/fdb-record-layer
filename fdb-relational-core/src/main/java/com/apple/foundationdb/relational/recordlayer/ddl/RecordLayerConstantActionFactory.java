@@ -28,8 +28,9 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
+
+import javax.annotation.Nonnull;
 
 public class RecordLayerConstantActionFactory implements ConstantActionFactory {
     public static final int DEFAULT_FORMAT_VERSION = 8;
@@ -51,7 +52,6 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
         this.formatVersion = formatVersion;
         this.baseKeySpace = baseKeySpace;
     }
-
 
     @Nonnull
     @Override
@@ -75,12 +75,12 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
     @Nonnull
     @Override
     public ConstantAction getDeleteDatabaseContantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
-        return new DropDatabaseConstantAction(dbUrl,baseKeySpace,options,this);
+        return new DropDatabaseConstantAction(dbUrl, baseKeySpace, options, this);
     }
 
     @Nonnull
     @Override
-    public ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl,@Nonnull Options options) {
+    public ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull Options options) {
         return new DropSchemaConstantAction(schemaUrl, baseKeySpace, metaDataStore, options);
     }
 
@@ -121,7 +121,6 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
             this.baseKeySpace = baseKeySpace;
             return this;
         }
-
 
         public RecordLayerConstantActionFactory build() {
             return new RecordLayerConstantActionFactory(metaDataStore, serializerRegistry, userVersionChecker, formatVersion, baseKeySpace);

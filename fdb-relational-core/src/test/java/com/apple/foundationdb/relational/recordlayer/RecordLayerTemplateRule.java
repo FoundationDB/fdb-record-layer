@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;

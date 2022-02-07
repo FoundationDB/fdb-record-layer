@@ -28,15 +28,16 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -58,9 +59,9 @@ public class InsertTest {
         RecordTypeBuilder recordBuilder = builder.getRecordType("RestaurantRecord");
         recordBuilder.setRecordTypeKey(0);
 
-        builder.addIndex("RestaurantRecord",new Index("record_type_covering",
+        builder.addIndex("RestaurantRecord", new Index("record_type_covering",
                 Key.Expressions.keyWithValue(
-                        Key.Expressions.concat(Key.Expressions.recordType(),Key.Expressions.field("rest_no"),Key.Expressions.field("name")),2),IndexTypes.VALUE));
+                        Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("rest_no"), Key.Expressions.field("name")), 2), IndexTypes.VALUE));
         catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
 
         catalog.createDatabase(URI.create("/insert_test"),
@@ -79,19 +80,18 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())){
+        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
-            try(Statement s = conn.createStatement()){
+            try (Statement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
-                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord"+id).build();
-                int inserted = s.executeInsert("RestaurantRecord", Collections.singleton(record),Options.create());
-                Assertions.assertEquals(1,inserted, "Did not insert properly!");
+                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
+                int inserted = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
+                Assertions.assertEquals(1, inserted, "Did not insert properly!");
 
-                Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setName("reviewerName"+id).setId(id-1).build();
-                inserted = s.executeInsert("RestaurantReviewer",Collections.singleton(reviewer),Options.create());
-                Assertions.assertEquals(1,inserted, "Did not insert reviewers properly!");
-
+                Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setName("reviewerName" + id).setId(id - 1).build();
+                inserted = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer), Options.create());
+                Assertions.assertEquals(1, inserted, "Did not insert reviewers properly!");
 
                 //now prove we can get them back out
                 RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", record.getRestNo()), Options.create());
@@ -100,7 +100,7 @@ public class InsertTest {
                     Assertions.assertEquals(record.getRestNo(), vry.getLong("rest_no"), "Incorrect rest_no!");
                 });
 
-                relationalResultSet = s.executeGet("RestaurantReviewer",new KeySet().setKeyColumn("id",reviewer.getId()),Options.create());
+                relationalResultSet = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", reviewer.getId()), Options.create());
                 assertGetMatches(reviewer, relationalResultSet, vry -> {
                     Assertions.assertEquals(reviewer.getName(), vry.getString("name"), "Incorrect reviewer name");
                     Assertions.assertEquals(reviewer.getId(), vry.getLong("id"), "Incorrect reviewer id");
@@ -108,12 +108,12 @@ public class InsertTest {
 
                 //now make sure that they don't show up in the other table
                 relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("name", reviewer.getName()), Options.create().withOption(OperationOption.index("RestaurantRecord$name")));
-                Assertions.assertNotNull(relationalResultSet,"Did not return a valid result set!");
-                Assertions.assertFalse(relationalResultSet.next(),"Records should not be returned!");
+                Assertions.assertNotNull(relationalResultSet, "Did not return a valid result set!");
+                Assertions.assertFalse(relationalResultSet.next(), "Records should not be returned!");
 
                 relationalResultSet = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("name", record.getName()), Options.create().withOption(OperationOption.index("RestaurantReviewer$name")));
-                Assertions.assertNotNull(relationalResultSet,"Did not return a valid result set!");
-                Assertions.assertFalse(relationalResultSet.next(),"Records should not be returned!");
+                Assertions.assertNotNull(relationalResultSet, "Did not return a valid result set!");
+                Assertions.assertFalse(relationalResultSet.next(), "Records should not be returned!");
 
                 /*
                  * now try to scan the entirety of each table and validate the results
@@ -121,12 +121,12 @@ public class InsertTest {
                  * actually OK, because wwhat we really care about is that the scan doesn't return data from
                  * other tables. So all we do here is check the returned message type
                  */
-                final RelationalResultSet recordScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),Options.create().withOption(OperationOption.index("record_type_covering")));
-                Assertions.assertNotNull(recordScan,"Did not return a valid result set!");
-                while(recordScan.next()){
-                    if(recordScan.supportsMessageParsing()){
+                final RelationalResultSet recordScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(), Options.create().withOption(OperationOption.index("record_type_covering")));
+                Assertions.assertNotNull(recordScan, "Did not return a valid result set!");
+                while (recordScan.next()) {
+                    if (recordScan.supportsMessageParsing()) {
                         Message row = recordScan.parseMessage();
-                        Assertions.assertEquals(record.getDescriptorForType().getFullName(),row.getDescriptorForType().getFullName(),"Unexpected descriptor type");
+                        Assertions.assertEquals(record.getDescriptorForType().getFullName(), row.getDescriptorForType().getFullName(), "Unexpected descriptor type");
                     }
                     Assertions.assertDoesNotThrow(() -> {
                         //make sure that the correct fields are returned
@@ -134,15 +134,15 @@ public class InsertTest {
                         recordScan.getLong("rest_no");
                     });
                     RelationalException invalidType = Assertions.assertThrows(RelationalException.class, () -> recordScan.getLong("id"));
-                    Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE,invalidType.getErrorCode(),"Incorrect data error code!");
+                    Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE, invalidType.getErrorCode(), "Incorrect data error code!");
                 }
 
-                final RelationalResultSet reviewerScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantReviewer").build(),Options.create());
-                Assertions.assertNotNull(reviewerScan,"Did not return a valid result set!");
-                while(reviewerScan.next()){
-                    if(reviewerScan.supportsMessageParsing()){
+                final RelationalResultSet reviewerScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantReviewer").build(), Options.create());
+                Assertions.assertNotNull(reviewerScan, "Did not return a valid result set!");
+                while (reviewerScan.next()) {
+                    if (reviewerScan.supportsMessageParsing()) {
                         Message row = reviewerScan.parseMessage();
-                        Assertions.assertEquals(reviewer.getDescriptorForType().getFullName(),row.getDescriptorForType().getFullName(),"Unexpected descriptor type");
+                        Assertions.assertEquals(reviewer.getDescriptorForType().getFullName(), row.getDescriptorForType().getFullName(), "Unexpected descriptor type");
                     }
                     Assertions.assertDoesNotThrow(() -> {
                         //make sure that the correct fields are returned
@@ -151,22 +151,22 @@ public class InsertTest {
                     });
 
                     RelationalException invalidType = Assertions.assertThrows(RelationalException.class, () -> reviewerScan.getLong("rest_no"));
-                    Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE,invalidType.getErrorCode(),"Incorrect data error code!");
+                    Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE, invalidType.getErrorCode(), "Incorrect data error code!");
                 }
             }
         }
     }
 
-    private void assertGetMatches(Message expected, RelationalResultSet queryResult, Consumer<RelationalResultSet> nonMessageCheck){
-        Assertions.assertNotNull(queryResult,"Did not return a valid result set!");
-        Assertions.assertTrue(queryResult.next(),"Did not return a record!");
-        if(queryResult.supportsMessageParsing()){
+    private void assertGetMatches(Message expected, RelationalResultSet queryResult, Consumer<RelationalResultSet> nonMessageCheck) {
+        Assertions.assertNotNull(queryResult, "Did not return a valid result set!");
+        Assertions.assertTrue(queryResult.next(), "Did not return a record!");
+        if (queryResult.supportsMessageParsing()) {
             Message m = queryResult.parseMessage();
-            Assertions.assertEquals(expected,m,"Incorrect returned record!");
-        }else{
+            Assertions.assertEquals(expected, m, "Incorrect returned record!");
+        } else {
             nonMessageCheck.accept(queryResult);
         }
-        Assertions.assertFalse(queryResult.next(),"Too many records returned!");
+        Assertions.assertFalse(queryResult.next(), "Too many records returned!");
     }
 
     @Test
@@ -174,14 +174,14 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())){
+        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
-            try(Statement s = conn.createStatement()){
+            try (Statement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
-                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord"+id).build();
-                RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> s.executeInsert("RestaurantReviewer", Collections.singleton(record),Options.create()));
-                Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PARAMETER,ve.getErrorCode(),"Incorrect error code");
+                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
+                RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> s.executeInsert("RestaurantReviewer", Collections.singleton(record), Options.create()));
+                Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PARAMETER, ve.getErrorCode(), "Incorrect error code");
             }
         }
     }
@@ -191,16 +191,17 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())){
+        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
             conn.setSchema("doesNotExist");
             conn.beginTransaction();
-            try(Statement s = conn.createStatement()){
+            try (Statement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
-                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord"+id).build();
+                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
                 RelationalException thrown = Assertions.assertThrows(RelationalException.class, () -> {
                     int inserted = s.executeInsert("RestaurantReviewer", Collections.singleton(record), Options.create());
+                    Assertions.fail("did not throw an exception on insertion(inserted=" + inserted + ")");
                 });
-                Assertions.assertEquals(RelationalException.ErrorCode.UNKNOWN_SCHEMA,thrown.getErrorCode(),"Incorrect error code returned!");
+                Assertions.assertEquals(RelationalException.ErrorCode.UNKNOWN_SCHEMA, thrown.getErrorCode(), "Incorrect error code returned!");
             }
         }
     }

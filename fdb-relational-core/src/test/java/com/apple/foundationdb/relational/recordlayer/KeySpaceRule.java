@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -54,8 +55,8 @@ public class KeySpaceRule implements BeforeEachCallback, AfterEachCallback {
 
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        try(FDBRecordContext ctx = fdbDatabase.openContext()){
-            FDBRecordStore.deleteStore(ctx,ksPath);
+        try (FDBRecordContext ctx = fdbDatabase.openContext()) {
+            FDBRecordStore.deleteStore(ctx, ksPath);
         }
     }
 
@@ -71,7 +72,7 @@ public class KeySpaceRule implements BeforeEachCallback, AfterEachCallback {
         metadataFunc.accept(metaDataBuilder);
 
         metadata = metaDataBuilder.build();
-        try(FDBRecordContext ctx = fdbDatabase.openContext()) {
+        try (FDBRecordContext ctx = fdbDatabase.openContext()) {
             FDBRecordStore.newBuilder()
                     .setKeySpacePath(ksPath)
                     .setMetaDataProvider(metadata)
@@ -82,12 +83,12 @@ public class KeySpaceRule implements BeforeEachCallback, AfterEachCallback {
 
     public RecordStoreConnection openDirectConnection() {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
-//        RecordStoreConnection recStoreConn =  new RecordStoreConnection(fdbDatabase,
-//                (schema, txn) -> FDBRecordStore.newBuilder().setMetaDataProvider(metadata)
-//                        .setKeySpacePath(ksPath)
-//                        .setContext(txn).open());
-//
-//        recStoreConn.setSchema(schema);
-//        return recStoreConn;
+        //        RecordStoreConnection recStoreConn =  new RecordStoreConnection(fdbDatabase,
+        //                (schema, txn) -> FDBRecordStore.newBuilder().setMetaDataProvider(metadata)
+        //                        .setKeySpacePath(ksPath)
+        //                        .setContext(txn).open());
+        //
+        //        recStoreConn.setSchema(schema);
+        //        return recStoreConn;
     }
 }

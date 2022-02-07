@@ -24,8 +24,9 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
+
+import javax.annotation.Nonnull;
 
 /**
  * Skeleton implementation of a ConstantActionFactory.
@@ -52,7 +53,7 @@ public abstract class AbstractConstantActionFactory implements ConstantActionFac
     @Nonnull
     @Override
     public ConstantAction getDeleteDatabaseContantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
-        return NoOpConstantActionFactory.INSTANCE.getDeleteDatabaseContantAction(dbUrl,options);
+        return NoOpConstantActionFactory.INSTANCE.getDeleteDatabaseContantAction(dbUrl, options);
     }
 
     @Nonnull

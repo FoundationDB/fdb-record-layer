@@ -28,7 +28,6 @@ public interface Index extends Scannable, AutoCloseable {
 
     Table getTable();
 
-
     @Override
     void close() throws RelationalException;
 

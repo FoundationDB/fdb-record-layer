@@ -31,13 +31,15 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.common.base.Joiner;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import javax.annotation.Nonnull;
 
 public class KeyBuilder {
     private final RecordType typeForKey;
@@ -133,6 +135,5 @@ public class KeyBuilder {
             throw new RelationalException("Unknown Key type: <" + expression.getClass() + ">", RelationalException.ErrorCode.UNKNOWN);
         }
     }
-
 
 }

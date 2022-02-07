@@ -26,9 +26,10 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.util.LinkedList;
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 /**
  * This transaction object must be destroyed when it's creating connection is destroyed. Note that this is
@@ -45,7 +46,7 @@ public class RecordContextTransaction implements Transaction {
     private final List<Runnable> txnTerminateListeners = new LinkedList<>();
 
     private final FDBRecordContext context;
-    private boolean isClosed = false;
+    private boolean isClosed;
 
     public RecordContextTransaction(FDBRecordContext context) {
         this.context = context;

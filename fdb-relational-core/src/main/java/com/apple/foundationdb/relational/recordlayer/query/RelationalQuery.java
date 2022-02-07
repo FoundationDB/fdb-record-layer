@@ -25,10 +25,11 @@ import com.apple.foundationdb.relational.api.Queryable;
 import com.apple.foundationdb.relational.api.WhereClause;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A simple Query structure for building custom queries inside the Query engine.

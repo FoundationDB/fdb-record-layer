@@ -22,8 +22,9 @@ package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
+
+import javax.annotation.Nonnull;
 
 public interface DatabaseMetaData {
 
@@ -37,7 +38,7 @@ public interface DatabaseMetaData {
      * If no schema is found, the error code will be {@link RelationalException.ErrorCode#UNKNOWN_SCHEMA}
      */
     @Nonnull
-    TableMetaData getTableMetaData(@Nonnull String schemaId,@Nonnull String tableId) throws RelationalException;
+    TableMetaData getTableMetaData(@Nonnull String schemaId, @Nonnull String tableId) throws RelationalException;
 
     Set<String> getSchemas() throws RelationalException;
 }

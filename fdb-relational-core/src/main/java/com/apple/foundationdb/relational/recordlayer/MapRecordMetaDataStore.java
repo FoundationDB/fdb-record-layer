@@ -23,11 +23,12 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
+import javax.annotation.Nonnull;
 
 /**
  * A wholly in-memory MetaDataStore. This is _not_ to be used in production instances, but serves as a
@@ -65,9 +66,9 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
         URI schemaKey = convertToUpperCase(schemaUrl);
         String existingTemplateId = schemaToTemplateMap.putIfAbsent(schemaKey, templateId);
         if (existingTemplateId != null && !existingTemplateId.equals(templateId)) {
-            throw new RelationalException("One schema cannot be assigned with a template twice, schemaKey: <" + schemaKey
-                    + ">, existingTemplateId: <" + existingTemplateId
-                    + ">, new added templateId: <" + templateId + ">",
+            throw new RelationalException("One schema cannot be assigned with a template twice, schemaKey: <" + schemaKey +
+                    ">, existingTemplateId: <" + existingTemplateId +
+                    ">, new added templateId: <" + templateId + ">",
                     RelationalException.ErrorCode.SCHEMA_MAPPING_ALREADY_EXISTS);
         }
     }

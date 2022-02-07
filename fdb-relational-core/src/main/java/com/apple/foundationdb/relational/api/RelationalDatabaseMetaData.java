@@ -23,8 +23,9 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
+
+import javax.annotation.Nonnull;
 
 /**
  * Represents the MetaData about a database (schemas, tables, indexes, and so on).
@@ -78,7 +79,7 @@ public interface RelationalDatabaseMetaData {
      * @throws RelationalException if something goes wrong.
      */
     //TODO(bfines) allow parsing the schema from the table using SQL dot notation
-    @Nonnull RelationalResultSet getColumns(@Nonnull String schema,@Nonnull String table) throws RelationalException;
+    @Nonnull RelationalResultSet getColumns(@Nonnull String schema, @Nonnull String table) throws RelationalException;
 
     /**
      * Get the TableMetaData for the table specified.
@@ -89,7 +90,7 @@ public interface RelationalDatabaseMetaData {
      * @return the TableMetaData for the Table directly.
      * @throws RelationalException if something goes wrong.
      */
-    @Nonnull TableMetaData describeTable(@Nonnull String schema,@Nonnull String table)throws RelationalException;
+    @Nonnull TableMetaData describeTable(@Nonnull String schema, @Nonnull String table)throws RelationalException;
 
     /**
      * Get the path of the database this metadata is for.

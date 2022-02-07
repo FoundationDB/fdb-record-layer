@@ -24,9 +24,10 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 
+import java.net.URI;
+
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
-import java.net.URI;
 
 @ThreadSafe
 public interface ConstantActionFactory {

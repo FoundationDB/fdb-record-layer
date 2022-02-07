@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
+
 import java.util.Objects;
 
 /**
@@ -51,7 +52,6 @@ public interface NestableTuple {
      * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
     long getLong(int position) throws InvalidTypeException, InvalidColumnReferenceException;
-
 
     /**
      * Get the value at the specified position, as a float.

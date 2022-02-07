@@ -20,9 +20,10 @@
 
 package com.apple.foundationdb.relational.api;
 
+import java.util.Map;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Map;
 
 public class TransactionConfig {
     @Nullable
@@ -98,18 +99,18 @@ public class TransactionConfig {
 
     public static class Builder {
         @Nullable
-        private String transactionId = null;
+        private String transactionId;
         @Nullable
-        private Map<String, String> loggingContext = null;
+        private Map<String, String> loggingContext;
         @Nullable
-        private WeakReadSemantics weakReadSemantics = null;
+        private WeakReadSemantics weakReadSemantics;
         @Nonnull
         private Priority priority = Priority.DEFAULT;
         private long transactionTimeoutMillis = -1L;
-        private boolean enableAssertions = false;
-        private boolean logTransaction = false;
-        private boolean trackOpen = false;
-        private boolean saveOpenStackTrace = false;
+        private boolean enableAssertions;
+        private boolean logTransaction;
+        private boolean trackOpen;
+        private boolean saveOpenStackTrace;
 
         public Builder setTransactionId(String transactionId) {
             this.transactionId = transactionId;

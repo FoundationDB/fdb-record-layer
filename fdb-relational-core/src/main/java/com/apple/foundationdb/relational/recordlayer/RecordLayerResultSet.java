@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceEx
 import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 

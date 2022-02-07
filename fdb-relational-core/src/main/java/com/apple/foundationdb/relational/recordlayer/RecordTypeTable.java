@@ -34,16 +34,18 @@ import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A table implementation based on a specific record type.
@@ -67,7 +69,6 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     RecordLayerSchema getSchema() {
         return schema;
     }
-
 
     @Override
     public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties queryProperties) throws RelationalException {
@@ -96,7 +97,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     public KeyBuilder getKeyBuilder() {
         final RecordType typeForKey = loadRecordType();
-        return new KeyBuilder(typeForKey,typeForKey.getPrimaryKey(), "primary key of <" + tableName + ">");
+        return new KeyBuilder(typeForKey, typeForKey.getPrimaryKey(), "primary key of <" + tableName + ">");
     }
 
     @Override

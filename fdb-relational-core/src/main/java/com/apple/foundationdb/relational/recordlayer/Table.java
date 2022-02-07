@@ -25,10 +25,12 @@ import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
+
+import javax.annotation.Nonnull;
 
 
 @ConnectionScoped
