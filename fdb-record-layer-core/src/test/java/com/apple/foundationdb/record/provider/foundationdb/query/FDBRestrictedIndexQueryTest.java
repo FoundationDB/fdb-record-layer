@@ -84,7 +84,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
      */
     @DualPlannerTest
-    public void queryWithWriteOnly() throws Exception {
+    void queryWithWriteOnly() throws Exception {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").greaterThanOrEquals(5))
@@ -162,7 +162,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
      */
     @DualPlannerTest
-    public void queryWithDisabled() throws Exception {
+    void queryWithDisabled() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.markIndexDisabled("MySimpleRecord$str_value_indexed").get();
@@ -422,7 +422,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
-    public void snapshotRecordCountFiltered() throws Exception {
+    void snapshotRecordCountFiltered() throws Exception {
         Index onType = new Index("onType",
                 new GroupingKeyExpression(Key.Expressions.empty(), 0),
                 IndexTypes.COUNT);
@@ -484,7 +484,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that queries do not use prohibited indexes.
      */
     @DualPlannerTest
-    public void queryAllowedIndexes() {
+    void queryAllowedIndexes() {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
             metaData.addIndex("MySimpleRecord", new Index("limited_str_value_index", field("str_value_indexed"),
@@ -572,7 +572,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that queries can override prohibited indexes explicitly.
      */
     @DualPlannerTest
-    public void queryAllowedUniversalIndex() {
+    void queryAllowedUniversalIndex() {
         RecordMetaDataHook hook = metaData ->
                 metaData.addUniversalIndex(
                         new Index("universal_num_value_2", field("num_value_2"),
@@ -619,7 +619,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * If both allowed indexes and a queryability filter are set, verify that the planner uses the allowed indexes.
      */
     @DualPlannerTest
-    public void indexQueryabilityFilter() {
+    void indexQueryabilityFilter() {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
             metaData.addIndex("MySimpleRecord", new Index("limited_str_value_index", field("str_value_indexed"),

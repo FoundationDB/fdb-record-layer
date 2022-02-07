@@ -46,10 +46,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Tests for {@link IndexFunctionHelper}.
  */
 @Tag(Tags.RequiresFDB)
-public class IndexFunctionHelperTest extends FDBRecordStoreTestBase {
+class IndexFunctionHelperTest extends FDBRecordStoreTestBase {
 
     @Test
-    public void groupSubKeysBasic() {
+    void groupSubKeysBasic() {
         final KeyExpression ungrouped = field("value").ungrouped();
         assertEquals(field("value"), IndexFunctionHelper.getGroupedKey(ungrouped));
         assertEquals(empty(), IndexFunctionHelper.getGroupingKey(ungrouped));
@@ -60,7 +60,7 @@ public class IndexFunctionHelperTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void groupSubKeysNested() {
+    void groupSubKeysNested() {
         final KeyExpression wholeKey = concat(
                 field("a", FanOut).nest(concatenateFields("b", "c")),
                 field("d"),
@@ -101,7 +101,7 @@ public class IndexFunctionHelperTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void groupingKeyEmpty() {
+    void groupingKeyEmpty() {
         final KeyExpression count = empty().groupBy(field("x")); // Like COUNT(*) GROUP BY x
         final KeyExpression sum = field("y").groupBy(field("x"));  // Like SUM(y) GROUP BY x
         assertEquals(IndexFunctionHelper.getGroupingKey(count), IndexFunctionHelper.getGroupingKey(sum));
