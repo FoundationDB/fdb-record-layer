@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
@@ -250,11 +251,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(sumIndex));
             rangeSet.insertRange(context.ensureActive(), Tuple.from(1000).pack(), Tuple.from(1500).pack(), true).get();
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
-            recordStore.saveRecord(recBuilder.build());
-            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
-            recordStore.saveRecord(recBuilder.build());
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
 
             assertThrowsAggregateFunctionNotSupported(() ->
                             recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
@@ -314,11 +312,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             recordStore.markIndexDisabled("value3sum").join();
             recordStore.markIndexDisabled("value3max").join();
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
-            recordStore.saveRecord(recBuilder.build());
-            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
-            recordStore.saveRecord(recBuilder.build());
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
 
             assertThrowsAggregateFunctionNotSupported(() ->
                             recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
@@ -377,11 +372,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
             recordStore.deleteAllRecords();
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
-            recordStore.saveRecord(recBuilder.build());
-            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
-            recordStore.saveRecord(recBuilder.build());
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
 
             assertThrowsAggregateFunctionNotSupported(() ->
                             recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
@@ -420,9 +412,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void snapshotRecordCountForRecordTypeFiltered() throws Exception {
-        Index onType = new Index("onType",
-                new GroupingKeyExpression(Key.Expressions.empty(), 0),
-                IndexTypes.COUNT);
+        Index onType = new Index("onType", emptyGroupedKeyExpression(), IndexTypes.COUNT);
         Index byType = new Index("byType",
                 new GroupingKeyExpression(Key.Expressions.recordType(), 0),
                 IndexTypes.COUNT);
@@ -436,49 +426,23 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
             recordStore.deleteAllRecords();
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
-            recordStore.saveRecord(recBuilder.build());
-            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
-            recordStore.saveRecord(recBuilder.build());
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
 
             assertFilteredCount(2, filter -> recordStore.getSnapshotRecordCountForRecordType(
                     "MySimpleRecord", filter));
 
-            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType(
-                    "MySimpleRecord", new IndexQueryabilityFilter() {
-                        @Override
-                        public boolean isQueryable(@Nonnull final Index index) {
-                            return index.getName().equals("onType");
-                        }
+            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord",
+                    createIndexFilter(17, index -> index.getName().equals("onType"))).get());
 
-                        @Override
-                        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-                            return 17;
-                        }
-                    }).get());
-
-            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType(
-                    "MySimpleRecord", new IndexQueryabilityFilter() {
-                        @Override
-                        public boolean isQueryable(@Nonnull final Index index) {
-                            return index.getName().equals("byType");
-                        }
-
-                        @Override
-                        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-                            return 18;
-                        }
-                    }).get());
-            commit(context);
+            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord",
+                    createIndexFilter(18, index -> index.getName().equals("byType"))).get());
         }
     }
 
     @Test
     void snapshotRecordCountFiltered() throws Exception {
-        Index countIndex = new Index("countIndex",
-                new GroupingKeyExpression(Key.Expressions.empty(), 0),
-                IndexTypes.COUNT);
+        Index countIndex = new Index("countIndex", emptyGroupedKeyExpression(), IndexTypes.COUNT);
         RecordMetaDataHook hook = metaData -> {
             metaData.addUniversalIndex(countIndex);
         };
@@ -488,11 +452,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
             recordStore.deleteAllRecords();
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
-            recordStore.saveRecord(recBuilder.build());
-            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
-            recordStore.saveRecord(recBuilder.build());
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
             recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
                     .setRecNo(2203)
                     .setNumValue3Indexed(55).build());
@@ -504,9 +465,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void snapshotUpdateCountFiltered() throws Exception {
-        Index countIndex = new Index("countUpdateIndex",
-                new GroupingKeyExpression(Key.Expressions.empty(), 0),
-                IndexTypes.COUNT_UPDATES);
+        Index countIndex = new Index("countUpdateIndex", emptyGroupedKeyExpression(), IndexTypes.COUNT_UPDATES);
         RecordMetaDataHook hook = metaData -> {
             metaData.addUniversalIndex(countIndex);
         };
@@ -516,18 +475,13 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
             recordStore.deleteAllRecords();
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
-            recordStore.saveRecord(recBuilder.build());
-            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
-            recordStore.saveRecord(recBuilder.build());
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
 
             assertFilteredCount(2,
                     filter -> recordStore.getSnapshotRecordUpdateCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY, filter));
             // update the first record saved
-            recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
-                    .setRecNo(1066)
-                    .setNumValue3Indexed(59).build());
+            saveSimpleRecord(1066, 59);
             assertFilteredCount(3,
                     filter -> recordStore.getSnapshotRecordUpdateCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY, filter));
         }
@@ -733,6 +687,17 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(-1531627068, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
+    @Nonnull
+    private GroupingKeyExpression emptyGroupedKeyExpression() {
+        return new GroupingKeyExpression(Key.Expressions.empty(), 0);
+    }
+
+    private void saveSimpleRecord(final int recNo, final int value3Indexed) {
+        TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+        recBuilder.setRecNo(recNo).setNumValue3Indexed(value3Indexed);
+        recordStore.saveRecord(recBuilder.build());
+    }
+
     public static void assertThrowsAggregateFunctionNotSupported(Executable executable, String aggregateFunction) {
         final AggregateFunctionNotSupportedException e = assertThrows(AggregateFunctionNotSupportedException.class, executable);
         assertEquals("Aggregate function requires appropriate index", e.getMessage());
@@ -744,5 +709,20 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             throws InterruptedException, java.util.concurrent.ExecutionException {
         assertThrows(RecordCoreException.class, () -> getCount.apply(IndexQueryabilityFilter.FALSE));
         assertEquals(expected, getCount.apply(IndexQueryabilityFilter.TRUE).get());
+    }
+
+    @Nonnull
+    private IndexQueryabilityFilter createIndexFilter(final int queryHash, final Predicate<Index> isQueryable) {
+        return new IndexQueryabilityFilter() {
+            @Override
+            public boolean isQueryable(@Nonnull final Index index) {
+                return isQueryable.test(index);
+            }
+
+            @Override
+            public int queryHash(@Nonnull final QueryHashKind hashKind) {
+                return queryHash;
+            }
+        };
     }
 }
