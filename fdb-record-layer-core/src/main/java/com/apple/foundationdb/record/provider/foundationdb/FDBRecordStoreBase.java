@@ -1423,9 +1423,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Get the number of records in the record store of the given record type.
      *
-     * The record type must have a {@code COUNT} index defined for it.
+     * The record type must have a readable {@code COUNT} index defined for it, that is not excluded by the
+     * {@code indexQueryabilityFilter}.
      * @param recordTypeName record type for which to count records
-     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning
+     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning.
      * @return a future that will complete to the number of records
      */
     @Nonnull
@@ -1579,7 +1580,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param range the range of records (group) for which to evaluate
      * @param isolationLevel whether to use snapshot reads
      * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning. This will not be
-     * consulted if the aggregateFunction already has an index
+     * consulted if the aggregateFunction already has a readable index
      * @return a future that will complete with the result of evaluating the aggregate
      */
     @Nonnull

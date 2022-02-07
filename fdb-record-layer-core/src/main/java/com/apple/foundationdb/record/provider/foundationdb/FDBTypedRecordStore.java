@@ -225,12 +225,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
-    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName) {
-        return untypedStore.getSnapshotRecordCountForRecordType(recordTypeName);
-    }
-
-    @Nonnull
-    @Override
     public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName,
                                                                        @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
         return untypedStore.getSnapshotRecordCountForRecordType(recordTypeName, indexQueryabilityFilter);
@@ -246,15 +240,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Override
     public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<M> rec) {
         return untypedStore.evaluateTypedStoreFunction(evaluationContext, function, rec);
-    }
-
-    @Nonnull
-    @Override
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
-                                                              @Nonnull IndexAggregateFunction aggregateFunction,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull IsolationLevel isolationLevel) {
-        return untypedStore.evaluateAggregateFunction(recordTypeNames, aggregateFunction, range, isolationLevel);
     }
 
     @Nonnull
