@@ -219,8 +219,9 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
-    public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
-        return untypedStore.getSnapshotRecordCount(key, value);
+    public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
+                                                          @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+        return untypedStore.getSnapshotRecordCount(key, value, indexQueryabilityFilter);
     }
 
     @Nonnull

@@ -1404,7 +1404,26 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will complete to the number of records
      */
     @Nonnull
-    CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value);
+    default CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
+        // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
+        // compatibility
+        return getSnapshotRecordCount(key, value, IndexQueryabilityFilter.TRUE);
+    }
+
+    /**
+     * Get the number of records in a portion of the record store determined by a group key expression.
+     *
+     * There must be a suitably grouped, readable {@code COUNT} type index defined, that is not filtered by
+     * {@code indexQueryabilityFilter}, or a suitable record count key on the metadata.
+     * @param key the grouping key expression
+     * @param value the value of {@code key} to match
+     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning. If there is a
+     * record count key, that may be used, and will not be checked against this filter.
+     * @return a future that will complete to the number of records
+     */
+    @Nonnull
+    CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
+                                                   @Nonnull IndexQueryabilityFilter indexQueryabilityFilter);
 
     /**
      * Get the number of records in the record store of the given record type.
@@ -1438,7 +1457,16 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     default CompletableFuture<Long> getSnapshotRecordUpdateCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
-        return evaluateAggregateFunction(Collections.emptyList(), IndexFunctionHelper.countUpdates(key), value, IsolationLevel.SNAPSHOT)
+        // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
+        // compatibility
+        return getSnapshotRecordUpdateCount(key, value, IndexQueryabilityFilter.TRUE);
+    }
+
+    default CompletableFuture<Long> getSnapshotRecordUpdateCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
+                                                                 @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+        return evaluateAggregateFunction(
+                Collections.emptyList(), IndexFunctionHelper.countUpdates(key), TupleRange.allOf(value.toTuple()),
+                IsolationLevel.SNAPSHOT, indexQueryabilityFilter)
                 .thenApply(tuple -> tuple.getLong(0));
     }
 

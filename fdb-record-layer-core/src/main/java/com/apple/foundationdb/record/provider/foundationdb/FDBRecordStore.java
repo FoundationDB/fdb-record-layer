@@ -1610,7 +1610,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
+    public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
+                                                          @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
         if (getRecordMetaData().getRecordCountKey() != null) {
             if (key.getColumnSize() != value.size()) {
                 throw recordCoreException("key and value are not the same size");
@@ -1624,7 +1625,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return MoreAsyncUtil.reduce(getExecutor(), kvs.iterator(), 0L, (count, kv) -> count + decodeRecordCount(kv.getValue()));
             }
         }
-        return evaluateAggregateFunction(Collections.emptyList(), IndexFunctionHelper.count(key), value, IsolationLevel.SNAPSHOT)
+        return evaluateAggregateFunction(Collections.emptyList(), IndexFunctionHelper.count(key),
+                TupleRange.allOf(value.toTuple()), IsolationLevel.SNAPSHOT, indexQueryabilityFilter)
                 .thenApply(tuple -> tuple.getLong(0));
     }
 
