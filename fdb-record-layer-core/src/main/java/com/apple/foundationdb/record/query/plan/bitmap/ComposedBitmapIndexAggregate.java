@@ -361,7 +361,6 @@ public class ComposedBitmapIndexAggregate {
             // (https://github.com/FoundationDB/fdb-record-layer/issues/1056)
             final GroupingKeyExpression groupKey = indexAggregateFunctionCall.getGroupingKeyExpression();
             final int groupedCount = groupKey.getGroupedCount();
-            final int wholeCount = groupKey.getColumnSize();
             int afterSpliceCount = groupedCount;
             if (groupKey.getWholeKey() instanceof ThenKeyExpression) {
                 final List<KeyExpression> thenChildren = ((ThenKeyExpression)groupKey.getWholeKey()).getChildren();
@@ -372,24 +371,47 @@ public class ComposedBitmapIndexAggregate {
                     afterSpliceCount += thenChildren.get(--childPosition).getColumnSize();
                 }
             }
+            final ThenKeyExpression splicedKey = insertKey(indexKey, groupKey, afterSpliceCount);
+            GroupingKeyExpression fullKey = splicedKey.group(groupedCount);
+            Index index = bitmapIndexes.get(fullKey);
+            if (index == null) {
+                return Optional.empty();
+            }
+            final QueryComponent fullFilter = andFilters(groupFilters, indexFilter);
+            // Allow conditions on the position field as well.
+            final KeyExpression fullOperand = new GroupingKeyExpression(fullKey.getWholeKey(), 0);
+            return IndexAggregateGroupKeys.conditionsToGroupKeys(fullOperand, fullFilter)
+                    .map(groupKeys -> {
+                        final IndexNode indexNode = new IndexNode(fullFilter, groupKeys, index.getName());
+                        indexNodes.put(indexFilter, indexNode);
+                        return indexNode;
+                    });
+        }
+
+        @Nonnull
+        private ThenKeyExpression insertKey(final @Nonnull KeyExpression indexKey,
+                                            final @Nonnull GroupingKeyExpression groupKey,
+                                            final int position) {
+            final int wholeCount = groupKey.getColumnSize();
+            final int groupedCount = groupKey.getGroupedCount();
             final ThenKeyExpression splicedKey;
-            if (afterSpliceCount == groupedCount) {
+            if (position == groupedCount) {
                 // Preferred position at end of grouping keys.
                 splicedKey = Key.Expressions.concat(groupKey.getGroupingSubKey(), indexKey, groupKey.getGroupedSubKey());
             } else {
                 final KeyExpression wholeKey = groupKey.getWholeKey();
-                final int splicePoint = wholeCount - afterSpliceCount;
+                final int splicePoint = wholeCount - position;
                 if (splicePoint == 0) {
                     splicedKey = Key.Expressions.concat(indexKey, wholeKey);
                 } else {
                     splicedKey = Key.Expressions.concat(wholeKey.getSubKey(0, splicePoint), indexKey, wholeKey.getSubKey(splicePoint, wholeCount));
                 }
             }
-            GroupingKeyExpression fullKey = splicedKey.group(groupedCount);
-            Index index = bitmapIndexes.get(fullKey);
-            if (index == null) {
-                return Optional.empty();
-            }
+            return splicedKey;
+        }
+
+        private static QueryComponent andFilters(final @Nonnull List<QueryComponent> groupFilters,
+                                                 final @Nonnull QueryComponent indexFilter) {
             final QueryComponent fullFilter;
             if (groupFilters.isEmpty()) {
                 fullFilter = indexFilter;
@@ -399,14 +421,7 @@ public class ComposedBitmapIndexAggregate {
                 allFilters.add(indexFilter);
                 fullFilter = Query.and(allFilters);
             }
-            // Allow conditions on the position field as well.
-            final KeyExpression fullOperand = new GroupingKeyExpression(fullKey.getWholeKey(), 0);
-            return IndexAggregateGroupKeys.conditionsToGroupKeys(fullOperand, fullFilter)
-                    .map(groupKeys -> {
-                        final IndexNode indexNode = new IndexNode(fullFilter, groupKeys, index.getName());
-                        indexNodes.put(indexFilter, indexNode);
-                        return indexNode;
-                    });
+            return fullFilter;
         }
 
         @Nonnull
