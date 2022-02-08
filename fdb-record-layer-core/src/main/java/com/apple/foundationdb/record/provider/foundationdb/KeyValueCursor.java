@@ -343,7 +343,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
         /**
          * Calculate the key prefix length for the returned values. This will be used to derive the primary key used in
          * the calculated continuation.
-         * @return the length of the key prefix length
+         * @return the length of the key prefix
          */
         protected int calculatePrefixLength() {
             int prefixLength = subspace.pack().length;

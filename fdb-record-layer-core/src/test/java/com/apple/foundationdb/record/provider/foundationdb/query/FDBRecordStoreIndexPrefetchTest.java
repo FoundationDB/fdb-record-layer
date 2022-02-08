@@ -25,7 +25,9 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -39,6 +41,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Objects;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -50,6 +53,38 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Tag(Tags.RequiresFDB)
 class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
+
+    @Test
+    void testIndexPrefetchWithMockData() throws Exception {
+        complexQuerySetup(null);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_unique").greaterThan(990))
+                // TODO: Need to test with reverse
+                .build();
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setUseIndexPrefetch(true)
+                .build());
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        int count = 0;
+        try (FDBRecordContext context = openContext()) {
+            context.ensureActive().options().setReadYourWritesDisable();
+            openSimpleRecordStore(context);
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
+                for (RecordCursorResult<FDBQueriedRecord<Message>> recordResult = cursor.getNext(); recordResult.hasNext(); recordResult = cursor.getNext()) {
+                    assertRecordResult(recordResult, count, "MySimpleRecord$num_value_unique");
+                    count++;
+                }
+            }
+        }
+
+        assertThat(count, equalTo(5));
+    }
 
     @Test
     void indexPrefetchSimpleIndexTest() throws Exception {
@@ -183,10 +218,25 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
     // TODO: Test with split records.
 
+    private void assertRecordResult(final RecordCursorResult<FDBQueriedRecord<Message>> recResult, final int i, final String indexName) {
+        assertContinuation(recResult.getContinuation(), i);
+        assertRecord(recResult.get(), i, indexName);
+    }
+
+    private void assertContinuation(final RecordCursorContinuation continuation, final int i) {
+        int x = 5;
+    }
+
     private void assertRecord(final FDBQueriedRecord<Message> rec, final int i, final String indexName) {
         IndexEntry indexEntry = rec.getIndexEntry();
         assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
-        // No other assertion can be made on the index entry for now since it is not fully populated.
+        List<Object> indexElements = indexEntry.getKey().getItems();
+        assertThat(indexElements.size(), equalTo(2));
+        assertThat(indexElements.get(0), equalTo((long)(1000 - i)));
+        assertThat(indexElements.get(1), equalTo((long)i));
+        List<Object> primaryKey = indexEntry.getPrimaryKey().getItems();
+        assertThat(primaryKey.size(), equalTo(1));
+        assertThat(primaryKey.get(0), equalTo((long)i));
 
         FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
         assertThat(storedRecord.getPrimaryKey().get(0), equalTo((long)i));
