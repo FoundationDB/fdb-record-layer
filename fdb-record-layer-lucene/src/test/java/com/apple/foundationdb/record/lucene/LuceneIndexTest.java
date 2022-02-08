@@ -75,6 +75,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -698,7 +699,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             results.stream().forEach(i -> assertDocumentPartialRecordFromIndexEntry(recordType, i,
                     (String) i.getKey().get(i.getKeySize() - 1),
-                    (String) i.getKey().get(i.getKeySize() - 2)));
+                    (String) i.getKey().get(i.getKeySize() - 2), IndexScanType.BY_LUCENE_AUTO_COMPLETE));
 
             assertEquals(6, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertEntriesAndSegmentInfoStoredInCompoundFile(DirectoryCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), TupleHelpers.EMPTY),
@@ -798,16 +799,17 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 recordStore.saveRecord(createSimpleDocument(docId++, word, 1));
             }
             
-            List<IndexEntry> results = recordStore.scanIndex(SPELLCHECK_INDEX,
+            CompletableFuture<List<IndexEntry>> resultsI = recordStore.scanIndex(SPELLCHECK_INDEX,
                     IndexScanType.BY_LUCENE_SPELLCHECK,
                     TupleRange.allOf(Tuple.from("keyboad")),
                     null,
-                    ScanProperties.FORWARD_SCAN).asList().get();
+                    ScanProperties.FORWARD_SCAN).asList();
+            List<IndexEntry> results = resultsI.get();
 
             assertEquals(1, results.size());
             IndexEntry result = results.get(0);
-            assertEquals("keyboard", result.getKey().get(1));
-            assertEquals("text", result.getValue().get(0));
+            assertEquals("keyboard", result.getKey().getString(2));
+            assertEquals("text", result.getKey().getString(1));
 
             List<IndexEntry> results2 = recordStore.scanIndex(SPELLCHECK_INDEX,
                     IndexScanType.BY_LUCENE_SPELLCHECK,
@@ -816,8 +818,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     ScanProperties.FORWARD_SCAN).asList().get();
             assertEquals(1, results.size());
             IndexEntry result2 = results.get(0);
-            assertEquals("keyboard", result.getKey().get(1));
-            assertEquals("text", result.getValue().get(0));
+            assertEquals("keyboard", result.getKey().get(2));
+            assertEquals("text", result.getKey().get(1));
         }
 
 
@@ -852,7 +854,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             Descriptors.FieldDescriptor valueDescriptor = entryDescriptor.getMessageType().findFieldByName("value");
 
             //TODO: This seems like the wrong field string to return. I'm not sure what to do here
-            assertEquals("value", entry.getField(keyDescriptor));
+            assertEquals("sampleTextPhrase", entry.getField(keyDescriptor));
             assertEquals("vision", entry.getField(valueDescriptor));
 
             // assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
@@ -869,8 +871,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         assertEquals(expectedSuggestions.size(), suggestions.size());
         for (int i = 0 ; i < expectedSuggestions.size(); ++i) {
-            assertThat(suggestions.get(i).getKey().get(1), equalTo(expectedSuggestions.get(i).getKey()));
-            assertThat(suggestions.get(i).getValue().get(0), equalTo(expectedSuggestions.get(i).getValue()));
+            assertThat(suggestions.get(i).getKey().get(2), equalTo(expectedSuggestions.get(i).getKey()));
+            assertThat(suggestions.get(i).getKey().get(1), equalTo(expectedSuggestions.get(i).getValue()));
         }
     }
 
@@ -1041,7 +1043,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             results.stream().forEach(i -> assertDocumentPartialRecordFromIndexEntry(recordType, i,
                     (String) i.getKey().get(i.getKeySize() - 1),
-                    (String) i.getKey().get(i.getKeySize() - 2)));
+                    (String) i.getKey().get(i.getKeySize() - 2), IndexScanType.BY_LUCENE_AUTO_COMPLETE));
 
             assertEquals(6, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertEntriesAndSegmentInfoStoredInCompoundFile(DirectoryCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE), TupleHelpers.EMPTY),
@@ -1067,10 +1069,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void assertDocumentPartialRecordFromIndexEntry(@Nonnull RecordType recordType, @Nonnull IndexEntry indexEntry,
-                                                           @Nonnull String expectedSuggestion, @Nonnull String fieldName) {
-        Descriptors.Descriptor recordDescriptor = TestRecordsTextProto.SimpleDocument.getDescriptor();
-        IndexKeyValueToPartialRecord toPartialRecord = LuceneIndexQueryPlan.getToPartialRecord(SIMPLE_TEXT_WITH_AUTO_COMPLETE, recordType, IndexScanType.BY_LUCENE_AUTO_COMPLETE);
-        Message message = toPartialRecord.toRecord(recordDescriptor, indexEntry);
+                                                           @Nonnull String expectedSuggestion, @Nonnull String fieldName,
+                                                           @Nonnull IndexScanType scanType) {
+        Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
+
+        Message message = LuceneIndexQueryPlan.getToPartialRecord(indexEntry.getIndex(), recordType, scanType).toRecord(recordDescriptor, indexEntry);
         Descriptors.FieldDescriptor textDescriptor = recordDescriptor.findFieldByName(fieldName);
         assertEquals(expectedSuggestion, message.getField(textDescriptor));
     }
