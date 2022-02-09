@@ -50,7 +50,7 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     private static final LuceneAnalyzerRegistryImpl INSTANCE = new LuceneAnalyzerRegistryImpl();
 
     @Nonnull
-    private Map<String, LuceneAnalyzerFactory> registry;
+    private final Map<String, LuceneAnalyzerFactory> registry;
 
     @Nonnull
     private static Map<String, LuceneAnalyzerFactory> initRegistry() {

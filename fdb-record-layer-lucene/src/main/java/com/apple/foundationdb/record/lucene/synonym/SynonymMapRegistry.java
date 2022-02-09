@@ -23,33 +23,36 @@ package com.apple.foundationdb.record.lucene.synonym;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import org.apache.lucene.analysis.synonym.SynonymMap;
 
 import javax.annotation.Nonnull;
+import java.io.InputStream;
 
 /**
  * Registry for {@link SynonymAnalyzer}s.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface SynonymAnalyzerRegistry {
+public interface SynonymMapRegistry {
     /**
      * Gets the synonym analyzer of the given set of synonyms. If <code>name</code> is <code>null</code>,
-     * it returns an analyzer over the default set of wordnet english synonyms
+     * it returns an analyzer over the default set of wordnet english synonyms.
      *
      * @param name the name of the synonym set
      * @return the analyzer over the given set of synonyms
      * @throws MetaDataException if no such tokenizer exists
      */
     @Nonnull
-    SynonymAnalyzer getAnalyzer(@Nonnull String name);
+    SynonymMap getSynonymMap(@Nonnull String name);
 
     /**
      * Registers a new synonym analyzer in this registry. Throws an error if the analyzer over that set is
-     * already present
+     * already present.
      *
-     * @param synonymAnalyzer new analyzer to register
+     * @param name name of the synonym set to register
+     * @param synonymInputStream new map to register
      * @throws RecordCoreArgumentException if there is that synonym set is already registered.
      */
-    void register(@Nonnull SynonymAnalyzer synonymAnalyzer);
+    void register(final String name, @Nonnull InputStream synonymInputStream);
 
     /**
      * Clears the registry and reloads analyzers from the classpath. This is intended
