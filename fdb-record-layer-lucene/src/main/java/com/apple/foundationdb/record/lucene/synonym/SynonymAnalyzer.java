@@ -57,10 +57,6 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         return stopwords;
     }
 
-    public SynonymAnalyzer(@Nullable CharArraySet stopwords) {
-        this(stopwords, EnglishSynonymMapConfig.CONFIG_NAME);
-    }
-
     public SynonymAnalyzer(@Nullable CharArraySet stopwords, @Nonnull String name) {
         super(stopwords);
         this.name = name;

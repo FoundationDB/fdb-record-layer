@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
+import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.analysis.Analyzer;
@@ -74,7 +75,7 @@ public class LuceneAnalyzerTest {
         String input = "Hello RL";
         Collection<String> result = new HashSet<>();
 
-        tokenizeWithAnalyzer(result, input, new SynonymAnalyzer(null));
+        tokenizeWithAnalyzer(result, input, new SynonymAnalyzer(null, EnglishSynonymMapConfig.CONFIG_NAME));
         Assertions.assertEquals(ImmutableSet.of("hi", "how", "hullo", "howdy", "rl", "hello", "do", "you"), result);
     }
 

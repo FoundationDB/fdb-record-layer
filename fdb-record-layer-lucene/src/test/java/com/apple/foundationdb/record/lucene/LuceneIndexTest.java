@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapConfig;
-import com.apple.foundationdb.record.lucene.synonym.SynonymMapRegistryImpl;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -60,13 +59,13 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -195,11 +194,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
                 .uncheckedOpen();
         setupPlanner(null);
-    }
-
-    @AfterEach
-    public void tearDown() {
-        SynonymMapRegistryImpl.instance().reset();
     }
 
     @Nonnull
@@ -645,15 +639,41 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @AutoService(SynonymMapConfig.class)
+    public static class CombinedSynonymSetsConfig implements SynonymMapConfig {
+        @Override
+        public String getName() {
+            return COMBINED_SYNONYM_SETS;
+        }
+
+        @Override
+        public InputStream getSynonymInputStream() {
+            InputStream is1 = null;
+            InputStream is2 = null;
+            try {
+                is1 = new EnglishSynonymMapConfig().getSynonymInputStream();
+                is2 = SynonymMapConfig.openFile("test.txt");
+                return new SequenceInputStream(is1, is2);
+            } catch (RecordCoreException e) {
+                try {
+                    if (is1 != null) {
+                        is1.close();
+                    }
+                    if (is2 != null) {
+                        is2.close();
+                    }
+                    throw e;
+                } catch (IOException ignored) {
+                    throw e;
+                }
+            }
+        }
+    }
+
     @Test
     void scanWithCombinedSetsSynonymIndex() throws IOException {
         // The COMBINED_SYNONYM_SETS adds this extra line to our synonym set:
         // 'synonym', 'nonsynonym'
-        try (InputStream is1 = new EnglishSynonymMapConfig().getSynonymInputStream();
-             InputStream is2 = SynonymMapConfig.openFile("test.txt");
-             InputStream is = new SequenceInputStream(is1, is2)) {
-            SynonymMapRegistryImpl.instance().register(COMBINED_SYNONYM_SETS, is);
-        }
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);

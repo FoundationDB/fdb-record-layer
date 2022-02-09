@@ -41,7 +41,9 @@ dependencies {
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testCompile "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    testAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 }
 
 def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'

@@ -20,9 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.synonym;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import org.apache.lucene.analysis.Analyzer;
@@ -32,12 +30,9 @@ import org.apache.lucene.analysis.core.FlattenGraphFilter;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.analysis.synonym.SolrSynonymParser;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
@@ -49,13 +44,10 @@ import java.util.ServiceLoader;
  * Registry for {@link SynonymMap}s.
  */
 public class SynonymMapRegistryImpl implements SynonymMapRegistry {
-    @Nonnull
-    private static final Logger LOGGER = LoggerFactory.getLogger(SynonymMapRegistryImpl.class);
-
     private static final SynonymMapRegistryImpl INSTANCE = new SynonymMapRegistryImpl();
 
     @Nonnull
-    private Map<String, SynonymMap> registry;
+    private final Map<String, SynonymMap> registry;
 
     private SynonymMapRegistryImpl() {
         registry = initRegistry();
@@ -76,33 +68,17 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
         return map;
     }
 
-    @Override
-    public synchronized void register(final String name, @Nonnull final InputStream synonymInputStream) {
-        SynonymMap oldMap = registry.putIfAbsent(name, buildSynonymMap(new InputStreamReader(synonymInputStream, StandardCharsets.UTF_8)));
-        if (oldMap != null) {
-            throw new RecordCoreArgumentException("attempted to register duplicate synonym analyzer", LogMessageKeys.SYNONYM_NAME, name);
-        }
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(KeyValueLogMessage.of("registered tokenizer", LogMessageKeys.SYNONYM_NAME, name));
-        }
-    }
-
-    @Override
-    public void reset() {
-        registry = initRegistry();
-    }
-
     @Nonnull
     private static Map<String, SynonymMap> initRegistry() {
         final Map<String, SynonymMap> registry = new HashMap<>();
         for (SynonymMapConfig config : ServiceLoader.load(SynonymMapConfig.class)) {
-            registry.put(config.getName(), buildSynonymMap(new InputStreamReader(config.getSynonymInputStream(), StandardCharsets.UTF_8)));
+            registry.put(config.getName(), buildSynonymMap(config));
 
         }
         return registry;
     }
 
-    private static SynonymMap buildSynonymMap(final InputStreamReader synonymStream) {
+    private static SynonymMap buildSynonymMap(final SynonymMapConfig config) {
         try {
             SynonymMap.Parser parser = new SolrSynonymParser(true, true, new Analyzer() {
                 @Override
@@ -113,10 +89,11 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
                     return new TokenStreamComponents(src, tok);
                 }
             });
-            parser.parse(synonymStream);
+            parser.parse(new InputStreamReader(config.getSynonymInputStream(), StandardCharsets.UTF_8));
             return parser.build();
         } catch (IOException | ParseException ex) {
-            throw new RecordCoreException("Failed to parse wordnet for synonym analyzer", ex);
+            throw new RecordCoreException("Failed to build synonym map", ex)
+                    .addLogInfo(LogMessageKeys.SYNONYM_NAME, config.getName());
         }
     }
 }
