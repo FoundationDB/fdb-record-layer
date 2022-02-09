@@ -39,6 +39,8 @@ import java.util.stream.Stream;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryPlannerConfiguration {
+    public enum IndexPrefetchUse { NONE, USE_INDEX_PREFETCH, USE_INDEX_PREFETCH_WITH_FALLBACK }
+
     @Nonnull
     private final QueryPlanner.IndexScanPreference indexScanPreference;
     private final boolean attemptFailedInJoinAsOr;
@@ -55,7 +57,7 @@ public class RecordQueryPlannerConfiguration {
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
     @Nonnull
     private final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules;
-    private final boolean useIndexPrefetch;
+    private final IndexPrefetchUse useIndexPrefetch;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -70,7 +72,8 @@ public class RecordQueryPlannerConfiguration {
                                             int maxNumMatchesPerRuleCall,
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
                                             @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules) {
-                                            @Nullable RecordQueryPlannerSortConfiguration sortConfiguration, final boolean useIndexPrefetch) {
+                                            @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
+                                            @Nonnull final IndexPrefetchUse useIndexPrefetch) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -226,9 +229,18 @@ public class RecordQueryPlannerConfiguration {
      * Whether the planner should use IndexPrefetch operations for the index scan plans. IndexPrefetch operations
      * use the DB's API to fetch records from the index, rather than return the index entries, followed
      * by record fetches.
-     * @return TRUE is the planner should use IndexPrefetch, FALSE otherwise
+     * Possible values are:
+     * <UL>
+     *     <LI>{@link IndexPrefetchUse#NONE} when the planner should not use index prefetch (use regular index scan)</LI>
+     *     <LI>{@link IndexPrefetchUse#USE_INDEX_PREFETCH} when the planner should use index prefetch</LI>
+     *     <LI>{@link IndexPrefetchUse#USE_INDEX_PREFETCH_WITH_FALLBACK} when the planner should use index prefetch
+     *     followed by a regular index scan in case of failure. This is a safety measure meant to be used while the
+     *     index prefetch mechanism is being tested</LI>
+     * </UL>
+     * @return Whether the planner should use index prefetch in the plans
      */
-    public boolean shouldUseIndexPrefetch() {
+    @Nonnull
+    public IndexPrefetchUse getUseIndexPrefetch() {
         return useIndexPrefetch;
     }
 
@@ -263,6 +275,8 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         private Set<Class<? extends PlannerRule<?>>> disabledTransformationRules = Sets.newHashSet();
         private boolean useIndexPrefetch = false;
+        @Nonnull
+        private IndexPrefetchUse useIndexPrefetch = IndexPrefetchUse.NONE;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -430,10 +444,18 @@ public class RecordQueryPlannerConfiguration {
          * Set whether the planner should use IndexPrefetch operations for the index scan plans. IndexPrefetch operations
          * use the DB's API to fetch records from the index, rather than return the index entries, followed
          * by record fetches.
+         * Possible values are:
+         * <UL>
+         *     <LI>{@link IndexPrefetchUse#NONE} when the planner should not use index prefetch (use regular index scan)</LI>
+         *     <LI>{@link IndexPrefetchUse#USE_INDEX_PREFETCH} when the planner should use index prefetch</LI>
+         *     <LI>{@link IndexPrefetchUse#USE_INDEX_PREFETCH_WITH_FALLBACK} when the planner should use index prefetch
+         *     followed by a regular index scan in case of failure. This is a safety measure meant to be used while the
+         *     index prefetch mechanism is being tested</LI>
+         * </UL>
          * @param useIndexPrefetch whether to use IndexFetch in the scan plans
          * @return this builder
          */
-        public Builder setUseIndexPrefetch(final boolean useIndexPrefetch) {
+        public Builder setUseIndexPrefetch(@Nonnull final IndexPrefetchUse useIndexPrefetch) {
             this.useIndexPrefetch = useIndexPrefetch;
             return this;
         }

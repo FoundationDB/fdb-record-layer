@@ -53,19 +53,17 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredSizes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueAndMappedReqAndResult;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -139,19 +137,16 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         });
     }
 
-    public <M extends Message> RecordCursor<FDBIndexedRawRecord<M>> scanIndexPrefetch(final IndexScanType scanType, final TupleRange range, final byte[] hopInfo, Subspace recordSubspace, final byte[] continuation, final ScanProperties scanProperties) {
-        final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, hopInfo, recordSubspace)
+    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(final IndexScanType scanType, final TupleRange range, final byte[] hopInfo, Subspace recordSubspace, final byte[] continuation, final ScanProperties scanProperties) {
+        final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, hopInfo)
                 .setContext(state.context)
                 .setRange(range)
                 .setContinuation(continuation)
                 .setScanProperties(scanProperties)
                 .build();
-        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo(); // ??
-        RecordCursor<FDBRawRecord> unplitRecordCursor = new SplitHelper.KeyValueUnsplitter(state.context, recordSubspace, keyValues, false, sizeInfo, scanProperties);
-        return unplitRecordCursor.map(record -> {
-            // state.store.countKeyValue(FDBStoreTimer.Counts.LOAD_INDEX_KEY, FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES, kv);
-            return unpackIndexPrefetchRecord(state.index, record);
-        });
+        // Hard cast - this needs to be changed - make IndexPrefetchRangeKeyValueCursor  return ? extends KeyValue and narrow().
+        RecordCursor<KeyValueAndMappedReqAndResult> mappedResults = keyValues.map(kv -> (KeyValueAndMappedReqAndResult)kv);
+        return mappedResults.map(mappedResult -> unpackIndexPrefetchRecord(state.index, mappedResult));
     }
 
     /**
@@ -176,11 +171,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Nonnull
-    protected <M extends Message> FDBIndexedRawRecord<M> unpackIndexPrefetchRecord(@Nonnull final Index index, @Nonnull final FDBRawRecord rawRecord) {
-        // For now, we do not get the index keys from the FDB call, so we can't populate the index entry. This should be
-        // fixed in future versions of the FDB API.
-        IndexEntry indexEntry = new IndexEntry(index, TupleHelpers.EMPTY, TupleHelpers.EMPTY);
-        return new FDBIndexedRawRecord<>(indexEntry, rawRecord);
+    protected FDBIndexedRawRecord unpackIndexPrefetchRecord(@Nonnull final Index index, KeyValueAndMappedReqAndResult indexKeyValue) {
+        IndexEntry indexEntry = new IndexEntry(index, unpackKey(state.indexSubspace, indexKeyValue), decodeValue(indexKeyValue.getValue()));
+        return new FDBIndexedRawRecord(indexEntry, indexKeyValue);
     }
 
     /**

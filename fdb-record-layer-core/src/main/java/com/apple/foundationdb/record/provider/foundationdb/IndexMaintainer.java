@@ -266,7 +266,7 @@ public abstract class IndexMaintainer {
      */
     public abstract CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation);
 
-    public <M extends Message> RecordCursor<FDBIndexedRawRecord<M>> scanIndexPrefetch(final IndexScanType scanType, final TupleRange range, final byte[] hopInfo, Subspace recordSubspace, final byte[] continuation, final ScanProperties scanProperties) {
+    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(final IndexScanType scanType, final TupleRange range, final byte[] hopInfo, Subspace recordSubspace, final byte[] continuation, final ScanProperties scanProperties) {
         throw new RecordCoreException("scanReferences operation is not supported by this index maintainer for Index " + state.index.getName());
     }
 }

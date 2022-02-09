@@ -76,14 +76,6 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
     @Nonnull
     Optional<? extends MatchCandidate> getMatchCandidateOptional();
 
-    /**
-     * Whether the plan should use the scanIndexReferences to dereference indexes into records downstream.
-     * @return TRUE is the plan should use index dereferencing, FALSE to not.
-     */
-    default boolean shouldUseIndexPreferch() {
-        return false;
-    }
-
     @Nonnull
     <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store,
                                                                 @Nonnull EvaluationContext context,
@@ -96,17 +88,10 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
                                                                       @Nonnull EvaluationContext context,
                                                                       @Nullable byte[] continuation,
                                                                       @Nonnull ExecuteProperties executeProperties) {
-        if (!shouldUseIndexPreferch()) {
-            final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
-            return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
-                    .map(store::queriedRecord)
-                    .map(QueryResult::of);
-        } else {
-            final TupleRange range = getComparisons().toTupleRange(store, context);
-            return store.scanIndexPrefetch(getIndexName(), getScanType(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()))
-                    .map(store::queriedRecordOfMessage)
-                    .map(QueryResult::of);
-        }
+        final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
+        return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
+                .map(store::queriedRecord)
+                .map(QueryResult::of);
     }
 
     /**

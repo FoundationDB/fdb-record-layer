@@ -33,16 +33,10 @@ import javax.annotation.Nonnull;
 
 /**
  * A {@link KeyValueCursor} that scans an index using the IndexPrefetch operation.
- * This cursor is used when executing an IndexPrefetch plan, where the scanned range (index range) is
- * different from the returned records range (record primary key).
- * The differences between this class and the "plain" {@link KeyValueCursor} are:
- * <UL>
- * <LI>The operation performed is {@link com.apple.foundationdb.FDBTransaction#getRangeAndFlatMap}</LI>
- * <LI>There are two subspaces: The "standard" subspace where the scan operation is specified and the
- * "record subspace" where the returned records reside</LI>
- * <LI>PrefixLength is calculated based off of the record subspace (so that the continuation and primary key can
- * be calculated properly</LI>
- * </UL>
+ * This subclass of {@link KeyValueCursor} uses a different scan operation ({@link com.apple.foundationdb.Transaction#getRangeAndFlatMap})
+ * and therefore the actual returned types of the scanned range are different too - they need to be parsed into records
+ * rather than Index entries. The returned values are {@link KeyValueAndMappedReqAndResult} and contain all splits of
+ * a hte record for an particular index entry.
  */
 @API(API.Status.EXPERIMENTAL)
 public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
@@ -59,31 +53,26 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
     public static class Builder extends KeyValueCursor.Builder {
         // The HopInfo that is used for the getRangeAndFlatMap call
         private final byte[] hopInfo;
-        // The subspace for the record keys
-        private final Subspace recordSubspace;
 
-        private Builder(@Nonnull Subspace indexSubspace, @Nonnull byte[] hopInfo, @Nonnull Subspace recordSubspace) {
+        private Builder(@Nonnull Subspace indexSubspace, @Nonnull byte[] hopInfo) {
             super(indexSubspace);
             this.hopInfo = hopInfo;
-            this.recordSubspace = recordSubspace;
         }
 
-        public static Builder newBuilder(@Nonnull Subspace indexSubspace, @Nonnull byte[] hopInfo, @Nonnull Subspace recordSubspace) {
-            return new Builder(indexSubspace, hopInfo, recordSubspace);
+        public static Builder newBuilder(@Nonnull Subspace indexSubspace, @Nonnull byte[] hopInfo) {
+            return new Builder(indexSubspace, hopInfo);
         }
 
+        @SuppressWarnings({"rawtypes", "unchecked"})
         protected AsyncIterator<KeyValue> scanRange(@Nonnull ReadTransaction transaction,
                                                     @Nonnull KeySelector begin,
                                                     @Nonnull KeySelector end,
                                                     int limit, boolean reverse,
                                                     @Nonnull StreamingMode streamingMode) {
-            return transaction
-                    .getRangeAndFlatMap(begin, end, hopInfo, limit, reverse, streamingMode)
+            InstrumentedReadTransaction irt = (InstrumentedReadTransaction)transaction;
+            return irt
+                    .getRangeAndFlatMap2(begin, end, hopInfo, limit, reverse, streamingMode)
                     .iterator();
-        }
-
-        protected int calculatePrefixLength() {
-            return recordSubspace.pack().length;
         }
     }
 }

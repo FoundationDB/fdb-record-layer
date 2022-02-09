@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -85,13 +86,14 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional;
     @Nonnull
     private final Type resultType;
-    private final boolean useIndexPrefetch;
+    @Nonnull
+    private final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nonnull IndexScanType scanType,
                                 @Nonnull final ScanComparisons comparisons,
                                 final boolean reverse) {
-        this(indexName, null, false, scanType, comparisons, reverse, false, Optional.empty());
+        this(indexName, null, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE, scanType, comparisons, reverse, false, Optional.empty());
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
@@ -108,7 +110,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
-                                final boolean useIndexPrefetch,
+                                @Nonnull final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch,
                                 @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted,
@@ -131,6 +133,41 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this.matchCandidateOptional = matchCandidateOptional;
         this.resultType = resultType;
         this.useIndexPrefetch = useIndexPrefetch;
+    }
+
+    @Nonnull
+    @Override
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation, @Nonnull final ExecuteProperties executeProperties) {
+        switch (useIndexPrefetch) {
+            case NONE:
+                // Use the default implementation for index scan
+                return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
+            case USE_INDEX_PREFETCH:
+                // Use index prefetch without fallback
+                return executeUsingIndexPrefetch(store, context, continuation, executeProperties);
+            case USE_INDEX_PREFETCH_WITH_FALLBACK:
+                // Use Index prefetch and fall back to regular index scan.
+                // This is not ideal, but using teh fallback mechanism here separates the execution part from the planning part
+                // (No need to plan again) and from failures at other parts of the execution.
+                try {
+                    return executeUsingIndexPrefetch(store, context, continuation, executeProperties);
+                } catch (Exception ex) {
+                    // Need to log the error
+                    return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
+                }
+            default:
+                throw new RecordCoreException("Unknown useIndexPrefetch option").addLogInfo("option", useIndexPrefetch);
+        }
+    }
+
+    @Nonnull
+    private <M extends Message> RecordCursor<QueryResult> executeUsingIndexPrefetch(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
+                                                                                    @Nullable final byte [] continuation, @Nonnull final ExecuteProperties executeProperties) {
+        final TupleRange range = getComparisons().toTupleRange(store, context);
+        return store.scanIndexPrefetch(getIndexName(), getScanType(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()))
+                .map(store::queriedRecordOfMessage)
+                .map(QueryResult::of);
     }
 
     @Nonnull
@@ -211,11 +248,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateOptional() {
         return matchCandidateOptional;
-    }
-
-    @Override
-    public boolean shouldUseIndexPreferch() {
-        return useIndexPrefetch;
     }
 
     @Override

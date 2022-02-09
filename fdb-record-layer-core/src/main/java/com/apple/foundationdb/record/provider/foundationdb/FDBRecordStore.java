@@ -58,6 +58,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
@@ -1217,28 +1218,51 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final IndexScanType scanType, final TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
                                                                                 final byte[] continuation, final ScanProperties scanProperties) {
-        Subspace recordSubspace = recordsSubspace();
-        IndexMaintainer indexMaintainer = getIndexMaintainer(index);
-        Subspace indexSubspace = indexMaintainer.getIndexSubspace();
-        final Tuple hopInfo = createHopInfo(indexSubspace, recordSubspace, commonPrimaryKey, index);
-
         if (!isIndexReadable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
         }
-        RecordCursor<FDBIndexedRawRecord<Message>> records = indexMaintainer.scanIndexPrefetch(scanType, range, hopInfo.pack(), recordSubspace, continuation, scanProperties);
 
-        return records.mapPipelined(indexedRawRecord -> {
-            final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
-            final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
+        Subspace recordSubspace = recordsSubspace();
+        IndexMaintainer indexMaintainer = getIndexMaintainer(index);
+        Subspace indexSubspace = indexMaintainer.getIndexSubspace();
+        final Tuple hopInfo = createHopInfo(indexSubspace, recordSubspace, commonPrimaryKey, index);
+        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanIndexPrefetch(scanType, range, hopInfo.pack(), recordSubspace, continuation, scanProperties);
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+
+        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo(); // ??
+
+        return indexEntries.mapPipelined(mappedResult ->  {
+            FDBRawRecord fdbRawRecord = unsplitSingleRecord(recordSubspace, sizeInfo, mappedResult.getRawRecord(), scanProperties);
+            final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.of(CompletableFuture.completedFuture(fdbRawRecord.getVersion()));
             // TODO: Do we still support old version format?
 //            if (useOldVersionFormat()) {
 //                versionFutureOptional = loadRecordVersionAsync(primaryKey);
 //            }
-            CompletableFuture<FDBStoredRecord<Message>> storedRecord = deserializeRecord(serializer, indexedRawRecord.getRawRecord(), metaData, versionFutureOptional);
-            return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
+            CompletableFuture<FDBStoredRecord<Message>> storedRecord = deserializeRecord(serializer, fdbRawRecord, metaData, versionFutureOptional);
+            return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(mappedResult.getIndexEntry(), rec));
         }, 1);
+    }
+
+    /**
+     * Create and return an instance of {@link FDBRawRecord} from a given {@link KeyValueAndMappedReqAndResult}. The given
+     * parameter represents a series of record splits (and optional version), that the method will "unsplit" and reconstruct
+     * into a single raw record.
+     * @param recordSubspace the subspace for the record to allow the record keys to be identified from the splits
+     * @param sizeInfo Size Info to collect metrics
+     * @param mappedResult the record splits, packed into a KeyValueAndMappedReqAndResult
+     * @param scanProperties the scam properties to use for the unsplitting
+     * @return an instance of {@link FDBRawRecord} reconsrtucted from the given record splits
+     */
+    private FDBRawRecord unsplitSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo, final KeyValueAndMappedReqAndResult mappedResult, final ScanProperties scanProperties) {
+        // Hard cast - this should be fixed by the new API from FDB
+        KeyValueAndMappedReqAndResult.GetRangeReqAndResult recordRange = (KeyValueAndMappedReqAndResult.GetRangeReqAndResult)(mappedResult.getMappedReqAndResult());
+        List<KeyValue> recordSplits = recordRange.getResult().getValues();
+        ListCursor<KeyValue> splitCursor = new ListCursor<>(recordSplits, null);
+
+        RecordCursor<FDBRawRecord> unsplitRecordCursor = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, splitCursor, false, sizeInfo, scanProperties);
+        return unsplitRecordCursor.getNext().get();
     }
 
     /**

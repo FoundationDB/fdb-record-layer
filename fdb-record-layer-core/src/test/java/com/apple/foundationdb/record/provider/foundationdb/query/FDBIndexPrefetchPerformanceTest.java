@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -74,7 +75,7 @@ class FDBIndexPrefetchPerformanceTest extends FDBRecordStoreQueryTestBase {
         // Run regular index scan
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
-                .setUseIndexPrefetch(false)
+                .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE)
                 .build());
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder().build();
         RecordQueryPlan plan = planner.plan(query);
@@ -86,7 +87,7 @@ class FDBIndexPrefetchPerformanceTest extends FDBRecordStoreQueryTestBase {
         // Run IndexPrefetch plan
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
-                .setUseIndexPrefetch(true)
+                .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH)
                 .build());
         executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
