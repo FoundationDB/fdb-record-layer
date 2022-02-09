@@ -87,7 +87,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
                 );
             }
 
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer(), null);
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
         }
     }
 

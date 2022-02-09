@@ -49,7 +49,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
 
@@ -60,7 +59,6 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     private KeyExpression sort;
     private Boolean duplicates = false;
     private final ScanComparisons groupingComparisons;
-    private final ExecutorService executorService;
 
     @Override
     public boolean equals(final Object o) {
@@ -95,17 +93,16 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     }
 
     public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull Comparisons.LuceneComparison comparison,
-                                final boolean reverse, final ScanComparisons groupingComparisons, @Nullable final ExecutorService service) {
-        this(indexName, IndexScanType.BY_LUCENE, comparison, reverse, null, groupingComparisons, service);
+                                final boolean reverse, final ScanComparisons groupingComparisons) {
+        this(indexName, IndexScanType.BY_LUCENE, comparison, reverse, null, groupingComparisons);
     }
 
     public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType,
                                 @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse,
-                                @Nullable KeyExpression sort, final ScanComparisons groupingComparisons, @Nullable final ExecutorService service) {
+                                @Nullable KeyExpression sort, final ScanComparisons groupingComparisons) {
         super(indexName, scanType, Objects.requireNonNull(ScanComparisons.from(comparison)), reverse);
         this.sort = sort;
         this.groupingComparisons = groupingComparisons;
-        this.executorService = service;
     }
 
     public boolean createsDuplicates() {
@@ -141,8 +138,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         } else if (plan2.groupingComparisons != null) {
             newGrouping = newGrouping.merge(plan2.groupingComparisons);
         }
-        ExecutorService service = plan1.executorService == null ? plan2.executorService : plan1.executorService;
-        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, scanType, comparison, newReverse, newSort, newGrouping, service);
+        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, scanType, comparison, newReverse, newSort, newGrouping);
         if (plan1.createsDuplicates() || plan2.createsDuplicates()) {
             plan.setCreatesDuplicates();
         }
@@ -213,7 +209,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                                                                        @Nonnull final ExecuteProperties executeProperties) {
         final TupleRange range = groupingComparisons == null ? comparisons.toTupleRange() : comparisons.append(groupingComparisons).toTupleRange(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
-        LuceneScanProperties scanProperties = new LuceneScanProperties(executeProperties, sort, executorService, reverse);
+        LuceneScanProperties scanProperties = new LuceneScanProperties(executeProperties, sort, reverse);
         return store.scanIndex(metaData.getIndex(indexName), scanType, range,
                 continuation, scanProperties);
     }

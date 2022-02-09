@@ -106,13 +106,16 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     public FDBRecordContext openContext() {
-        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+        final FDBRecordContextConfig config = contextConfig().build();
+        return fdb.openContext(config);
+    }
+
+    protected FDBRecordContextConfig.Builder contextConfig() {
+        return FDBRecordContextConfig.newBuilder()
                 .setTimer(timer)
                 .setMdcContext(ImmutableMap.of("uuid", UUID.randomUUID().toString()))
                 .setTrackOpen(true)
-                .setSaveOpenStackTrace(true)
-                .build();
-        return fdb.openContext(config);
+                .setSaveOpenStackTrace(true);
     }
 
     @BeforeEach
