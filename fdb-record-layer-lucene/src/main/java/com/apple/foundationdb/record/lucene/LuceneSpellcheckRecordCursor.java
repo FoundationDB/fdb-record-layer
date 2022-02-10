@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
@@ -39,6 +40,9 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.spell.DirectSpellChecker;
 import org.apache.lucene.search.spell.SuggestWord;
+import org.apache.lucene.util.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 //import org.slf4j.Logger;
 //import org.slf4j.LoggerFactory;
 
@@ -61,6 +65,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
 
     // TODO: log some stuff.
     // private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellcheckRecordCursor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneAutoCompleteResultCursor.class);
     @Nonnull
     private final Executor executor;
     @Nonnull
@@ -72,6 +77,8 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
     private final DirectSpellChecker spellchecker;
     @Nullable
     private final FDBStoreTimer timer;
+
+    private IndexReader indexReader;
 
     @Nullable
     private List<IndexEntry> spellcheckSuggestions = null;
@@ -127,6 +134,9 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
             if (r == null) {
                 return RecordCursorResult.exhausted();
             } else {
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Suggestion read as an index entry={}", spellcheckSuggestions.get(currentPosition));
+                }
                 return RecordCursorResult.withNextValue(r, continuationHelper(spellcheckSuggestions.get(currentPosition++)));
             }
         });
@@ -142,6 +152,9 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
 
     @Override
     public void close() {
+        if (indexReader != null) {
+            IOUtils.closeWhileHandlingException(indexReader);
+        }
     }
 
     @Nonnull
@@ -166,7 +179,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
             return;
         }
         long startTime = System.nanoTime();
-        IndexReader indexReader = getIndexReader();
+        indexReader = getIndexReader();
 
         List<Suggestion> suggestionResults = new ArrayList<>();
         for (String field : fields) {
