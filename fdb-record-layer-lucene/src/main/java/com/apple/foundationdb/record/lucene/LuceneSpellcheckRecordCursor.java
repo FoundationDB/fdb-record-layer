@@ -100,7 +100,6 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
             fields = List.of(fieldAndWord[0]);
             wordToSpellCheck = fieldAndWord[1];
         } else {
-            // TODO in a grouped document this doesn't work because the field names all include the grouping key
             fields = List.of(fieldNames);
             wordToSpellCheck = value;
         }
@@ -196,7 +195,8 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 // Map the words from suggestions to index entries.
                 .map(suggestion -> new IndexEntry(
                         state.index,
-                        Tuple.from(groupingKey.isEmpty() ? null : groupingKey.get(0).toString(), suggestion.indexField, suggestion.suggestWord.string),
+                        groupingKey == null ? Tuple.from(suggestion.indexField, suggestion.suggestWord.string) :
+                            groupingKey.add(suggestion.indexField).add(suggestion.suggestWord.string),
                         Tuple.from(suggestion.indexField)))
                 .collect(Collectors.toList());
         if (timer != null) {

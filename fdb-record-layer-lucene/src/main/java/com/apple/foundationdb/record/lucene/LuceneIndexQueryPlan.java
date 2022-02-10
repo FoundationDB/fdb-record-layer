@@ -157,10 +157,10 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
+        if (recordTypes.size() != 1) {
+            throw new RecordCoreException("No lucene index should span multiple record types");
+        }
         if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE || scanType == IndexScanType.BY_LUCENE_SPELLCHECK) {
-            if (recordTypes.size() != 1) {
-                throw new RecordCoreException("No lucene index should span multiple record types");
-            }
             final RecordType recordType = recordTypes.iterator().next();
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
             return entryRecordCursor
