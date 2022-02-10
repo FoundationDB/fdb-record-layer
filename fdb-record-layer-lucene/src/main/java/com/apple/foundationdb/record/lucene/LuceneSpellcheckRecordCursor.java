@@ -192,7 +192,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 // Map the words from suggestions to index entries.
                 .map(suggestion -> new IndexEntry(
                         state.index,
-                        Tuple.from(groupingKey == null || groupingKey.isEmpty() ? "": groupingKey.getString(0),
+                        Tuple.from(groupingKey == null || groupingKey.isEmpty() ? "" : groupingKey.getString(0),
                                 suggestion.indexField, suggestion.suggestWord.string),
                         Tuple.from(suggestion.suggestWord.score)))
                 .collect(Collectors.toList());
