@@ -810,6 +810,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             IndexEntry result = results.get(0);
             assertEquals("keyboard", result.getKey().getString(2));
             assertEquals("text", result.getKey().getString(1));
+            assertEquals(0.85714287F, result.getValue().get(0));
 
             List<IndexEntry> results2 = recordStore.scanIndex(SPELLCHECK_INDEX,
                     IndexScanType.BY_LUCENE_SPELLCHECK,
@@ -820,6 +821,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             IndexEntry result2 = results.get(0);
             assertEquals("keyboard", result.getKey().get(2));
             assertEquals("text", result.getKey().get(1));
+            assertEquals(0.85714287F, result.getValue().get(0));
         }
 
 
@@ -841,6 +843,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             assertEquals(1, indexEntries.size());
             IndexEntry indexEntry = indexEntries.get(0);
+            assertEquals(0.8F, indexEntry.getValue().get(0));
 
             Descriptors.Descriptor recordDescriptor = TestRecordsTextProto.MapDocument.getDescriptor();
             IndexKeyValueToPartialRecord toPartialRecord = LuceneIndexQueryPlan.getToPartialRecord(
@@ -950,8 +953,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "tbre", List.of(
                     Pair.of("tire", "text2"),
                     Pair.of("tare", "text")));
-
-            // TODO add tests for grouping
         }
     }
 
