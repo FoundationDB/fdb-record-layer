@@ -130,7 +130,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Verify.verify(range.getLow() != null);
         Verify.verify(scanType == IndexScanType.BY_LUCENE
                       || scanType == IndexScanType.BY_LUCENE_FULL_TEXT
-                      || scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE);
+                      || scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE
+                      || scanType == IndexScanType.BY_LUCENE_SPELLCHECK);
 
         if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE) {
             if (!autoCompleteEnabled) {
@@ -145,12 +146,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     range.getLow().getString(0), executor, scanProperties, state, highlightForAutoCompleteIfEnabled);
         }
 
+        String[] fieldNames = indexTextFields(state.index, state.store.getRecordMetaData());
+        if (scanType.equals(IndexScanType.BY_LUCENE_SPELLCHECK)) {
+            if (continuation != null) {
+                throw new RecordCoreArgumentException("Spellcheck does not currently support continuation scanning");
+            }
+            return new LuceneSpellcheckRecordCursor(range.getLow().getString(0), executor,
+                    scanProperties, state, Tuple.fromStream(range.getLow().stream().skip(1)), fieldNames);
+        }
+
         try {
             // This cannot work with nested documents the way that we currently use them. BlockJoin will be essential for this
             // functionality in this way.
             QueryParser parser;
             if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
-                String[] fieldNames = indexTextFields(state.index, state.store.getRecordMetaData());
                 parser = new MultiFieldQueryParser(fieldNames, queryAnalyzer);
                 parser.setDefaultOperator(QueryParser.Operator.OR);
             } else {
@@ -284,6 +293,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
         }
 
+        //TODO: SonarQube cannot identify that if the newRecord is null then the newRecordFields will be empty.
+        // There's actually no possibility of a NPE here. (line 304/306)
+        if (newRecord == null) {
+            return AsyncUtil.DONE;
+        }
         // update new
         try {
             for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : newRecordFields.entrySet()) {

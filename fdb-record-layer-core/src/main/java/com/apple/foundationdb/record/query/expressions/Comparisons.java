@@ -558,6 +558,7 @@ public class Comparisons {
         FULL_TEXT_LUCENE_QUERY,
         FULL_TEXT_LUCENE_QUERY_HIGHLIGHT,
         FULL_TEXT_LUCENE_AUTO_COMPLETE,
+        FULL_TEXT_LUCENE_SPELLCHECK,
         @API(API.Status.EXPERIMENTAL)
         SORT(false);
 
@@ -1920,7 +1921,9 @@ public class Comparisons {
         public LuceneComparison(@Nonnull String query, @Nonnull Type type) {
             this.query = query;
             this.type = type;
-            if (type != Type.FULL_TEXT_LUCENE_QUERY && type != Type.FULL_TEXT_LUCENE_AUTO_COMPLETE) {
+            if (type != Type.FULL_TEXT_LUCENE_QUERY
+                    && type != Type.FULL_TEXT_LUCENE_AUTO_COMPLETE
+                    && type != Type.FULL_TEXT_LUCENE_SPELLCHECK) {
                 throw new RecordCoreException("Invalid type for lucene comparison: " + type.name());
             }
         }
