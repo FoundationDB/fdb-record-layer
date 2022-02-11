@@ -75,7 +75,7 @@ public interface Statement extends AutoCloseable {
         return executeDelete(tableName, keys.iterator(), options);
     }
 
-    Continuation getContinuation();
+    Continuation getContinuation() throws RelationalException;
 
     @Override
     void close() throws RelationalException;

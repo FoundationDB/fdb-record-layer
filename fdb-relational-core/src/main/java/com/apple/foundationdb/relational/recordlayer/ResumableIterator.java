@@ -53,8 +53,9 @@ public interface ResumableIterator<T> extends Iterator<T>, AutoCloseable {
      *   </ul>
      *
      * @return A {@code Continuation} that can be used to resume the iteration over the elements.
+     * @throws RelationalException if the continuation cannot be retrieved
      */
-    Continuation getContinuation();
+    Continuation getContinuation() throws RelationalException;
 
     /**
      * Returns an indication on whether the iterator has stopped returning elements before reaching the final element.

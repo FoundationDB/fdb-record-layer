@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.Collections;
 
 public class RecordTypeKeyTest {
@@ -54,7 +56,7 @@ public class RecordTypeKeyTest {
     final URI dbUrl = URI.create("rlsc:embed:///type_key_db");
 
     @BeforeEach
-    public final void setupCatalog() {
+    public final void setupCatalog() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         RecordTypeBuilder recordBuilder = builder.getRecordType("RestaurantRecord");
         recordBuilder.setRecordTypeKey(0);
@@ -77,12 +79,12 @@ public class RecordTypeKeyTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws RelationalException {
         catalog.deleteDatabase(URI.create("/type_key_db"));
     }
 
     @Test
-    void testPrimaryKeyWithOnlyRecordTypeKey() {
+    void testPrimaryKeyWithOnlyRecordTypeKey() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();
@@ -114,7 +116,7 @@ public class RecordTypeKeyTest {
     }
 
     @Test
-    void testScanningWithUnknownKeys() {
+    void testScanningWithUnknownKeys() throws RelationalException {
         try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();
@@ -132,13 +134,13 @@ public class RecordTypeKeyTest {
                 // Scan is expected to rejected because it uses fields which are not included in primary key
                 RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> s.executeScan(scan, Options.create()));
                 Assertions.assertEquals("Unknown keys for primary key of <RestaurantRecord>, unknown keys: <REST_NO>", exception.getMessage());
-                Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
+                Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
             }
         }
     }
 
     @Test
-    void canGetWithRecordTypeInPrimaryKey() {
+    void canGetWithRecordTypeInPrimaryKey() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();
@@ -160,7 +162,7 @@ public class RecordTypeKeyTest {
     }
 
     @Test
-    void canGetWithRecordTypeKeyIndex() {
+    void canGetWithRecordTypeKeyIndex() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();

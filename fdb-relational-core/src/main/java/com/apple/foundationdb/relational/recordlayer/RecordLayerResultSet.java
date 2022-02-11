@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import java.sql.SQLException;
 import java.util.List;
 
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
@@ -52,7 +53,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     public RecordLayerResultSet(Scannable scannable, NestableTuple start, NestableTuple end,
                                 RecordStoreConnection sourceConnection, QueryProperties scanProperties,
-                                Continuation continuation) {
+                                Continuation continuation) throws RelationalException {
         this.scannable = scannable;
         this.startKey = start;
         this.endKey = end;
@@ -63,10 +64,14 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public boolean next() throws RelationalException {
+    public boolean next() throws SQLException {
         currentRow = null;
         if (currentCursor == null) {
-            currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, continuation, scanProperties);
+            try {
+                currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, continuation, scanProperties);
+            } catch (RelationalException e) {
+                throw e.toSqlException();
+            }
         }
 
         if (!currentCursor.hasNext()) {
@@ -78,35 +83,43 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public void close() throws RelationalException {
+    public void close() throws SQLException {
         if (currentCursor != null) {
-            currentCursor.close();
+            try {
+                currentCursor.close();
+            } catch (RelationalException e) {
+                throw e.toSqlException();
+            }
         }
     }
 
     @Override
-    public Object getObject(int position) throws RelationalException {
-        if (currentRow == null) {
-            throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted");
+    public Object getObject(int position) throws SQLException {
+        try {
+            if (currentRow == null) {
+                throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted");
+            }
+            if (supportsMessageParsing()) {
+                Message m = ((MessageTuple) currentRow.value()).parseMessage();
+                return m.getField(m.getDescriptorForType().findFieldByNumber(position + 1));
+            }
+            if (position < 0 || position >= (currentRow.keyColumnCount() + currentRow.value().getNumFields())) {
+                throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
+            }
+            Object o;
+            if (position < currentRow.keyColumnCount()) {
+                o = currentRow.key().getObject(position);
+            } else {
+                o = currentRow.value().getObject(position - currentRow.keyColumnCount());
+            }
+            return o;
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
-        if (supportsMessageParsing()) {
-            Message m = ((MessageTuple) currentRow.value()).parseMessage();
-            return m.getField(m.getDescriptorForType().findFieldByNumber(position + 1));
-        }
-        if (position < 0 || position >= (currentRow.keyColumnCount() + currentRow.value().getNumFields())) {
-            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
-        }
-        Object o;
-        if (position < currentRow.keyColumnCount()) {
-            o = currentRow.key().getObject(position);
-        } else {
-            o = currentRow.value().getObject(position - currentRow.keyColumnCount());
-        }
-        return o;
     }
 
     @Override
-    protected int getPosition(String fieldName) {
+    protected int getPosition(String fieldName) throws SQLException, InvalidColumnReferenceException {
         if (supportsMessageParsing()) {
             Message m = parseMessage();
             final List<Descriptors.FieldDescriptor> fields = m.getDescriptorForType().getFields();
@@ -137,17 +150,17 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <M extends Message> M parseMessage() throws OperationUnsupportedException {
+    public <M extends Message> M parseMessage() throws SQLException {
         if (!supportsMessageParsing()) {
-            throw new OperationUnsupportedException("This ResultSet does not support Message Parsing");
+            throw new OperationUnsupportedException("This ResultSet does not support Message Parsing").toSqlException();
         }
         return ((MessageTuple) currentRow.value()).parseMessage();
     }
 
     @Override
-    public int getNumFields() {
+    public int getNumFields() throws SQLException {
         if (currentRow == null) {
-            throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted");
+            throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted").toSqlException();
         }
         if (supportsMessageParsing()) {
             return parseMessage().getDescriptorForType().getFields().size();
@@ -161,7 +174,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public Continuation getContinuation() {
+    public Continuation getContinuation() throws RelationalException {
         if (currentCursor == null) {
             currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, continuation, scanProperties);
         }

@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
@@ -81,7 +82,7 @@ public final class RecordLayerCatalog implements Catalog {
 
     @Override
     @Nonnull
-    public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
+    public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) {
         return metaDataStore.loadTemplate(templateId);
     }
 
@@ -153,13 +154,13 @@ public final class RecordLayerCatalog implements Catalog {
 
         public RecordLayerCatalog build() throws RelationalException {
             if (metadataProvider == null) {
-                throw new RelationalException("Metadata provider not supplied", RelationalException.ErrorCode.INVALID_PARAMETER);
+                throw new RelationalException("Metadata provider not supplied", ErrorCode.INVALID_PARAMETER);
             }
             if (serializerRegistry == null) {
-                throw new RelationalException("Serializer registry not supplied", RelationalException.ErrorCode.INVALID_PARAMETER);
+                throw new RelationalException("Serializer registry not supplied", ErrorCode.INVALID_PARAMETER);
             }
             if (keySpace == null) {
-                throw new RelationalException("Key space not supplied", RelationalException.ErrorCode.INVALID_PARAMETER);
+                throw new RelationalException("Key space not supplied", ErrorCode.INVALID_PARAMETER);
             }
             if (formatVersion <= 0) {
                 formatVersion = DEFAULT_FORMAT_VERSION;

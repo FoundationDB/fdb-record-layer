@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.WhereClause;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.AndClause;
 import com.apple.foundationdb.relational.recordlayer.query.OrClause;
 import com.apple.foundationdb.relational.recordlayer.query.RelationalQuery;
@@ -45,6 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -53,7 +55,7 @@ public class QueryTest {
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @BeforeEach
-    public final void setupCatalog() {
+    public final void setupCatalog() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
@@ -65,12 +67,12 @@ public class QueryTest {
     }
 
     @AfterEach
-    public final void tearDown() {
+    public final void tearDown() throws RelationalException {
         catalog.deleteDatabase(URI.create("/query_test"));
     }
 
     @Test
-    void canExecuteABasicQuery() {
+    void canExecuteABasicQuery() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
@@ -89,7 +91,7 @@ public class QueryTest {
     }
 
     @Test
-    void canQuerySpecificColumns() {
+    void canQuerySpecificColumns() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
@@ -112,7 +114,7 @@ public class QueryTest {
     }
 
     @Test
-    void canQuerySpecificColumnsWithSimpleWhereClause() {
+    void canQuerySpecificColumnsWithSimpleWhereClause() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
@@ -132,7 +134,7 @@ public class QueryTest {
     }
 
     @Test
-    void canQuerySpecificColumnsWithOrClause() {
+    void canQuerySpecificColumnsWithOrClause() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
@@ -154,7 +156,7 @@ public class QueryTest {
     }
 
     @Test
-    void canQuerySpecificColumnsWithAndClause() {
+    void canQuerySpecificColumnsWithAndClause() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();

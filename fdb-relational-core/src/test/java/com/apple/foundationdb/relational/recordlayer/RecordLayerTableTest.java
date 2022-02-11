@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.Collections;
 
 /**
@@ -53,7 +55,7 @@ public class RecordLayerTableTest {
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @BeforeEach
-    public final void setupCatalog() {
+    public final void setupCatalog() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
@@ -65,12 +67,12 @@ public class RecordLayerTableTest {
     }
 
     @AfterEach
-    public final void tearDown() {
+    public final void tearDown() throws RelationalException {
         catalog.deleteDatabase(URI.create("/record_layer_table_test"));
     }
 
     @Test
-    void canInsertAndGetASingleRecord() {
+    void canInsertAndGetASingleRecord() throws RelationalException, SQLException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
         try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
@@ -102,7 +104,7 @@ public class RecordLayerTableTest {
     }
 
     @Test
-    void canDeleteASingleRecord() {
+    void canDeleteASingleRecord() throws RelationalException, SQLException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
         try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
@@ -204,7 +206,7 @@ public class RecordLayerTableTest {
     }
 
     @Test
-    void demo() {
+    void demo() throws RelationalException, SQLException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
 
         try (DatabaseConnection conn = Relational.connect(dbUrl, null, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
@@ -267,7 +269,7 @@ public class RecordLayerTableTest {
         }
     }
 
-    private void assertMatches(RelationalResultSet resultSet, Restaurant.RestaurantRecord...r) {
+    private void assertMatches(RelationalResultSet resultSet, Restaurant.RestaurantRecord...r) throws SQLException {
         Assertions.assertNotNull(resultSet, "No result set returned!");
         //TODO(bfines) do Set operations here instead
         for (Restaurant.RestaurantRecord record : r) {

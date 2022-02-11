@@ -50,11 +50,12 @@ public interface Table extends Scannable, AutoCloseable {
     //TODO(bfines) should we really use a Protobuf here? Or a KV pair instead? For now, Message will work
     boolean insertRecord(@Nonnull Message message) throws RelationalException;
 
-    Set<Index> getAvailableIndexes();
+    Set<Index> getAvailableIndexes() throws RelationalException;
 
     @Override
     void close() throws RelationalException;
 
+    @Nonnull
     @Override
     String getName();
 
@@ -62,6 +63,7 @@ public interface Table extends Scannable, AutoCloseable {
      * Get the metadata descriptor for this table.
      *
      * @return the metadata descriptor for this table.
+     * @throws RelationalException if the metadata could not be retrieved
      */
-    @Nonnull TableMetaData getMetaData();
+    @Nonnull TableMetaData getMetaData() throws RelationalException;
 }

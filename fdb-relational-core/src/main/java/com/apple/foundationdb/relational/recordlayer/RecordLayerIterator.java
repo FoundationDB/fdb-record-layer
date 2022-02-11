@@ -54,12 +54,12 @@ public final class RecordLayerIterator<T> implements ResumableIterator<KeyValue>
     }
 
     @Override
-    public void close() throws RelationalException {
+    public void close() {
         recordCursor.close();
     }
 
     @Override
-    public Continuation getContinuation() {
+    public Continuation getContinuation() throws RelationalException {
         //TODO(bfines) replace this with mutable abstraction?
         return ContinuationImpl.copyOf(continuation);
     }

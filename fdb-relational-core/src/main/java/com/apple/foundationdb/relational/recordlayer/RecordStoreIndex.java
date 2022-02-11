@@ -102,12 +102,12 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    public KeyBuilder getKeyBuilder() {
+    public KeyBuilder getKeyBuilder() throws RelationalException {
         return new KeyBuilder(table.loadRecordType(), index.getRootExpression(), "index: <" + index.getName() + ">");
     }
 
     @Override
-    public String[] getFieldNames() {
+    public String[] getFieldNames() throws RelationalException {
         KeyExpression re = index.getRootExpression();
         if (re instanceof KeyWithValueExpression) {
             KeyWithValueExpression kve = (KeyWithValueExpression) re;
@@ -127,12 +127,12 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    public String[] getKeyFieldNames() {
+    public String[] getKeyFieldNames() throws RelationalException {
         KeyExpression rootExpression = index.getRootExpression();
         return getFields(rootExpression);
     }
 
-    private String[] getFields(KeyExpression expression) {
+    private String[] getFields(KeyExpression expression) throws RelationalException {
         Descriptors.Descriptor descriptor = table.loadRecordType().getDescriptor();
         if (expression instanceof KeyWithValueExpression) {
             expression = ((KeyWithValueExpression) expression).getKeyExpression();

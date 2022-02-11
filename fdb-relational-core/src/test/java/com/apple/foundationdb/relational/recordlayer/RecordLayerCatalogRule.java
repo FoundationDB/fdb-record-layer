@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -80,7 +81,7 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     }
 
     @Override
-    public void beforeEach(ExtensionContext context) {
+    public void beforeEach(ExtensionContext context) throws RelationalException {
         KeySpace keySpace = keySpaceSupplier.get();
         fdbDatabase = FDBDatabaseFactory.instance().getDatabase();
 
@@ -104,8 +105,8 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         try {
             return engine.getCatalog().getDatabase(dbUrl);
         } catch (RelationalException ve) {
-            if (ve.getErrorCode().equals(RelationalException.ErrorCode.INVALID_PATH)) {
-                throw new RelationalException("Database is unknown or does not exist: <" + dbUrl + ">", RelationalException.ErrorCode.UNDEFINED_DATABASE, ve);
+            if (ve.getErrorCode().equals(ErrorCode.INVALID_PATH)) {
+                throw new RelationalException("Database is unknown or does not exist: <" + dbUrl + ">", ErrorCode.UNDEFINED_DATABASE, ve);
             } else {
                 throw ve;
             }
@@ -130,14 +131,14 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         return new KeySpace(dbDirectory);
     }
 
-    public void createDatabase(URI dbUri, DatabaseTemplate dbTemplate) {
+    public void createDatabase(URI dbUri, DatabaseTemplate dbTemplate) throws RelationalException {
         try (final Transaction txn = new RecordContextTransaction(fdbDatabase.openContext())) {
             engine.getConstantActionFactory().getCreateDatabaseConstantAction(dbUri, dbTemplate, Options.create()).execute(txn);
             txn.commit();
         }
     }
 
-    public void createSchemaTemplate(RecordLayerTemplate template) {
+    public void createSchemaTemplate(RecordLayerTemplate template) throws RelationalException {
         try (final Transaction txn = new RecordContextTransaction(fdbDatabase.openContext())) {
             engine.getConstantActionFactory().getCreateSchemaTemplateConstantAction(template, Options.create()).execute(txn);
             txn.commit();

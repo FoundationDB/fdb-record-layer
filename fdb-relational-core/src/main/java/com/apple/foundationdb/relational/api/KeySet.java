@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.util.Collections;
@@ -35,8 +36,8 @@ public class KeySet {
         }
 
         @Override
-        public KeySet setKeyColumn(String columnName, Object value) {
-            throw new RelationalException("The Empty Keyset cannot be modified", RelationalException.ErrorCode.UNSUPPORTED_OPERATION);
+        public KeySet setKeyColumn(String columnName, Object value) throws RelationalException {
+            throw new RelationalException("The Empty Keyset cannot be modified", ErrorCode.UNSUPPORTED_OPERATION);
         }
     };
 
@@ -46,7 +47,14 @@ public class KeySet {
         return Collections.unmodifiableMap(keySet);
     }
 
-    public KeySet setKeyColumn(String columnName, Object value) {
+    /**
+     * Sets the map entry (columnName.UPPER, value).
+     * @param columnName the name of the column
+     * @param value the value object to insert in the KeySet
+     * @return the constructed key set that was inserted in the map
+     * @throws RelationalException Unsupported operation if the KeySet is immutable
+     */
+    public KeySet setKeyColumn(String columnName, Object value) throws RelationalException {
         if (keySet == null) {
             keySet = new HashMap<>();
         }

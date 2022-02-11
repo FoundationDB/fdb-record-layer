@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -41,6 +43,7 @@ public interface SchemaTemplate {
      * @return true if this schema is valid w.r.t to this template, {@code false} if the schema
      * has "drifted" (i.e. the schema is no longer the same as the template defines). This can happen
      * whenever the template has changed but the schema has not.
+     * @throws RelationalException if something went wrong.
      */
-    boolean isValid(@Nonnull DatabaseSchema schema);
+    boolean isValid(@Nonnull DatabaseSchema schema) throws RelationalException;
 }

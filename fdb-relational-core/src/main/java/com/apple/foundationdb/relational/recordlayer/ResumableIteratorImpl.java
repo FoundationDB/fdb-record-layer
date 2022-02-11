@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
-import static com.apple.foundationdb.relational.api.exceptions.RelationalException.ErrorCode.INVALID_PARAMETER;
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.INVALID_PARAMETER;
 
 /**
  * A resumable iterator which moves over an {@code Iterator}, optionally starting from a given {@code Continuation}.
@@ -44,12 +44,12 @@ public class ResumableIteratorImpl<T> implements ResumableIterator<T> {
     private Continuation continuation;
 
     public ResumableIteratorImpl(@Nonnull Iterator<T> iterator,
-                                 @Nullable Continuation continuation) {
+                                 @Nullable Continuation continuation) throws RelationalException {
         this.iterator = iterator;
         alignContinuation(continuation);
     }
 
-    private void alignContinuation(Continuation continuation) {
+    private void alignContinuation(Continuation continuation) throws RelationalException {
         if (continuation == null) {
             if (iterator.hasNext()) {
                 this.continuation = Continuation.BEGIN;
@@ -89,7 +89,7 @@ public class ResumableIteratorImpl<T> implements ResumableIterator<T> {
     }
 
     @Override
-    public Continuation getContinuation() {
+    public Continuation getContinuation() throws RelationalException {
         return ContinuationImpl.copyOf(continuation);
     }
 

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.net.URI;
@@ -61,10 +62,10 @@ public final class KeySpaceUtils {
     }
 
     @Nonnull
-    public static KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
+    public static KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) throws RelationalException {
         String path = getPath(url);
         if (path.length() < 1) {
-            throw new RelationalException("<" + url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
+            throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
         }
         if (!path.startsWith("/")) {
             path = "/" + path;
@@ -85,21 +86,21 @@ public final class KeySpaceUtils {
         }
 
         if (thePath == null) {
-            throw new RelationalException("<" + url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
+            throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
         }
 
         return thePath;
     }
 
-    public static KeySpacePath getSchemaPath(@Nonnull URI schemaUrl, @Nonnull KeySpace keySpace) {
+    public static KeySpacePath getSchemaPath(@Nonnull URI schemaUrl, @Nonnull KeySpace keySpace) throws RelationalException {
         String schemaPath = getPath(schemaUrl);
         int indexOfLastSlash = schemaPath.lastIndexOf("/");
         if (indexOfLastSlash < 1) {
-            throw new RelationalException("Invalid schemaUrl: <" + schemaUrl + ">", RelationalException.ErrorCode.INVALID_PATH);
+            throw new RelationalException("Invalid schemaUrl: <" + schemaUrl + ">", ErrorCode.INVALID_PATH);
         }
         String schemaId = schemaPath.substring(indexOfLastSlash + 1);
         if (schemaId.isEmpty()) {
-            throw new RelationalException("Invalid schemaUrl with empty schema: <" + schemaUrl + ">", RelationalException.ErrorCode.INVALID_PATH);
+            throw new RelationalException("Invalid schemaUrl with empty schema: <" + schemaUrl + ">", ErrorCode.INVALID_PATH);
         }
         URI dbUrl = URI.create(schemaPath.substring(0, indexOfLastSlash));
         KeySpacePath dbPath = uriToPath(dbUrl, keySpace);

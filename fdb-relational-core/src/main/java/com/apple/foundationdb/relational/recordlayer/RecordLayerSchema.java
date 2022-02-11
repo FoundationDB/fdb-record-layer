@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.util.HashMap;
@@ -57,7 +58,7 @@ public class RecordLayerSchema implements DatabaseSchema {
      */
     private final Map<String, RecordTypeTable> loadedTables = new HashMap<>();
 
-    public RecordLayerSchema(@Nonnull String schemaName, RecordLayerDatabase recordLayerDatabase, RecordStoreConnection connection, @Nonnull Options options) {
+    public RecordLayerSchema(@Nonnull String schemaName, RecordLayerDatabase recordLayerDatabase, RecordStoreConnection connection, @Nonnull Options options) throws RelationalException {
         this.schemaName = schemaName;
         this.db = recordLayerDatabase;
         this.conn = connection;
@@ -71,13 +72,13 @@ public class RecordLayerSchema implements DatabaseSchema {
     }
 
     @Override
-    public int getSchemaVersion() {
+    public int getSchemaVersion() throws RelationalException {
         FDBRecordStore store = loadStore();
         return store.getUserVersion();
     }
 
     @Override
-    public Set<String> listTables() {
+    public Set<String> listTables() throws RelationalException {
         FDBRecordStore store = loadStore();
 
         final Map<String, RecordType> recordTypes = store.getRecordMetaData().getRecordTypes();
@@ -113,13 +114,13 @@ public class RecordLayerSchema implements DatabaseSchema {
 
     /* ****************************************************************************************************************/
     /*package-private helper methods*/
-    FDBRecordStore loadStore() {
+    FDBRecordStore loadStore() throws RelationalException {
         if (!this.conn.inActiveTransaction()) {
             if (this.conn.isAutoCommitEnabled()) {
                 this.conn.beginTransaction();
             } else {
                 throw new RelationalException("cannot load schema without an active transaction",
-                        RelationalException.ErrorCode.TRANSACTION_INACTIVE);
+                        ErrorCode.TRANSACTION_INACTIVE);
             }
         }
 
@@ -131,7 +132,7 @@ public class RecordLayerSchema implements DatabaseSchema {
         return currentStore;
     }
 
-    private FDBRecordStoreBase.StoreExistenceCheck getExistenceCheckGivenOptions(@Nonnull Options options) {
+    private FDBRecordStoreBase.StoreExistenceCheck getExistenceCheckGivenOptions(@Nonnull Options options) throws RelationalException {
         final OperationOption.SchemaExistenceCheck existenceCheck = options.getOption(OperationOption.SCHEMA_EXISTENCE_CHECK,
                 OperationOption.SchemaExistenceCheck.ERROR_IF_NOT_EXISTS);
         switch (existenceCheck) {
@@ -147,7 +148,7 @@ public class RecordLayerSchema implements DatabaseSchema {
                 return FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS;
             default:
                 throw new RelationalException("Invalid StoreExistenceCheck in options: <" + existenceCheck + ">",
-                        RelationalException.ErrorCode.INVALID_PARAMETER);
+                        ErrorCode.INVALID_PARAMETER);
         }
     }
 }

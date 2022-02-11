@@ -41,6 +41,7 @@ public interface Transaction extends AutoCloseable {
      * @param type the type to unwrap it as.
      * @param <T>  the generic type
      * @return this instance, as an instanceof Type T
+     * @throws InternalErrorException if instance types are incompatible
      */
     @Nonnull
     default <T> T unwrap(@Nonnull Class<? extends T> type) throws InternalErrorException {

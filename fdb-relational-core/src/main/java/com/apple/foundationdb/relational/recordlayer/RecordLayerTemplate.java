@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
 
@@ -47,7 +48,7 @@ public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataProvid
     }
 
     @Override
-    public boolean isValid(@Nonnull DatabaseSchema schema) {
+    public boolean isValid(@Nonnull DatabaseSchema schema) throws RelationalException {
         int version = getRecordMetaData().getVersion();
         //TODO(bfines) validate that all the tables and indexes match what is expected
         return schema.getSchemaVersion() >= version;

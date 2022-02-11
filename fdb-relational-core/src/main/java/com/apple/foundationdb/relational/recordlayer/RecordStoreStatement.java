@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.api.Queryable;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -91,7 +92,7 @@ public class RecordStoreStatement implements Statement {
                 }
             }
             if (fieldToUse == null) {
-                throw new RelationalException("Invalid column for table. Table: <" + query.getTable() + ">,column: <" + queryColumn + ">", RelationalException.ErrorCode.INVALID_PARAMETER);
+                throw new RelationalException("Invalid column for table. Table: <" + query.getTable() + ">,column: <" + queryColumn + ">", ErrorCode.INVALID_PARAMETER);
             }
             if (fieldToUse.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                 final Descriptors.Descriptor messageType = fieldToUse.getMessageType();
@@ -254,7 +255,7 @@ public class RecordStoreStatement implements Statement {
     }
 
     @Override
-    public Continuation getContinuation() {
+    public Continuation getContinuation() throws RelationalException {
         throw new OperationUnsupportedException("Not Implemented in the Relational layer");
     }
 
@@ -265,24 +266,24 @@ public class RecordStoreStatement implements Statement {
 
     /* ****************************************************************************************************************/
     /*private helper methods*/
-    private void ensureTransactionActive() {
+    private void ensureTransactionActive() throws RelationalException {
         if (!conn.inActiveTransaction()) {
             if (conn.isAutoCommitEnabled()) {
                 conn.beginTransaction();
             } else {
-                throw new RelationalException("Transaction not begun", RelationalException.ErrorCode.TRANSACTION_INACTIVE);
+                throw new RelationalException("Transaction not begun", ErrorCode.TRANSACTION_INACTIVE);
             }
         }
     }
 
-    private String[] getSchemaAndTable(@Nullable String schemaName, @Nonnull String tableName) {
+    private String[] getSchemaAndTable(@Nullable String schemaName, @Nonnull String tableName) throws RelationalException {
         String schema = schemaName;
         String tableN = tableName;
         if (schema == null) {
             //look for the schema in the table name
             String[] t = tableName.split("\\.");
             if (t.length != 2) {
-                throw new RelationalException("Invalid table format", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
+                throw new RelationalException("Invalid table format", ErrorCode.CANNOT_CONVERT_TYPE);
             }
             schema = t[0];
             tableN = t[1];
@@ -291,7 +292,7 @@ public class RecordStoreStatement implements Statement {
         return new String[]{schema, tableN};
     }
 
-    private @Nonnull Scannable getSourceScannable(@Nonnull Options options, @Nonnull Table table) {
+    private @Nonnull Scannable getSourceScannable(@Nonnull Options options, @Nonnull Table table) throws RelationalException {
         Scannable source;
         String indexName = options.getOption(OperationOption.INDEX_HINT_NAME, null);
         if (indexName != null) {
@@ -304,7 +305,7 @@ public class RecordStoreStatement implements Statement {
                 }
             }
             if (index == null) {
-                throw new RelationalException("Unknown index: <" + indexName + "> on type <" + table.getName() + ">", RelationalException.ErrorCode.UNKNOWN_INDEX);
+                throw new RelationalException("Unknown index: <" + indexName + "> on type <" + table.getName() + ">", ErrorCode.UNKNOWN_INDEX);
             }
             source = index;
         } else {

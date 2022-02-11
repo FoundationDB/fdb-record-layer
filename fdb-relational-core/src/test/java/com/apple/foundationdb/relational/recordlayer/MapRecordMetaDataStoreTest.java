@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
@@ -36,7 +37,7 @@ import java.util.stream.Collectors;
 
 public class MapRecordMetaDataStoreTest {
     @Test
-    void testMapRecordMetaDataStore() {
+    void testMapRecordMetaDataStore() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         MutableRecordMetaDataStore metaDataStore = new MapRecordMetaDataStore();
         RecordLayerTemplate template = new RecordLayerTemplate("testTemplate", builder.build());
@@ -50,7 +51,7 @@ public class MapRecordMetaDataStoreTest {
     }
 
     @Test
-    void cannotMapSchemaToTemplate() {
+    void cannotMapSchemaToTemplate() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         MutableRecordMetaDataStore metaDataStore = new MapRecordMetaDataStore();
         RecordLayerTemplate template = new RecordLayerTemplate("testTemplate", builder.build());
@@ -61,8 +62,8 @@ public class MapRecordMetaDataStoreTest {
         metaDataStore.assignSchemaToTemplate(URI.create("/db/testSchema"), "testTemplate");
 
         //try to map it twice, you should get an error
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> metaDataStore.assignSchemaToTemplate(URI.create("/db/testSchema"), "anotherTemplate"));
-        Assertions.assertEquals(RelationalException.ErrorCode.SCHEMA_MAPPING_ALREADY_EXISTS, ve.getErrorCode(), "Invalid error code!");
-
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> metaDataStore.assignSchemaToTemplate(URI.create("/db/testSchema"), "anotherTemplate"),
+                ErrorCode.SCHEMA_MAPPING_ALREADY_EXISTS);
     }
 }

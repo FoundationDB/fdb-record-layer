@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.net.URI;
@@ -56,7 +57,7 @@ public interface RelationalDatabaseMetaData {
      *
      * @param schema the name of the schema to search.
      * @return a resultset with a schema listing.
-     * @throws RelationalException with ErrorCode {@link RelationalException.ErrorCode#SCHEMA_NOT_FOUND} if the schema
+     * @throws RelationalException with ErrorCode {@link ErrorCode#SCHEMA_NOT_FOUND} if the schema
      * does not exist within this database; a different error code if something systemic goes wrong.
      */
     @Nonnull RelationalResultSet getTables(@Nonnull String schema) throws RelationalException;
@@ -74,7 +75,7 @@ public interface RelationalDatabaseMetaData {
      *
      * @param schema the schema of interest.
      * @param table the table of interest. There must be a table with this name in the specified schema, or a
-     *              {@link RelationalException.ErrorCode#UNDEFINED_TABLE} will be thrown.
+     *              {@link ErrorCode#UNDEFINED_TABLE} will be thrown.
      * @return a ResultSet with a column listing for the table.
      * @throws RelationalException if something goes wrong.
      */
@@ -86,7 +87,7 @@ public interface RelationalDatabaseMetaData {
      *
      * @param schema the schema of interest.
      * @param table the table of interest. There must be a table with this name in the specified schema, or a
-     *              {@link RelationalException.ErrorCode#UNDEFINED_TABLE} will be thrown.
+     *              {@link ErrorCode#UNDEFINED_TABLE} will be thrown.
      * @return the TableMetaData for the Table directly.
      * @throws RelationalException if something goes wrong.
      */

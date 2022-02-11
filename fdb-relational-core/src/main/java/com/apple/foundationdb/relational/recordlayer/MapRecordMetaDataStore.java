@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
@@ -40,13 +41,13 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
     private final ConcurrentMap<URI, String> schemaToTemplateMap = new ConcurrentHashMap<>();
 
     @Override
-    public RecordLayerTemplate loadMetaData(@Nonnull URI schemaUrl) {
+    public RecordLayerTemplate loadMetaData(@Nonnull URI schemaUrl) throws RelationalException {
         //TODO(bfines) if we ever use non-path elements of the URI, this will need to change
         URI schemaKey = convertToUpperCase(schemaUrl);
         String templateId = schemaToTemplateMap.get(schemaKey);
         if (templateId == null) {
             throw new RelationalException("No schema template found for schema: <" + schemaUrl + ">",
-                    RelationalException.ErrorCode.UNKNOWN_SCHEMA);
+                    ErrorCode.UNKNOWN_SCHEMA);
         }
         return templateMap.get(templateId);
     }
@@ -57,11 +58,11 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
     }
 
     @Override
-    public void assignSchemaToTemplate(@Nonnull URI schemaUrl, @Nonnull String templateId) {
+    public void assignSchemaToTemplate(@Nonnull URI schemaUrl, @Nonnull String templateId) throws RelationalException {
         RecordLayerTemplate template = loadTemplate(templateId);
         if (template == null) {
             throw new RelationalException("Unknown or non-existing schema template: <" + templateId + ">",
-                    RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+                    ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
         URI schemaKey = convertToUpperCase(schemaUrl);
         String existingTemplateId = schemaToTemplateMap.putIfAbsent(schemaKey, templateId);
@@ -69,7 +70,7 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
             throw new RelationalException("One schema cannot be assigned with a template twice, schemaKey: <" + schemaKey +
                     ">, existingTemplateId: <" + existingTemplateId +
                     ">, new added templateId: <" + templateId + ">",
-                    RelationalException.ErrorCode.SCHEMA_MAPPING_ALREADY_EXISTS);
+                    ErrorCode.SCHEMA_MAPPING_ALREADY_EXISTS);
         }
     }
 

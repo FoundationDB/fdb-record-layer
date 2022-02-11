@@ -33,9 +33,9 @@ public interface DatabaseSchema extends AutoCloseable {
     @Nonnull
     String getSchemaName();
 
-    int getSchemaVersion();
+    int getSchemaVersion() throws RelationalException;
 
-    Set<String> listTables();
+    Set<String> listTables() throws RelationalException;
 
     @Override
     void close() throws RelationalException;

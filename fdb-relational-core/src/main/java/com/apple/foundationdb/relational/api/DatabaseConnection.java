@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
@@ -59,6 +60,7 @@ public interface DatabaseConnection extends AutoCloseable {
 
     /**
      * If no TransactionConfig passed in, a default config is used for the transaction.
+     * @throws RelationalException if something goes wrong while beginning the transaction.
      */
     default void beginTransaction() throws RelationalException {
         beginTransaction(null);
@@ -77,7 +79,7 @@ public interface DatabaseConnection extends AutoCloseable {
      * schema template).
      *
      * @param schema the schema to set.
-     * @throws RelationalException with error code {@link RelationalException.ErrorCode#SCHEMA_NOT_FOUND}
+     * @throws RelationalException with error code {@link ErrorCode#SCHEMA_NOT_FOUND}
      *                           if no schema of that name exists in the database, and no schema template exists to create one.
      * @throws RelationalException if something goes wrong during execution. This can be anything, so rely
      *                           on the error code to determine exactly what went wrong

@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
@@ -88,7 +89,7 @@ public class RecordStoreConnection implements DatabaseConnection {
             transaction = null;
             usingAnExistingTransaction = false;
         } else {
-            err = new RelationalException("No transaction to commit", RelationalException.ErrorCode.TRANSACTION_INACTIVE);
+            err = new RelationalException("No transaction to commit", ErrorCode.TRANSACTION_INACTIVE);
         }
         if (err != null) {
             throw err;
@@ -136,7 +137,7 @@ public class RecordStoreConnection implements DatabaseConnection {
     }
 
     @Override
-    public void beginTransaction(@Nullable TransactionConfig config) {
+    public void beginTransaction(@Nullable TransactionConfig config) throws RelationalException {
         if (!inActiveTransaction()) {
             transaction = new RecordContextTransaction(fdbDb.openContext(getFDBRecordContextConfig(config == null ? this.transactionConfig : config, frl.getStoreTimer())));
         }
@@ -146,7 +147,7 @@ public class RecordStoreConnection implements DatabaseConnection {
         return transaction != null;
     }
 
-    private FDBRecordContextConfig getFDBRecordContextConfig(@Nullable TransactionConfig config, FDBStoreTimer storeTimer) {
+    private FDBRecordContextConfig getFDBRecordContextConfig(@Nullable TransactionConfig config, FDBStoreTimer storeTimer) throws RelationalException {
         if (config != null) {
             TransactionConfig.WeakReadSemantics weakReadSemantics = config.getWeakReadSemantics();
             return FDBRecordContextConfig.newBuilder()
@@ -171,7 +172,7 @@ public class RecordStoreConnection implements DatabaseConnection {
         }
     }
 
-    private FDBTransactionPriority getPriorityForFDB(TransactionConfig.Priority priority) {
+    private FDBTransactionPriority getPriorityForFDB(TransactionConfig.Priority priority) throws RelationalException {
         switch (priority) {
             case DEFAULT:
                 return FDBTransactionPriority.DEFAULT;
@@ -181,7 +182,7 @@ public class RecordStoreConnection implements DatabaseConnection {
                 return FDBTransactionPriority.SYSTEM_IMMEDIATE;
             default:
                 throw new RelationalException("Invalid transaction priority in the config: <" + priority.name() + ">",
-                        RelationalException.ErrorCode.INVALID_PARAMETER);
+                        ErrorCode.INVALID_PARAMETER);
         }
     }
 }

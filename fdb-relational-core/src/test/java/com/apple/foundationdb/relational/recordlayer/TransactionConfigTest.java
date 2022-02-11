@@ -49,7 +49,7 @@ public class TransactionConfigTest {
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @BeforeEach
-    public final void setupCatalog() {
+    public final void setupCatalog() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
@@ -61,12 +61,12 @@ public class TransactionConfigTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws RelationalException {
         catalog.deleteDatabase(URI.create("/record_layer_transaction_config_test"));
     }
 
     @Test
-    void testRecordInsertionWithTimeOutInConfig() {
+    void testRecordInsertionWithTimeOutInConfig() throws RelationalException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_transaction_config_test");
         try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction(testTransactionConfig());

@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -55,7 +57,7 @@ public class BasicMetadataTest {
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @BeforeEach
-    public final void setupCatalog() {
+    public final void setupCatalog() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
@@ -68,12 +70,12 @@ public class BasicMetadataTest {
     }
 
     @AfterEach
-    public final void tearDown() {
+    public final void tearDown() throws RelationalException {
         catalog.deleteDatabase(URI.create("/basic_metadata_test"));
     }
 
     @Test
-    void canGetSchemasForDatabase() {
+    void canGetSchemasForDatabase() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
@@ -97,7 +99,7 @@ public class BasicMetadataTest {
     }
 
     @Test
-    void canGetTablesForSchema() {
+    void canGetTablesForSchema() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
@@ -120,7 +122,7 @@ public class BasicMetadataTest {
     }
 
     @Test
-    void canGetTableColumns() {
+    void canGetTableColumns() throws RelationalException, SQLException {
         try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
@@ -149,7 +151,7 @@ public class BasicMetadataTest {
     }
 
     @Test
-    void canDescribeTable() {
+    void canDescribeTable() throws RelationalException {
         try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");

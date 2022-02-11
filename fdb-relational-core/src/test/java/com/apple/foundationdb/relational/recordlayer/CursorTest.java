@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -48,6 +49,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -59,7 +61,7 @@ public class CursorTest {
     RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @BeforeEach
-    public final void setupCatalog() {
+    public final void setupCatalog() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         RecordTypeBuilder recordBuilder = builder.getRecordType("RestaurantRecord");
         recordBuilder.setRecordTypeKey(0);
@@ -79,12 +81,12 @@ public class CursorTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws RelationalException {
         catalog.deleteDatabase(URI.create("/insert_test"));
     }
 
     @Test
-    public void canIterateOverAllResults() {
+    public void canIterateOverAllResults() throws RelationalException {
         havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
             // 1/2 scan all records
             List<Restaurant.RestaurantRecord> actual = new ArrayList<>();
@@ -101,6 +103,8 @@ public class CursorTest {
                     }
                     actual.add(r);
                 }
+            } catch (SQLException | RelationalException e) {
+                throw new RuntimeException(e);
             }
             // 2/2 make sure we've received everything
             Collection<Restaurant.RestaurantRecord> expected = ImmutableList.copyOf(records);
@@ -110,7 +114,7 @@ public class CursorTest {
     }
 
     @Test
-    public void canIterateWithContinuation() {
+    public void canIterateWithContinuation() throws RelationalException {
         havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
             // 1/2 scan all records
             List<Restaurant.RestaurantRecord> actual = new ArrayList<>();
@@ -140,9 +144,15 @@ public class CursorTest {
                         break;
                     }
                 }
+            } catch (SQLException | RelationalException e) {
+                throw new RuntimeException(e);
             } finally {
                 if (resultSet != null) {
-                    resultSet.close();
+                    try {
+                        resultSet.close();
+                    } catch (SQLException e) {
+                        Assertions.fail("Could not close resultSet", e);
+                    }
                 }
             }
             // 2/2 make sure we've received everything
@@ -153,7 +163,7 @@ public class CursorTest {
     }
 
     @Test
-    public void continuationOnEdgesOfRecordCollection() {
+    public void continuationOnEdgesOfRecordCollection() throws RelationalException {
 
         havingInsertedRecordsDo(3, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
             RelationalResultSet resultSet = null;
@@ -192,19 +202,23 @@ public class CursorTest {
                 Assertions.assertNull(lastContinuation.getBytes());
                 Assertions.assertTrue(lastContinuation.atEnd());
 
-            } catch (InvalidProtocolBufferException e) {
-                Assertions.fail("failed to parse ");
+            } catch (InvalidProtocolBufferException | RelationalException | SQLException e) {
+                Assertions.fail("failed to parse ", e);
             } finally {
 
                 if (resultSet != null) {
-                    resultSet.close();
+                    try {
+                        resultSet.close();
+                    } catch (SQLException e) {
+                        Assertions.fail("Could not close resultSet", e);
+                    }
                 }
             }
         });
     }
 
     @Test
-    public void continuationOnEmptyCollection() {
+    public void continuationOnEmptyCollection() throws RelationalException {
         havingInsertedRecordsDo(0, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
             RelationalResultSet resultSet = null;
             try {
@@ -215,9 +229,15 @@ public class CursorTest {
                 Assertions.assertTrue(continuation.atEnd());
                 Assertions.assertTrue(continuation.atBeginning());
                 Assertions.assertFalse(resultSet.next());
+            } catch (RelationalException | SQLException e) {
+                throw new RuntimeException(e);
             } finally {
                 if (resultSet != null) {
-                    resultSet.close();
+                    try {
+                        resultSet.close();
+                    } catch (SQLException e) {
+                        Assertions.fail("Could not close resultSet", e);
+                    }
                 }
             }
         });
@@ -226,7 +246,7 @@ public class CursorTest {
     // helper methods
 
     private void havingInsertedRecordsDo(int numRecords,
-                                         BiConsumer<Iterable<Restaurant.RestaurantRecord>, Statement> test) {
+                                         BiConsumer<Iterable<Restaurant.RestaurantRecord>, Statement> test) throws RelationalException {
         try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
@@ -243,15 +263,15 @@ public class CursorTest {
         }
     }
 
-    private Restaurant.RestaurantRecord readFirstRecordWithContinuation(Statement s, Continuation c) {
+    private Restaurant.RestaurantRecord readFirstRecordWithContinuation(Statement s, Continuation c) throws SQLException, RelationalException {
         RelationalResultSet resultSet = null;
         try {
             TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
             resultSet = s.executeScan(scan, Options.create().withOption(OperationOption.continuation(c)));
             resultSet.next();
             return Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
-        } catch (InvalidProtocolBufferException e) {
-            Assertions.fail("failed to parse ");
+        } catch (InvalidProtocolBufferException | SQLException e) {
+            Assertions.fail("failed to parse ", e);
         } finally {
             if (resultSet != null) {
                 resultSet.close();

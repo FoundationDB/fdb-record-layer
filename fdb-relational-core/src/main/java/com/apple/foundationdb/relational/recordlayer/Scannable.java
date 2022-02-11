@@ -54,17 +54,19 @@ public interface Scannable {
      * the name of the field at that position.
      *
      * @return the field-name map
+     * @throws RelationalException if the field-name map cannot be retrieved.
      */
-    String[] getFieldNames();
+    String[] getFieldNames() throws RelationalException;
 
     /**
      * The index is the position in the Key, the value is the name of the field in that position.
      *
      * @return the field-name map that contains <em>only</em> keys.
+     * @throws RelationalException if the map cannot be retrieved.
      */
-    String[] getKeyFieldNames();
+    String[] getKeyFieldNames() throws RelationalException;
 
-    KeyBuilder getKeyBuilder();
+    KeyBuilder getKeyBuilder() throws RelationalException;
 
     /**
      * If table, returns the table name or index name if it is an index.

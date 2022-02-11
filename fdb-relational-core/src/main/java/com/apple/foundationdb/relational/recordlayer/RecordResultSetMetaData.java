@@ -32,8 +32,13 @@ public class RecordResultSetMetaData implements RelationalResultSetMetaData {
     }
 
     @Override
-    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "internal class, shouldn't escape proper usage")
-    public String[] getColumns() {
-        return fieldNames;
+    public int getColumnCount() {
+        return fieldNames.length;
     }
+
+    @Override
+    public String getColumnName(int column) {
+        return fieldNames[column];
+    }
+
 }

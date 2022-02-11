@@ -59,7 +59,6 @@ public interface ConstantActionFactory {
      * @param templateId the unique name of the template which is to be mapped.
      * @param constantActionOptions any options required for the mapping.
      * @return a constant action which will map the schema to the template.
-     * @throws com.apple.foundationdb.relational.api.exceptions.RelationalException if the schema is already mapped to a template, if the template
      * does not exist, or if something else goes wrong.
      */
     @Nonnull

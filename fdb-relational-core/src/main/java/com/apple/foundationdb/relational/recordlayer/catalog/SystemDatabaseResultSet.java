@@ -30,6 +30,8 @@ import com.apple.foundationdb.relational.recordlayer.AbstractRecordLayerResultSe
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.Scannable;
 
+import java.sql.SQLException;
+
 public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     private final Scannable systemScannable;
     private final QueryProperties options;
@@ -45,7 +47,7 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     public SystemDatabaseResultSet(Transaction txn,
                                    Scannable directoryScannable,
                                    QueryProperties options,
-                                   boolean commitOnClose) {
+                                   boolean commitOnClose) throws RelationalException {
         this.txn = txn;
         this.systemScannable = directoryScannable;
         this.options = options;
@@ -54,35 +56,48 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public boolean next() throws RelationalException {
+    public boolean next() throws SQLException {
         nextCalled = true;
         if (currentScanner == null) {
             // TODO (yhatem) discuss how to implement metadata query continuations
-            currentScanner = systemScannable.openScan(txn, null, null, null, options);
+            try {
+                currentScanner = systemScannable.openScan(txn, null, null, null, options);
+            } catch (RelationalException e) {
+                throw e.toSqlException();
+            }
         }
         boolean hasNext =  currentScanner.hasNext();
         if (hasNext) {
             nextKeyValue = currentScanner.next();
         } else {
-            currentContinuation = currentScanner.getContinuation();
+            try {
+                currentContinuation = currentScanner.getContinuation();
+            } catch (RelationalException e) {
+                throw e.toSqlException();
+            }
         }
         return hasNext;
+
     }
 
     @Override
-    public void close() throws RelationalException {
-        if (currentScanner != null) {
-            currentScanner.close();
-        }
-        if (commitOnClose) {
-            txn.close();
+    public void close() throws SQLException {
+        try {
+            if (currentScanner != null) {
+                currentScanner.close();
+            }
+            if (commitOnClose) {
+                txn.close();
+            }
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
     }
 
     @Override
-    public Object getObject(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public Object getObject(int position) throws SQLException {
         if (!nextCalled) {
-            throw new InvalidCursorStateException("Iterator was not advanced or has terminated");
+            throw new InvalidCursorStateException("Iterator was not advanced or has terminated").toSqlException();
         }
         if (nextKeyValue.keyColumnCount() > position) {
             return nextKeyValue.key().getObject(position);
@@ -92,9 +107,9 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public int getNumFields() {
+    public int getNumFields() throws SQLException {
         if (nextKeyValue == null) {
-            throw new InvalidCursorStateException("Iterator was not advanced or has terminated");
+            throw new InvalidCursorStateException("Iterator was not advanced or has terminated").toSqlException();
         }
         return nextKeyValue.keyColumnCount() + nextKeyValue.value().getNumFields();
     }

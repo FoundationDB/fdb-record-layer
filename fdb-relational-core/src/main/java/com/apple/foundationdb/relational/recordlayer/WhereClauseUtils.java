@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.relational.api.WhereClause;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.AndClause;
 import com.apple.foundationdb.relational.recordlayer.query.OrClause;
@@ -42,7 +43,7 @@ import javax.annotation.Nonnull;
  */
 final class WhereClauseUtils {
 
-    static QueryComponent convertClause(WhereClause clause) {
+    static QueryComponent convertClause(WhereClause clause) throws RelationalException {
         if (clause instanceof ValueComparisonClause) {
             return convertValueComparison((ValueComparisonClause) clause);
         } else if (clause instanceof AndClause) {
@@ -62,7 +63,7 @@ final class WhereClauseUtils {
 
             return new OrComponent(childComponents);
         } else {
-            throw new RelationalException("Cannot understand WhereClause of type " + clause.getClass(), RelationalException.ErrorCode.UNKNOWN);
+            throw new RelationalException("Cannot understand WhereClause of type " + clause.getClass(), ErrorCode.UNKNOWN);
         }
     }
 

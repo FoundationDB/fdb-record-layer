@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirect
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
@@ -127,7 +128,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
     }
 
     @SuppressWarnings("PMD.PreserveStackTrace") //we actually do, the PMD linter just doesn't seem to be able to tell
-    FDBRecordStore loadStore(@Nonnull FDBRecordContext txn, @Nonnull String storeName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+    FDBRecordStore loadStore(@Nonnull FDBRecordContext txn, @Nonnull String storeName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
 
         final KeySpacePath storePath = ksPath.add(storeName);
@@ -145,9 +146,9 @@ public class RecordLayerDatabase implements RelationalDatabase {
         } catch (RecordCoreException rce) {
             Throwable cause = Throwables.getRootCause(rce);
             if (cause instanceof RecordStoreDoesNotExistException) {
-                throw new RelationalException("Schema does not exist. Schema: <" + storeName + ">", RelationalException.ErrorCode.SCHEMA_NOT_FOUND, cause);
+                throw new RelationalException("Schema does not exist. Schema: <" + storeName + ">", ErrorCode.SCHEMA_NOT_FOUND, cause);
             } else {
-                throw new RelationalException("Schema <" + storeName + "> cannot be found", RelationalException.ErrorCode.UNKNOWN_SCHEMA, cause);
+                throw new RelationalException("Schema <" + storeName + "> cannot be found", ErrorCode.UNKNOWN_SCHEMA, cause);
             }
         }
     }
@@ -163,13 +164,13 @@ public class RecordLayerDatabase implements RelationalDatabase {
     /* ****************************************************************************************************************/
     /* private helper methods */
 
-    FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+    FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         try {
             return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId, existenceCheck);
         } catch (NoSuchDirectoryException nsde) {
-            throw new RelationalException("Unknown schema <" + schemaId + ">", RelationalException.ErrorCode.UNKNOWN_SCHEMA, nsde);
+            throw new RelationalException("Unknown schema <" + schemaId + ">", ErrorCode.UNKNOWN_SCHEMA, nsde);
         } catch (MetaDataException mde) {
-            throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNKNOWN_SCHEMA, mde);
+            throw new RelationalException(mde.getMessage(), ErrorCode.UNKNOWN_SCHEMA, mde);
         }
     }
 

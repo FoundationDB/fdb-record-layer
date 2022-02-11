@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.DatabaseLocator;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
@@ -50,7 +51,7 @@ public class RecordLayerEngine {
                              FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                              SerializerRegistry serializerRegistry,
                              KeySpace keySpace,
-                             @Nonnull FDBStoreTimer storeTimer) {
+                             @Nonnull FDBStoreTimer storeTimer) throws RelationalException {
 
         this.catalog = new RecordLayerCatalog.Builder()
                 .setDatabaseLocator(databaseFinder)

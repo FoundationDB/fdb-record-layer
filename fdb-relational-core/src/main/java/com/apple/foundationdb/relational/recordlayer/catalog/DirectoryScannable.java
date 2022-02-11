@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmptyTuple;
 import com.apple.foundationdb.relational.recordlayer.KeyBuilder;
@@ -113,7 +114,11 @@ public class DirectoryScannable implements Scannable {
             return TupleUtils.toRelationalTuple(tuple);
         });
 
-        return RecordLayerIterator.create(mappedCursor, value -> new ImmutableKeyValue(new EmptyTuple(), directoryTransform.apply(value)), false);
+        try {
+            return RecordLayerIterator.create(mappedCursor, value -> new ImmutableKeyValue(new EmptyTuple(), directoryTransform.apply(value)), false);
+        } catch (UncheckedRelationalException e) {
+            throw e.unwrap();
+        }
     }
 
     private RecordCursor<ResolvedKeySpacePath> listDirectory(KeySpacePath path, @Nullable String subdirName, FDBRecordContext ctx) {

@@ -49,7 +49,7 @@ public interface NestableTuple {
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a long.
      * @throws InvalidTypeException     if the field at the position cannot be converted to a long
-     * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
+     * @throws InvalidColumnReferenceException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
     long getLong(int position) throws InvalidTypeException, InvalidColumnReferenceException;
 
@@ -59,7 +59,7 @@ public interface NestableTuple {
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a float.
      * @throws InvalidTypeException     if the field at the position cannot be converted to an float
-     * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
+     * @throws InvalidColumnReferenceException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
     float getFloat(int position) throws InvalidTypeException, InvalidColumnReferenceException;
 
@@ -69,7 +69,7 @@ public interface NestableTuple {
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a float.
      * @throws InvalidTypeException     if the field at the position cannot be converted to a double
-     * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
+     * @throws InvalidColumnReferenceException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
     double getDouble(int position) throws InvalidTypeException, InvalidColumnReferenceException;
 
@@ -79,7 +79,7 @@ public interface NestableTuple {
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a string.
      * @throws InvalidTypeException     if the field at the position cannot be converted to a string
-     * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
+     * @throws InvalidColumnReferenceException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
     String getString(int position) throws InvalidTypeException, InvalidColumnReferenceException;
 
@@ -89,7 +89,7 @@ public interface NestableTuple {
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a byte[].
      * @throws InvalidTypeException     if the field at the position cannot be converted to a byte[]
-     * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
+     * @throws InvalidColumnReferenceException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
     byte[] getBytes(int position) throws InvalidTypeException, InvalidColumnReferenceException;
 
@@ -99,7 +99,7 @@ public interface NestableTuple {
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a NestableTuple
      * @throws InvalidTypeException     if the field at the position cannot be converted to a NestableTuple
-     * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
+     * @throws InvalidColumnReferenceException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
     NestableTuple getTuple(int position) throws InvalidTypeException, InvalidColumnReferenceException;
 
@@ -109,7 +109,7 @@ public interface NestableTuple {
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as an iterable
      * @throws InvalidTypeException     if the field at the position cannot be converted to a NestableTuple
-     * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
+     * @throws InvalidColumnReferenceException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
     Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, InvalidColumnReferenceException;
 

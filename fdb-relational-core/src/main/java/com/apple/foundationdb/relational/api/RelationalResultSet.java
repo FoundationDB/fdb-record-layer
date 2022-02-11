@@ -20,24 +20,35 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
-import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
 
+import java.io.InputStream;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.net.URL;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.Date;
+import java.sql.NClob;
+import java.sql.Ref;
+import java.sql.RowId;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
+import java.sql.SQLXML;
+import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.Calendar;
+import java.util.Map;
+
 /**
  * Represents the results of a query against the system.
  */
-public interface RelationalResultSet extends AutoCloseable {
-    //TODO(bfines) at some point, we will need to make this subinterface the java.sql.ResultSet
-    //for full SQL support.
-
-    boolean next() throws RelationalException;
-
-    @Override
-    void close() throws RelationalException;
-
+public interface RelationalResultSet extends java.sql.ResultSet {
     /**
      * Get the actual isolation level used in the scan.
      *
@@ -45,56 +56,34 @@ public interface RelationalResultSet extends AutoCloseable {
      * {@link OperationOption.TimeoutPolicy#DOWNGRADE_ISOLATION}, then
      * this isolation level <em>may</em> be {@link IsolationLevel#READ_COMMITTED},
      * even if the query was started with a higher isolation level.
+     * @throws SQLException if something goes wrong
      */
-    IsolationLevel getActualIsolationLevel();
+    IsolationLevel getActualIsolationLevel() throws SQLException;
 
     /**
      * Get the isolation level at the start of the read operation.
      *
      * @return the isolation level that was requested when the scan was initiated. This may
      * differ from {@link #getActualIsolationLevel()}
+     * @throws SQLException if something goes wrong
      */
-    IsolationLevel getRequestedIsolationLevel();
-
-    boolean getBoolean(int position) throws RelationalException;
-
-    boolean getBoolean(String fieldName) throws RelationalException;
-
-    long getLong(int position) throws RelationalException;
-
-    long getLong(String fieldName) throws RelationalException;
-
-    float getFloat(int position) throws RelationalException;
-
-    float getFloat(String fieldName) throws RelationalException;
-
-    double getDouble(int position) throws RelationalException;
-
-    double getDouble(String fieldName) throws RelationalException;
-
-    Object getObject(int position) throws RelationalException;
-
-    Object getObject(String fieldName) throws RelationalException;
-
-    String getString(int position) throws RelationalException;
-
-    String getString(String fieldName) throws RelationalException;
+    IsolationLevel getRequestedIsolationLevel() throws SQLException;
 
     /**
      * Return this value as a protobuf message (if possible).
      *
      * @param position the position to get the value from
      * @return the object at the specified position, as a protobuf Message
-     * @throws RelationalException if something goes wrong
+     * @throws SQLException if something goes wrong
      * @throws ArrayIndexOutOfBoundsException if the specified position is invalid
      */
-    Message getMessage(int position) throws RelationalException;
+    Message getMessage(int position) throws SQLException;
 
-    Message getMessage(String fieldName) throws RelationalException;
+    Message getMessage(String fieldName) throws SQLException;
 
-    Iterable<?> getRepeated(int position) throws RelationalException;
+    Iterable<?> getRepeated(int position) throws SQLException;
 
-    Iterable<?> getRepeated(String fieldName) throws RelationalException;
+    Iterable<?> getRepeated(String fieldName) throws SQLException;
 
     /**
      * Determine if the result set's current row support directly returning protobuf objects.
@@ -108,12 +97,10 @@ public interface RelationalResultSet extends AutoCloseable {
      *
      * @param <M> the type of Message to parse.
      * @return the current row as a protobuf message object.
-     * @throws OperationUnsupportedException if message parsing is not supported
-     * @throws InvalidTypeException if the Row's data type is not {@code M}
+     * @throws SQLException with error code {@code UNSUPPORTED_OPERATION} if message parsing is not supported
+     * @throws SQLException with error code {@code CANNOT_CONVERT_TYPE} if the Row's data type is not {@code M}
      */
-    <M extends Message> M parseMessage() throws OperationUnsupportedException, InvalidTypeException;
-
-    RelationalResultSetMetaData getMetaData() throws RelationalException;
+    <M extends Message> M parseMessage() throws SQLException;
 
     /**
      * Get the number of fields <em>at the current cursor position</em>. So if the number of fields
@@ -121,8 +108,9 @@ public interface RelationalResultSet extends AutoCloseable {
      * be requested after each call to {@link #next()}.
      *
      * @return the number of fields at the current cursor position.
+     * @throws SQLException if something goes wrong
      */
-    int getNumFields();
+    int getNumFields() throws SQLException;
 
     /**
      * Indicates whether no more rows were returned because of an early termination or not.
@@ -142,6 +130,967 @@ public interface RelationalResultSet extends AutoCloseable {
      * A {@code Continuation} that can be used for retrieving the rest of the rows.
      *
      * @return  A {@code Continuation} that can be used for retrieving the rest of the rows.
+     * @throws RelationalException if the continuation cannot be retrieved.
      */
-    Continuation getContinuation();
+    Continuation getContinuation() throws RelationalException;
+
+    @Override
+    default boolean wasNull() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default byte getByte(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default byte getByte(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default short getShort(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default short getShort(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default int getInt(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default int getInt(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default BigDecimal getBigDecimal(int columnIndex, int scale) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default BigDecimal getBigDecimal(String columnLabel, int scale) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default BigDecimal getBigDecimal(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default BigDecimal getBigDecimal(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default byte[] getBytes(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default byte[] getBytes(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Date getDate(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Date getDate(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Date getDate(int columnIndex, Calendar cal) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Date getDate(String columnLabel, Calendar cal) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Time getTime(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Time getTime(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Time getTime(int columnIndex, Calendar cal) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Time getTime(String columnLabel, Calendar cal) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Timestamp getTimestamp(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Timestamp getTimestamp(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Timestamp getTimestamp(String columnLabel, Calendar cal) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default InputStream getAsciiStream(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default InputStream getAsciiStream(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default InputStream getUnicodeStream(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default InputStream getUnicodeStream(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default InputStream getBinaryStream(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default InputStream getBinaryStream(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default SQLWarning getWarnings() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void clearWarnings() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default String getCursorName() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default int findColumn(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Reader getCharacterStream(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Reader getCharacterStream(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean isBeforeFirst() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean isAfterLast() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean isFirst() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean isLast() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void beforeFirst() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void afterLast() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default boolean first() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean last() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default int getRow() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean absolute(int row) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean relative(int rows) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean previous() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Object getObject(int columnIndex, Map<String, Class<?>> map) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Object getObject(String columnLabel, Map<String, Class<?>> map) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default <T> T unwrap(Class<T> iface) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean isWrapperFor(Class<?> iface) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void setFetchDirection(int direction) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default int getFetchDirection() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void setFetchSize(int rows) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default int getFetchSize() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default int getType() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default int getConcurrency() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean rowUpdated() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean rowInserted() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean rowDeleted() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateNull(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateNull(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBoolean(int columnIndex, boolean x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateBoolean(String columnLabel, boolean x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateByte(int columnIndex, byte x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateByte(String columnLabel, byte x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateShort(int columnIndex, short x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateShort(String columnLabel, short x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateInt(int columnIndex, int x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateInt(String columnLabel, int x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateLong(int columnIndex, long x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateLong(String columnLabel, long x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateFloat(int columnIndex, float x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateFloat(String columnLabel, float x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateDouble(int columnIndex, double x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateDouble(String columnLabel, double x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBigDecimal(int columnIndex, BigDecimal x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBigDecimal(String columnLabel, BigDecimal x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateString(int columnIndex, String x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateString(String columnLabel, String x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBytes(int columnIndex, byte[] x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBytes(String columnLabel, byte[] x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateDate(int columnIndex, Date x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateDate(String columnLabel, Date x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateTime(int columnIndex, Time x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateTime(String columnLabel, Time x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateTimestamp(int columnIndex, Timestamp x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateTimestamp(String columnLabel, Timestamp x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateAsciiStream(int columnIndex, InputStream x, int length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateAsciiStream(String columnLabel, InputStream x, int length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateAsciiStream(int columnIndex, InputStream x, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateAsciiStream(String columnLabel, InputStream x, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateAsciiStream(int columnIndex, InputStream x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateAsciiStream(String columnLabel, InputStream x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBinaryStream(int columnIndex, InputStream x, int length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBinaryStream(String columnLabel, InputStream x, int length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBinaryStream(int columnIndex, InputStream x, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBinaryStream(String columnLabel, InputStream x, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBinaryStream(int columnIndex, InputStream x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateBinaryStream(String columnLabel, InputStream x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateCharacterStream(int columnIndex, Reader x, int length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateCharacterStream(String columnLabel, Reader reader, int length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateCharacterStream(int columnIndex, Reader x, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateCharacterStream(int columnIndex, Reader x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateCharacterStream(String columnLabel, Reader reader) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateObject(int columnIndex, Object x, int scaleOrLength) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateObject(int columnIndex, Object x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateObject(String columnLabel, Object x, int scaleOrLength) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateObject(String columnLabel, Object x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void insertRow() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateRow() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void deleteRow() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void refreshRow() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void cancelRowUpdates() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void moveToInsertRow() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void moveToCurrentRow() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default Statement getStatement() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Ref getRef(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Ref getRef(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Blob getBlob(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Blob getBlob(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Clob getClob(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Clob getClob(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Array getArray(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Array getArray(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default URL getURL(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default URL getURL(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateRef(int columnIndex, Ref x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateRef(String columnLabel, Ref x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBlob(int columnIndex, Blob x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBlob(String columnLabel, Blob x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBlob(int columnIndex, InputStream inputStream, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBlob(String columnLabel, InputStream inputStream, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBlob(int columnIndex, InputStream inputStream) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateBlob(String columnLabel, InputStream inputStream) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateClob(int columnIndex, Clob x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateClob(String columnLabel, Clob x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateClob(int columnIndex, Reader reader, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateClob(String columnLabel, Reader reader, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateClob(int columnIndex, Reader reader) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateClob(String columnLabel, Reader reader) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateArray(int columnIndex, Array x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateArray(String columnLabel, Array x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default RowId getRowId(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default RowId getRowId(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateRowId(int columnIndex, RowId x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateRowId(String columnLabel, RowId x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default int getHoldability() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default boolean isClosed() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateNString(int columnIndex, String nString) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNString(String columnLabel, String nString) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNClob(int columnIndex, NClob nClob) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNClob(String columnLabel, NClob nClob) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNClob(int columnIndex, Reader reader, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNClob(String columnLabel, Reader reader, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNClob(int columnIndex, Reader reader) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNClob(String columnLabel, Reader reader) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default NClob getNClob(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default NClob getNClob(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default SQLXML getSQLXML(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default SQLXML getSQLXML(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateSQLXML(int columnIndex, SQLXML xmlObject) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateSQLXML(String columnLabel, SQLXML xmlObject) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default String getNString(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default String getNString(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Reader getNCharacterStream(int columnIndex) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default Reader getNCharacterStream(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    default void updateNCharacterStream(int columnIndex, Reader x, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNCharacterStream(int columnIndex, Reader x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    default void updateNCharacterStream(String columnLabel, Reader reader) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
 }

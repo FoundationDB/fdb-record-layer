@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.function.Consumer;
 
@@ -54,7 +56,7 @@ public class InsertTest {
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @BeforeEach
-    public final void setupCatalog() {
+    public final void setupCatalog() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         RecordTypeBuilder recordBuilder = builder.getRecordType("RestaurantRecord");
         recordBuilder.setRecordTypeKey(0);
@@ -71,12 +73,12 @@ public class InsertTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws RelationalException {
         catalog.deleteDatabase(URI.create("/insert_test"));
     }
 
     @Test
-    void canInsertWithMultipleRecordTypes() {
+    void canInsertWithMultipleRecordTypes() throws RelationalException, SQLException {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
@@ -96,14 +98,22 @@ public class InsertTest {
                 //now prove we can get them back out
                 RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", record.getRestNo()), Options.create());
                 assertGetMatches(record, relationalResultSet, vry -> {
-                    Assertions.assertEquals(record.getName(), vry.getString("name"), "Incorrect name!");
-                    Assertions.assertEquals(record.getRestNo(), vry.getLong("rest_no"), "Incorrect rest_no!");
+                    try {
+                        Assertions.assertEquals(record.getName(), vry.getString("name"), "Incorrect name!");
+                        Assertions.assertEquals(record.getRestNo(), vry.getLong("rest_no"), "Incorrect rest_no!");
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
                 });
 
                 relationalResultSet = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", reviewer.getId()), Options.create());
                 assertGetMatches(reviewer, relationalResultSet, vry -> {
-                    Assertions.assertEquals(reviewer.getName(), vry.getString("name"), "Incorrect reviewer name");
-                    Assertions.assertEquals(reviewer.getId(), vry.getLong("id"), "Incorrect reviewer id");
+                    try {
+                        Assertions.assertEquals(reviewer.getName(), vry.getString("name"), "Incorrect reviewer name");
+                        Assertions.assertEquals(reviewer.getId(), vry.getLong("id"), "Incorrect reviewer id");
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
                 });
 
                 //now make sure that they don't show up in the other table
@@ -133,8 +143,7 @@ public class InsertTest {
                         recordScan.getString("name");
                         recordScan.getLong("rest_no");
                     });
-                    RelationalException invalidType = Assertions.assertThrows(RelationalException.class, () -> recordScan.getLong("id"));
-                    Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE, invalidType.getErrorCode(), "Incorrect data error code!");
+                    RelationalAssertions.assertThrowsSqlException(() -> recordScan.getLong("id"), ErrorCode.INVALID_COLUMN_REFERENCE);
                 }
 
                 final RelationalResultSet reviewerScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantReviewer").build(), Options.create());
@@ -150,14 +159,13 @@ public class InsertTest {
                         reviewerScan.getLong("id");
                     });
 
-                    RelationalException invalidType = Assertions.assertThrows(RelationalException.class, () -> reviewerScan.getLong("rest_no"));
-                    Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE, invalidType.getErrorCode(), "Incorrect data error code!");
+                    RelationalAssertions.assertThrowsSqlException(() -> reviewerScan.getLong("rest_no"), ErrorCode.INVALID_COLUMN_REFERENCE);
                 }
             }
         }
     }
 
-    private void assertGetMatches(Message expected, RelationalResultSet queryResult, Consumer<RelationalResultSet> nonMessageCheck) {
+    private void assertGetMatches(Message expected, RelationalResultSet queryResult, Consumer<RelationalResultSet> nonMessageCheck) throws SQLException {
         Assertions.assertNotNull(queryResult, "Did not return a valid result set!");
         Assertions.assertTrue(queryResult.next(), "Did not return a record!");
         if (queryResult.supportsMessageParsing()) {
@@ -170,7 +178,7 @@ public class InsertTest {
     }
 
     @Test
-    void cannotInsertWithIncorrectTypeForRecord() {
+    void cannotInsertWithIncorrectTypeForRecord() throws RelationalException {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
@@ -180,14 +188,15 @@ public class InsertTest {
             try (Statement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
-                RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> s.executeInsert("RestaurantReviewer", Collections.singleton(record), Options.create()));
-                Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PARAMETER, ve.getErrorCode(), "Incorrect error code");
+                RelationalAssertions.assertThrowsRelationalException(
+                        () -> s.executeInsert("RestaurantReviewer", Collections.singleton(record), Options.create()),
+                        ErrorCode.INVALID_PARAMETER);
             }
         }
     }
 
     @Test
-    void cannotInsertWithMissingSchema() {
+    void cannotInsertWithMissingSchema() throws RelationalException {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
@@ -197,11 +206,10 @@ public class InsertTest {
             try (Statement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
-                RelationalException thrown = Assertions.assertThrows(RelationalException.class, () -> {
+                RelationalAssertions.assertThrowsRelationalException(() -> {
                     int inserted = s.executeInsert("RestaurantReviewer", Collections.singleton(record), Options.create());
                     Assertions.fail("did not throw an exception on insertion(inserted=" + inserted + ")");
-                });
-                Assertions.assertEquals(RelationalException.ErrorCode.UNKNOWN_SCHEMA, thrown.getErrorCode(), "Incorrect error code returned!");
+                }, ErrorCode.UNKNOWN_SCHEMA);
             }
         }
     }

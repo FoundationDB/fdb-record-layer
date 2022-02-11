@@ -30,6 +30,8 @@ import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.DirectoryScannable;
 
@@ -63,7 +65,12 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
         URI dbPath = conn.frl.getPath();
         final Scannable scannable = new DirectoryScannable(keySpace, dbPath, new String[]{"db_path", "schema_name"}, nestableTuple -> {
             // the data looks like (<dbPath>/schema,0), so split this into (<dbPath>,schema)
-            final String fullSchemaPath = nestableTuple.getString(0);
+            final String fullSchemaPath;
+            try {
+                fullSchemaPath = nestableTuple.getString(0);
+            } catch (InvalidTypeException | InvalidColumnReferenceException e) {
+                throw e.toUncheckedWrappedException();
+            }
             int lastSlashIdx = fullSchemaPath.lastIndexOf("/");
             //TODO(bfines) prepending the root's name doesn't feel right--should that be toPathString() instead?
             // but when I do toPathString() I end up with // not /...

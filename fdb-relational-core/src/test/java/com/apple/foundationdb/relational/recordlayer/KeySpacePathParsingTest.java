@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLay
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.junit.jupiter.api.Assertions;
@@ -42,7 +43,7 @@ public class KeySpacePathParsingTest {
     private final KeySpace testSpace = getKeySpaceForTesting();
 
     @Test
-    void testParsingKeySpacePath() {
+    void testParsingKeySpacePath() throws RelationalException {
         URI expected = URI.create("/prod/testApp/12345");
         KeySpacePath path = KeySpaceUtils.uriToPath(expected, testSpace);
         final URI uri = KeySpaceUtils.pathToUri(path);
@@ -51,27 +52,30 @@ public class KeySpacePathParsingTest {
 
     @Test
     void cannotParseEmptyUri() {
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> KeySpaceUtils.uriToPath(URI.create(""), testSpace));
-        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH, ve.getErrorCode(), "Incorrect returned error code");
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> KeySpaceUtils.uriToPath(URI.create(""), testSpace),
+                ErrorCode.INVALID_PATH);
     }
 
     @Test
     void testUrlNotValidForKeySpace() {
         //throws the right exception when we can't parse an entry
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> KeySpaceUtils.uriToPath(URI.create("/prod/testApp/notAUser"), testSpace));
-        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH, ve.getErrorCode(), "Incorrect returned error code");
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> KeySpaceUtils.uriToPath(URI.create("/prod/testApp/notAUser"), testSpace),
+                ErrorCode.INVALID_PATH);
     }
 
     @Test
     void testUrlWithEmptyForStringType() {
         // Default keySpace doesn't have directory with null type
         final URI expected = URI.create("//testApp/12345");
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> KeySpaceUtils.uriToPath(expected, testSpace));
-        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH, ve.getErrorCode(), "Incorrect returned error code");
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> KeySpaceUtils.uriToPath(expected, testSpace),
+                ErrorCode.INVALID_PATH);
     }
 
     @Test
-    void testUrlWithDoubleSlashAtBeginning() {
+    void testUrlWithDoubleSlashAtBeginning() throws RelationalException {
         final KeySpaceDirectory env = new KeySpaceDirectory("Environment", KeySpaceDirectory.KeyType.NULL);
         final KeySpaceDirectory app = new KeySpaceDirectory("App", KeySpaceDirectory.KeyType.STRING);
         final KeySpaceDirectory user = new KeySpaceDirectory("User", KeySpaceDirectory.KeyType.LONG);
@@ -85,7 +89,7 @@ public class KeySpacePathParsingTest {
     }
 
     @Test
-    void testWithNullSubDirectory() {
+    void testWithNullSubDirectory() throws RelationalException {
         final KeySpaceDirectory env = new KeySpaceDirectory("Environment", KeySpaceDirectory.KeyType.STRING);
         final KeySpaceDirectory app = new KeySpaceDirectory("App", KeySpaceDirectory.KeyType.STRING);
         final KeySpaceDirectory nullApp = new KeySpaceDirectory("NullApp", KeySpaceDirectory.KeyType.NULL);
@@ -107,7 +111,7 @@ public class KeySpacePathParsingTest {
     }
 
     @Test
-    void testKeySpaceForSchemaExtension() {
+    void testKeySpaceForSchemaExtension() throws RelationalException {
         final KeySpaceDirectory env = new KeySpaceDirectory("env", KeySpaceDirectory.KeyType.STRING);
         final KeySpaceDirectory db = new KeySpaceDirectory("db", KeySpaceDirectory.KeyType.STRING);
         env.addSubdirectory(db);
@@ -123,7 +127,7 @@ public class KeySpacePathParsingTest {
     }
 
     @Test
-    void testSchemaInKeySpaceNotToBeOverridden() {
+    void testSchemaInKeySpaceNotToBeOverridden() throws RelationalException {
         final KeySpaceDirectory env = new KeySpaceDirectory("env", KeySpaceDirectory.KeyType.STRING);
         final KeySpaceDirectory db = new KeySpaceDirectory("db", KeySpaceDirectory.KeyType.STRING);
         final KeySpaceDirectory schema = new KeySpaceDirectory("testSchema", KeySpaceDirectory.KeyType.STRING, "T");
@@ -138,7 +142,7 @@ public class KeySpacePathParsingTest {
     }
 
     @Test
-    void canParseUris() {
+    void canParseUris() throws RelationalException {
         /*
          * Explicitly tests that KeySpacePaths can correctly be parsed from URIs
          */
@@ -157,7 +161,7 @@ public class KeySpacePathParsingTest {
     }
 
     @Test
-    void testDirectoryLayer() {
+    void testDirectoryLayer() throws RelationalException {
         final URI expected = URI.create("/prod/testApp/12345");
         final KeySpacePath path = KeySpaceUtils.uriToPath(expected, getKeySpaceWithDirectoryLayerForTesting());
         final URI uri = KeySpaceUtils.pathToUri(path);

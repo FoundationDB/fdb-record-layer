@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.common.base.Preconditions;
 
 import java.util.Map;
@@ -73,7 +75,7 @@ public class TableScan {
             return this;
         }
 
-        public Builder setStartKey(String keyColumn, Object value) {
+        public Builder setStartKey(String keyColumn, Object value) throws RelationalException {
             if (this.startKey == null) {
                 this.startKey = new KeySet();
             }
@@ -81,7 +83,7 @@ public class TableScan {
             return this;
         }
 
-        public Builder setEndKey(String keyColumn, Object value) {
+        public Builder setEndKey(String keyColumn, Object value) throws RelationalException {
             if (this.endKey == null) {
                 this.endKey = new KeySet();
             }

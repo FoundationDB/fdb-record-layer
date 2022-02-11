@@ -53,6 +53,7 @@ public interface Queryable {
      *
      * @return a list of the column names to fetch with this query, or {@code null} to return all columns in the
      * query.
+     * @throws RelationalException if the columns could not be retrieved
      */
     @Nullable
     List<String> getColumns() throws RelationalException;

@@ -70,7 +70,7 @@ public abstract class RecordTypeScannable<CursorT> implements Scannable {
     /* abstract methods */
 
     protected abstract RecordCursor<CursorT> openScan(FDBRecordStore store, TupleRange range,
-                                                      @Nullable Continuation continuation, ScanProperties props);
+                                                      @Nullable Continuation continuation, ScanProperties props) throws RelationalException;
 
     protected abstract RecordLayerSchema getSchema();
 
@@ -78,5 +78,5 @@ public abstract class RecordTypeScannable<CursorT> implements Scannable {
 
     protected abstract boolean supportsMessageParsing();
 
-    protected abstract boolean hasConstantValueForPrimaryKey();
+    protected abstract boolean hasConstantValueForPrimaryKey() throws RelationalException;
 }

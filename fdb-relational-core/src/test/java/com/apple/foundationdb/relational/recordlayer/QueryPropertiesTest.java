@@ -51,6 +51,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,7 +63,7 @@ public class QueryPropertiesTest {
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @BeforeEach
-    public final void setupCatalog() {
+    public final void setupCatalog() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
@@ -74,7 +75,7 @@ public class QueryPropertiesTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws RelationalException {
         catalog.deleteDatabase(URI.create("/record_layer_query_properties_test"));
     }
 
@@ -138,7 +139,7 @@ public class QueryPropertiesTest {
     }
 
     @Test
-    void scanWithLimit() {
+    void scanWithLimit() throws RelationalException, SQLException {
         final QueryProperties queryProperties = QueryProperties.newBuilder()
                 .setRowLimit(1)
                 .build();
@@ -149,7 +150,7 @@ public class QueryPropertiesTest {
     }
 
     @Test
-    void scanReverse() {
+    void scanReverse() throws RelationalException, SQLException {
         final QueryProperties queryProperties = QueryProperties.newBuilder()
                 .setReverse(true)
                 .build();
@@ -159,7 +160,7 @@ public class QueryPropertiesTest {
         Assertions.assertEquals(ImmutableList.of(firstRestNo + 1, firstRestNo), restNoList);
     }
 
-    List<Long> testScan(QueryProperties queryProperties, long firstRestNo) throws RelationalException {
+    List<Long> testScan(QueryProperties queryProperties, long firstRestNo) throws RelationalException, SQLException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_query_properties_test");
         try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
@@ -192,7 +193,7 @@ public class QueryPropertiesTest {
         }
     }
 
-    List<Long> getRestNoList(@Nonnull RelationalResultSet resultSet) {
+    List<Long> getRestNoList(@Nonnull RelationalResultSet resultSet) throws SQLException {
         List<Long> numbers = new ArrayList<>();
         while (resultSet.next()) {
             numbers.add(resultSet.getLong("rest_no"));

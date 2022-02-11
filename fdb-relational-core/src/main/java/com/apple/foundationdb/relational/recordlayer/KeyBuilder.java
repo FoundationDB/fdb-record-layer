@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpressio
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.NestableTuple;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.base.Joiner;
@@ -72,7 +73,7 @@ public class KeyBuilder {
                         if (flattenedFields[j] != null) {
                             //it's not the tail of the key! bad bad bad! eject eject abort!
                             //TODO(bfines) change this to refer to the actual missing column key
-                            throw new RelationalException("Cannot form key: missing key at position <" + i + ">", RelationalException.ErrorCode.INVALID_PARAMETER);
+                            throw new RelationalException("Cannot form key: missing key at position <" + i + ">", ErrorCode.INVALID_PARAMETER);
                         }
                     }
                     //this is actually ok, we are just scanning on a prefix portion of the full key structure
@@ -83,7 +84,7 @@ public class KeyBuilder {
 
         if (failOnUnknownColumn && !keysNotPicked.isEmpty()) {
             throw new RelationalException("Unknown keys for " + scannableNameForMessage + ", unknown keys: <" + Joiner.on(",").join(keysNotPicked.keySet()) + ">",
-                    RelationalException.ErrorCode.INVALID_PARAMETER);
+                    ErrorCode.INVALID_PARAMETER);
         }
         return new FDBTuple(Tuple.from(flattenedFields));
     }
@@ -132,7 +133,7 @@ public class KeyBuilder {
             dest[position] = typeForKey.getRecordTypeKey();
             return position + 1;
         } else {
-            throw new RelationalException("Unknown Key type: <" + expression.getClass() + ">", RelationalException.ErrorCode.UNKNOWN);
+            throw new RelationalException("Unknown Key type: <" + expression.getClass() + ">", ErrorCode.UNKNOWN);
         }
     }
 

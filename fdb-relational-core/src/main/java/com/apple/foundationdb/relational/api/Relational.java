@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.net.URI;
@@ -31,32 +32,32 @@ import javax.annotation.Nullable;
 public final class Relational {
     private static final CopyOnWriteArrayList<RelationalDriver> registeredDrivers = new CopyOnWriteArrayList<>();
 
-    public static DatabaseConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) {
+    public static DatabaseConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
         return connect(url, null, connectionOptions);
     }
 
-    public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) {
+    public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException {
         return connect(url, existingTransaction, TransactionConfig.DEFAULT, connectionOptions);
     }
 
-    public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) {
+    public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
         //all connection URLs should start with "rlsc" to represent "relational layer service connection",
         // so we strip that out from the URI and pass the remainder in
         String scheme = url.getScheme();
         if (!"rlsc".equalsIgnoreCase(scheme)) {
-            throw new RelationalException("Unable to connect to url <" + url + ">: invalid scheme <" + scheme + ">", RelationalException.ErrorCode.INVALID_PATH);
+            throw new RelationalException("Unable to connect to url <" + url + ">: invalid scheme <" + scheme + ">", ErrorCode.INVALID_PATH);
         }
         URI nonSchemeUri = URI.create(url.toString().substring(5));
         return getDriver(nonSchemeUri).connect(nonSchemeUri, existingTransaction, transactionConfig, connectionOptions);
     }
 
-    public static RelationalDriver getDriver(@Nonnull URI connectionUrl) {
+    public static RelationalDriver getDriver(@Nonnull URI connectionUrl) throws RelationalException {
         for (RelationalDriver driver : registeredDrivers) {
             if (driver.acceptsURL(connectionUrl)) {
                 return driver;
             }
         }
-        throw new RelationalException("No Driver registered which can interpret scheme <" + connectionUrl.getScheme() + ">", RelationalException.ErrorCode.UNKNOWN_SCHEME);
+        throw new RelationalException("No Driver registered which can interpret scheme <" + connectionUrl.getScheme() + ">", ErrorCode.UNKNOWN_SCHEME);
     }
 
     public static void registerDriver(@Nonnull RelationalDriver newDriver) {

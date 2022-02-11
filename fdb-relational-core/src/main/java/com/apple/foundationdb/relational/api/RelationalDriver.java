@@ -50,7 +50,7 @@ public interface RelationalDriver {
      * @throws RelationalException if something goes wrong during opening the database (for example, if no
      *                           database can be found in the catalog for the specified database url)
      */
-    DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions);
+    DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException;
 
     /**
      * Get the major version of the Relational Driver.

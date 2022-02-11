@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.primitives.Ints;
@@ -75,7 +76,7 @@ final class ContinuationImpl implements Continuation {
         return new ContinuationImpl(Ints.toByteArray(offset));
     }
 
-    public static Continuation copyOf(@Nonnull Continuation other) {
+    public static Continuation copyOf(@Nonnull Continuation other) throws RelationalException {
         if (other instanceof ContinuationImpl) {
             return new ContinuationImpl(((ContinuationImpl) other).continuationBytes, ((ContinuationImpl) other).atEnd);
         } else if (other.atBeginning() && other.atEnd()) {
@@ -87,7 +88,7 @@ final class ContinuationImpl implements Continuation {
         } else {
             String message = String.format("programming error, extra logic required for copy-constructing from %s", other.getClass());
             assert false : message;
-            throw new RelationalException(message, RelationalException.ErrorCode.INTERNAL_ERROR); // -ea safety net.
+            throw new RelationalException(message, ErrorCode.INTERNAL_ERROR); // -ea safety net.
         }
     }
 }

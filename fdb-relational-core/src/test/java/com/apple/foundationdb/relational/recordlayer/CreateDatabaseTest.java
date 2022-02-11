@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.junit.jupiter.api.Assertions;
@@ -43,7 +44,7 @@ public class CreateDatabaseTest {
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @Test
-    void canCreateDatabase() {
+    void canCreateDatabase() throws RelationalException {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
@@ -70,14 +71,16 @@ public class CreateDatabaseTest {
         final DatabaseTemplate template = DatabaseTemplate.newBuilder()
                 .withSchema("test", "NoSuchSchemaTemplate")
                 .build();
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> catalog.createDatabase(URI.create("/create_database_test"), template));
-        Assertions.assertEquals(RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE, ve.getErrorCode(), "Incorect error code!");
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> catalog.createDatabase(URI.create("/create_database_test"), template),
+                ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
     }
 
     @Test
     @Disabled("-bfines- loading databases that don't exist is a bit of a sticky wicket right now, we'll need to fix that soon")
     void cannotLoadNonExistentDatabase() {
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> catalog.getDatabase(URI.create("/no_such_database")));
-        Assertions.assertEquals(RelationalException.ErrorCode.UNDEFINED_DATABASE, ve.getErrorCode(), "Incorrect error code!");
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> catalog.getDatabase(URI.create("/no_such_database")),
+                ErrorCode.UNDEFINED_DATABASE);
     }
 }

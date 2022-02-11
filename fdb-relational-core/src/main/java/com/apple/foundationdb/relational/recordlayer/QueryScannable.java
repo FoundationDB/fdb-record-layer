@@ -62,7 +62,7 @@ public class QueryScannable implements Scannable {
     public QueryScannable(RecordLayerSchema schema,
                           RecordQuery recordQuery,
                           String[] expectedFieldNames,
-                          boolean isExplain) {
+                          boolean isExplain) throws RelationalException {
         this.schema = schema;
         this.expectedFieldNames = expectedFieldNames;
         this.isExplain = isExplain;

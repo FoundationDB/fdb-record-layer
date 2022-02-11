@@ -33,7 +33,7 @@ import java.util.List;
 public class ResumableIteratorTests {
 
     @Test
-    public void testContinuation() {
+    public void testContinuation() throws RelationalException {
         List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
         ResumableIteratorImpl<Integer> testIt = new ResumableIteratorImpl<>(list.listIterator(), null);
@@ -46,7 +46,7 @@ public class ResumableIteratorTests {
     }
 
     @Test
-    public void testContinuationOnDifferentCollections() {
+    public void testContinuationOnDifferentCollections() throws RelationalException {
         List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
         final List<String> list2 = Arrays.asList("a", "b", "c", "d", "e", "f");
 
@@ -60,7 +60,7 @@ public class ResumableIteratorTests {
     }
 
     @Test
-    public void testContinuationOnDifferentCollectionOutOfBound() {
+    public void testContinuationOnDifferentCollectionOutOfBound() throws RelationalException {
         List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
         List<String> list2 = Arrays.asList("a", "b");
 
@@ -81,7 +81,7 @@ public class ResumableIteratorTests {
     }
 
     @Test
-    public void testMultipleContinuationsOnSameIterator() {
+    public void testMultipleContinuationsOnSameIterator() throws RelationalException {
 
         /*
          *    1 2 3 4 5 6 7 8 9 10
@@ -105,7 +105,7 @@ public class ResumableIteratorTests {
     }
 
     @Test
-    public void testContinuationOnCollectionEdges() {
+    public void testContinuationOnCollectionEdges() throws RelationalException {
         List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
         ResumableIteratorImpl<Integer> testIt = new ResumableIteratorImpl<>(list.listIterator(), null);
         Continuation beginContinuation = testIt.getContinuation();
@@ -122,7 +122,7 @@ public class ResumableIteratorTests {
     }
 
     @Test
-    public void testContinuationOnEmptyCollection() {
+    public void testContinuationOnEmptyCollection() throws RelationalException {
         List<Integer> list = List.of();
         ResumableIteratorImpl<Integer> testIt = new ResumableIteratorImpl<>(list.listIterator(), null);
         Continuation continuation = testIt.getContinuation();
@@ -141,7 +141,7 @@ public class ResumableIteratorTests {
         }
     }
 
-    private static <T> void iteratorWithContinuationShouldPointTo(List<T> list, Continuation continuation, T expected) {
+    private static <T> void iteratorWithContinuationShouldPointTo(List<T> list, Continuation continuation, T expected) throws RelationalException {
         ResumableIteratorImpl<T> it = new ResumableIteratorImpl<>(list.listIterator(), continuation);
         Assertions.assertTrue(it.hasNext());
         Assertions.assertEquals(expected, it.next());

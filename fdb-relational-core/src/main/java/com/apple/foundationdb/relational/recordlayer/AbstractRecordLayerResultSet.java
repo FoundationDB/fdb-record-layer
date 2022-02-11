@@ -22,153 +22,183 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.IsolationLevel;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
 
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
-
     @Override
-    public IsolationLevel getActualIsolationLevel() {
-        throw new OperationUnsupportedException("Not Implemented in the Relational layer");
+    public IsolationLevel getActualIsolationLevel() throws SQLException {
+        throw new OperationUnsupportedException("Not Implemented in the Relational layer").toSqlException();
     }
 
     @Override
-    public IsolationLevel getRequestedIsolationLevel() {
-        throw new OperationUnsupportedException("Not Implemented in the Relational layer");
+    public IsolationLevel getRequestedIsolationLevel() throws SQLException {
+        throw new OperationUnsupportedException("Not Implemented in the Relational layer").toSqlException();
     }
 
     @Override
-    public boolean getBoolean(int position) throws RelationalException {
+    public boolean getBoolean(int position) throws SQLException {
         Object o = getObject(position);
         if (o == null) {
             return false; //TODO(bfines) return a default value here
         }
         if (!(o instanceof Boolean)) {
-            throw new RelationalException("Boolean", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
+            throw new SQLException("Boolean", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return (Boolean) o;
     }
 
     @Override
-    public boolean getBoolean(String fieldName) throws RelationalException {
-        return getBoolean(getPosition(fieldName));
+    public boolean getBoolean(String fieldName) throws SQLException {
+        throw new OperationUnsupportedException("Not Implemented in the Relational layer").toSqlException();
     }
 
     @Override
-    public long getLong(int position) throws RelationalException {
+    public long getLong(int position) throws SQLException {
         Object o = getObject(position);
         if (o == null) {
             return 0L;
         }
         if (!(o instanceof Number)) {
-            throw new RelationalException("Long", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
+            throw new SQLException("Long", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return ((Number) o).longValue();
     }
 
     @Override
-    public long getLong(String fieldName) throws RelationalException {
-        return getLong(getPosition(fieldName));
+    public long getLong(String fieldName) throws SQLException {
+        try {
+            return getLong(getPosition(fieldName));
+        } catch (InvalidColumnReferenceException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
-    public float getFloat(int position) throws RelationalException {
+    public float getFloat(int position) throws SQLException {
         Object o = getObject(position);
         if (o == null) {
             return 0L;
         }
         if (!(o instanceof Number)) {
-            throw new RelationalException("Long", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
+            throw new SQLException("Long", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return ((Number) o).floatValue();
     }
 
     @Override
-    public float getFloat(String fieldName) throws RelationalException {
-        return getFloat(getPosition(fieldName));
+    public float getFloat(String fieldName) throws SQLException {
+        try {
+            return getFloat(getPosition(fieldName));
+        } catch (InvalidColumnReferenceException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
-    public double getDouble(int position) throws RelationalException {
+    public double getDouble(int position) throws SQLException {
         Object o = getObject(position);
         if (o == null) {
             return 0L;
         }
         if (!(o instanceof Number)) {
-            throw new RelationalException("Long", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
+            throw new SQLException("Long", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return ((Number) o).doubleValue();
     }
 
     @Override
-    public double getDouble(String fieldName) throws RelationalException {
-        return getDouble(getPosition(fieldName));
+    public double getDouble(String fieldName) throws SQLException {
+        try {
+            return getDouble(getPosition(fieldName));
+        } catch (InvalidColumnReferenceException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
-    public Object getObject(String fieldName) throws RelationalException {
-        return getObject(getPosition(fieldName));
+    public Object getObject(String fieldName) throws SQLException {
+        try {
+            return getObject(getPosition(fieldName));
+        } catch (InvalidColumnReferenceException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
-    public String getString(int position) throws RelationalException {
+    public String getString(int position) throws SQLException {
         Object o = getObject(position);
         if (o == null) {
             return null;
         }
         if (!(o instanceof String)) {
-            throw new RelationalException("String", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
+            throw new SQLException("String", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return (String) o;
     }
 
     @Override
-    public String getString(String fieldName) throws RelationalException {
-        return getString(getPosition(fieldName));
+    public String getString(String fieldName) throws SQLException {
+        try {
+            return getString(getPosition(fieldName));
+        } catch (InvalidColumnReferenceException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
-    public Message getMessage(int position) throws RelationalException {
+    public Message getMessage(int position) throws SQLException {
         Object o = getObject(position);
         if (o == null) {
             return null;
         }
         if (!(o instanceof Message)) {
-            throw new RelationalException("Message", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
+            throw new SQLException("Message", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return (Message) o;
     }
 
     @Override
-    public Message getMessage(String fieldName) throws RelationalException {
-        return getMessage(getPosition(fieldName));
+    public Message getMessage(String fieldName) throws SQLException {
+        try {
+            return getMessage(getPosition(fieldName));
+        } catch (InvalidColumnReferenceException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
-    public Iterable<?> getRepeated(int position) throws RelationalException {
+    public Iterable<?> getRepeated(int position) throws SQLException {
         Object o = getObject(position);
         if (o == null) {
             return null;
         }
         if (!(o instanceof Iterable)) {
-            throw new RelationalException("Iterable", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
+            throw new SQLException("Iterable", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return (Iterable<?>) o;
     }
 
     @Override
-    public Iterable<?> getRepeated(String fieldName) throws RelationalException {
-        return getRepeated(getPosition(fieldName));
+    public Iterable<?> getRepeated(String fieldName) throws SQLException {
+        try {
+            return getRepeated(getPosition(fieldName));
+        } catch (InvalidColumnReferenceException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
@@ -177,19 +207,16 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public <M extends Message> M parseMessage() throws OperationUnsupportedException {
-        throw new OperationUnsupportedException("Does not support message parsing");
+    public <M extends Message> M parseMessage() throws SQLException {
+        throw new OperationUnsupportedException("Does not support message parsing").toSqlException();
     }
 
     @Override
-    public RelationalResultSetMetaData getMetaData() throws RelationalException {
+    public ResultSetMetaData getMetaData() {
         return new RecordResultSetMetaData(getFieldNames());
     }
 
-    /* ****************************************************************************************************************/
-    /* protected helper methods*/
-
-    protected abstract int getPosition(String fieldName);
+    protected abstract int getPosition(String fieldName) throws SQLException, InvalidColumnReferenceException;
 
     protected abstract String[] getFieldNames();
 }

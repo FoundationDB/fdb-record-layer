@@ -1,5 +1,5 @@
 /*
- * OperationSet.java
+ * UncheckedRelationalException.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,13 +18,17 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api;
+package com.apple.foundationdb.relational.api.exceptions;
 
-import java.util.function.Consumer;
+public class UncheckedRelationalException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
 
-@FunctionalInterface
-public interface OperationSet extends Consumer<DatabaseConnection> {
+    public UncheckedRelationalException(RelationalException cause) {
+        super(cause);
+    }
 
-    @Override
-    void accept(DatabaseConnection databaseConnection);
+    public RelationalException unwrap() {
+        return (RelationalException) this.getCause();
+    }
+
 }
