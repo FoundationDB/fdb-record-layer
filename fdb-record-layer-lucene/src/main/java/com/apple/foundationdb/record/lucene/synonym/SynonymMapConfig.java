@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.lucene.synonym;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 
 import javax.annotation.Nonnull;
 import java.io.InputStream;
 
+@API(API.Status.EXPERIMENTAL)
 public interface SynonymMapConfig {
     /**
      * Get the name of the synonymMap to build.

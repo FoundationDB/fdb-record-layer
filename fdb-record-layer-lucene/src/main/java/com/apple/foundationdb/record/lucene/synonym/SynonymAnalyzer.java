@@ -34,6 +34,7 @@ import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymGraphFilter;
+import org.apache.lucene.analysis.synonym.SynonymMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -78,7 +79,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
     }
 
     @Nonnull
-    private org.apache.lucene.analysis.synonym.SynonymMap getSynonymMap() {
+    private SynonymMap getSynonymMap() {
         return SynonymMapRegistryImpl.instance().getSynonymMap(name);
     }
 
