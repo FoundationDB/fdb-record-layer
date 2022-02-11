@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -112,7 +111,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.query = query;
         if (continuation != null) {
             try {
-                RecordCursorProto.LuceneIndexContinuation luceneIndexContinuation = RecordCursorProto.LuceneIndexContinuation.parseFrom(continuation);
+                LuceneContinuationProto.LuceneIndexContinuation luceneIndexContinuation = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(continuation);
                 searchAfter = new ScoreDoc((int)luceneIndexContinuation.getDoc(), luceneIndexContinuation.getScore(), (int)luceneIndexContinuation.getShard());
             } catch (Exception e) {
                 throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, e);
@@ -214,7 +213,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (currentPosition >= topDocs.scoreDocs.length && limitRemaining > 0) {
             return ByteArrayContinuation.fromNullable(null);
         } else {
-            RecordCursorProto.LuceneIndexContinuation continuation = RecordCursorProto.LuceneIndexContinuation.newBuilder()
+            LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(searchAfter.doc)
                     .setScore(searchAfter.score)
                     .setShard(searchAfter.shardIndex)

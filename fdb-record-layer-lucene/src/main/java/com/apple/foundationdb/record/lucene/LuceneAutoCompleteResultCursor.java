@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -142,7 +141,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
 
     @Nonnull
     private static RecordCursorContinuation continuationHelper(@Nonnull Lookup.LookupResult lookupResult) {
-        RecordCursorProto.LuceneAutoCompleteIndexContinuation.Builder continuationBuilder = RecordCursorProto.LuceneAutoCompleteIndexContinuation.newBuilder().setKey((String) lookupResult.key);
+        LuceneContinuationProto.LuceneAutoCompleteIndexContinuation.Builder continuationBuilder = LuceneContinuationProto.LuceneAutoCompleteIndexContinuation.newBuilder().setKey((String) lookupResult.key);
         continuationBuilder.setValue(lookupResult.value);
         continuationBuilder.setPayload(ByteString.copyFrom(lookupResult.payload.bytes));
         return ByteArrayContinuation.fromNullable(continuationBuilder.build().toByteArray());

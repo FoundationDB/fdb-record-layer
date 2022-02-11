@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -323,7 +322,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1625L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1626L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            RecordCursorProto.LuceneIndexContinuation continuation =  RecordCursorProto.LuceneIndexContinuation.newBuilder()
+            LuceneContinuationProto.LuceneIndexContinuation continuation =  LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(1)
                     .setScore(0.12324655F)
                     .setShard(0)
@@ -407,7 +406,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 200; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
             }
-            RecordCursorProto.LuceneIndexContinuation continuation = RecordCursorProto.LuceneIndexContinuation.newBuilder()
+            LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(151)
                     .setScore(0.0011561684F)
                     .setShard(0)

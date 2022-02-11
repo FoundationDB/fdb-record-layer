@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -42,8 +41,6 @@ import org.apache.lucene.search.spell.SuggestWord;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-//import org.slf4j.Logger;
-//import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -143,8 +140,8 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
 
     @Nonnull
     private RecordCursorContinuation continuationHelper(@Nonnull IndexEntry lookupResult) {
-        RecordCursorProto.LuceneSpellcheckIndexContinuation.Builder continuationBuilder =
-                RecordCursorProto.LuceneSpellcheckIndexContinuation.newBuilder().setValue(ByteString.copyFromUtf8(lookupResult.toString()));
+        LuceneContinuationProto.LuceneSpellcheckIndexContinuation.Builder continuationBuilder =
+                LuceneContinuationProto.LuceneSpellcheckIndexContinuation.newBuilder().setValue(ByteString.copyFromUtf8(lookupResult.toString()));
         continuationBuilder.setLocation(currentPosition);
         return ByteArrayContinuation.fromNullable(continuationBuilder.build().toByteArray());
     }
