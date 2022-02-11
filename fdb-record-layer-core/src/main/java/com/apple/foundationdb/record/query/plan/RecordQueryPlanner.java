@@ -1384,12 +1384,12 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nonnull
     private RecordQueryPlan planScan(@Nonnull CandidateScan candidateScan,
-                                     @Nonnull IndexScanParameters scanParameters,
+                                     @Nonnull IndexScanComparisons indexScanComparisons,
                                      boolean strictlySorted) {
         RecordQueryPlan plan;
         Set<String> possibleTypes;
         if (candidateScan.index == null) {
-            final ScanComparisons scanComparisons = ((IndexScanComparisons)scanParameters).getComparisons();
+            final ScanComparisons scanComparisons = indexScanComparisons.getComparisons();
             if (primaryKeyHasRecordTypePrefix && RecordTypeKeyComparison.hasRecordTypeKeyComparison(scanComparisons)) {
                 possibleTypes = RecordTypeKeyComparison.recordTypeKeyComparisonTypes(scanComparisons);
             } else {
@@ -1397,7 +1397,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             plan = new RecordQueryScanPlan(possibleTypes, scanComparisons, candidateScan.reverse, strictlySorted);
         } else {
-            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanParameters, candidateScan.reverse, strictlySorted);
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), indexScanComparisons, candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);
         }
         // Add a type filter if the query plan might return records of more types than the query specified
@@ -1416,7 +1416,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     private RecordQueryPlan rankScan(@Nonnull CandidateScan candidateScan,
                                      @Nonnull QueryRecordFunctionWithComparison rank,
                                      @Nonnull ScanComparisons scanComparisons) {
-        IndexScanParameters scanParameters;
+        IndexScanComparisons scanParameters;
         if (rank.getFunction().getName().equals(FunctionNames.TIME_WINDOW_RANK)) {
             scanParameters = new TimeWindowScanComparisons(((TimeWindowRecordFunction<?>) rank.getFunction()).getTimeWindow(), scanComparisons);
         } else {

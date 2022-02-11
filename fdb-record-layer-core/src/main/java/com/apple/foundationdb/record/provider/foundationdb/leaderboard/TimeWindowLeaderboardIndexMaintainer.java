@@ -179,10 +179,26 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         final TupleRange leaderboardRange;
         if (scanType == IndexScanType.BY_TIME_WINDOW) {
             // Get oldest leaderboard of type containing timestamp.
-            TimeWindowScanRange scanRange = (TimeWindowScanRange)scanBounds;
-            type = scanRange.getLeaderboardType();
-            timestamp = scanRange.getLeaderboardTimestamp();
-            leaderboardRange = scanRange.getScanRange();
+            if (scanBounds instanceof TimeWindowScanRange) {
+                TimeWindowScanRange scanRange = (TimeWindowScanRange)scanBounds;
+                type = scanRange.getLeaderboardType();
+                timestamp = scanRange.getLeaderboardTimestamp();
+                leaderboardRange = scanRange.getScanRange();
+            } else {
+                // TODO: For compatibility, accept scan with BY_TIME_WINDOW and TupleRange for a while.
+                //  This code can be removed when we are confident all callers have been converted.
+                IndexScanRange scanRange = (IndexScanRange)scanBounds;
+                TupleRange rankRange = scanRange.getScanRange();
+                final Tuple lowRank = rankRange.getLow();
+                final Tuple highRank = rankRange.getHigh();
+                type = (int)lowRank.getLong(0);
+                timestamp = lowRank.getLong(1);
+                leaderboardRange = new TupleRange(
+                        Tuple.fromList(lowRank.getItems().subList(2, lowRank.size())),
+                        Tuple.fromList(highRank.getItems().subList(2, highRank.size())),
+                        rankRange.getLowEndpoint(),
+                        rankRange.getHighEndpoint());
+            }
         } else {
             // Get the all-time leaderboard for unqualified rank or value.
             IndexScanRange scanRange = (IndexScanRange)scanBounds;

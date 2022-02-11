@@ -35,7 +35,7 @@ import javax.annotation.Nonnull;
  * The parameterized form of index scan bounds.
  * These parameters are stored in the plan and then bound to the context before passing on to the index maintainer.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface IndexScanParameters extends PlanHashable {
     /**
      * Get the type of index scan to be performed.
@@ -46,6 +46,9 @@ public interface IndexScanParameters extends PlanHashable {
 
     /**
      * Get the bound form of the index scan for use by the maintainer.
+     * An {@code IndexScanParameters} can contain parameter references that must be resolved against a context bindings
+     * to get the actual scan bounds. Scan types that use forms other than {@link IndexScanComparisons} can also resolve
+     * similar information from the store.
      * @param store store against which the scan will be performed
      * @param context query parameters for the scan
      * @return the index scan bounds

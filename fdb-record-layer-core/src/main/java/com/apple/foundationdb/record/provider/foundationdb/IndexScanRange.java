@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
 /**
  * {@link TupleRange} for an index scan.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexScanRange implements IndexScanBounds {
     @Nonnull
     private final IndexScanType scanType;

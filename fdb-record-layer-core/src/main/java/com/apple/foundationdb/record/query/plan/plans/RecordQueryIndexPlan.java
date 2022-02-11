@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
@@ -301,9 +302,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     public ScanComparisons getComparisons() {
         if (scanParameters instanceof IndexScanComparisons) {
             return ((IndexScanComparisons)scanParameters).getComparisons();
-        } else {
-            return ScanComparisons.EMPTY;
         }
+        throw new RecordCoreException("this plan does not use ScanComparisons");
     }
 
     @Override
