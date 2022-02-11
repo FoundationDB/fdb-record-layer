@@ -211,20 +211,6 @@ public class FDBStoreTimer extends StoreTimer {
         COMMITS("commits"),
         /** Time for FDB fetches.*/
         FETCHES("fetches"),
-        /** Time to read a block from Lucene's FDBDirectory.*/
-        LUCENE_READ_BLOCK("lucene block reads"),
-        /** Time to read a lucene block from FBB loader. */
-        LUCENE_FDB_READ_BLOCK("lucene read from fdb"),
-        /** Time to list all files from Lucene's FDBDirectory.*/
-        LUCENE_LIST_ALL("lucene list all"),
-        /** Number of getFileReference calls in the FDBDirectory.*/
-        LUCENE_GET_FILE_REFERENCE("lucene get file references"),
-        /** Number of documents returned from a single Lucene Index Scan. */
-        LUCENE_INDEX_SCAN("lucene search returned documents"),
-        /** Number of suggestions returned from a single Lucene Auto Complete Scan. */
-        LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN("lucene search returned auto complete suggestions"),
-        /** Number of documents returned from a single Lucene spellcheck scan. */
-        LUCENE_SPELLCHECK_SCAN("lucene search returned spellcheck suggestions"),
         /** Total lifetime of a transaction. */
         TRANSACTION_TIME("transaction time")
         ;
@@ -428,12 +414,6 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_EDIT_HEADER_USER_FIELD("wait to edit a header user field"),
         /** Wait to read a key from the FDB system keyspace. */
         WAIT_LOAD_SYSTEM_KEY("wait for reading a key from the FDB system keyspace"),
-        /** Wait to delete a file from Lucene's FDBDirectory.*/
-        WAIT_LUCENE_DELETE_FILE("lucene delete file"),
-        /** Time to get the length of the a file in Lucene's FDBDirectory.*/
-        WAIT_LUCENE_FILE_LENGTH("lucene file length"),
-        /** Time to rename a file in Lucene's FDBDirectory.*/
-        WAIT_LUCENE_RENAME("lucene rename"),
         /** Wait to perform validation of resolver reverse directory mapping. */
         WAIT_VALIDATE_RESOLVER("wait validating resolver"),
         ;
@@ -674,26 +654,6 @@ public class FDBStoreTimer extends StoreTimer {
         RANGE_KEYVALUES_FETCHED("range key-values ",false ),
         /** Number of chunk reads that failed.*/
         CHUNK_READ_FAILURES("read fails",false ),
-        /** Number of times the getIncrement() function is called in the FDBDirectory. */
-        LUCENE_GET_INCREMENT_CALLS("lucene increments",false),
-        /** Number of writeFileReference calls in the FDBDirectory.*/
-        LUCENE_WRITE_FILE_REFERENCE_CALL("lucene write file references",false),
-        /** Total number of bytes that were attempted to be written (not necessarily committed) for file references in the FDBDirectory. */
-        LUCENE_WRITE_FILE_REFERENCE_SIZE("lucene write file reference size", true),
-        /** Count of writeData calls in FDBDirectory. */
-        LUCENE_WRITE_CALL("lucene index writes", false),
-        /** Total number of bytes that were attempted to be written (not necessarily committed) to the FDBDirectory.*/
-        LUCENE_WRITE_SIZE("lucene index size",true),
-        /** The number of block reads that occur against the FDBDirectory.*/
-        LUCENE_BLOCK_READS("lucene block reads", false),
-        /** Time to write a file references in Lucene's FDBDirectory.*/
-        LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" ,false),
-        /** Matched documents returned from lucene index reader scans. **/
-        LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
-        /** Matched auto complete suggestions returned from lucene auto complete suggestion lookup. **/
-        LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS("lucene scan matched auto complete suggestions", false),
-        /** Matched spellchecker suggestions returned from lucene spellchecker suggestion lookup. **/
-        LUCENE_SCAN_SPELLCHECKER_SUGGESTIONS("lucene scan matched spellchecker suggestions", false),
         /** Count of commits that failed for any reason. */
         COMMITS_FAILED("commits failed", false),
         /** Count failed due to conflict. */

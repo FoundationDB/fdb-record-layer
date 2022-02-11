@@ -269,8 +269,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             searchAfter = topDocs.scoreDocs[topDocs.scoreDocs.length - 1];
         }
         if (timer != null) {
-            timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_INDEX_SCAN, startTime);
-            timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
+            timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_INDEX_SCAN, startTime);
+            timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
         }
     }
 }

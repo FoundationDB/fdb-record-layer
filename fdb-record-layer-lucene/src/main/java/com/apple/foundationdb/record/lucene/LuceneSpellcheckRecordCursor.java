@@ -208,8 +208,8 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 })
                 .collect(Collectors.toList());
         if (timer != null) {
-            timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_SPELLCHECK_SCAN, startTime);
-            timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_SPELLCHECKER_SUGGESTIONS, spellcheckSuggestions.size());
+            timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_SPELLCHECK_SCAN, startTime);
+            timer.increment(LuceneEvents.Counts.LUCENE_SCAN_SPELLCHECKER_SUGGESTIONS, spellcheckSuggestions.size());
         }
     }
 

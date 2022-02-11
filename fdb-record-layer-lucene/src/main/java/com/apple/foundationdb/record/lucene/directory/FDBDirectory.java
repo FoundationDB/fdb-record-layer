@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -150,7 +151,7 @@ public class FDBDirectory extends Directory {
      * @return current increment value
      */
     public synchronized long getIncrement() {
-        increment(FDBStoreTimer.Counts.LUCENE_GET_INCREMENT_CALLS);
+        increment(LuceneEvents .Counts.LUCENE_GET_INCREMENT_CALLS);
         return context.ensureActive().get(sequenceSubspaceKey).thenApply(
             (value) -> {
                 if (value == null) {
@@ -164,14 +165,14 @@ public class FDBDirectory extends Directory {
             }).join();
     }
 
-    private void increment(FDBStoreTimer.Counts counter) {
+    private void increment(StoreTimer.Count counter) {
         final FDBStoreTimer timer = context.getTimer();
         if (timer != null) {
             timer.increment(counter);
         }
     }
 
-    private void increment(FDBStoreTimer.Counts counter, int amount) {
+    private void increment(StoreTimer.Count counter, int amount) {
         final FDBStoreTimer timer = context.getTimer();
         if (timer != null) {
             timer.increment(counter, amount);
@@ -196,7 +197,7 @@ public class FDBDirectory extends Directory {
         }
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
         if (fileReference == null) {
-            return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
+            return context.instrument(LuceneEvents.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
                     .thenApply((value) -> {
                         final FDBLuceneFileReference fetchedRef = FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(value));
                         if (fetchedRef != null) {
@@ -266,8 +267,8 @@ public class FDBDirectory extends Directory {
         }
         final byte[] fileReferenceBytes = reference.getBytes();
         final byte[] encodedBytes = LuceneSerializer.encode(reference.getBytes(), compressionEnabled, encryptionEnabled);
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
+        increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
+        increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene file reference",
                     LogMessageKeys.FILE_NAME, name,
@@ -289,8 +290,8 @@ public class FDBDirectory extends Directory {
     public int writeData(long id, int block, @Nonnull byte[] value) {
         final byte[] encodedBytes = LuceneSerializer.encode(value, compressionEnabled, encryptionEnabled);
         //This may not be correct transactionally
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_CALL);
+        increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
+        increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene data",
                     LogMessageKeys.FILE_ID, id,
@@ -328,8 +329,8 @@ public class FDBDirectory extends Directory {
             Long id = reference.getId();
 
             long start = System.nanoTime();
-            return context.instrument(FDBStoreTimer.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
-                    () -> context.instrument(FDBStoreTimer.Events.LUCENE_FDB_READ_BLOCK,
+            return context.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
+                    () -> context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
                             context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
                                     .thenApplyAsync(data -> LuceneSerializer.decode(data)))
             ), start);
@@ -353,7 +354,7 @@ public class FDBDirectory extends Directory {
         try {
             outList = listAllInternal();
         } finally {
-            record(FDBStoreTimer.Events.LUCENE_LIST_ALL, System.nanoTime() - start);
+            record(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - start);
         }
         //noinspection ToArrayCallWithZeroLengthArrayArgument
         return outList.toArray(new String[outList.size()]);
@@ -423,7 +424,7 @@ public class FDBDirectory extends Directory {
         if (isEntriesFile(name) || isSegmentInfo(name)) {
             return;
         }
-        boolean deleted = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReference(name).thenApplyAsync(
+        boolean deleted = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReference(name).thenApplyAsync(
                 (value) -> {
                     if (value == null) {
                         return false;
@@ -453,7 +454,7 @@ public class FDBDirectory extends Directory {
                     LogMessageKeys.FILE_NAME, name));
         }
         name = convertToDataFile(name);
-        FDBLuceneFileReference reference = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReference(name));
+        FDBLuceneFileReference reference = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReference(name));
         if (isEntriesFile(name)) {
             return reference.getEntries().length;
         }
@@ -536,7 +537,7 @@ public class FDBDirectory extends Directory {
                     LogMessageKeys.DEST_FILE, dest));
         }
         final byte[] key = metaSubspace.pack(source);
-        context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_RENAME, context.ensureActive().get(key).thenApply((Function<byte[], Void>)value -> {
+        context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_RENAME, context.ensureActive().get(key).thenApply((Function<byte[], Void>)value -> {
             if (value == null) {
                 throw new RecordCoreArgumentException("Invalid source name in rename function for source")
                         .addLogInfo(LogMessageKeys.SOURCE_FILE,source)

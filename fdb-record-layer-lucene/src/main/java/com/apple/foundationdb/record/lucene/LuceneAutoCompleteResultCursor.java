@@ -172,8 +172,8 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                         ? suggester.lookup(query, Collections.emptySet(), limit, true, highlight)
                         : Collections.emptyList();
         if (timer != null) {
-            timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN, startTime);
-            timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, lookupResults.size());
+            timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN, startTime);
+            timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, lookupResults.size());
         }
     }
 }

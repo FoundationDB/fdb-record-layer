@@ -307,7 +307,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             TupleRange.allOf(Tuple.from("Vision")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
-            assertCorrectMetricCount(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE,1);
+            assertCorrectMetricCount(LuceneEvents.Events.LUCENE_GET_FILE_REFERENCE,1);
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
         }
@@ -431,8 +431,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     TupleRange.allOf(Tuple.from("Vision")), null,
                     ExecuteProperties.newBuilder().setReturnedRowLimit(251).build().asScanProperties(false))
                     .getCount().join());
-            assertEquals(2, recordStore.getTimer().getCount(FDBStoreTimer.Events.LUCENE_INDEX_SCAN));
-            assertEquals(251, recordStore.getTimer().getCount(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS));
+            assertEquals(2, recordStore.getTimer().getCount(LuceneEvents.Events.LUCENE_INDEX_SCAN));
+            assertEquals(251, recordStore.getTimer().getCount(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
         }
@@ -449,8 +449,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     TupleRange.allOf(Tuple.from("Vision")), null,
                     ExecuteProperties.newBuilder().setReturnedRowLimit(251).setSkip(201).build().asScanProperties(false))
                     .getCount().join());
-            assertEquals(2, recordStore.getTimer().getCount(FDBStoreTimer.Events.LUCENE_INDEX_SCAN));
-            assertEquals(251, recordStore.getTimer().getCount(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS));
+            assertEquals(2, recordStore.getTimer().getCount(LuceneEvents.Events.LUCENE_INDEX_SCAN));
+            assertEquals(251, recordStore.getTimer().getCount(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
         }
@@ -803,7 +803,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     (String) i.getKey().get(i.getKeySize() - 1),
                     (String) i.getKey().get(i.getKeySize() - 2), IndexScanType.BY_LUCENE_AUTO_COMPLETE));
 
-            assertEquals(6, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEquals(6, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertEntriesAndSegmentInfoStoredInCompoundFile(AutoCompleteSuggesterCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), TupleHelpers.EMPTY),
                     context, "_0.cfs", true);
 
@@ -849,7 +849,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals("Good morning", result.getKey().get(result.getKeySize() - 1));
             assertEquals("text", result.getKey().get(result.getKeySize() - 2));
 
-            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEquals(1, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertEntriesAndSegmentInfoStoredInCompoundFile(AutoCompleteSuggesterCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE), TupleHelpers.EMPTY),
                     context, "_0.cfs", true);
         }
@@ -886,7 +886,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals("sampleTextPhrase", entry.getField(keyDescriptor));
             assertEquals(ENGINEER_JOKE, entry.getField(valueDescriptor));
 
-            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEquals(1, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertEntriesAndSegmentInfoStoredInCompoundFile(AutoCompleteSuggesterCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE), Tuple.from("sampleTextPhrase")),
                     context, "_0.cfs", true);
         }
@@ -1149,7 +1149,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     (String) i.getKey().get(i.getKeySize() - 1),
                     (String) i.getKey().get(i.getKeySize() - 2), IndexScanType.BY_LUCENE_AUTO_COMPLETE));
 
-            assertEquals(6, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEquals(6, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertEntriesAndSegmentInfoStoredInCompoundFile(AutoCompleteSuggesterCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE), TupleHelpers.EMPTY),
                     context, "_0.cfs", true);
         }
