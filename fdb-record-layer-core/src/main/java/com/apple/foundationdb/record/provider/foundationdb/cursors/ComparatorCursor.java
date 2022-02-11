@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -74,18 +75,20 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     @Nonnull
     private final Supplier<Integer> planHashSupplier;
     private boolean errorLogged = false;
+    private final boolean abortOnComparisonFailure;
 
     private ComparatorCursor(@Nonnull List<KeyedMergeCursorState<T>> cursorStates,
                              @Nullable FDBStoreTimer timer,
                              final int referencePlanIndex,
+                             final boolean abortOnComparisonFailure,
                              @Nonnull final Supplier<String> planStringSupplier,
                              @Nonnull final Supplier<Integer> planHashSupplier) {
         super(cursorStates, timer);
         this.referencePlanIndex = referencePlanIndex;
+        this.abortOnComparisonFailure = abortOnComparisonFailure;
         this.planStringSupplier = planStringSupplier;
         this.planHashSupplier = planHashSupplier;
     }
-
 
     /**
      * Create a comparator cursor from several compatibly-ordered cursors.
@@ -101,12 +104,13 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @param cursorFunctions a list of functions to produce {@link RecordCursor}s from a continuation
      * @param continuation any continuation from a previous scan
      * @param referencePlanIndex the index of the reference cursor in the given list of sub-cursors
+     * @param abortOnComparisonFailure whether to abort the execution and throw an exception when encountering a comparison failure
      * @param planStringSupplier function to return the cursor plan's hash (for logging purposes)
      * @param planHashSupplier function to return the cursor plan's string (for logging purposes)
      *
      * @return a cursor containing same records in all child cursors
      *
-     * @see #create(Function, List, byte[], FDBStoreTimer, int, Supplier, Supplier)
+     * @see #create(Function, List, byte[], FDBStoreTimer, int, boolean, Supplier, Supplier)
      */
     @Nonnull
     public static <M extends Message, S extends FDBRecord<M>> ComparatorCursor<S> create(
@@ -115,12 +119,14 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
             @Nonnull List<Function<byte[], RecordCursor<S>>> cursorFunctions,
             @Nullable byte[] continuation,
             final int referencePlanIndex,
+            final boolean abortOnComparisonFailure,
             @Nonnull final Supplier<String> planStringSupplier,
             @Nonnull final Supplier<Integer> planHashSupplier) {
         return create(
                 (S rec) -> evaluateKey(comparisonKey, rec),
                 cursorFunctions, continuation, store.getTimer(),
-                referencePlanIndex, planStringSupplier, planHashSupplier);
+                referencePlanIndex, abortOnComparisonFailure,
+                planStringSupplier, planHashSupplier);
     }
 
     /**
@@ -148,6 +154,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @param continuation any continuation from a previous scan
      * @param timer the timer used to instrument events
      * @param referencePlanIndex the index of the reference cursor in the given list of sub-cursors
+     * @param abortOnComparisonFailure whether to abort the execution and throw an exception when encountering a comparison failure
      * @param planStringSupplier function to return the cursor plan's hash (for logging purposes)
      * @param planHashSupplier function to return the cursor plan's string (for logging purposes)
      *
@@ -160,10 +167,11 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer,
             final int referencePlanIndex,
+            final boolean abortOnComparisonFailure,
             @Nonnull final Supplier<String> planStringSupplier,
             @Nonnull final Supplier<Integer> planHashSupplier) {
         return new ComparatorCursor<>(createCursorStates(cursorFunctions, continuation, comparisonKeyFunction, referencePlanIndex), timer,
-                referencePlanIndex, planStringSupplier, planHashSupplier);
+                referencePlanIndex, abortOnComparisonFailure, planStringSupplier, planHashSupplier);
     }
 
     /**
@@ -233,6 +241,11 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
             // has reached row limit (therefore comparison failed)
             if (exhaustedCount > 0) {
                 logTerminationFailure(getReferenceState(cursorStates));
+                if (abortOnComparisonFailure) {
+                    throw new RecordCoreException("Not all cursors are exhausted")
+                            .addLogInfo(LogMessageKeys.EXPECTED, isSourceExhausted(getReferenceState(cursorStates)))
+                            .addLogInfo(LogMessageKeys.PLAN_HASH, planHashSupplier.get());
+                }
             }
             if (!hasNext(getReferenceState(cursorStates))) {
                 // Reference done - we are done
@@ -301,9 +314,15 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
             int compare = KeyComparisons.KEY_COMPARATOR.compare(cursorState.getComparisonKey(), referenceKey);
             if (compare != 0) {
                 logComparisonFailure(referenceKey, cursorState.getComparisonKey());
-                return false;
+                if (abortOnComparisonFailure) {
+                    throw new RecordCoreException("Comparison of plans failed")
+                            .addLogInfo(LogMessageKeys.EXPECTED, referenceKey)
+                            .addLogInfo(LogMessageKeys.ACTUAL, cursorState.getComparisonKey())
+                            .addLogInfo(LogMessageKeys.PLAN_HASH, planHashSupplier.get());
+                } else {
+                    return false;
+                }
             }
-
         }
         logCounters(cursorStates, startTime);
 

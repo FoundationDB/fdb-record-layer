@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -68,13 +69,16 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     @Nonnull
     private final KeyExpression comparisonKey;
     private final int referencePlanIndex;
+    private final boolean abortOnComparisonFailure;
 
     private RecordQueryComparatorPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                       @Nonnull final KeyExpression comparisonKey,
-                                      final int referencePlanIndex) {
+                                      final int referencePlanIndex,
+                                      final boolean abortOnComparisonFailure) {
         super(quantifiers);
         this.comparisonKey = comparisonKey;
         this.referencePlanIndex = referencePlanIndex;
+        this.abortOnComparisonFailure = abortOnComparisonFailure;
     }
 
     /**
@@ -90,6 +94,27 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     public static RecordQueryComparatorPlan from(@Nonnull List<? extends RecordQueryPlan> children,
                                                  @Nonnull KeyExpression comparisonKey,
                                                  final int referencePlanIndex) {
+        return from(children, comparisonKey, referencePlanIndex, false);
+    }
+
+    /**
+     * Factory method to create a new instance of the Comparator plan.
+     *
+     * @param children the list of plans to compare results from
+     * @param comparisonKey a key expression by which the results of all plans are compared by
+     * @param referencePlanIndex the index of the "reference plan" (source of truth) among the given sub-plans
+     * @param abortOnComparisonFailure whether to abort the plan execution when encountering comparison failure. This parameter
+     *        is used for testing since we don't want to fail normal plans on that kind of failure, but it allows a fast
+     *        and easy-to-check condition for testing
+     *
+     * @return a new plan that will compare all results from child plans
+     */
+    @Nonnull
+    @VisibleForTesting
+    public static RecordQueryComparatorPlan from(@Nonnull List<? extends RecordQueryPlan> children,
+                                                 @Nonnull KeyExpression comparisonKey,
+                                                 final int referencePlanIndex,
+                                                 final boolean abortOnComparisonFailure) {
         if (children.isEmpty()) {
             throw new RecordCoreArgumentException("Comparator plan should have at least one plan");
         }
@@ -101,7 +126,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
         for (RecordQueryPlan child : children) {
             childRefsBuilder.add(GroupExpressionRef.of(child));
         }
-        return new RecordQueryComparatorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, referencePlanIndex);
+        return new RecordQueryComparatorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, referencePlanIndex, abortOnComparisonFailure);
     }
 
     /**
@@ -129,6 +154,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
                                 .collect(Collectors.toList()),
                         continuation,
                         referencePlanIndex,
+                        abortOnComparisonFailure,
                         () -> toString(),
                         () -> planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS))
                 .skipThenLimit(parentExecuteProperties.getSkip(), parentExecuteProperties.getReturnedRowLimit())
@@ -166,7 +192,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
                                                                   @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryComparatorPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
-                getComparisonKey(), referencePlanIndex);
+                getComparisonKey(), referencePlanIndex, abortOnComparisonFailure);
     }
 
     @Override
@@ -217,7 +243,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     public RecordQueryComparatorPlan strictlySorted() {
         return new RecordQueryComparatorPlan(Quantifiers.fromPlans(getChildStream()
                     .map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList())),
-                comparisonKey, referencePlanIndex);
+                comparisonKey, referencePlanIndex, abortOnComparisonFailure);
     }
 
     @Nonnull

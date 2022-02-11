@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
@@ -51,11 +50,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Tag(Tags.RequiresFDB)
-public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
+public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
-    @BeforeEach
-    void setup() throws Exception {
-    }
+    private boolean abortOnComparisonFailure;
 
     @DualPlannerTest
     void testOneInnerPlan() throws Exception {
@@ -65,12 +62,9 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
 
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query), primaryKey(), 0);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query), primaryKey(), 0, abortOnComparisonFailure);
 
-        int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(67, context));
-        assertEquals(33, count);
+        assertSamePlans(planUnderTest, 1, 67, 33);
     }
 
     @DualPlannerTest
@@ -86,12 +80,9 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
 
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0, abortOnComparisonFailure);
 
-        int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(134, context));
-        assertEquals(33, count);
+        assertSamePlans(planUnderTest, 1, 134, 33);
     }
 
     @DualPlannerTest
@@ -107,12 +98,9 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(2))
                 .build();
 
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0, abortOnComparisonFailure);
 
-        int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(134, context));
-        assertEquals(33, count);
+        assertDifferentPlans(planUnderTest, 1, 134, 33);
     }
 
     @DualPlannerTest
@@ -128,12 +116,9 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(2))
                 .build();
         // Note the reference index is now 1
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 1);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 1, abortOnComparisonFailure);
 
-        int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                record -> assertThat(record.getNumValue2(), is(2)),
-                context -> assertDiscardedAtMost(134, context));
-        assertEquals(33, count);
+        assertDifferentPlans(planUnderTest, 2, 134, 33);
     }
 
     @DualPlannerTest
@@ -152,12 +137,9 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
                         Query.field("rec_no").lessThan(5L)))
                 .build();
 
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0, abortOnComparisonFailure);
 
-        int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(134, context));
-        assertEquals(33, count);
+        assertDifferentPlans(planUnderTest, 1, 134, 33);
     }
 
     @DualPlannerTest
@@ -177,19 +159,16 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Note this time the reference plan is hte second one
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 1);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 1, abortOnComparisonFailure);
 
-        int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(10, context));
-        assertEquals(2, count);
+        assertDifferentPlans(planUnderTest, 1, 10, 2);
     }
 
     @DualPlannerTest
     void testNoInnerPlansFail() throws Exception {
         complexQuerySetup(NO_HOOK);
 
-        assertThrows(RecordCoreArgumentException.class, () -> RecordQueryComparatorPlan.from(Collections.emptyList(), primaryKey(), 0));
+        assertThrows(RecordCoreArgumentException.class, () -> RecordQueryComparatorPlan.from(Collections.emptyList(), primaryKey(), 0, abortOnComparisonFailure));
     }
 
     @DualPlannerTest
@@ -207,35 +186,18 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         // This will select plan 1 for the first execution and later some illegal value. The idea is that after the
         // first iteration, the continuation should determine the selected plan and not the relative priorities
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0, abortOnComparisonFailure);
 
         // Iteration 1, start with empty continuation
-        RecordCursorResult<FDBQueriedRecord<Message>> result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                null, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(),
-                count -> assertThat(count, is(15)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(60, context));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED));
+        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, null, 15, 0, 15, 1, 60, false, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
 
         // Iteration 2, start with previous continuation
         byte[] continuation = result.getContinuation().toBytes();
-        result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                continuation, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(),
-                count -> assertThat(count, is(15)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(60, context));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED));
+        result = assertSamePlansWithContinuation(planUnderTest, continuation, 15, 0, 15, 1, 60, false, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
 
         // Iteration 3, start with previous continuation, reach end
         continuation = result.getContinuation().toBytes();
-        result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                continuation, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(),
-                count -> assertThat(count, is(3)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(16, context));
-
-        assertThat(result.hasNext(), is(false));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
+        assertSamePlansWithContinuation(planUnderTest, continuation, 15, 0, 3, 1, 16, false, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
     }
 
     @DualPlannerTest
@@ -257,35 +219,23 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         // This will select plan 1 for the first execution and later some illegal value. The idea is that after the
         // first iteration, the continuation should determine the selected plan and not the relative priorities
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0, abortOnComparisonFailure);
 
-        // Iteration 1, start with empty continuation
-        RecordCursorResult<FDBQueriedRecord<Message>> result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                null, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(),
-                count -> assertThat(count, is(15)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(60, context));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED));
+        // Iteration 1, start with empty continuation.
+        // The plans are the "same" here since we haven't reached the point at which the second scan ends (yet)
+        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, null, 15, 0, 15, 1, 60, false, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
 
         // Iteration 2, start with previous continuation
+        // For this iteration, the second plan ends sooner, so the comparison fails
         byte[] continuation = result.getContinuation().toBytes();
-        result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                continuation, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(),
-                count -> assertThat(count, is(15)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(60, context));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED));
+        result = assertDifferentPlansWithContinuation(planUnderTest, continuation, 15, 0, 15, 1, 60, false, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
 
-        // Iteration 3, start with previous continuation, reach end
-        continuation = result.getContinuation().toBytes();
-        result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                continuation, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(),
-                count -> assertThat(count, is(3)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(16, context));
-
-        assertThat(result.hasNext(), is(false));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
+        if (result != null) {
+            // Iteration 3, start with previous continuation, reach end
+            // (in case we have a result from the first iteration)
+            continuation = result.getContinuation().toBytes();
+            assertDifferentPlansWithContinuation(planUnderTest, continuation, 15, 0, 3, 1, 16, false, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
+        }
     }
 
     @DualPlannerTest
@@ -303,25 +253,14 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         // This will select plan 1 for the first execution and later some illegal value. The idea is that after the
         // first iteration, the continuation should determine the selected plan and not the relative priorities
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0, abortOnComparisonFailure);
 
         // Iteration 1, start with empty continuation
-        RecordCursorResult<FDBQueriedRecord<Message>> result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                // Note that this execution uses setScannedRecordsLimit (as opposed to returned row limit)
-                null, ExecuteProperties.newBuilder().setScannedRecordsLimit(200).build(),
-                count -> assertThat(count, is(17)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(68, context));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED));
+        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, null, 0, 200, 17, 1, 68, false, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
 
         // Iteration 2, start with previous continuation, reach end (before limit)
         byte[] continuation = result.getContinuation().toBytes();
-        result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                continuation, ExecuteProperties.newBuilder().setScannedRecordsLimit(200).build(),
-                count -> assertThat(count, is(16)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(66, context));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
+        assertSamePlansWithContinuation(planUnderTest, continuation, 0, 200,16, 1, 66, false, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
     }
 
     @DualPlannerTest
@@ -344,25 +283,15 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         // This will select plan 1 for the first execution and later some illegal value. The idea is that after the
         // first iteration, the continuation should determine the selected plan and not the relative priorities
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0, abortOnComparisonFailure);
 
         // Iteration 1, start with empty continuation
-        RecordCursorResult<FDBQueriedRecord<Message>> result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                // Note that this execution uses setScannedRecordsLimit (as opposed to returned row limit)
-                null, ExecuteProperties.newBuilder().setScannedRecordsLimit(200).build(),
-                count -> assertThat(count, is(17)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(68, context));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED));
+        // The plans are the "same" here since we haven't reached the point at which the second scan ends (yet)
+        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, null, 0, 200, 17, 1, 68, false, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
 
         // Iteration 2, start with previous continuation, reach end (before limit)
         byte[] continuation = result.getContinuation().toBytes();
-        result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                continuation, ExecuteProperties.newBuilder().setScannedRecordsLimit(200).build(),
-                count -> assertThat(count, is(16)),
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(66, context));
-        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
+        assertDifferentPlansWithContinuation(planUnderTest, continuation, 0, 200, 16, 1, 66, false, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
     }
 
     @DualPlannerTest
@@ -377,7 +306,7 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
 
-        assertThrows(RecordCoreArgumentException.class, () -> RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 3));
+        assertThrows(RecordCoreArgumentException.class, () -> RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 3, abortOnComparisonFailure));
 
     }
 
@@ -397,13 +326,18 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         Descriptors.FieldDescriptor comparisonKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getDescriptor().findFieldByName("repeater");
         KeyExpression keyExpression = Key.Expressions.fromDescriptor(comparisonKey);
-        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), keyExpression, 0);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), keyExpression, 0, abortOnComparisonFailure);
 
-        // Repeated keys will return the reference result but log an error
-        int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(134, context));
-        assertEquals(33, count);
+        // Repeated keys will fail the comparison since they are not supported
+        assertDifferentPlans(planUnderTest, 1, 134, 33);
+    }
+
+    public boolean isAbortOnComparisonFailure() {
+        return abortOnComparisonFailure;
+    }
+
+    public void setAbortOnComparisonFailure(final boolean abortOnComparisonFailure) {
+        this.abortOnComparisonFailure = abortOnComparisonFailure;
     }
 
     @Nonnull
@@ -415,4 +349,93 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
         return recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
     }
 
+    /**
+     * Assert that the comparator plan runs through with the comparison successfully, compare the results to the given.
+     * parameters
+     * @param planUnderTest the comparator plan
+     * @param numValue2 the expected value of the numValue2 field in the read records
+     * @param atMostDiscarded the expected maximum allowed number of discarded records
+     * @param totalCount the total returned record count
+     *
+     * @throws Exception just in case
+     */
+    protected void assertSamePlans(final RecordQueryPlan planUnderTest, final int numValue2, final int atMostDiscarded, final int totalCount) throws Exception {
+        int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
+                record -> assertThat(record.getNumValue2(), is(numValue2)),
+                context -> assertDiscardedAtMost(atMostDiscarded, context));
+        assertEquals(totalCount, count);
+    }
+
+    /**
+     * Assert that the comparator plan fails to compare the two plans. This is overridden by subclasses since the behavior
+     * is different depending on the value of the abortOnComparisonFailure flag.
+     * @param planUnderTest the comparator plan
+     * @param numValue2 the expected value of the numValue2 field in the read records
+     * @param atMostDiscarded the expected maximum allowed number of discarded records
+     * @param totalCount the total returned record count
+     *
+     * @throws Exception just in case
+     */
+    protected abstract void assertDifferentPlans(final RecordQueryPlan planUnderTest, final int numValue2, final int atMostDiscarded, final int totalCount) throws Exception;
+
+    /**
+     * Assert that the comparator plan runs through with comparison successfully when given an (optional) continuation.
+     * @param planUnderTest the comparator plan
+     * @param continuation optional contionuation to pick up from
+     * @param returnedRowLimit row limit to pass in to the query execution
+     * @param numRecords the expected number of records that should be returned
+     * @param numValue2 the expected value of the numValue2 field in the read records
+     * @param atMostDiscarded the expected maximum allowed number of discarded records
+     * @param hasNext the expected hasNext values from the result
+     * @param noNextReason the optional expected noNextReason from the result
+     * @return the query result
+     * @throws Throwable just in case
+     */
+    protected RecordCursorResult<FDBQueriedRecord<Message>> assertSamePlansWithContinuation(
+            final RecordQueryPlan planUnderTest, final byte[] continuation,
+            final int returnedRowLimit, final int scannedRowLimit, final int numRecords, final int numValue2,
+            final int atMostDiscarded, final boolean hasNext, final RecordCursor.NoNextReason noNextReason) throws Throwable {
+
+        RecordCursorResult<FDBQueriedRecord<Message>> result = querySimpleRecordStoreWithContinuation(
+                NO_HOOK, planUnderTest, EvaluationContext::empty,
+                continuation, executePropertiesFor(returnedRowLimit, scannedRowLimit),
+                count -> assertThat(count, is(numRecords)),
+                record -> assertThat(record.getNumValue2(), is(numValue2)),
+                context -> assertDiscardedAtMost(atMostDiscarded, context));
+
+        assertThat(result.hasNext(), is(hasNext));
+        assertThat(result.getNoNextReason(), is(noNextReason));
+        return result;
+    }
+
+    /**
+     * Assert that the comparator plan fails to compare the two plans. This is overridden by subclasses since the behavior
+     * is different depending on the value of the abortOnComparisonFailure flag.
+     * @param planUnderTest the comparator plan
+     * @param continuation optional contionuation to pick up from
+     * @param returnedRowLimit row limit to pass in to the query execution
+     * @param numRecords the expected number of records that should be returned
+     * @param numValue2 the expected value of the numValue2 field in the read records
+     * @param atMostDiscarded the expected maximum allowed number of discarded records
+     * @param hasNext the expected hasNext values from the result
+     * @param noNextReason the optional expected noNextReason from the result
+     * @return the query result
+     * @throws Throwable just in case
+     */
+    protected abstract RecordCursorResult<FDBQueriedRecord<Message>> assertDifferentPlansWithContinuation(
+            final RecordQueryPlan planUnderTest, final byte[] continuation,
+            final int returnedRowLimit, final int scannedRowLimit, final int numRecords, final int numValue2,
+            final int atMostDiscarded, final boolean hasNext, final RecordCursor.NoNextReason noNextReason) throws Throwable;
+
+    protected ExecuteProperties executePropertiesFor(final int returnedRowLimit, int scannedRowLimit) {
+        ExecuteProperties.Builder builder = ExecuteProperties.newBuilder();
+        if (returnedRowLimit > 0) {
+            builder.setReturnedRowLimit(returnedRowLimit);
+        }
+        if (scannedRowLimit > 0) {
+            builder.setScannedRecordsLimit(scannedRowLimit);
+        }
+        return builder.build();
+    }
 }
+
