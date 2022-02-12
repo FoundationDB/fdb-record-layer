@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
-import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -541,7 +541,7 @@ public class FDBDirectory extends Directory {
             if (value == null) {
                 throw new RecordCoreArgumentException("Invalid source name in rename function for source")
                         .addLogInfo(LogMessageKeys.SOURCE_FILE,source)
-                        .addLogInfo(LogMessageKeys.INDEX_TYPE, IndexTypes.LUCENE)
+                        .addLogInfo(LogMessageKeys.INDEX_TYPE, LuceneIndexTypes.LUCENE)
                         .addLogInfo(LogMessageKeys.SUBSPACE, subspace)
                         .addLogInfo(LogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
                         .addLogInfo(LogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);

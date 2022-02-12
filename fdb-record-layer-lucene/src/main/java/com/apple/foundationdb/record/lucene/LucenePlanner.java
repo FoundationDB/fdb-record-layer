@@ -255,9 +255,18 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Override
-    protected ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
-                                    @Nonnull Index index, @Nonnull QueryComponent filter,
-                                    @Nullable KeyExpression sort) {
+    protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
+                                   @Nonnull Index index, @Nonnull QueryComponent filter,
+                                   @Nullable KeyExpression sort) {
+        if (index.getType().equals(LuceneIndexTypes.LUCENE)) {
+            return planLucene(candidateScan, index, filter);
+        } else {
+            return super.planOther(candidateScan, index, filter, sort);
+        }
+    }
+
+    private ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
+                                  @Nonnull Index index, @Nonnull QueryComponent filter) {
 
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
 

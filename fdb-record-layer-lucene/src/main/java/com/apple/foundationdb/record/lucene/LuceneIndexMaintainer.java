@@ -173,8 +173,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             Query query = parser.parse(search);
             return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
-                    scanProperties, state, query, continuation,
-                    state.index.getRootExpression().normalizeKeyForPositions(), groupingKey);
+                    scanProperties, state, query, continuation, groupingKey);
         } catch (Exception ioe) {
             throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
                     "internalException", ioe);

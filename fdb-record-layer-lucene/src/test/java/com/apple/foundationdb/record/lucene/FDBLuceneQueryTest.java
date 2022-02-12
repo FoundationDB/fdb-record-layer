@@ -146,13 +146,13 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final String MAP_DOC = "MapDocument";
 
-    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), IndexTypes.LUCENE,
+    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
     private static final List<KeyExpression> keys = List.of(field("key"), function(LuceneFunctionNames.LUCENE_TEXT, field("value")));
     private static final KeyExpression mainExpression = field("entry", KeyExpression.FanType.FanOut).nest(concat(keys));
 
-    private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", concat(mainExpression, field("doc_id")), IndexTypes.LUCENE);
-    private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(mainExpression, 1), IndexTypes.LUCENE);
+    private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", concat(mainExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
+    private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(mainExpression, 1), LuceneIndexTypes.LUCENE);
 
     private ExecutorService executorService = null;
 
@@ -166,7 +166,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
                         Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
                         Sets.newHashSet(IndexTypes.TEXT),
-                        Sets.newHashSet(IndexTypes.LUCENE)
+                        Sets.newHashSet(LuceneIndexTypes.LUCENE)
                 );
             }
             planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
@@ -179,7 +179,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected void openRecordStoreWithNgramIndex(FDBRecordContext context, boolean edgesOnly, int minSize, int maxSize) {
-        final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), IndexTypes.LUCENE,
+        final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
                 ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_NAME,
                         IndexOptions.TEXT_TOKEN_MIN_SIZE, String.valueOf(minSize),
                         IndexOptions.TEXT_TOKEN_MAX_SIZE, String.valueOf(maxSize),
@@ -188,7 +188,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected void openRecordStoreWithSynonymIndex(FDBRecordContext context) {
-        final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), IndexTypes.LUCENE,
+        final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
                 ImmutableMap.of(
                         IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME,
                         IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.CONFIG_NAME));

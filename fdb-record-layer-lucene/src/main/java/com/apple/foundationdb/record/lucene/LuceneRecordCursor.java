@@ -100,7 +100,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nullable ExecutorService executorService,
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state, Query query,
-                       byte[] continuation, List<KeyExpression> fields,
+                       byte[] continuation,
                        @Nullable Tuple groupingKey) {
         this.state = state;
         this.executor = executor;
@@ -121,7 +121,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (scanProperties.getExecuteProperties().getSkip() > 0) {
             this.currentPosition += scanProperties.getExecuteProperties().getSkip();
         }
-        this.fields = fields;
+        this.fields = state.index.getRootExpression().normalizeKeyForPositions();
         this.groupingKey = groupingKey;
     }
 
@@ -165,8 +165,15 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     if (limitRemaining != Integer.MAX_VALUE) {
                         limitRemaining--;
                     }
-                    List<Object> setPrimaryKey = Tuple.fromBytes(pk.bytes).getItems();
+                    Tuple setPrimaryKey = Tuple.fromBytes(pk.bytes);
+                    // Initialized with values that aren't really legal in a Tuple to find offset bugs.
                     List<Object> fieldValues = Lists.newArrayList(fields);
+                    if (groupingKey != null) {
+                        // Grouping keys are at the front.
+                        for (int i = 0; i < groupingKey.size(); i++) {
+                            fieldValues.set(i, groupingKey.get(i));
+                        }
+                    }
                     int[] keyPos = state.index.getPrimaryKeyComponentPositions();
                     Tuple tuple;
                     if (keyPos != null) {
