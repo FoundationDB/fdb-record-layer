@@ -911,8 +911,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             assertEquals(1, results.size());
             IndexEntry result = results.get(0);
-            assertEquals("keyboard", result.getKey().getString(2));
-            assertEquals("text", result.getKey().getString(1));
+            assertEquals("keyboard", result.getKey().getString(1));
+            assertEquals("text", result.getKey().getString(0));
             assertEquals(0.85714287F, result.getValue().get(0));
 
             List<IndexEntry> results2 = recordStore.scanIndex(SPELLCHECK_INDEX,
@@ -922,8 +922,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     ScanProperties.FORWARD_SCAN).asList().get();
             assertEquals(1, results.size());
             IndexEntry result2 = results.get(0);
-            assertEquals("keyboard", result.getKey().get(2));
-            assertEquals("text", result.getKey().get(1));
+            assertEquals("keyboard", result.getKey().get(1));
+            assertEquals("text", result.getKey().get(0));
             assertEquals(0.85714287F, result.getValue().get(0));
         }
 
@@ -977,8 +977,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         assertEquals(expectedSuggestions.size(), suggestions.size());
         for (int i = 0 ; i < expectedSuggestions.size(); ++i) {
-            assertThat(suggestions.get(i).getKey().get(2), equalTo(expectedSuggestions.get(i).getKey()));
-            assertThat(suggestions.get(i).getKey().get(1), equalTo(expectedSuggestions.get(i).getValue()));
+            assertThat(suggestions.get(i).getKey().get(1), equalTo(expectedSuggestions.get(i).getKey()));
+            assertThat(suggestions.get(i).getKey().get(0), equalTo(expectedSuggestions.get(i).getValue()));
         }
     }
 

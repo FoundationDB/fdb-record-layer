@@ -67,13 +67,15 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private List<Lookup.LookupResult> lookupResults = null;
     private int currentPosition;
+    @Nullable
+    private final Tuple groupingKey;
     @Nonnull
     private final AnalyzingInfixSuggester suggester;
     private final boolean highlight;
 
     public LuceneAutoCompleteResultCursor(@Nonnull AnalyzingInfixSuggester suggester, @Nonnull String query,
                                           @Nonnull Executor executor, @Nonnull ScanProperties scanProperties,
-                                          @Nonnull IndexMaintainerState state, boolean highlight) {
+                                          @Nonnull IndexMaintainerState state, @Nullable Tuple groupingKey, boolean highlight) {
         if (query.isEmpty()) {
             throw new RecordCoreArgumentException("Invalid query for auto-complete search")
                     .addLogInfo(LogMessageKeys.QUERY, query)
@@ -87,11 +89,12 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         this.limit = Math.min(scanProperties.getExecuteProperties().getReturnedRowLimitOrMax(),
                 state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION));
         this.timer = state.context.getTimer();
-        this.highlight = highlight;
         this.currentPosition = 0;
         if (scanProperties.getExecuteProperties().getSkip() > 0) {
             this.currentPosition += scanProperties.getExecuteProperties().getSkip();
         }
+        this.groupingKey = groupingKey;
+        this.highlight = highlight;
     }
 
     @SuppressWarnings("cast")
@@ -122,9 +125,11 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                             .addLogInfo(LogMessageKeys.RESULT, suggestion);
                 }
 
-                IndexEntry indexEntry = new IndexEntry(state.index,
-                        Tuple.fromBytes(r.payload.bytes).add(suggestion),
-                        Tuple.from(r.value));
+                Tuple key = Tuple.fromBytes(r.payload.bytes).add(suggestion);
+                if (groupingKey != null) {
+                    key = groupingKey.addAll(key);
+                }
+                IndexEntry indexEntry = new IndexEntry(state.index, key, Tuple.from(r.value));
 
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Suggestion read as an index entry={}", indexEntry);

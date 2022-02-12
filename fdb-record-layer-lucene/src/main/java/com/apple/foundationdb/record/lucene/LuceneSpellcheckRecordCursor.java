@@ -202,11 +202,13 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                                 .thenComparing(s -> s.suggestWord.string))
                 .limit(limit)
                 // Map the words from suggestions to index entries.
-                .map(suggestion -> new IndexEntry(
-                        state.index,
-                        Tuple.from(groupingKey == null || groupingKey.isEmpty() ? "" : groupingKey.getString(0),
-                                suggestion.indexField, suggestion.suggestWord.string),
-                        Tuple.from(suggestion.suggestWord.score)))
+                .map(suggestion -> {
+                    Tuple key = Tuple.from(suggestion.indexField, suggestion.suggestWord.string);
+                    if (groupingKey != null) {
+                        key = groupingKey.addAll(key);
+                    }
+                    return new IndexEntry(state.index, key, Tuple.from(suggestion.suggestWord.score));
+                })
                 .collect(Collectors.toList());
         if (timer != null) {
             timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_SPELLCHECK_SCAN, startTime);
