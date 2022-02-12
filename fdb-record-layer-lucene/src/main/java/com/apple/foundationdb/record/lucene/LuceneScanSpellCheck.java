@@ -1,5 +1,5 @@
 /*
- * LuceneScanTypes.java
+ * LuceneScanSpellcheck.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,16 +22,39 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.tuple.Tuple;
+
+import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
- * {@link IndexScanType}s for Lucene.
+ * Scan a {@code LUCENE} index for auto-complete suggestions.
  */
-@API(API.Status.EXPERIMENTAL)
-public class LuceneScanTypes {
-    public static final IndexScanType BY_LUCENE = new IndexScanType("BY_LUCENE");
-    public static final IndexScanType BY_LUCENE_AUTO_COMPLETE = new IndexScanType("BY_LUCENE_AUTO_COMPLETE");
-    public static final IndexScanType BY_LUCENE_SPELL_CHECK = new IndexScanType("BY_LUCENE_SPELL_CHECK");
+@API(API.Status.UNSTABLE)
+public class LuceneScanSpellCheck extends LuceneScanBounds {
+    @Nonnull
+    final List<String> fields;
+    @Nonnull
+    final String word;
 
-    private LuceneScanTypes() {
+    public LuceneScanSpellCheck(@Nonnull IndexScanType scanType, @Nonnull Tuple groupKey, @Nonnull List<String> fields, @Nonnull String word) {
+        super(scanType, groupKey);
+        this.fields = fields;
+        this.word = word;
+    }
+
+    @Nonnull
+    public List<String> getFields() {
+        return fields;
+    }
+
+    @Nonnull
+    public String getWord() {
+        return word;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + " " + word + " in " + fields;
     }
 }

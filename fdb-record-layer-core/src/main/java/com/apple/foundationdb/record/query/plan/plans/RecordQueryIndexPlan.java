@@ -298,13 +298,19 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         }
     }
 
+    @Override
+    public boolean hasComparisons() {
+        return scanParameters instanceof IndexScanComparisons;
+    }
+
     @Nonnull
     @Override
     public ScanComparisons getComparisons() {
         if (scanParameters instanceof IndexScanComparisons) {
             return ((IndexScanComparisons)scanParameters).getComparisons();
+        } else {
+            throw new RecordCoreException("this plan does not use ScanComparisons");
         }
-        throw new RecordCoreException("this plan does not use ScanComparisons");
     }
 
     @Override

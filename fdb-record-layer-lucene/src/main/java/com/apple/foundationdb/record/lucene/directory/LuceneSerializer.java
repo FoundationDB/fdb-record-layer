@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import org.apache.lucene.codecs.compressing.CompressionMode;
 import org.apache.lucene.codecs.compressing.Compressor;
 import org.apache.lucene.codecs.compressing.Decompressor;
@@ -92,12 +93,12 @@ public class LuceneSerializer {
         encoded[0] = (byte) code;
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("Encoded lucene data",
-                    LogMessageKeys.COMPRESSION_SUPPOSED, compress,
-                    LogMessageKeys.ENCRYPTION_SUPPOSED, encrypt,
-                    LogMessageKeys.COMPRESSED_EVENTUALLY, state.isCompressed(),
-                    LogMessageKeys.ENCRYPTED_EVENTUALLY, state.isEncrypted(),
-                    LogMessageKeys.ORIGINAL_DATA_SIZE, data.length,
-                    LogMessageKeys.ENCODED_DATA_SIZE, encoded.length));
+                    LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compress,
+                    LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encrypt,
+                    LuceneLogMessageKeys.COMPRESSED_EVENTUALLY, state.isCompressed(),
+                    LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, state.isEncrypted(),
+                    LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, data.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, encoded.length));
         }
         return encoded;
     }
@@ -110,7 +111,7 @@ public class LuceneSerializer {
 
         if (data.length < 2) {
             throw new RecordCoreException("Invalid data")
-                    .addLogInfo(LogMessageKeys.DATA_VALUE, data);
+                    .addLogInfo(LuceneLogMessageKeys.DATA_VALUE, data);
         }
 
         final byte encoding = data[0];
@@ -120,10 +121,10 @@ public class LuceneSerializer {
         byte[] decoded = decompressIfNeeded(compressed, data, 1);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("Decoded lucene data",
-                    LogMessageKeys.COMPRESSED_EVENTUALLY, compressed,
-                    LogMessageKeys.ENCRYPTED_EVENTUALLY, encrypted,
-                    LogMessageKeys.ENCODED_DATA_SIZE, data.length,
-                    LogMessageKeys.ORIGINAL_DATA_SIZE, decoded.length));
+                    LuceneLogMessageKeys.COMPRESSED_EVENTUALLY, compressed,
+                    LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, encrypted,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, data.length,
+                    LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, decoded.length));
         }
         return decoded;
     }
@@ -176,7 +177,7 @@ public class LuceneSerializer {
         byte version = data[offset];
         if (version != COMPRESSION_VERSION_FOR_HIGH_COMPRESSION) {
             throw new RecordCoreException("Un-supported compression version")
-                    .addLogInfo(LogMessageKeys.COMPRESSION_VERSION, version);
+                    .addLogInfo(LuceneLogMessageKeys.COMPRESSION_VERSION, version);
         }
 
         try {

@@ -35,7 +35,7 @@ message LuceneAutoCompleteIndexContinuation {
     optional bytes payload = 3;
 }
 
-message LuceneSpellcheckIndexContinuation {
+message LuceneSpellCheckIndexContinuation {
     required uint64 location = 1;
     required bytes value = 2;
 }

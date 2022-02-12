@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.lucene.synonym;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 
 import javax.annotation.Nonnull;
 import java.io.InputStream;
@@ -45,7 +45,7 @@ public interface SynonymMapConfig {
     static InputStream openFile(@Nonnull String file) {
         InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(file);
         if (stream == null) {
-            throw new RecordCoreException("Synonym file not found").addLogInfo(LogMessageKeys.FILE_NAME, file);
+            throw new RecordCoreException("Synonym file not found").addLogInfo(LuceneLogMessageKeys.FILE_NAME, file);
         }
         return stream;
     }

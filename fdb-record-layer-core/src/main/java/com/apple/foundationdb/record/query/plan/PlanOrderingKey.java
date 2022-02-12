@@ -119,6 +119,9 @@ public class PlanOrderingKey {
             }
             final int prefixSize;
             if (indexPlan instanceof RecordQueryIndexPlan) {
+                if (!((RecordQueryIndexPlan)indexPlan).hasComparisons()) {
+                    return null;
+                }
                 prefixSize = ((RecordQueryIndexPlan)indexPlan).getComparisons().getEqualitySize();
             } else if (indexPlan instanceof RecordQueryTextIndexPlan) {
                 final TextScan textScan = ((RecordQueryTextIndexPlan)indexPlan).getTextScan();

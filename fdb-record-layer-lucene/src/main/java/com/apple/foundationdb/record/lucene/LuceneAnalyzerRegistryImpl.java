@@ -21,9 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.Analyzer;
@@ -59,11 +57,11 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
             final String name = factory.getName();
             if (registry.containsKey(name)) {
                 if (LOGGER.isWarnEnabled()) {
-                    LOGGER.warn(KeyValueLogMessage.of("duplicate lucene analyzer", LogMessageKeys.ANALYZER_NAME, name));
+                    LOGGER.warn(KeyValueLogMessage.of("duplicate lucene analyzer", LuceneLogMessageKeys.ANALYZER_NAME, name));
                 }
             } else {
                 if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(KeyValueLogMessage.of("found lucene analyzer", LogMessageKeys.ANALYZER_NAME, name));
+                    LOGGER.info(KeyValueLogMessage.of("found lucene analyzer", LuceneLogMessageKeys.ANALYZER_NAME, name));
                 }
                 registry.put(name, factory);
             }
@@ -83,7 +81,7 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     @Nonnull
     @Override
     public Pair<Analyzer, Analyzer> getLuceneAnalyzerPair(@Nonnull Index index) {
-        final String name = index.getOption(IndexOptions.TEXT_ANALYZER_NAME_OPTION);
+        final String name = index.getOption(LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION);
         // TODO: Get rid of the condition after OR operator, after having all analyzers registered with this registry
         if (name == null || !registry.containsKey(name)) {
             final Analyzer standardAnalyzer = new StandardAnalyzer();
@@ -91,7 +89,7 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
         } else {
             LuceneAnalyzerFactory analyzerFactory = registry.get(name);
             if (analyzerFactory == null) {
-                throw new MetaDataException("unrecognized lucene analyzer for tokenizer", LogMessageKeys.ANALYZER_NAME, name);
+                throw new MetaDataException("unrecognized lucene analyzer for tokenizer", LuceneLogMessageKeys.ANALYZER_NAME, name);
             }
             final Analyzer indexAnalyzer = analyzerFactory.getIndexAnalyzer(index);
             return Pair.of(indexAnalyzer, analyzerFactory.getQueryAnalyzer(index, indexAnalyzer));

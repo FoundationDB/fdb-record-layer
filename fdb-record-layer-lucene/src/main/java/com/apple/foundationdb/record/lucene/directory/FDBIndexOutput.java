@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.IndexOutput;
 import org.slf4j.Logger;
@@ -88,8 +89,8 @@ public final class FDBIndexOutput extends IndexOutput {
         super(resourceDescription, name);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("init",
-                    LogMessageKeys.RESOURCE, resourceDescription,
-                    LogMessageKeys.FILE_NAME, name));
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription,
+                    LuceneLogMessageKeys.FILE_NAME, name));
         }
         this.resourceDescription = resourceDescription;
         this.fdbDirectory = fdbDirectory;
@@ -110,7 +111,7 @@ public final class FDBIndexOutput extends IndexOutput {
     public void close() {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("close()",
-                    LogMessageKeys.RESOURCE, resourceDescription));
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
         flush();
         fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, actualSize, blockSize));
@@ -121,8 +122,8 @@ public final class FDBIndexOutput extends IndexOutput {
     public long getFilePointer() {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("getFilePointer()",
-                    LogMessageKeys.RESOURCE, resourceDescription,
-                    LogMessageKeys.POINTER, currentSize));
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription,
+                    LuceneLogMessageKeys.POINTER, currentSize));
         }
         return currentSize;
     }
@@ -131,7 +132,7 @@ public final class FDBIndexOutput extends IndexOutput {
     public long getChecksum() {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("getChecksum()",
-                    LogMessageKeys.CHECKSUM, crc.getValue()));
+                    LuceneLogMessageKeys.CHECKSUM, crc.getValue()));
         }
         return crc.getValue();
     }
@@ -153,8 +154,8 @@ public final class FDBIndexOutput extends IndexOutput {
     public void copyBytes(@Nonnull final DataInput input, final long numBytes) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("copy bytes",
-                    LogMessageKeys.INPUT, input,
-                    LogMessageKeys.BYTE_NUMBER, numBytes));
+                    LuceneLogMessageKeys.INPUT, input,
+                    LuceneLogMessageKeys.BYTE_NUMBER, numBytes));
         }
         super.copyBytes(input, numBytes);
     }
@@ -171,8 +172,8 @@ public final class FDBIndexOutput extends IndexOutput {
     public void writeBytes(@Nonnull final byte[] bytes, final int offset, final int length) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("writeBytes()",
-                    LogMessageKeys.OFFSET, offset,
-                    LogMessageKeys.LENGTH, length));
+                    LuceneLogMessageKeys.OFFSET, offset,
+                    LuceneLogMessageKeys.LENGTH, length));
         }
         crc.update(bytes, offset, length);
         int bytesWritten = 0;
@@ -190,7 +191,7 @@ public final class FDBIndexOutput extends IndexOutput {
     private void flush() {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("flush()",
-                    LogMessageKeys.FILE_ID, id));
+                    LuceneLogMessageKeys.FILE_ID, id));
         }
         if (buffer.position() > 0) {
             buffer.flip();
@@ -205,7 +206,7 @@ public final class FDBIndexOutput extends IndexOutput {
     private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, fdbDirectory.getSubspace())
-                .addKeyAndValue(LogMessageKeys.RESOURCE, resourceDescription)
+                .addKeyAndValue(LuceneLogMessageKeys.RESOURCE, resourceDescription)
                 .toString();
     }
 }

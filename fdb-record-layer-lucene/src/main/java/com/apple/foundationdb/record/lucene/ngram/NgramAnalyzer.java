@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.ngram;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.google.auto.service.AutoService;
@@ -90,7 +91,7 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
             try {
                 final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH);
                 final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH);
-                final String edgesOnly = Optional.ofNullable(index.getOption(IndexOptions.NGRAM_TOKEN_EDGES_ONLY)).orElse(DEFAULT_NGRAM_WITH_EDGES_ONLY);
+                final String edgesOnly = Optional.ofNullable(index.getOption(LuceneIndexOptions.NGRAM_TOKEN_EDGES_ONLY)).orElse(DEFAULT_NGRAM_WITH_EDGES_ONLY);
                 return new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, Integer.parseInt(minLengthString), Integer.parseInt(maxLengthString), Boolean.parseBoolean(edgesOnly));
             } catch (NumberFormatException ex) {
                 throw new RecordCoreArgumentException("Invalid index option for token size", ex);

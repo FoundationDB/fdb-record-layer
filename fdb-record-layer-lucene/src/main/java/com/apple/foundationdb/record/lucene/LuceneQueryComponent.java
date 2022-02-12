@@ -20,63 +20,72 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.util.HashUtils;
-import com.google.common.base.Verify;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import jdk.jfr.Experimental;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
  * A Query Component for Lucene that wraps the query supplied.
  *
  */
-@Experimental
-public class LuceneQueryComponent implements QueryComponent, ComponentWithComparison, ComponentWithNoChildren {
+@API(API.Status.EXPERIMENTAL)
+public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Query");
+
+    public enum Type {
+        QUERY,
+        QUERY_HIGHLIGHT,
+        AUTO_COMPLETE,
+        SPELL_CHECK,
+    }
+
+    @Nonnull
+    private final Type type;
+    @Nonnull
+    private final String query;
+    private final boolean queryIsParameter;
+
+    @Nonnull
+    private final List<String> fields;
 
     //MultiFieldSearch determines whether MultiFieldQueryParser or QueryParserBase is used.
     // QueryParserBase expects the query to contain the fields to be run against and takes a default field
     // which in our use case is the primary key field.
     // The MultiFieldQueryParser runs the query against all fields listed and uses AND to join them.
-    // If the compotent is created with empty fields we default to MultiField search.
+    // If the component is created with empty fields we default to MultiField search.
     // It can also be specified by the user in creation of the component.
     // If True then we use the MultiFieldQueryParser to query all fields specified in the root expression.
-    public final boolean multiFieldSearch;
-    private final Comparisons.LuceneComparison comparison;
-    private final List<String> fields;
+    private final boolean multiFieldSearch;
 
     public LuceneQueryComponent(String query, List<String> fields) {
-        this(new Comparisons.LuceneComparison(query), fields, fields.isEmpty());
+        this(query, fields, fields.isEmpty());
     }
 
     public LuceneQueryComponent(String query, List<String> fields, boolean multiField) {
-        this(new Comparisons.LuceneComparison(query), fields, multiField);
+        this(Type.QUERY, query, false, fields, multiField);
     }
 
-    public LuceneQueryComponent(String query, List<String> fields, boolean multiField, Comparisons.Type type) {
-        this(new Comparisons.LuceneComparison(query, type), fields, multiField);
-    }
-
-    private LuceneQueryComponent(Comparisons.LuceneComparison comparison, List<String> fields, boolean multiFieldSearch) {
-        this.comparison = comparison;
+    public LuceneQueryComponent(Type type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch) {
+        this.type = type;
+        this.query = query;
+        this.queryIsParameter = queryIsParameter;
         this.fields = fields;
         this.multiFieldSearch = multiFieldSearch;
     }
@@ -84,12 +93,12 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
     @Nonnull
     @Override
     public <M extends Message> Boolean evalMessage(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final Message message) {
-        throw new RecordCoreException("Multiple lucene components are not yet supported");
+        throw new RecordCoreException("Residual lucene components are not yet supported");
     }
 
     @Override
     public void validate(@Nonnull final Descriptors.Descriptor descriptor) {
-        // Its possible we could validate the fields that are being used with the fields that we've passed in.
+        // It's possible we could validate the fields that are being used with the fields that we've passed in.
     }
 
     @Nonnull
@@ -102,9 +111,17 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
     }
 
     @Nonnull
-    @Override
-    public Comparisons.Comparison getComparison() {
-        return comparison;
+    public Type getType() {
+        return type;
+    }
+
+    @Nonnull
+    public String getQuery() {
+        return query;
+    }
+
+    public boolean isQueryIsParameter() {
+        return queryIsParameter;
     }
 
     @Nonnull
@@ -112,16 +129,8 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
         return fields;
     }
 
-    @Override
-    public QueryComponent withOtherComparison(final Comparisons.Comparison comparison) {
-        Verify.verify(comparison instanceof Comparisons.LuceneComparison);
-        return new LuceneQueryComponent((Comparisons.LuceneComparison)comparison, fields, this.multiFieldSearch);
-    }
-
-    @Override
-    @Nonnull
-    public String getName() {
-        return "LuceneQuery";
+    public boolean isMultiFieldSearch() {
+        return multiFieldSearch;
     }
 
     @Override
@@ -129,31 +138,54 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
         if (this == o) {
             return true;
         }
-        if (!(o instanceof LuceneQueryComponent)) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         final LuceneQueryComponent that = (LuceneQueryComponent)o;
-        return Objects.equals(getComparison(), that.getComparison());
+
+        if (queryIsParameter != that.queryIsParameter) {
+            return false;
+        }
+        if (multiFieldSearch != that.multiFieldSearch) {
+            return false;
+        }
+        if (type != that.type) {
+            return false;
+        }
+        if (!query.equals(that.query)) {
+            return false;
+        }
+        if (!fields.equals(that.fields)) {
+            return false;
+        }
+
+        return true;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getComparison());
+        int result = type.hashCode();
+        result = 31 * result + query.hashCode();
+        result = 31 * result + (queryIsParameter ? 1 : 0);
+        result = 31 * result + fields.hashCode();
+        result = 31 * result + (multiFieldSearch ? 1 : 0);
+        return result;
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return comparison.planHash(hashKind);
+        return PlanHashable.objectsPlanHash(hashKind, type, query);
     }
 
     @Override
     @Nonnull
     public String toString() {
-        return "LuceneQuery(" + comparison.getComparand() + ")";
+        return "LuceneQuery(" + query + ")";
     }
 
     @Override
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return HashUtils.queryHash(hashKind, BASE_HASH, comparison.getComparand());
+        return HashUtils.queryHash(hashKind, BASE_HASH, type, query);
     }
 }

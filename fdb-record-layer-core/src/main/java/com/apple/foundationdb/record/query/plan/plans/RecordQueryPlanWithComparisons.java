@@ -32,4 +32,8 @@ import javax.annotation.Nonnull;
 public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
     @Nonnull
     ScanComparisons getComparisons();
+
+    default boolean hasComparisons() {
+        return true;
+    }
 }

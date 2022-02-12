@@ -30,30 +30,26 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
@@ -66,8 +62,6 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
-import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.apache.lucene.util.BytesRef;
@@ -99,7 +93,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final Analyzer indexAnalyzer;
     private final Analyzer queryAnalyzer;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
-    private static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
+    protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
     private final boolean autoCompleteEnabled;
     private final boolean highlightForAutoCompleteIfEnabled;
@@ -109,34 +103,35 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.executor = executor;
         this.indexAnalyzer = indexAnalyzer;
         this.queryAnalyzer = queryAnalyzer;
-        this.autoCompleteEnabled = state.index.getBooleanOption(IndexOptions.AUTO_COMPLETE_ENABLED, false);
-        this.highlightForAutoCompleteIfEnabled = state.index.getBooleanOption(IndexOptions.AUTO_COMPLETE_HIGHLIGHT, false);
+        this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
+        this.highlightForAutoCompleteIfEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_HIGHLIGHT, false);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
     }
 
     /**
-     * The scan uses the low element in the range to execute the
-     * MultiFieldQueryParser.
+     * The scan takes Lucene a {@link Query} as scan bounds.
      *
-     * @param scanType the {@link IndexScanType type} of scan to perform
-     * @param range the range to scan with the range representing a parsable lucene syntax string.
+     * @param scanBounds the {@link IndexScanType type} of Lucene scan and associated {@code Query}
      * @param continuation any continuation from a previous scan invocation
      * @param scanProperties skip, limit and other properties of the scan
-     * @return RecordCursor
+     * @return RecordCursor of index entries reconstituted from Lucene documents
      */
     @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range,
-                                         @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        final IndexScanType scanType = scanBounds.getScanType();
         LOG.trace("scan scanType={}", scanType);
-        Verify.verify(range.getLow() != null);
-        Verify.verify(scanType == LuceneScanTypes.BY_LUCENE
-                      || scanType == LuceneScanTypes.BY_LUCENE_FULL_TEXT
-                      || scanType == LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE
-                      || scanType == LuceneScanTypes.BY_LUCENE_SPELLCHECK);
 
-        String search = range.getLow().getString(0);
-        Tuple groupingKey = range.getLow().popFront();
+        if (scanType == LuceneScanTypes.BY_LUCENE) {
+            LuceneScanQuery scanQuery = (LuceneScanQuery)scanBounds;
+            return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
+                    scanProperties, state, scanQuery.getQuery(), continuation, scanQuery.getGroupKey());
+        }
 
         if (scanType == LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE) {
             if (!autoCompleteEnabled) {
@@ -147,49 +142,21 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 throw new RecordCoreArgumentException("Auto complete does not support scanning with continuation")
                         .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
             }
-            return new LuceneAutoCompleteResultCursor(getSuggester(groupingKey),
-                    search, executor, scanProperties, state, groupingKey, highlightForAutoCompleteIfEnabled);
+            LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
+            return new LuceneAutoCompleteResultCursor(getSuggester(scanAutoComplete.getGroupKey()), scanAutoComplete.getKeyToComplete(),
+                    executor, scanProperties, state, scanAutoComplete.getGroupKey(), highlightForAutoCompleteIfEnabled);
         }
 
-        String[] fieldNames = indexTextFields(state.index, state.store.getRecordMetaData());
-        if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELLCHECK)) {
+        if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
             if (continuation != null) {
                 throw new RecordCoreArgumentException("Spellcheck does not currently support continuation scanning");
             }
-            return new LuceneSpellcheckRecordCursor(search, executor,
-                    scanProperties, state, groupingKey, fieldNames);
+            LuceneScanSpellCheck scanSpellcheck = (LuceneScanSpellCheck)scanBounds;
+            return new LuceneSpellCheckRecordCursor(scanSpellcheck.getFields(), scanSpellcheck.getWord(),
+                    executor, scanProperties, state, scanSpellcheck.getGroupKey());
         }
 
-        try {
-            // This cannot work with nested documents the way that we currently use them. BlockJoin will be essential for this
-            // functionality in this way.
-            QueryParser parser;
-            if (scanType == LuceneScanTypes.BY_LUCENE_FULL_TEXT) {
-                parser = new MultiFieldQueryParser(fieldNames, queryAnalyzer);
-                parser.setDefaultOperator(QueryParser.Operator.OR);
-            } else {
-                // initialize default to scan primary key.
-                parser = new QueryParser(PRIMARY_KEY_SEARCH_NAME, queryAnalyzer);
-            }
-            Query query = parser.parse(search);
-            return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
-                    scanProperties, state, query, continuation, groupingKey);
-        } catch (Exception ioe) {
-            throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
-                    "internalException", ioe);
-        }
-    }
-
-    private String[] indexTextFields(@Nonnull Index index, @Nonnull RecordMetaData metaData) {
-        final Set<String> textFields = new HashSet<>();
-        for (RecordType recordType : metaData.recordTypesForIndex(index)) {
-            for (Map.Entry<String, LuceneIndexExpressions.DocumentFieldType> entry : LuceneIndexExpressions.getDocumentFieldTypes(index.getRootExpression(), recordType.getDescriptor()).entrySet()) {
-                if (entry.getValue() == LuceneIndexExpressions.DocumentFieldType.TEXT) {
-                    textFields.add(entry.getKey());
-                }
-            }
-        }
-        return textFields.toArray(new String[0]);
+        throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
     }
 
     private boolean addTermToSuggesterIfNeeded(@Nonnull String value, @Nonnull String fieldName, @Nullable AnalyzingInfixSuggester suggester) {
@@ -204,8 +171,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (valueBytes.length > sizeLimit) {
             if (LOG.isTraceEnabled()) {
                 LOG.trace(KeyValueLogMessage.of("Skip auto-complete indexing due to exceeding size limitation",
-                        LogMessageKeys.DATA_SIZE, valueBytes.length,
-                        LogMessageKeys.DATA_VALUE, value.substring(0, Math.min(value.length(), 100)),
+                        LuceneLogMessageKeys.DATA_SIZE, valueBytes.length,
+                        LuceneLogMessageKeys.DATA_VALUE, value.substring(0, Math.min(value.length(), 100)),
                         LogMessageKeys.FIELD_NAME, fieldName));
             }
             return false;
@@ -218,8 +185,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     new BytesRef(Tuple.from(fieldName).pack()));
             if (LOG.isTraceEnabled()) {
                 LOG.trace(KeyValueLogMessage.of("Added auto-complete suggestion to suggester",
-                        LogMessageKeys.DATA_SIZE, valueBytes.length,
-                        LogMessageKeys.DATA_VALUE, value.substring(0, Math.min(value.length(), 100)),
+                        LuceneLogMessageKeys.DATA_SIZE, valueBytes.length,
+                        LuceneLogMessageKeys.DATA_VALUE, value.substring(0, Math.min(value.length(), 100)),
                         LogMessageKeys.FIELD_NAME, fieldName));
             }
             return true;

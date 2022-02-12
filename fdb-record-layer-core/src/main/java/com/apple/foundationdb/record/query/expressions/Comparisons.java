@@ -555,10 +555,6 @@ public class Comparisons {
         TEXT_CONTAINS_PREFIX,
         TEXT_CONTAINS_ALL_PREFIXES,
         TEXT_CONTAINS_ANY_PREFIX,
-        FULL_TEXT_LUCENE_QUERY,
-        FULL_TEXT_LUCENE_QUERY_HIGHLIGHT,
-        FULL_TEXT_LUCENE_AUTO_COMPLETE,
-        FULL_TEXT_LUCENE_SPELLCHECK,
         @API(API.Status.EXPERIMENTAL)
         SORT(false);
 
@@ -1976,77 +1972,6 @@ public class Comparisons {
         @Override
         public String toString() {
             return inner.toString();
-        }
-    }
-
-    /**
-     * A text-style comparison, such as containing a given set of tokens.
-     */
-    public static class LuceneComparison implements Comparison {
-        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Comparison");
-
-        @Nonnull
-        private final String query;
-        private final Type type;
-
-        public LuceneComparison(@Nonnull String query) {
-            this(query, Type.FULL_TEXT_LUCENE_QUERY);
-        }
-
-        public LuceneComparison(@Nonnull String query, @Nonnull Type type) {
-            this.query = query;
-            this.type = type;
-            if (type != Type.FULL_TEXT_LUCENE_QUERY
-                    && type != Type.FULL_TEXT_LUCENE_AUTO_COMPLETE
-                    && type != Type.FULL_TEXT_LUCENE_SPELLCHECK) {
-                throw new RecordCoreException("Invalid type for lucene comparison: " + type.name());
-            }
-        }
-
-        @Nonnull
-        @Override
-        public Comparison rebase(@Nonnull final AliasMap translationMap) {
-            // I don't think this can actually currently be correlated to anything -- although it should be
-            return this;
-        }
-
-        @Nullable
-        @Override
-        public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
-            return true;
-        }
-
-        @Override
-        public void validate(@Nonnull final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
-
-        }
-
-        @Nonnull
-        @Override
-        public Type getType() {
-            return type;
-        }
-
-        @Nullable
-        @Override
-        public Object getComparand(@Nullable final FDBRecordStoreBase<?> store, @Nullable final EvaluationContext context) {
-            return query;
-        }
-
-        @Nonnull
-        @Override
-        public String typelessString() {
-            return query;
-        }
-
-        @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, query);
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, BASE_HASH, query);
         }
     }
 
