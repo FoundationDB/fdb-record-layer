@@ -97,6 +97,20 @@ public abstract class IndexMaintainer {
                                                   @Nonnull ScanProperties scanProperties);
 
     /**
+     * Scan entries in the index.
+     * @param scanBounds the {@link IndexScanBounds bounds} of the scan to perform
+     * @param continuation any continuation from a previous scan invocation
+     * @param scanProperties skip, limit and other properties of the scan
+     * @return a cursor over index entries in the given range
+     */
+    @Nonnull
+    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanBounds scanBounds,
+                                         @Nullable byte[] continuation,
+                                         @Nonnull ScanProperties scanProperties) {
+        return scan(scanBounds.getScanType(), ((IndexScanRange)scanBounds).getScanRange(), continuation, scanProperties);
+    }
+
+    /**
      * Update associated index for a changed record.
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted

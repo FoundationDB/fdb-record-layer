@@ -260,6 +260,7 @@ public class RankComparisons {
             return groupFilters;
         }
 
+        @Nonnull
         public ScanComparisons getScanComparisons() {
             final ScanComparisons rankComparison = ScanComparisons.from(comparison.getComparison());
             if (groupComparisons.isEmpty()) {

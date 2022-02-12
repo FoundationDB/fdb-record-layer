@@ -633,8 +633,8 @@ public class AliasMap {
          * exists will fail.
          * @param source a source alias
          * @param target a target alias
-         * @throws IllegalArgumentException if {@code target} is already contained in the builder
          * @return {@code this} that has been modified to contain {@code source -> target}
+         * @throws IllegalArgumentException if {@code target} is already contained in the builder
          */
         @Nonnull
         public Builder put(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
@@ -648,8 +648,8 @@ public class AliasMap {
          * they will be replaced otherwise. Also, this call will fail if a target contained in {@code other} already
          * exists in {@code this},
          * @param other another {@link AliasMap}
-         * @throws IllegalArgumentException if any target contained in {@code other} is already contained in the builder
          * @return {@code this} that has been modified to contain all bindings from {@code other}
+         * @throws IllegalArgumentException if any target contained in {@code other} is already contained in the builder
          */
         @Nonnull
         public Builder putAll(@Nonnull final AliasMap other) {

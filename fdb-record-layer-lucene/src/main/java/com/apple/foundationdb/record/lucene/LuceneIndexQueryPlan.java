@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
@@ -86,7 +87,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
             case LEGACY:
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanType, comparisons, sort, reverse);
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanParameters, sort, reverse);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
@@ -100,7 +101,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType,
                                 @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse,
                                 @Nullable KeyExpression sort, final ScanComparisons groupingComparisons) {
-        super(indexName, scanType, Objects.requireNonNull(ScanComparisons.from(comparison)), reverse);
+        super(indexName, new IndexScanComparisons(scanType, Objects.requireNonNull(ScanComparisons.from(comparison))), reverse);
         this.sort = sort;
         this.groupingComparisons = groupingComparisons;
     }
@@ -114,7 +115,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     }
 
     public Comparisons.LuceneComparison getComparison() {
-        return (Comparisons.LuceneComparison)comparisons.getEqualityComparisons().get(0);
+        return (Comparisons.LuceneComparison)getComparisons().getEqualityComparisons().get(0);
     }
 
     public String getLuceneQueryString() {
@@ -129,7 +130,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         Comparisons.LuceneComparison comparison = new Comparisons.LuceneComparison(newQuery);
         boolean newReverse = plan1.isReverse() ? plan1.isReverse() : plan2.isReverse();
         IndexScanType scanType = IndexScanType.BY_LUCENE;
-        if (plan1.scanType == IndexScanType.BY_LUCENE_FULL_TEXT || plan2.scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
+        if (plan1.getScanType() == IndexScanType.BY_LUCENE_FULL_TEXT || plan2.getScanType() == IndexScanType.BY_LUCENE_FULL_TEXT) {
             scanType = IndexScanType.BY_LUCENE_FULL_TEXT;
         }
         ScanComparisons newGrouping = plan1.groupingComparisons == null ? ScanComparisons.EMPTY : plan1.groupingComparisons;
@@ -160,6 +161,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         if (recordTypes.size() != 1) {
             throw new RecordCoreException("No lucene index should span multiple record types");
         }
+        final IndexScanType scanType = getScanType();
         if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE || scanType == IndexScanType.BY_LUCENE_SPELLCHECK) {
             final RecordType recordType = recordTypes.iterator().next();
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
@@ -208,10 +210,9 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                                                                        @Nonnull final EvaluationContext context,
                                                                        @Nullable final byte[] continuation,
                                                                        @Nonnull final ExecuteProperties executeProperties) {
-        final TupleRange range = groupingComparisons == null ? comparisons.toTupleRange() : comparisons.append(groupingComparisons).toTupleRange(store, context);
+        final TupleRange range = groupingComparisons == null ? getComparisons().toTupleRange() : getComparisons().append(groupingComparisons).toTupleRange(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
         LuceneScanProperties scanProperties = new LuceneScanProperties(executeProperties, sort, reverse);
-        return store.scanIndex(metaData.getIndex(indexName), scanType, range,
-                continuation, scanProperties);
+        return store.scanIndex(metaData.getIndex(indexName), getScanType(), range, continuation, scanProperties);
     }
 }

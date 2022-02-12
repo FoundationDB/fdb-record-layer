@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -30,13 +29,14 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -774,9 +774,11 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
     public void intersectionVisitorOnComplexComparisonKey() throws Exception {
         complexQuerySetup(null);
 
+        IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
+
         RecordQueryPlan originalPlan1 = RecordQueryIntersectionPlan.from(
-                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false),
                 primaryKey("MySimpleRecord"));
 
         RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan1, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
@@ -784,8 +786,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 coveringIndexScan(indexScan("MySimpleRecord$str_value_indexed")), coveringIndexScan(indexScan("MySimpleRecord$num_value_3_indexed")))));
 
         RecordQueryPlan originalPlan2 = RecordQueryIntersectionPlan.from(
-                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false),
                 concat(field("num_value_2"), primaryKey("MySimpleRecord")));
         RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan2, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
         // Visitor should not perform transformation because of comparison key on num_value_unique

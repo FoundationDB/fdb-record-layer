@@ -21,10 +21,11 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.record.Bindings;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -51,10 +52,9 @@ public class QueryPlanStructuralInstrumentationTest {
     private static int VALUE = 4;
 
     private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
-        return new RecordQueryIndexPlan(indexName, IndexScanType.BY_VALUE,
-                new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
-                        Collections.emptySet()),
-                false);
+        IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
+                        Collections.emptySet()));
+        return new RecordQueryIndexPlan(indexName, scan, false);
     }
 
     private void assertNoIndexes(RecordQueryPlan plan) {
@@ -91,9 +91,9 @@ public class QueryPlanStructuralInstrumentationTest {
     @Test
     public void in() {
         final String indexName = "a_field";
+        final IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "another_field")), Collections.emptySet()));
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
-                new RecordQueryIndexPlan(indexName, IndexScanType.BY_VALUE,
-                        new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "another_field")), Collections.emptySet()), false),
+                new RecordQueryIndexPlan(indexName, scan, false),
                 "another_field",
                 Bindings.Internal.IN,
                 Arrays.asList(2, 4),

@@ -20,11 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -168,8 +169,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, reverseScanOrder)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
-                                IndexScanType.BY_VALUE,
-                                toScanComparisons(comparisonRanges),
+                                IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 reverseScanOrder,
                                 false,
                                 (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()));
@@ -207,10 +207,10 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
             return Optional.empty();
         }
 
+        final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
-                        IndexScanType.BY_VALUE,
-                        toScanComparisons(comparisonRanges),
+                        scanParameters,
                         isReverse,
                         false,
                         (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate());

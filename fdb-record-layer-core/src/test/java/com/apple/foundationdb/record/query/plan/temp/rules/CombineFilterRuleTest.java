@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
-import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -48,7 +48,7 @@ public class CombineFilterRuleTest {
     private static PlanContext blankContext = new FakePlanContext();
     private static RecordQueryPlan[] basePlans = {
             new RecordQueryScanPlan(ScanComparisons.EMPTY, false),
-            new RecordQueryIndexPlan("not_an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false)
+            new RecordQueryIndexPlan("not_an_index", IndexScanComparisons.byValue(), false)
     };
 
     private static LogicalFilterExpression buildLogicalFilter(@Nonnull QueryComponent queryComponent,

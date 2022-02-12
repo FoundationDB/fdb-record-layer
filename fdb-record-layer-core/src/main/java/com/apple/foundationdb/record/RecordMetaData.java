@@ -527,10 +527,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * the meta-data had been updated.
      * </p>
      *
+     * @return the serialized <code>MetaData</code> proto message
      * @throws KeyExpression.SerializationException on any serialization failures
      * @throws MetaDataException if this {@code RecordMetaData} was initialized with a
      *      {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor}
-     * @return the serialized <code>MetaData</code> proto message
      */
     @Nonnull
     public RecordMetaDataProto.MetaData toProto() {
