@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
@@ -129,17 +128,17 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         if (comparison.getType().equals(Comparisons.Type.FULL_TEXT_LUCENE_AUTO_COMPLETE)) {
-            return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_AUTO_COMPLETE, comparison, false, null, groupingComparisons);
+            return new LuceneIndexQueryPlan(index.getName(), LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE, comparison, false, null, groupingComparisons);
         }
         // Set the scan type to spellcheck so the query plan can identify what to do in the executePlan function.
         if (comparison.getType().equals(Comparisons.Type.FULL_TEXT_LUCENE_SPELLCHECK)) {
-            return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_SPELLCHECK, comparison, false, null, groupingComparisons);
+            return new LuceneIndexQueryPlan(index.getName(), LuceneScanTypes.BY_LUCENE_SPELLCHECK, comparison, false, null, groupingComparisons);
         }
 
         if (filter.multiFieldSearch) {
-            return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_FULL_TEXT, comparison, false, null, groupingComparisons);
+            return new LuceneIndexQueryPlan(index.getName(), LuceneScanTypes.BY_LUCENE_FULL_TEXT, comparison, false, null, groupingComparisons);
         }
-        return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE, comparison, false, null, groupingComparisons);
+        return new LuceneIndexQueryPlan(index.getName(), LuceneScanTypes.BY_LUCENE, comparison, false, null, groupingComparisons);
     }
 
     private LuceneIndexQueryPlan getScanForAndLucene(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull AndComponent filter,

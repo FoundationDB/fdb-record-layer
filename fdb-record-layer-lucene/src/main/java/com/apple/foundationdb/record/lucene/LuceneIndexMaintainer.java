@@ -130,15 +130,15 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                          @Nonnull ScanProperties scanProperties) {
         LOG.trace("scan scanType={}", scanType);
         Verify.verify(range.getLow() != null);
-        Verify.verify(scanType == IndexScanType.BY_LUCENE
-                      || scanType == IndexScanType.BY_LUCENE_FULL_TEXT
-                      || scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE
-                      || scanType == IndexScanType.BY_LUCENE_SPELLCHECK);
+        Verify.verify(scanType == LuceneScanTypes.BY_LUCENE
+                      || scanType == LuceneScanTypes.BY_LUCENE_FULL_TEXT
+                      || scanType == LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE
+                      || scanType == LuceneScanTypes.BY_LUCENE_SPELLCHECK);
 
         String search = range.getLow().getString(0);
         Tuple groupingKey = range.getLow().popFront();
 
-        if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE) {
+        if (scanType == LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE) {
             if (!autoCompleteEnabled) {
                 throw new RecordCoreArgumentException("Auto-complete unsupported due to not enabled on index")
                         .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
@@ -152,7 +152,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
 
         String[] fieldNames = indexTextFields(state.index, state.store.getRecordMetaData());
-        if (scanType.equals(IndexScanType.BY_LUCENE_SPELLCHECK)) {
+        if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELLCHECK)) {
             if (continuation != null) {
                 throw new RecordCoreArgumentException("Spellcheck does not currently support continuation scanning");
             }
@@ -164,7 +164,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // This cannot work with nested documents the way that we currently use them. BlockJoin will be essential for this
             // functionality in this way.
             QueryParser parser;
-            if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
+            if (scanType == LuceneScanTypes.BY_LUCENE_FULL_TEXT) {
                 parser = new MultiFieldQueryParser(fieldNames, queryAnalyzer);
                 parser.setDefaultOperator(QueryParser.Operator.OR);
             } else {

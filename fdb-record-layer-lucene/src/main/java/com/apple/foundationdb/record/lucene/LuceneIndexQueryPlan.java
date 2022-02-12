@@ -95,7 +95,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
 
     public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull Comparisons.LuceneComparison comparison,
                                 final boolean reverse, final ScanComparisons groupingComparisons) {
-        this(indexName, IndexScanType.BY_LUCENE, comparison, reverse, null, groupingComparisons);
+        this(indexName, LuceneScanTypes.BY_LUCENE, comparison, reverse, null, groupingComparisons);
     }
 
     public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType,
@@ -129,9 +129,9 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         String newQuery = String.format("(%s) %s (%s)", plan1.getLuceneQueryString(), type, plan2.getLuceneQueryString());
         Comparisons.LuceneComparison comparison = new Comparisons.LuceneComparison(newQuery);
         boolean newReverse = plan1.isReverse() ? plan1.isReverse() : plan2.isReverse();
-        IndexScanType scanType = IndexScanType.BY_LUCENE;
-        if (plan1.getScanType() == IndexScanType.BY_LUCENE_FULL_TEXT || plan2.getScanType() == IndexScanType.BY_LUCENE_FULL_TEXT) {
-            scanType = IndexScanType.BY_LUCENE_FULL_TEXT;
+        IndexScanType scanType = LuceneScanTypes.BY_LUCENE;
+        if (plan1.getScanType() == LuceneScanTypes.BY_LUCENE_FULL_TEXT || plan2.getScanType() == LuceneScanTypes.BY_LUCENE_FULL_TEXT) {
+            scanType = LuceneScanTypes.BY_LUCENE_FULL_TEXT;
         }
         ScanComparisons newGrouping = plan1.groupingComparisons == null ? ScanComparisons.EMPTY : plan1.groupingComparisons;
         if (newGrouping.isEmpty()) {
@@ -162,12 +162,12 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
             throw new RecordCoreException("No lucene index should span multiple record types");
         }
         final IndexScanType scanType = getScanType();
-        if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE || scanType == IndexScanType.BY_LUCENE_SPELLCHECK) {
+        if (scanType == LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE || scanType == LuceneScanTypes.BY_LUCENE_SPELLCHECK) {
             final RecordType recordType = recordTypes.iterator().next();
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
             return entryRecordCursor
                     .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
-                            getToPartialRecord(index, recordType, scanType), scanType))
+                            getToPartialRecord(index, recordType, scanType), scanType, false))
                     .map(QueryResult::of);
         }
         return super.executePlan(store, context, continuation, executeProperties);
