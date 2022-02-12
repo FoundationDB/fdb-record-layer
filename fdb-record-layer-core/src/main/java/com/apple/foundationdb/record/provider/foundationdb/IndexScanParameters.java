@@ -50,11 +50,12 @@ public interface IndexScanParameters extends PlanHashable {
      * to get the actual scan bounds. Scan types that use forms other than {@link IndexScanComparisons} can also resolve
      * similar information from the store.
      * @param store store against which the scan will be performed
+     * @param index index to be scanned
      * @param context query parameters for the scan
      * @return the index scan bounds
      */
     @Nonnull
-    IndexScanBounds bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context);
+    IndexScanBounds bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context);
 
     /**
      * Get whether this scan is fully restricted, so that it can only output one or zero entries.

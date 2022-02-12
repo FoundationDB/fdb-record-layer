@@ -74,7 +74,7 @@ public class IndexScanComparisons implements IndexScanParameters {
 
     @Nonnull
     @Override
-    public IndexScanRange bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context) {
+    public IndexScanRange bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         return new IndexScanRange(scanType, scanComparisons.toTupleRange(store, context));
     }
 

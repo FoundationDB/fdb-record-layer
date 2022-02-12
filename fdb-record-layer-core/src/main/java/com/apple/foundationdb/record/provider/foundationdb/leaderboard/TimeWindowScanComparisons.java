@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -47,8 +48,8 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
 
     @Nonnull
     @Override
-    public TimeWindowScanRange bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context) {
-        return new TimeWindowScanRange(timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context), super.bind(store, context).getScanRange());
+    public TimeWindowScanRange bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull final EvaluationContext context) {
+        return new TimeWindowScanRange(timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context), super.bind(store, index, context).getScanRange());
     }
     
     @Override

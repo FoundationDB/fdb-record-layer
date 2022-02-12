@@ -115,9 +115,10 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                                        @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
-        final IndexScanBounds scanBounds = scanParameters.bind(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
-        return store.scanIndex(metaData.getIndex(indexName), scanBounds, continuation, executeProperties.asScanProperties(reverse));
+        final Index index = metaData.getIndex(indexName);
+        final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
+        return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
     }
 
     @Nonnull
