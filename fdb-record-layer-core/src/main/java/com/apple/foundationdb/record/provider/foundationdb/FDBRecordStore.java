@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.MutableRecordStoreState;
@@ -1211,12 +1212,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
+    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, final KeyExpression commonPrimaryKey,
                                                                      byte[] continuation, ScanProperties scanProperties, ExecuteState state) {
         return scanIndexPrefetchInternal(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
     }
 
-    protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final IndexScanType scanType, final TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
+    protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final IndexScanType scanType, final TupleRange range, final KeyExpression commonPrimaryKey,
                                                                                 final byte[] continuation, final ScanProperties scanProperties) {
         if (!isIndexReadable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
@@ -1237,9 +1238,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             FDBRawRecord fdbRawRecord = unsplitSingleRecord(recordSubspace, sizeInfo, mappedResult.getRawRecord(), scanProperties);
             final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.of(CompletableFuture.completedFuture(fdbRawRecord.getVersion()));
             // TODO: Do we still support old version format?
-//            if (useOldVersionFormat()) {
-//                versionFutureOptional = loadRecordVersionAsync(primaryKey);
-//            }
+            //            if (useOldVersionFormat()) {
+            //                versionFutureOptional = loadRecordVersionAsync(primaryKey);
+            //            }
             CompletableFuture<FDBStoredRecord<Message>> storedRecord = deserializeRecord(serializer, fdbRawRecord, metaData, versionFutureOptional);
             return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(mappedResult.getIndexEntry(), rec));
         }, 1);
@@ -1278,7 +1279,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return A Tuple representing the HopInfo structure required by the FDB getRangeAndHop call
      */
     @Nonnull
-    private Tuple createHopInfo(@Nonnull Subspace indexSubspace, @Nonnull Subspace recordSubspace, @Nullable KeyExpression commonPrimaryKey, @Nonnull final Index index) {
+    private Tuple createHopInfo(@Nonnull Subspace indexSubspace, @Nonnull Subspace recordSubspace, @Nonnull KeyExpression commonPrimaryKey, @Nonnull final Index index) {
         int prefixLength = Tuple.fromBytes(indexSubspace.pack()).size();
         List<Integer> keyLocations = index.getEntryPrimaryKeyPositions(commonPrimaryKey.getColumnSize());
 

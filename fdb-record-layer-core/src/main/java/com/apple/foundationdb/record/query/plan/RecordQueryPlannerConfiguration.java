@@ -71,8 +71,7 @@ public class RecordQueryPlannerConfiguration {
                                             boolean useFullKeyForValueIndex,
                                             int maxNumMatchesPerRuleCall,
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
-                                            @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules) {
-                                            @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
+                                            @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules,
                                             @Nonnull final IndexPrefetchUse useIndexPrefetch) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
@@ -274,7 +273,6 @@ public class RecordQueryPlannerConfiguration {
         private RecordQueryPlannerSortConfiguration sortConfiguration;
         @Nonnull
         private Set<Class<? extends PlannerRule<?>>> disabledTransformationRules = Sets.newHashSet();
-        private boolean useIndexPrefetch = false;
         @Nonnull
         private IndexPrefetchUse useIndexPrefetch = IndexPrefetchUse.NONE;
 
@@ -473,10 +471,8 @@ public class RecordQueryPlannerConfiguration {
                     useFullKeyForValueIndex,
                     maxNumMatchesPerRuleCall,
                     sortConfiguration,
-                    disabledTransformationRules);
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, attemptFailedInJoinAsUnionMaxSize,
-                    complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters,
-                    maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex, maxNumMatchesPerRuleCall, sortConfiguration, useIndexPrefetch);
+                    disabledTransformationRules,
+                    useIndexPrefetch);
         }
     }
 }

@@ -22,19 +22,9 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -93,7 +83,7 @@ public class FDBIndexedRawRecord {
             return false;
         }
 
-        FDBIndexedRawRecord that = (FDBIndexedRawRecord) o;
+        FDBIndexedRawRecord that = (FDBIndexedRawRecord)o;
 
         if (!indexEntry.equals(that.indexEntry)) {
             return false;

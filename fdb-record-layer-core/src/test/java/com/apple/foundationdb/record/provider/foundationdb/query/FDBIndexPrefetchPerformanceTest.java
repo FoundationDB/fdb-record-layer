@@ -42,7 +42,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A "test" that compares the performance of the Index Scan and Index Prefetch FDB APIs
+ * A "test" that compares the performance of the Index Scan and Index Prefetch FDB APIs.
  */
 @Tag(Tags.RequiresFDB)
 class FDBIndexPrefetchPerformanceTest extends FDBRecordStoreQueryTestBase {

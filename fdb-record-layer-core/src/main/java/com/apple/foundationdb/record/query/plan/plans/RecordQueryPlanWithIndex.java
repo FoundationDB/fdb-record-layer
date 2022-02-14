@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -69,6 +68,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
     default ScanComparisons getComparisons() {
         return null;
     }
+
     default KeyExpression getCommonPrimaryKey() {
         return null;
     }

@@ -64,6 +64,7 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
         }
 
         @SuppressWarnings({"rawtypes", "unchecked"})
+        @Override
         protected AsyncIterator<KeyValue> scanRange(@Nonnull ReadTransaction transaction,
                                                     @Nonnull KeySelector begin,
                                                     @Nonnull KeySelector end,

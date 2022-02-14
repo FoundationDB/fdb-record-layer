@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingAttribute;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
@@ -88,7 +87,7 @@ import java.util.stream.StreamSupport;
  * </ul>
  *
  * The logic that this rules delegates to to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch, PlanContext)} )}.
+ * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch)}.
  * @param <R> sub type of {@link RelationalExpression}
  */
 @API(API.Status.EXPERIMENTAL)
@@ -222,7 +221,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         // create scans for all best matches
         final var bestMatchToExpressionMap =
-                createScansForMatches(planContext.getMetaData(), bestMaximumCoverageMatches, call.getContext());
+                createScansForMatches(planContext.getMetaData(), bestMaximumCoverageMatches);
 
         final var toBeInjectedReference = GroupExpressionRef.empty();
 
@@ -381,13 +380,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @Nonnull
     private static Map<PartialMatch, RelationalExpression> createScansForMatches(@Nonnull RecordMetaData recordMetaData,
-                                                                                 @Nonnull final Collection<PartialMatch> matches, @Nonnull final PlanContext planContext) {
+                                                                                 @Nonnull final Collection<PartialMatch> matches) {
         return matches
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
                         Function.identity(),
                         partialMatch -> partialMatch.getMatchCandidate()
-                                .toEquivalentExpression(recordMetaData, partialMatch, planContext)));
+                                .toEquivalentExpression(recordMetaData, partialMatch)));
     }
 
     /**

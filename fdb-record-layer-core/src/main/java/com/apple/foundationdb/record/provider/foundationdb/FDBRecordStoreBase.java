@@ -933,7 +933,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         return scanIndexPrefetch(index, scanType, range, commonPrimaryKey, continuation, scanProperties, scanProperties.getExecuteProperties().getState());
     }
 
-    RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
+    RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, final KeyExpression commonPrimaryKey,
                                                               byte[] continuation, ScanProperties scanProperties, ExecuteState state);
 
     /**

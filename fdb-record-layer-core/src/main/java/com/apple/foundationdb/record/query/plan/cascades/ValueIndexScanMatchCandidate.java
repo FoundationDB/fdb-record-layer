@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -178,7 +179,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
+                                null,
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
+                                RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE,
                                 reverseScanOrder,
                                 false,
                                 (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
@@ -222,7 +225,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
+                        null,
                         scanParameters,
+                        RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE,
                         isReverse,
                         false,
                         (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
