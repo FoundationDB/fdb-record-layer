@@ -79,8 +79,8 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
     protected static List<String> indexTextFields(@Nonnull Index index, @Nonnull RecordMetaData metaData) {
         final List<String> textFields = new ArrayList<>();
         for (RecordType recordType : metaData.recordTypesForIndex(index)) {
-            for (Map.Entry<String, LuceneIndexExpressions.DocumentFieldType> entry : LuceneIndexExpressions.getDocumentFieldTypes(index.getRootExpression(), recordType.getDescriptor()).entrySet()) {
-                if (entry.getValue() == LuceneIndexExpressions.DocumentFieldType.TEXT) {
+            for (Map.Entry<String, LuceneIndexExpressions.DocumentFieldDerivation> entry : LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), recordType.getDescriptor()).entrySet()) {
+                if (entry.getValue().getType() == LuceneIndexExpressions.DocumentFieldType.TEXT) {
                     textFields.add(entry.getKey());
                 }
             }

@@ -764,7 +764,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexScan("MapField$values"),
-                    scanParams(query(hasToString("entry_key:\"king\"")))));
+                    scanParams(query(hasToString("entry_key:STRING EQUALS king")))));
             if (shouldDeferFetch) {
                 matcher = fetch(primaryKeyDistinct(coveringIndexScan(matcher)));
             } else {
@@ -794,7 +794,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     indexName(MAP_AND_FIELD_ON_LUCENE_INDEX.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     // TODO: This query does not have the proper correlation between the two children. An index that put the key into the name would be needed to tell that.
-                    scanParams(query(hasToString("entry_key:\"b\" AND entry_value:(+\"civil blood makes civil hands unclean\")")))
+                    scanParams(query(hasToString("entry_key:STRING EQUALS b AND entry_value:TEXT TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean")))
                     ));
             if (shouldDeferFetch) {
                 matcher = fetch(primaryKeyDistinct(coveringIndexScan(matcher)));
@@ -825,7 +825,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexName(MAP_AND_FIELD_ON_LUCENE_INDEX.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
-                    scanParams(query(hasToString("entry_key:\"b\" OR entry_value:(+\"civil blood makes civil hands unclean\")")))
+                    scanParams(query(hasToString("entry_key:STRING EQUALS b OR entry_value:TEXT TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean")))
             ));
             if (shouldDeferFetch) {
                 matcher = fetch(primaryKeyDistinct(coveringIndexScan(matcher)));
@@ -837,6 +837,29 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(Set.of(0L, 1L, 2L), Set.copyOf(primaryKeys));
         }
 
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void longFieldQuery(boolean shouldDeferFetch) throws Exception {
+        initializeNested();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.field("doc_id").greaterThan(1L))
+                    .build();
+            setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+            RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    indexName(MAP_AND_FIELD_ON_LUCENE_INDEX.getName()),
+                    scanParams(query(hasToString("doc_id:LONG GREATER_THAN 1")))
+            ));
+            assertThat(plan, matcher);
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(Set.of(2L), Set.copyOf(primaryKeys));
+        }
     }
 
 }

@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.AndOrComponent;
 import com.apple.foundationdb.record.query.expressions.BaseField;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
@@ -96,6 +95,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         LucenePlanState state = new LucenePlanState(index, groupingComparisons, filter);
+        getFieldDerivations(state);
 
         // Special scans like auto-complete cannot be combined with regular queries.
         LuceneScanParameters scanParameters = getSpecialScan(state, filterMask);
@@ -127,6 +127,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         @Nonnull
         final QueryComponent filter;
 
+        Map<String, LuceneIndexExpressions.DocumentFieldDerivation> documentFields;
         boolean repeated;   // Matching a repeated field may introduce duplicates
 
         LucenePlanState(@Nonnull final Index index, @Nonnull final ScanComparisons groupingComparisons, @Nonnull final QueryComponent filter) {
@@ -141,7 +142,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (queryComponent instanceof LuceneQueryComponent) {
             LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)queryComponent;
             for (String field : luceneQueryComponent.getFields()) {
-                if (!validateIndexField(state, field, false)) {
+                if (!validateIndexField(state, field)) {
                     return null;
                 }
             }
@@ -191,7 +192,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         //TODO figure out how to take into account the parentField name here. Or maybe disallow this if its contained within a
         // oneOfThem. Not sure if thats even allowed via the metadata validation on the query at the start of the planner.
         for (String field : filter.getFields()) {
-            if (!validateIndexField(state, field, false)) {
+            if (!validateIndexField(state, field)) {
                 return null;
             }
         }
@@ -245,44 +246,14 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (parentFieldName != null) {
             completeFieldName = parentFieldName + "_" + completeFieldName;
         }
-        if (!validateIndexField(state, completeFieldName, true)) {
+        LuceneIndexExpressions.DocumentFieldType fieldType = getIndexFieldType(state, completeFieldName);
+        if (fieldType == null) {
             return null;
         }
-        Comparisons.Comparison comparison =  filter.getComparison();
-        // TODO: Use TermQuery, etc. instead of strings that need to be parsed and handle more comparison types.
-        String comparisonString;
-        Comparisons.Type type = filter.getComparison().getType();
-        switch (type) {
-            case EQUALS:
-                comparisonString = "%s:";
-                break;
-            case TEXT_CONTAINS_ALL:
-            case TEXT_CONTAINS_PHRASE:
-                comparisonString = "%s:(+\"%s\")";
-                break;
-            case IS_NULL:
-                comparisonString = "*:* AND NOT %s:[* TO *]";
-                break;
-            case NOT_EQUALS:
-                comparisonString = "NOT %s:";
-                break;
-            case TEXT_CONTAINS_ANY:
-            case TEXT_CONTAINS_PREFIX:
-            default:
-                return null;
-        }
-        if (type != Comparisons.Type.IS_NULL && type != Comparisons.Type.TEXT_CONTAINS_PHRASE && type != Comparisons.Type.TEXT_CONTAINS_ALL) {
-            if (comparison.getComparand() instanceof String) {
-                comparisonString = comparisonString + "\"%s\"";
-            } else {
-                comparisonString = comparisonString + "%s";
-            }
-        }
-        comparisonString = String.format(comparisonString, completeFieldName, filter.getComparison().getComparand());
         if (filterSatisfiedMask != null) {
             filterSatisfiedMask.setSatisfied(true);
         }
-        return new LuceneQuerySearchClause(comparisonString, false);
+        return LuceneQueryFieldComparisonClause.create(completeFieldName, fieldType, filter.getComparison());
     }
 
     // TODO Better implementation of nesting that actually takes into account
@@ -307,23 +278,39 @@ public class LucenePlanner extends RecordQueryPlanner {
         return comparison;
     }
 
-    private boolean validateIndexField(@Nonnull LucenePlanState state, @Nonnull String field, boolean complete) {
+    @Nonnull
+    private void getFieldDerivations(@Nonnull LucenePlanState state) {
+        Map<String, LuceneIndexExpressions.DocumentFieldDerivation> combined = null;
         for (RecordType recordType : getRecordMetaData().recordTypesForIndex(state.index)) {
-            if (complete) {
-                // For a filter made from components, we have the complete path of record fields and so the actual document field name.
-                // TODO: This is inefficient to do for every comparison and doesn't really work if any document fields take their name from runtime values.
-                final Map<String, LuceneIndexExpressions.DocumentFieldType> fields = LuceneIndexExpressions.getDocumentFieldTypes(state.index.getRootExpression(), recordType.getDescriptor());
-                if (fields.containsKey(field)) {
-                    return true;
-                }
+            Map<String, LuceneIndexExpressions.DocumentFieldDerivation> documentFields =
+                    LuceneIndexExpressions.getDocumentFieldDerivations(state.index.getRootExpression(), recordType.getDescriptor());
+            if (combined == null) {
+                combined = documentFields;
             } else {
-                // Otherwise can only check that the field name given corresponds to some top-level branch to an indexed field.
-                final List<List<String>> paths = LuceneIndexExpressions.getRecordFieldsPaths(state.index.getRootExpression(), recordType.getDescriptor());
-                for (List<String> path : paths) {
-                    if (path.get(0).equals(field)) {
-                        return true;
-                    }
-                }
+                combined.putAll(documentFields);
+            }
+        }
+        if (combined == null) {
+            combined = Collections.emptyMap();
+        }
+        state.documentFields = combined;
+    }
+
+    @Nullable
+    private LuceneIndexExpressions.DocumentFieldType getIndexFieldType(@Nonnull LucenePlanState state, @Nonnull String field) {
+        // For a filter made from components, we have the complete path of record fields and so the actual document field name.
+        final LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation = state.documentFields.get(field);
+        if (fieldDerivation != null) {
+            return fieldDerivation.getType();
+        }
+        return null;
+    }
+
+    private boolean validateIndexField(@Nonnull LucenePlanState state, @Nonnull String field) {
+        // Can only check that the field name given corresponds to some top-level branch to an indexed field.
+        for (LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation : state.documentFields.values()) {
+            if (fieldDerivation.getRecordFieldPath().get(0).equals(field)) {
+                return true;
             }
         }
         return false;
