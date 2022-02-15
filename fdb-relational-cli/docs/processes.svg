@@ -1,0 +1,75 @@
+<!--
+ processes.svg
+
+ This source file is part of the FoundationDB open source project
+
+ Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xl="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="50.5 160.5 462 146" width="462" height="146">
+  <defs/>
+  <g id="Canvas_1" fill="none" stroke="none" stroke-opacity="1" fill-opacity="1" stroke-dasharray="none">
+    <title>Canvas 1</title>
+    <rect fill="white" x="50.5" y="160.5" width="462" height="146"/>
+    <g id="Canvas_1_Layer_1">
+      <title>Layer 1</title>
+      <g id="Graphic_14">
+        <rect x="51" y="161" width="282" height="145" fill="white"/>
+        <rect x="51" y="161" width="282" height="145" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+      </g>
+      <g id="Graphic_2">
+        <rect x="186" y="174.5" width="135" height="119" fill="#ffffc0"/>
+        <rect x="186" y="174.5" width="135" height="119" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(191 270.052)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="16.724" y="15">fdb-relational-core</tspan>
+        </text>
+      </g>
+      <g id="Graphic_3">
+        <rect x="64" y="174.5" width="109.5" height="49.5" fill="lime"/>
+        <rect x="64" y="174.5" width="109.5" height="49.5" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(69 180.802)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="10.918" y="15">In-memory </tspan>
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="23.382" y="33.448">catalog</tspan>
+        </text>
+      </g>
+      <g id="Graphic_4">
+        <rect x="204.5" y="186" width="98" height="54" fill="#ffc0ff"/>
+        <rect x="204.5" y="186" width="98" height="54" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(209.5 203.776)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="6.072" y="15">FDB-client</tspan>
+        </text>
+      </g>
+      <g id="Graphic_7">
+        <rect x="414" y="161" width="98" height="145" fill="#ffc0ff"/>
+        <rect x="414" y="161" width="98" height="145" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(419 224.276)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="28.296" y="15">FDB</tspan>
+        </text>
+      </g>
+      <g id="Line_12">
+        <line x1="302.5" y1="213" x2="414" y2="213" stroke="#7f8080" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+      </g>
+      <g id="Graphic_15">
+        <rect x="64" y="233.5" width="109.5" height="60" fill="#ffffc0"/>
+        <rect x="64" y="233.5" width="109.5" height="60" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(69 254.276)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="11.83" y="15">fdb-relational-cli</tspan>
+        </text>
+      </g>
+    </g>
+  </g>
+</svg>

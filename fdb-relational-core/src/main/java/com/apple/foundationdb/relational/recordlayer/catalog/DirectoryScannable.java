@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.ConcatCursor;
+import com.apple.foundationdb.record.cursors.EmptyCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -125,7 +126,9 @@ public class DirectoryScannable implements Scannable {
         if (subdirName == null) {
             final KeySpaceDirectory directory = path.getDirectory();
             final List<KeySpaceDirectory> subdirectories = directory.getSubdirectories();
-            if (subdirectories.size() > 1) {
+            if (subdirectories.isEmpty()) {
+                return new EmptyCursor<>(ctx.getExecutor());
+            } else if (subdirectories.size() > 1) {
                 return new ListingGenerator(0, path, subdirectories).apply(ctx, ScanProperties.FORWARD_SCAN, null);
             } else {
                 subdirName = subdirectories.get(0).getName();
