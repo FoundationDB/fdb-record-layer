@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -57,6 +59,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -73,6 +77,7 @@ import java.util.Set;
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable {
+    public static final Logger logger = LoggerFactory.getLogger(RecordQueryIndexPlan.class);
     protected static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
 
     @Nonnull
@@ -100,14 +105,16 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
-        this(indexName, scanParameters, reverse, false);
+        this(indexName, null, scanParameters, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE, reverse, false);
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
+                                @Nonnull final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
-        this(indexName, null, scanParameters, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE, reverse, strictlySorted, Optional.empty(), new Type.Any());
+        this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, reverse, strictlySorted, Optional.empty(), new Type.Any());
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
@@ -158,7 +165,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 try {
                     return executeUsingIndexPrefetch(store, context, continuation, executeProperties);
                 } catch (Exception ex) {
-                    // Need to log the error
+                    KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch plan failed, falling back to Index scan",
+                            LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                    logger.error(message.toString(), ex);
                     return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
                 }
             default:
@@ -262,7 +271,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Override
     public RecordQueryIndexPlan strictlySorted() {
-        return new RecordQueryIndexPlan(indexName, scanParameters, reverse, true);
+        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getUseIndexPrefetch(), reverse, true);
     }
 
     @Override

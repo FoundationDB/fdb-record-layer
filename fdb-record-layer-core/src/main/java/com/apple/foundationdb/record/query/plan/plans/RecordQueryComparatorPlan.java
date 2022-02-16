@@ -63,7 +63,6 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
-    public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryComparatorPlan.class);
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Comparator-Plan");
 
     @Nonnull

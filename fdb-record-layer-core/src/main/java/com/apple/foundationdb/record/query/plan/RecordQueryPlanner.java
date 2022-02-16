@@ -1396,7 +1396,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             plan = new RecordQueryScanPlan(possibleTypes, scanComparisons, candidateScan.reverse, strictlySorted);
         } else {
-            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), indexScanComparisons, candidateScan.reverse, strictlySorted);
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanComparisons, getConfiguration().getUseIndexPrefetch(), candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);
         }
         // Add a type filter if the query plan might return records of more types than the query specified

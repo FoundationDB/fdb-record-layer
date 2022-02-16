@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
@@ -36,12 +37,14 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
@@ -85,6 +88,66 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         }
 
         assertThat(count, equalTo(5));
+    }
+
+    @Test
+    void testIndexPrefetchWithComparatorPlan() throws Exception {
+        complexQuerySetup(null);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_unique").greaterThan(990))
+                .build();
+        RecordQueryPlan planWithScan = plan(query, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE);
+        RecordQueryPlan planWithPrefetch = plan(query, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .build();
+        RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
+
+        try (FDBRecordContext context = openContext()) {
+            context.ensureActive().options().setReadYourWritesDisable();
+            openSimpleRecordStore(context);
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
+                // Will throw exception if plans do not match
+                List<FDBQueriedRecord<Message>> result = cursor.asList().get();
+            }
+        }
+    }
+
+    @Test
+    void indexPrefetchSimpleIndexFallbackTest() throws Exception {
+        complexQuerySetup(null);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_unique").greaterThan(990))
+                .build();
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH_WITH_FALLBACK)
+                .build());
+        RecordQueryPlan planWithScan = plan(query, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE);
+        RecordQueryPlan planWithPrefetch = plan(query, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
+        RecordQueryPlan planWithPrefetchAndFallback = plan(query, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH_WITH_FALLBACK);
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .build();
+        RecordQueryPlan comparatorPlan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetchAndFallback), primaryKey(), 0, true);
+
+        // This will throw an exception since did not set read-your-writes
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertThrows(RecordCoreException.class, () ->  recordStore.executeQuery(planWithPrefetch, null, executeProperties));
+        }
+        // This will compare the plans successfully since fallback resorts to the scan plan
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(comparatorPlan, null, executeProperties)) {
+                // Will throw exception if plans do not match
+                List<FDBQueriedRecord<Message>> result = cursor.asList().get();
+            }
+        }
     }
 
     @Test
@@ -215,6 +278,19 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
                 assertThat(cursorIterator.getNoNextReason(), equalTo(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
             }
         }
+    }
+
+    @Nonnull
+    private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) {
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setUseIndexPrefetch(useIndexPrefetch)
+                .build());
+        return planner.plan(query);
+    }
+
+    private KeyExpression primaryKey() {
+        return recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
     }
 
     private void assertRecordResult(final RecordCursorResult<FDBQueriedRecord<Message>> recResult, final int i, final String indexName) {

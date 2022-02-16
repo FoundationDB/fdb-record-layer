@@ -53,7 +53,10 @@ public class ImplementIndexScanRule extends PlannerRule<IndexScanExpression> {
         final IndexScanParameters scan = new IndexScanComparisons(logical.getScanType(), logical.scanComparisons());
         call.yield(call.ref(new RecordQueryIndexPlan(Objects.requireNonNull(
                 logical.getIndexName()),
+                call.getContext().getCommonPrimaryKey(),
                 scan,
-                logical.isReverse())));
+                call.getContext().getPlannerConfiguration().getUseIndexPrefetch(),
+                logical.isReverse(),
+                false)));
     }
 }

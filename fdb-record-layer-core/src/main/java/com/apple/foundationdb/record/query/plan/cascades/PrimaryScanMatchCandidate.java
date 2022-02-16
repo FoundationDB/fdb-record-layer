@@ -120,6 +120,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     @Override
     public RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
                                                        @Nonnull PartialMatch partialMatch,
+                                                       @Nonnull final PlanContext planContext,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
