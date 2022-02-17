@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -29,7 +31,7 @@ class TestInsertCommand {
     CliRule cli = new CliRule();
 
     @Test
-    void testInsert() {
+    void testInsert() throws RelationalException {
         try {
             TestUtils.runCommand("createdb --path /test_insert_db --schema test_insert_schema --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.runCommand("connect rlsc:embed:/test_insert_db", cli);

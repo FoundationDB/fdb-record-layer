@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import java.util.List;
 
 /**
@@ -29,8 +31,12 @@ import java.util.List;
 public abstract class CommandWithConnectionAndSchema extends CommandWithConnection {
     CommandWithConnectionAndSchema(DbState dbState) {
         super(dbState, List.of(state -> {
-            if (state.getConnection().getSchema() == null || state.getConnection().getSchema().isEmpty()) {
-                throw new IllegalStateException("schema is not set");
+            try {
+                if (state.getConnection().getSchema() == null || state.getConnection().getSchema().isEmpty()) {
+                    throw new IllegalStateException("schema is not set");
+                }
+            } catch (RelationalException e) {
+                throw new IllegalStateException("schema is not set", e);
             }
         }));
     }

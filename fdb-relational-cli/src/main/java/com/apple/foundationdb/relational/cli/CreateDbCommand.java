@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 
@@ -65,7 +66,7 @@ public class CreateDbCommand extends Command {
         }
     }
 
-    private String loadSchemaTemplate(String schemaTemplate) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    private String loadSchemaTemplate(String schemaTemplate) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException, RelationalException {
         String templateId = UUID.randomUUID().toString();
         Method method = Class.forName(schemaTemplate).getDeclaredMethod("getDescriptor");
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords((Descriptors.FileDescriptor) method.invoke(null));

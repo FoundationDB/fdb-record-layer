@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -33,7 +35,7 @@ class TestSelectCommand {
     CliRule cli = new CliRule();
 
     @Test
-    void testSelect() {
+    void testSelect() throws RelationalException {
         try {
             TestUtils.runCommand("createdb --path /test_select_command_db --schema test_select_schema --schema-template com.apple.foundationdb.record.Restaurant", cli);
             List<String> insertRecords = Arrays.asList(

@@ -20,8 +20,12 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+
+import java.sql.SQLException;
 
 class TestCreateDbCommand {
 
@@ -29,7 +33,7 @@ class TestCreateDbCommand {
     CliRule cli = new CliRule();
 
     @Test
-    void testCreateDb() {
+    void testCreateDb() throws RelationalException, SQLException {
         try {
             TestUtils.runCommand("createdb --path /test_create_db --schema test_create_db_schema --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.databaseHasSchemas("test_create_db", "test_create_db_schema");

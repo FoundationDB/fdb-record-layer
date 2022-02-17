@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,7 +38,7 @@ class TestListSchemasCommand {
     CliRule cli = new CliRule();
 
     @Test
-    void testListSchemas() {
+    void testListSchemas() throws RelationalException, SQLException {
         try {
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaA --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaB --schema-template com.apple.foundationdb.record.Restaurant", cli);
@@ -54,7 +57,7 @@ class TestListSchemasCommand {
     }
 
     @Disabled("this test documents current behavior: if we create a database _after_ connecting, we don't see it when calling listSchemas.")
-    void testListSchemasAfterCreateDb() {
+    void testListSchemasAfterCreateDb() throws RelationalException {
         try {
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaC --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaD --schema-template com.apple.foundationdb.record.Restaurant", cli);
