@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.beust.jcommander.JCommander;
@@ -177,11 +178,15 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
         int n = 0;
         while (n < databaseParameters.recordCount) {
             try (FDBRecordContext context = fdb.openContext()) {
-                FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
-                        .uncheckedOpen();
+                final KeySpacePath keyspacePath = TestKeySpace.getKeyspacePath(databaseParameters.path);
+                final FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
+                        .setKeySpacePath(keyspacePath);
+                final FDBRecordStore recordStore;
                 if (n == 0) {
-                    recordStore.deleteAllRecords();
+                    FDBRecordStore.deleteStore(context, keyspacePath);
+                    recordStore = storeBuilder.create();
+                } else {
+                    recordStore = storeBuilder.open();
                 }
                 int c = 0;
                 while (c < databaseParameters.recordsPerCommit && n < databaseParameters.recordCount) {
@@ -335,6 +340,14 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
         return store -> store.scanIndexRecordsEqual("MySimpleRecord$num_value_3_indexed", num3).getCount();
     }
 
+    protected static Function<FDBRecordStore, CompletableFuture<?>> indexRecordDeferredScanNum3Equals(int num3) {
+        return store -> store.fetchIndexRecords(
+                        store.scanIndex(store.getRecordMetaData().getIndex("MySimpleRecord$num_value_3_indexed"),
+                                IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(num3)), null, ScanProperties.FORWARD_SCAN),
+                        IndexOrphanBehavior.ERROR)
+                .getCount();
+    }
+
     protected static Function<FDBRecordStore, CompletableFuture<?>> scanAndJoinNum3Equals(int num3) {
         return store -> store.scanIndexRecordsEqual("MySimpleRecord$num_value_3_indexed", num3)
                 .mapPipelined(r -> {
@@ -377,6 +390,11 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
     }
 
     @Test
+    public void indexRecordDeferredScanNum3EqualsTest() throws Exception {
+        runTest("index record scan", FDBRecordStorePerformanceTest::indexRecordDeferredScanNum3Equals, new TestParameters());
+    }
+
+    @Test
     public void scanAndJoinNum3EqualsTest() throws Exception {
         runTest("scan and join", FDBRecordStorePerformanceTest::scanAndJoinNum3Equals, new TestParameters());
     }
@@ -405,7 +423,7 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
         public boolean singleRamp = false;
     }
 
-    // export $(tail +2 fdb-environment.properties) && java -Dlog4j.configuration=standalone.log4j.properties -jar ./fdb-record-layer-core/.out/libs/fdb-record-layer-core-2.*-SNAPSHOT-standalone-tests.jar
+    // export $(tail +2 fdb-environment.properties) && java -Dlog4j.configurationFile=standalone.log4j.properties -jar ./fdb-record-layer-core/.out/libs/fdb-record-layer-core-*-SNAPSHOT-standalone-tests.jar
     public static void main(String[] argv) throws Exception {
         DatabaseParameters databaseParameters = new DatabaseParameters();
         TestParameters testParameters = new TestParameters();
@@ -427,6 +445,8 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
                 testFunction = FDBRecordStorePerformanceTest::indexScanNum3Equals;
             } else if ("indexRecord".equals(testName)) {
                 testFunction = FDBRecordStorePerformanceTest::indexRecordScanNum3Equals;
+            } else if ("indexRecordDeferred".equals(testName)) {
+                testFunction = FDBRecordStorePerformanceTest::indexRecordDeferredScanNum3Equals;
             } else if ("join".equals(testName)) {
                 testFunction = FDBRecordStorePerformanceTest::scanAndJoinNum3Equals;
             } else if ("rank".equals(testName)) {
