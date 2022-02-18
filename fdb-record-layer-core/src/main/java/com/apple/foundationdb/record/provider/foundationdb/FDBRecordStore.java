@@ -1213,12 +1213,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, final KeyExpression commonPrimaryKey,
-                                                                     byte[] continuation, ScanProperties scanProperties, ExecuteState state) {
+                                                                     byte[] continuation, ScanProperties scanProperties) {
         return scanIndexPrefetchInternal(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
     }
 
-    protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final IndexScanType scanType, final TupleRange range, final KeyExpression commonPrimaryKey,
-                                                                                final byte[] continuation, final ScanProperties scanProperties) {
+    protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final IndexScanType scanType, final TupleRange range,
+                                                                                final KeyExpression commonPrimaryKey, final byte[] continuation,
+                                                                                final ScanProperties scanProperties) {
         if (!isIndexReadable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
@@ -1227,23 +1228,31 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         Subspace recordSubspace = recordsSubspace();
         IndexMaintainer indexMaintainer = getIndexMaintainer(index);
-        Subspace indexSubspace = indexMaintainer.getIndexSubspace();
-        final Tuple hopInfo = createHopInfo(indexSubspace, recordSubspace, commonPrimaryKey, index);
-        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanIndexPrefetch(scanType, range, hopInfo.pack(), recordSubspace, continuation, scanProperties);
-        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
-
+        final Tuple hopInfo = createHopInfo(indexMaintainer.getIndexSubspace(), recordSubspace, commonPrimaryKey, index);
         SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo(); // ??
+        ExecuteState executeState = scanProperties.getExecuteProperties().getState();
+        // Get the cursor with the index entries and the records from FDB
+        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanIndexPrefetch(scanType, range, hopInfo.pack(), recordSubspace, continuation, scanProperties);
 
-        return indexEntries.mapPipelined(mappedResult ->  {
-            FDBRawRecord fdbRawRecord = unsplitSingleRecord(recordSubspace, sizeInfo, mappedResult.getRawRecord(), scanProperties);
-            final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.of(CompletableFuture.completedFuture(fdbRawRecord.getVersion()));
-            // TODO: Do we still support old version format?
-            //            if (useOldVersionFormat()) {
-            //                versionFutureOptional = loadRecordVersionAsync(primaryKey);
-            //            }
-            CompletableFuture<FDBStoredRecord<Message>> storedRecord = deserializeRecord(serializer, fdbRawRecord, metaData, versionFutureOptional);
-            return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(mappedResult.getIndexEntry(), rec));
+        RecordCursor<FDBIndexedRecord<Message>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
+            // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
+            FDBRawRecord fdbRawRecord = unsplitSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties);
+
+            Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
+            // The version future will be ignored in case the record already has a version
+            if (useOldVersionFormat() && !fdbRawRecord.hasVersion()) {
+                versionFutureOptional = loadRecordVersionAsync(indexedRawRecord.getIndexEntry().getPrimaryKey());
+            }
+            final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
+            // TODO: Should we add the index entry bytes to the scanned bytes count?
+            byteScanLimiter.registerScannedBytes(sizeInfo.getKeySize() + sizeInfo.getValueSize());
+
+            // Deserialize the raw record
+            CompletableFuture<FDBStoredRecord<Message>> storedRecord = deserializeRecord(serializer, fdbRawRecord, metaDataProvider.getRecordMetaData(), versionFutureOptional);
+            return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
         }, 1);
+
+        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD, indexedRecordCursor);
     }
 
     /**

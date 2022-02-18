@@ -930,11 +930,22 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                       @Nonnull ScanProperties scanProperties) {
 
         final Index index = getRecordMetaData().getIndex(indexName);
-        return scanIndexPrefetch(index, scanType, range, commonPrimaryKey, continuation, scanProperties, scanProperties.getExecuteProperties().getState());
+        return scanIndexPrefetch(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
     }
 
+    /**
+     * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
+     * @param index the index to scan
+     * @param scanType the type of scan to perform
+     * @param range the range of the index to scan
+     * @param commonPrimaryKey the common primary key for the records that would be returned
+     * @param continuation any continuation from a previous scan
+     * @param scanProperties skip, limit and other scan properties
+     * @return a cursor that return records pointed to by the index
+     */
+    @Nonnull
     RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, final KeyExpression commonPrimaryKey,
-                                                              byte[] continuation, ScanProperties scanProperties, ExecuteState state);
+                                                              byte[] continuation, ScanProperties scanProperties);
 
     /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
