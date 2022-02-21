@@ -174,7 +174,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getPredicates());
+        return Objects.hash(getPredicates(), getResultValues());
     }
 
     @Nonnull
@@ -359,8 +359,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
-                        "Select",
-                        ImmutableList.of("SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) +  " WHERE " + AndPredicate.and(getPredicates())),
+                        "SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")),
+                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.and(getPredicates())),
                         ImmutableMap.of()),
                 childGraphs);
     }

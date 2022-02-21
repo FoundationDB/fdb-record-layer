@@ -113,7 +113,7 @@ import java.util.function.Supplier;
  *     sort happens (conceptually) and allows for deferred-fetch optimizations.
  *
  * As a direct result of this we now have two different logical sort expressions. One, {@link LogicalSortExpression}
- * which expresses order by using {@link KeyExpression}s and which has the problems layed out in (1), and a this one
+ * which expresses order by using {@link KeyExpression}s and which has the problems layed out in (1), and  one
  * {@link MatchableSortExpression} which expresses order by explicitly naming the constituent parts of an index.
  * In the future, we should strive to unify these two classes to one logical sort expression. For now, we have
  * a logical sort expression ({@link LogicalSortExpression}) on the query side and a matchable sort expression
@@ -132,7 +132,7 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class MatchableSortExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
     /**
-     * A list of of {@link CorrelationIdentifier}s that refer to parameter ids of this match candidate. This
+     * A list of {@link CorrelationIdentifier}s that refer to parameter ids of this match candidate. This
      * restricts the expressiveness of this operator to only use index keys (or non-repeateds in primary scans) to
      * express order.
      */

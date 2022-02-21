@@ -65,7 +65,9 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
         this.baseAlias = CorrelationIdentifier.uniqueID();
         this.componentAsPredicateSupplier = Suppliers.memoize(() -> {
             final GraphExpansion graphExpansion =
-                    component.expand(baseAlias);
+                    component.expand(baseAlias, () -> {
+                        throw new UnsupportedOperationException();
+                    });
             Verify.verify(graphExpansion.getQuantifiers().isEmpty());
             return graphExpansion.asAndPredicate();
         });

@@ -1,5 +1,5 @@
 /*
- * ValueIndexLikeExpansionVisitor.java
+ * PrimaryAccessExpansionVisitor.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -38,9 +38,9 @@ import java.util.Set;
 
 /**
  * Class to expand primary data access into a candidate. The visitation methods are left unchanged from the super class
- * {@link ValueIndexLikeExpansionVisitor}, this class merely provides a specific {@link #expand} method.
+ * {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
-public class PrimaryAccessExpansionVisitor extends ValueIndexLikeExpansionVisitor {
+public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
     private final Set<String> availableRecordTypes;
     @Nonnull

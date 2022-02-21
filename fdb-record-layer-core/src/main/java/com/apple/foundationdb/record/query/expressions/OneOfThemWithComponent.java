@@ -41,6 +41,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A {@link QueryComponent} that evaluates a nested component against each of the values of a repeated field and is satisfied if any of those are.
@@ -101,13 +102,15 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     }
 
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
+                                 @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+                                 @Nonnull final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
         final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
-        final GraphExpansion graphExpansion = getChild().expand(childBase.getAlias(), Collections.emptyList());
+        final GraphExpansion graphExpansion = getChild().expand(childBase.getAlias(), baseQuantifierSupplier, Collections.emptyList());
         final SelectExpression selectExpression =
                 graphExpansion
                         .buildSelectWithBase(childBase);
@@ -118,7 +121,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
         // this is needed for reapplication of the component if the sub query cannot be matched or only matched with
         // compensation
         QueryComponent withPrefix = this;
-        for (int i = fieldNamePrefix.size() - 1; i >= 0;  i--) {
+        for (int i = fieldNames.size() - 1; i >= 0;  i--) {
             final String fieldName = fieldNames.get(i);
             withPrefix = Query.field(fieldName).matches(withPrefix);
         }

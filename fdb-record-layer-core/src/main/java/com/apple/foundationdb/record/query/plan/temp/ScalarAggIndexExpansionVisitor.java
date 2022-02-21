@@ -1,5 +1,5 @@
 /*
- * ValueIndexExpansionVisitor.java
+ * ScalagAggIndexExpansionVisitor.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -46,13 +46,13 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
  * Class to expand value index access into a candidate graph. The visitation methods are left unchanged from the super
  * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
-public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
+public class ScalarAggIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
     private final Index index;
     @Nonnull
     private final List<RecordType> recordTypes;
 
-    public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
+    public ScalarAggIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
         Preconditions.checkArgument(index.getType().equals(IndexTypes.VALUE));
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);

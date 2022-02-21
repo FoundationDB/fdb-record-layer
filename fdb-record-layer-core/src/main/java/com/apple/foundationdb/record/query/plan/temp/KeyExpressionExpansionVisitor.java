@@ -1,5 +1,5 @@
 /*
- * ValueIndexLikeExpansionVisitor.java
+ * KeyExpressionExpansionVisitor.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithValue
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.query.plan.temp.ValueIndexLikeExpansionVisitor.VisitorState;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.EmptyValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
@@ -46,8 +47,7 @@ import java.util.List;
 /**
  * Expansion visitor that implements the shared logic between primary scan data access and value index access.
  */
-@SuppressWarnings("java:S5993")
-public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor<VisitorState> {
+public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<VisitorState, GraphExpansion> {
     /**
      * We maintain a conceptual stack for the states. States pass information down the visited structure while
      * {@link GraphExpansion}s pass the resulting query graph expansion back up. We use a {@link Deque} here
@@ -55,7 +55,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
      */
     private final Deque<VisitorState> states;
 
-    public ValueIndexLikeExpansionVisitor() {
+    public KeyExpressionExpansionVisitor() {
         this.states = new ArrayDeque<>();
     }
 
@@ -64,7 +64,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
         return states.peek();
     }
 
-    public ValueIndexLikeExpansionVisitor push(final VisitorState newState) {
+    public KeyExpressionExpansionVisitor push(final VisitorState newState) {
         states.push(newState);
         return this;
     }
@@ -89,8 +89,8 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
     }
 
     /**
-     * Specific implementation of the fall-back visitation method. Sub classes of this class do not tolerate visits
-     * from unknown sub classes of {@link KeyExpression}. Implementors of new sub classes of {@link KeyExpression}
+     * Specific implementation of the fall-back visitation method. Subclasses of this class do not tolerate visits
+     * from unknown subclasses of {@link KeyExpression}. Implementors of new subclasses of {@link KeyExpression}
      * should also add a new visitation method in {@link KeyExpressionVisitor}.
      * @param keyExpression key expression to visit
      * @return does not return a result but throws an exception of type {@link UnsupportedOperationException}
@@ -363,6 +363,18 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
                     this.fieldNamePrefix,
                     this.splitPointForValues,
                     currentOrdinal);
+        }
+
+        public static VisitorState forQueries(@Nonnull final List<Value> valueValues,
+                                              @Nonnull final CorrelationIdentifier baseAlias,
+                                              @Nonnull final List<String> fieldNamePrefix) {
+            return new VisitorState(
+                    Lists.newArrayList(),
+                    valueValues,
+                    baseAlias,
+                    fieldNamePrefix,
+                    0,
+                    0);
         }
 
         public static VisitorState of(@Nonnull final List<Value> keyValues,

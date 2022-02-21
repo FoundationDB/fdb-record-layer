@@ -55,6 +55,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
+import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest;
+import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
@@ -123,7 +125,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@code RANK} type indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class RankIndexTest extends FDBRecordStoreTestBase {
+public class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
     protected void openRecordStore(FDBRecordContext context) throws Exception {
         openRecordStore(context, NO_HOOK);
@@ -331,7 +333,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
     }
 
 
-    @Test
+    @DualPlannerTest
     public void complexRankQuery() throws Exception {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("BasicRankedRecord")
