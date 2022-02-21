@@ -289,6 +289,9 @@ public enum LogMessageKeys {
     FILE_REFERENCE,
     ORIGINAL_DATA_SIZE,
 
+    //Lucene component
+    COMPONENT,
+
     // Record context properties
     PROPERTY_NAME,
     PROPERTY_TYPE,

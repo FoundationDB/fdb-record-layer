@@ -237,17 +237,24 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             return Collections.singletonList(fieldExpression.getFieldName());
         }
 
-        public void buildMessage(@Nonnull Object value, @Nonnull String field, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
+        public void buildMessage(@Nullable Object value, @Nonnull String field, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
             if (hasBeenBuilt()) {
                 return;
             }
             buildMessage(value, descriptor.findFieldByName(field), customizedKey, mappedKeyField, forLuceneField);
         }
 
-        private void buildMessage(@Nonnull Object value, Descriptors.FieldDescriptor subFieldDescriptor, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
+        private void buildMessage(@Nullable Object value, Descriptors.FieldDescriptor subFieldDescriptor, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
             final Descriptors.FieldDescriptor mappedKeyFieldDescriptor = mappedKeyField == null ? null : descriptor.findFieldByName(mappedKeyField);
             if (mappedKeyFieldDescriptor != null) {
+                if (customizedKey == null) {
+                    return;
+                }
                 builder.setField(mappedKeyFieldDescriptor, customizedKey);
+            }
+
+            if (value == null) {
+                return;
             }
             if (subFieldDescriptor.isRepeated()) {
                 if (builder.getRepeatedFieldCount(subFieldDescriptor) > 0) {
