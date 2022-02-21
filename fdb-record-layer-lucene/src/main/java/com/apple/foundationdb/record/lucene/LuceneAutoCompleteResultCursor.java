@@ -37,7 +37,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.search.suggest.Lookup;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
-import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -146,7 +145,6 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
 
     @Override
     public void close() {
-        IOUtils.closeWhileHandlingException(suggester);
     }
 
     @Nonnull

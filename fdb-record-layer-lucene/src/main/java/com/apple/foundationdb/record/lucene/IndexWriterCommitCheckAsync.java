@@ -82,6 +82,7 @@ public class IndexWriterCommitCheckAsync implements FDBRecordContext.CommitCheck
             }
         });
         indexWriterConfig.setCodec(new LuceneOptimizedCodec(Lucene50StoredFieldsFormat.Mode.BEST_COMPRESSION));
+        indexWriterConfig.setInfoStream(new LuceneLoggerInfoStream(LOGGER));
         this.indexWriter = new IndexWriter(directoryCommitCheckAsync.getDirectory(), indexWriterConfig);
         this.executor = executor;
     }

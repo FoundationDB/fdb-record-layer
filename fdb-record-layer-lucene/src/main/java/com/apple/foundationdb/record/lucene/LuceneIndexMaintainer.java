@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedAnalyzingInfixSuggester;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -238,19 +237,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
                                byte[] primaryKey) throws IOException {
-        try (AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey) : null) {
-            final IndexWriter newWriter = getOrCreateIndexWriter(state, indexAnalyzer, executor, groupingKey);
-            BytesRef ref = new BytesRef(primaryKey);
-            Document document = new Document();
-            document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
-            document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-            for (LuceneDocumentFromRecord.DocumentField field : fields) {
-                insertField(field, document, suggester, groupingKey);
-            }
-            newWriter.addDocument(document);
-            if (suggester != null) {
-                suggester.commit();
-            }
+        final IndexWriter newWriter = getOrCreateIndexWriter(state, indexAnalyzer, executor, groupingKey);
+        BytesRef ref = new BytesRef(primaryKey);
+        Document document = new Document();
+        document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
+        document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+        final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey) : null;
+        for (LuceneDocumentFromRecord.DocumentField field : fields) {
+            insertField(field, document, suggester, groupingKey);
+        }
+        newWriter.addDocument(document);
+        if (suggester != null) {
+            suggester.refresh();
         }
     }
 
@@ -312,14 +310,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private AnalyzingInfixSuggester getSuggester(@Nullable Tuple groupingKey) {
-        try {
-            return LuceneOptimizedWrappedAnalyzingInfixSuggester.getSuggester(state.index,
-                    DirectoryCommitCheckAsync.getNewDirectoryCommitCheckAsyncForSuggestions(state, groupingKey == null ? TupleHelpers.EMPTY : groupingKey).getDirectory(),
-                    indexAnalyzer, queryAnalyzer, highlightForAutoCompleteIfEnabled);
-        } catch (IOException ex) {
-            throw new RecordCoreException("Exception to initialize the suggester", ex)
-                    .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-        }
+        return AutoCompleteSuggesterCommitCheckAsync.getOrCreateSuggester(state, indexAnalyzer, queryAnalyzer,
+                highlightForAutoCompleteIfEnabled, executor, groupingKey == null ? TupleHelpers.EMPTY : groupingKey);
     }
 
     @Nonnull

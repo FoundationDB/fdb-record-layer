@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
@@ -90,41 +89,25 @@ public class DirectoryCommitCheckAsync implements FDBRecordContext.CommitCheckAs
      */
     @Nonnull
     protected static DirectoryCommitCheckAsync getOrCreateDirectoryCommitCheckAsync(@Nonnull final IndexMaintainerState state, @Nonnull Tuple groupingKey) {
+        return getOrCreateDirectoryCommitCheckAsync(state, state.indexSubspace.subspace(groupingKey));
+    }
+
+    @Nonnull
+    protected static DirectoryCommitCheckAsync getOrCreateDirectoryCommitCheckAsync(@Nonnull final IndexMaintainerState state, @Nonnull Subspace directorySubspace) {
         synchronized (state.context) {
-            DirectoryCommitCheckAsync directoryCheck = state.context.getInSession(getReaderSubspace(state, groupingKey), DirectoryCommitCheckAsync.class);
+            DirectoryCommitCheckAsync directoryCheck = state.context.getInSession(getReaderSubspace(directorySubspace), DirectoryCommitCheckAsync.class);
             if (directoryCheck == null) {
-                directoryCheck = new DirectoryCommitCheckAsync(state.indexSubspace.subspace(groupingKey), state.context);
+                directoryCheck = new DirectoryCommitCheckAsync(directorySubspace, state.context);
                 state.context.addCommitCheck(directoryCheck);
-                state.context.putInSessionIfAbsent(getReaderSubspace(state, groupingKey), directoryCheck);
+                state.context.putInSessionIfAbsent(getReaderSubspace(directorySubspace), directoryCheck);
             }
             return directoryCheck;
         }
     }
 
-    /**
-     * Get a new instance for {@link DirectoryCommitCheckAsync} and its underlying {@link Directory} for auto-complete suggestions index.
-     * This is needed because {@link org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester}
-     * needs its directory to be private to it, and have same lifecycle with it.
-     */
     @Nonnull
-    public static DirectoryCommitCheckAsync getNewDirectoryCommitCheckAsyncForSuggestions(@Nonnull final IndexMaintainerState state, @Nonnull Tuple groupingKey) {
-        return new DirectoryCommitCheckAsync(getSuggestionIndexSubspace(state, groupingKey), state.context);
-    }
-
-    @Nonnull
-    private static Subspace getReaderSubspace(@Nonnull final IndexMaintainerState state, @Nonnull final Tuple groupingKey) {
-        return state.indexSubspace.subspace(groupingKey).subspace(Tuple.from("r"));
-    }
-
-    @Nonnull
-    private static Subspace getSuggestionIndexSubspace(@Nonnull final IndexMaintainerState state, @Nonnull final Tuple groupingKey) {
-        return getSuggestionIndexSubspace(state.indexSubspace, groupingKey);
-    }
-
-    @VisibleForTesting
-    @Nonnull
-    public static Subspace getSuggestionIndexSubspace(@Nonnull final Subspace indexSubspace, @Nonnull final Tuple groupingKey) {
-        return indexSubspace.subspace(groupingKey).subspace(Tuple.from("s"));
+    private static Subspace getReaderSubspace(@Nonnull final Subspace directorySubspace) {
+        return directorySubspace.subspace(Tuple.from("r"));
     }
 }
 
