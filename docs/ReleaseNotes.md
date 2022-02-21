@@ -24,7 +24,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Reconsider IndexMaintainer.scan signature [(Issue #1506)](https://github.com/FoundationDB/fdb-record-layer/issues/1506)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,10 @@ This version of the Record Layer changes the Java source and target compatibilit
 
 // end next release
 -->
+
+### 3.1.235.0
+
+* **Feature** Reconsider IndexMaintainer.scan signature [(Issue #1506)](https://github.com/FoundationDB/fdb-record-layer/issues/1506)
 
 ### 3.1.234.0
 
