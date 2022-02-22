@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -48,6 +49,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -79,6 +81,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -187,32 +190,60 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return textFields.toArray(new String[0]);
     }
 
-    private void addTermToSuggesterIfNeeded(@Nonnull String value, @Nonnull String fieldName,
+    private boolean addTermToSuggesterIfNeeded(@Nonnull String value, @Nonnull String fieldName,
                                             @Nullable AnalyzingInfixSuggester suggester, @Nullable Tuple groupingKey) {
         if (suggester == null) {
-            return;
+            return false;
+        }
+
+        final byte[] valueBytes = value.getBytes(StandardCharsets.UTF_8);
+        final RecordLayerPropertyKey<Integer> sizeLimitProp = LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT;
+        final int sizeLimit = Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(sizeLimitProp), sizeLimitProp.getDefaultValue()).intValue();
+        // Ignore this text if its size exceeds the limitation
+        if (valueBytes.length > sizeLimit) {
+            if (LOG.isTraceEnabled()) {
+                LOG.trace(KeyValueLogMessage.of("Skip auto-complete indexing due to exceeding size limitation",
+                        LogMessageKeys.DATA_SIZE, valueBytes.length,
+                        LogMessageKeys.DATA_VALUE, value.substring(0, Math.min(value.length(), 100)),
+                        LogMessageKeys.FIELD_NAME, fieldName,
+                        LogMessageKeys.GROUPING_KEY, groupingKey));
+            }
+            return false;
         }
 
         try {
-            suggester.add(new BytesRef(value.getBytes(StandardCharsets.UTF_8)),
+            suggester.add(new BytesRef(valueBytes),
                     Set.of(new BytesRef(fieldName.getBytes(StandardCharsets.UTF_8))),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_DEFAULT_WEIGHT),
                     new BytesRef(groupingKey == null ? Tuple.from(fieldName).pack() : groupingKey.add(fieldName).pack()));
+            if (LOG.isTraceEnabled()) {
+                LOG.trace(KeyValueLogMessage.of("Added auto-complete suggestion to suggester",
+                        LogMessageKeys.DATA_SIZE, valueBytes.length,
+                        LogMessageKeys.DATA_VALUE, value.substring(0, Math.min(value.length(), 100)),
+                        LogMessageKeys.FIELD_NAME, fieldName,
+                        LogMessageKeys.GROUPING_KEY, groupingKey));
+            }
+            return true;
         } catch (IOException ex) {
             throw new RecordCoreException("Exception to add term into suggester", ex)
                     .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
         }
     }
 
-    private void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document,
+    /**
+     * Insert a field into the document and add a suggestion into the suggester if needed.
+     * @return whether a suggestion has been added to the suggester
+     */
+    private boolean insertField(LuceneDocumentFromRecord.DocumentField field, final Document document,
                              @Nullable AnalyzingInfixSuggester suggester, @Nullable Tuple groupingKey) {
         String fieldName = field.getFieldName();
         Object value = field.getValue();
         Field luceneField;
+        boolean suggestionAdded = false;
         switch (field.getType()) {
             case TEXT:
                 luceneField = new TextField(fieldName, (String)value, field.isStored() ? Field.Store.YES : Field.Store.NO);
-                addTermToSuggesterIfNeeded((String) value, fieldName, suggester, groupingKey);
+                suggestionAdded = addTermToSuggesterIfNeeded((String) value, fieldName, suggester, groupingKey);
                 break;
             case STRING:
                 luceneField = new StringField(fieldName, (String)value, field.isStored() ? Field.Store.YES : Field.Store.NO);
@@ -233,6 +264,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", field.getType());
         }
         document.add(luceneField);
+        return suggestionAdded;
     }
 
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
@@ -243,11 +275,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
         final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey) : null;
+        boolean suggestionAdded = false;
         for (LuceneDocumentFromRecord.DocumentField field : fields) {
-            insertField(field, document, suggester, groupingKey);
+            suggestionAdded = insertField(field, document, suggester, groupingKey) || suggestionAdded;
         }
         newWriter.addDocument(document);
-        if (suggester != null) {
+        if (suggestionAdded) {
             suggester.refresh();
         }
     }
