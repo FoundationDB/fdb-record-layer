@@ -159,7 +159,6 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         return visitor.visitLeave(this);
     }
 
-    @SuppressWarnings("unchecked")
     private void performLookup() throws IOException {
         if (lookupResults != null) {
             return;
@@ -167,7 +166,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         long startTime = System.nanoTime();
         lookupResults = suggester.getCount() > 0
                         ? suggester.lookup(query, Collections.emptySet(), limit, true, highlight)
-                        : Collections.EMPTY_LIST;
+                        : Collections.emptyList();
         if (timer != null) {
             timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN, startTime);
             timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, lookupResults.size());

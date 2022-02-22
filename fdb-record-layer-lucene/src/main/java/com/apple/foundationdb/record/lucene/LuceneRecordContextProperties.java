@@ -64,7 +64,7 @@ public final class LuceneRecordContextProperties {
      * Upper limitation of text size that is acceptable for auto-complete indexing.
      * Text larger than this limitation is ignored.
      */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteTextSizeUpperLimitation", 32766);
+    public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteTextSizeUpperLimitation", 32_766);
 
     /**
      * An {@link ExecutorService} to use for parallel execution in {@link LuceneRecordCursor}.
