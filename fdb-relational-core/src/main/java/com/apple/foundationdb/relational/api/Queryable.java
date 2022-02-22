@@ -53,10 +53,9 @@ public interface Queryable {
      *
      * @return a list of the column names to fetch with this query, or {@code null} to return all columns in the
      * query.
-     * @throws RelationalException if the columns could not be retrieved
      */
     @Nullable
-    List<String> getColumns() throws RelationalException;
+    List<String> getColumns();
 
     /**
      * Get the where clause for this query. The Where clause is the abstract tree of predicates

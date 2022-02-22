@@ -71,7 +71,7 @@ public class RelationalQuery implements Queryable {
 
     @Override
     @Nullable
-    public List<String> getColumns() throws RelationalException {
+    public List<String> getColumns() {
         return columns;
     }
 
