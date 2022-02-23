@@ -38,6 +38,9 @@ This version of the Record Layer changes the Java source and target compatibilit
 // end next release
 -->
 
+### 3.1.236.0
+
+
 ### 3.1.235.0
 
 * **Feature** Reconsider IndexMaintainer.scan signature [(Issue #1506)](https://github.com/FoundationDB/fdb-record-layer/issues/1506)
