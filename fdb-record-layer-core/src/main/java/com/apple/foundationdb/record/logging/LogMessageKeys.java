@@ -291,6 +291,7 @@ public enum LogMessageKeys {
 
     //Lucene component
     COMPONENT,
+    GROUPING_KEY,
 
     // Record context properties
     PROPERTY_NAME,

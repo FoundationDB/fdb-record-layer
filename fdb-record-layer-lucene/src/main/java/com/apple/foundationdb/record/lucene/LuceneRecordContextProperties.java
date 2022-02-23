@@ -61,6 +61,12 @@ public final class LuceneRecordContextProperties {
     public static final RecordLayerPropertyKey<Long> LUCENE_AUTO_COMPLETE_DEFAULT_WEIGHT = RecordLayerPropertyKey.longPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteDefaultWeight", 100L);
 
     /**
+     * Upper limitation of text size that is acceptable for auto-complete indexing.
+     * Text larger than this limitation is ignored.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteTextSizeUpperLimitation", 32_766);
+
+    /**
      * An {@link ExecutorService} to use for parallel execution in {@link LuceneRecordCursor}.
      */
     public static final RecordLayerPropertyKey<ExecutorService> LUCENE_EXECUTOR_SERVICE = new RecordLayerPropertyKey<>("com.apple.foundationdb.record.lucene.executorService", null, ExecutorService.class);

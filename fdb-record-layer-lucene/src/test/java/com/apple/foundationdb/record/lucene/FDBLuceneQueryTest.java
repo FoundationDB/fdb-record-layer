@@ -60,6 +60,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
@@ -172,9 +173,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Override
-    protected FDBRecordContextConfig.Builder contextConfig() {
-        return super.contextConfig()
-                .setRecordContextProperties(RecordLayerPropertyStorage.newBuilder().addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService).build());
+    protected FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder propsBuilder) {
+        return super.contextConfig(propsBuilder.addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService));
     }
 
     protected void openRecordStoreWithNgramIndex(FDBRecordContext context, boolean edgesOnly, int minSize, int maxSize) {

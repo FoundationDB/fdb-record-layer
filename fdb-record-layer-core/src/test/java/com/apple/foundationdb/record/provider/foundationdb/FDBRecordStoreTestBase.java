@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
@@ -106,16 +107,21 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     public FDBRecordContext openContext() {
-        final FDBRecordContextConfig config = contextConfig().build();
+        return openContext(RecordLayerPropertyStorage.newBuilder());
+    }
+
+    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder propsBuilder) {
+        final FDBRecordContextConfig config = contextConfig(propsBuilder).build();
         return fdb.openContext(config);
     }
 
-    protected FDBRecordContextConfig.Builder contextConfig() {
+    protected FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder propsBuilder) {
         return FDBRecordContextConfig.newBuilder()
                 .setTimer(timer)
                 .setMdcContext(ImmutableMap.of("uuid", UUID.randomUUID().toString()))
                 .setTrackOpen(true)
-                .setSaveOpenStackTrace(true);
+                .setSaveOpenStackTrace(true)
+                .setRecordContextProperties(propsBuilder.build());
     }
 
     @BeforeEach
