@@ -33,8 +33,8 @@ import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Class to expand primary data access into a candidate. The visitation methods are left unchanged from the super class
@@ -54,14 +54,16 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public PrimaryScanMatchCandidate expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+    public PrimaryScanMatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                             @Nullable final KeyExpression primaryKey,
                                             final boolean isReverse) {
         Preconditions.checkArgument(primaryKey != null);
         Debugger.updateIndex(ValueComparisonRangePredicate.Placeholder.class, old -> 0);
 
+        final var baseQuantifier = baseQuantifierSupplier.get();
+
         // expand
-        final GraphExpansion graphExpansion =
+        final var graphExpansion =
                 pop(primaryKey.expand(push(VisitorState.of(Lists.newArrayList(),
                         Lists.newArrayList(),
                         baseQuantifier.getAlias(),
@@ -69,13 +71,13 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                         -1,
                         0))));
 
-        final GraphExpansion allExpansions =
+        final var allExpansions =
                 GraphExpansion.ofOthers(ImmutableList.of(GraphExpansion.ofResultValueAndQuantifier(QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0), baseQuantifier),
                         graphExpansion));
 
-        final List<CorrelationIdentifier> parameters = allExpansions.getPlaceholderAliases();
+        final var parameters = allExpansions.getPlaceholderAliases();
 
-        final RelationalExpression expression =
+        final var expression =
                 new MatchableSortExpression(parameters, isReverse, allExpansions.buildSelect());
 
         return new PrimaryScanMatchCandidate(

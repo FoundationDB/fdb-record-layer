@@ -167,7 +167,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             //      the plan context is not necessarily correct in the future when we project and mutate things within
             //      the query.
             final var selfJoinPredicate =
-                    new QuantifiedObjectValue(innerBaseQuantifier.getAlias())
+                    new QuantifiedObjectValue(rankQuantifier.getAlias())
                             .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
                                     Bindings.Internal.CORRELATION.bindingName(baseAlias.toString()), Bindings.Internal.CORRELATION));
             final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);

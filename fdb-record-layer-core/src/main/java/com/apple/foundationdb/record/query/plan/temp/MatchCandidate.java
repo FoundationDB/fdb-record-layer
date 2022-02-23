@@ -40,7 +40,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -109,14 +108,13 @@ public interface MatchCandidate {
      *         with a physical scan over the materialized view (of the candidate)
      */
     default Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap(@Nonnull final MatchInfo matchInfo) {
-        final Map<CorrelationIdentifier, ComparisonRange> prefixMap = Maps.newHashMap();
-        final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
-                matchInfo.getParameterBindingMap();
+        final var prefixMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
+        final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
-        final List<CorrelationIdentifier> parameters = getParameters();
-        for (final CorrelationIdentifier parameter : parameters) {
+        final var parameters = getParameters();
+        for (final var parameter : parameters) {
             Objects.requireNonNull(parameter);
-            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameter);
+            @Nullable final var comparisonRange = parameterBindingMap.get(parameter);
             if (comparisonRange == null) {
                 return ImmutableMap.copyOf(prefixMap);
             }
@@ -148,17 +146,16 @@ public interface MatchCandidate {
      */
     @SuppressWarnings("java:S135")
     default RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch) {
-        final MatchInfo matchInfo = partialMatch.getMatchInfo();
-        final Map<CorrelationIdentifier, ComparisonRange> prefixMap = computeBoundParameterPrefixMap(matchInfo);
+        final var matchInfo = partialMatch.getMatchInfo();
+        final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
-        final ImmutableList.Builder<ComparisonRange> comparisonRangesForScanBuilder =
-                ImmutableList.builder();
+        final var comparisonRangesForScanBuilder = ImmutableList.<ComparisonRange>builder();
 
         // iterate through the parameters in order -- stop:
         // 1. if the current mapping does not exist
         // 2. the current mapping is EMPTY
         // 3. after the current mapping if the mapping is an INEQUALITY
-        for (final CorrelationIdentifier parameterAlias : getParameters()) {
+        for (final var parameterAlias : getParameters()) {
             // get the mapped side
             if (!prefixMap.containsKey(parameterAlias)) {
                 break;
@@ -181,16 +178,16 @@ public interface MatchCandidate {
 
     @Nonnull
     default SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references) {
-        final ExpressionRefTraversal traversal = getTraversal();
+        final var traversal = getTraversal();
 
-        final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
-                Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
+        final var refToExpressionMap =
+                Multimaps.<ExpressionRef<? extends RelationalExpression>, RelationalExpression>newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
 
         // going up may yield duplicates -- deduplicate with this multimap
         for (final ExpressionRef<? extends RelationalExpression> rangesOverRef : references) {
-            final Set<PartialMatch> partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(this);
-            for (final PartialMatch partialMatch : partialMatchesForCandidate) {
-                for (final ExpressionRefTraversal.ReferencePath parentReferencePath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
+            final var partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(this);
+            for (final var partialMatch : partialMatchesForCandidate) {
+                for (final var parentReferencePath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
                     refToExpressionMap.put(parentReferencePath.getReference(), parentReferencePath.getExpression());
                 }
             }
@@ -202,24 +199,24 @@ public interface MatchCandidate {
     static Optional<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
                                                         @Nonnull final Index index,
                                                         final boolean isReverse) {
-        final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
-        final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
+        final var recordTypesForIndex = metaData.recordTypesForIndex(index);
+        final var commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
 
-        final ImmutableSet<String> recordTypeNamesForIndex =
+        final var recordTypeNamesForIndex =
                 recordTypesForIndex
                         .stream()
                         .map(RecordType::getName)
                         .collect(ImmutableSet.toImmutableSet());
 
-        final Set<String> availableRecordTypes = metaData.getRecordTypes().keySet();
+        final var availableRecordTypes = metaData.getRecordTypes().keySet();
 
-        final String type = index.getType();
+        final var type = index.getType();
 
         if (type.equals(IndexTypes.VALUE)) {
-            final Quantifier.ForEach baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypeNamesForIndex);
-            final ValueIndexExpansionVisitor expansionVisitor = new ValueIndexExpansionVisitor(index, recordTypesForIndex);
+            final var baseRef = createBaseRef(availableRecordTypes, recordTypeNamesForIndex);
+            final var expansionVisitor = new ValueIndexExpansionVisitor(index, recordTypesForIndex);
             try {
-                return Optional.of(expansionVisitor.expand(baseQuantifier, commonPrimaryKeyForIndex, isReverse));
+                return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
             } catch (final UnsupportedOperationException uOE) {
                 // just log and return empty
                 if (LOGGER.isDebugEnabled()) {
@@ -232,6 +229,11 @@ public interface MatchCandidate {
             }
         }
 
+        if (type.equals(IndexTypes.RANK)) {
+            final var baseRef = createBaseRef(availableRecordTypes, recordTypeNamesForIndex);
+            new WindowedIndexExpansionVisitor(index, recordTypesForIndex).expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse);
+        }
+
         return Optional.empty();
     }
 
@@ -241,18 +243,19 @@ public interface MatchCandidate {
                                                           @Nullable KeyExpression commonPrimaryKey,
                                                           final boolean isReverse) {
         if (commonPrimaryKey != null) {
-            final Set<String> availableRecordTypes = metaData.getRecordTypes().keySet();
-            final Quantifier.ForEach baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypes);
+            final var availableRecordTypes = metaData.getRecordTypes().keySet();
+            final var baseRef = createBaseRef(availableRecordTypes, recordTypes);
             final PrimaryAccessExpansionVisitor expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
-            return Optional.of(expansionVisitor.expand(baseQuantifier, commonPrimaryKey, isReverse));
+            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, isReverse));
         }
 
         return Optional.empty();
     }
 
     @Nonnull
-    static Quantifier.ForEach createBaseQuantifier(@Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
-        final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
-        return Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(recordTypesForIndex, quantifier)));
+    static GroupExpressionRef<? extends RelationalExpression> createBaseRef(@Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
+        final var quantifier =
+                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
+        return GroupExpressionRef.of(new LogicalTypeFilterExpression(recordTypesForIndex, quantifier));
     }
 }

@@ -140,7 +140,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     public Sealed seal() {
         final GraphExpansion graphExpansion;
         if (!placeholders.isEmpty()) {
-            // There may be placeholders in the current (local) expansion step that are equivalent to each other but we
+            // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
             // don't know that yet.
             final ImmutableSet<QueryPredicate> localPredicates = ImmutableSet.copyOf(getPredicates());
             final List<Placeholder> resultPlaceHolders = Lists.newArrayList(placeholders);
@@ -194,33 +194,46 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
 
     @Nonnull
     public static GraphExpansion empty() {
-        return new GraphExpansion(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+        return of(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+    }
+
+    @Nonnull
+    public static GraphExpansion ofQuantifier(@Nonnull final Quantifier quantifier) {
+        return of(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(quantifier), ImmutableList.of());
     }
 
     @Nonnull
     public static GraphExpansion ofPredicate(@Nonnull final QueryPredicate predicate) {
-        return new GraphExpansion(ImmutableList.of(), ImmutableList.of(predicate), ImmutableList.of(), ImmutableList.of());
+        return of(ImmutableList.of(), ImmutableList.of(predicate), ImmutableList.of(), ImmutableList.of());
     }
 
     @Nonnull
     public static GraphExpansion ofResultValue(@Nonnull final Value resultValue) {
-        return new GraphExpansion(ImmutableList.of(resultValue), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+        return of(ImmutableList.of(resultValue), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
     }
 
     @Nonnull
     public static GraphExpansion ofResultValueAndQuantifier(@Nonnull final Value resultValue, @Nonnull final Quantifier quantifier) {
-        return new GraphExpansion(ImmutableList.of(resultValue), ImmutableList.of(), ImmutableList.of(quantifier), ImmutableList.of());
+        return of(ImmutableList.of(resultValue), ImmutableList.of(), ImmutableList.of(quantifier), ImmutableList.of());
     }
 
     @Nonnull
-    public static GraphExpansion ofPlaceholder(@Nonnull final Value resultValue,
-                                               @Nonnull final Placeholder placeholder) {
-        return new GraphExpansion(ImmutableList.of(resultValue), ImmutableList.of(placeholder), ImmutableList.of(), ImmutableList.of(placeholder));
+    public static GraphExpansion ofResultValueAndPlaceholder(@Nonnull final Value resultValue,
+                                                             @Nonnull final Placeholder placeholder) {
+        return of(ImmutableList.of(resultValue), ImmutableList.of(placeholder), ImmutableList.of(), ImmutableList.of(placeholder));
     }
 
     @Nonnull
     public static GraphExpansion ofPredicateAndQuantifier(@Nonnull final QueryPredicate predicate, @Nonnull final Quantifier quantifier) {
-        return new GraphExpansion(ImmutableList.of(), ImmutableList.of(predicate), ImmutableList.of(quantifier), ImmutableList.of());
+        return of(ImmutableList.of(), ImmutableList.of(predicate), ImmutableList.of(quantifier), ImmutableList.of());
+    }
+
+    @Nonnull
+    public static GraphExpansion of(@Nonnull final List<? extends Value> resultValues,
+                                    @Nonnull final List<? extends QueryPredicate> predicates,
+                                    @Nonnull final List<? extends Quantifier> quantifiers,
+                                    @Nonnull final List<? extends Placeholder> placeholders) {
+        return new GraphExpansion(resultValues, predicates, quantifiers, placeholders);
     }
     
     @Nonnull

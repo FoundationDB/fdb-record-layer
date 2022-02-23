@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 
@@ -60,17 +61,19 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
     @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Debugger.updateIndex(ValueComparisonRangePredicate.Placeholder.class, old -> 0);
-        final ImmutableList.Builder<GraphExpansion> allExpansionsBuilder = ImmutableList.builder();
+
+        final var baseQuantifier = baseQuantifierSupplier.get();
+        final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         // add the value for the flow of records
-        final QuantifiedColumnValue recordValue = QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0);
+        final var recordValue = QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0);
         allExpansionsBuilder.add(GraphExpansion.ofResultValueAndQuantifier(recordValue, baseQuantifier));
 
-        KeyExpression rootExpression = index.getRootExpression();
+        var rootExpression = index.getRootExpression();
 
         final int keyValueSplitPoint;
         if (rootExpression instanceof KeyWithValueExpression) {
@@ -81,10 +84,10 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
             keyValueSplitPoint = -1;
         }
 
-        final List<Value> keyValues = Lists.newArrayList();
-        final List<Value> valueValues = Lists.newArrayList();
+        final var keyValues = Lists.<Value>newArrayList();
+        final var valueValues = Lists.<Value>newArrayList();
 
-        final VisitorState initialState =
+        final var initialState =
                 VisitorState.of(keyValues,
                         valueValues,
                         baseQuantifier.getAlias(),
@@ -92,39 +95,39 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         keyValueSplitPoint,
                         0);
 
-        final GraphExpansion keyValueExpansion =
+        final var keyValueExpansion =
                 pop(rootExpression.expand(push(initialState)));
 
         allExpansionsBuilder.add(keyValueExpansion);
 
-        final int keySize = keyValues.size();
+        final var keySize = keyValues.size();
 
         if (primaryKey != null) {
             // unfortunately we must copy as the returned list is not guaranteed to be mutable which is needed for the
             // trimPrimaryKey() function as it is causing a side-effect
-            final List<KeyExpression> trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
+            final var trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
             index.trimPrimaryKey(trimmedPrimaryKeys);
 
             for (int i = 0; i < trimmedPrimaryKeys.size(); i++) {
                 final KeyExpression primaryKeyPart = trimmedPrimaryKeys.get(i);
 
-                final VisitorState initialStateForKeyPart =
+                final var initialStateForKeyPart =
                         VisitorState.of(keyValues,
                                 Lists.newArrayList(),
                                 baseQuantifier.getAlias(),
                                 ImmutableList.of(),
                                 -1,
                                 keySize + i);
-                final GraphExpansion primaryKeyPartExpansion =
+                final var primaryKeyPartExpansion =
                         pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
                 allExpansionsBuilder
                         .add(primaryKeyPartExpansion);
             }
         }
 
-        final GraphExpansion completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
-        final List<CorrelationIdentifier> parameters = completeExpansion.getPlaceholderAliases();
-        final MatchableSortExpression matchableSortExpression = new MatchableSortExpression(parameters, isReverse, completeExpansion.buildSelect());
+        final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
+        final var parameters = completeExpansion.getPlaceholderAliases();
+        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, completeExpansion.buildSelect());
         return new ValueIndexScanMatchCandidate(index,
                 recordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
@@ -149,9 +152,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         if (primaryKey == null) {
             return index.getRootExpression();
         }
-        final ArrayList<KeyExpression> trimmedPrimaryKeyComponents = new ArrayList<>(primaryKey.normalizeKeyForPositions());
+        final var trimmedPrimaryKeyComponents = new ArrayList<>(primaryKey.normalizeKeyForPositions());
         index.trimPrimaryKey(trimmedPrimaryKeyComponents);
-        final ImmutableList.Builder<KeyExpression> fullKeyListBuilder = ImmutableList.builder();
+        final var fullKeyListBuilder = ImmutableList.<KeyExpression>builder();
         fullKeyListBuilder.add(index.getRootExpression());
         fullKeyListBuilder.addAll(trimmedPrimaryKeyComponents);
         return concat(fullKeyListBuilder.build());

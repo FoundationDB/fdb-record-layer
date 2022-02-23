@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.function.Supplier;
 
 /**
  * A sub interface of {@link KeyExpressionVisitor} that fixes the return type to be a {@link GraphExpansion} and
@@ -35,13 +36,13 @@ import javax.annotation.Nullable;
 public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends KeyExpressionVisitor<S, GraphExpansion> {
     /**
      * Method that expands a data structure into a data flow graph.
-     * @param baseQuantifier a quantifier representing the base data access
+     * @param baseQuantifierSupplier a quantifier supplier to create base data access
      * @param primaryKey the primary key of the data object the caller wants to access
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order
      * @return a new {@link MatchCandidate} that can be used for matching.
      */
     @Nonnull
-    MatchCandidate expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+    MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                           @Nullable final KeyExpression primaryKey,
                           final boolean isReverse);
 }

@@ -130,7 +130,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
-                    childExpansion = GraphExpansion.ofPlaceholder(value, predicate);
+                    childExpansion = GraphExpansion.ofResultValueAndPlaceholder(value, predicate);
                 } else {
                     childExpansion = GraphExpansion.ofResultValue(value);
                 }
@@ -146,7 +146,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 value = state.registerValue(new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames));
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
-                    return GraphExpansion.ofPlaceholder(value, predicate);
+                    return GraphExpansion.ofResultValueAndPlaceholder(value, predicate);
                 }
                 return GraphExpansion.ofResultValue(value);
             case Concatenate: // TODO collect/concatenate function
@@ -163,7 +163,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         if (state.isKey()) {
             final Placeholder predicate =
                     value.asPlaceholder(newParameterAlias());
-            return GraphExpansion.ofPlaceholder(value, predicate);
+            return GraphExpansion.ofResultValueAndPlaceholder(value, predicate);
         }
         return GraphExpansion.ofResultValue(value);
     }
@@ -227,7 +227,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      *         {@link com.apple.foundationdb.record.query.plan.temp.debug.Debugger},
      *         a unique alias based on an increasing number that is human-readable otherwise.
      */
-    private static CorrelationIdentifier newParameterAlias() {
+    protected static CorrelationIdentifier newParameterAlias() {
         return CorrelationIdentifier.uniqueID(Placeholder.class);
     }
 

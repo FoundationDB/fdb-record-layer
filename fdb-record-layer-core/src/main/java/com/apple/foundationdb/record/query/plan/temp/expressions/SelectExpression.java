@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
-import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.temp.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
@@ -49,11 +49,12 @@ import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredic
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -397,11 +398,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         final BoundEquivalence boundEquivalence = new BoundEquivalence(boundIdentitiesMap);
 
-        final HashMultimap<Equivalence.Wrapper<Value>, PredicateWithValue> partitionedPredicatesWithValues =
+        final Multimap<Equivalence.Wrapper<Value>, PredicateWithValue> partitionedPredicatesWithValues =
                 predicateWithValues
                         .stream()
                         .collect(Multimaps.toMultimap(
-                                predicate -> boundEquivalence.wrap(predicate.getValue()), Function.identity(), HashMultimap::create));
+                                predicate -> boundEquivalence.wrap(predicate.getValue()), Function.identity(), LinkedHashMultimap::create));
 
         partitionedPredicatesWithValues
                 .asMap()
