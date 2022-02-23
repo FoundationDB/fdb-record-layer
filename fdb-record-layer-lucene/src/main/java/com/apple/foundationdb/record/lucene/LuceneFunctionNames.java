@@ -28,6 +28,7 @@ import com.apple.foundationdb.annotation.API;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneFunctionNames {
     public static final String LUCENE_FIELD_NAME = "lucene_field_name";
+    public static final String LUCENE_SORTED = "lucene_sorted";
     public static final String LUCENE_STORED = "lucene_stored";
     public static final String LUCENE_TEXT = "lucene_text";
     public static final String LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS = "lucene_full_text_field_index_options";

@@ -180,9 +180,12 @@ public class LuceneDocumentFromRecord {
         }
 
         @Override
-        public void addField(@Nonnull T source, @Nonnull final String fieldName, @Nullable final Object value, LuceneIndexExpressions.DocumentFieldType type,
-                             final boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs) {
-            fields.add(new DocumentField(fieldName, value, type, stored, fieldConfigs));
+        public void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable final Object value,
+                             LuceneIndexExpressions.DocumentFieldType type,
+                             boolean stored, boolean sorted,
+                             @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex,
+                             @Nonnull Map<String, Object> fieldConfigs) {
+            fields.add(new DocumentField(fieldName, value, type, stored, sorted, fieldConfigs));
         }
     }
 
@@ -193,15 +196,17 @@ public class LuceneDocumentFromRecord {
         private final Object value;
         private final LuceneIndexExpressions.DocumentFieldType type;
         private final boolean stored;
+        private final boolean sorted;
         @Nonnull
         private final Map<String, Object> fieldConfigs;
 
         public DocumentField(@Nonnull String fieldName, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
-                             boolean stored, @Nonnull Map<String, Object> fieldConfigs) {
+                             boolean stored, boolean sorted, @Nonnull Map<String, Object> fieldConfigs) {
             this.fieldName = fieldName;
             this.value = value;
             this.type = type;
             this.stored = stored;
+            this.sorted = sorted;
             this.fieldConfigs = fieldConfigs;
         }
 
@@ -223,6 +228,10 @@ public class LuceneDocumentFromRecord {
             return stored;
         }
 
+        public boolean isSorted() {
+            return sorted;
+        }
+
         @Nullable
         public Object getConfig(@Nonnull String key) {
             return fieldConfigs.get(key);
@@ -239,6 +248,9 @@ public class LuceneDocumentFromRecord {
 
             final DocumentField that = (DocumentField)o;
             if (stored != that.stored) {
+                return false;
+            }
+            if (sorted != that.sorted) {
                 return false;
             }
             if (!fieldName.equals(that.fieldName)) {
@@ -259,6 +271,7 @@ public class LuceneDocumentFromRecord {
             result = 31 * result + (value != null ? value.hashCode() : 0);
             result = 31 * result + type.hashCode();
             result = 31 * result + (stored ? 1 : 0);
+            result = 31 * result + (sorted ? 1 : 0);
             return result;
         }
 

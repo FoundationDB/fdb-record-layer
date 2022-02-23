@@ -57,6 +57,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
+import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
@@ -65,6 +66,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.NumericUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,7 +135,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (scanType == LuceneScanTypes.BY_LUCENE) {
             LuceneScanQuery scanQuery = (LuceneScanQuery)scanBounds;
             return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
-                    scanProperties, state, scanQuery.getQuery(), continuation, scanQuery.getGroupKey());
+                    scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
+                    scanQuery.getGroupKey(), scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes());
         }
 
         if (scanType == LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE) {
@@ -209,36 +212,57 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * Insert a field into the document and add a suggestion into the suggester if needed.
      * @return whether a suggestion has been added to the suggester
      */
+    @SuppressWarnings("java:S3776")
     private boolean insertField(LuceneDocumentFromRecord.DocumentField field, final Document document,
                              @Nullable AnalyzingInfixSuggester suggester) {
-        String fieldName = field.getFieldName();
-        Object value = field.getValue();
-        Field luceneField;
+        final String fieldName = field.getFieldName();
+        final Object value = field.getValue();
+        final Field luceneField;
+        final Field sortedField;
+        final StoredField storedField;
         boolean suggestionAdded = false;
         switch (field.getType()) {
             case TEXT:
                 luceneField = new Field(fieldName, (String) value, getTextFieldType(field));
+                sortedField = null;
+                storedField = null;
                 suggestionAdded = addTermToSuggesterIfNeeded((String) value, fieldName, suggester);
                 break;
             case STRING:
                 luceneField = new StringField(fieldName, (String)value, field.isStored() ? Field.Store.YES : Field.Store.NO);
+                sortedField = field.isSorted() ? new SortedDocValuesField(fieldName, new BytesRef((String)value)) : null;
+                storedField = null;
                 break;
             case INT:
                 luceneField = new IntPoint(fieldName, (Integer)value);
+                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, (Integer)value) : null;
+                storedField = field.isStored() ? new StoredField(fieldName, (Integer)value) : null;
                 break;
             case LONG:
                 luceneField = new LongPoint(fieldName, (Long)value);
+                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, (Long)value) : null;
+                storedField = field.isStored() ? new StoredField(fieldName, (Long)value) : null;
                 break;
             case DOUBLE:
                 luceneField = new DoublePoint(fieldName, (Double)value);
+                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, NumericUtils.doubleToSortableLong((Double)value)) : null;
+                storedField = field.isStored() ? new StoredField(fieldName, (Double)value) : null;
                 break;
             case BOOLEAN:
                 luceneField = new StringField(fieldName, ((Boolean)value).toString(), field.isStored() ? Field.Store.YES : Field.Store.NO);
+                sortedField = field.isSorted() ? new SortedDocValuesField(fieldName, new BytesRef(((Boolean)value).toString())) : null;
+                storedField = null;
                 break;
             default:
                 throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", field.getType());
         }
         document.add(luceneField);
+        if (sortedField != null) {
+            document.add(sortedField);
+        }
+        if (storedField != null) {
+            document.add(storedField);
+        }
         return suggestionAdded;
     }
 

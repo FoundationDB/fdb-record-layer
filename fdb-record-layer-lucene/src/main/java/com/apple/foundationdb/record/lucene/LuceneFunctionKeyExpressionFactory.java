@@ -40,6 +40,7 @@ public class LuceneFunctionKeyExpressionFactory implements FunctionKeyExpression
     public List<FunctionKeyExpression.Builder> getBuilders() {
         return Arrays.asList(
                 new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_FIELD_NAME, LuceneFunctionKeyExpression.LuceneFieldName::new),
+                new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_SORTED, LuceneFunctionKeyExpression.LuceneSorted::new),
                 new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_STORED, LuceneFunctionKeyExpression.LuceneStored::new),
                 new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_TEXT, LuceneFunctionKeyExpression.LuceneText::new),
                 new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS, LuceneFunctionKeyExpression.LuceneFieldConfig::new),

@@ -155,6 +155,39 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
         }
     }
 
+    /**
+     * The {@code lucene_sorted} key function.
+     * The field argument to this function is additionally sorted in the Lucene index.
+     */
+    public static class LuceneSorted extends LuceneFunctionKeyExpression {
+        public LuceneSorted(@Nonnull String name, @Nonnull KeyExpression arguments) {
+            super(name, arguments);
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getColumnSize() {
+            return getSortedExpression().getColumnSize();
+        }
+
+        /**
+         * Get the expression that is marked as stored.
+         * @return the stored expression
+         */
+        @Nonnull
+        public KeyExpression getSortedExpression() {
+            return arguments;
+        }
+    }
 
     /**
      * The {@code lucent_text} key function.
