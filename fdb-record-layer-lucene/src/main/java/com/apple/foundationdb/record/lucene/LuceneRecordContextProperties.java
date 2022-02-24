@@ -76,5 +76,5 @@ public final class LuceneRecordContextProperties {
      * It is used as a key to get the property value from {@link RecordLayerPropertyStorage#getPropertyValue(RecordLayerPropertyKey)}.
      * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
      */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteSearchLimitation", 5);
+    public static final RecordLayerPropertyKey<Integer> LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.spellcheckSearchLimitation", 5);
 }
