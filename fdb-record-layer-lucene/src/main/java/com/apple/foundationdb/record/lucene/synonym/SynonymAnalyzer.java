@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.synonym;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.google.auto.service.AutoService;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
@@ -30,19 +30,14 @@ import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.StopFilter;
 import org.apache.lucene.analysis.StopwordAnalyzerBase;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.core.FlattenGraphFilter;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymGraphFilter;
 import org.apache.lucene.analysis.synonym.SynonymMap;
-import org.apache.lucene.analysis.synonym.WordnetSynonymParser;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.text.ParseException;
 
 /**
  * The analyzer for index with synonym enabled.
@@ -50,13 +45,22 @@ import java.text.ParseException;
  * The synonyms are not indexed to disk. So no index rebuilding is needed if the wordnet file gets updated.
  */
 public class SynonymAnalyzer extends StopwordAnalyzerBase {
-    private static final String WORDNET_FILE_NAME = "wn_s.pl";
+    @Nonnull
+    private final String name;
+
+    @Nonnull
+    public String getName() {
+        return name;
+    }
 
     @Nullable
-    private SynonymMap cachedSynonymMap = null;
+    public CharArraySet getStopwords() {
+        return stopwords;
+    }
 
-    public SynonymAnalyzer(@Nullable CharArraySet stopwords) {
+    public SynonymAnalyzer(@Nullable CharArraySet stopwords, @Nonnull String name) {
         super(stopwords);
+        this.name = name;
     }
 
     @Override
@@ -76,28 +80,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
 
     @Nonnull
     private SynonymMap getSynonymMap() {
-        if (cachedSynonymMap == null) {
-            cachedSynonymMap = buildSynonymMap();
-        }
-        return cachedSynonymMap;
-    }
-
-    private static SynonymMap buildSynonymMap() {
-        try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(WORDNET_FILE_NAME)) {
-            WordnetSynonymParser parser = new WordnetSynonymParser(true, true, new Analyzer() {
-                @Override
-                protected TokenStreamComponents createComponents(String fieldName) {
-                    final StandardTokenizer src = new StandardTokenizer();
-                    TokenStream tok = new LowerCaseFilter(src);
-                    tok = new FlattenGraphFilter(tok);
-                    return new TokenStreamComponents(src, tok);
-                }
-            });
-            parser.parse(new InputStreamReader(is, "UTF-8"));
-            return parser.build();
-        } catch (IOException | ParseException ex) {
-            throw new RecordCoreException("Failed to parse wordnet for synonym analyzer", ex);
-        }
+        return SynonymMapRegistryImpl.instance().getSynonymMap(name);
     }
 
     @AutoService(LuceneAnalyzerFactory.class)
@@ -121,7 +104,11 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         @Nonnull
         @Override
         public Analyzer getQueryAnalyzer(@Nonnull Index index, @Nonnull Analyzer indexAnalyzer) {
-            return new SynonymAnalyzer(StandardAnalyzer.STOP_WORDS_SET);
+            String name = index.getOption(IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION);
+            if (name == null) {
+                name = EnglishSynonymMapConfig.CONFIG_NAME;
+            }
+            return new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, name);
         }
     }
 }

@@ -110,7 +110,11 @@ public class IndexOptions {
     /**
      * The name of the Lucene analyzer to use with a {@link IndexTypes#TEXT} index.
      */
-    public static final String TEXT_ANALYZER_NAME_OPTION = "testAnalyzerName";
+    public static final String TEXT_ANALYZER_NAME_OPTION = "textAnalyzerName";
+    /**
+     * The name of the synonym set to use in Lucene.
+     */
+    public static final String TEXT_SYNONYM_SET_NAME_OPTION = "textSynonymSetName";
     /**
      * The minimum size of ngram tokenizer, when using ngram analyzer.
      */

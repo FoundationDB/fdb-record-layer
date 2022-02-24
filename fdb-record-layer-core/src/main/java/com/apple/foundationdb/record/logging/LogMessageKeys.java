@@ -265,6 +265,8 @@ public enum LogMessageKeys {
     // Log the name of the tokenizer used
     TOKENIZER_NAME,
 
+    SYNONYM_NAME,
+
     //for logging asyncToSync timeout limits
     TIME_LIMIT,
     TIME_UNIT,
