@@ -208,15 +208,21 @@ public class FDBDirectory extends Directory {
     }
 
     public static boolean isSegmentInfo(String name) {
-        return name.endsWith(SI_EXTENSION);
+        return name.endsWith(SI_EXTENSION)
+               && !name.startsWith(IndexFileNames.SEGMENTS)
+               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
     public static boolean isCompoundFile(String name) {
-        return name.endsWith(DATA_EXTENSION);
+        return name.endsWith(DATA_EXTENSION)
+               && !name.startsWith(IndexFileNames.SEGMENTS)
+               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
     public static boolean isEntriesFile(String name) {
-        return name.endsWith(ENTRIES_EXTENSION);
+        return name.endsWith(ENTRIES_EXTENSION)
+               && !name.startsWith(IndexFileNames.SEGMENTS)
+               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
     public static String convertToDataFile(String name) {
