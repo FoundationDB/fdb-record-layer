@@ -22,12 +22,15 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.IndexOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -82,7 +85,11 @@ public final class FDBIndexOutput extends IndexOutput {
      */
     public FDBIndexOutput(@Nonnull String resourceDescription, @Nonnull String name, @Nonnull FDBDirectory fdbDirectory) {
         super(resourceDescription, name);
-        LOGGER.trace("init() -> resource={}, name={}", resourceDescription, name);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(KeyValueLogMessage.of("init",
+                    LogMessageKeys.RESOURCE, resourceDescription,
+                    LogMessageKeys.FILE_NAME, name));
+        }
         this.resourceDescription = resourceDescription;
         this.fdbDirectory = fdbDirectory;
         blockSize = fdbDirectory.getBlockSize();
@@ -100,7 +107,10 @@ public final class FDBIndexOutput extends IndexOutput {
     @Override
     @SpotBugsSuppressWarnings(value = "RV_RETURN_VALUE_IGNORED_BAD_PRACTICE", justification = "it is fine if it is not accepted")
     public void close() {
-        LOGGER.trace("close() -> resource={}", resourceDescription);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("close()",
+                    LogMessageKeys.RESOURCE, resourceDescription));
+        }
         flush();
         fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, blockSize));
         BUFFERS.offer(buffer);
@@ -108,19 +118,28 @@ public final class FDBIndexOutput extends IndexOutput {
 
     @Override
     public long getFilePointer() {
-        LOGGER.trace("getFilePointer() -> resource={}, pointer={}", resourceDescription, currentSize);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("getFilePointer()",
+                    LogMessageKeys.RESOURCE, resourceDescription,
+                    LogMessageKeys.POINTER, currentSize));
+        }
         return currentSize;
     }
 
     @Override
     public long getChecksum() {
-        LOGGER.trace("getChecksum() -> resource={}, checksum={}", resourceDescription, crc.getValue());
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("getChecksum()",
+                    LogMessageKeys.CHECKSUM, crc.getValue()));
+        }
         return crc.getValue();
     }
 
     @Override
     public void writeByte(final byte b) {
-        LOGGER.trace("writeByte() -> resource={}", resourceDescription);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("writeByte()"));
+        }
         buffer.put(b);
         crc.update(b);
         currentSize++;
@@ -131,7 +150,11 @@ public final class FDBIndexOutput extends IndexOutput {
 
     @Override
     public void copyBytes(@Nonnull final DataInput input, final long numBytes) throws IOException {
-        LOGGER.trace("copy bytes input={}, numbytes={}", input, numBytes);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("copy bytes",
+                    LogMessageKeys.INPUT, input,
+                    LogMessageKeys.BYTE_NUMBER, numBytes));
+        }
         super.copyBytes(input, numBytes);
     }
 
@@ -145,7 +168,11 @@ public final class FDBIndexOutput extends IndexOutput {
      */
     @Override
     public void writeBytes(@Nonnull final byte[] bytes, final int offset, final int length) {
-        LOGGER.trace("writeBytes() -> resource={}, offset={}, length={}", resourceDescription, offset, length);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("writeBytes()",
+                    LogMessageKeys.OFFSET, offset,
+                    LogMessageKeys.LENGTH, length));
+        }
         crc.update(bytes, offset, length);
         int bytesWritten = 0;
         while (bytesWritten < length) {
@@ -160,7 +187,10 @@ public final class FDBIndexOutput extends IndexOutput {
     }
 
     private void flush() {
-        LOGGER.trace("flush() -> resource={}, id={}", resourceDescription, id);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("flush()",
+                    LogMessageKeys.FILE_ID, id));
+        }
         if (buffer.position() > 0) {
             buffer.flip();
             byte[] arr = new byte[buffer.remaining()];
@@ -170,4 +200,11 @@ public final class FDBIndexOutput extends IndexOutput {
         }
     }
 
+    @Nonnull
+    private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
+        return KeyValueLogMessage.build(staticMsg, keysAndValues)
+                .addKeyAndValue(LogMessageKeys.SUBSPACE, fdbDirectory.getSubspace())
+                .addKeyAndValue(LogMessageKeys.RESOURCE, resourceDescription)
+                .toString();
+    }
 }
