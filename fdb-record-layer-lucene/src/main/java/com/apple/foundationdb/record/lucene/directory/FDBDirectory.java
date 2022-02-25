@@ -191,7 +191,10 @@ public class FDBDirectory extends Directory {
      */
     @Nonnull
     public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReference(@Nonnull final String name) {
-        LOGGER.trace("getFDBLuceneFileReference {}", name);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("getFDBLuceneFileReference",
+                    LogMessageKeys.FILE_NAME, name));
+        }
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
         if (fileReference == null) {
             return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
@@ -267,7 +270,7 @@ public class FDBDirectory extends Directory {
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(KeyValueLogMessage.of("Write lucene file reference",
+            LOGGER.trace(getLogMessage("Write lucene file reference",
                     LogMessageKeys.FILE_NAME, name,
                     LogMessageKeys.DATA_SIZE, fileReferenceBytes.length,
                     LogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length,
@@ -289,7 +292,7 @@ public class FDBDirectory extends Directory {
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_CALL);
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(KeyValueLogMessage.of("Write lucene data",
+            LOGGER.trace(getLogMessage("Write lucene data",
                     LogMessageKeys.FILE_ID, id,
                     LogMessageKeys.BLOCK_NUMBER, block,
                     LogMessageKeys.DATA_SIZE, value.length,
@@ -312,7 +315,11 @@ public class FDBDirectory extends Directory {
     @Nonnull
     public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws RecordCoreException {
         try {
-            LOGGER.trace("readBlock resourceDescription={}, block={}", resourceDescription, block);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(getLogMessage("readBlock",
+                        LogMessageKeys.FILE_NAME, resourceDescription,
+                        LogMessageKeys.BLOCK_NUMBER, block));
+            }
             final FDBLuceneFileReference reference = referenceFuture.join(); // Tried to fully pipeline this but the reality is that this is mostly cached after listAll, delete, etc.
             if (reference == null) {
                 throw new RecordCoreArgumentException(String.format("No reference with name %s was found", resourceDescription));
@@ -373,7 +380,8 @@ public class FDBDirectory extends Directory {
                 try {
                     readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
                 } catch (RecordCoreException e) {
-                    LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception"), e);
+                    LOGGER.warn(getLogMessage("Exception thrown during prefetch",
+                            LogMessageKeys.FILE_NAME, name));
                 }
             }
             this.fileReferenceCache.put(name, fileReference);
@@ -388,8 +396,10 @@ public class FDBDirectory extends Directory {
             }
         }
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("listAllFiles -> count={}, totalSize={}", outList.size(), totalSize);
-            LOGGER.debug("Files -> {}", displayList);
+            LOGGER.debug(getLogMessage("listAllFiles",
+                    LogMessageKeys.FILE_COUNT, outList.size(),
+                    LogMessageKeys.FILE_LIST, displayList,
+                    LogMessageKeys.FILE_TOTAL_SIZE, totalSize));
         }
         return outList;
     }
@@ -401,7 +411,10 @@ public class FDBDirectory extends Directory {
     @Override
     public void deleteFile(@Nonnull String name) throws IOException {
 
-        LOGGER.trace("deleteFile -> {}", name);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("deleteFile",
+                    LogMessageKeys.FILE_NAME, name));
+        }
 
         if (isEntriesFile(name) || isSegmentInfo(name)) {
             return;
@@ -431,7 +444,10 @@ public class FDBDirectory extends Directory {
      */
     @Override
     public long fileLength(@Nonnull String name) throws NoSuchFileException {
-        LOGGER.trace("fileLength -> {}", name);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("fileLength",
+                    LogMessageKeys.FILE_NAME, name));
+        }
         name = convertToDataFile(name);
         FDBLuceneFileReference reference = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReference(name));
         if (isEntriesFile(name)) {
@@ -455,7 +471,10 @@ public class FDBDirectory extends Directory {
     @Override
     @Nonnull
     public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) {
-        LOGGER.trace("createOutput -> {}", name);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("createOutput",
+                    LogMessageKeys.FILE_NAME, name));
+        }
         return new FDBIndexOutput(name, name, this);
     }
 
@@ -471,7 +490,11 @@ public class FDBDirectory extends Directory {
     @Override
     @Nonnull
     public IndexOutput createTempOutput(@Nonnull final String prefix, @Nonnull final String suffix, @Nonnull final IOContext ioContext) {
-        LOGGER.trace("createTempOutput -> prefix={}, suffix={}", prefix, suffix);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("createTempOutput",
+                    LogMessageKeys.FILE_PREFIX, prefix,
+                    LogMessageKeys.FILE_SUFFIX, suffix));
+        }
         return createOutput(getTempFileName(prefix, suffix, this.nextTempFileCounter.getAndIncrement()), ioContext);
     }
 
@@ -483,13 +506,16 @@ public class FDBDirectory extends Directory {
     @Override
     public void sync(@Nonnull final Collection<String> collection) {
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("sync -> {}", String.join(", ", collection));
+            LOGGER.trace(getLogMessage("sync",
+                    LogMessageKeys.FILE_NAME, String.join(", ", collection)));
         }
     }
 
     @Override
     public void syncMetaData() throws IOException {
-        LOGGER.trace("syncMetaData");
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("syncMetaData"));
+        }
     }
 
     /**
@@ -500,13 +526,20 @@ public class FDBDirectory extends Directory {
      */
     @Override
     public void rename(@Nonnull final String source, @Nonnull final String dest) {
-        LOGGER.trace("rename -> source={}, dest={}", source, dest);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("rename",
+                    LogMessageKeys.SOURCE_FILE, source,
+                    LogMessageKeys.DEST_FILE, dest));
+        }
         final byte[] key = metaSubspace.pack(source);
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_RENAME, context.ensureActive().get(key).thenApply((Function<byte[], Void>)value -> {
             if (value == null) {
                 throw new RecordCoreArgumentException("Invalid source name in rename function for source")
                         .addLogInfo(LogMessageKeys.SOURCE_FILE,source)
-                        .addLogInfo(LogMessageKeys.INDEX_TYPE, IndexTypes.LUCENE);
+                        .addLogInfo(LogMessageKeys.INDEX_TYPE, IndexTypes.LUCENE)
+                        .addLogInfo(LogMessageKeys.SUBSPACE, subspace)
+                        .addLogInfo(LogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
+                        .addLogInfo(LogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
             }
             fileReferenceCache.invalidate(source);
             context.ensureActive().set(metaSubspace.pack(dest), value);
@@ -519,14 +552,20 @@ public class FDBDirectory extends Directory {
     @Override
     @Nonnull
     public IndexInput openInput(@Nonnull final String name, @Nonnull final IOContext ioContext) throws IOException {
-        LOGGER.trace("openInput -> name={}", name);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("openInput",
+                    LogMessageKeys.FILE_NAME, name));
+        }
         return new FDBIndexInput(name, this);
     }
 
     @Override
     @Nonnull
     public Lock obtainLock(@Nonnull final String lockName) throws IOException {
-        LOGGER.trace("obtainLock -> {}", lockName);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("obtainLock",
+                    LogMessageKeys.LOCK_NAME, lockName));
+        }
         return lockFactory.obtainLock(null, lockName);
     }
 
@@ -535,8 +574,11 @@ public class FDBDirectory extends Directory {
      */
     @Override
     public void close() {
-        LOGGER.debug(KeyValueLogMessage.of("close called","blockCacheStats", blockCache.stats(),
-                "referenceCacheStats", fileReferenceCache.stats()));
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(getLogMessage("close called",
+                    LogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats(),
+                    LogMessageKeys.REFERENCE_CACHE_STATUS, fileReferenceCache.stats()));
+        }
     }
 
     /**
@@ -547,7 +589,9 @@ public class FDBDirectory extends Directory {
     @Override
     @Nonnull
     public Set<String> getPendingDeletions() {
-        LOGGER.trace("getPendingDeletions");
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("getPendingDeletions"));
+        }
         return Collections.emptySet();
     }
 
@@ -561,5 +605,14 @@ public class FDBDirectory extends Directory {
 
     public Subspace getSubspace() {
         return subspace;
+    }
+
+    @Nonnull
+    private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
+        return KeyValueLogMessage.build(staticMsg, keysAndValues)
+                .addKeyAndValue(LogMessageKeys.SUBSPACE, subspace)
+                .addKeyAndValue(LogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
+                .addKeyAndValue(LogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled)
+                .toString();
     }
 }
