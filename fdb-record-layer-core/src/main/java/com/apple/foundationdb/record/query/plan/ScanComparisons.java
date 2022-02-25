@@ -137,6 +137,7 @@ public class ScanComparisons implements PlanHashable {
             case EQUALS:
             case IS_NULL:
             case FULL_TEXT_LUCENE_AUTO_COMPLETE:
+            case FULL_TEXT_LUCENE_SPELLCHECK:
             case FULL_TEXT_LUCENE_QUERY_HIGHLIGHT:
             case FULL_TEXT_LUCENE_QUERY:
                 return ComparisonType.EQUALITY;
