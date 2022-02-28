@@ -111,27 +111,27 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
     }
 
     /**
-     * A place holder predicate solely used for index matching.
+     * A placeholder predicate solely used for index matching.
      */
     @SuppressWarnings("java:S2160")
     public static class Placeholder extends ValueComparisonRangePredicate {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Place-Holder");
 
-        private final CorrelationIdentifier parameterAlias;
+        private final CorrelationIdentifier alias;
 
-        public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier parameterAlias) {
+        public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier alias) {
             super(value);
-            this.parameterAlias = parameterAlias;
+            this.alias = alias;
         }
 
         @Nonnull
         @Override
         public Placeholder withValue(@Nonnull final Value value) {
-            return new Placeholder(value, parameterAlias);
+            return new Placeholder(value, alias);
         }
 
-        public CorrelationIdentifier getParameterAlias() {
-            return parameterAlias;
+        public CorrelationIdentifier getAlias() {
+            return alias;
         }
 
         @Nullable
@@ -146,7 +146,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
                 return false;
             }
 
-            return Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias);
+            return Objects.equals(alias, ((Placeholder)other).alias);
         }
 
         public boolean semanticEqualsWithoutParameterAlias(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
@@ -156,12 +156,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Nonnull
         @Override
         public Placeholder rebaseLeaf(@Nonnull final AliasMap translationMap) {
-            return new Placeholder(getValue().rebase(translationMap), parameterAlias);
+            return new Placeholder(getValue().rebase(translationMap), alias);
         }
 
         @Override
         public int semanticHashCode() {
-            return Objects.hash(super.semanticHashCode(), parameterAlias);
+            return Objects.hash(super.semanticHashCode(), alias);
         }
 
         @Override
@@ -171,7 +171,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Override
         public String toString() {
-            return "(" + getValue() + " -> " + parameterAlias.toString() + ")";
+            return "(" + getValue() + " -> " + alias.toString() + ")";
         }
     }
 
@@ -261,7 +261,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
                 return Optional.of(new PredicateMapping(this,
                         candidatePredicate,
                         ((matchInfo, boundParameterPrefixMap) -> reapplyPredicateMaybe(boundParameterPrefixMap, placeHolderPredicate)),
-                        placeHolderPredicate.getParameterAlias()));
+                        placeHolderPredicate.getAlias()));
             } else if (candidatePredicate.isTautology()) {
                 return Optional.of(new PredicateMapping(this,
                         candidatePredicate,
@@ -269,12 +269,25 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
             }
 
+            //
+            // The candidate predicate is not a placeholder which means that the match candidate can not be
+            // parameterized by a mapping of this to the candidate predicate. Therefore, in order to match at all,
+            // it must be semantically equivalent.
+            //
+            if (semanticEquals(candidatePredicate, aliasMap)) {
+                // Note that we never have to reapply the predicate as both sides are always semantically
+                // equivalent.
+                return Optional.of(new PredicateMapping(this,
+                        candidatePredicate,
+                        ((matchInfo, boundParameterPrefixMap) -> Optional.empty())));
+            }
+
             return Optional.empty();
         }
 
         private Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                @Nonnull final Placeholder placeholderPredicate) {
-            if (boundParameterPrefixMap.containsKey(placeholderPredicate.getParameterAlias())) {
+            if (boundParameterPrefixMap.containsKey(placeholderPredicate.getAlias())) {
                 return Optional.empty();
             }
 

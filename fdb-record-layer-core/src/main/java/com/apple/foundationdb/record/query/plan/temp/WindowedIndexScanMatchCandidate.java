@@ -49,9 +49,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Case class to represent a match candidate that is backed by an index.
+ * Case class to represent a match candidate that is backed by a windowed index such as a rank index.
  */
-public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate {
+public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandidate {
     /**
      * Index metadata structure.
      */
@@ -96,14 +96,14 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     private final KeyExpression alternativeKeyExpression;
 
-    public ValueIndexScanMatchCandidate(@Nonnull Index index,
-                                        @Nonnull Collection<RecordType> recordTypes,
-                                        @Nonnull final ExpressionRefTraversal traversal,
-                                        @Nonnull final List<CorrelationIdentifier> parameters,
-                                        @Nonnull final QuantifiedValue recordValue,
-                                        @Nonnull final List<Value> indexKeyValues,
-                                        @Nonnull final List<Value> indexValueValues,
-                                        @Nonnull final KeyExpression alternativeKeyExpression) {
+    public WindowedIndexScanMatchCandidate(@Nonnull Index index,
+                                           @Nonnull Collection<RecordType> recordTypes,
+                                           @Nonnull final ExpressionRefTraversal traversal,
+                                           @Nonnull final List<CorrelationIdentifier> parameters,
+                                           @Nonnull final QuantifiedValue recordValue,
+                                           @Nonnull final List<Value> indexKeyValues,
+                                           @Nonnull final List<Value> indexValueValues,
+                                           @Nonnull final KeyExpression alternativeKeyExpression) {
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.traversal = traversal;
@@ -178,7 +178,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 reverseScanOrder,
                                 false,
-                                (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()));
+                                (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate()));
     }
 
     @Nonnull
@@ -219,7 +219,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         scanParameters,
                         isReverse,
                         false,
-                        (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate());
+                        (WindowedIndexScanMatchCandidate)partialMatch.getMatchCandidate());
 
         final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 recordType.getName(),

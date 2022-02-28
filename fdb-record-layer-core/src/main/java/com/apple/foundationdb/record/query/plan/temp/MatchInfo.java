@@ -159,7 +159,7 @@ public class MatchInfo {
             return Optional.empty();
         }
 
-        return Optional.of(((ValueComparisonRangePredicate.Placeholder)candidatePredicate).getParameterAlias());
+        return Optional.of(((ValueComparisonRangePredicate.Placeholder)candidatePredicate).getAlias());
     }
 
     /**

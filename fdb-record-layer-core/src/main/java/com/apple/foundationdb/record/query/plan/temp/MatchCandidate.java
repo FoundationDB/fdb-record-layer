@@ -78,11 +78,19 @@ public interface MatchCandidate {
     ExpressionRefTraversal getTraversal();
 
     /**
-     * Returns the parameter names for all necessary parameters that need to be bound during matching.
-     * @return a list of {@link CorrelationIdentifier}s for all the used parameters in this match candidate
+     * Returns a list of parameter names for sargable parameters that can to be bound during matching.
+     * @return a list of {@link CorrelationIdentifier}s for all sargable parameters in this match candidate
      */
     @Nonnull
-    List<CorrelationIdentifier> getParameters();
+    List<CorrelationIdentifier> getSargableAliases();
+
+    /**
+     * Returns the parameter names for the resulting order for parameters that can be bound during matching
+     * (sargable and residual).
+     * @return a list of {@link CorrelationIdentifier}s describing the ordering of the result set of this match candidate
+     */
+    @Nonnull
+    List<CorrelationIdentifier> getOrderingAliases();
 
     /**
      * This method returns a key expression that can be used to actually compute the the keys of this candidate for a
@@ -111,7 +119,7 @@ public interface MatchCandidate {
         final var prefixMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
-        final var parameters = getParameters();
+        final var parameters = getSargableAliases();
         for (final var parameter : parameters) {
             Objects.requireNonNull(parameter);
             @Nullable final var comparisonRange = parameterBindingMap.get(parameter);
@@ -155,7 +163,7 @@ public interface MatchCandidate {
         // 1. if the current mapping does not exist
         // 2. the current mapping is EMPTY
         // 3. after the current mapping if the mapping is an INEQUALITY
-        for (final var parameterAlias : getParameters()) {
+        for (final var parameterAlias : getSargableAliases()) {
             // get the mapped side
             if (!prefixMap.containsKey(parameterAlias)) {
                 break;
@@ -231,7 +239,8 @@ public interface MatchCandidate {
 
         if (type.equals(IndexTypes.RANK)) {
             final var baseRef = createBaseRef(availableRecordTypes, recordTypeNamesForIndex);
-            new WindowedIndexExpansionVisitor(index, recordTypesForIndex).expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse);
+            final var expansionVisitor = new WindowedIndexExpansionVisitor(index, recordTypesForIndex);
+            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
         }
 
         return Optional.empty();

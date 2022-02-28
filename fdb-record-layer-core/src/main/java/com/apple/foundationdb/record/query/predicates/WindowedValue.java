@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class WindowedValue implements Value, Value.CompileTimeValue {
+public abstract class WindowedValue implements Value {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Windowed-Value");
 
     @Nonnull
@@ -128,7 +128,7 @@ public abstract class WindowedValue implements Value, Value.CompileTimeValue {
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!CompileTimeValue.super.equalsWithoutChildren(other, equivalenceMap)) {
+        if (!Value.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
 

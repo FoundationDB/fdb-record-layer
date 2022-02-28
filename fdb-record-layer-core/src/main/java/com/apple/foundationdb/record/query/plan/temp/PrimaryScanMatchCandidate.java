@@ -88,8 +88,14 @@ public class PrimaryScanMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    public List<CorrelationIdentifier> getParameters() {
+    public List<CorrelationIdentifier> getSargableAliases() {
         return parameters;
+    }
+
+    @Nonnull
+    @Override
+    public List<CorrelationIdentifier> getOrderingAliases() {
+        return getSargableAliases();
     }
 
     @Nonnull

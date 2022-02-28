@@ -302,7 +302,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
                 Edge::getAttributes,
                 ImmutableMap.of("fontname", Attribute.dot("courier"),
                         "rankdir", Attribute.dot("BT"),
-                        "splines", Attribute.dot("polylines")),
+                        "splines", Attribute.dot("polyline")),
                 (network, nodes) -> {
                     final ImmutableList.Builder<Cluster<Node, Edge>> clusterBuilder = ImmutableList.builder();
                     clusterBuilder.addAll(clustersForGroups(plannerGraph.getNetwork(), queryPlannerNodes));

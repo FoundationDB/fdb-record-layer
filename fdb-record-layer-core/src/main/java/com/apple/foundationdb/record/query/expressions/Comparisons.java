@@ -1005,15 +1005,15 @@ public class Comparisons {
             if (type != that.type) {
                 return false;
             }
-            if (!Objects.equals(relatedByEquality(), that.relatedByEquality())) {
-                return false;
-            }
 
             if (isCorrelation() && that.isCorrelation()) {
                 return aliasMap.containsMapping(getAlias(), that.getAlias());
-            } else {
-                return getParameter().equals(that.getParameter());
             }
+
+            if (!Objects.equals(relatedByEquality(), that.relatedByEquality())) {
+                return false;
+            }
+            return getParameter().equals(that.getParameter());
         }
 
         @Nullable

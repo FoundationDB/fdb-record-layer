@@ -112,7 +112,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     public List<CorrelationIdentifier> getPlaceholderAliases() {
         return placeholders
                 .stream()
-                .map(ValueComparisonRangePredicate.Placeholder::getParameterAlias)
+                .map(ValueComparisonRangePredicate.Placeholder::getAlias)
                 .collect(ImmutableList.toImmutableList());
     }
 

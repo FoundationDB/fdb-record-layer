@@ -157,15 +157,14 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                 0);
                 final GraphExpansion primaryKeyPartExpansion =
                         pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
-                allExpansionsBuilder
-                        .add(primaryKeyPartExpansion);
+                allExpansionsBuilder.add(primaryKeyPartExpansion);
             }
         }
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
         final var parameters = completeExpansion.getPlaceholderAliases();
         final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, completeExpansion.buildSelect());
-        return new ValueIndexScanMatchCandidate(index,
+        return new WindowedIndexScanMatchCandidate(index,
                 recordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
                 parameters,
@@ -260,7 +259,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                         Lists.newArrayList(),
                         innerBaseQuantifier.getAlias(),
                         ImmutableList.of(),
-                        groupingKeyExpression.getGroupingCount(),
+                        -1,
                         0);
 
         final var partitioningAndArgumentExpansion =

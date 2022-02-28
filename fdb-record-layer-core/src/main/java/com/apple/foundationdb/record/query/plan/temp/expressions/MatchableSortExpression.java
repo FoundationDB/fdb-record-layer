@@ -275,13 +275,13 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
         final List<KeyExpression> normalizedKeys =
                 matchCandidate.getAlternativeKeyExpression().normalizeKeyForPositions();
 
-        final ImmutableList.Builder<BoundKeyPart> builder = ImmutableList.builder();
-        final List<CorrelationIdentifier> candidateParameterIds = matchCandidate.getParameters();
+        final var builder = ImmutableList.<BoundKeyPart>builder();
+        final var candidateParameterIds = matchCandidate.getOrderingAliases();
 
         for (final CorrelationIdentifier parameterId : sortParameterIds) {
-            final int ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
+            final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
-            final KeyExpression normalizedKey = normalizedKeys.get(ordinalInCandidate);
+            final var normalizedKey = normalizedKeys.get(ordinalInCandidate);
 
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKey);

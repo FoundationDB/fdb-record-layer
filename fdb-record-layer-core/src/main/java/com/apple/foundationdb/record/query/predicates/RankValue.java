@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
  * defining a window.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RankValue extends WindowedValue {
+public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     private static final String NAME = "RANK";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
