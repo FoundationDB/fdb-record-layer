@@ -28,7 +28,7 @@ import com.google.protobuf.Message;
 
 public class TestSerializerRegistry implements SerializerRegistry {
     @Override
-    public <M extends Message> RecordSerializer<M> loadSerializer(KeySpacePath storePath) {
-        return (RecordSerializer<M>) DynamicMessageRecordSerializer.instance();
+    public RecordSerializer<Message> loadSerializer(KeySpacePath storePath) {
+        return DynamicMessageRecordSerializer.instance();
     }
 }

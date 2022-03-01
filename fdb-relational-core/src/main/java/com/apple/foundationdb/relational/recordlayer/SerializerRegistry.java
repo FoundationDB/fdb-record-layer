@@ -30,5 +30,5 @@ import com.google.protobuf.Message;
  */
 public interface SerializerRegistry {
 
-    <M extends Message> RecordSerializer<M> loadSerializer(KeySpacePath storePath);
+    RecordSerializer<Message> loadSerializer(KeySpacePath storePath);
 }
