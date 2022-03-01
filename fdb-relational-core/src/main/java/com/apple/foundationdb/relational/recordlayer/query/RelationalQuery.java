@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Queryable;
 import com.apple.foundationdb.relational.api.WhereClause;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.util.Collections;
 import java.util.List;
