@@ -61,15 +61,17 @@ public class IndexWriterCommitCheckAsync implements FDBRecordContext.CommitCheck
     /**
      * Creates an index writer config with merge configurations that limit the amount of data in a segment.
      *
+     * @param state the state for the index maintainer
      * @param analyzer analyzer
      * @param directoryCommitCheckAsync directoryCommitCheckAsync
      * @param executor executor
      * @throws IOException exception
      */
-    public IndexWriterCommitCheckAsync(@Nonnull Analyzer analyzer, @Nonnull DirectoryCommitCheckAsync directoryCommitCheckAsync, Executor executor) throws IOException {
+    public IndexWriterCommitCheckAsync(@Nonnull IndexMaintainerState state, @Nonnull Analyzer analyzer,
+                                       @Nonnull DirectoryCommitCheckAsync directoryCommitCheckAsync, Executor executor) throws IOException {
         TieredMergePolicy tieredMergePolicy = new TieredMergePolicy();
-        tieredMergePolicy.setMaxMergedSegmentMB(5.00);
-        tieredMergePolicy.setMaxMergeAtOnceExplicit(2);
+        tieredMergePolicy.setMaxMergedSegmentMB(Math.max(0.0, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE)));
+        tieredMergePolicy.setMaxMergeAtOnceExplicit(Math.max(2, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_NUMBER)));
         tieredMergePolicy.setNoCFSRatio(1.00);
         IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzer);
         indexWriterConfig.setUseCompoundFile(true);
@@ -121,7 +123,7 @@ public class IndexWriterCommitCheckAsync implements FDBRecordContext.CommitCheck
         synchronized (state.context) {
             IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey);
             if (writerCheck == null) {
-                writerCheck = new IndexWriterCommitCheckAsync(analyzer, getOrCreateDirectoryCommitCheckAsync(state, groupingKey), executor);
+                writerCheck = new IndexWriterCommitCheckAsync(state, analyzer, getOrCreateDirectoryCommitCheckAsync(state, groupingKey), executor);
                 state.context.addCommitCheck(writerCheck);
                 state.context.putInSessionIfAbsent(getWriterSubspace(state, groupingKey), writerCheck);
             }

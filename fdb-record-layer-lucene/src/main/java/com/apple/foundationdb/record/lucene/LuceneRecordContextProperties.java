@@ -77,4 +77,24 @@ public final class LuceneRecordContextProperties {
      * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.spellcheckSearchLimitation", 5);
+
+    /**
+     * Maximum segment size to produce during normal merging for ordinary full-text search with Lucene.
+     */
+    public static final RecordLayerPropertyKey<Double> LUCENE_MERGE_MAX_SIZE = RecordLayerPropertyKey.doublePropertyKey("com.apple.foundationdb.record.lucene.mergeMaxSize", 5.0);
+
+    /**
+     * Maximum number of segments to be merged at a time for ordinary full-text search with Lucene, during forceMerge for forceMergeDeletes.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_MERGE_MAX_NUMBER = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.mergeMaxNum", 2);
+
+    /**
+     * Maximum segment size to produce during normal merging for auto-complete search with Lucene.
+     */
+    public static final RecordLayerPropertyKey<Double> LUCENE_AUTO_COMPLETE_MERGE_MAX_SIZE = RecordLayerPropertyKey.doublePropertyKey("com.apple.foundationdb.record.lucene.autoCompleteMergeMaxSize", 5.0);
+
+    /**
+     * Maximum number of segments to be merged at a time for auto-complete search with Lucene, during forceMerge for forceMergeDeletes.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_MERGE_MAX_NUMBER = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteMergeMaxNum", 2);
 }
