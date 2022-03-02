@@ -108,7 +108,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
                 .build();
         final Quantifier childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
         final SelectExpression selectExpression =
-                GraphExpansion.ofPredicate(new QuantifiedObjectValue(childBase.getAlias()).withComparison(comparison)).buildSelectWithBase(childBase);
+                GraphExpansion.ofPredicate(QuantifiedObjectValue.of(childBase.getAlias()).withComparison(comparison)).buildSelectWithBase(childBase);
         final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
 
         // create a query component that creates a path to this prefix and then applies this to it
