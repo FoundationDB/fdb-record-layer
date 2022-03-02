@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedAnalyzingInfixSuggester;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
@@ -53,17 +52,17 @@ public class AutoCompleteSuggesterCommitCheckAsync implements FDBRecordContext.C
 
     /**
      * Create a suggester for auto-complete search.
-     * @param index the index to suggest for
+     * @param state the state for the index maintainer
      * @param directoryCommitCheckAsync the directoryCommitCheckAsync for the directory
      * @param indexAnalyzer the analyzer for indexing
      * @param queryAnalyzer the analyzer for query
      * @param highlight whether the suggestions have the search term highlighted
      * @param executor the executor to close the suggester asynchronously
      */
-    private AutoCompleteSuggesterCommitCheckAsync(final Index index, @Nonnull DirectoryCommitCheckAsync directoryCommitCheckAsync,
+    private AutoCompleteSuggesterCommitCheckAsync(@Nonnull IndexMaintainerState state, @Nonnull DirectoryCommitCheckAsync directoryCommitCheckAsync,
                                                   @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer,
                                                   boolean highlight, @Nonnull Executor executor) {
-        this.suggester = LuceneOptimizedWrappedAnalyzingInfixSuggester.getSuggester(index, directoryCommitCheckAsync.getDirectory(), indexAnalyzer, queryAnalyzer, highlight);
+        this.suggester = LuceneOptimizedWrappedAnalyzingInfixSuggester.getSuggester(state, directoryCommitCheckAsync.getDirectory(), indexAnalyzer, queryAnalyzer, highlight);
         this.executor = executor;
     }
 
@@ -87,13 +86,13 @@ public class AutoCompleteSuggesterCommitCheckAsync implements FDBRecordContext.C
     }
 
     @Nonnull
-    public static AnalyzingInfixSuggester getOrCreateSuggester(@Nonnull final IndexMaintainerState state,
+    public static AnalyzingInfixSuggester getOrCreateSuggester(@Nonnull IndexMaintainerState state,
                                                                @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer,
                                                                boolean highlight, @Nonnull Executor executor, @Nonnull final Tuple groupingKey) {
         synchronized (state.context) {
             AutoCompleteSuggesterCommitCheckAsync suggesterAsync = state.context.getInSession(getSuggestionIndexSubspace(state, groupingKey), AutoCompleteSuggesterCommitCheckAsync.class);
             if (suggesterAsync == null) {
-                suggesterAsync = new AutoCompleteSuggesterCommitCheckAsync(state.index,
+                suggesterAsync = new AutoCompleteSuggesterCommitCheckAsync(state,
                         getOrCreateDirectoryCommitCheckAsync(state, getSuggestionIndexSubspace(state, groupingKey)), indexAnalyzer, queryAnalyzer, highlight, executor);
                 state.context.addCommitCheck(suggesterAsync);
                 state.context.putInSessionIfAbsent(getSuggestionIndexSubspace(state, groupingKey), suggesterAsync);
