@@ -86,6 +86,7 @@ public class QueryKeyExpressionWithOneOfComparison implements ComponentWithCompa
         return this.comparison;
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,

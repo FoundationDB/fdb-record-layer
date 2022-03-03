@@ -84,6 +84,7 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
         return isEmpty;
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,

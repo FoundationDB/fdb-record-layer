@@ -587,10 +587,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
         final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
 
         final AliasMap identitiesMap = bindIdentities(otherExpression, boundAliasMap);
-        final Set<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, identitiesMap.sources());
-        final Set<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, identitiesMap.targets());
 
         final AliasMap aliasMapWithIdentities = boundAliasMap.combine(identitiesMap);
+        final Set<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, aliasMapWithIdentities.sources());
+        final Set<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, aliasMapWithIdentities.targets());
+
         return aliasMapWithIdentities
                 .findMatches(
                         unboundCorrelatedTo,

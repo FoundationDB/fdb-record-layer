@@ -389,7 +389,7 @@ public class SpecificMatchingTest {
                         .build()),
                 matches);
     }
-
+    
     @Test
     void testMatchExternalCorrelations2() {
         final Set<CorrelationIdentifier> left = ImmutableSet.of(of("a"), of("b"), of("c"));

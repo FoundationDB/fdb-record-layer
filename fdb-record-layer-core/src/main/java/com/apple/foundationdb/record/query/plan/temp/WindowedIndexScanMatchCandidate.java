@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -64,10 +65,28 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     private final List<RecordType> recordTypes;
 
     /**
-     * Holds the parameter names for all necessary parameters that need to be bound during matching.
+     * Holds the grouping aliases for all groupings that can to be bound during matching.
      */
     @Nonnull
-    private final List<CorrelationIdentifier> parameters;
+    private final List<CorrelationIdentifier> groupingAliases;
+
+    /**
+     * Holds the alias for the score placeholder in the match candidate.
+     */
+    @Nonnull
+    private final CorrelationIdentifier scoreAlias;
+
+    /**
+     * Holds the alias for the rank placeholder in the match candidate.
+     */
+    @Nonnull
+    private final CorrelationIdentifier rankAlias;
+
+    /**
+     * Holds the grouping aliases for all primary keys.
+     */
+    @Nonnull
+    private final List<CorrelationIdentifier> primaryKeyAliases;
 
     /**
      * Value that flows the actual record.
@@ -82,12 +101,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     private final List<Value> indexKeyValues;
 
     /**
-     * List of values that represent the value parts of the index represented by the candidate in the expanded graph.
-     */
-    @Nonnull
-    private final List<Value> indexValueValues;
-
-    /**
      * Traversal object of the expanded index scan graph.
      */
     @Nonnull
@@ -99,18 +112,22 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     public WindowedIndexScanMatchCandidate(@Nonnull Index index,
                                            @Nonnull Collection<RecordType> recordTypes,
                                            @Nonnull final ExpressionRefTraversal traversal,
-                                           @Nonnull final List<CorrelationIdentifier> parameters,
+                                           @Nonnull final List<CorrelationIdentifier> groupingAliases,
+                                           @Nonnull final CorrelationIdentifier scoreAlias,
+                                           @Nonnull final CorrelationIdentifier rankAlias,
+                                           @Nonnull final List<CorrelationIdentifier> primaryKeyAliases,
                                            @Nonnull final QuantifiedValue recordValue,
                                            @Nonnull final List<Value> indexKeyValues,
-                                           @Nonnull final List<Value> indexValueValues,
                                            @Nonnull final KeyExpression alternativeKeyExpression) {
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.traversal = traversal;
-        this.parameters = ImmutableList.copyOf(parameters);
+        this.groupingAliases = ImmutableList.copyOf(groupingAliases);
+        this.scoreAlias = scoreAlias;
+        this.rankAlias = rankAlias;
+        this.primaryKeyAliases = ImmutableList.copyOf(primaryKeyAliases);
         this.recordValue = recordValue;
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
-        this.indexValueValues = ImmutableList.copyOf(indexValueValues);
         this.alternativeKeyExpression = alternativeKeyExpression;
     }
 
@@ -133,13 +150,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
-        return parameters;
+        return ImmutableList.<CorrelationIdentifier>builder().addAll(groupingAliases).add(rankAlias).build();
     }
 
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
-        return getSargableAliases();
+        return orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases);
     }
 
     @Nonnull
@@ -150,11 +167,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     public List<Value> getIndexKeyValues() {
         return indexKeyValues;
-    }
-
-    @Nonnull
-    public List<Value> getIndexValueValues() {
-        return indexValueValues;
     }
 
     @Nonnull
@@ -200,20 +212,11 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             }
         }
 
-        for (int i = 0; i < indexValueValues.size(); i++) {
-            final Value valueValue = indexValueValues.get(i);
-            if (valueValue instanceof FieldValue && valueValue.isFunctionallyDependentOn(recordValue)) {
-                final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i);
-                addCoveringField(builder, (FieldValue)valueValue, fieldData);
-            }
-        }
-
         if (!builder.isValid()) {
             return Optional.empty();
         }
 
-        final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
+        final IndexScanParameters scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges));
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
                         scanParameters,
@@ -252,7 +255,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         final Value translatedValue = translatedValueOptional.get();
         final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(recordValue.getAlias()));
 
-        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(recordValue), indexKeyValues, indexValueValues)) {
+        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(recordValue), indexKeyValues)) {
             final Set<CorrelationIdentifier> resultValueCorrelatedTo = matchResultValue.getCorrelatedTo();
             if (resultValueCorrelatedTo.size() != 1) {
                 continue;
@@ -287,5 +290,12 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         if (!builder.hasField(fieldName)) {
             builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
         }
+    }
+
+    @Nonnull
+    public static List<CorrelationIdentifier> orderingAliases(@Nonnull final List<CorrelationIdentifier> groupingAliases,
+                                                              @Nonnull final CorrelationIdentifier scoreAlias,
+                                                              @Nonnull final List<CorrelationIdentifier> primaryKeyAliases) {
+        return ImmutableList.<CorrelationIdentifier>builder().addAll(groupingAliases).add(scoreAlias).addAll(primaryKeyAliases).build();
     }
 }

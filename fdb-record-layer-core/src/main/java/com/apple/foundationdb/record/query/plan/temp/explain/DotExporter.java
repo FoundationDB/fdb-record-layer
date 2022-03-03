@@ -167,6 +167,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         final ImmutableNetwork<N, E> network = context.getNetwork();
         final PrintWriter out = context.getPrintWriter();
 
+        //
         // dependsOn is a property of an edge specifying a partial order between that edge and
         // other inEdges to the target of that edge:
         //
@@ -191,6 +192,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         // If the current node had children that explicitly encode an order we do the following:
         // We create a sub-block and set rank=same, rankDir=LR in order to have all children be rendered
         // on the same level but left to right.
+        //
         final Set<E> childrenEdges = network.inEdges(n);
 
         if (childrenEdges.stream().allMatch(edge -> edge.getDependsOn().isEmpty())) {
@@ -198,7 +200,11 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
             return;
         }
         
-        // find all descendant nodes and check for common subexpressions
+        //
+        // Find all descendant nodes and check for common subexpressions, if there are common subexpressions,
+        // don't to layout hinting as GraphViz doesn't do a good job on left to right if the graph is not a tree
+        // but a DAG.
+        //
         final var nodesReachable = Sets.newHashSet();
 
         for (final var childrenEdge : childrenEdges) {

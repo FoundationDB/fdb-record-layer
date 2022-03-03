@@ -204,9 +204,10 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    static Optional<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
+    static Iterable<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
                                                         @Nonnull final Index index,
                                                         final boolean isReverse) {
+        final var resultBuilder = ImmutableList.<MatchCandidate>builder();
         final var recordTypesForIndex = metaData.recordTypesForIndex(index);
         final var commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
 
@@ -221,28 +222,57 @@ public interface MatchCandidate {
         final var type = index.getType();
 
         if (type.equals(IndexTypes.VALUE)) {
-            final var baseRef = createBaseRef(availableRecordTypes, recordTypeNamesForIndex);
-            final var expansionVisitor = new ValueIndexExpansionVisitor(index, recordTypesForIndex);
-            try {
-                return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
-            } catch (final UnsupportedOperationException uOE) {
-                // just log and return empty
-                if (LOGGER.isDebugEnabled()) {
-                    final String message =
-                            KeyValueLogMessage.of("unsupported value index",
-                                    "reason", uOE.getMessage(),
-                                    "indexName", index.getName());
-                    LOGGER.debug(message, uOE);
-                }
-            }
+            expandMatchCandidate(index,
+                    recordTypeNamesForIndex,
+                    availableRecordTypes,
+                    isReverse,
+                    commonPrimaryKeyForIndex,
+                    new ValueIndexExpansionVisitor(index, recordTypesForIndex))
+                    .ifPresent(resultBuilder::add);
         }
 
         if (type.equals(IndexTypes.RANK)) {
-            final var baseRef = createBaseRef(availableRecordTypes, recordTypeNamesForIndex);
-            final var expansionVisitor = new WindowedIndexExpansionVisitor(index, recordTypesForIndex);
-            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
+            // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
+            expandMatchCandidate(index,
+                    recordTypeNamesForIndex,
+                    availableRecordTypes,
+                    isReverse,
+                    commonPrimaryKeyForIndex,
+                    new ValueIndexExpansionVisitor(index, recordTypesForIndex))
+                    .ifPresent(resultBuilder::add);
+
+            expandMatchCandidate(index,
+                    recordTypeNamesForIndex,
+                    availableRecordTypes,
+                    isReverse,
+                    commonPrimaryKeyForIndex,
+                    new WindowedIndexExpansionVisitor(index, recordTypesForIndex))
+                    .ifPresent(resultBuilder::add);
         }
 
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    private static Optional<MatchCandidate> expandMatchCandidate(@Nonnull final Index index,
+                                                                 @Nonnull final ImmutableSet<String> recordTypeNamesForIndex,
+                                                                 @Nonnull final Set<String> availableRecordTypes,
+                                                                 final boolean isReverse,
+                                                                 @Nullable final KeyExpression commonPrimaryKeyForIndex,
+                                                                 @Nonnull final ExpansionVisitor<?> expansionVisitor) {
+        final var baseRef = createBaseRef(availableRecordTypes, recordTypeNamesForIndex);
+        try {
+            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
+        } catch (final UnsupportedOperationException uOE) {
+            // just log and return empty
+            if (LOGGER.isDebugEnabled()) {
+                final String message =
+                        KeyValueLogMessage.of("unsupported index",
+                                "reason", uOE.getMessage(),
+                                "indexName", index.getName());
+                LOGGER.debug(message, uOE);
+            }
+        }
         return Optional.empty();
     }
 

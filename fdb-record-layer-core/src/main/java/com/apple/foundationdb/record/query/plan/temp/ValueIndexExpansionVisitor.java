@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
@@ -54,7 +55,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     private final List<RecordType> recordTypes;
 
     public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(index.getType().equals(IndexTypes.VALUE));
+        Preconditions.checkArgument(index.getType().equals(IndexTypes.VALUE) || index.getType().equals(IndexTypes.RANK));
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
     }
@@ -74,6 +75,14 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         allExpansionsBuilder.add(GraphExpansion.ofResultValueAndQuantifier(recordValue, baseQuantifier));
 
         var rootExpression = index.getRootExpression();
+
+        if (rootExpression instanceof GroupingKeyExpression) {
+            if (index.getType().equals(IndexTypes.RANK)) {
+                rootExpression = ((GroupingKeyExpression)rootExpression).getWholeKey();
+            } else {
+                throw new UnsupportedOperationException("cannot create match candidate on grouping expression for unknown index type");
+            }
+        }
 
         final int keyValueSplitPoint;
         if (rootExpression instanceof KeyWithValueExpression) {

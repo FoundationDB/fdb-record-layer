@@ -89,6 +89,7 @@ public class NestedField extends BaseNestedField {
         return getFieldName() + "/{" + getChild() + "}";
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,

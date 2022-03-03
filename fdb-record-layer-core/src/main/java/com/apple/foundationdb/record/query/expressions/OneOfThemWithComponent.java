@@ -101,6 +101,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
         return child;
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
@@ -121,7 +122,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
         // this is needed for reapplication of the component if the sub query cannot be matched or only matched with
         // compensation
         QueryComponent withPrefix = this;
-        for (int i = fieldNames.size() - 1; i >= 0;  i--) {
+        for (int i = fieldNamePrefix.size() - 1; i >= 0;  i--) {
             final String fieldName = fieldNames.get(i);
             withPrefix = Query.field(fieldName).matches(withPrefix);
         }

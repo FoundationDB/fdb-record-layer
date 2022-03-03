@@ -229,6 +229,11 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     }
 
     @Nonnull
+    public static GraphExpansion ofPlaceholderAndQuantifier(@Nonnull final Placeholder placeholder, @Nonnull final Quantifier quantifier) {
+        return of(ImmutableList.of(), ImmutableList.of(placeholder), ImmutableList.of(quantifier), ImmutableList.of(placeholder));
+    }
+
+    @Nonnull
     public static GraphExpansion of(@Nonnull final List<? extends Value> resultValues,
                                     @Nonnull final List<? extends QueryPredicate> predicates,
                                     @Nonnull final List<? extends Quantifier> quantifiers,

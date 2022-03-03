@@ -98,6 +98,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
         return getFieldName() + " " + getComparison();
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,

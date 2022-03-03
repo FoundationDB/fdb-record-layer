@@ -39,20 +39,18 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-
 /**
- * Class to expand value index access into a candidate graph. The visitation methods are left unchanged from the super
+ * Class to expand a by-rank index access into a candidate graph. The visitation methods are left unchanged from the super
  * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
 public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
@@ -85,7 +83,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
      * which is used for matching.
      *
      * Note that the pseudo-SQL above can vary (and become significantly more complex) in the case where the grouping
-     * or the ranking is done over a nested repeated. In such a case the {@code innerBase} is the cross product of the
+     * or the ranking is done over a (nested) repeated. In such a case the {@code innerBase} is the cross product of the
      * explosions of all grouping expressions and the score field.
      * </pre>
      *
@@ -113,8 +111,11 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
 
         final var baseAlias = baseQuantifier.getAlias();
 
-        final List<Value> groupingAndArgumentValues = Lists.newArrayList();
+        final var groupingAndArgumentValues = Lists.<Value>newArrayList();
         final var groupingKeyExpression = (GroupingKeyExpression)rootExpression;
+        // TODO verify if there is only ever going to be a grouped count of 1, for now assert on it
+        Verify.verify(groupingKeyExpression.getGroupedCount() == 1);
+
         final var innerBaseQuantifier = baseQuantifierSupplier.get();
         final var innerBaseAlias = innerBaseQuantifier.getAlias();
         final var rankGroupingsAndArgumentsExpansion =
@@ -129,6 +130,8 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         // predicate on rank is expressed as an index placeholder
         final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValues().size() - 1);
         final var rankAndJoiningPredicateExpansion = buildRankComparisonSelectExpression(baseAlias, rankQuantifier, rankColumnValue);
+        Verify.verify(rankAndJoiningPredicateExpansion.getPlaceholders().size() == 1);
+        final var rankAlias = Iterables.getOnlyElement(rankAndJoiningPredicateExpansion.getPlaceholderAliases());
         final var rankAndJoiningPredicateSelectExpression = rankAndJoiningPredicateExpansion.buildSelect();
         final var rankComparisonQuantifier =
                 Quantifier.forEach(GroupExpressionRef.of(rankAndJoiningPredicateSelectExpression));
@@ -139,42 +142,68 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 duplicateSimpleGroupingPlaceholders(baseAlias, innerBaseAlias, groupingKeyExpression, rankGroupingsAndArgumentsExpansion.getPlaceholders(), rankSelectExpression);
         allExpansionsBuilder.add(duplicatedPlaceholders);
 
+        final var primaryKeyAliasesBuilder = ImmutableList.<CorrelationIdentifier>builder();
+        final var primaryKeyValues = Lists.<Value>newArrayList();
         if (primaryKey != null) {
             // unfortunately we must copy as the returned list is not guaranteed to be mutable which is needed for the
             // trimPrimaryKey() function as it is causing a side-effect
             final List<KeyExpression> trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
             index.trimPrimaryKey(trimmedPrimaryKeys);
 
-            for (int i = 0; i < trimmedPrimaryKeys.size(); i++) {
-                final KeyExpression primaryKeyPart = trimmedPrimaryKeys.get(i);
-
-                final VisitorState initialStateForKeyPart =
-                        VisitorState.of(groupingAndArgumentValues,
+            for (final var primaryKeyPart : trimmedPrimaryKeys) {
+                final var initialStateForKeyPart =
+                        VisitorState.of(primaryKeyValues,
                                 Lists.newArrayList(),
                                 baseQuantifier.getAlias(),
                                 ImmutableList.of(),
                                 -1,
                                 0);
-                final GraphExpansion primaryKeyPartExpansion =
-                        pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
+                final var primaryKeyPartExpansion = pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
                 allExpansionsBuilder.add(primaryKeyPartExpansion);
+                primaryKeyAliasesBuilder.addAll(primaryKeyPartExpansion.getPlaceholderAliases());
             }
         }
+        final var primaryKeyAliases = primaryKeyAliasesBuilder.build();
+
+        final var indexKeyValues = computeIndexKeyValues(baseAlias, innerBaseAlias, groupingAndArgumentValues, primaryKeyValues);
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
-        final var parameters = completeExpansion.getPlaceholderAliases();
-        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, completeExpansion.buildSelect());
-        return new WindowedIndexScanMatchCandidate(index,
+        final var groupingAndArgumentAliases = rankGroupingsAndArgumentsExpansion.getPlaceholderAliases();
+        final var groupingAliases = groupingAndArgumentAliases.subList(0, groupingKeyExpression.getGroupingCount());
+        final var scoreAlias = groupingAndArgumentAliases.get(groupingAndArgumentAliases.size() - 1);
+        final var matchableSortExpression = new MatchableSortExpression(WindowedIndexScanMatchCandidate.orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases), isReverse, completeExpansion.buildSelect());
+
+        return new WindowedIndexScanMatchCandidate(
+                index,
                 recordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
-                parameters,
+                groupingAliases,
+                scoreAlias,
+                rankAlias,
+                primaryKeyAliases,
                 recordValue,
-                groupingAndArgumentValues,
-                ImmutableList.of(),
-                fullKey(index, primaryKey));
+                indexKeyValues,
+                ValueIndexExpansionVisitor.fullKey(index, primaryKey));
     }
 
     @Nonnull
+    private List<Value> computeIndexKeyValues(@Nonnull CorrelationIdentifier baseAlias,
+                                              @Nonnull CorrelationIdentifier innerBaseAlias,
+                                              @Nonnull final List<Value> groupingAndArgumentValues,
+                                              @Nonnull final List<Value> primaryKeyValues) {
+        final var rebasedGroupingAndArgumentValues =
+                groupingAndArgumentValues
+                        .stream()
+                        .map(value -> value.rebase(AliasMap.of(innerBaseAlias, baseAlias)))
+                        .collect(ImmutableList.toImmutableList());
+        return ImmutableList.<Value>builder()
+                .addAll(rebasedGroupingAndArgumentValues)
+                .addAll(primaryKeyValues)
+                .build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("java:S135")
     private GraphExpansion duplicateSimpleGroupingPlaceholders(final CorrelationIdentifier baseAlias,
                                                                final CorrelationIdentifier innerBaseAlias,
                                                                final GroupingKeyExpression groupingKeyExpression,
@@ -230,15 +259,9 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var rankPlaceholder = rankColumnValue.asPlaceholder(newParameterAlias());
 
         final var rankComparisonExpansion =
-                GraphExpansion.ofPredicateAndQuantifier(rankPlaceholder, rankQuantifier);
+                GraphExpansion.ofPlaceholderAndQuantifier(rankPlaceholder, rankQuantifier);
 
         // join predicate
-        // TODO I do not like the way this predicate is currently built. We should instead create individual predicates
-        //      for each part of the identifying common parts of the record (i.e. a key on both sides). That can be
-        //      the common primary key of the outer and inner but we don't know that here as it's not yet part of
-        //      the information accessible on the quantifier and taking the common primary key of this query from
-        //      the plan context is not necessarily correct in the future when we project and mutate things within
-        //      the query.
         final var selfJoinPredicate =
                 new QuantifiedObjectValue(rankQuantifier.getAlias())
                         .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
@@ -274,27 +297,5 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
         return GraphExpansion.ofOthers(ImmutableList.of(partitioningAndArgumentExpansion,
                         GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier)));
-    }
-
-    /**
-     * Compute the full key of an index (given that the index is a value index).
-     *
-     * @param index index to be expanded
-     * @param primaryKey primary key of the records the index ranges over. The primary key is used to determine
-     *        parts in the index definition that already contain parts of the primary key. All primary key components
-     *        that are not already part of the index key are appended to the index key.
-     * @return a {@link KeyExpression} describing the <em>full</em> index key as stored
-     */
-    @Nonnull
-    public static KeyExpression fullKey(@Nonnull Index index, @Nullable final KeyExpression primaryKey) {
-        if (primaryKey == null) {
-            return index.getRootExpression();
-        }
-        final ArrayList<KeyExpression> trimmedPrimaryKeyComponents = new ArrayList<>(primaryKey.normalizeKeyForPositions());
-        index.trimPrimaryKey(trimmedPrimaryKeyComponents);
-        final ImmutableList.Builder<KeyExpression> fullKeyListBuilder = ImmutableList.builder();
-        fullKeyListBuilder.add(index.getRootExpression());
-        fullKeyListBuilder.addAll(trimmedPrimaryKeyComponents);
-        return concat(fullKeyListBuilder.build());
     }
 }

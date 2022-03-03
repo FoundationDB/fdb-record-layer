@@ -151,7 +151,7 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      * Expand this query component into a data flow graph. The returned graph represents an adequate representation
      * of the component as composition of relational expressions and operators.
      * @param baseAlias an alias that refers to the data flow equivalent of an input to this component
-     * @param baseQuantifierSupplier a supplier that creates generates additional base accesses for the purpose of
+     * @param baseQuantifierSupplier a supplier that creates additional base accesses for the purpose of
      *        creating semi joins with the actual outer base referred to by means of {@code baseAlias}
      * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
      * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
@@ -172,6 +172,7 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
      */
     @API(API.Status.EXPERIMENTAL)
+    @Nonnull
     GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias, @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier, @Nonnull List<String> fieldNamePrefix);
 
     @Nonnull

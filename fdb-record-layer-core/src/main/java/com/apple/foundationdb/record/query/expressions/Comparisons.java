@@ -1006,6 +1006,11 @@ public class Comparisons {
                 return false;
             }
 
+            //
+            // Either this parameter is a proper correlation in which case the alias map needs to be consulted,
+            // or, if it is a non-correlation like an extracted literal we need to consult the parameter relationship
+            // graph.
+            //
             if (isCorrelation() && that.isCorrelation()) {
                 return aliasMap.containsMapping(getAlias(), that.getAlias());
             }

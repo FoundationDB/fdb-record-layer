@@ -1,5 +1,5 @@
 /*
- * WindowedValue.java
+ * RankValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -40,6 +40,7 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     }
 
     @Nonnull
+    @Override
     public String getName() {
         return NAME;
     }

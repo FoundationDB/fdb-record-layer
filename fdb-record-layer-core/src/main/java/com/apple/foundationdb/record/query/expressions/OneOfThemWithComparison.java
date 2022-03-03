@@ -101,6 +101,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
         return new OneOfThemWithComparison(getFieldName(), getEmptyMode(), comparison);
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,

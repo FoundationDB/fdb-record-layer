@@ -28,10 +28,8 @@ import com.apple.foundationdb.record.query.plan.temp.BoundKeyPart;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
-import com.apple.foundationdb.record.query.plan.temp.PredicateMap;
 import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -41,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.google.common.base.Verify;
@@ -53,7 +50,6 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -233,7 +229,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     @Nonnull
     @Override
     public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
-        final MatchInfo matchInfo = partialMatch.getMatchInfo();
+        final var matchInfo = partialMatch.getMatchInfo();
         return Optional.of(matchInfo.withOrderingInfo(forPartialMatch(partialMatch)));
     }
 
@@ -251,13 +247,12 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
      */
     @Nonnull
     private List<BoundKeyPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
-        final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
-        final MatchInfo matchInfo = partialMatch.getMatchInfo();
-        final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
-                matchInfo.getParameterBindingMap();
-        final PredicateMap accumulatedPredicateMap = matchInfo.getAccumulatedPredicateMap();
+        final var matchCandidate = partialMatch.getMatchCandidate();
+        final var matchInfo = partialMatch.getMatchInfo();
+        final var parameterBindingMap = matchInfo.getParameterBindingMap();
+        final var accumulatedPredicateMap = matchInfo.getAccumulatedPredicateMap();
 
-        final ImmutableMap<CorrelationIdentifier, QueryPredicate> parameterBindingPredicateMap =
+        final var parameterBindingPredicateMap =
                 accumulatedPredicateMap
                         .entries()
                         .stream()
@@ -272,21 +267,21 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
                                     .orElseThrow(() -> new RecordCoreException("parameter alias should have been set")));
                         }, entry -> Objects.requireNonNull(entry.getKey())));
 
-        final List<KeyExpression> normalizedKeys =
+        final var normalizedKeys =
                 matchCandidate.getAlternativeKeyExpression().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<BoundKeyPart>builder();
         final var candidateParameterIds = matchCandidate.getOrderingAliases();
 
-        for (final CorrelationIdentifier parameterId : sortParameterIds) {
+        for (final var parameterId : sortParameterIds) {
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
             final var normalizedKey = normalizedKeys.get(ordinalInCandidate);
 
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKey);
-            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameterId);
-            @Nullable final QueryPredicate queryPredicate = parameterBindingPredicateMap.get(parameterId);
+            @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
+            @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
 
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
@@ -317,7 +312,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
             return false;
         }
 
-        final MatchableSortExpression other = (MatchableSortExpression) otherExpression;
+        final var other = (MatchableSortExpression) otherExpression;
 
         return isReverse == other.isReverse && !sortParameterIds.equals(other.sortParameterIds);
     }

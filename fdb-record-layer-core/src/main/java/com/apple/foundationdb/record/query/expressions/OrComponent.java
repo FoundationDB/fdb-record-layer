@@ -72,6 +72,7 @@ public class OrComponent extends AndOrComponent {
         return OrComponent.from(newChildren);
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,

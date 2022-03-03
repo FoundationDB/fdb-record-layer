@@ -818,11 +818,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                                     .where(indexPlanOf(indexPlan()
                                                             .where(indexName("ind"))
                                                             .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison())))))))
-                                            .where(inValuesList(equalsObject(longList))))
-                            .where(inValuesList(equalsObject(stringList)))));
+                                            .where(inValuesList(equalsObject(stringList))))
+                            .where(inValuesList(equalsObject(longList)))));
 
-            assertEquals(-2124922292, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2055315359, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1217841460, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2110068961, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1810804415, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 

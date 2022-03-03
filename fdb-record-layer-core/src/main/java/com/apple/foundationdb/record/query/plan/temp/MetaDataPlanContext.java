@@ -37,7 +37,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -118,9 +117,9 @@ public class MetaDataPlanContext implements PlanContext {
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (Index index : indexList) {
             indexes.put(index, index.getName());
-            final Optional<MatchCandidate> candidateForIndexOptional =
+            final Iterable<MatchCandidate> candidatesForIndex =
                     MatchCandidate.fromIndexDefinition(metaData, index, query.isSortReverse());
-            candidateForIndexOptional.ifPresent(matchCandidatesBuilder::add);
+            matchCandidatesBuilder.addAll(candidatesForIndex);
         }
 
         MatchCandidate.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey, query.isSortReverse())

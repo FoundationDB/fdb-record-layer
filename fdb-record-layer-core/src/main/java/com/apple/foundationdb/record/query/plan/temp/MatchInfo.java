@@ -132,7 +132,7 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public List<BoundKeyPart> getBoundKeyParts() {
+    public List<BoundKeyPart> getOrderingKeyParts() {
         return boundKeyParts;
     }
 
@@ -219,13 +219,13 @@ public class MatchInfo {
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
 
-        final List<BoundKeyPart> boundKeyParts;
+        final List<BoundKeyPart> orderingKeyParts;
         if (regularQuantifiers.size() == 1) {
             final Quantifier regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
             final PartialMatch partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
-            boundKeyParts = partialMatch.getMatchInfo().getBoundKeyParts();
+            orderingKeyParts = partialMatch.getMatchInfo().getOrderingKeyParts();
         } else {
-            boundKeyParts = ImmutableList.of();
+            orderingKeyParts = ImmutableList.of();
         }
 
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
@@ -234,7 +234,7 @@ public class MatchInfo {
                 .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
                         partialMatchMap,
                         predicateMap,
-                        boundKeyParts));
+                        orderingKeyParts));
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {

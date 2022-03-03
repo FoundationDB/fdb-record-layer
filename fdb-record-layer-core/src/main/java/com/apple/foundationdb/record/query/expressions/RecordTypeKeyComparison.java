@@ -90,6 +90,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         return comparison;
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,

@@ -88,12 +88,13 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
         // Its possible we could validate the fields that are being used with the fields that we've passed in.
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
         // TODO do something here
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull

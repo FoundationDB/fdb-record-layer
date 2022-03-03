@@ -79,6 +79,7 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
         return this.comparison;
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,

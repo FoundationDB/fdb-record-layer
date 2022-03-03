@@ -120,6 +120,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
         function.validate(descriptor);
     }
 
+    @Nonnull
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
                                  @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
@@ -160,12 +161,6 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                             rankQuantifier);
 
             // join predicate
-            // TODO I do not like the way this predicate is currently built. We should instead create individual predicates
-            //      for each part of the identifying common parts of the record (i.e. a key on both sides). That can be
-            //      the common primary key of the outer and inner but we don't know that here as it's not yet part of
-            //      the information accessible on the quantifier and taking the common primary key of this query from
-            //      the plan context is not necessarily correct in the future when we project and mutate things within
-            //      the query.
             final var selfJoinPredicate =
                     new QuantifiedObjectValue(rankQuantifier.getAlias())
                             .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,

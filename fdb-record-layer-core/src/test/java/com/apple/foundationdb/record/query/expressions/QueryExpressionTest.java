@@ -102,7 +102,7 @@ public class QueryExpressionTest {
         }
 
         @Override
-        public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier, @Nonnull final List<String> fieldNamePrefix) {
+        public @Nonnull GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier, @Nonnull final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
     }
