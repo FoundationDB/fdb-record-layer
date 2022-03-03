@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore
 import com.google.common.base.Throwables;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -100,17 +101,21 @@ public class RecordLayerDatabase implements RelationalDatabase {
             schema = new RecordLayerSchema(schemaId, this, connection, options);
             putBack = true;
         }
-        if (options.hasOption(OperationOption.FORCE_VERIFY_DDL)) {
-            if (!this.connection.inActiveTransaction()) {
-                this.connection.beginTransaction();
-                try {
+        try {
+            if (options.hasOption(OperationOption.FORCE_VERIFY_DDL)) {
+                if (!this.connection.inActiveTransaction()) {
+                    this.connection.beginTransaction();
+                    try {
+                        schema.loadStore();
+                    } finally {
+                        this.connection.rollback();
+                    }
+                } else {
                     schema.loadStore();
-                } finally {
-                    this.connection.rollback();
                 }
-            } else {
-                schema.loadStore();
             }
+        } catch (SQLException e) {
+            throw RelationalException.convert(e);
         }
 
         if (putBack) {

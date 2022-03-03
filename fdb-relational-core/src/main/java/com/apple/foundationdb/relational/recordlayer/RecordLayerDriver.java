@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionConfig;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
@@ -43,7 +43,7 @@ public class RecordLayerDriver implements RelationalDriver {
     }
 
     @Override
-    public DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
+    public RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
         /*
          * Basic Algorithm for Opening a connection:
          *

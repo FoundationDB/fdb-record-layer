@@ -1,0 +1,366 @@
+/*
+ * RelationalConnection.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.api;
+
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.CallableStatement;
+import java.sql.Clob;
+import java.sql.NClob;
+import java.sql.PreparedStatement;
+import java.sql.SQLClientInfoException;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
+import java.sql.SQLXML;
+import java.sql.Savepoint;
+import java.sql.Statement;
+import java.sql.Struct;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.Executor;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+/**
+ * Represents a connection to a Relational database.
+ * <p>
+* A connection to a Relational database.
+ * <p>
+ * Also note that a connection is the transaction manager for the client, so if you have multiple transactions
+ * against the same database, you should _also_ expect multiple connection objects to exist. So all in all,
+ * lots of Connection objects should be expected on the client's heap at any given point in time.
+ */
+public interface RelationalConnection extends java.sql.Connection {
+    /**
+     * Create a RelationalStatement which can be executed using this DatabaseConnection.
+     *
+     * If this connection instance is closed, this RelationalStatement becomes invalid and should be discarded. Using a
+     * RelationalStatement object after it's backing Connection is closed is a programmer error.
+     *
+     * @return A new statement entity to manipulate the database with.
+     * @throws SQLException if something goes wrong while creating a statement.
+     */
+    @Override
+    RelationalStatement createStatement() throws SQLException;
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @Nonnull
+    RelationalDatabaseMetaData getMetaData() throws SQLException;
+
+    //TODO(bfines) We would probably want to implement and support an "AsyncStatement" here, which
+    // can capture the asyncronous operations necessary
+
+
+    /**
+     * If no TransactionConfig passed in, a default config is used for the transaction.
+     * @throws RelationalException if something goes wrong while beginning the transaction.
+     */
+    default void beginTransaction() throws RelationalException {
+        beginTransaction(null);
+    }
+
+    void beginTransaction(@Nullable TransactionConfig config) throws RelationalException;
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default PreparedStatement prepareStatement(String sql) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default CallableStatement prepareCall(String sql) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default String nativeSQL(String sql) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void abort(Executor executor) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default int getNetworkTimeout() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default boolean isClosed() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void setReadOnly(boolean readOnly) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default boolean isReadOnly() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void setCatalog(String catalog) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default String getCatalog() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void setTransactionIsolation(int level) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default int getTransactionIsolation() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default SQLWarning getWarnings() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void clearWarnings() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Map<String, Class<?>> getTypeMap() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void setTypeMap(Map<String, Class<?>> map) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void setHoldability(int holdability) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default int getHoldability() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Savepoint setSavepoint() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Savepoint setSavepoint(String name) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void rollback(Savepoint savepoint) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void releaseSavepoint(Savepoint savepoint) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Clob createClob() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Blob createBlob() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default NClob createNClob() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default SQLXML createSQLXML() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default boolean isValid(int timeout) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void setClientInfo(String name, String value) throws SQLClientInfoException {
+        throw new SQLClientInfoException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode(), null);
+
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default void setClientInfo(Properties properties) throws SQLClientInfoException {
+        throw new SQLClientInfoException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode(), null);
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default String getClientInfo(String name) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Properties getClientInfo() throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Array createArrayOf(String typeName, Object[] elements) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default Struct createStruct(String typeName, Object[] attributes) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default <T> T unwrap(Class<T> iface) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default boolean isWrapperFor(Class<?> iface) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+}

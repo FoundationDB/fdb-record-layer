@@ -24,17 +24,19 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
-import com.apple.foundationdb.relational.api.DatabaseConnection;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TransactionConfig;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import java.sql.SQLException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class RecordStoreConnection implements DatabaseConnection {
+public class RecordStoreConnection implements RelationalConnection {
     private final FDBDatabase fdbDb;
     final RecordLayerDatabase frl;
 
@@ -54,22 +56,22 @@ public class RecordStoreConnection implements DatabaseConnection {
     }
 
     @Override
-    public Statement createStatement() throws RelationalException {
+    public RelationalStatement createStatement() throws SQLException {
         return new RecordStoreStatement(this);
     }
 
     @Override
-    public void setAutoCommit(boolean autoCommit) throws RelationalException {
+    public void setAutoCommit(boolean autoCommit) throws SQLException {
         this.autoCommit = autoCommit;
     }
 
     @Override
-    public boolean isAutoCommitEnabled() {
+    public boolean getAutoCommit() {
         return !usingAnExistingTransaction && this.autoCommit;
     }
 
     @Override
-    public void commit() throws RelationalException {
+    public void commit() throws SQLException {
         RelationalException err = null;
         if (transaction != null) {
             try {
@@ -79,7 +81,7 @@ public class RecordStoreConnection implements DatabaseConnection {
             }
             try {
                 transaction.close();
-            } catch (RuntimeException re) {
+            } catch (RuntimeException | RelationalException re) {
                 if (err != null) {
                     err.addSuppressed(RelationalException.convert(re));
                 } else {
@@ -92,47 +94,47 @@ public class RecordStoreConnection implements DatabaseConnection {
             err = new RelationalException("No transaction to commit", ErrorCode.TRANSACTION_INACTIVE);
         }
         if (err != null) {
-            throw err;
+            throw err.toSqlException();
         }
     }
 
     @Override
-    public void rollback() throws RelationalException {
+    public void rollback() throws SQLException {
         RelationalException err = null;
         if (transaction != null) {
             try {
                 transaction.close();
-            } catch (RuntimeException re) {
+            } catch (RuntimeException | RelationalException re) {
                 err = RelationalException.convert(re);
             }
             transaction = null;
             usingAnExistingTransaction = false;
         }
         if (err != null) {
-            throw err;
+            throw err.toSqlException();
         }
     }
 
     @Override
-    public void setSchema(String schema) throws RelationalException {
+    public void setSchema(String schema) throws SQLException {
         //open the correct record store
         this.currentSchemaLabel = schema;
         //TODO(bfines) validate that this schema exists
     }
 
     @Override
-    public String getSchema() throws RelationalException {
+    public String getSchema() {
         return currentSchemaLabel;
     }
 
     @Override
-    public void close() throws RelationalException {
+    public void close() throws SQLException {
         rollback();
     }
 
     @Override
     @Nonnull
-    public RelationalDatabaseMetaData getMetaData() throws RelationalException {
+    public RelationalDatabaseMetaData getMetaData() throws SQLException {
         return new RecordLayerMetaData(this, frl.getKeySpace());
     }
 

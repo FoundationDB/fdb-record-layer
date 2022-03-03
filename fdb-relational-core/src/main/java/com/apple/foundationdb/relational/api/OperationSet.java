@@ -23,8 +23,8 @@ package com.apple.foundationdb.relational.api;
 import java.util.function.Consumer;
 
 @FunctionalInterface
-public interface OperationSet extends Consumer<DatabaseConnection> {
+public interface OperationSet extends Consumer<RelationalConnection> {
 
     @Override
-    void accept(DatabaseConnection databaseConnection);
+    void accept(RelationalConnection databaseConnection);
 }

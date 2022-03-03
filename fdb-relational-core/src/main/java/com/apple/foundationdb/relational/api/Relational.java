@@ -32,15 +32,15 @@ import javax.annotation.Nullable;
 public final class Relational {
     private static final CopyOnWriteArrayList<RelationalDriver> registeredDrivers = new CopyOnWriteArrayList<>();
 
-    public static DatabaseConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
+    public static RelationalConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
         return connect(url, null, connectionOptions);
     }
 
-    public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException {
+    public static RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException {
         return connect(url, existingTransaction, TransactionConfig.DEFAULT, connectionOptions);
     }
 
-    public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
+    public static RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
         //all connection URLs should start with "rlsc" to represent "relational layer service connection",
         // so we strip that out from the URI and pass the remainder in
         String scheme = url.getScheme();

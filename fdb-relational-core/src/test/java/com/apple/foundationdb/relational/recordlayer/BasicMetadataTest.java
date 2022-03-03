@@ -24,16 +24,16 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.relational.api.DatabaseConnection;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -44,10 +44,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for our basic ability to get Table and Database Metadata from the Connection.
@@ -76,83 +75,67 @@ public class BasicMetadataTest {
 
     @Test
     void canGetSchemasForDatabase() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
 
             final RelationalResultSet schemas = metaData.getSchemas();
             Assertions.assertNotNull(schemas, "Null schemas returned");
-            Set<String> retData = new HashSet<>(2);
+            List<String> retData = new ArrayList<>(2);
             while (schemas.next()) {
-                Assertions.assertEquals("/basic_metadata_test", schemas.getString("db_path"), "Incorrect db path returned!");
-                Assertions.assertTrue(retData.add(schemas.getString("schema_name")), "Saw the same schema twice");
+                Assertions.assertEquals("/basic_metadata_test", schemas.getString("TABLE_CATALOG"), "Incorrect db path returned!");
+                Assertions.assertTrue(retData.add(schemas.getString("TABLE_SCHEM")), "Saw the same schema twice");
             }
-            Set<String> expected = Sets.newHashSet("test", "anotherSchema");
-            Assertions.assertEquals(expected.size(), retData.size(), "Incorrect number of schemas returned");
-            for (String expectedSchema :expected) {
-                Assertions.assertTrue(retData.contains(expectedSchema), "Missing schema <" + expectedSchema + ">");
-            }
-            for (String retSchema :retData) {
-                Assertions.assertTrue(expected.contains(retSchema), "Unexpected schema <" + retSchema + ">");
-            }
+            assertThat(retData).containsExactlyInAnyOrder(new String[]{"anotherSchema", "test"});
         }
     }
 
     @Test
     void canGetTablesForSchema() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
 
-            final RelationalResultSet tables = metaData.getTables("test");
+            final RelationalResultSet tables = metaData.getTables(null, "test", null, null);
             Assertions.assertNotNull(tables, "Null tables returned");
             List<String> retTableNames = new ArrayList<>();
             while (tables.next()) {
-                retTableNames.add(tables.getString("NAME"));
+                retTableNames.add(tables.getString("TABLE_NAME"));
             }
-            List<String> expected = Arrays.asList("RestaurantRecord", "RestaurantReviewer");
-            Assertions.assertEquals(expected.size(), retTableNames.size(), "Did not return the expected number of tables!");
-            for (String table :expected) {
-                Assertions.assertTrue(retTableNames.contains(table), "Did not contain table <" + table + "> in returned results!");
-            }
-            for (String retTable :retTableNames) {
-                Assertions.assertTrue(expected.contains(retTable), "table <" + retTable + "> does not exist in expected list!");
-            }
+            assertThat(retTableNames).containsExactly(new String[]{"RestaurantRecord", "RestaurantReviewer"});
         }
     }
 
     @Test
     void canGetTableColumns() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
 
-            final RelationalResultSet tableData = metaData.getColumns("test", "RestaurantRecord");
-            final Descriptors.Descriptor descriptor = Restaurant.RestaurantRecord.getDescriptor();
-            final List<Descriptors.FieldDescriptor> fields = descriptor.getFields();
-            final Set<String> visitedFields = new HashSet<>();
+            final RelationalResultSet tableData = metaData.getColumns(null, "test", "RestaurantRecord", null);
+            List<Tuple> rows = new ArrayList<>();
             while (tableData.next()) {
-                String fieldName = tableData.getString("NAME");
-                Assertions.assertNotNull(fieldName, "Missing field name!");
-                Assertions.assertTrue(visitedFields.add(fieldName), "Field <" + fieldName + "> has already been visited!");
-
-                Descriptors.FieldDescriptor fd = null;
-                for (Descriptors.FieldDescriptor f : fields) {
-                    if (f.getName().equalsIgnoreCase(fieldName)) {
-                        fd = f;
-                        break;
-                    }
-                }
-                Assertions.assertNotNull(fd, "Field with name <" + fieldName + "> not found in descriptor");
-
-                Assertions.assertEquals(fd.getIndex(), tableData.getLong("INDEX"), "Incorrect index");
+                rows.add(new Tuple()
+                        .add(tableData.getString("TABLE_CAT"))
+                        .add(tableData.getString("TABLE_SCHEM"))
+                        .add(tableData.getString("TABLE_NAME"))
+                        .add(tableData.getString("COLUMN_NAME"))
+                        .add(tableData.getString("TYPE_NAME"))
+                        .add(tableData.getLong("ORDINAL_POSITION")));
             }
+            assertThat(rows).flatExtracting((Tuple t) -> t.getString(0)).containsOnly("/basic_metadata_test");
+            assertThat(rows).flatExtracting((Tuple t) -> t.getString(1)).containsOnly("test");
+            assertThat(rows).flatExtracting((Tuple t) -> t.getString(2)).containsOnly("RestaurantRecord");
+            assertThat(rows).flatExtracting((Tuple t) -> t.getString(3)).isEqualTo(List.of("rest_no", "name", "location", "reviews", "tags", "customer"));
+            assertThat(rows).flatExtracting((Tuple t) -> t.getString(4)).isEqualTo(List.of(
+                    "INT64", "STRING", "Message(COM.APPLE.FOUNDATIONDB.RECORD.TEST4.LOCATION)", "Message(COM.APPLE.FOUNDATIONDB.RECORD.TEST4.RESTAURANTREVIEW)", "Message(COM.APPLE.FOUNDATIONDB.RECORD.TEST4.RESTAURANTTAG)", "STRING"));
+            assertThat(rows).flatExtracting((Tuple t) -> t.getLong(5)).isEqualTo(List.of(0L, 1L, 2L, 3L, 4L, 5L));
         }
     }
 
     @Test
-    void canDescribeTable() throws RelationalException {
-        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
+    void canDescribeTable() throws RelationalException, SQLException {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
 

@@ -28,14 +28,14 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -86,8 +86,8 @@ public class CursorTest {
     }
 
     @Test
-    public void canIterateOverAllResults() throws RelationalException {
-        havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
+    public void canIterateOverAllResults() throws RelationalException, SQLException {
+        havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, RelationalStatement s) -> {
             // 1/2 scan all records
             List<Restaurant.RestaurantRecord> actual = new ArrayList<>();
             try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),
@@ -114,8 +114,8 @@ public class CursorTest {
     }
 
     @Test
-    public void canIterateWithContinuation() throws RelationalException {
-        havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
+    public void canIterateWithContinuation() throws RelationalException, SQLException {
+        havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, RelationalStatement s) -> {
             // 1/2 scan all records
             List<Restaurant.RestaurantRecord> actual = new ArrayList<>();
             RelationalResultSet resultSet = null;
@@ -163,9 +163,9 @@ public class CursorTest {
     }
 
     @Test
-    public void continuationOnEdgesOfRecordCollection() throws RelationalException {
+    public void continuationOnEdgesOfRecordCollection() throws RelationalException, SQLException {
 
-        havingInsertedRecordsDo(3, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
+        havingInsertedRecordsDo(3, (Iterable<Restaurant.RestaurantRecord> records, RelationalStatement s) -> {
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
@@ -218,8 +218,8 @@ public class CursorTest {
     }
 
     @Test
-    public void continuationOnEmptyCollection() throws RelationalException {
-        havingInsertedRecordsDo(0, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
+    public void continuationOnEmptyCollection() throws RelationalException, SQLException {
+        havingInsertedRecordsDo(0, (Iterable<Restaurant.RestaurantRecord> records, RelationalStatement s) -> {
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
@@ -246,11 +246,11 @@ public class CursorTest {
     // helper methods
 
     private void havingInsertedRecordsDo(int numRecords,
-                                         BiConsumer<Iterable<Restaurant.RestaurantRecord>, Statement> test) throws RelationalException {
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
+                                         BiConsumer<Iterable<Restaurant.RestaurantRecord>, RelationalStatement> test) throws RelationalException, SQLException {
+        try (RelationalConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
 
                 // 1/2 add all records to table insert_test.main.Restaurant.RestaurantRecord
                 Iterable<Restaurant.RestaurantRecord> records = Utils.generateRestaurantRecords(numRecords);
@@ -263,7 +263,7 @@ public class CursorTest {
         }
     }
 
-    private Restaurant.RestaurantRecord readFirstRecordWithContinuation(Statement s, Continuation c) throws SQLException, RelationalException {
+    private Restaurant.RestaurantRecord readFirstRecordWithContinuation(RelationalStatement s, Continuation c) throws SQLException, RelationalException {
         RelationalResultSet resultSet = null;
         try {
             TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();

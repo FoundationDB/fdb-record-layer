@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import javax.annotation.Nonnull;
 
 /**
- * There can only be 1 Database object per Connection instance, and it's lifecycle is managed by the connection
+ * There can only be 1 Database object per Connection instance, and its lifecycle is managed by the connection
  * itself.
  */
 @ConnectionScoped

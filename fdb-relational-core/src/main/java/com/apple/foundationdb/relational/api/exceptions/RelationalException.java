@@ -44,11 +44,16 @@ public class RelationalException extends Exception {
     public static RelationalException convert(Throwable re) {
         if (re instanceof RelationalException) {
             return (RelationalException) re;
+        } else if (re instanceof SQLException) {
+            return new RelationalException(re.getMessage(), ErrorCode.get(((SQLException) re).getSQLState()), re);
         }
         return new RelationalException(ErrorCode.UNKNOWN, re);
     }
 
     public SQLException toSqlException() {
+        if (getCause() instanceof SQLException) {
+            return (SQLException) getCause();
+        }
         return new SQLException(getMessage(), getErrorCode().getErrorCode(), this);
     }
 

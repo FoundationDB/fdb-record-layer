@@ -31,9 +31,9 @@ import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Queryable;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -42,6 +42,7 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -53,16 +54,11 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class RecordStoreStatement implements Statement {
+public class RecordStoreStatement implements RelationalStatement {
     private final RecordStoreConnection conn;
 
     public RecordStoreStatement(RecordStoreConnection conn) {
         this.conn = conn;
-    }
-
-    @Override
-    public RelationalResultSet executeQuery(String query, Options options, QueryProperties queryProperties) throws RelationalException {
-        throw new OperationUnsupportedException("No language is currently supported");
     }
 
     @Override
@@ -188,16 +184,16 @@ public class RecordStoreStatement implements Statement {
                     rowCount++;
                 }
             }
-            if (conn.isAutoCommitEnabled()) {
+            if (conn.getAutoCommit()) {
                 conn.commit();
             }
 
-        } catch (RuntimeException re) {
+        } catch (RuntimeException | SQLException re) {
             err = RelationalException.convert(re);
-            if (conn.isAutoCommitEnabled()) {
+            if (conn.getAutoCommit()) {
                 try {
                     conn.rollback();
-                } catch (RelationalException ve) {
+                } catch (SQLException ve) {
                     err.addSuppressed(ve);
                 }
             }
@@ -235,15 +231,15 @@ public class RecordStoreStatement implements Statement {
                     toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
                 }
             }
-            if (conn.isAutoCommitEnabled()) {
+            if (conn.getAutoCommit()) {
                 conn.commit();
             }
-        } catch (RuntimeException re) {
+        } catch (RuntimeException | SQLException re) {
             err = RelationalException.convert(re);
-            if (conn.isAutoCommitEnabled()) {
+            if (conn.getAutoCommit()) {
                 try {
                     conn.rollback();
-                } catch (RelationalException ve) {
+                } catch (SQLException ve) {
                     err.addSuppressed(ve);
                 }
             }
@@ -260,7 +256,7 @@ public class RecordStoreStatement implements Statement {
     }
 
     @Override
-    public void close() throws RelationalException {
+    public void close() throws SQLException {
         //TODO(bfines) implement
     }
 
@@ -268,7 +264,7 @@ public class RecordStoreStatement implements Statement {
     /*private helper methods*/
     private void ensureTransactionActive() throws RelationalException {
         if (!conn.inActiveTransaction()) {
-            if (conn.isAutoCommitEnabled()) {
+            if (conn.getAutoCommit()) {
                 conn.beginTransaction();
             } else {
                 throw new RelationalException("Transaction not begun", ErrorCode.TRANSACTION_INACTIVE);

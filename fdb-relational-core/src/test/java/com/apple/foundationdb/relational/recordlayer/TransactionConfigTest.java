@@ -24,12 +24,12 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.UUID;
 
@@ -66,16 +67,16 @@ public class TransactionConfigTest {
     }
 
     @Test
-    void testRecordInsertionWithTimeOutInConfig() throws RelationalException {
+    void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_transaction_config_test");
-        try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction(testTransactionConfig());
             conn.setSchema("test");
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
                 s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r), Options.create());
-            } catch (RelationalException e) {
+            } catch (RelationalException | SQLException e) {
                 Throwable throwable = e.getCause();
                 String errorMsg = throwable.getMessage();
                 Assertions.assertEquals("Operation aborted because the transaction timed out", errorMsg);

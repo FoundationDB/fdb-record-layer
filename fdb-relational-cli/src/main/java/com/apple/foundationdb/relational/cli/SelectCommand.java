@@ -21,9 +21,9 @@
 package com.apple.foundationdb.relational.cli;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 
 import com.google.protobuf.Message;
 import picocli.CommandLine;
@@ -48,7 +48,7 @@ public class SelectCommand extends CommandWithConnectionAndSchema {
 
     @Override
     public void callInternal() throws Exception {
-        try (Statement s = dbState.getConnection().createStatement()) {
+        try (RelationalStatement s = dbState.getConnection().createStatement()) {
             try (RelationalResultSet recordScan = s.executeScan(TableScan.newBuilder().withTableName(table.substring(Math.max(table.lastIndexOf('.'), table.lastIndexOf('$')) + 1)).build(), Options.create())) {
                 List<String> results = new ArrayList<>();
                 while (recordScan.next()) {

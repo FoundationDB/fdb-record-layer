@@ -24,13 +24,13 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Queryable;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.WhereClause;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -73,10 +73,10 @@ public class QueryTest {
 
     @Test
     void canExecuteABasicQuery() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
-            try (Statement s = dbConn.createStatement()) {
+            try (RelationalStatement s = dbConn.createStatement()) {
                 int cnt = s.executeInsert("RestaurantRecord", Collections.singleton(rec), Options.create());
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
@@ -92,10 +92,10 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumns() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
-            try (Statement s = dbConn.createStatement()) {
+            try (RelationalStatement s = dbConn.createStatement()) {
                 int cnt = s.executeInsert("RestaurantRecord", Collections.singleton(rec), Options.create());
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
@@ -115,10 +115,10 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumnsWithSimpleWhereClause() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
-            try (Statement s = dbConn.createStatement()) {
+            try (RelationalStatement s = dbConn.createStatement()) {
                 int cnt = s.executeInsert("RestaurantRecord", Collections.singleton(rec), Options.create());
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
@@ -135,10 +135,10 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumnsWithOrClause() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
-            try (Statement s = dbConn.createStatement()) {
+            try (RelationalStatement s = dbConn.createStatement()) {
                 int cnt = s.executeInsert("RestaurantRecord", Collections.singleton(rec), Options.create());
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
@@ -157,10 +157,10 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumnsWithAndClause() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
-            try (Statement s = dbConn.createStatement()) {
+            try (RelationalStatement s = dbConn.createStatement()) {
                 int cnt = s.executeInsert("RestaurantRecord", Collections.singleton(rec), Options.create());
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 

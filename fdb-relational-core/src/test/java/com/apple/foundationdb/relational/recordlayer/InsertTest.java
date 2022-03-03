@@ -27,14 +27,14 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
-import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -82,10 +82,10 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
                 int inserted = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
@@ -178,14 +178,14 @@ public class InsertTest {
     }
 
     @Test
-    void cannotInsertWithIncorrectTypeForRecord() throws RelationalException {
+    void cannotInsertWithIncorrectTypeForRecord() throws RelationalException, SQLException {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
                 RelationalAssertions.assertThrowsRelationalException(
@@ -196,14 +196,14 @@ public class InsertTest {
     }
 
     @Test
-    void cannotInsertWithMissingSchema() throws RelationalException {
+    void cannotInsertWithMissingSchema() throws RelationalException, SQLException {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
             conn.setSchema("doesNotExist");
             conn.beginTransaction();
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
                 RelationalAssertions.assertThrowsRelationalException(() -> {

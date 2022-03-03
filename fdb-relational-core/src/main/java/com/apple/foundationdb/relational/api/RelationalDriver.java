@@ -31,11 +31,11 @@ import javax.annotation.Nullable;
  * A Driver which is used to connect to a Relational Database.
  */
 public interface RelationalDriver {
-    default DatabaseConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
+    default RelationalConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
         return connect(url, null, TransactionConfig.DEFAULT, connectionOptions);
     }
 
-    default DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException {
+    default RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException {
         return connect(url, existingTransaction, TransactionConfig.DEFAULT, connectionOptions);
     }
 
@@ -45,12 +45,12 @@ public interface RelationalDriver {
      * @param url                 the url path for the database structure.
      * @param connectionOptions   connection options that can be used to configure the connection
      * @param existingTransaction the existing Transaction for this connection to reuse
-     * @param transactionConfig   the default TransactionConfig for the transactions opened based on this DatabaseConnection, if no config specified when opening
+     * @param transactionConfig   the default TransactionConfig for the transactions opened based on this RelationalConnection, if no config specified when opening
      * @return a connection to the specified database
      * @throws RelationalException if something goes wrong during opening the database (for example, if no
      *                           database can be found in the catalog for the specified database url)
      */
-    DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException;
+    RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException;
 
     /**
      * Get the major version of the Relational Driver.

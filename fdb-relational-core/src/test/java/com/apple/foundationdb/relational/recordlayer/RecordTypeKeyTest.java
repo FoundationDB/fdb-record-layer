@@ -27,14 +27,14 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
-import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -85,10 +85,10 @@ public class RecordTypeKeyTest {
 
     @Test
     void testPrimaryKeyWithOnlyRecordTypeKey() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();
-            try (Statement s = dbConn.createStatement()) {
+            try (RelationalStatement s = dbConn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
                 int count = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
@@ -116,11 +116,11 @@ public class RecordTypeKeyTest {
     }
 
     @Test
-    void testScanningWithUnknownKeys() throws RelationalException {
-        try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
+    void testScanningWithUnknownKeys() throws RelationalException, SQLException {
+        try (RelationalConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();
-            try (Statement s = dbConn.createStatement()) {
+            try (RelationalStatement s = dbConn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
                 int count = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
@@ -141,10 +141,10 @@ public class RecordTypeKeyTest {
 
     @Test
     void canGetWithRecordTypeInPrimaryKey() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();
-            try (Statement s = dbConn.createStatement()) {
+            try (RelationalStatement s = dbConn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setId(id).setName("review_1").build();
                 int count = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer), Options.create());
@@ -163,10 +163,10 @@ public class RecordTypeKeyTest {
 
     @Test
     void canGetWithRecordTypeKeyIndex() throws RelationalException, SQLException {
-        try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(dbUrl, Options.create())) {
             dbConn.setSchema("main");
             dbConn.beginTransaction();
-            try (Statement s = dbConn.createStatement()) {
+            try (RelationalStatement s = dbConn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
                 int count = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());

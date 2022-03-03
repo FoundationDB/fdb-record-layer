@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import java.sql.SQLException;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -133,15 +134,19 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     void validate() throws RelationalException {
-        if (!this.conn.inActiveTransaction()) {
-            this.conn.beginTransaction();
-            try {
+        try {
+            if (!this.conn.inActiveTransaction()) {
+                this.conn.beginTransaction();
+                try {
+                    loadRecordType();
+                } finally {
+                    this.conn.rollback();
+                }
+            } else {
                 loadRecordType();
-            } finally {
-                this.conn.rollback();
             }
-        } else {
-            loadRecordType();
+        } catch (SQLException e) {
+            throw RelationalException.convert(e);
         }
     }
 

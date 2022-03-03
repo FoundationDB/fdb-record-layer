@@ -24,14 +24,14 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -74,10 +74,10 @@ public class RecordLayerTableTest {
     @Test
     void canInsertAndGetASingleRecord() throws RelationalException, SQLException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
-        try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
                 int insertCount = s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r), Options.create());
@@ -106,10 +106,10 @@ public class RecordLayerTableTest {
     @Test
     void canDeleteASingleRecord() throws RelationalException, SQLException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
-        try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
                 int insertCount = s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r), Options.create());
@@ -147,10 +147,10 @@ public class RecordLayerTableTest {
     @Test
     void canInsertAndScanASingleRecordFromIndex() throws Exception {
         URI uri = URI.create("rlsc:embed:/record_layer_table_test");
-        try (DatabaseConnection conn = Relational.connect(uri, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(uri, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
                 int insertCount = s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r), Options.create());
@@ -178,10 +178,10 @@ public class RecordLayerTableTest {
     @Test
     void canInsertAndScanASingleRecord() throws Exception {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
-        try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
                 int insertCount = s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r), Options.create());
@@ -209,11 +209,11 @@ public class RecordLayerTableTest {
     void demo() throws RelationalException, SQLException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
 
-        try (DatabaseConnection conn = Relational.connect(dbUrl, null, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(dbUrl, null, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
             //create a statement to execute against
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
                 int insertCount = s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r), Options.create());

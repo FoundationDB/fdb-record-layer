@@ -116,7 +116,7 @@ public class RecordLayerSchema implements DatabaseSchema {
     /*package-private helper methods*/
     FDBRecordStore loadStore() throws RelationalException {
         if (!this.conn.inActiveTransaction()) {
-            if (this.conn.isAutoCommitEnabled()) {
+            if (this.conn.getAutoCommit()) {
                 this.conn.beginTransaction();
             } else {
                 throw new RelationalException("cannot load schema without an active transaction",

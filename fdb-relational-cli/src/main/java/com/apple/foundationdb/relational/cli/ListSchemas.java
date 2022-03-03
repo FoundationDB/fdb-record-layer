@@ -45,7 +45,7 @@ public class ListSchemas extends CommandWithConnection {
         try (RelationalResultSet schemas = dbState.getConnection().getMetaData().getSchemas()) {
             List<String> results = new ArrayList<>();
             while (schemas.next()) {
-                results.add(schemas.getString("schema_name"));
+                results.add(schemas.getString("TABLE_SCHEM"));
             }
             Utils.tabulate(spec.commandLine().getOut(), dbState.isPrettyPrint(), dbState.getDelimiter(), results);
         }

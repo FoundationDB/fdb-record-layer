@@ -31,14 +31,14 @@ import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
-import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -162,10 +162,10 @@ public class QueryPropertiesTest {
 
     List<Long> testScan(QueryProperties queryProperties, long firstRestNo) throws RelationalException, SQLException {
         final URI dbUrl = URI.create("rlsc:embed:/record_layer_query_properties_test");
-        try (DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
-            try (Statement s = conn.createStatement()) {
+            try (RelationalStatement s = conn.createStatement()) {
                 long id1 = firstRestNo;
                 Restaurant.RestaurantRecord r1 = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id1).setRestNo(id1).build();
                 s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r1), Options.create());
