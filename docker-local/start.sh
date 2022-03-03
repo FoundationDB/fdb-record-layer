@@ -82,7 +82,7 @@ ln -s libfdb_c_${FDB_VERSION}.${SO_SUFFIX} libfdb_c.${SO_SUFFIX}
 cd ../docker-local
 FDB_VERSION=$FDB_VERSION FDB_PORT=$FDB_PORT docker-compose up --detach fdb
 
-if ! ${RUNDIR}/fdbcli -C $FDB_CLUSTER_FILE --exec status --timeout 1 ; then
+if ! ${RUNDIR}/fdbcli -C $FDB_CLUSTER_FILE --exec status --timeout 1 2>/dev/null ; then
     if ! ${RUNDIR}/fdbcli -C $FDB_CLUSTER_FILE --exec "configure new single memory ; status" --timeout 10 ; then 
         echo "Unable to configure new FDB cluster."
         exit 1
