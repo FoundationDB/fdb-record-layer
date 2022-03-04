@@ -205,30 +205,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         // don't to layout hinting as GraphViz doesn't do a good job on left to right if the graph is not a tree
         // but a DAG.
         //
-        final var nodesReachable = Sets.newHashSet();
-
-        for (final var childrenEdge : childrenEdges) {
-            final var child = network.incidentNodes(childrenEdge).nodeU();
-            final var queue = new ArrayDeque<N>();
-            queue.push(child);
-
-            final var nodesReachableForChild = Sets.<N>newHashSet();
-            while (queue.peek() != null) {
-                final var currentNode = queue.poll();
-                final var predecessors = network.predecessors(currentNode);
-                for (final var predecessor : predecessors) {
-                    if (nodesReachableForChild.add(predecessor)) {
-                        queue.push(predecessor);
-                    }
-                }
-            }
-
-            if (Sets.intersection(nodesReachable, nodesReachableForChild).isEmpty()) {
-                nodesReachable.addAll(nodesReachableForChild);
-            } else {
-                // there are CSEs and we shouldn't do left to right layout hinting
-                return;
-            }
+        if (hasCommonSubexpressions(network, childrenEdges)) {
+            return;
         }
 
         final Optional<List<E>> orderedChildrenEdgesOptional =
@@ -264,6 +242,35 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                     ImmutableMap.of("color", Attribute.dot("red"), "style", Attribute.dot("invis")));
             out.println(indentation + "}");
         }
+    }
+
+    private boolean hasCommonSubexpressions(final ImmutableNetwork<N, E> network, final Set<E> childrenEdges) {
+        final var nodesReachable = Sets.newHashSet();
+
+        for (final var childrenEdge : childrenEdges) {
+            final var child = network.incidentNodes(childrenEdge).nodeU();
+            final var queue = new ArrayDeque<N>();
+            queue.push(child);
+
+            final var nodesReachableForChild = Sets.<N>newHashSet();
+            while (queue.peek() != null) {
+                final var currentNode = queue.poll();
+                final var predecessors = network.predecessors(currentNode);
+                for (final var predecessor : predecessors) {
+                    if (nodesReachableForChild.add(predecessor)) {
+                        queue.push(predecessor);
+                    }
+                }
+            }
+
+            if (Sets.intersection(nodesReachable, nodesReachableForChild).isEmpty()) {
+                nodesReachable.addAll(nodesReachableForChild);
+            } else {
+                // there are CSEs and we shouldn't do left to right layout hinting
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

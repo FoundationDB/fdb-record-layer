@@ -284,7 +284,7 @@ public interface MatchCandidate {
         if (commonPrimaryKey != null) {
             final var availableRecordTypes = metaData.getRecordTypes().keySet();
             final var baseRef = createBaseRef(availableRecordTypes, recordTypes);
-            final PrimaryAccessExpansionVisitor expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
+            final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, isReverse));
         }
 
@@ -292,7 +292,7 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    static GroupExpressionRef<? extends RelationalExpression> createBaseRef(@Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
+    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
         final var quantifier =
                 Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
         return GroupExpressionRef.of(new LogicalTypeFilterExpression(recordTypesForIndex, quantifier));

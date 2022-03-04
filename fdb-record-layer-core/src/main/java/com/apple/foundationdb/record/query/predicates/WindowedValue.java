@@ -44,10 +44,10 @@ public abstract class WindowedValue implements Value {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Windowed-Value");
 
     @Nonnull
-    private final List<? extends Value> partitioningValues;
+    private final List<Value> partitioningValues;
 
     @Nonnull
-    private final List<? extends Value> argumentValues;
+    private final List<Value> argumentValues;
 
     protected WindowedValue(@Nonnull Iterable<? extends Value> partitioningValues,
                             @Nonnull Iterable<? extends Value> argumentValues) {
@@ -57,12 +57,12 @@ public abstract class WindowedValue implements Value {
     }
 
     @Nonnull
-    public List<? extends Value> getPartitioningValues() {
+    public List<Value> getPartitioningValues() {
         return partitioningValues;
     }
 
     @Nonnull
-    public List<? extends Value> getArgumentValues() {
+    public List<Value> getArgumentValues() {
         return argumentValues;
     }
 
@@ -73,14 +73,14 @@ public abstract class WindowedValue implements Value {
     }
 
     @Nonnull
-    protected Pair<List<? extends Value>, List<? extends Value>> splitNewChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+    protected Pair<List<Value>, List<Value>> splitNewChildren(@Nonnull final Iterable<? extends Value> newChildren) {
         // We need to split the partitioning and the argument columns by position.
         final Iterator<? extends Value> newChildrenIterator = newChildren.iterator();
 
         final var newPartitioningValues =
-                ImmutableList.copyOf(Iterators.limit(newChildrenIterator, partitioningValues.size()));
+                ImmutableList.<Value>copyOf(Iterators.limit(newChildrenIterator, partitioningValues.size()));
         final var newArgumentValues =
-                ImmutableList.copyOf(newChildrenIterator);
+                ImmutableList.<Value>copyOf(newChildrenIterator);
         return Pair.of(newPartitioningValues, newArgumentValues);
     }
 
