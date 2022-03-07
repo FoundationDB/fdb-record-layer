@@ -65,18 +65,24 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return this;
     }
 
+    /**
+     * Returns the {@link Type} of the scalar value output.
+     * @return The {@link Type} of the scalar value output.
+     */
     @Nonnull
     @Override
     default Type getResultType() {
         return Type.primitiveType(Type.TypeCode.UNKNOWN);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Nonnull
     @Override
     default String explain(@Nonnull final Formatter formatter) {
-        // TODO
-        return "<not done yet>";
-        // throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
+        // TODO: provide implementation.
+        throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
     }
 
     @Nullable
