@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -293,8 +293,7 @@ public interface Type {
         TUPLE(List.class, null, false, false),
         RECORD(Message.class, null, false, false),
         ARRAY(Array.class, null, false, false),
-        STREAM(null, null, false, false),
-        FUNCTION(null, null, false, false);
+        RELATION(null, null, false, false);
 
         /**
          * Java {@link Class} that corresponds to the {@link TypeCode}.
@@ -501,97 +500,6 @@ public interface Type {
     }
 
     /**
-     * A functional {@link Type} that has an optional list of argument {@link Type} and a return {@link Type}.
-     */
-    class Function implements Type {
-        @Nullable
-        private final List<Type> parameterTypes;
-
-        @Nullable
-        private final Type resultType;
-
-        public Function() {
-            this(null, null);
-        }
-
-        public Function(@Nullable final List<Type> parameterTypes, @Nullable final Type resultType) {
-            this.parameterTypes = parameterTypes == null ? null : ImmutableList.copyOf(parameterTypes);
-            this.resultType = resultType;
-        }
-
-        @Override
-        public TypeCode getTypeCode() {
-            return TypeCode.FUNCTION;
-        }
-
-        @Override
-        public Class<?> getJavaClass() {
-            throw new UnsupportedOperationException("should not have been asked");
-        }
-
-        @Override
-        public boolean isNullable() {
-            return false;
-        }
-
-        @Nullable
-        public List<Type> getParameterTypes() {
-            return parameterTypes;
-        }
-
-        @Nullable
-        public Type getResultType() {
-            return resultType;
-        }
-
-        public boolean isErased() {
-            return getParameterTypes() == null;
-        }
-
-        @Nullable
-        @Override
-        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
-            throw new UnsupportedOperationException("type function cannot be represented in protobuf");
-        }
-
-        @Override
-        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                  final int fieldIndex,
-                                  @Nonnull final String fieldName,
-                                  @Nonnull final String typeName,
-                                  @Nonnull final FieldDescriptorProto.Label label) {
-            throw new UnsupportedOperationException("type function cannot be represented in protobuf");
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable());
-        }
-
-        @Override
-        public boolean equals(final Object obj) {
-            if (obj == null) {
-                return false;
-            }
-
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-
-            final Type otherType = (Type)obj;
-
-            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
-        }
-
-        @Override
-        public String toString() {
-            return isErased()
-                   ? getTypeCode().toString()
-                   : getTypeCode() + ":(" + Objects.requireNonNull(getParameterTypes()).stream().map(Object::toString).collect(Collectors.joining(", ")) + ") -> " + getResultType();
-        }
-    }
-
-    /**
      * A structured {@link Type} that contains a list of {@link Field} types.
      */
     class Record implements Type {
@@ -780,6 +688,7 @@ public interface Type {
          *
          * @return a new erased {@link Record} type instance.
          */
+        @Nonnull
         public static Record erased() {
             return new Record(true,  null);
         }
@@ -790,6 +699,7 @@ public interface Type {
          * @param fields The list of {@link Field}s used to create the new {@link Record} type instance.
          * @return a new <i>nullable</i> {@link Record} type instance using the given list of {@link Field}s.
          */
+        @Nonnull
         public static Record fromFields(@Nonnull final List<Field> fields) {
             return fromFields(true, fields);
         }
@@ -801,6 +711,7 @@ public interface Type {
          * @param fields The list of {@link Field}s used to create the new {@link Record} type instance.
          * @return a new {@link Record} type instance using the given list of {@link Field}s.
          */
+        @Nonnull
         public static Record fromFields(final boolean isNullable, @Nonnull final List<Field> fields) {
             return new Record(isNullable, fields);
         }
@@ -813,7 +724,8 @@ public interface Type {
          * @return a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          */
-        public static Record fromFieldDescriptorsMap(final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
+        @Nonnull
+        public static Record fromFieldDescriptorsMap(@Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
             return fromFieldDescriptorsMap(true, fieldDescriptorMap);
         }
 
@@ -826,7 +738,8 @@ public interface Type {
          * @return a new {@link Record} type instance using the given map of field names to their protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          */
-        public static Record fromFieldDescriptorsMap(final boolean isNullable, final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
+        @Nonnull
+        public static Record fromFieldDescriptorsMap(final boolean isNullable, @Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
             final ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
             for (final Map.Entry<String, Descriptors.FieldDescriptor> entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final Descriptors.FieldDescriptor fieldDescriptor = entry.getValue();
@@ -863,6 +776,7 @@ public interface Type {
          * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise <code>false</code>.
          * @return A {@link Type} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
          */
+        @Nonnull
         private static Type fromProtoType(@Nullable Descriptors.Descriptor descriptor,
                                           @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                           @Nonnull FieldDescriptorProto.Label protoLabel,
@@ -906,6 +820,7 @@ public interface Type {
          * @param descriptor The protobuf {@link com.google.protobuf.Descriptors.Descriptor} to translate.
          * @return A {@link Record} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
          */
+        @Nonnull
         public static Record fromDescriptor(final Descriptors.Descriptor descriptor) {
             return fromFieldDescriptorsMap(toFieldDescriptorMap(descriptor.getFields()));
         }
@@ -918,7 +833,7 @@ public interface Type {
          * @return Optionally, a field that can be used as an array element type.
          */
         @Nonnull
-        private static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(final Descriptors.Descriptor descriptor) {
+        private static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(@Nonnull final Descriptors.Descriptor descriptor) {
             final List<Descriptors.FieldDescriptor> fields = descriptor.getFields();
             if (fields.size() == 1) {
                 final Descriptors.FieldDescriptor field0 = fields.get(0);
@@ -1142,7 +1057,7 @@ public interface Type {
          */
         @Override
         public TypeCode getTypeCode() {
-            return TypeCode.STREAM;
+            return TypeCode.RELATION;
         }
 
         /**

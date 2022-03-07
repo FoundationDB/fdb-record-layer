@@ -1,9 +1,9 @@
 /*
- * Atom.java
+ * Typed.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Optional;
 
 /**
@@ -60,60 +59,5 @@ public interface Typed {
      * @return a human-friendly textual representation of both the type-producing instance and its result set {@link Type}.
      */
     @Nonnull
-    String explain(@Nonnull final Formatter formatter);
-
-    /**
-     * Utility class for producing {@link Type} information of a given literal object.
-     */
-    class TypedLiteral implements Typed {
-        /**
-         * The {@link Type} of the literal.
-         */
-        @Nonnull
-        private final Type resultType;
-
-        /**
-         * The literal.
-         */
-        @Nullable
-        private final Object value;
-
-        /**
-         * Creates a instance that automatically wraps {@link Type} information of a literal.
-         *
-         * @param resultTypeCode The literal type code.
-         * @param value the literal.
-         */
-        public TypedLiteral(@Nonnull final Type.TypeCode resultTypeCode, @Nullable final Object value) {
-            this.resultType = Type.primitiveType(resultTypeCode);
-            this.value = value;
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Nonnull
-        @Override
-        public Type getResultType() {
-            return resultType;
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Nonnull
-        @Override
-        public String explain(@Nonnull final Formatter formatter) {
-            throw new UnsupportedOperationException("should not be called");
-        }
-
-        /**
-         * Returns the literal.
-         * @return The literal.
-         */
-        @Nullable
-        public Object getValue() {
-            return value;
-        }
-    }
+    String describe(@Nonnull final Formatter formatter);
 }

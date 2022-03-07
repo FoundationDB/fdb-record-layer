@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,9 +37,12 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
- * A value representing the quantifier as an object.
+ * An {@link OrdinalFieldValue} accesses the n-th field of a tuple-{@link Type}'d child.
  *
- * For example, this is used to represent non-nested repeated fields.
+ * For example:
+ *   if the child <code>c</code> has a tuple type comprising three fields <code>{f[0]:String, f[1]:String, f[2]:Float}</code>,
+ *   and we define <code>o = OrdinalFieldValue(c,1)</code>, then calling <code>c.eval</code> on this message
+ *   <code>{'foo', 'bar', 3.14}</code> returns <code>'bar'</code>.
  */
 @API(API.Status.EXPERIMENTAL)
 public class OrdinalFieldValue implements ValueWithChild {
@@ -83,8 +86,8 @@ public class OrdinalFieldValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return child.explain(formatter) + "#" + ordinalPosition;
+    public String describe(@Nonnull final Formatter formatter) {
+        return child.describe(formatter) + "#" + ordinalPosition;
     }
 
     @SuppressWarnings("ConstantConditions")

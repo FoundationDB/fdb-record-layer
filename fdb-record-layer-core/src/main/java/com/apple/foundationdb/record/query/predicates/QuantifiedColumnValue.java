@@ -77,7 +77,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
+    public String describe(@Nonnull final Formatter formatter) {
         return formatter.getQuantifierName(alias) + "#" + ordinalPosition;
     }
 
@@ -153,6 +153,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nonnull
     public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal) {
+        // TODO get record type information.
         return new QuantifiedColumnValue(alias, ordinal, Type.Record.erased());
     }
 

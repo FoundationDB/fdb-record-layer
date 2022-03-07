@@ -123,7 +123,7 @@ public class LiteralValue<T> implements LeafValue {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
+    public String describe(@Nonnull final Formatter formatter) {
         return formatLiteral(resultType, Comparisons.toPrintable(value));
     }
 
@@ -168,8 +168,7 @@ public class LiteralValue<T> implements LeafValue {
                 case TUPLE: // fallthrough
                 case RECORD: // fallthrough
                 case ARRAY: // fallthrough
-                case STREAM: // fallthrough
-                case FUNCTION: // fallthrough
+                case RELATION: // fallthrough
                 case STRING: // fallthrough
                 default:
                     comparandString = "'" + literal + "'";

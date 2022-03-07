@@ -80,7 +80,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      */
     @Nonnull
     @Override
-    default String explain(@Nonnull final Formatter formatter) {
+    default String describe(@Nonnull final Formatter formatter) {
         throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
     }
 
@@ -223,6 +223,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return narrowedClass.cast(this);
     }
 
+    @Nonnull
     @Override
     default boolean semanticEquals(@Nullable final Object other,
                                    @Nonnull final AliasMap aliasMap) {
