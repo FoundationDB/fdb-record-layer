@@ -84,6 +84,18 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
     }
 
+    /**
+     * evaluates computation of the expression at compile time and returns the result immediately.
+     *
+     * @param context The execution context.
+     * @return The expression output.
+     */
+    @Nullable
+    @SuppressWarnings({"java:S2637", "ConstantConditions"})
+    default Object compileTimeEval(@Nonnull final EvaluationContext context) {
+        return eval(null, context, null, null);
+    }
+
     @Nullable
     <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
 
