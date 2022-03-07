@@ -1242,7 +1242,7 @@ public interface Type {
         private final Type elementType;
 
         /**
-         * Constructs a new <i>nullable</i> array type instance without a value {@link Type}
+         * Constructs a new <i>nullable</i> array type instance without a value {@link Type}.
          */
         public Array() {
             this( null);
