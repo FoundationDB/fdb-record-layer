@@ -20,20 +20,20 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Formatter {
-    private final AtomicInteger quantifierNumber;
-    private final BiMap<CorrelationIdentifier, String> aliasToFormattingNameMap;
-    private final Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap;
+    @Nonnull private final AtomicInteger quantifierNumber;
+    @Nonnull private final BiMap<CorrelationIdentifier, String> aliasToFormattingNameMap;
+    @Nonnull private final Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap;
 
     public Formatter() {
         this.quantifierNumber = new AtomicInteger(0);
@@ -50,13 +50,16 @@ public class Formatter {
         aliasToFormattingNameMap.putIfAbsent(alias, "q" + quantifierNumber.getAndIncrement());
     }
 
+    @SpotBugsSuppressWarnings(value = "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+            justification = "If we get a NP from the map because the key does not exist, a NPE" +
+                            " will be thrown because of Objects.requireNonNull")
     @Nonnull
-    public String getQuantifierName(@Nullable final CorrelationIdentifier alias) {
+    public String getQuantifierName(@Nonnull final CorrelationIdentifier alias) {
         return Objects.requireNonNull(aliasToFormattingNameMap.get(alias));
     }
 
     @Nonnull
-    public Quantifier getQuantifier(@Nullable final CorrelationIdentifier alias) {
+    public Quantifier getQuantifier(@Nonnull final CorrelationIdentifier alias) {
         return Objects.requireNonNull(aliasToQuantifierMap.get(alias));
     }
 }

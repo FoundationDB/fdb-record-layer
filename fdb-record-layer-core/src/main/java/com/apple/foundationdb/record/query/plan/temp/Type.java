@@ -830,7 +830,6 @@ public interface Type {
             final ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
             for (final Map.Entry<String, Descriptors.FieldDescriptor> entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final Descriptors.FieldDescriptor fieldDescriptor = entry.getValue();
-                //final TypeCode typeCode = TypeCode.fromProtobufType(fieldDescriptor.getType());
                 fieldsBuilder.add(
                         new Field(fromProtoType(getMessageTypeIfMessage(fieldDescriptor),
                                 fieldDescriptor.getType(),
@@ -952,7 +951,7 @@ public interface Type {
          * @return A list {@link Value}s with corresponding types of the tuple elements.
          */
         @Nonnull
-        public static List<? extends Value> deconstructTuple(@Nonnull Value tupleValue) {
+        public static List<Value> deconstructTuple(@Nonnull Value tupleValue) {
             Verify.verify(tupleValue.getResultType().getTypeCode() == TypeCode.TUPLE);
             Verify.verify(tupleValue.getResultType() instanceof Record);
             final Record resultType = (Record)tupleValue.getResultType();

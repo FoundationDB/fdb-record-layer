@@ -81,7 +81,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @Nonnull
     @Override
     default String explain(@Nonnull final Formatter formatter) {
-        // TODO: provide implementation.
         throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
     }
 

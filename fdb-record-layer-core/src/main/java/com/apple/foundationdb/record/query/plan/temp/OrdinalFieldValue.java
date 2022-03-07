@@ -90,8 +90,8 @@ public class OrdinalFieldValue implements ValueWithChild {
     @SuppressWarnings("ConstantConditions")
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        final Message childTuple = (Message)child.eval(store, context, record, message);
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> fdbRecord, @Nullable final M message) {
+        final Message childTuple = (Message)child.eval(store, context, fdbRecord, message);
         final Descriptors.Descriptor descriptorForType = childTuple.getDescriptorForType();
         final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
         return childTuple.getField(fieldDescriptor);
