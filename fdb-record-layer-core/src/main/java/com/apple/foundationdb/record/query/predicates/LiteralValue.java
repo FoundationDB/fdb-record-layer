@@ -173,6 +173,7 @@ public class LiteralValue<T> implements LeafValue {
                 case STRING: // fallthrough
                 default:
                     comparandString = "'" + literal + "'";
+                    break;
             }
         } else {
             comparandString = literal;

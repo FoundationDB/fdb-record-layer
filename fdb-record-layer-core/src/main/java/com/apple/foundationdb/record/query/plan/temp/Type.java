@@ -55,6 +55,11 @@ import java.util.stream.Collectors;
  * are equal.
  */
 public interface Type {
+    /**
+     * A map from Java {@link Class} to corresponding {@link TypeCode}.
+     */
+    @Nonnull
+    Supplier<BiMap<Class<?>, TypeCode>> CLASS_TO_TYPE_CODE_SUPPLIER = Suppliers.memoize(TypeCode::computeClassToTypeCodeMap);
 
     /**
      * Returns the {@link TypeCode} of the {@link Type} instance.
@@ -137,11 +142,6 @@ public interface Type {
                        @Nonnull final String typeName,
                        @Nonnull final FieldDescriptorProto.Label label);
 
-    /**
-     * A map from Java {@link Class} to corresponding {@link TypeCode}.
-     */
-    @Nonnull
-    Supplier<BiMap<Class<?>, TypeCode>> CLASS_TO_TYPE_CODE_SUPPLIER = Suppliers.memoize(TypeCode::computeClassToTypeCodeMap);
 
     /**
      * Returns a map from Java {@link Class} to corresponding {@link TypeCode}.
