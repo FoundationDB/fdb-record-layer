@@ -61,7 +61,7 @@ import java.util.function.IntUnaryOperator;
 public interface Debugger {
     /**
      * The thread local variable. This constructor by itself does not set anything within the thread locals of
-     * the lading thread.
+     * the loading thread.
      * TODO make this private when we use Java 11
      */
     ThreadLocal<Debugger> THREAD_LOCAL = new ThreadLocal<>();
@@ -115,6 +115,10 @@ public interface Debugger {
         withDebugger(Debugger::onSetup);
     }
 
+    static void show(@Nonnull final ExpressionRef<? extends RelationalExpression> ref) {
+        withDebugger(debugger -> debugger.onShow(ref));
+    }
+
     static void query(final RecordQuery recordQuery, final PlanContext planContext) {
         withDebugger(debugger -> debugger.onQuery(recordQuery, planContext));
     }
@@ -161,6 +165,8 @@ public interface Debugger {
     void onInstall();
 
     void onSetup();
+
+    void onShow(@Nonnull final ExpressionRef<? extends RelationalExpression> ref);
 
     void onQuery(final RecordQuery recordQuery, final PlanContext planContext);
 

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.google.common.cache.Cache;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -172,6 +173,11 @@ public class PlannerRepl implements Debugger {
         }
 
         reset();
+    }
+
+    @Override
+    public void onShow(@Nonnull final ExpressionRef<? extends RelationalExpression> ref) {
+        PlannerGraphProperty.show(true, ref);
     }
 
     @Override
