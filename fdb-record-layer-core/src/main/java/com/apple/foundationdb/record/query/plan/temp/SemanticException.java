@@ -22,6 +22,9 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Semantic exceptions that could occur e.g. to illegal type conversions, ... etc.
+ */
 public class SemanticException extends RuntimeException {
     private static final long serialVersionUID = 101714053557545076L;
 

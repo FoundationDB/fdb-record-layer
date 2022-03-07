@@ -260,8 +260,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return !otherChildren.hasNext();
     }
 
-
-
     @SuppressWarnings("unused")
     default boolean equalsWithoutChildren(@Nonnull final Value other,
                                           @Nonnull final AliasMap equivalenceMap) {
