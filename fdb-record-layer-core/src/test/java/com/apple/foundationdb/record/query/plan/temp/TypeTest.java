@@ -28,7 +28,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
-import com.google.protobuf.GeneratedMessage;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.Assertions;
@@ -139,7 +138,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "[{index}] test synthesize {0}")
     @ArgumentsSource(ProtobufRandomMessageProvider.class)
-    void recordTypeIsParsable(final String paramTestTitleIgnored, final GeneratedMessage message) throws Exception {
+    void recordTypeIsParsable(final String paramTestTitleIgnored, final Message message) throws Exception {
         final Type.Record recordType = Type.Record.fromDescriptor(message.getDescriptorForType());
         final DescriptorProtos.DescriptorProto descriptorProto = recordType.buildDescriptor("SyntheticDescriptor");
         final Descriptors.FileDescriptor fileDescriptor = Descriptors.FileDescriptor.buildFrom(
