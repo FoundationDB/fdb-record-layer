@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
@@ -36,7 +37,7 @@ public class FDBIndexedRawRecord {
     @Nonnull
     private final IndexEntry indexEntry;
     @Nonnull
-    private final KeyValueAndMappedReqAndResult rawRecord;
+    private final MappedKeyValue rawRecord;
 
     /**
      * Wrap a stored record with an index entry that pointed to it. This method is internal, and it generally
@@ -46,7 +47,7 @@ public class FDBIndexedRawRecord {
      * @param rawRecord the {@link FDBRawRecord} containing the record's data
      */
     @API(API.Status.INTERNAL)
-    public FDBIndexedRawRecord(@Nonnull IndexEntry indexEntry, @Nonnull KeyValueAndMappedReqAndResult rawRecord) {
+    public FDBIndexedRawRecord(@Nonnull IndexEntry indexEntry, @Nonnull MappedKeyValue rawRecord) {
         this.indexEntry = indexEntry;
         this.rawRecord = rawRecord;
     }
@@ -70,7 +71,7 @@ public class FDBIndexedRawRecord {
     }
 
     @Nonnull
-    public KeyValueAndMappedReqAndResult getRawRecord() {
+    public MappedKeyValue getRawRecord() {
         return rawRecord;
     }
 

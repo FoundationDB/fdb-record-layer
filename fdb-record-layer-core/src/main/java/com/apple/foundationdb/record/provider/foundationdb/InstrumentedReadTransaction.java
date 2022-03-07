@@ -242,8 +242,10 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     @Override
-    public AsyncIterable<KeyValue> getRangeAndFlatMap(final KeySelector begin, final KeySelector end, final byte[] rangeHop, final int limit, final boolean isReverse, final StreamingMode streamingMode) {
-        return underlying.getRangeAndFlatMap(begin, end, rangeHop, limit, isReverse, streamingMode);
+    public AsyncIterable<MappedKeyValue> getMappedRange(KeySelector begin, KeySelector end, byte[] mapper, int limit, boolean reverse, StreamingMode mode) {
+        increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
+        return underlying.getMappedRange(begin, end, mapper, limit, reverse, mode);
     }
 
     @Override

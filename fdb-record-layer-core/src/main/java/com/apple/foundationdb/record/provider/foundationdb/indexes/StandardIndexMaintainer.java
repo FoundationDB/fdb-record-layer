@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
@@ -144,7 +145,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 .setScanProperties(scanProperties)
                 .build();
         // Hard cast - this needs to be changed - make IndexPrefetchRangeKeyValueCursor  return ? extends KeyValue and narrow().
-        RecordCursor<KeyValueAndMappedReqAndResult> mappedResults = keyValues.map(kv -> (KeyValueAndMappedReqAndResult)kv);
+        RecordCursor<MappedKeyValue> mappedResults = keyValues.map(kv -> (MappedKeyValue)kv);
         return mappedResults.map(mappedResult -> unpackIndexPrefetchRecord(state.index, mappedResult));
     }
 
@@ -170,7 +171,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Nonnull
-    protected FDBIndexedRawRecord unpackIndexPrefetchRecord(@Nonnull final Index index, KeyValueAndMappedReqAndResult indexKeyValue) {
+    protected FDBIndexedRawRecord unpackIndexPrefetchRecord(@Nonnull final Index index, MappedKeyValue indexKeyValue) {
         IndexEntry indexEntry = new IndexEntry(index, unpackKey(state.indexSubspace, indexKeyValue), decodeValue(indexKeyValue.getValue()));
         return new FDBIndexedRawRecord(indexEntry, indexKeyValue);
     }

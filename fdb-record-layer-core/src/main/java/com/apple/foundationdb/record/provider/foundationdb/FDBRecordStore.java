@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
@@ -1265,10 +1266,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param scanProperties the scam properties to use for the unsplitting
      * @return an instance of {@link FDBRawRecord} reconsrtucted from the given record splits
      */
-    private FDBRawRecord unsplitSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo, final KeyValueAndMappedReqAndResult mappedResult, final ScanProperties scanProperties) {
-        // Hard cast - this should be fixed by the new API from FDB
-        KeyValueAndMappedReqAndResult.GetRangeReqAndResult recordRange = (KeyValueAndMappedReqAndResult.GetRangeReqAndResult)(mappedResult.getMappedReqAndResult());
-        List<KeyValue> recordSplits = recordRange.getResult().getValues();
+    private FDBRawRecord unsplitSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo, final MappedKeyValue mappedResult, final ScanProperties scanProperties) {
+        List<KeyValue> recordSplits = mappedResult.getRangeResult();
         ListCursor<KeyValue> splitCursor = new ListCursor<>(recordSplits, null);
 
         RecordCursor<FDBRawRecord> unsplitRecordCursor = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, splitCursor, false, sizeInfo, scanProperties);

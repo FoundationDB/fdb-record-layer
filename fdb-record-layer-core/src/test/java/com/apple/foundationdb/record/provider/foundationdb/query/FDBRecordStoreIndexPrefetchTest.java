@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorIterator;
-import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -52,6 +51,8 @@ import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,36 +71,162 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Tag(Tags.RequiresFDB)
 class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
-    @Test
-    void testIndexPrefetchWithMockData() throws Exception {
+    //TODO: Add tests with split records
+
+
+    @ParameterizedTest
+    @EnumSource()
+    void indexPrefetchSimpleIndexTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
         complexQuerySetup(null);
 
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").greaterThan(990))
-                // TODO: Need to test with reverse
+                .build();
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setUseIndexPrefetch(useIndexPrefetch)
+                .build());
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder().build();
+        RecordQueryPlan plan = planner.plan(query);
+        int count = 0;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
+                while (cursor.hasNext()) {
+                    long primaryKey = 9 - count;
+                    String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+                    int numValue = 1000 - (int)primaryKey;
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                    count++;
+                }
+            }
+        }
+        assertThat(count, equalTo(10));
+    }
+
+    @ParameterizedTest
+    @EnumSource()
+    void indexPrefetchComplexIndexTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+        complexQuerySetup(null);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("str_value_indexed").equalsValue("even"))
+                .build();
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setUseIndexPrefetch(useIndexPrefetch)
+                .build());
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder().build();
+        RecordQueryPlan plan = planner.plan(query);
+        int count = 0;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
+                while (cursor.hasNext()) {
+                    long primaryKey = count * 2L;
+                    int numValue = 1000 - (int)primaryKey;
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
+                    assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$str_value_indexed", "even"); // we are filtering out all odd entries, so count*2 are the keys of the even ones
+                    count++;
+                }
+            }
+        }
+        assertThat(count, equalTo(50));
+    }
+
+    @ParameterizedTest
+    @EnumSource()
+    void indexPrefetchContinuation(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+        complexQuerySetup(null);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_unique").greaterThan(990))
+                .build();
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setUseIndexPrefetch(useIndexPrefetch)
+                .build());
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setReturnedRowLimit(5)
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        int count = 0;
+        byte[] continuation;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            // First iteration - first 5 records
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
+                while (cursor.hasNext()) {
+                    long primaryKey = 9 - count;
+                    String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+                    int numValue = 1000 - (int)primaryKey;
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                    count++;
+                }
+                assertThat(count, equalTo(5));
+                continuation = cursor.getContinuation();
+            }
+            // Second iteration - last 5 records
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
+                while (cursor.hasNext()) {
+                    long primaryKey = 9 - count;
+                    String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+                    int numValue = 1000 - (int)primaryKey;
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                    count++;
+                }
+                assertThat(count, equalTo(10));
+                continuation = cursor.getContinuation();
+            }
+            // Third iteration - no more values to read
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
+                assertThat(cursor.hasNext(), equalTo(false));
+            }
+        }
+    }
+
+    @Test
+    void indexPrefetchByteLimitNoContinuation() throws Exception {
+        complexQuerySetup(null);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("str_value_indexed").equalsValue("even"))
                 .build();
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH)
                 .build());
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                .setScannedBytesLimit(100)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        int count = 0;
         try (FDBRecordContext context = openContext()) {
-            context.ensureActive().options().setReadYourWritesDisable();
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
-                for (RecordCursorResult<FDBQueriedRecord<Message>> recordResult = cursor.getNext(); recordResult.hasNext(); recordResult = cursor.getNext()) {
-                    assertRecordResult(recordResult, count, "MySimpleRecord$num_value_unique");
-                    count++;
-                }
+            byte[] continuation;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursorIterator = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
+                // We only get one record before hitting the limit
+                FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursorIterator.next());
+                assertRecord(rec, 0, "even", 1000, "MySimpleRecord$str_value_indexed", "even");
+                assertThat(cursorIterator.hasNext(), equalTo(false));
+                assertThat(cursorIterator.getNoNextReason(), equalTo(RecordCursor.NoNextReason.BYTE_LIMIT_REACHED));
+
+                continuation = cursorIterator.getContinuation();
+            }
+            // Execute the plan again with the continuation
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursorIterator = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
+                // We only get one record before hitting the limit
+                assertThat(cursorIterator.hasNext(), equalTo(false));
+                assertThat(cursorIterator.getNoNextReason(), equalTo(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
             }
         }
-
-        assertThat(count, equalTo(5));
     }
 
     @Test
@@ -112,16 +239,14 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan planWithScan = plan(query, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE);
         RecordQueryPlan planWithPrefetch = plan(query, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
-        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .build();
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder().build();
         RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
 
         try (FDBRecordContext context = openContext()) {
-            context.ensureActive().options().setReadYourWritesDisable();
             openSimpleRecordStore(context);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
                 // Will throw exception if plans do not match
+                // This only compares the primary key and not all values
                 List<FDBQueriedRecord<Message>> result = cursor.asList().get();
             }
         }
@@ -147,10 +272,10 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan comparatorPlan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetchAndFallback), primaryKey(), 0, true);
 
-        // This will throw an exception since did not set read-your-writes
+        // This will throw an exception since SNAPSHOT is not supported
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertThrows(RecordCoreException.class, () ->  recordStore.executeQuery(planWithPrefetch, null, executeProperties));
+            assertThrows(UnsupportedOperationException.class, () ->  recordStore.executeQuery(planWithPrefetch, null, executeProperties));
         }
         // This will compare the plans successfully since fallback resorts to the scan plan
         try (FDBRecordContext context = openContext()) {
@@ -188,7 +313,8 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
-                    assertRecord(rec, 9 - count, "MySimpleRecord$num_value_unique");
+                    String strValue = ((count % 2) == 0) ? "even" : "odd";
+                    assertRecord(rec, 9 - count, strValue, 1000-count, "MySimpleRecord$num_value_unique", count);
                     count++;
                 }
             }
@@ -197,135 +323,6 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         assertThat(count, equalTo(10));
     }
 
-    @Test
-    void indexPrefetchSimpleIndexTest() throws Exception {
-        complexQuerySetup(null);
-
-        RecordQuery query = RecordQuery.newBuilder()
-                .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("num_value_unique").greaterThan(990))
-                .build();
-        planner.setConfiguration(planner.getConfiguration()
-                .asBuilder()
-                .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH)
-                .build());
-        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .build();
-        RecordQueryPlan plan = planner.plan(query);
-        int count = 0;
-        try (FDBRecordContext context = openContext()) {
-            context.ensureActive().options().setReadYourWritesDisable();
-            openSimpleRecordStore(context);
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
-                while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
-                    assertRecord(rec, 9 - count, "MySimpleRecord$num_value_unique");
-                    count++;
-                }
-            }
-        }
-
-        assertThat(count, equalTo(10));
-    }
-
-    @Test
-    void indexPrefetchComplexIndexTest() throws Exception {
-        complexQuerySetup(null);
-
-        RecordQuery query = RecordQuery.newBuilder()
-                .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("str_value_indexed").equalsValue("even"))
-                .build();
-        planner.setConfiguration(planner.getConfiguration()
-                .asBuilder()
-                .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH)
-                .build());
-        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .build();
-        RecordQueryPlan plan = planner.plan(query);
-        int count = 0;
-        try (FDBRecordContext context = openContext()) {
-            context.ensureActive().options().setReadYourWritesDisable();
-            openSimpleRecordStore(context);
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
-                while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
-                    assertRecord(rec, count * 2, "MySimpleRecord$str_value_indexed"); // we are filtering out all odd entries, so count*2 are the keys of the even ones
-                    count++;
-                }
-            }
-        }
-
-        assertThat(count, equalTo(50));
-    }
-
-    @Test
-    void indexPrefetchContinuationFails() throws Exception {
-        complexQuerySetup(null);
-
-        RecordQuery query = RecordQuery.newBuilder()
-                .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("str_value_indexed").equalsValue("even"))
-                .build();
-        planner.setConfiguration(planner.getConfiguration()
-                .asBuilder()
-                .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH)
-                .build());
-        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(5)
-                .build();
-        RecordQueryPlan plan = planner.plan(query);
-        try (FDBRecordContext context = openContext()) {
-            context.ensureActive().options().setReadYourWritesDisable();
-            openSimpleRecordStore(context);
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
-                // For now, there is no continuation support.
-                assertThrows(RecordCoreException.class, () -> cursor.hasNext());
-            }
-        }
-    }
-
-    @Test
-    void indexPrefetchByteLimitNoContinuation() throws Exception {
-        complexQuerySetup(null);
-
-        RecordQuery query = RecordQuery.newBuilder()
-                .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("str_value_indexed").equalsValue("even"))
-                .build();
-        planner.setConfiguration(planner.getConfiguration()
-                .asBuilder()
-                .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH)
-                .build());
-        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setScannedBytesLimit(100)
-                .build();
-        RecordQueryPlan plan = planner.plan(query);
-        try (FDBRecordContext context = openContext()) {
-            context.ensureActive().options().setReadYourWritesDisable();
-            openSimpleRecordStore(context);
-            byte[] continuation;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursorIterator = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
-                // We only get one record before hitting the limit
-                FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursorIterator.next());
-                assertRecord(rec, 0, "MySimpleRecord$str_value_indexed");
-                assertThat(cursorIterator.hasNext(), equalTo(false));
-                assertThat(cursorIterator.getNoNextReason(), equalTo(RecordCursor.NoNextReason.BYTE_LIMIT_REACHED));
-
-                continuation = cursorIterator.getContinuation();
-            }
-            // Execute the plan again with the continuation
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursorIterator = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
-                // We only get one record before hitting the limit
-                assertThat(cursorIterator.hasNext(), equalTo(false));
-                assertThat(cursorIterator.getNoNextReason(), equalTo(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
-            }
-        }
-    }
 
     @Nonnull
     private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) {
@@ -340,39 +337,34 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         return recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
     }
 
-    private void assertRecordResult(final RecordCursorResult<FDBQueriedRecord<Message>> recResult, final int i, final String indexName) {
-        assertContinuation(recResult.getContinuation(), i);
-        assertRecord(recResult.get(), i, indexName);
-    }
-
     private void assertContinuation(final RecordCursorContinuation continuation, final int i) {
         int x = 5;
     }
 
-    private void assertRecord(final FDBQueriedRecord<Message> rec, final int i, final String indexName) {
+    private void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, Object indexedValue) {
         IndexEntry indexEntry = rec.getIndexEntry();
         assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
         List<Object> indexElements = indexEntry.getKey().getItems();
         assertThat(indexElements.size(), equalTo(2));
-        assertThat(indexElements.get(0), equalTo((long)(1000 - i)));
-        assertThat(indexElements.get(1), equalTo((long)i));
-        List<Object> primaryKey = indexEntry.getPrimaryKey().getItems();
-        assertThat(primaryKey.size(), equalTo(1));
-        assertThat(primaryKey.get(0), equalTo((long)i));
+        assertThat(indexElements.get(0), equalTo(indexedValue));
+        assertThat(indexElements.get(1), equalTo(primaryKey));
+        List<Object> indexPrimaryKey = indexEntry.getPrimaryKey().getItems();
+        assertThat(indexPrimaryKey.size(), equalTo(1));
+        assertThat(indexPrimaryKey.get(0), equalTo(primaryKey));
 
         FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
-        assertThat(storedRecord.getPrimaryKey().get(0), equalTo((long)i));
+        assertThat(storedRecord.getPrimaryKey().get(0), equalTo(primaryKey));
         assertThat(storedRecord.getRecordType().getName(), equalTo("MySimpleRecord"));
 
         TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
         myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
-        assertThat(myrec.getRecNo(), equalTo((long)i));
-        assertThat(myrec.getStrValueIndexed(), equalTo((i % 2 == 0) ? "even" : "odd"));
-        assertThat(myrec.getNumValueUnique(), equalTo(1000 - i));
+        assertThat(myrec.getRecNo(), equalTo(primaryKey));
+        assertThat(myrec.getStrValueIndexed(), equalTo(strValue));
+        assertThat(myrec.getNumValueUnique(), equalTo(numValue));
 
         FDBRecordVersion version = storedRecord.getVersion();
         assertThat(version.toBytes().length, equalTo(12));
-        assertThat(version.toBytes()[11], equalTo((byte)i));
+        assertThat(version.toBytes()[11], equalTo((byte)primaryKey));
     }
 
     protected void complexQuerySetupWithVersion(RecordMetaDataHook hook, int formatVersion) throws Exception {
