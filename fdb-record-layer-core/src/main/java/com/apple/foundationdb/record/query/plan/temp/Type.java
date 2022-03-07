@@ -44,23 +44,66 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+/**
+ * Provides type information about the output of an expression such as {@link Value} in a QGM.
+ *
+ * Types bear a resemblance to protobuf types; they are either primitive such as <code>boolean</code>, <code>int</code>,
+ * and <code>string</code> or structured such as {@link Record} and {@link Array}. Moreover, it is possible to switch
+ * between a {@link Type} instance and an equivalent protobuf {@link Descriptors} in a lossless manner.
+ *
+ * Finally, {@link Type}s are non-referential, so two structural types are considered equal iff their structures
+ * are equal.
+ */
 public interface Type {
+
+    /**
+     * Returns the {@link TypeCode} of the {@link Type} instance.
+     *
+     * @return The {@link TypeCode} of the {@link Type} instance.
+     */
     TypeCode getTypeCode();
 
+    /**
+     * Returns the corresponding Java {@link Class} of the {@link Type} instance.
+     *
+     * @return the corresponding Java {@link Class} of the {@link Type} instance.
+     */
     default Class<?> getJavaClass() {
         return getTypeCode().getJavaClass();
     }
 
+    /**
+     * Checks whether a {@link Type} is primitive or structured.
+     *
+     * @return <code>true</code> if the {@link Type} is primitive, otherwise <code>false</code>.
+     */
     default boolean isPrimitive() {
         return getTypeCode().isPrimitive();
     }
 
+    /**
+     * Checks whether a {@link Type} is nullable.
+     *
+     * @return <code>true</code> if the {@link Type} is nullable, otherwise <code>false</code>.
+     */
     boolean isNullable();
 
+    /**
+     * Checks whether a {@link Type} is numeric.
+     * @return <code>true</code> if the {@link Type} is numeric, otherwise <code>false</code>.
+     */
     default boolean isNumeric() {
         return getTypeCode().isNumeric();
     }
 
+    /**
+     * Safe-casts the {@link Type} instance to another type.
+     *
+     * @param clazz marker object.
+     * @param <T> The type to cast to.
+     * @return if cast is successful, an {@link Optional} containing the instance cast to {@link T}, otherwise an
+     * empty {@link Optional}.
+     */
     default <T extends Type> Optional<T> narrow(@Nonnull final Class<T> clazz) {
         if (clazz.isInstance(this)) {
             return Optional.of(clazz.cast(this));
@@ -69,35 +112,88 @@ public interface Type {
         }
     }
 
+    /**
+     * Creates a synthetic protobuf descriptor that is equivalent to <code>this</code> {@link Type}.
+     *
+     * @param typeName The name of the descriptor.
+     * @return a syncthetic protobuf descriptor that is equivalent to <code>this</code> {@link Type}.
+     */
     @Nullable
     DescriptorProto buildDescriptor(@Nonnull final String typeName);
 
+    /**
+     * Creates a synthetic protobuf descriptor that is equivalent to the <code>this</code> {@link Type} within a given
+     * protobuf descriptor.
+     *
+     * @param descriptorBuilder The parent descriptor into which the newly created descriptor will be created.
+     * @param fieldIndex The field index of the descriptor.
+     * @param fieldName The field name of the descriptor.
+     * @param typeName The type name of the descriptor.
+     * @param label The label of the descriptor.
+     */
     void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
                        final int fieldIndex,
                        @Nonnull final String fieldName,
                        @Nonnull final String typeName,
                        @Nonnull final FieldDescriptorProto.Label label);
 
+    /**
+     * A map from Java {@link Class} to corresponding {@link TypeCode}.
+     */
     @Nonnull
     Supplier<BiMap<Class<?>, TypeCode>> CLASS_TO_TYPE_CODE_SUPPLIER = Suppliers.memoize(TypeCode::computeClassToTypeCodeMap);
 
+    /**
+     * Returns a map from Java {@link Class} to corresponding {@link TypeCode}.
+     *
+     * @return A map from Java {@link Class} to corresponding {@link TypeCode}.
+     */
     static Map<Class<?>, TypeCode> getClassToTypeCodeMap() {
         return CLASS_TO_TYPE_CODE_SUPPLIER.get();
     }
 
+    /**
+     * Constructs a type name for a given field suffix.
+     *
+     * @param fieldSuffix The field suffix.
+     * @return a type name generated using the field suffix.
+     */
     static String typeName(final Object fieldSuffix) {
         return "__type__" + fieldSuffix;
     }
 
+    /**
+     * Constructs a field name for a given field suffix.
+     *
+     * @param fieldSuffix The field suffix.
+     * @return a field name generated using the field suffix.
+     */
     static String fieldName(final Object fieldSuffix) {
         return "__field__" + fieldSuffix;
     }
 
+    /**
+     * For a given {@link TypeCode}, it returns a corresponding <i>nullable</i> {@link Type}.
+     *
+     * pre-condition: The {@link TypeCode} is primitive.
+     *
+     * @param typeCode The primitive type code.
+     * @return the corresponding {@link Type}.
+     */
     @Nonnull
     static Type primitiveType(@Nonnull final TypeCode typeCode) {
         return primitiveType(typeCode, true);
     }
 
+    /**
+     * For a given {@link TypeCode}, it returns a corresponding {@link Type}.
+     *
+     * pre-condition: The {@link TypeCode} is primitive.
+     *
+     * @param typeCode The primitive type code.
+     * @param isNullable True, if the {@link Type} is supposed to be nullable, otherwise, false.
+     * @return the corresponding {@link Type}.
+     */
     @Nonnull
     static Type primitiveType(@Nonnull final TypeCode typeCode, final boolean isNullable) {
         Verify.verify(typeCode.isPrimitive());
@@ -160,18 +256,30 @@ public interface Type {
         };
     }
 
+    /**
+     * Maps a {@link List} of {@link Typed} instance to a {@link List} of their {@link Type}s.
+     * @param typedList The list of {@link Typed} objects.
+     * @return The list of {@link Type}s.
+     */
     @Nonnull
-    static List<Type> fromAtoms(@Nonnull List<? extends Typed> atom) {
-        return atom.stream()
+    static List<Type> fromTyped(@Nonnull List<? extends Typed> typedList) {
+        return typedList.stream()
                 .map(Typed::getResultType)
                 .collect(ImmutableList.toImmutableList());
     }
 
+    /**
+     * Generates a JVM-wide unique type name.
+     * @return a unique type name.
+     */
     static String uniqueCompliantTypeName() {
         final String safeUuid = UUID.randomUUID().toString().replace('-', '_');
         return "__type__" + safeUuid;
     }
 
+    /**
+     * All supported {@link Type}s.
+     */
     enum TypeCode {
         UNKNOWN(null, null, true, false),
         ANY(Object.class, null, false, false),
@@ -188,14 +296,36 @@ public interface Type {
         STREAM(null, null, false, false),
         FUNCTION(null, null, false, false);
 
+        /**
+         * Java {@link Class} that corresponds to the {@link TypeCode}.
+         */
         @Nullable
         private final Class<?> javaClass;
+
+        /**
+         * Protobuf {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type} descriptor that corresponds
+         * to the {@link TypeCode}.
+         */
         @Nullable
         private final FieldDescriptorProto.Type protoType;
 
+        /**
+         * flag to indicate whether a {@link TypeCode} is primitive or structured.
+         */
         private final boolean isPrimitive;
+
+        /**
+         * flag to indicate whether a {@link TypeCode} is numeric or not.
+         */
         private final boolean isNumeric;
 
+        /**
+         * Construct a new {@link TypeCode} instance.
+         * @param javaClass Java {@link Class} that corresponds to the {@link TypeCode}.
+         * @param protoType Protobuf {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type} descriptor that corresponds
+         * @param isPrimitive <code>true</code> if a {@link TypeCode} is primitive, otherwise <code>false</code>.
+         * @param isNumeric <code>true</code> if a {@link TypeCode} is numeric, otherwise <code>false</code>.
+         */
         TypeCode(@Nullable final Class<?> javaClass,
                  @Nullable final FieldDescriptorProto.Type protoType,
                  final boolean isPrimitive,
@@ -206,24 +336,50 @@ public interface Type {
             this.isNumeric = isNumeric;
         }
 
+        /**
+         * Returns the corresponding Java {@link Class} of the {@link Type} instance.
+         *
+         * @return the corresponding Java {@link Class} of the {@link Type} instance.
+         */
         @Nullable
         public Class<?> getJavaClass() {
             return javaClass;
         }
 
+        /**
+         * Returns the corresponding protobuf {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type} of
+         * the {@link Type} instance.
+         *
+         * @return the corresponding protobuf {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type} of
+         * the {@link Type} instance.
+         */
         @Nullable
         public FieldDescriptorProto.Type getProtoType() {
             return protoType;
         }
 
+        /**
+         * Checks whether a {@link Type} is primitive or structured.
+         *
+         * @return <code>true</code> if the {@link Type} is primitive, otherwise <code>false</code>.
+         */
         public boolean isPrimitive() {
             return isPrimitive;
         }
 
+        /**
+         * Checks whether a {@link Type} is numeric.
+         *
+         * @return <code>true</code> if the {@link Type} is numeric, otherwise <code>false</code>.
+         */
         public boolean isNumeric() {
             return isNumeric;
         }
 
+        /**
+         * Computes a mapping from Java {@link Class} to corresponding {@link TypeCode} instance.
+         * @return a mapping from Java {@link Class} to corresponding {@link TypeCode} instance.
+         */
         @Nonnull
         private static BiMap<Class<?>, TypeCode> computeClassToTypeCodeMap() {
             ImmutableBiMap.Builder<Class<?>, TypeCode> builder = ImmutableBiMap.builder();
@@ -235,6 +391,12 @@ public interface Type {
             return builder.build();
         }
 
+        /**
+         * Generates a {@link TypeCode} that corresponds to the given protobuf
+         * {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type}.
+         * @param protobufType The protobuf type.
+         * @return A corresponding {@link TypeCode} instance.
+         */
         @Nonnull
         public static TypeCode fromProtobufType(@Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
             switch (protobufType) {
@@ -271,23 +433,38 @@ public interface Type {
         }
     }
 
+    /**
+     * Special {@link Type} that is undefined.
+     */
     class Any implements Type {
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public TypeCode getTypeCode() {
             return TypeCode.ANY;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public boolean isNullable() {
             return true;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
             throw new UnsupportedOperationException("type any cannot be represented in protobuf");
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
                                   final int fieldIndex,
@@ -323,6 +500,9 @@ public interface Type {
         }
     }
 
+    /**
+     * A functional {@link Type} that has an optional list of argument {@link Type} and a return {@link Type}.
+     */
     class Function implements Type {
         @Nullable
         private final List<Type> parameterTypes;
@@ -411,16 +591,38 @@ public interface Type {
         }
     }
 
+    /**
+     * A structured {@link Type} that contains a list of {@link Field} types.
+     */
     class Record implements Type {
+        /**
+         * indicates whether the {@link Record} type instance is nullable or not.
+         */
         private final boolean isNullable;
 
+        /**
+         * list of {@link Field} types.
+         */
         @Nullable
         private final List<Field> fields;
+
+        /**
+         * function that returns a mapping betweeen field names and their {@link Type}s.
+         */
         @Nonnull
         private final Supplier<Map<String, Type>> fieldTypeMapSupplier;
+
+        /**
+         * function that returns a list of {@link Field} types.
+         */
         @Nonnull
         private final Supplier<List<Type>> elementTypesSupplier;
 
+        /**
+         * Constructs a new {@link Record} using a list of {@link Field}s.
+         * @param isNullable True if the record type is nullable, otherwise false.
+         * @param fields The list of {@link Record} {@link Field}s.
+         */
         private Record(final boolean isNullable,
                        @Nullable final List<Field> fields) {
             this.isNullable = isNullable;
@@ -429,26 +631,44 @@ public interface Type {
             this.elementTypesSupplier = Suppliers.memoize(this::computeElementTypes);
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public TypeCode getTypeCode() {
             return TypeCode.TUPLE;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public boolean isNullable() {
             return isNullable;
         }
 
+        /**
+         * Returns the list of {@link Record} {@link Field}s.
+         * @return the list of {@link Record} {@link Field}s.
+         */
         @Nullable
         public List<Field> getFields() {
             return fields;
         }
 
+        /**
+         * Returns the list of {@link Field} {@link Type}s.
+         * @return the list of {@link Field} {@link Type}s.
+         */
         @Nullable
         public List<Type> getElementTypes() {
             return elementTypesSupplier.get();
         }
 
+        /**
+         * Computes the list of {@link Field} {@link Type}s.
+         * @return the list of {@link Field} {@link Type}s.
+         */
         private List<Type> computeElementTypes() {
             return Objects.requireNonNull(fields)
                     .stream()
@@ -456,11 +676,19 @@ public interface Type {
                     .collect(ImmutableList.toImmutableList());
         }
 
+        /**
+         * Returns a mapping from {@link Field} names to their {@link Type}s.
+         * @return a mapping from {@link Field} names to their {@link Type}s.
+         */
         @Nullable
         public Map<String, Type> getFieldTypeMap() {
             return fieldTypeMapSupplier.get();
         }
 
+        /**
+         * Computes a mapping from {@link Field} names to their {@link Type}s.
+         * @return a mapping from {@link Field} names to their {@link Type}s.
+         */
         @SuppressWarnings("OptionalGetWithoutIsPresent")
         private Map<String, Type> computeFieldTypeMap() {
             return Objects.requireNonNull(fields)
@@ -468,10 +696,17 @@ public interface Type {
                     .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), Field::getFieldType));
         }
 
+        /**
+         * Checks whether the {@link Record} type instance is erased or not.
+         * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
+         */
         boolean isErased() {
             return fields == null;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
@@ -492,6 +727,9 @@ public interface Type {
             return recordMsgBuilder.build();
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
             descriptorBuilder.addNestedType(buildDescriptor(typeName));
@@ -537,22 +775,57 @@ public interface Type {
                      }).collect(Collectors.joining(", ")) + ")";
         }
 
+        /**
+         * Creates a new erased {@link Record} type instance and returns it.
+         *
+         * @return a new erased {@link Record} type instance.
+         */
         public static Record erased() {
             return new Record(true,  null);
         }
 
+        /**
+         * Creates a new <i>nullable</i> {@link Record} type instance using the given list of {@link Field}s.
+         *
+         * @param fields The list of {@link Field}s used to create the new {@link Record} type instance.
+         * @return a new <i>nullable</i> {@link Record} type instance using the given list of {@link Field}s.
+         */
         public static Record fromFields(@Nonnull final List<Field> fields) {
             return fromFields(true, fields);
         }
 
+        /**
+         * Creates a new {@link Record} type instance using the given list of {@link Field}s.
+         *
+         * @param isNullable True, if the {@link Record} type instance should be nullable, otherwise <code>false</code>.
+         * @param fields The list of {@link Field}s used to create the new {@link Record} type instance.
+         * @return a new {@link Record} type instance using the given list of {@link Field}s.
+         */
         public static Record fromFields(final boolean isNullable, @Nonnull final List<Field> fields) {
             return new Record(isNullable, fields);
         }
 
+        /**
+         * Creates a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
+         * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         *
+         * @param fieldDescriptorMap A map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         * @return a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
+         * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         */
         public static Record fromFieldDescriptorsMap(final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
             return fromFieldDescriptorsMap(true, fieldDescriptorMap);
         }
 
+        /**
+         * Creates a new {@link Record} type instance using the given map of field names to their protobuf
+         * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         *
+         * @param isNullable True, if the {@link Record} type instance should be nullable, otherwise <code>false</code>.
+         * @param fieldDescriptorMap A map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         * @return a new {@link Record} type instance using the given map of field names to their protobuf
+         * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         */
         public static Record fromFieldDescriptorsMap(final boolean isNullable, final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
             final ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
             for (final Map.Entry<String, Descriptors.FieldDescriptor> entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
@@ -570,11 +843,27 @@ public interface Type {
             return fromFields(isNullable, fieldsBuilder.build());
         }
 
+        /**
+         * For a given {@link com.google.protobuf.Descriptors.FieldDescriptor} descriptor, returns the message type descriptor
+         * if the field is a message, otherwise <code>null</code>.
+         *
+         * @param fieldDescriptor The descriptor.
+         * @return the message type descriptor if the field is a message, otherwise <code>null</code>.
+         */
         @Nullable
         private static Descriptors.Descriptor getMessageTypeIfMessage(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
             return fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE ? fieldDescriptor.getMessageType() : null;
         }
 
+        /**
+         * translates a protobuf {@link com.google.protobuf.Descriptors.Descriptor} to a {@link Type}.
+         *
+         * @param descriptor The protobuf descriptor.
+         * @param protoType The protobuf descriptor type.
+         * @param protoLabel The protobuf descriptor label.
+         * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise <code>false</code>.
+         * @return A {@link Type} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
+         */
         private static Type fromProtoType(@Nullable Descriptors.Descriptor descriptor,
                                           @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                           @Nonnull FieldDescriptorProto.Label protoLabel,
@@ -612,10 +901,23 @@ public interface Type {
             throw new IllegalStateException("unable to translate protobuf descriptor to type");
         }
 
+        /**
+         * Translates a protobuf {@link com.google.protobuf.Descriptors.Descriptor} to a corresponding {@link Record} object.
+         *
+         * @param descriptor The protobuf {@link com.google.protobuf.Descriptors.Descriptor} to translate.
+         * @return A {@link Record} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
+         */
         public static Record fromDescriptor(final Descriptors.Descriptor descriptor) {
             return fromFieldDescriptorsMap(toFieldDescriptorMap(descriptor.getFields()));
         }
 
+        /**
+         * Examines the given {@link com.google.protobuf.Descriptors.Descriptor}'s {@link Field}s and returns an {@link Optional}
+         * containing a field that can be used as an array element type, if possible, otherwise, an empty {@link Optional}.
+         *
+         * @param descriptor The {@link com.google.protobuf.Descriptors.Descriptor} to examine.
+         * @return Optionally, a field that can be used as an array element type.
+         */
         @Nonnull
         private static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(final Descriptors.Descriptor descriptor) {
             final List<Descriptors.FieldDescriptor> fields = descriptor.getFields();
@@ -628,6 +930,13 @@ public interface Type {
             return Optional.empty();
         }
 
+        /**
+         * Translates a list of {@link com.google.protobuf.Descriptors.FieldDescriptor}s to a mapping between field name
+         * and the field itself.
+         *
+         * @param fieldDescriptors list of {@link com.google.protobuf.Descriptors.FieldDescriptor}s to map.
+         * @return a mapping between field name and the field itself.
+         */
         @Nonnull
         public static Map<String, Descriptors.FieldDescriptor> toFieldDescriptorMap(@Nonnull final List<Descriptors.FieldDescriptor> fieldDescriptors) {
             return fieldDescriptors
@@ -635,6 +944,13 @@ public interface Type {
                     .collect(ImmutableMap.toImmutableMap(Descriptors.FieldDescriptor::getName, fieldDescriptor -> fieldDescriptor));
         }
 
+        /**
+         * transpose the result type of {@link Value} expression, which is a tuple, into a list {@link Value}s with
+         * corresponding types of the tuple elements.
+         *
+         * @param tupleValue The {@link Value} whose result set we want to transpose.
+         * @return A list {@link Value}s with corresponding types of the tuple elements.
+         */
         @Nonnull
         public static List<? extends Value> deconstructTuple(@Nonnull Value tupleValue) {
             Verify.verify(tupleValue.getResultType().getTypeCode() == TypeCode.TUPLE);
@@ -649,6 +965,12 @@ public interface Type {
             return resultBuilder.build();
         }
 
+        /**
+         * Normalizes a list of {@link Field}s such that their names and indices are consistent.
+         *
+         * @param fields The list of {@link Field}s to normalize.
+         * @return a list of normalized {@link Field}s.
+         */
         @Nonnull
         private static List<Field> normalizeFields(@Nonnull final List<Field> fields) {
             Objects.requireNonNull(fields);
@@ -666,41 +988,83 @@ public interface Type {
             return resultFieldsBuilder.build();
         }
 
+        /**
+         * Represents a field type in a {@link Record} type.
+         */
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
         public static class Field {
+
+            /**
+             * The field {@link Type}.
+             */
             @Nonnull
             private final Type fieldType;
+
+            /**
+             * The field name.
+             */
             @Nonnull
             private final Optional<String> fieldNameOptional;
+
+            /**
+             * The field index.
+             */
             @Nonnull
             private final Optional<Integer> fieldIndexOptional;
 
+            /**
+             * Constructs a new field.
+             *
+             * @param fieldType The field {@link Type}.
+             * @param fieldNameOptional The field name.
+             * @param fieldIndexOptional The field index.
+             */
             private Field(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
                 this.fieldType = fieldType;
                 this.fieldNameOptional = fieldNameOptional;
                 this.fieldIndexOptional = fieldIndexOptional;
             }
 
+            /**
+             * Returns the field {@link Type}.
+             * @return The field {@link Type}.
+             */
             @Nonnull
             public Type getFieldType() {
                 return fieldType;
             }
 
+            /**
+             * Returns the field name.
+             * @return The field name.
+             */
             @Nonnull
             public Optional<String> getFieldNameOptional() {
                 return fieldNameOptional;
             }
 
+            /**
+             * Returns the field name.
+             * @return The field name.
+             */
             @Nonnull
             public String getFieldName() {
                 return getFieldNameOptional().orElseThrow(() -> new RecordCoreException("field name should have been set"));
             }
 
+            /**
+             * Returns the field index.
+             * @return The field index.
+             */
             @Nonnull
             public Optional<Integer> getFieldIndexOptional() {
                 return fieldIndexOptional;
             }
 
+            /**
+             * Returns the field index.
+             * @return The field index.
+             */
             @Nonnull
             public int getFieldIndex() {
                 return getFieldIndexOptional().orElseThrow(() -> new RecordCoreException("field index should have been set"));
@@ -725,58 +1089,109 @@ public interface Type {
                 return Objects.hash(getFieldType(), getFieldNameOptional(), getFieldIndexOptional());
             }
 
+            /**
+             * Constructs a new field.
+             *
+             * @param fieldType The field {@link Type}.
+             * @param fieldNameOptional The field name.
+             * @param fieldIndexOptional The field index.
+             */
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
                 return new Field(fieldType, fieldNameOptional, fieldIndexOptional);
             }
 
+            /**
+             * Constructs a new field.
+             *
+             * @param fieldType The field {@link Type}.
+             * @param fieldNameOptional The field name.
+             */
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional) {
                 return new Field(fieldType, fieldNameOptional, Optional.empty());
             }
         }
     }
 
+    /**
+     * Represents a stream of values.
+     */
     class Stream implements Type {
+        /**
+         * The type of the stream values.
+         */
         @Nullable
         private final Type innerType;
 
+        /**
+         * Constructs a new {@link Stream} object without an value type.
+         */
         public Stream() {
             this(null);
         }
 
+        /**
+         * Constructs a new {@link Stream} object.
+         *
+         * @param innerType The {@code Type} of the stream values.
+         */
         public Stream(@Nullable final Type innerType) {
             this.innerType = innerType;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public TypeCode getTypeCode() {
             return TypeCode.STREAM;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Class<?> getJavaClass() {
             throw new UnsupportedOperationException("should not have been asked");
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public boolean isNullable() {
             return false;
         }
 
+        /**
+         * Returns the values {@link Type}.
+         * @return The values {@link Type}.
+         */
         @Nullable
         public Type getInnerType() {
             return innerType;
         }
 
+        /**
+         * Checks whether the stream type is erased or not.
+         *
+         * @return <code>true</code> if the stream type is erased, otherwise <code>false</code>.
+         */
         boolean isErased() {
             return getInnerType() == null;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
             throw new IllegalStateException("this should not have been called");
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
             throw new IllegalStateException("this should not have been called");
@@ -811,53 +1226,101 @@ public interface Type {
         }
     }
 
+    /**
+     * A type representing an array of elements sharing the same type.
+     */
     class Array implements Type {
+        /**
+         * Whether the array is nullable or not.
+         */
         private final boolean isNullable;
 
+        /**
+         * The type of the array values.
+         */
         @Nullable
         private final Type elementType;
 
+        /**
+         * Constructs a new <i>nullable</i> array type instance without a value {@link Type}
+         */
         public Array() {
             this( null);
         }
 
+        /**
+         * Constructs a new <i>nullable</i> array type instance.
+         *
+         * @param elementType the {@link Type} of the array type elements.
+         */
         public Array(@Nullable final Type elementType) {
             this(true, elementType);
         }
 
+        /**
+         * Constructs a new array type instance.
+         *
+         * @param isNullable <code>true</code> if the array type is nullable, otherwise <code>false</code>.
+         * @param elementType the {@link Type} of the array type elements.
+         */
         public Array(final boolean isNullable, @Nullable final Type elementType) {
             this.isNullable = isNullable;
             this.elementType = elementType;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public TypeCode getTypeCode() {
             return TypeCode.ARRAY;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public Class<?> getJavaClass() {
             return java.util.Collection.class;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public boolean isNullable() {
             return isNullable;
         }
 
+        /**
+         * Returns <code>true</code> if a nested protobuf message is required for the array element type, otherwise <code>false</code>.
+         * @return <code>true</code> if a nested protobuf message is required for the array element type, otherwise <code>false</code>.
+         */
         public boolean definesNestedProto() {
             return needsNestedProto(elementType);
         }
 
+        /**
+         * Returns the array element {@link Type}.
+         * @return The array element {@link Type}.
+         */
         @Nullable
         public Type getElementType() {
             return elementType;
         }
 
+        /**
+         * Checks whether the array type is erased or not.
+         *
+         * @return <code>true</code> if the array type is erased, otherwise <code>false</code>.
+         */
         boolean isErased() {
             return getElementType() == null;
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
@@ -869,6 +1332,9 @@ public interface Type {
             return helperDescriptorBuilder.build();
         }
 
+        /**
+         * {@inheritDoc}
+         */
         @Override
         public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
             Objects.requireNonNull(elementType);
@@ -920,6 +1386,13 @@ public interface Type {
                    : getTypeCode() + "(" + Objects.requireNonNull(getElementType()) + ")";
         }
 
+        /**
+         * Returns <code>true</code> if a nested protobuf message is required for the given type, otherwise <code>false</code>.
+         *
+         * @param elementType the type to check whether a nested protobuf message is required for.
+         *
+         * @return <code>true</code> if a nested protobuf message is required for the given type, otherwise <code>false</code>.
+         */
         public static boolean needsNestedProto(final Type elementType) {
             return Objects.requireNonNull(elementType).isNullable() || elementType.getTypeCode() == TypeCode.ARRAY;
         }
