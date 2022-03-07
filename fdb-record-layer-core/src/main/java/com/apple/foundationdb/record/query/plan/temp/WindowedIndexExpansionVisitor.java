@@ -268,7 +268,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                 Bindings.Internal.CORRELATION.bindingName(baseAlias.toString()), Bindings.Internal.CORRELATION));
         final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
 
-        return GraphExpansion.ofOthers(ImmutableList.of(rankComparisonExpansion, selfJoinPredicateExpansion));
+        return GraphExpansion.ofOthers(rankComparisonExpansion, selfJoinPredicateExpansion);
     }
 
     @Nonnull
@@ -295,7 +295,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var partitioningExpressions = partitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
         final var argumentExpressions = partitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
         final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
-        return GraphExpansion.ofOthers(ImmutableList.of(partitioningAndArgumentExpansion,
-                        GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier)));
+        return GraphExpansion.ofOthers(partitioningAndArgumentExpansion,
+                        GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier));
     }
 }

@@ -125,7 +125,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         switch (fanType) {
             case FanOut:
                 // explode this field and prefixes of this field
-                final Quantifier childBase = fieldKeyExpression.explodeField(baseAlias, fieldNamePrefix);
+                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseAlias, fieldNamePrefix);
                 value = state.registerValue(QuantifiedObjectValue.of(childBase.getAlias()));
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
@@ -136,7 +136,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 }
                 final SelectExpression selectExpression =
                         childExpansion
-                                .buildSelectWithBase(childBase);
+                                .withBase(childBase)
+                                .buildSelect();
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
                 final GraphExpansion.Sealed sealedChildExpansion =
                         childExpansion.seal();
@@ -192,15 +193,16 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
             case FanOut:
                 // explode the parent field(s) also depending on the prefix
-                final Quantifier childBase = parent.explodeField(baseAlias, fieldNamePrefix);
+                final Quantifier.ForEach childBase = parent.explodeField(baseAlias, fieldNamePrefix);
                 // expand the children of the key expression and then unify them into an expansion of this expression
-                final GraphExpansion.Sealed sealedChildExpansion =
-                        pop(child.expand(push(state.withBaseAlias(childBase.getAlias()).withFieldNamePrefix(ImmutableList.of())))).seal();
+                final GraphExpansion childExpansion =
+                        pop(child.expand(push(state.withBaseAlias(childBase.getAlias()).withFieldNamePrefix(ImmutableList.of()))));
+                final GraphExpansion baseAndChildExpansion = childExpansion.withBase(childBase);
+                final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
                 final SelectExpression selectExpression =
-                        sealedChildExpansion
-                                .buildSelectWithBase(childBase);
+                        sealedBaseAndChildExpansion.buildSelect();
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
-                return sealedChildExpansion.derivedWithQuantifier(childQuantifier);
+                return sealedBaseAndChildExpansion.derivedWithQuantifier(childQuantifier);
             case Concatenate:
             default:
                 throw new RecordCoreException("unsupported fan type");

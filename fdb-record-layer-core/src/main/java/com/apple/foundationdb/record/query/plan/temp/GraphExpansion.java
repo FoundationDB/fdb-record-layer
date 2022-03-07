@@ -34,6 +34,7 @@ import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -126,6 +127,11 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         return new GraphExpansion(this.resultValues, ImmutableList.of(predicate), this.quantifiers, this.placeholders);
     }
 
+    @Nonnull
+    public GraphExpansion withBase(@Nonnull final Quantifier.ForEach quantifier) {
+        return GraphExpansion.ofOthers(ofQuantifier(quantifier), this);
+    }
+
     /**
      * Method to <em>seal</em> a graph expansion in an instance of {@link Sealed}. A sealed graph expansion is immutable
      * and can only be used to (repeatedly) build actual expressions.
@@ -188,11 +194,6 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     }
 
     @Nonnull
-    public SelectExpression buildSelectWithBase(final Quantifier baseQuantifier) {
-        return seal().buildSelectWithBase(baseQuantifier);
-    }
-
-    @Nonnull
     public static GraphExpansion empty() {
         return of(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
     }
@@ -240,7 +241,15 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                                     @Nonnull final List<? extends Placeholder> placeholders) {
         return new GraphExpansion(resultValues, predicates, quantifiers, placeholders);
     }
-    
+
+    @Nonnull
+    public static GraphExpansion ofOthers(@Nonnull GraphExpansion graphExpansion, @Nonnull GraphExpansion... otherExpansions) {
+        final ImmutableList.Builder<GraphExpansion> graphExpansionsBuilder = ImmutableList.builder();
+        graphExpansionsBuilder.add(graphExpansion);
+        graphExpansionsBuilder.addAll(Arrays.asList(otherExpansions));
+        return ofOthers(graphExpansionsBuilder.build());
+    }
+
     @Nonnull
     public static GraphExpansion ofOthers(@Nonnull List<GraphExpansion> graphExpansions) {
         final ImmutableList.Builder<Value> resultValuesBuilder = ImmutableList.builder();
@@ -260,26 +269,11 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     }
 
     /**
-     * A sealed version of {@link GraphExpansion} that has already reconciled duplicate place holders.
+     * A sealed version of {@link GraphExpansion} that has already reconciled duplicate placeholders.
      */
     public class Sealed {
         @Nonnull
         public SelectExpression buildSelect() {
-            return buildSelectWithQuantifiers(getQuantifiers());
-        }
-
-        @Nonnull
-        public SelectExpression buildSelectWithBase(final Quantifier baseQuantifier) {
-            final ImmutableList<Quantifier> allQuantifiers =
-                    ImmutableList.<Quantifier>builder()
-                            .add(baseQuantifier)
-                            .addAll(getQuantifiers()).build();
-
-            return buildSelectWithQuantifiers(allQuantifiers);
-        }
-
-        @Nonnull
-        private SelectExpression buildSelectWithQuantifiers(final List<Quantifier> quantifiers) {
             final ImmutableList<? extends QuantifiedColumnValue> pulledUpResultValues =
                     quantifiers
                             .stream()

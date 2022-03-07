@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.RankValue;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.apple.foundationdb.record.util.HashUtils;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -144,8 +143,8 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             final var argumentExpressions = partitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
             final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
             final var rankExpansion =
-                    GraphExpansion.ofOthers(ImmutableList.of(partitioningAndArgumentExpansion,
-                            GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier)));
+                    GraphExpansion.ofOthers(partitioningAndArgumentExpansion,
+                            GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier));
             final var rankSelectExpression = rankExpansion.buildSelect();
             final var rankQuantifier = Quantifier.forEach(GroupExpressionRef.of(rankSelectExpression));
 
@@ -168,7 +167,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
 
             final var rankAndJoiningPredicateSelectExpression =
-                    GraphExpansion.ofOthers(ImmutableList.of(rankComparisonExpansion, selfJoinPredicateExpansion)).buildSelect();
+                    GraphExpansion.ofOthers(rankComparisonExpansion, selfJoinPredicateExpansion).buildSelect();
             final var rankComparisonQuantifier =
                     Quantifier.existential(GroupExpressionRef.of(rankAndJoiningPredicateSelectExpression));
 

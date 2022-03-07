@@ -214,7 +214,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Nonnull
-    public Quantifier explodeField(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix) {
+    public Quantifier.ForEach explodeField(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(fieldName)

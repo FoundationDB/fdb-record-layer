@@ -359,7 +359,7 @@ public class RankIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     void complexRankQuery() throws Exception {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("BasicRankedRecord")
