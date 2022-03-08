@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.expressions.MatchableSortExpression;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -72,8 +71,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                         0))));
 
         final var allExpansions =
-                GraphExpansion.ofOthers(GraphExpansion.ofResultValueAndQuantifier(QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0), baseQuantifier),
-                        graphExpansion);
+                GraphExpansion.ofOthers(GraphExpansion.ofQuantifier(baseQuantifier), graphExpansion);
 
         final var parameters = allExpansions.getPlaceholderAliases();
 

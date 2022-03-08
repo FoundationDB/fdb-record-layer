@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Testcase class for specific matching.
  */
-public class SpecificMatchingTest {
+class SpecificMatchingTest {
     @Test
     void testMatchNoCorrelations1() {
         final Set<CorrelationIdentifier> left = ImmutableSet.of(of("l1"), of("l2"), of("l3"), of("ll4"), of("ll5"), of("ll6"), of("ll7"));

@@ -136,11 +136,12 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                             expansionVisitor.push(VisitorState.forQueries(Lists.newArrayList(),
                                     innerBaseQuantifier.getAlias(),
                                     fieldNamePrefix)));
+            final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal();
 
             // construct a select expression that uses a windowed value to express the rank
             final var partitioningSize = groupingKeyExpression.getGroupingCount();
-            final var partitioningExpressions = partitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
-            final var argumentExpressions = partitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
+            final var partitioningExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
+            final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
             final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
             final var rankExpansion =
                     GraphExpansion.ofOthers(partitioningAndArgumentExpansion,

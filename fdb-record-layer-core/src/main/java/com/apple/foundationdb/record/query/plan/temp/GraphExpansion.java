@@ -144,6 +144,17 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
      */
     @Nonnull
     public Sealed seal() {
+        final ImmutableList.Builder<Value> allResultValuesBuilder = ImmutableList.builder();
+        final ImmutableList<? extends QuantifiedColumnValue> pulledUpResultValues =
+                quantifiers
+                        .stream()
+                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                        .flatMap(quantifier -> quantifier.getFlowedValues().stream())
+                        .collect(ImmutableList.toImmutableList());
+        allResultValuesBuilder.addAll(pulledUpResultValues);
+        allResultValuesBuilder.addAll(resultValues);
+        final ImmutableList<Value> allResultValues = allResultValuesBuilder.build();
+
         final GraphExpansion graphExpansion;
         if (!placeholders.isEmpty()) {
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
@@ -181,9 +192,9 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                 }
             }
 
-            graphExpansion = new GraphExpansion(resultValues, resultPredicates, getQuantifiers(), resultPlaceHolders);
+            graphExpansion = new GraphExpansion(allResultValues, resultPredicates, getQuantifiers(), resultPlaceHolders);
         } else {
-            graphExpansion = new GraphExpansion(resultValues, getPredicates(), getQuantifiers(), ImmutableList.of());
+            graphExpansion = new GraphExpansion(allResultValues, getPredicates(), getQuantifiers(), ImmutableList.of());
         }
         return graphExpansion.new Sealed();
     }
@@ -274,20 +285,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     public class Sealed {
         @Nonnull
         public SelectExpression buildSelect() {
-            final ImmutableList<? extends QuantifiedColumnValue> pulledUpResultValues =
-                    quantifiers
-                            .stream()
-                            .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                            .flatMap(quantifier -> quantifier.getFlowedValues().stream())
-                            .collect(ImmutableList.toImmutableList());
-
-            final ImmutableList<Value> allResultValues =
-                    ImmutableList.<Value>builder()
-                            .addAll(pulledUpResultValues)
-                            .addAll(getResultValues())
-                            .build();
-
-            return new SelectExpression(allResultValues, quantifiers, getPredicates());
+            return new SelectExpression(resultValues, quantifiers, getPredicates());
         }
 
         @Nonnull

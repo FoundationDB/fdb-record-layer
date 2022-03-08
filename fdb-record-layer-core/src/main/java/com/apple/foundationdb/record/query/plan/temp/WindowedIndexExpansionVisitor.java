@@ -107,7 +107,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
 
         // add the value for the flow of records
         final var recordValue = QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0);
-        allExpansionsBuilder.add(GraphExpansion.ofResultValueAndQuantifier(recordValue, baseQuantifier));
+        allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
         final var baseAlias = baseQuantifier.getAlias();
 
@@ -287,13 +287,14 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
 
         final var partitioningAndArgumentExpansion =
                 pop(wholeKeyExpression.expand(push(initialState)));
+        final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal();
 
         //
         // Construct a select expression that uses a windowed value to express the rank.
         //
         final var partitioningSize = groupingKeyExpression.getGroupingCount();
-        final var partitioningExpressions = partitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
-        final var argumentExpressions = partitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
+        final var partitioningExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
+        final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
         final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
         return GraphExpansion.ofOthers(partitioningAndArgumentExpansion,
                         GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier));

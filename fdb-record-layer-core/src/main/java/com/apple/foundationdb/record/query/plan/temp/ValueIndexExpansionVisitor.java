@@ -72,7 +72,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         // add the value for the flow of records
         final var recordValue = QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0);
-        allExpansionsBuilder.add(GraphExpansion.ofResultValueAndQuantifier(recordValue, baseQuantifier));
+        allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
         var rootExpression = index.getRootExpression();
 
