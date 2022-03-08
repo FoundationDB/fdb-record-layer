@@ -71,15 +71,18 @@ public class IndexingScrubMissing extends IndexingBase {
     @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
 
     @Nonnull private final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy;
+    @Nonnull private final AtomicLong missingCount;
     private long scanCounter = 0;
     private int logWarningCounter;
 
     public IndexingScrubMissing(@Nonnull final IndexingCommon common,
                                 @Nonnull final OnlineIndexer.IndexingPolicy policy,
-                                @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
+                                @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy,
+                                @Nonnull final AtomicLong missingCOunt) {
         super(common, policy, true);
         this.scrubbingPolicy = scrubbingPolicy;
         this.logWarningCounter = scrubbingPolicy.getLogWarningsLimit();
+        this.missingCount = missingCOunt;
     }
 
     @Override
@@ -234,6 +237,7 @@ public class IndexingScrubMissing extends IndexingBase {
                                 .addKeysAndValues(common.indexLogMessageKeyValues())
                                 .toString());
                     }
+                    missingCount.incrementAndGet();
                     final FDBStoreTimer timer = getRunner().getTimer();
                     timerIncrement(timer, FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES);
                     if (scrubbingPolicy.allowRepair()) {

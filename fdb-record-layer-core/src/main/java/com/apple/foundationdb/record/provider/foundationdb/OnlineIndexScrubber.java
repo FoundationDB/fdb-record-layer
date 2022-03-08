@@ -41,6 +41,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 @API(API.Status.UNSTABLE)
@@ -80,13 +81,13 @@ public class OnlineIndexScrubber implements AutoCloseable {
         common.close();
     }
 
-    private IndexingBase getScrubber(ScrubbingType type) {
+    private IndexingBase getScrubber(ScrubbingType type, AtomicLong count) {
         switch (type) {
             case DANGLING:
-                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy);
+                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
 
             case MISSING:
-                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy);
+                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
 
             default:
                 throw new MetaDataException("bad type");
@@ -95,9 +96,9 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
     @VisibleForTesting
     @Nonnull
-    CompletableFuture<Void> scrubIndexAsync(ScrubbingType type) {
+    CompletableFuture<Void> scrubIndexAsync(ScrubbingType type, AtomicLong count) {
         return AsyncUtil.composeHandle(
-                getScrubber(type).buildIndexAsync(false),
+                getScrubber(type, count).buildIndexAsync(false),
                 (ignore, ex) -> {
                     if (ex != null) {
                         throw FDBExceptions.wrapException(ex);
@@ -109,17 +110,23 @@ public class OnlineIndexScrubber implements AutoCloseable {
     /**
      * Scrub the index, find and repair dangling entries.
      * Synchronous version of {@link #scrubIndexAsync}.
+     * @return found dangling index entries count.
      */
-    public void scrubDanglingIndexEntries() {
-        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(ScrubbingType.DANGLING));
+    public long scrubDanglingIndexEntries() {
+        final AtomicLong danglingCount = new AtomicLong(0);
+        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(ScrubbingType.DANGLING, danglingCount));
+        return danglingCount.get();
     }
 
     /**
      * Scrub the index, find and repair missing entries.
      * Synchronous version of {@link #scrubIndexAsync}.
+     * @return found missing index entries count.
      */
-    public void scrubMissingIndexEntries() {
-        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(ScrubbingType.MISSING));
+    public long scrubMissingIndexEntries() {
+        final AtomicLong missingCount = new AtomicLong(0);
+        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(ScrubbingType.MISSING, missingCount));
+        return missingCount.get();
     }
 
     @Nonnull

@@ -72,15 +72,18 @@ public class IndexingScrubDangling extends IndexingBase {
     @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
 
     @Nonnull private final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy;
+    @Nonnull private final AtomicLong danglingCount;
     private long scanCounter = 0;
     private int logWarningCounter;
 
     public IndexingScrubDangling(@Nonnull final IndexingCommon common,
                                  @Nonnull final OnlineIndexer.IndexingPolicy policy,
-                                 @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
+                                 @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy,
+                                 @Nonnull final AtomicLong danglingCount) {
         super(common, policy, true);
         this.scrubbingPolicy = scrubbingPolicy;
         this.logWarningCounter = scrubbingPolicy.getLogWarningsLimit();
+        this.danglingCount = danglingCount;
     }
 
     @Override
@@ -203,6 +206,7 @@ public class IndexingScrubDangling extends IndexingBase {
 
         if (! indexResult.hasStoredRecord() ) {
             // Here: Oh, No! this index is dangling!
+            danglingCount.incrementAndGet();
             final FDBStoreTimer timer = getRunner().getTimer();
             timerIncrement(timer, FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES);
             final IndexEntry indexEntry = indexResult.getIndexEntry();
