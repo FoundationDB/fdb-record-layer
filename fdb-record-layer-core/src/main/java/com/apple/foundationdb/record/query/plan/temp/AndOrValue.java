@@ -40,10 +40,11 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
- * A value merges the input messages given to it into an output message.
+ * A {@link Value} that applies conjunction/disjunction on its boolean children.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AndOrValue implements BooleanValue {
@@ -55,6 +56,12 @@ public abstract class AndOrValue implements BooleanValue {
     @Nonnull
     protected final Value rightChild;
 
+    /**
+     * Constructs a new instance of {@link AndOrValue}.
+     * @param functionName The function name.
+     * @param leftChild The left child.
+     * @param rightChild The right child.
+     */
     protected AndOrValue(@Nonnull String functionName,
                          @Nonnull Value leftChild,
                          @Nonnull Value rightChild) {
@@ -96,6 +103,9 @@ public abstract class AndOrValue implements BooleanValue {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    /**
+     * A {@link Value} that conjuncts its boolean children.
+     */
     public static class AndValue extends AndOrValue {
         public AndValue(@Nonnull final String functionName, @Nonnull final Value leftChild, @Nonnull final Value rightChild) {
             super(functionName, leftChild, rightChild);
@@ -127,32 +137,34 @@ public abstract class AndOrValue implements BooleanValue {
 
         @Nullable
         @Override
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-            final Object leftResult = leftChild.eval(store, context, record, message);
+        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> fdbRecord, @Nullable final M message) {
+            final Object leftResult = leftChild.eval(store, context, fdbRecord, message);
 
             if (leftResult == null || !(Boolean)leftResult) {
                 return false;
             }
-            final Object rightResult = rightChild.eval(store, context, record, message);
-            if (rightResult == null) {
-                return false;
-            }
-            return rightResult;
+            final Object rightResult = rightChild.eval(store, context, fdbRecord, message);
+            return Objects.requireNonNullElse(rightResult, false);
         }
 
         @AutoService(BuiltInFunction.class)
         public static class AndFn extends BuiltInFunction<Value> {
             public AndFn() {
                 super("and",
-                        ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN), Type.primitiveType(Type.TypeCode.BOOLEAN)), AndFn::encapsulate);
+                        List.of(Type.primitiveType(Type.TypeCode.BOOLEAN), Type.primitiveType(Type.TypeCode.BOOLEAN)),
+                        AndFn::encapsulate);
             }
 
             private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+                Verify.verify(Iterables.size(arguments) == 2);
                 return new AndValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1));
             }
         }
     }
 
+    /**
+     * A {@link Value} that disjuncts its boolean children.
+     */
     public static class OrValue extends AndOrValue {
         public OrValue(@Nonnull final String functionName, @Nonnull final Value leftChild, @Nonnull final Value rightChild) {
             super(functionName, leftChild, rightChild);
@@ -189,14 +201,11 @@ public abstract class AndOrValue implements BooleanValue {
             if (leftResult == null) {
                 return false;
             }
-            if ((Boolean)leftResult) {
+            if (Boolean.TRUE.equals(leftResult)) {
                 return true;
             }
             final Object rightResult = rightChild.eval(store, context, record, message);
-            if (rightResult == null) {
-                return false;
-            }
-            return rightResult;
+            return Objects.requireNonNullElse(rightResult, false);
         }
 
         @AutoService(BuiltInFunction.class)
@@ -207,6 +216,7 @@ public abstract class AndOrValue implements BooleanValue {
             }
 
             private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+                Verify.verify(Iterables.size(arguments) == 2);
                 return new OrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1));
             }
         }

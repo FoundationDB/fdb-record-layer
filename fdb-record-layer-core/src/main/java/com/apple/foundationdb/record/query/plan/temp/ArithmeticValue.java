@@ -48,7 +48,7 @@ import java.util.function.BinaryOperator;
 import java.util.function.Supplier;
 
 /**
- * A value merges the input messages given to it into an output message.
+ * A {@link Value} that applies an arithmetic operation on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ArithmeticValue implements Value {
@@ -61,6 +61,12 @@ public class ArithmeticValue implements Value {
     @Nonnull
     private final Value rightChild;
 
+    /**
+     * Constructs a new instance of {@link ArithmeticValue}.
+     * @param operation The arithmetic operation.
+     * @param leftChild The left child.
+     * @param rightChild The right child.
+     */
     public ArithmeticValue(@Nonnull PhysicalOperator operation,
                            @Nonnull Value leftChild,
                            @Nonnull Value rightChild) {

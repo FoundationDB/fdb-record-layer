@@ -42,18 +42,33 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * A value merges the input messages given to it into an output message.
+ * A value that flips the output of its boolean child.
  */
 @API(API.Status.EXPERIMENTAL)
 public class NotValue implements BooleanValue {
+    /**
+     * The hash value of this expression.
+     */
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Value");
+
+    /**
+     * The child expression.
+     */
     @Nonnull
     private final Value child;
 
+    /**
+     * Constructs a new {@link NotValue} instance.
+     * @param child The child expression.
+     */
     public NotValue(@Nonnull Value child) {
         this.child = child;
     }
 
+    /**
+     * Returns the {@link Type} of the result.
+     * @return The {@link Type} of the result.
+     */
     @Nonnull
     @Override
     public Type getResultType() {
@@ -82,12 +97,14 @@ public class NotValue implements BooleanValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        final Object result = child.eval(store, context, record, message);
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+                                           @Nonnull final EvaluationContext context,
+                                           @Nullable final FDBRecord<M> fdbRecord,
+                                           @Nullable final M message) {
+        final Object result = child.eval(store, context, fdbRecord, message);
         if (result == null) {
             return false;
         }
-
         return !(Boolean)result;
     }
 

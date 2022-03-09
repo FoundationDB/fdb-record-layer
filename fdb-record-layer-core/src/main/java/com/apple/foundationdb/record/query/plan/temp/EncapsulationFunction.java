@@ -23,6 +23,19 @@ package com.apple.foundationdb.record.query.plan.temp;
 import javax.annotation.Nonnull;
 import java.util.List;
 
+/**
+ * A functional interface that provides an encapsulation of a runtime computation against a set of arguments.
+ * @param <T> The resulting type which carries the operation at runtime.
+ */
 public interface EncapsulationFunction<T extends Typed> {
+
+    /**
+     * Produces a {@link Typed} object that is able to carry a computation against a list of arguments.
+     *
+     * @param parserContext The parsing context.
+     * @param builtInFunction The function that refers to the computation.
+     * @param arguments The arguments needed by the computation.
+     * @return A {@link Typed} object capable of doing a runtime computation against a list of arguments.
+     */
     T encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<T> builtInFunction, List<Typed> arguments);
 }

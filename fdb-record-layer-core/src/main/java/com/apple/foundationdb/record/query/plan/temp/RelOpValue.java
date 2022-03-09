@@ -33,8 +33,6 @@ import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
@@ -46,7 +44,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * A value merges the input messages given to it into an output message.
+ * A {@link Value} that returns the comparison result between its children.
  */
 @API(API.Status.EXPERIMENTAL)
 public class RelOpValue implements BooleanValue {
@@ -63,6 +61,14 @@ public class RelOpValue implements BooleanValue {
     @Nonnull
     private final Function<Value, Object> compileTimeEvalFn;
 
+    /**
+     * Constructs a new instance of {@link RelOpValue}.
+     * @param functionName The function name.
+     * @param comparisonType The comparison type.
+     * @param leftChild The left child.
+     * @param rightChild The right child.
+     * @param compileTimeEvalFn The compile-time evaluation function.
+     */
     private RelOpValue(@Nonnull final String functionName,
                        @Nonnull final Comparisons.Type comparisonType,
                        @Nonnull final Value leftChild,
@@ -78,7 +84,7 @@ public class RelOpValue implements BooleanValue {
     @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(leftChild, rightChild);
+        return List.of(leftChild, rightChild);
     }
 
     @Nonnull
@@ -94,13 +100,13 @@ public class RelOpValue implements BooleanValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> fdbRecord, @Nullable final M message) {
         if (comparisonType == Comparisons.Type.EQUALS) {
-            final Object leftResult = leftChild.eval(store, context, record, message);
+            final Object leftResult = leftChild.eval(store, context, fdbRecord, message);
             if (leftResult == null) {
                 return false;
             }
-            final Object rightResult = rightChild.eval(store, context, record, message);
+            final Object rightResult = rightChild.eval(store, context, fdbRecord, message);
             if (rightResult == null) {
                 return false;
             }
@@ -113,7 +119,7 @@ public class RelOpValue implements BooleanValue {
     public Optional<ValuePredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         // one side of the relop has to be correlated to the innermost alias and only to that one; the other one
         // can be correlated (or not) to anything except the innermostAlias
-        final ImmutableSet<CorrelationIdentifier> innermostAliasSet = ImmutableSet.of(innermostAlias);
+        final Set<CorrelationIdentifier> innermostAliasSet = Set.of(innermostAlias);
 
         final Set<CorrelationIdentifier> leftChildCorrelatedTo = leftChild.getCorrelatedTo();
         final Set<CorrelationIdentifier> rightChildCorrelatedTo = rightChild.getCorrelatedTo();
@@ -218,7 +224,7 @@ public class RelOpValue implements BooleanValue {
     public static class EqualsFn extends BuiltInFunction<Value> {
         public EqualsFn() {
             super("equals",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), EqualsFn::encapsulate);
+                    List.of(new Type.Any(), new Type.Any()), EqualsFn::encapsulate);
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
@@ -230,7 +236,7 @@ public class RelOpValue implements BooleanValue {
     public static class NotEqualsFn extends BuiltInFunction<Value> {
         public NotEqualsFn() {
             super("notEquals",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), NotEqualsFn::encapsulate);
+                    List.of(new Type.Any(), new Type.Any()), NotEqualsFn::encapsulate);
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
@@ -242,7 +248,7 @@ public class RelOpValue implements BooleanValue {
     public static class LtFn extends BuiltInFunction<Value> {
         public LtFn() {
             super("lt",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), LtFn::encapsulate);
+                    List.of(new Type.Any(), new Type.Any()), LtFn::encapsulate);
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
@@ -254,7 +260,7 @@ public class RelOpValue implements BooleanValue {
     public static class LteFn extends BuiltInFunction<Value> {
         public LteFn() {
             super("lte",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), LteFn::encapsulate);
+                    List.of(new Type.Any(), new Type.Any()), LteFn::encapsulate);
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
@@ -266,7 +272,7 @@ public class RelOpValue implements BooleanValue {
     public static class GtFn extends BuiltInFunction<Value> {
         public GtFn() {
             super("gt",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), GtFn::encapsulate);
+                    List.of(new Type.Any(), new Type.Any()), GtFn::encapsulate);
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
@@ -278,7 +284,7 @@ public class RelOpValue implements BooleanValue {
     public static class GteFn extends BuiltInFunction<Value> {
         public GteFn() {
             super("gte",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), GteFn::encapsulate);
+                    List.of(new Type.Any(), new Type.Any()), GteFn::encapsulate);
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {

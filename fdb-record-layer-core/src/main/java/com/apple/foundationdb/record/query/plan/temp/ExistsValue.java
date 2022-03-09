@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * A value merges the input messages given to it into an output message.
+ * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
