@@ -375,7 +375,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .declareValueIndex() // required to allow non-value index scrubbing
+                        .ignoreIndexTypeCheck() // required to allow non-value index scrubbing
                         .build())
                 .setTimer(timer)
                 .build()) {

@@ -135,23 +135,23 @@ public class OnlineIndexScrubber implements AutoCloseable {
         private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
-        private final boolean declaredValueIndex;
+        private final boolean ignoreIndexTypeCheck;
 
         public ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
-                               boolean declaredValueIndex) {
+                               boolean ignoreIndexTypeCheck) {
 
             this.logWarningsLimit = logWarningsLimit;
             this.allowRepair = allowRepair;
             this.entriesScanLimit = entriesScanLimit;
-            this.declaredValueIndex = declaredValueIndex;
+            this.ignoreIndexTypeCheck = ignoreIndexTypeCheck;
         }
 
         boolean allowRepair() {
             return allowRepair;
         }
 
-        boolean isValueIndex() {
-            return declaredValueIndex;
+        boolean ignoreIndexTypeCheck() {
+            return ignoreIndexTypeCheck;
         }
 
         long getEntriesScanLimit() {
@@ -184,7 +184,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
             int logWarningsLimit = 1000;
             boolean allowRepair = true;
             long entriesScanLimit = 0;
-            boolean declaredValueIndex = false;
+            boolean ignoreIndexTypeCheck = false;
 
             protected Builder() {
             }
@@ -229,20 +229,20 @@ public class OnlineIndexScrubber implements AutoCloseable {
             }
 
             /**
-             * Declare that the scrubbed index is a value index, even if it's type's name is different.
+             * Declare that the index to be scrubbed is valid for scrubbing, regardless of its type's name.
              *
-             * Scrubbing dangling index entries only makes sense for value indexes, where the index entry points back to
-             * the record.
-             * Typically, this function is called to allow scrubbing of an index of a user-defined type. If called, it
-             * is the caller's responsibility to verify that the scrubbed index matches the "value" type criteria.
+             * Scrubbing dangling index entries only makes sense for index entries that point back to the record that had
+             * generated them.
+             * Typically, this function is called to allow scrubbing of an index with a user-defined index type. If called, it
+             * is the caller's responsibility to verify that the scrubbed index matches the one-to-one index-records criteria.
              */
-            public Builder declareValueIndex() {
-                declaredValueIndex = true;
+            public Builder ignoreIndexTypeCheck() {
+                ignoreIndexTypeCheck = true;
                 return this;
             }
 
             public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, declaredValueIndex);
+                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, ignoreIndexTypeCheck);
             }
         }
     }

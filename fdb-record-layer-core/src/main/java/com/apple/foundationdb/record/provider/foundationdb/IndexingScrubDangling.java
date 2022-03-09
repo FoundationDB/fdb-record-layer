@@ -146,7 +146,7 @@ public class IndexingScrubDangling extends IndexingBase {
 
         // scrubbing only readable, VALUE, idempotence indexes (at least for now)
         validateOrThrowEx(maintainer.isIdempotent(), "scrubbed index is not idempotent");
-        validateOrThrowEx(index.getType().equals(IndexTypes.VALUE) || scrubbingPolicy.isValueIndex(), "scrubbed index is not a VALUE index");
+        validateOrThrowEx(index.getType().equals(IndexTypes.VALUE) || scrubbingPolicy.ignoreIndexTypeCheck(), "scrubbed index is not a VALUE index");
         validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
 
         RangeSet rangeSet = new RangeSet(indexScrubIndexRangeSubspace(store, index));
