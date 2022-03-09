@@ -48,7 +48,7 @@ public class LuceneOptimizedWrappedIndexOutput extends IndexOutput {
 
     @Override
     public void close() throws IOException {
-        FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1);
+        FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
         if (isSegmentInfo) {
             reference.setSegmentInfo(outputStream.toByteArray());
         } else {

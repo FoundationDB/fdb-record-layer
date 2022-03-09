@@ -38,23 +38,25 @@ import javax.annotation.Nullable;
 public class FDBLuceneFileReference {
     private final long id;
     private final long size;
+    private final long actualSize;
     private final long blockSize;
     private byte[] segmentInfo;
     private byte[] entries;
 
     private FDBLuceneFileReference(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
-        this(protoMessage.getId(), protoMessage.getSize(), protoMessage.getBlockSize(),
+        this(protoMessage.getId(), protoMessage.getSize(), protoMessage.getActualSize(), protoMessage.getBlockSize(),
                 protoMessage.hasSegmentInfo() ? protoMessage.getSegmentInfo().toByteArray() : null,
                 protoMessage.hasEntries() ? protoMessage.getEntries().toByteArray() : null);
     }
 
-    public FDBLuceneFileReference(long id, long size, long blockSize) {
-        this(id, size, blockSize, null, null);
+    public FDBLuceneFileReference(long id, long size, long actualSize, long blockSize) {
+        this(id, size, actualSize, blockSize, null, null);
     }
 
-    private FDBLuceneFileReference(long id, long size, long blockSize, byte[] segmentInfo, byte[] entries) {
+    private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize, byte[] segmentInfo, byte[] entries) {
         this.id = id;
         this.size = size;
+        this.actualSize = actualSize;
         this.blockSize = blockSize;
         this.segmentInfo = segmentInfo;
         this.entries = entries;
@@ -66,6 +68,10 @@ public class FDBLuceneFileReference {
 
     public long getSize() {
         return size;
+    }
+
+    public long getActualSize() {
+        return actualSize;
     }
 
     public long getBlockSize() {
@@ -96,6 +102,7 @@ public class FDBLuceneFileReference {
         builder.setId(this.id);
         builder.setSize(this.size);
         builder.setBlockSize(this.blockSize);
+        builder.setActualSize(this.actualSize);
         if (this.segmentInfo != null) {
             builder.setSegmentInfo(ByteString.copyFrom(this.segmentInfo));
         }
@@ -107,7 +114,7 @@ public class FDBLuceneFileReference {
 
     @Override
     public String toString() {
-        return "Reference [ id=" + id + ", size=" + size + ", blockSize=" + blockSize + ", segmentInfo=" + (getSegmentInfo() == null ? 0 : getSegmentInfo().length) + ", entries=" + (getEntries() == null ? 0 : getEntries().length) + "]";
+        return "Reference [ id=" + id + ", size=" + size + ", actualSize=" + actualSize + ", blockSize=" + blockSize + ", segmentInfo=" + (getSegmentInfo() == null ? 0 : getSegmentInfo().length) + ", entries=" + (getEntries() == null ? 0 : getEntries().length) + "]";
     }
 
     @Nullable

@@ -72,7 +72,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference("NonExist");
         assertNull(luceneFileReference.get(5, TimeUnit.SECONDS));
         String luceneReference1 = "luceneReference1";
-        FDBLuceneFileReference fileReference = new FDBLuceneFileReference(1, 10, 10);
+        FDBLuceneFileReference fileReference = new FDBLuceneFileReference(1, 10, 10, 10);
         directory.writeFDBLuceneFileReference(luceneReference1, fileReference);
         luceneFileReference = directory.getFDBLuceneFileReference(luceneReference1);
         FDBLuceneFileReference actual = luceneFileReference.get(5, TimeUnit.SECONDS);
@@ -85,9 +85,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     public void testWriteLuceneFileReference() throws Exception {
         // write already created file reference
-        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(2, 1, 1);
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(2, 1, 1, 1);
         directory.writeFDBLuceneFileReference("test1", reference1);
-        FDBLuceneFileReference reference2 = new FDBLuceneFileReference(3, 1, 1);
+        FDBLuceneFileReference reference2 = new FDBLuceneFileReference(3, 1, 1, 1);
         directory.writeFDBLuceneFileReference("test1", reference2);
         CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference("test1");
         assertNotNull(luceneFileReference.get(5, TimeUnit.SECONDS), "fileReference should exist");
@@ -104,9 +104,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testWriteSeekData() throws Exception {
-        directory.writeFDBLuceneFileReference("testReference1", new FDBLuceneFileReference(1, 1, 1));
+        directory.writeFDBLuceneFileReference("testReference1", new FDBLuceneFileReference(1, 1, 1, 1));
         assertNull(directory.readBlock("testReference1", directory.getFDBLuceneFileReference("testReference1"), 1).get());
-        directory.writeFDBLuceneFileReference("testReference2", new FDBLuceneFileReference(2, 1, 200));
+        directory.writeFDBLuceneFileReference("testReference2", new FDBLuceneFileReference(2, 1, 1, 200));
         byte[] data = "test string for write".getBytes();
         directory.writeData(2, 1, data);
         assertNotNull(directory.readBlock("testReference2",
@@ -119,9 +119,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     public void testListAll() {
         assertEquals(directory.listAll().length, 0);
-        directory.writeFDBLuceneFileReference("test1", new FDBLuceneFileReference(1, 1, 1));
-        directory.writeFDBLuceneFileReference("test2", new FDBLuceneFileReference(2, 1, 1));
-        directory.writeFDBLuceneFileReference("test3", new FDBLuceneFileReference(3, 1, 1));
+        directory.writeFDBLuceneFileReference("test1", new FDBLuceneFileReference(1, 1, 1, 1));
+        directory.writeFDBLuceneFileReference("test2", new FDBLuceneFileReference(2, 1, 1, 1));
+        directory.writeFDBLuceneFileReference("test3", new FDBLuceneFileReference(3, 1, 1, 1));
         assertArrayEquals(new String[]{"test1", "test2", "test3"}, directory.listAll());
         directory.getContext().ensureActive().cancel();
         FDBRecordContext context = fdb.openContext();
@@ -134,7 +134,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     public void testDeleteData() throws Exception {
         assertThrows(NoSuchFileException.class, () -> directory.deleteFile("NonExist"));
-        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 1, 1);
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 1, 1, 1);
         directory.writeFDBLuceneFileReference("test1", reference1);
         directory.deleteFile("test1");
         assertEquals(directory.listAll().length, 0);
@@ -145,7 +145,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     public void testFileLength() throws Exception {
         assertThrows(NoSuchFileException.class, () -> directory.fileLength("nonExist"));
-        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 20, 1024);
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 20, 20, 1024);
         directory.writeFDBLuceneFileReference("test1", reference1);
         long fileSize = directory.fileLength("test1");
         assertEquals(20, fileSize);
