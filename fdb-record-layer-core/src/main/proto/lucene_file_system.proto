@@ -29,4 +29,5 @@ message LuceneFileReference {
   required int64 block_size = 3;
   optional bytes segment_info = 4;
   optional bytes entries = 5;
+  optional int64 actualSize = 6;
 }

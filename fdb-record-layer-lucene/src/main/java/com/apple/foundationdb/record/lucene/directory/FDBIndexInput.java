@@ -192,7 +192,7 @@ public class FDBIndexInput extends IndexInput {
                     LogMessageKeys.LENGTH, length));
         }
         return new FDBIndexInput(resourceDescription, fdbDirectory, CompletableFuture.completedFuture(
-                new FDBLuceneFileReference(reference.join().getId(), length, reference.join().getBlockSize())),
+                new FDBLuceneFileReference(reference.join().getId(), length, length, reference.join().getBlockSize())),
                 offset + initialOffset, 0L, currentBlock, currentData
                 );
     }

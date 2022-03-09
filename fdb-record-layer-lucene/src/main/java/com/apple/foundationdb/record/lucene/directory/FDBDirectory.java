@@ -65,7 +65,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
 import static org.apache.lucene.codecs.lucene70.Lucene70SegmentInfoFormat.SI_EXTENSION;
@@ -142,7 +141,7 @@ public class FDBDirectory extends Directory {
                 .recordStats()
                 .build();
         this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
-        this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
+        this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
     }
 
     /**
@@ -285,8 +284,9 @@ public class FDBDirectory extends Directory {
      * @param id id for the data
      * @param block block for the data to be stored in
      * @param value the data to be stored
+     * @return the actual data size written to database with potential compression and encryption applied
      */
-    public void writeData(long id, int block, @Nonnull byte[] value) {
+    public int writeData(long id, int block, @Nonnull byte[] value) {
         final byte[] encodedBytes = LuceneSerializer.encode(value, compressionEnabled, encryptionEnabled);
         //This may not be correct transactionally
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
@@ -300,6 +300,7 @@ public class FDBDirectory extends Directory {
         }
         Verify.verify(value.length <= blockSize);
         context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), encodedBytes);
+        return encodedBytes.length;
     }
 
     /**
@@ -371,6 +372,7 @@ public class FDBDirectory extends Directory {
         List<String> displayList = null;
 
         long totalSize = 0L;
+        long actualTotalSize = 0L;
         for (KeyValue kv : context.ensureActive().getRange(metaSubspace.range())) {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             outList.add(name);
@@ -392,6 +394,7 @@ public class FDBDirectory extends Directory {
                 if (kv.getValue() != null) {
                     displayList.add(name + "(" + fileReference.getSize() + ")");
                     totalSize += fileReference.getSize();
+                    actualTotalSize += fileReference.getActualSize();
                 }
             }
         }
@@ -399,7 +402,8 @@ public class FDBDirectory extends Directory {
             LOGGER.debug(getLogMessage("listAllFiles",
                     LogMessageKeys.FILE_COUNT, outList.size(),
                     LogMessageKeys.FILE_LIST, displayList,
-                    LogMessageKeys.FILE_TOTAL_SIZE, totalSize));
+                    LogMessageKeys.FILE_TOTAL_SIZE, totalSize,
+                    LogMessageKeys.FILE_ACTUAL_TOTAL_SIZE, actualTotalSize));
         }
         return outList;
     }

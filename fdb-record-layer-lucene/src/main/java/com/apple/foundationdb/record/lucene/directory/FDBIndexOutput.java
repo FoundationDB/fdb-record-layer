@@ -50,6 +50,7 @@ public final class FDBIndexOutput extends IndexOutput {
      * Current size keeps track of the number of bytes written overall.
      */
     private int currentSize = 0;
+    private int actualSize = 0;
     private ByteBuffer buffer;
     private final String resourceDescription;
     private final FDBDirectory fdbDirectory;
@@ -112,7 +113,7 @@ public final class FDBIndexOutput extends IndexOutput {
                     LogMessageKeys.RESOURCE, resourceDescription));
         }
         flush();
-        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, blockSize));
+        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, actualSize, blockSize));
         BUFFERS.offer(buffer);
     }
 
@@ -195,7 +196,7 @@ public final class FDBIndexOutput extends IndexOutput {
             buffer.flip();
             byte[] arr = new byte[buffer.remaining()];
             buffer.get(arr);
-            fdbDirectory.writeData(id, (int) ( (currentSize - 1) / blockSize), arr);
+            actualSize += fdbDirectory.writeData(id, (int) ( (currentSize - 1) / blockSize), arr);
             buffer.clear();
         }
     }
