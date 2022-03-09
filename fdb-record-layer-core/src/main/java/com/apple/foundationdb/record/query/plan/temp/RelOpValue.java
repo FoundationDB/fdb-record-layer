@@ -291,4 +291,8 @@ public class RelOpValue implements BooleanValue {
             return RelOpValue.encapsulateComparable(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
         }
     }
+
+    private enum PhysicalOperator {
+        EQ_
+    }
 }
