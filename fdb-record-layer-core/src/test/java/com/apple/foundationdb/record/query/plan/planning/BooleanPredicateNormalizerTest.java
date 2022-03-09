@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link BooleanPredicateNormalizer}.
  */
+@SuppressWarnings("deprecation")
 class BooleanPredicateNormalizerTest {
     private static final FieldValue F = new FieldValue(QuantifiedColumnValue.of(CorrelationIdentifier.UNGROUNDED, 0), ImmutableList.of("f"));
     private static final QueryPredicate P1 = new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1));
@@ -202,6 +203,7 @@ class BooleanPredicateNormalizerTest {
         assertEquals(cnf, lowLimitNormalizer.normalizeIfPossible(cnf).orElse(cnf));
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     void bigNonCnf() {
         final QueryPredicate cnf = and(

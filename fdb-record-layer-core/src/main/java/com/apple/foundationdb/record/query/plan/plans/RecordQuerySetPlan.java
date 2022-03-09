@@ -84,7 +84,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
     }
 
     @Nonnull
-    @SuppressWarnings("java:S135")
+    @SuppressWarnings({"java:S135", "deprecation"})
     default Set<CorrelationIdentifier> tryPushValues(@Nonnull final List<TranslateValueFunction> dependentFunctions,
                                                      @Nonnull final List<? extends Quantifier> quantifiers,
                                                      @Nonnull final Iterable<? extends Value> values) {

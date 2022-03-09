@@ -54,6 +54,7 @@ public class PrimaryAccessExpansionVisitor extends ValueIndexLikeExpansionVisito
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
+    @SuppressWarnings("deprecation")
     public PrimaryScanMatchCandidate expand(@Nonnull final Quantifier.ForEach baseQuantifier,
                                             @Nullable final KeyExpression primaryKey,
                                             final boolean isReverse) {

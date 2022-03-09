@@ -92,7 +92,10 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+                                           @Nonnull final EvaluationContext context,
+                                           @Nullable final FDBRecord<M> fdbRecord,
+                                           @Nullable final M message) {
         return context.getBinding(alias);
     }
 
@@ -151,12 +154,28 @@ public class QuantifiedColumnValue implements QuantifiedValue {
         return false;
     }
 
+    /**
+     * Creates a new instance of {@link CorrelationIdentifier}.
+     *
+     * @param alias The alias of the correlation containing the column.
+     * @param ordinal The ordinal position of the column.
+     * @return a new instance of {@link CorrelationIdentifier}.
+     * @deprecated this method will be replaced by {@link #of(CorrelationIdentifier, int, Type.Record)}.
+     */
+    @Deprecated
     @Nonnull
     public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal) {
-        // TODO get record type information.
         return new QuantifiedColumnValue(alias, ordinal, Type.Record.erased());
     }
 
+    /**
+     * Creates a new instance of {@link CorrelationIdentifier}.
+     *
+     * @param alias The alias of the correlation containing the column.
+     * @param ordinal The ordinal position of the column.
+     * @param recordType The {@link Type} of the record.
+     * @return a new instance of {@link CorrelationIdentifier}.
+     */
     @Nonnull
     public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal, @Nonnull final Type.Record recordType) {
         return new QuantifiedColumnValue(alias, ordinal, recordType);

@@ -58,6 +58,7 @@ public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
         this.recordTypes = ImmutableList.copyOf(recordTypes);
     }
 
+    @SuppressWarnings("deprecation")
     @Nonnull
     @Override
     public MatchCandidate expand(@Nonnull final Quantifier.ForEach baseQuantifier,

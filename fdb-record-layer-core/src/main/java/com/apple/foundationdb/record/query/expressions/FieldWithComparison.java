@@ -96,6 +96,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
         return getFieldName() + " " + getComparison();
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()

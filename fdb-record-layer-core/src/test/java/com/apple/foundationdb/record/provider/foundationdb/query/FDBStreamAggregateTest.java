@@ -323,6 +323,7 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
             return new RecordQueryStreamingAggregatePlan(quantifier, groupValues, aggregateValues);
         }
 
+        @SuppressWarnings("deprecation")
         private Value createValue(final String fieldName) {
             return new FieldValue(QuantifiedColumnValue.of(quantifier.getAlias(), 1), Collections.singletonList(fieldName));
         }

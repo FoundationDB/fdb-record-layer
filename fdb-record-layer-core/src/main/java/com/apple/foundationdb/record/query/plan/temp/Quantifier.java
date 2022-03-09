@@ -262,6 +262,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                     .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
         }
 
+        @SuppressWarnings("deprecation")
         @Nonnull
         @Override
         public List<? extends QuantifiedColumnValue> computeFlowedValues() {
@@ -557,7 +558,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     protected abstract List<? extends QuantifiedColumnValue> computeFlowedValues();
 
-    @SuppressWarnings("UnstableApiUsage")
+    @SuppressWarnings({"UnstableApiUsage", "deprecation"})
     @Nonnull
     protected List<? extends QuantifiedColumnValue> pullUpResultValues() {
         return Streams.mapWithIndex(resolveValuesRangedOver().stream(),

@@ -108,6 +108,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
         return GraphExpansion.ofResultValue(new EmptyValue());
     }
 
+    @SuppressWarnings("deprecation")
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
