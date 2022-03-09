@@ -131,21 +131,27 @@ public class OnlineIndexScrubber implements AutoCloseable {
      * A builder for the scrubbing policy.
      */
     public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0);
+        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false);
         private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
+        private final boolean declaredValueIndex;
 
-        public ScrubbingPolicy(int logWarningsLimit,
-                               boolean allowRepair, long entriesScanLimit) {
+        public ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
+                               boolean declaredValueIndex) {
 
             this.logWarningsLimit = logWarningsLimit;
             this.allowRepair = allowRepair;
             this.entriesScanLimit = entriesScanLimit;
+            this.declaredValueIndex = declaredValueIndex;
         }
 
         boolean allowRepair() {
             return allowRepair;
+        }
+
+        boolean isValueIndex() {
+            return declaredValueIndex;
         }
 
         long getEntriesScanLimit() {
@@ -178,6 +184,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
             int logWarningsLimit = 1000;
             boolean allowRepair = true;
             long entriesScanLimit = 0;
+            boolean declaredValueIndex = false;
 
             protected Builder() {
             }
@@ -221,8 +228,21 @@ public class OnlineIndexScrubber implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * Declare that the scrubbed index is a value index, even if it's type's name is different.
+             *
+             * Scrubbing dangling index entries only makes sense for value indexes, where the index entry points back to
+             * the record.
+             * Typically, this function is called to allow scrubbing of an index of a user-defined type. If called, it
+             * is the caller's responsibility to verify that the scrubbed index matches the "value" type criteria.
+             */
+            public Builder declareValueIndex() {
+                declaredValueIndex = true;
+                return this;
+            }
+
             public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit);
+                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, declaredValueIndex);
             }
         }
     }
