@@ -78,11 +78,11 @@ public class IndexingScrubMissing extends IndexingBase {
     public IndexingScrubMissing(@Nonnull final IndexingCommon common,
                                 @Nonnull final OnlineIndexer.IndexingPolicy policy,
                                 @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy,
-                                @Nonnull final AtomicLong missingCOunt) {
+                                @Nonnull final AtomicLong missingCount) {
         super(common, policy, true);
         this.scrubbingPolicy = scrubbingPolicy;
         this.logWarningCounter = scrubbingPolicy.getLogWarningsLimit();
-        this.missingCount = missingCOunt;
+        this.missingCount = missingCount;
     }
 
     @Override
