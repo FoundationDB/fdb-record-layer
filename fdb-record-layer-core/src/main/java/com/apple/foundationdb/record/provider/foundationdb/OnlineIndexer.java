@@ -434,7 +434,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @VisibleForTesting
-    <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
+    <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull IndexingThrottle.Runner<R> buildFunction,
                                                    @Nullable List<Object> additionalLogMessageKeyValues) {
         // test only
         return getIndexer().buildCommitRetryAsync(buildFunction, true, additionalLogMessageKeyValues);

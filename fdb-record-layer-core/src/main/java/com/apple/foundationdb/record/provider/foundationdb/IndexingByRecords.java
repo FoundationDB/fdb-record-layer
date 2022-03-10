@@ -161,10 +161,17 @@ public class IndexingByRecords extends IndexingBase {
      * @param recordsScanned continues counter
      * @return a future that will contain the range of records in the interior of the record store
      */
-
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store,
                                                         @Nullable AtomicLong recordsScanned) {
+        return buildEndpoints(store, recordsScanned, Integer.MAX_VALUE);
+    }
+
+    @Nonnull
+    public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store,
+                                                        @Nullable AtomicLong recordsScanned,
+                                                        int limit) {
+        // TODO is this needed at all, or can this always be MAX_VALUE
         final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
         if (TupleRange.ALL.equals(recordsRange)) {
             return buildEndpoints(store, rangeSet, recordsScanned);
@@ -494,7 +501,8 @@ public class IndexingByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
 
-        return buildCommitRetryAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
+        return buildCommitRetryAsync(
+                (store, recordsScanned, limit) -> buildUnbuiltRange(store, start, end, recordsScanned),
                 true,
                 additionalLogMessageKeyValues);
     }
@@ -505,7 +513,8 @@ public class IndexingByRecords extends IndexingBase {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
-        return buildCommitRetryAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
+        return buildCommitRetryAsync(
+                (store, recordsScanned, limit) -> buildUnbuiltRange(store, start, end, recordsScanned),
                 true,
                 additionalLogMessageKeyValues);
     }

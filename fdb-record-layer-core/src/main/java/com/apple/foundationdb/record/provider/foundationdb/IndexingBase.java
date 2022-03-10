@@ -600,7 +600,7 @@ public abstract class IndexingBase {
         return throttle.getLimit();
     }
 
-    public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
+    public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull IndexingThrottle.Runner<R> buildFunction,
                                                           boolean limitControl,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
         return throttle.buildCommitRetryAsync(buildFunction, limitControl, additionalLogMessageKeyValues);
@@ -763,7 +763,7 @@ public abstract class IndexingBase {
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
-                                                       BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
+                                                       IndexingThrottle.Runner<Boolean> iterateRange,
                                                        @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
 
         return AsyncUtil.whileTrue(() ->

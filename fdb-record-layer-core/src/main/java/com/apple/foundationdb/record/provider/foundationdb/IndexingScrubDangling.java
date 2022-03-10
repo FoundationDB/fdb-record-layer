@@ -129,7 +129,7 @@ public class IndexingScrubDangling extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> scrubIndexRangeOnly(store, start, end, recordsScanned),
+                (store, recordsScanned, limit) -> scrubIndexRangeOnly(store, start, end, recordsScanned),
                 subspaceProvider, subspace);
     }
 

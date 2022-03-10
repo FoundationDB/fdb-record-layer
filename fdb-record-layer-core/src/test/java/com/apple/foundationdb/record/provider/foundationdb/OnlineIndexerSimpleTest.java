@@ -449,7 +449,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
-    private <R> CompletableFuture<R> runAndHandleLessenWorkCodes(OnlineIndexer indexBuilder, @Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
+    private <R> CompletableFuture<R> runAndHandleLessenWorkCodes(OnlineIndexer indexBuilder,
+                                                                 @Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
         return indexBuilder.throttledRunAsync(function, Pair::of, indexBuilder::decreaseLimit, null);
     }
 
@@ -468,7 +469,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
             // Non-retriable error that is in lessen work codes.
             attempts.set(0);
-            indexBuilder.buildCommitRetryAsync((store, recordsScanned) -> {
+            indexBuilder.buildCommitRetryAsync((store, recordsScanned, innerLimit) -> {
                 assertEquals(attempts.getAndIncrement(), indexBuilder.getLimit(),
                         limit.getAndUpdate(x -> Math.max(x, (3 * x) / 4)));
                 throw new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
@@ -572,7 +573,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             AtomicInteger attempts = new AtomicInteger();
             attempts.set(0);
             AsyncUtil.whileTrue(() ->
-                    indexBuilder.buildCommitRetryAsync((store, recordsScanned) -> {
+                    indexBuilder.buildCommitRetryAsync((store, recordsScanned, limit) -> {
                         Pair<Integer, Supplier<RuntimeException>> behavior = queue.poll();
                         if (behavior == null) {
                             return AsyncUtil.READY_FALSE;
@@ -628,7 +629,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             AtomicInteger attempts = new AtomicInteger();
             attempts.set(0);
             AsyncUtil.whileTrue(() -> indexBuilder.buildCommitRetryAsync(
-                    (store, recordsScanned) -> {
+                    (store, recordsScanned, limit) -> {
                         Pair<Long, Supplier<RuntimeException>> behavior = queue.poll();
                         if (behavior == null) {
                             return AsyncUtil.READY_FALSE;

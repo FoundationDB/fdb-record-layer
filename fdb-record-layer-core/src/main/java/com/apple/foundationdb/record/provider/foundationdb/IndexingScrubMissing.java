@@ -127,7 +127,7 @@ public class IndexingScrubMissing extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> scrubRecordsRangeOnly(store, start, end , recordsScanned),
+                (store, recordsScanned, limit) -> scrubRecordsRangeOnly(store, start, end , recordsScanned),
                 subspaceProvider, subspace);
     }
 

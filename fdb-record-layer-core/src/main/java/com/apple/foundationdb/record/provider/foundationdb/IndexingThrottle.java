@@ -84,11 +84,11 @@ public class IndexingThrottle {
         this.expectedIndexState = expectedIndexState;
     }
 
-    public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
+    public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull Runner<R> buildFunction,
                                                           boolean limitControl,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
         AtomicLong recordsScanned = new AtomicLong(0);
-        return throttledRunAsync(store -> buildFunction.apply(store, recordsScanned),
+        return throttledRunAsync(store -> buildFunction.build(store, recordsScanned, limit),
                 // Run after a single transactional call within runAsync.
                 (result, exception) -> {
                     if (limitControl) {
@@ -184,10 +184,11 @@ public class IndexingThrottle {
     }
 
     @Nonnull
-    <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
-                                               @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
-                                               @Nullable final List<Object> additionalLogMessageKeyValues) {
+    <R> CompletableFuture<R> throttledRunAsync(
+            @Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
+            @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
+            @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
+            @Nullable final List<Object> additionalLogMessageKeyValues) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                 LogMessageKeys.INDEXER_ID, common.getUuid()));
@@ -260,6 +261,10 @@ public class IndexingThrottle {
 
     public int getLimit() {
         return limit;
+    }
+
+    public interface Runner<R> {
+        CompletableFuture<R> build(FDBRecordStore store, AtomicLong recordsScanned, int limit);
     }
 }
 

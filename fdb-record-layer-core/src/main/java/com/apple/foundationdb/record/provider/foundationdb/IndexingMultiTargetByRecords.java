@@ -114,7 +114,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> buildRangeOnly(store, start, end , recordsScanned),
+                (store, recordsScanned, limit) -> buildRangeOnly(store, start, end , recordsScanned),
                 subspaceProvider, subspace);
     }
 
