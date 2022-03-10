@@ -1670,8 +1670,8 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
-    public void rankScanIntersection() throws Exception {
+    @DualPlannerTest
+    void rankScanIntersection() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, md -> {
                 md.removeIndex("rank_by_gender");

@@ -75,7 +75,10 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
     @Override
     public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                                            @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return new AsyncBoolean<>(isOr(), getChildren(), store, context, record, message).eval();
+        return new AsyncBoolean<>(isOr(),
+                getChildren(),
+                queryComponent -> queryComponent.evalMessageAsync(store, context, record, message),
+                store).eval();
     }
 
     @Override
