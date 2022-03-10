@@ -1355,6 +1355,53 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void buildLargeIndexTransactionally() throws Exception {
+        final int recordCount = OnlineIndexer.DEFAULT_LIMIT + 10;
+
+        final String indexName = "MySimpleRecord$str_value_indexed";
+
+        try (FDBRecordContext context = openContext()) {
+            context.getReadVersion();
+        } catch (FDBExceptions.FDBStoreRetriableException e) {
+            // swallow
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openUnionRecordStore(context);
+            assertFalse(recordStore.isIndexDisabled(indexName));
+            recordStore.markIndexDisabled(indexName);
+            assertTrue(recordStore.isIndexDisabled(indexName));
+            commit(context);
+        }
+        List<String> expected = new ArrayList<>();
+        try (FDBRecordContext context = openContext()) {
+            openUnionRecordStore(context);
+            assertTrue(recordStore.isIndexDisabled(indexName));
+            for (int i = 0; i < recordCount; i++) {
+                final String strValue = String.format("str%03d", i);
+                saveSimpleRecord(i, strValue, i * 10);
+                expected.add(strValue);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openUnionRecordStore(context);
+            assertTrue(recordStore.isIndexDisabled(indexName));
+            final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            recordStore.rebuildIndex(index, null,
+                    FDBRecordStore.RebuildIndexReason.TEST).get();
+            final List<String> indexEntries = recordStore.scanIndex(index,
+                            new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null,
+                            ScanProperties.FORWARD_SCAN)
+                    .map(entry -> (String) entry.getKeyValue(0))
+                    .asList().get();
+            assertEquals(expected, indexEntries);
+
+        }
+    }
+
+    @Test
     public void failureToMarkIndexReadableShouldNotBlockCheckVersion() {
         // Deleting an index does not remove it from the disabled list
         // (https://github.com/FoundationDB/fdb-record-layer/issues/515) may cause a new index with the same name

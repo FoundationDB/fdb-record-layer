@@ -3406,7 +3406,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     @SuppressWarnings("squid:S2095")    // Resource usage for indexBuilder is too complicated for rule.
-    public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nullable final Collection<RecordType> recordTypes, @Nonnull RebuildIndexReason reason) {
+    public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index,
+                                                @Nullable final Collection<RecordType> recordTypes,
+                                                @Nonnull RebuildIndexReason reason) {
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index",

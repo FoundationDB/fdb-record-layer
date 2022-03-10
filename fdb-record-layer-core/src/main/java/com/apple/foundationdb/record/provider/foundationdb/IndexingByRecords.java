@@ -259,7 +259,7 @@ public class IndexingByRecords extends IndexingBase {
                             // All of the requested range without limit.
                             // In practice, this method works because it is only called for the endpoint ranges, which are empty and
                             // one long, respectively.
-                            buildRangeOnly(store, rangeStart, rangeEnd, false, recordsScanned),
+                            buildRangeOnly(store, rangeStart, rangeEnd, recordsScanned, Integer.MAX_VALUE),
                             rangeSet.insertRange(store.ensureContextActive(), range, true)
                     ).thenCompose(vignore -> ranges.onHasNext());
                 }, store.getExecutor());
@@ -424,7 +424,7 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Tuple> buildUnbuiltRange(@Nonnull FDBRecordStore store, @Nullable Tuple start,
                                                        @Nullable Tuple end, @Nullable AtomicLong recordsScanned) {
-        CompletableFuture<Tuple> buildFuture = buildRangeOnly(store, start, end, true, recordsScanned);
+        CompletableFuture<Tuple> buildFuture = buildRangeOnly(store, start, end, recordsScanned, getLimit());
 
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
         byte[] startBytes = packOrNull(start);
@@ -515,16 +515,15 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store,
                                                     @Nullable Tuple start, @Nullable Tuple end,
-                                                    boolean respectLimit, @Nullable AtomicLong recordsScanned) {
-        return buildRangeOnly(store, TupleRange.between(start, end), respectLimit, recordsScanned);
+                                                    @Nullable AtomicLong recordsScanned, final int limit) {
+        return buildRangeOnly(store, TupleRange.between(start, end), recordsScanned, limit);
     }
 
     @Nonnull
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull TupleRange range,
-                                                    boolean respectLimit, @Nullable AtomicLong recordsScanned) {
+                                                    @Nullable AtomicLong recordsScanned, final int limit) {
         validateSameMetadataOrThrow(store);
         Index index = common.getIndex();
-        int limit = getLimit();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         final boolean isIdempotent = maintainer.isIdempotent();
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
@@ -532,9 +531,7 @@ public class IndexingByRecords extends IndexingBase {
                         isIdempotent ?
                         IsolationLevel.SNAPSHOT :
                         IsolationLevel.SERIALIZABLE);
-        if (respectLimit) {
-            executeProperties.setReturnedRowLimit(limit + 1); // +1 allows continuation item
-        }
+        executeProperties.setReturnedRowLimit(limit == Integer.MAX_VALUE ? limit : limit + 1);
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(range, null, scanProperties);
         final AtomicBoolean hasMore = new AtomicBoolean(true);
@@ -567,7 +564,8 @@ public class IndexingByRecords extends IndexingBase {
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         AtomicReference<TupleRange> rangeToGo = new AtomicReference<>(recordsRange);
         return AsyncUtil.whileTrue(() ->
-                buildRangeOnly(store, rangeToGo.get(), true, null).thenApply(nextStart -> {
+                // Since we are already in a transaction, there is no benefit to limitting the build range
+                buildRangeOnly(store, rangeToGo.get(), null, Integer.MAX_VALUE).thenApply(nextStart -> {
                     if (nextStart == rangeToGo.get().getHigh()) {
                         return false;
                     } else {
