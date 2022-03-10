@@ -98,6 +98,7 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
                     return new TokenStreamComponents(src, tok);
                 }
             });
+            LOGGER.error("Build Synonym Map {} with file of size (maybe) {}", config.getName(), config.getSynonymInputStream().available());
             parser.parse(new InputStreamReader(config.getSynonymInputStream(), StandardCharsets.UTF_8));
             return parser.build();
         } catch (IOException | ParseException ex) {

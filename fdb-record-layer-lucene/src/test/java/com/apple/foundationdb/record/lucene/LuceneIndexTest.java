@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
+import com.apple.foundationdb.record.lucene.ngram.NgramAndSynonymAnalyzerFactory;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapConfig;
@@ -151,6 +152,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of(
                     IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME,
                     IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, COMBINED_SYNONYM_SETS));
+
+    private static final Index NGRAM_SYNONYM_LUCENE_INDEX = new Index("ngram_synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(
+                    IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
+                    IndexOptions.TEXT_TOKEN_MAX_SIZE, "5",
+                    IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAndSynonymAnalyzerFactory.ANALYZER_NAME,
+                    IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.CONFIG_NAME));
 
     private static final Index SPELLCHECK_INDEX = new Index(
             "spellcheck_index",
@@ -635,6 +643,36 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
             assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
                             TupleRange.allOf(Tuple.from(matchAll("hullo", "show", "layer"))), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+        }
+    }
+
+    @Test
+    void scanWithNgramAndSynonymIndex() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_SYNONYM_LUCENE_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("hullo record layer")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello recor layer", 1));
+            assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("hullo record layer")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // "hullo" is synonym of "hello"
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from(matchAll("hullo", "record", "layer"))), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // it doesn't synonym match due to the "recor", but ngram match takes over
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from(matchAll("hullo", "recor", "layer"))), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // "hullo" is synonym of "hello", and "show" is synonym of "record". Layet is ngramed from layer
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from(matchAll("hullo", "show", "layet"))), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
         }
     }
