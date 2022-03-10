@@ -138,21 +138,27 @@ public class OnlineIndexScrubber implements AutoCloseable {
      * A builder for the scrubbing policy.
      */
     public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0);
+        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false);
         private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
+        private final boolean ignoreIndexTypeCheck;
 
-        public ScrubbingPolicy(int logWarningsLimit,
-                               boolean allowRepair, long entriesScanLimit) {
+        public ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
+                               boolean ignoreIndexTypeCheck) {
 
             this.logWarningsLimit = logWarningsLimit;
             this.allowRepair = allowRepair;
             this.entriesScanLimit = entriesScanLimit;
+            this.ignoreIndexTypeCheck = ignoreIndexTypeCheck;
         }
 
         boolean allowRepair() {
             return allowRepair;
+        }
+
+        boolean ignoreIndexTypeCheck() {
+            return ignoreIndexTypeCheck;
         }
 
         long getEntriesScanLimit() {
@@ -185,6 +191,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
             int logWarningsLimit = 1000;
             boolean allowRepair = true;
             long entriesScanLimit = 0;
+            boolean ignoreIndexTypeCheck = false;
 
             protected Builder() {
             }
@@ -228,8 +235,22 @@ public class OnlineIndexScrubber implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * Declare that the index to be scrubbed is valid for scrubbing, regardless of its type's name.
+             *
+             * Typically, this function is called to allow scrubbing of an index with a user-defined index type. If called,
+             * it is the caller's responsibility to verify that the scrubbed index matches the required criteria, which are:
+             * 1. For the dangling scrubber job, every index entry needs to contain the primary key of the record that
+             *    generated it so that we can detect if that record is present.
+             * 2. For the missing entry scrubber, the index key for the record needs to be present in the index.
+             */
+            public Builder ignoreIndexTypeCheck() {
+                ignoreIndexTypeCheck = true;
+                return this;
+            }
+
             public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit);
+                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, ignoreIndexTypeCheck);
             }
         }
     }

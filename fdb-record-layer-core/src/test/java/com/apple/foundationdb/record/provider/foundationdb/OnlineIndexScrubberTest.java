@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -40,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -369,5 +371,36 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
             assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubDanglingIndexEntries);
             assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubMissingIndexEntries);
         }
+    }
+
+    @Test
+    void testScrubberNonValueIndex() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        long numRecords = 9;
+
+        final Index tgtIndex = new Index("myVersionIndex", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndex(tgtIndex);
+
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .ignoreIndexTypeCheck() // required to allow non-value index scrubbing
+                        .build())
+                .setTimer(timer)
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
     }
 }
