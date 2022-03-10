@@ -231,10 +231,11 @@ public class OnlineIndexScrubber implements AutoCloseable {
             /**
              * Declare that the index to be scrubbed is valid for scrubbing, regardless of its type's name.
              *
-             * Scrubbing dangling index entries only makes sense for index entries that point back to the record that had
-             * generated them.
-             * Typically, this function is called to allow scrubbing of an index with a user-defined index type. If called, it
-             * is the caller's responsibility to verify that the scrubbed index matches the one-to-one index-records criteria.
+             * Typically, this function is called to allow scrubbing of an index with a user-defined index type. If called,
+             * it is the caller's responsibility to verify that the scrubbed index matches the required criteria, which are:
+             * 1. For the dangling scrubber job, every index entry needs to contain the primary key of the record that
+             *    generated it so that we can detect if that record is present.
+             * 2. For the missing entry scrubber, the index key for the record needs to be present in the index.
              */
             public Builder ignoreIndexTypeCheck() {
                 ignoreIndexTypeCheck = true;
