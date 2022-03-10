@@ -652,27 +652,17 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_SYNONYM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            // "howdy" is synonym of "hello"
             assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
-                            TupleRange.allOf(Tuple.from("hullo record layer")), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            recordStore.saveRecord(createSimpleDocument(1623L, "Hello recor layer", 1));
-            assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
-                            TupleRange.allOf(Tuple.from("hullo record layer")), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            // "hullo" is synonym of "hello"
-            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
-                            TupleRange.allOf(Tuple.from(matchAll("hullo", "record", "layer"))), null, ScanProperties.FORWARD_SCAN)
+                            TupleRange.allOf(Tuple.from(matchAll("howdy", "record", "layer"))), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             // it doesn't synonym match due to the "recor", but ngram match takes over
-            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
             assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
-                            TupleRange.allOf(Tuple.from(matchAll("hullo", "recor", "layer"))), null, ScanProperties.FORWARD_SCAN)
+                            TupleRange.allOf(Tuple.from(matchAll("howdy", "recor", "layer"))), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
-            // "hullo" is synonym of "hello", and "show" is synonym of "record". Layet is ngramed from layer
-            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            // "howdy" is synonym of "hello", and "show" is synonym of "record". Layet is ngramed from layer
             assertEquals(1, recordStore.scanIndex(NGRAM_SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
-                            TupleRange.allOf(Tuple.from(matchAll("hullo", "show", "layet"))), null, ScanProperties.FORWARD_SCAN)
+                            TupleRange.allOf(Tuple.from(matchAll("howdy", "show", "loyer"))), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
         }
     }
