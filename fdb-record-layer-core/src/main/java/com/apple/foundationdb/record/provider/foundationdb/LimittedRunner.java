@@ -129,7 +129,7 @@ public class LimittedRunner implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         this.closed = true;
     }
 
