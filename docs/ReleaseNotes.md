@@ -24,9 +24,9 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Index scrubber - return the count of bad entries found [(Issue #1547)](https://github.com/FoundationDB/fdb-record-layer/issues/1547)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Allow scrubbing of non-"value" indexes [(Issue #1551)](https://github.com/FoundationDB/fdb-record-layer/issues/1551)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,11 @@ This version of the Record Layer changes the Java source and target compatibilit
 
 // end next release
 -->
+
+### 3.1.243.0
+
+* **Feature** Index scrubber - return the count of bad entries found [(Issue #1547)](https://github.com/FoundationDB/fdb-record-layer/issues/1547)
+* **Feature** Allow scrubbing of non-"value" indexes [(Issue #1551)](https://github.com/FoundationDB/fdb-record-layer/issues/1551)
 
 ### 3.1.242.0
 
