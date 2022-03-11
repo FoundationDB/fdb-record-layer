@@ -27,7 +27,10 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -42,11 +45,25 @@ import java.util.Objects;
 public class LiteralValue<T> implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
+    @Nonnull
+    private final Type resultType;
+
     @Nullable
     private final T value;
 
     public LiteralValue(@Nullable final T value) {
+        this(Type.primitiveType(typeCodeFromLiteral(value), false), value);
+    }
+
+    public LiteralValue(@Nonnull Type resultType, @Nullable final T value) {
+        this.resultType = resultType;
         this.value = value;
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return resultType;
     }
 
     @Nullable
@@ -104,6 +121,12 @@ public class LiteralValue<T> implements LeafValue {
         return String.valueOf(value);
     }
 
+    @Nonnull
+    @Override
+    public String describe(@Nonnull final Formatter formatter) {
+        return formatLiteral(resultType, Comparisons.toPrintable(value));
+    }
+
     @Override
     public int hashCode() {
         return semanticHashCode();
@@ -114,5 +137,46 @@ public class LiteralValue<T> implements LeafValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Nonnull
+    public static Type.TypeCode typeCodeFromLiteral(@Nullable final Object o) {
+        return Type.getClassToTypeCodeMap().getOrDefault(o == null ? null : o.getClass(), Type.TypeCode.UNKNOWN);
+    }
+
+    @Nonnull
+    public static String formatLiteral(@Nonnull final Type type, @Nonnull final String literal) {
+        final String comparandString;
+        if (type.isPrimitive()) {
+            switch (type.getTypeCode()) {
+                case INT:
+                    comparandString = literal;
+                    break;
+                case LONG:
+                    comparandString = literal + "l";
+                    break;
+                case FLOAT:
+                    comparandString = literal + "f";
+                    break;
+                case DOUBLE:
+                    comparandString = literal + "d";
+                    break;
+                case UNKNOWN: // fallthrough
+                case ANY: // fallthrough
+                case BOOLEAN: // fallthrough
+                case BYTES: // fallthrough
+                case TUPLE: // fallthrough
+                case RECORD: // fallthrough
+                case ARRAY: // fallthrough
+                case RELATION: // fallthrough
+                case STRING: // fallthrough
+                default:
+                    comparandString = "'" + literal + "'";
+                    break;
+            }
+        } else {
+            comparandString = literal;
+        }
+        return comparandString;
     }
 }

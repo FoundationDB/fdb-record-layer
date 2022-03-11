@@ -31,9 +31,12 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.temp.TreeLike;
+import com.apple.foundationdb.record.query.plan.temp.Type;
+import com.apple.foundationdb.record.query.plan.temp.Typed;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -54,12 +57,31 @@ import java.util.stream.StreamSupport;
  * A scalar value type.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, KeyExpressionVisitor.Result {
+public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, KeyExpressionVisitor.Result, Typed {
 
     @Nonnull
     @Override
     default Value getThis() {
         return this;
+    }
+
+    /**
+     * Returns the {@link Type} of the scalar value output.
+     * @return The {@link Type} of the scalar value output.
+     */
+    @Nonnull
+    @Override
+    default Type getResultType() {
+        return Type.primitiveType(Type.TypeCode.UNKNOWN);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Nonnull
+    @Override
+    default String describe(@Nonnull final Formatter formatter) {
+        throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
     }
 
     @Nullable
@@ -202,13 +224,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    default <V extends Value> Optional<V> narrowMaybe(@Nonnull Class<V> narrowedClass) {
-        if (narrowedClass.isInstance(this)) {
-            return Optional.of(narrowedClass.cast(this));
-        }
-        return Optional.empty();
-    }
-
     @Override
     default boolean semanticEquals(@Nullable final Object other,
                                    @Nonnull final AliasMap aliasMap) {

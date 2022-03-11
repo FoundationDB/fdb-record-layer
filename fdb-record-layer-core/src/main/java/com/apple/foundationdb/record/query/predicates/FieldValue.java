@@ -28,7 +28,9 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
 import com.apple.foundationdb.record.query.plan.temp.MessageValue;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -45,14 +47,21 @@ public class FieldValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
     @Nonnull
-    private final QuantifiedColumnValue columnValue;
+    private final QuantifiedValue columnValue;
     @Nonnull
     private final List<String> fieldPath;
+    @Nonnull
+    private final Type resultType;
 
-    public FieldValue(@Nonnull QuantifiedColumnValue columnValue, @Nonnull List<String> fieldPath) {
+    public FieldValue(@Nonnull QuantifiedValue columnValue, @Nonnull List<String> fieldPath) {
+        this(columnValue, fieldPath, Type.primitiveType(Type.TypeCode.UNKNOWN));
+    }
+
+    public FieldValue(@Nonnull QuantifiedValue columnValue, @Nonnull List<String> fieldPath, @Nonnull Type resultType) {
         Preconditions.checkArgument(!fieldPath.isEmpty());
         this.columnValue = columnValue;
         this.fieldPath = ImmutableList.copyOf(fieldPath);
+        this.resultType = resultType;
     }
 
     @Nonnull
@@ -72,14 +81,20 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public QuantifiedColumnValue getChild() {
+    public Type getResultType() {
+        return resultType;
+    }
+
+    @Nonnull
+    @Override
+    public QuantifiedValue getChild() {
         return columnValue;
     }
 
     @Nonnull
     @Override
     public FieldValue withNewChild(@Nonnull final Value child) {
-        return new FieldValue((QuantifiedColumnValue)child, fieldPath);
+        return new FieldValue((QuantifiedValue)child, fieldPath);
     }
 
     @Override
@@ -118,6 +133,12 @@ public class FieldValue implements ValueWithChild {
     @Override
     public String toString() {
         return columnValue.toString() + "/" + String.join(".", fieldPath);
+    }
+
+    @Nonnull
+    @Override
+    public String describe(@Nonnull final Formatter formatter) {
+        return columnValue.describe(formatter) + "." + String.join(".", fieldPath);
     }
 
     @Override

@@ -126,7 +126,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
             case FanOut:
                 // explode this field and prefixes of this field
                 final Quantifier childBase = fieldKeyExpression.explodeField(baseAlias, fieldNamePrefix);
-                value = state.registerValue(new QuantifiedObjectValue(childBase.getAlias()));
+                value = state.registerValue(QuantifiedObjectValue.of(childBase.getAlias()));
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());

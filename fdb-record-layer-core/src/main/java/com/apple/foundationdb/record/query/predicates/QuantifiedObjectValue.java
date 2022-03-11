@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -46,16 +48,25 @@ public class QuantifiedObjectValue implements QuantifiedValue {
 
     @Nonnull
     private final CorrelationIdentifier alias;
+    @Nonnull
+    private final Type resultType;
 
-    public QuantifiedObjectValue(@Nonnull final CorrelationIdentifier alias) {
+    private QuantifiedObjectValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
         this.alias = alias;
+        this.resultType = resultType;
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return resultType;
     }
 
     @Nonnull
     @Override
     public QuantifiedObjectValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(alias)) {
-            return new QuantifiedObjectValue(translationMap.getTargetOrThrow(alias));
+            return QuantifiedObjectValue.of(translationMap.getTargetOrThrow(alias));
         }
         return this;
     }
@@ -70,6 +81,12 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     @Override
     public CorrelationIdentifier getAlias() {
         return alias;
+    }
+
+    @Nonnull
+    @Override
+    public String describe(@Nonnull final Formatter formatter) {
+        return formatter.getQuantifierName(alias);
     }
 
     @Override
@@ -105,5 +122,15 @@ public class QuantifiedObjectValue implements QuantifiedValue {
             return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
         }
         return false;
+    }
+
+    @Nonnull
+    public static QuantifiedObjectValue of(@Nonnull final CorrelationIdentifier alias) {
+        return new QuantifiedObjectValue(alias, Type.primitiveType(Type.TypeCode.UNKNOWN));
+    }
+
+    @Nonnull
+    public static QuantifiedObjectValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
+        return new QuantifiedObjectValue(alias, resultType);
     }
 }
