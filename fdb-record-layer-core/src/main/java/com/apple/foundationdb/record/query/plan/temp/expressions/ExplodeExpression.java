@@ -129,7 +129,6 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         return resultValue.toString();
     }
 
-    @SuppressWarnings("deprecation")
     public static ExplodeExpression explodeField(@Nonnull final CorrelationIdentifier correlationIdentifier,
                                                  final int index,
                                                  @Nonnull final List<String> fieldNames) {

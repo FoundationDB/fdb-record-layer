@@ -110,7 +110,6 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         return new EmptyValue();
     }
 
-    @SuppressWarnings("deprecation")
     @Nonnull
     @Override
     public Value visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {

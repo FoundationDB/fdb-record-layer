@@ -82,7 +82,6 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
         return isEmpty;
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()

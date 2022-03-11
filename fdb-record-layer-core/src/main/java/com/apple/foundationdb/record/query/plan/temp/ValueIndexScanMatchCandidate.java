@@ -223,7 +223,6 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch));
     }
 
-    @SuppressWarnings("deprecation")
     @Nonnull
     @Override
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,

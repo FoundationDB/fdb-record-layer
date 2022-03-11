@@ -147,7 +147,6 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
         return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), translateValueFunction);
     }
 
-    @SuppressWarnings("deprecation")
     @Nonnull
     public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier newAlias) {
         return translateValueFunction.translateValue(value, QuantifiedColumnValue.of(newAlias, 0));

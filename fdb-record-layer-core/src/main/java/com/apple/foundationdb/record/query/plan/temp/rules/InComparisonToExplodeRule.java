@@ -125,7 +125,6 @@ public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
         super(root);
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
