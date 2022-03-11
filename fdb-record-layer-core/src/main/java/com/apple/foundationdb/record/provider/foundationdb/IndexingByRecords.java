@@ -511,6 +511,8 @@ public class IndexingByRecords extends IndexingBase {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
+        // TODO the only usage of this assumes that the whole range will be built, which is not true, it will only
+        //      build up until limit (which may be decreased, if there are failures)
         return buildCommitRetryAsync(
                 (store, recordsScanned, limit) -> buildUnbuiltRange(store, start, end, recordsScanned, limit),
                 true,
