@@ -50,14 +50,8 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
         this.child = child;
     }
 
-    @Nonnull
     @Override
-    public Type getResultType() {
-        return Type.primitiveType(Type.TypeCode.BOOLEAN);
-    }
-
-    @Override
-    public Optional<? extends QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         // TODO the alternative component should not be null
         return Optional.of(new ExistsPredicate(child.getAlias(), null));
     }

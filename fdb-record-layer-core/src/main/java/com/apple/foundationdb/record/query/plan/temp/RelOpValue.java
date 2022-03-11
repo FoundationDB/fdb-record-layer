@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
-import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
@@ -124,7 +123,7 @@ public class RelOpValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<? extends QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         final Set<CorrelationIdentifier> innermostAliasSet = Set.of(innermostAlias);
         final Iterator<? extends Value> it = children.iterator();
         int childrenCount = Iterables.size(children);
@@ -163,7 +162,7 @@ public class RelOpValue implements BooleanValue {
         return Optional.empty();
     }
 
-    Optional<ConstantPredicate> tryBoxSelfAsConstantPredicate() {
+    Optional<QueryPredicate> tryBoxSelfAsConstantPredicate() {
         Object constantValue = compileTimeEvalFn.apply(this);
         if (constantValue == Boolean.TRUE) {
             return Optional.of(ConstantPredicate.TRUE);

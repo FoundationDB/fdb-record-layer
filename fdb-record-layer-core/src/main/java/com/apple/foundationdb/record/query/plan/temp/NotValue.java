@@ -65,18 +65,8 @@ public class NotValue implements BooleanValue {
         this.child = child;
     }
 
-    /**
-     * Returns the {@link Type} of the result.
-     * @return The {@link Type} of the result.
-     */
-    @Nonnull
     @Override
-    public Type getResultType() {
-        return Type.primitiveType(Type.TypeCode.BOOLEAN);
-    }
-
-    @Override
-    public Optional<? extends QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         Verify.verify(child instanceof BooleanValue);
         final Optional<? extends QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(innermostAlias);
         return predicateOptional.map(NotPredicate::not);

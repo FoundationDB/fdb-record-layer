@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -104,7 +105,7 @@ public abstract class AndOrValue implements BooleanValue {
     }
 
     /**
-     * A {@link Value} that conjuncts its boolean children.
+     * A {@link Value} that conjuncts, and if possible, simplifies its boolean children.
      */
     public static class AndValue extends AndOrValue {
         public AndValue(@Nonnull final String functionName, @Nonnull final Value leftChild, @Nonnull final Value rightChild) {
@@ -112,15 +113,22 @@ public abstract class AndOrValue implements BooleanValue {
         }
 
         @Override
-        public Optional<? extends QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+        public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
             Verify.verify(leftChild instanceof BooleanValue);
             Verify.verify(rightChild instanceof BooleanValue);
-            final Optional<? extends QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
+            final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
             if (leftPredicateOptional.isPresent()) {
-                final Optional<? extends QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
+                QueryPredicate leftPredicate = leftPredicateOptional.get();
+                if (leftPredicate.equals(ConstantPredicate.FALSE)) {
+                    return leftPredicateOptional; // short-cut
+                }
+                final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
                 if (rightPredicateOptional.isPresent()) {
-                    return Optional.of(AndPredicate.and(leftPredicateOptional.get(),
-                            rightPredicateOptional.get()));
+                    QueryPredicate rightPredicate = rightPredicateOptional.get();
+                    if (leftPredicate instanceof ConstantPredicate && rightPredicate instanceof ConstantPredicate) { // aggressive eval
+                        return Optional.of((leftPredicate.isTautology() && rightPredicate.isTautology()) ? ConstantPredicate.TRUE : ConstantPredicate.FALSE);
+                    }
+                    return Optional.of(AndPredicate.and(leftPredicate, rightPredicate));
                 }
             }
             return Optional.empty();
@@ -163,7 +171,7 @@ public abstract class AndOrValue implements BooleanValue {
     }
 
     /**
-     * A {@link Value} that disjuncts its boolean children.
+     * A {@link Value} that disjuncts, and if possible, simplifies its boolean children.
      */
     public static class OrValue extends AndOrValue {
         public OrValue(@Nonnull final String functionName, @Nonnull final Value leftChild, @Nonnull final Value rightChild) {
@@ -171,15 +179,22 @@ public abstract class AndOrValue implements BooleanValue {
         }
 
         @Override
-        public Optional<? extends QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+        public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
             Verify.verify(leftChild instanceof BooleanValue);
             Verify.verify(rightChild instanceof BooleanValue);
-            final Optional<? extends QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
+            final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
             if (leftPredicateOptional.isPresent()) {
-                final Optional<? extends QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
+                QueryPredicate leftPredicate = leftPredicateOptional.get();
+                if (leftPredicate.equals(ConstantPredicate.TRUE)) {
+                    return leftPredicateOptional; // short-cut
+                }
+                final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
                 if (rightPredicateOptional.isPresent()) {
-                    return Optional.of(OrPredicate.or(leftPredicateOptional.get(),
-                            rightPredicateOptional.get()));
+                    QueryPredicate rightPredicate = rightPredicateOptional.get();
+                    if (leftPredicate instanceof ConstantPredicate && rightPredicate instanceof ConstantPredicate) { // aggressive eval
+                        return Optional.of((leftPredicate.isTautology() || rightPredicate.isTautology()) ? ConstantPredicate.TRUE : ConstantPredicate.FALSE);
+                    }
+                    return Optional.of(OrPredicate.or(leftPredicate, rightPredicate));
                 }
             }
             return Optional.empty();

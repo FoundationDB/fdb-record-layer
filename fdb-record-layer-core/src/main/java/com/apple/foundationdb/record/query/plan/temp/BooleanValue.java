@@ -30,9 +30,6 @@ import java.util.Optional;
  * Shim class to translate objects of type {@link Value} to {@link QueryPredicate}.
  */
 public interface BooleanValue extends Value {
-    /**
-     * {@inheritDoc}
-     */
     @Nonnull
     @Override
     default Type getResultType() {
@@ -40,9 +37,10 @@ public interface BooleanValue extends Value {
     }
 
     /**
-     * Translates the {@link Value} into a {@link QueryPredicate}.
+     * Translates the {@link BooleanValue} into a {@link QueryPredicate}.
+     *
      * @param innermostAlias An alias immediately visible to the expression.
-     * @return A {@link QueryPredicate} that is equivalent to this {@link Value} expression.
+     * @return A {@link QueryPredicate} that is equivalent to this {@link BooleanValue} expression.
      */
-    Optional<? extends QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias);
+    Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias);
 }
