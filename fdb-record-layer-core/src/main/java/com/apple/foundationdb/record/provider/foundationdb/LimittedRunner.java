@@ -46,8 +46,8 @@ public class LimittedRunner implements AutoCloseable {
     private final Runner runner;
     private int retriesAtMinimum = 0;
     private int successCount = 0;
-    private int increaseLimitAfter = 10; // maybe this should be configurable
-    private int maxRetriesAtMinimum;
+    private final int increaseLimitAfter = 10; // maybe this should be configurable
+    private final int maxRetriesAtMinimum;
     private boolean closed = false;
 
     public LimittedRunner(final int maxLimit, final int maxRetriesAtMinimum, Runner runner) {
@@ -134,7 +134,9 @@ public class LimittedRunner implements AutoCloseable {
     }
 
     public interface Runner {
+
         CompletableFuture<Boolean> runAsync(int limit);
+
         void onSuccess();
     }
 }

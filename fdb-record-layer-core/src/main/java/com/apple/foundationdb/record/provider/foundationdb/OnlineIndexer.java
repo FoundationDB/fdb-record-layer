@@ -58,7 +58,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -796,6 +795,7 @@ public class OnlineIndexer implements AutoCloseable {
         return common.getTotalRecordsScanned().get();
     }
 
+    @Nonnull
     private FDBDatabaseRunner getRunner() {
         return runner;
     }
