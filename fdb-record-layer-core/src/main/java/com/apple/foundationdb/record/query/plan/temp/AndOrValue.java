@@ -112,7 +112,7 @@ public abstract class AndOrValue implements BooleanValue {
         }
 
         @Override
-        public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+        public Optional<? extends QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
             Verify.verify(leftChild instanceof BooleanValue);
             Verify.verify(rightChild instanceof BooleanValue);
             final Optional<? extends QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
@@ -171,7 +171,7 @@ public abstract class AndOrValue implements BooleanValue {
         }
 
         @Override
-        public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+        public Optional<? extends QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
             Verify.verify(leftChild instanceof BooleanValue);
             Verify.verify(rightChild instanceof BooleanValue);
             final Optional<? extends QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
