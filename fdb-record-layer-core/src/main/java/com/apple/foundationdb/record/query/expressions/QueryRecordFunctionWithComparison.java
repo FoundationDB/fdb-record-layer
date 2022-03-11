@@ -162,7 +162,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
             // join predicate
             final var selfJoinPredicate =
-                    new QuantifiedObjectValue(rankQuantifier.getAlias())
+                    QuantifiedObjectValue.of(rankQuantifier.getAlias())
                             .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
                                     Bindings.Internal.CORRELATION.bindingName(baseAlias.toString()), Bindings.Internal.CORRELATION));
             final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);

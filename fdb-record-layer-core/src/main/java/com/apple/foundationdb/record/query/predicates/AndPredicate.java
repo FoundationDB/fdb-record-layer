@@ -72,7 +72,7 @@ public class AndPredicate extends AndOrPredicate {
     public String toString() {
         return getChildren()
                 .stream()
-                .map(child -> child.toString())
+                .map(child -> "(" + child + ")")
                 .collect(Collectors.joining(" and "));
     }
 

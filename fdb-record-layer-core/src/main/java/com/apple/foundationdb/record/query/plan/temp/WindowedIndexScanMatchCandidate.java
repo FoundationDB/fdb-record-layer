@@ -24,9 +24,11 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -38,14 +40,18 @@ import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -173,6 +179,94 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Override
     public KeyExpression getAlternativeKeyExpression() {
         return alternativeKeyExpression;
+    }
+
+    @Nonnull
+    @Override
+    public List<BoundKeyPart> computeBoundKeyParts(@Nonnull MatchInfo matchInfo,
+                                                   @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                                   boolean isReverse) {
+        final var parameterBindingMap = matchInfo.getParameterBindingMap();
+        final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
+
+        final var normalizedKeys =
+                getAlternativeKeyExpression().normalizeKeyForPositions();
+
+        final var builder = ImmutableList.<BoundKeyPart>builder();
+        final var candidateParameterIds = getOrderingAliases();
+
+        for (final var parameterId : sortParameterIds) {
+            final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
+            Verify.verify(ordinalInCandidate >= 0);
+            final var normalizedKey = normalizedKeys.get(ordinalInCandidate);
+            Objects.requireNonNull(normalizedKey);
+            Objects.requireNonNull(parameterId);
+            @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
+            @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
+
+            Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
+
+            if (parameterId.equals(scoreAlias)) {
+                //
+                // This is the score field of the index which is returned at this ordinal position.
+                // Even though we may not have bound the score field itself via matching we may have bound the
+                // rank (we should have). If the rank is bound by equality, the score is also bound by equality.
+                // We need to record that.
+                //
+                @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
+                @Nullable final var rankQueryPredicate = parameterBindingPredicateMap.get(rankAlias);
+
+                builder.add(
+                        BoundKeyPart.of(normalizedKey,
+                                rankComparisonRange == null ? ComparisonRange.Type.EMPTY : rankComparisonRange.getRangeType(),
+                                rankQueryPredicate,
+                                isReverse));
+            } else {
+                builder.add(
+                        BoundKeyPart.of(normalizedKey,
+                                comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
+                                queryPredicate,
+                                isReverse));
+            }
+        }
+
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
+        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<KeyExpression, Comparisons.Comparison>builder();
+        final var normalizedKeyExpressions = getAlternativeKeyExpression().normalizeKeyForPositions();
+        final var equalityComparisons = scanComparisons.getEqualityComparisons();
+        final var groupingExpression = (GroupingKeyExpression)index.getRootExpression();
+        final var scoreOrdinal = groupingExpression.getGroupingCount();
+
+        for (var i = 0; i < equalityComparisons.size(); i++) {
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
+            final var comparison = equalityComparisons.get(i);
+
+            if (i == scoreOrdinal) {
+                equalityBoundKeyMapBuilder.put(normalizedKeyExpression, new Comparisons.OpaqueEqualityComparison());
+            } else {
+                equalityBoundKeyMapBuilder.put(normalizedKeyExpression, comparison);
+            }
+        }
+
+        final var result = ImmutableList.<KeyPart>builder();
+        for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
+            final KeyExpression currentKeyExpression = normalizedKeyExpressions.get(i);
+
+            //
+            // Note that it is not really important here if the keyExpression can be normalized in a lossless way
+            // or not. A key expression containing repeated fields is sort-compatible with its normalized key
+            // expression. We used to refuse to compute the sort order in the presence of repeats, however,
+            // I think that restriction can be relaxed.
+            //
+            result.add(KeyPart.of(currentKeyExpression, isReverse));
+        }
+
+        return new Ordering(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct);
     }
 
     @Nonnull

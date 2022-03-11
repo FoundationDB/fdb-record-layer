@@ -119,11 +119,13 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers.equalsObject;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexPlanOf;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.intersectionPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.queryComponents;
@@ -131,7 +133,10 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQuery
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.unionPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.unorderedUnionPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers.fieldValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
@@ -1493,16 +1498,44 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     public void compoundWithNullOther() throws Exception {
+        final var filter = Query.or(
+                Query.field("gender").notEquals("M"),
+                Query.rank("score").lessThanOrEquals(0L));
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("BasicRankedRecord")
-                .setFilter(Query.or(
-                        Query.field("gender").notEquals("M"),
-                        Query.rank("score").lessThanOrEquals(0L)))
+                .setFilter(filter)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertEquals("Scan(<,>) | [BasicRankedRecord] | Or([gender NOT_EQUALS M, rank(Field { 'score' None} group 1) LESS_THAN_OR_EQUALS 0])", plan.toString());
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals("Scan(<,>) | [BasicRankedRecord] | Or([gender NOT_EQUALS M, rank(Field { 'score' None} group 1) LESS_THAN_OR_EQUALS 0])", plan.toString());
+            assertMatchesExactly(plan,
+                    filterPlan(
+                            typeFilterPlan(
+                                    scanPlan().where(scanComparisons(unbounded())))
+                                    .where(recordTypes(containsAll(ImmutableSet.of("BasicRankedRecord")))))
+                            .where(queryComponents(exactly(equalsObject(filter)))));
+        } else {
+            assertMatchesExactly(plan,
+                    fetchFromPartialRecordPlan(
+                            unorderedPrimaryKeyDistinctPlan(
+                                    unorderedUnionPlan(
+                                            predicatesFilterPlan(
+                                                    coveringIndexPlan()
+                                                            .where(indexPlanOf(
+                                                                    indexPlan()
+                                                                            .where(RecordQueryPlanMatchers.indexName("rank_by_gender"))
+                                                                            .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
+                                                                            .and(scanComparisons(unbounded())))))
+                                                    .where(predicates(valuePredicate(fieldValue("gender"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "M")))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(
+                                                            indexPlan()
+                                                                    .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
+                                                                    .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
+                                                                    .and(scanComparisons(range("([null],[0]]")))))))));
+        }
 
         TestRecordsRankProto.BasicRankedRecord recordWithNoGender = TestRecordsRankProto.BasicRankedRecord.newBuilder()
                 .setName("no_assumptions").setScore(500).build();
@@ -1513,13 +1546,13 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             List<String> names = recordStore.executeQuery(plan)
                     .map(rec -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
                     .asList().join();
-            assertEquals(Arrays.asList("hector", "helen", "laodice", "penelope"), names);
+            assertEquals(ImmutableSet.of("hector", "helen", "laodice", "penelope"), ImmutableSet.copyOf(names));
             commit(context);
         }
     }
 
     @Test
-    public void countNotPossibleWithoutUniqueIndex() throws Exception {
+    void countNotPossibleWithoutUniqueIndex() throws Exception {
         assertThrows(RecordCoreException.class, () -> {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context);
@@ -1691,7 +1724,33 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                             Query.field("gender").equalsValue("F")))
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            assertEquals("Index(BasicRankedRecord$score [[2],[2]] BY_RANK) ∩ Index(BasicRankedRecord$gender [[F],[F]])", plan.toString());
+            if (planner instanceof RecordQueryPlanner) {
+                assertMatchesExactly(plan,
+                                intersectionPlan(
+                                        indexPlan()
+                                                .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
+                                                .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
+                                                .and(scanComparisons(range("[[2],[2]]"))),
+                                        indexPlan()
+                                                .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$gender"))
+                                                .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
+                                                .and(scanComparisons(range("[[F],[F]]")))));
+            } else {
+                assertMatchesExactly(plan,
+                        fetchFromPartialRecordPlan(
+                                intersectionPlan(
+                                        coveringIndexPlan()
+                                                .where(indexPlanOf(indexPlan()
+                                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
+                                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
+                                                        .and(scanComparisons(range("[[2],[2]]"))))),
+                                        coveringIndexPlan()
+                                                .where(indexPlanOf(indexPlan()
+                                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$gender"))
+                                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
+                                                        .and(scanComparisons(range("[[F],[F]]"))))))));
+            }
+
             Set<String> names = new HashSet<>();
             Function<FDBQueriedRecord<Message>, String> name = rec -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName();
             RecordCursor<String> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()).map(name);
@@ -1710,8 +1769,65 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @DualPlannerTest
+    void rankScanUnion() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, md -> {
+                md.removeIndex("rank_by_gender");
+                md.addIndex("BasicRankedRecord", "gender");
+            });
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex("BasicRankedRecord$gender")).join();
+            // Laodice fails the rank test; need something that fails the gender test.
+            recordStore.saveRecord(TestRecordsRankProto.BasicRankedRecord.newBuilder()
+                    .setName("patroclus")
+                    .setScore(200)
+                    .setGender("M")
+                    .build());
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("BasicRankedRecord")
+                    .setFilter(Query.or(
+                            Query.rank("score").equalsValue(2),
+                            Query.field("gender").equalsValue("F")))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            if (planner instanceof RecordQueryPlanner) {
+                assertMatchesExactly(plan,
+                        unionPlan(
+                                indexPlan()
+                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
+                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
+                                        .and(scanComparisons(range("[[2],[2]]"))),
+                                indexPlan()
+                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$gender"))
+                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
+                                        .and(scanComparisons(range("[[F],[F]]")))));
+            } else {
+                assertMatchesExactly(plan,
+                        fetchFromPartialRecordPlan(
+                                unionPlan(
+                                        coveringIndexPlan()
+                                                .where(indexPlanOf(indexPlan()
+                                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
+                                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
+                                                        .and(scanComparisons(range("[[2],[2]]"))))),
+                                        coveringIndexPlan()
+                                                .where(indexPlanOf(indexPlan()
+                                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$gender"))
+                                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
+                                                        .and(scanComparisons(range("[[F],[F]]"))))))));
+            }
+
+            final List<String> names = recordStore.executeQuery(plan)
+                    .map(rec -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
+                    .asList().join();
+            commit(context);
+
+            assertEquals(ImmutableSet.of("helen", "laodice", "patroclus", "penelope"), ImmutableSet.copyOf(names));
+        }
+    }
+
     @Test
-    public void checkScoreForRank() throws Exception {
+    void checkScoreForRank() throws Exception {
         IndexAggregateFunction function = new IndexAggregateFunction(FunctionNames.SCORE_FOR_RANK, Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), null);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);

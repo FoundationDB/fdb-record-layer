@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Equivalence;
@@ -129,6 +130,23 @@ public class MatchInfo {
             final PartialMatch partialMatch = Objects.requireNonNull(partialMatchWrapper.get());
             partialMatch.getMatchInfo().collectPredicateMappings(targetBuilder);
         }
+    }
+
+    @Nonnull
+    public ImmutableMap<CorrelationIdentifier, QueryPredicate> getParameterPredicateMap() {
+        return getAccumulatedPredicateMap()
+                .entries()
+                .stream()
+                .filter(entry -> {
+                    final PredicateMultiMap.PredicateMapping predicateMapping = entry.getValue();
+                    return predicateMapping.getParameterAliasOptional().isPresent();
+                })
+                .collect(ImmutableMap.toImmutableMap(entry -> {
+                    final PredicateMultiMap.PredicateMapping predicateMapping = entry.getValue();
+                    return Objects.requireNonNull(predicateMapping
+                            .getParameterAliasOptional()
+                            .orElseThrow(() -> new RecordCoreException("parameter alias should have been set")));
+                }, entry -> Objects.requireNonNull(entry.getKey())));
     }
 
     @Nonnull

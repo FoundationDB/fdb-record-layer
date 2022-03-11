@@ -287,6 +287,7 @@ public class BaseMatcher<T> {
     }
 
     @Nonnull
+    @SuppressWarnings("java:S3776")
     private Iterable<Set<CorrelationIdentifier>> otherCombinations(final int limitInclusive) {
         final Set<CorrelationIdentifier> otherAliases = getOtherAliases();
         final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap = getOtherDependsOnMap();

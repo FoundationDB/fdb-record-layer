@@ -157,12 +157,14 @@ public class ExistsPredicate implements LeafQueryPredicate {
         if (!compensationOptional.isPresent() || compensationOptional.get().isNeeded()) {
             // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
             //      make a predicate that can evaluate a QueryComponent
-            return Optional.of(reapplyPredicate());
+            return Optional.of(toResidualPredicate());
         }
         return Optional.empty();
     }
 
-    private QueryPredicate reapplyPredicate() {
+    @Nonnull
+    @Override
+    public QueryPredicate toResidualPredicate() {
         return new QueryComponentPredicate(getAlternativeComponent(), existentialAlias);
     }
 

@@ -21,16 +21,14 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.BoundKeyPart;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
-import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -40,15 +38,12 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -235,12 +230,9 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
 
     /**
      * This synthesizes a list of {@link BoundKeyPart}s from the current partial match and the ordering information
-     * contained in this expression. Using the list of parameter ids, each {@link BoundKeyPart} links together the
-     * (1) normalized key expression that originally produced the key (from index, or common primary key)
-     * (2) a comparison range for this parameter which is contained in the already existent partial match
-     * (3) the predicate on the query part that participated and bound this parameter (and implicitly was used to
-     *     synthesize the comparison range in (2)
-     * (4) the candidate predicate on the candidate side that is the {@link Placeholder} for the parameter
+     * contained in this expression. It delegates to {@link MatchCandidate#computeBoundKeyParts} to do this work as
+     * while there is a lot of commonality across different index kinds, special indexes may need to define and declare
+     * their order in a specific unique way.
      * @param partialMatch the pre-existing partial match on {@code (expression, this)} that the caller wants to adjust.
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate
@@ -248,51 +240,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     @Nonnull
     private List<BoundKeyPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
         final var matchCandidate = partialMatch.getMatchCandidate();
-        final var matchInfo = partialMatch.getMatchInfo();
-        final var parameterBindingMap = matchInfo.getParameterBindingMap();
-        final var accumulatedPredicateMap = matchInfo.getAccumulatedPredicateMap();
-
-        final var parameterBindingPredicateMap =
-                accumulatedPredicateMap
-                        .entries()
-                        .stream()
-                        .filter(entry -> {
-                            final PredicateMapping predicateMapping = entry.getValue();
-                            return predicateMapping.getParameterAliasOptional().isPresent();
-                        })
-                        .collect(ImmutableMap.toImmutableMap(entry -> {
-                            final PredicateMapping predicateMapping = entry.getValue();
-                            return Objects.requireNonNull(predicateMapping
-                                    .getParameterAliasOptional()
-                                    .orElseThrow(() -> new RecordCoreException("parameter alias should have been set")));
-                        }, entry -> Objects.requireNonNull(entry.getKey())));
-
-        final var normalizedKeys =
-                matchCandidate.getAlternativeKeyExpression().normalizeKeyForPositions();
-
-        final var builder = ImmutableList.<BoundKeyPart>builder();
-        final var candidateParameterIds = matchCandidate.getOrderingAliases();
-
-        for (final var parameterId : sortParameterIds) {
-            final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
-            Verify.verify(ordinalInCandidate >= 0);
-            final var normalizedKey = normalizedKeys.get(ordinalInCandidate);
-
-            Objects.requireNonNull(parameterId);
-            Objects.requireNonNull(normalizedKey);
-            @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
-            @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
-
-            Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
-
-            builder.add(
-                    BoundKeyPart.of(normalizedKey,
-                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
-                            queryPredicate,
-                            isReverse));
-        }
-
-        return builder.build();
+        return matchCandidate.computeBoundKeyParts(partialMatch.getMatchInfo(), getSortParameterIds(), isReverse());
     }
 
     @Nonnull

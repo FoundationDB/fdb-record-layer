@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPre
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -260,6 +261,21 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         //      a real value, or even null if the underlying graph evaluates to empty. The presence of such a property
         //      would help us here to make sure the additional non-matched quantifier is not eliminating records.
         if (!allOtherForEachQuantifiersMatched) {
+            return ImmutableList.of();
+        }
+
+        //
+        // Go through all matched existential quantifiers. Make sure that there is a top level exists() predicate
+        // corresponding to  each  one.
+        //
+        if (getQuantifiers()
+                .stream()
+                .filter(quantifier -> quantifier instanceof Quantifier.Existential && aliasMap.containsSource(quantifier.getAlias()))
+                .anyMatch(quantifier -> getPredicates()
+                        .stream()
+                        .noneMatch(predicate -> predicate instanceof ExistsPredicate &&
+                                                ((ExistsPredicate)predicate).getExistentialAlias().equals(quantifier.getAlias()))
+                )) {
             return ImmutableList.of();
         }
 

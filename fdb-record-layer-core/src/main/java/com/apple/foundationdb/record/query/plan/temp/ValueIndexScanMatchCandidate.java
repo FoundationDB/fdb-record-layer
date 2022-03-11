@@ -51,7 +51,7 @@ import java.util.Set;
 /**
  * Case class to represent a match candidate that is backed by an index.
  */
-public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate {
+public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate, ValueIndexLikeMatchCandidate {
     /**
      * Index metadata structure.
      */

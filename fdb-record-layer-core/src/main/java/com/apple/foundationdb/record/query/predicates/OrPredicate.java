@@ -75,7 +75,7 @@ public class OrPredicate extends AndOrPredicate {
     public String toString() {
         return getChildren()
                 .stream()
-                .map(child -> child.toString())
+                .map(child -> "(" + child + ")")
                 .collect(Collectors.joining(" or "));
     }
 
