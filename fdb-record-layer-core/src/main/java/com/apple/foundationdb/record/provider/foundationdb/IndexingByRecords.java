@@ -477,6 +477,8 @@ public class IndexingByRecords extends IndexingBase {
     public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
                                                               @Nullable Key.Evaluated start,
                                                               @Nullable Key.Evaluated end) {
+        // TODO: this does respect the limit in a sensible-ish way, but given the documentation, I feel like this method
+        //       should either method be removed entirely, or should take a limit
         return buildUnbuiltRange(store, start, end, null, getLimit());
     }
 

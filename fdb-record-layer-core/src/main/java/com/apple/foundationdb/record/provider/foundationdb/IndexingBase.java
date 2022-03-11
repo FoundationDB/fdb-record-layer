@@ -764,7 +764,8 @@ public abstract class IndexingBase {
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
                                                        IndexingThrottle.Runner<Boolean> iterateRange,
-                                                       @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+                                                       @Nonnull SubspaceProvider subspaceProvider,
+                                                       @Nonnull Subspace subspace) {
 
         return AsyncUtil.whileTrue(() ->
                     buildCommitRetryAsync(iterateRange,
