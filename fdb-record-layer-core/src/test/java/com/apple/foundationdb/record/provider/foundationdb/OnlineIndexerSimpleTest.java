@@ -470,7 +470,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             // Non-retriable error that is in lessen work codes.
             attempts.set(0);
             indexBuilder.buildCommitRetryAsync((store, recordsScanned, innerLimit) -> {
-                assertEquals(indexBuilder.getLimit(), limit.getAndUpdate(x -> Math.max(1, (3 * x) / 4)),
+                assertEquals(innerLimit, limit.getAndUpdate(x -> Math.max(1, (3 * x) / 4)),
                         String.format("Attempt: %02d", attempts.getAndIncrement()));
                 throw new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
             }, null).handle((val, e) -> {
@@ -579,7 +579,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                             return AsyncUtil.READY_FALSE;
                         } else {
                             int currentAttempt = attempts.getAndIncrement();
-                            assertEquals(behavior.getLeft().intValue(), indexBuilder.getLimit(),
+                            assertEquals(behavior.getLeft().intValue(), limit,
                                     "Attempt " + currentAttempt);
                             if (behavior.getRight() != null) {
                                 throw behavior.getRight().get();
