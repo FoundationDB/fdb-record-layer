@@ -151,12 +151,28 @@ public class QuantifiedColumnValue implements QuantifiedValue {
         return false;
     }
 
+    /**
+     * Creates a new instance of {@link CorrelationIdentifier}.
+     *
+     * @param alias The alias of the correlation containing the column.
+     * @param ordinal The ordinal position of the column.
+     * @return a new instance of {@link CorrelationIdentifier}.
+     * note: this method will be replaced by {@link #of(CorrelationIdentifier, int, Type.Record)}.
+     */
     @Nonnull
     public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal) {
         // TODO get record type information.
         return new QuantifiedColumnValue(alias, ordinal, Type.Record.erased());
     }
 
+    /**
+     * Creates a new instance of {@link CorrelationIdentifier}.
+     *
+     * @param alias The alias of the correlation containing the column.
+     * @param ordinal The ordinal position of the column.
+     * @param recordType The {@link Type} of the record.
+     * @return a new instance of {@link CorrelationIdentifier}.
+     */
     @Nonnull
     public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal, @Nonnull final Type.Record recordType) {
         return new QuantifiedColumnValue(alias, ordinal, recordType);
