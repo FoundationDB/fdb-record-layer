@@ -27,7 +27,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -129,12 +128,14 @@ public class IndexingScrubDangling extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned, limit) -> scrubIndexRangeOnly(store, start, end, recordsScanned),
+                (store, recordsScanned, limit) -> scrubIndexRangeOnly(store, start, end, recordsScanned, limit),
                 subspaceProvider, subspace);
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> scrubIndexRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> scrubIndexRangeOnly(@Nonnull FDBRecordStore store,
+                                                           byte[] startBytes, byte[] endBytes,
+                                                           @Nonnull AtomicLong recordsScanned, final int limit) {
         // return false when done
         Index index = common.getIndex();
         final RecordMetaData metaData = store.getRecordMetaData();
@@ -152,10 +153,7 @@ public class IndexingScrubDangling extends IndexingBase {
         RangeSet rangeSet = new RangeSet(indexScrubIndexRangeSubspace(store, index));
         AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
 
-        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows a continuation item
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+        final ScanProperties scanProperties = IndexingUtils.getScanProperties(limit, IsolationLevel.SNAPSHOT);
 
         return ranges.onHasNext().thenCompose(hasNext -> {
             if (Boolean.FALSE.equals(hasNext)) {

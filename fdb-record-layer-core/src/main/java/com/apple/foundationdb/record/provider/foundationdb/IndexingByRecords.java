@@ -164,14 +164,6 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store,
                                                         @Nullable AtomicLong recordsScanned) {
-        return buildEndpoints(store, recordsScanned, Integer.MAX_VALUE);
-    }
-
-    @Nonnull
-    public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store,
-                                                        @Nullable AtomicLong recordsScanned,
-                                                        int limit) {
-        // TODO is this needed at all, or can this always be MAX_VALUE
         final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
         if (TupleRange.ALL.equals(recordsRange)) {
             return buildEndpoints(store, rangeSet, recordsScanned);
@@ -246,7 +238,8 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildEndpoints");
-        return buildCommitRetryAsync(this::buildEndpoints, false, additionalLogMessageKeyValues);
+        return buildCommitRetryAsync((store, recordsScanned, ignoredLimit) -> buildEndpoints(store, recordsScanned),
+                false, additionalLogMessageKeyValues);
     }
 
     // Builds a range within a single transaction. It will look for the missing ranges within the given range and build those while
@@ -309,14 +302,15 @@ public class IndexingByRecords extends IndexingBase {
                     AtomicReference<Tuple> currStart = new AtomicReference<>(startTuple);
                     return AsyncUtil.whileTrue(() ->
                             // Bold claim: this will never cause a RecordBuiltRangeException because of transactions.
-                            buildUnbuiltRange(store, currStart.get(), endTuple, null).thenApply(realEnd -> {
-                                if (realEnd != null && !realEnd.equals(endTuple)) {
-                                    currStart.set(realEnd);
-                                    return true;
-                                } else {
-                                    return false;
-                                }
-                            }), store.getExecutor()).thenCompose(vignore -> ranges.onHasNext());
+                            buildUnbuiltRange(store, currStart.get(), endTuple, null, Integer.MAX_VALUE)
+                                    .thenApply(realEnd -> {
+                                        if (realEnd != null && !realEnd.equals(endTuple)) {
+                                            currStart.set(realEnd);
+                                            return true;
+                                        } else {
+                                            return false;
+                                        }
+                                    }), store.getExecutor()).thenCompose(vignore -> ranges.onHasNext());
                 }, store.getExecutor());
             } else {
                 return AsyncUtil.DONE;
@@ -430,8 +424,9 @@ public class IndexingByRecords extends IndexingBase {
     // Helper function that works on Tuples instead of keys.
     @Nonnull
     private CompletableFuture<Tuple> buildUnbuiltRange(@Nonnull FDBRecordStore store, @Nullable Tuple start,
-                                                       @Nullable Tuple end, @Nullable AtomicLong recordsScanned) {
-        CompletableFuture<Tuple> buildFuture = buildRangeOnly(store, start, end, recordsScanned, getLimit());
+                                                       @Nullable Tuple end, @Nullable AtomicLong recordsScanned,
+                                                       final int limit) {
+        CompletableFuture<Tuple> buildFuture = buildRangeOnly(store, start, end, recordsScanned, limit);
 
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
         byte[] startBytes = packOrNull(start);
@@ -482,15 +477,16 @@ public class IndexingByRecords extends IndexingBase {
     public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
                                                               @Nullable Key.Evaluated start,
                                                               @Nullable Key.Evaluated end) {
-        return buildUnbuiltRange(store, start, end, null);
+        return buildUnbuiltRange(store, start, end, null, getLimit());
     }
 
     // just like the overload that doesn't take a recordsScanned
     @Nonnull
     private CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
                                                                @Nullable Key.Evaluated start, @Nullable Key.Evaluated end,
-                                                               @Nullable AtomicLong recordsScanned) {
-        return buildUnbuiltRange(store, convertOrNull(start), convertOrNull(end), recordsScanned)
+                                                               @Nullable AtomicLong recordsScanned,
+                                                               final int limit) {
+        return buildUnbuiltRange(store, convertOrNull(start), convertOrNull(end), recordsScanned, limit)
                 .thenApply(tuple -> (tuple == null) ? null : Key.Evaluated.fromTuple(tuple));
     }
 
@@ -502,7 +498,7 @@ public class IndexingByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return buildCommitRetryAsync(
-                (store, recordsScanned, limit) -> buildUnbuiltRange(store, start, end, recordsScanned),
+                (store, recordsScanned, limit) -> buildUnbuiltRange(store, start, end, recordsScanned, limit),
                 true,
                 additionalLogMessageKeyValues);
     }
@@ -514,7 +510,7 @@ public class IndexingByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
         return buildCommitRetryAsync(
-                (store, recordsScanned, limit) -> buildUnbuiltRange(store, start, end, recordsScanned),
+                (store, recordsScanned, limit) -> buildUnbuiltRange(store, start, end, recordsScanned, limit),
                 true,
                 additionalLogMessageKeyValues);
     }
@@ -535,13 +531,10 @@ public class IndexingByRecords extends IndexingBase {
         Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         final boolean isIdempotent = maintainer.isIdempotent();
-        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(
-                        isIdempotent ?
-                        IsolationLevel.SNAPSHOT :
-                        IsolationLevel.SERIALIZABLE);
-        executeProperties.setReturnedRowLimit(limit == Integer.MAX_VALUE ? limit : limit + 1);
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+        final ScanProperties scanProperties = IndexingUtils.getScanProperties(limit,
+                isIdempotent ?
+                IsolationLevel.SNAPSHOT :
+                IsolationLevel.SERIALIZABLE);
         final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(range, null, scanProperties);
         final AtomicBoolean hasMore = new AtomicBoolean(true);
 
