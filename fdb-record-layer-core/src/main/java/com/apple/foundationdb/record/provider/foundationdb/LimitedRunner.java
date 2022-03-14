@@ -1,5 +1,5 @@
 /*
- * LimittedRunner.java
+ * LimitedRunner.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-public class LimittedRunner implements AutoCloseable {
+public class LimitedRunner implements AutoCloseable {
 
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
@@ -49,7 +49,7 @@ public class LimittedRunner implements AutoCloseable {
     private int maxRetriesAtMinimum = 10; // maybe this should be configurable
     private boolean closed = false;
 
-    public LimittedRunner(final int maxLimit, final int increaseLimitAfter) {
+    public LimitedRunner(final int maxLimit, final int increaseLimitAfter) {
         this.currentLimit = maxLimit;
         this.maxLimit = maxLimit;
         this.increaseLimitAfter = increaseLimitAfter;

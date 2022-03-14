@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public abstract class ImportRunner<T> implements LimittedRunner.Runner {
+public abstract class ImportRunner<T> implements LimitedRunner.Runner {
     private RecordCursor<T> cursor;
     private final FDBDatabaseRunner runner;
     private List<T> buffer;
