@@ -393,6 +393,9 @@ public class DynamicSchema {
         }
 
         public Builder addType(@Nonnull final Type type) {
+            if (type.isPrimitive()) {
+                throw new IllegalArgumentException("unexpected primitive type " + type.getTypeCode());
+            }
             typeToNameMap.computeIfAbsent(type, t -> {
                 final String protoTypeName = Type.uniqueCompliantTypeName();
                 fileDescProtoBuilder.addMessageType(type.buildDescriptor(protoTypeName));
