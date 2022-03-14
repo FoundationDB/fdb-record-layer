@@ -479,7 +479,8 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a future that will be ready when the build has completed
      */
     @Nonnull
-    public CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
+    public CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store,
+                                              @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         // This only makes sense at 'scan by records' mode.
         return getIndexerByRecordsOrThrow().buildRange(store, start, end);
     }
@@ -538,10 +539,11 @@ public class OnlineIndexer implements AutoCloseable {
      * @throws RecordBuiltRangeException if the given range contains keys already processed by the index build
      */
     @Nonnull
+    // TODO deprecate this method?
     public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
                                                               @Nullable Key.Evaluated start,
                                                               @Nullable Key.Evaluated end) {
-        return getIndexerByRecordsOrThrow().buildUnbuiltRange(store, start, end);
+        return getIndexerByRecordsOrThrow().buildUnbuiltRange(store, start, end, common.config.getMaxLimit());
     }
 
     /**

@@ -295,7 +295,8 @@ public class IndexingByRecords extends IndexingBase {
      * @return a future that will be ready when the build has completed
      */
     @Nonnull
-    public CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
+    public CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store,
+                                              @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
         byte[] startBytes = packOrNull(convertOrNull(start));
         byte[] endBytes = packOrNull(convertOrNull(end));
@@ -309,7 +310,10 @@ public class IndexingByRecords extends IndexingBase {
                     AtomicReference<Tuple> currStart = new AtomicReference<>(startTuple);
                     return AsyncUtil.whileTrue(() ->
                             // Bold claim: this will never cause a RecordBuiltRangeException because of transactions.
-                            buildUnbuiltRange(store, currStart.get(), endTuple, null, getLimit()).thenApply(realEnd -> {
+
+                            // since we continue building within the same transaction, there is no need to limit the
+                            // work done within a single call to buildUnbuiltRange
+                            buildUnbuiltRange(store, currStart.get(), endTuple, null, Integer.MAX_VALUE).thenApply(realEnd -> {
                                 if (realEnd != null && !realEnd.equals(endTuple)) {
                                     currStart.set(realEnd);
                                     return true;
@@ -493,22 +497,26 @@ public class IndexingByRecords extends IndexingBase {
      * @param store the record store in which to rebuild the range
      * @param start the (inclusive) beginning primary key of the range to build (or <code>null</code> to start from the beginning)
      * @param end the (exclusive) end primary key of the range to build (or <code>null</code> to go to the end)
+     * @param limit the max number of records to scan when building the range
      * @return a future with the key of the first record not processed by this range rebuild
      * @throws OnlineIndexer.RecordBuiltRangeException if the given range contains keys already processed by the index build
      */
     @Nonnull
+    // TODO deprecate this method?
     public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
                                                               @Nullable Key.Evaluated start,
-                                                              @Nullable Key.Evaluated end) {
-        return buildUnbuiltRange(store, start, end, null);
+                                                              @Nullable Key.Evaluated end,
+                                                              final int limit) {
+        return buildUnbuiltRange(store, start, end, null, limit);
     }
 
     // just like the overload that doesn't take a recordsScanned
     @Nonnull
     private CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
                                                                @Nullable Key.Evaluated start, @Nullable Key.Evaluated end,
-                                                               @Nullable AtomicLong recordsScanned) {
-        return buildUnbuiltRange(store, convertOrNull(start), convertOrNull(end), recordsScanned, getLimit())
+                                                               @Nullable AtomicLong recordsScanned,
+                                                               final int limit) {
+        return buildUnbuiltRange(store, convertOrNull(start), convertOrNull(end), recordsScanned, limit)
                 .thenApply(tuple -> (tuple == null) ? null : Key.Evaluated.fromTuple(tuple));
     }
 
@@ -570,7 +578,9 @@ public class IndexingByRecords extends IndexingBase {
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         AtomicReference<TupleRange> rangeToGo = new AtomicReference<>(recordsRange);
         return AsyncUtil.whileTrue(() ->
-                buildRangeOnly(store, rangeToGo.get(), null, getLimit()).thenApply(nextStart -> {
+                // since we continue scanning transactionally, there is no benefit to limiting the number of records
+                // scanned in buildRangeOnly
+                buildRangeOnly(store, rangeToGo.get(), null, Integer.MAX_VALUE).thenApply(nextStart -> {
                     if (nextStart == rangeToGo.get().getHigh()) {
                         return false;
                     } else {
