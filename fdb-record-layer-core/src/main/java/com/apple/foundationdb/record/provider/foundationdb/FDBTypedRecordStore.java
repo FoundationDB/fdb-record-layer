@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -171,9 +170,9 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     }
 
     @Override
-    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, final KeyExpression commonPrimaryKey,
+    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, TupleRange range, final KeyExpression commonPrimaryKey,
                                                                      byte[] continuation, ScanProperties scanProperties) {
-        return untypedStore.scanIndexPrefetchInternal(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
+        return untypedStore.scanIndexPrefetchInternal(index, range, commonPrimaryKey, continuation, scanProperties);
     }
 
     @Nonnull

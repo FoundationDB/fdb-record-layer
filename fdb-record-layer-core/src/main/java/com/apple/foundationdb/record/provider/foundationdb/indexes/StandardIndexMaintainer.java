@@ -63,7 +63,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilte
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKeyValueCursor;
-import com.apple.foundationdb.record.provider.foundationdb.KeyValueAndMappedReqAndResult;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
@@ -137,7 +136,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(final IndexScanType scanType, final TupleRange range, final byte[] hopInfo, Subspace recordSubspace, final byte[] continuation, final ScanProperties scanProperties) {
+    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(final TupleRange range, final byte[] hopInfo, final byte[] continuation, final ScanProperties scanProperties) {
         final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, hopInfo)
                 .setContext(state.context)
                 .setRange(range)

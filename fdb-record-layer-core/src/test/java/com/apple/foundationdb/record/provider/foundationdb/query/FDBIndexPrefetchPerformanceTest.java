@@ -50,7 +50,7 @@ class FDBIndexPrefetchPerformanceTest extends FDBRecordStoreQueryTestBase {
     @Test
     @Disabled
     void queryPerformance() throws Exception {
-        int nRecords = 50;
+        int nRecords = 500;
         int nTimes = 100;
 
         // populate the DB
@@ -62,6 +62,9 @@ class FDBIndexPrefetchPerformanceTest extends FDBRecordStoreQueryTestBase {
                 recBuilder.setRecNo(i);
                 recBuilder.setStrValueIndexed((i & 1) == 1 ? "odd" : "even");
                 recBuilder.setNumValueUnique(i + 1000);
+                for (int j = 0; j < 10; j++) {
+                    recBuilder.addRepeater(j);
+                }
                 recordStore.saveRecord(recBuilder.build());
             }
             commit(context);
@@ -77,11 +80,14 @@ class FDBIndexPrefetchPerformanceTest extends FDBRecordStoreQueryTestBase {
                 .asBuilder()
                 .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE)
                 .build());
-        ExecuteProperties executeProperties = ExecuteProperties.newBuilder().build();
-        RecordQueryPlan plan = planner.plan(query);
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                .build();
+
+        RecordQueryPlan planWithScan = planner.plan(query);
 
         long time = 0;
-        time = executeQuery(plan, nTimes, executeProperties);
+        time = executeQuery(planWithScan, nTimes, executeProperties);
         System.out.println("Executed query " + nTimes + " times for " + nRecords * nTimes + " records using index scan in " + TimeUnit.NANOSECONDS.toMillis(time) + " millis");
 
         // Run IndexPrefetch plan
@@ -89,26 +95,21 @@ class FDBIndexPrefetchPerformanceTest extends FDBRecordStoreQueryTestBase {
                 .asBuilder()
                 .setUseIndexPrefetch(RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH)
                 .build());
-        executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .build();
-        plan = planner.plan(query);
+        RecordQueryPlan planWithPrefetch = planner.plan(query);
 
-        time = executeQuery(plan, nTimes, executeProperties);
+        time = executeQuery(planWithPrefetch, nTimes, executeProperties);
         System.out.println("Executed query " + nTimes + " times for " + nRecords * nTimes + " records using index prefetch in " + TimeUnit.NANOSECONDS.toMillis(time) + " millis");
     }
 
-    private long executeQuery(RecordQueryPlan plan, int times, final ExecuteProperties executeProperties) throws
-                                                                                                          Exception {
-        long start;
-        long end;
+    private long executeQuery(RecordQueryPlan plan, int times, final ExecuteProperties executeProperties) throws Exception {
+        long start = 0;
+        long end = 0;
         List<FDBQueriedRecord<Message>> results = new ArrayList<>();
-        try (FDBRecordContext context = openContext()) {
-            context.ensureActive().options().setReadYourWritesDisable();
-            openSimpleRecordStore(context);
+        start = System.nanoTime();
+        for (int i = 0; i < times; i++) {
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
 
-            start = System.nanoTime();
-            for (int i = 0; i < times; i++) {
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
@@ -116,8 +117,8 @@ class FDBIndexPrefetchPerformanceTest extends FDBRecordStoreQueryTestBase {
                     }
                 }
             }
-            end = System.nanoTime();
         }
+        end = System.nanoTime();
         return end - start;
     }
 }

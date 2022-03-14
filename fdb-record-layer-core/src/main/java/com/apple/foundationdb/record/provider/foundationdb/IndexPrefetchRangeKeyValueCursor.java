@@ -65,13 +65,12 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
 
         @SuppressWarnings({"rawtypes", "unchecked"})
         @Override
-        protected AsyncIterator<KeyValue> scanRange(@Nonnull ReadTransaction transaction,
+        protected AsyncIterator<? extends KeyValue> scanRange(@Nonnull ReadTransaction transaction,
                                                     @Nonnull KeySelector begin,
                                                     @Nonnull KeySelector end,
                                                     int limit, boolean reverse,
                                                     @Nonnull StreamingMode streamingMode) {
-            InstrumentedReadTransaction irt = (InstrumentedReadTransaction)transaction;
-            return irt
+            return transaction
                     .getMappedRange(begin, end, hopInfo, limit, reverse, streamingMode)
                     .iterator();
         }

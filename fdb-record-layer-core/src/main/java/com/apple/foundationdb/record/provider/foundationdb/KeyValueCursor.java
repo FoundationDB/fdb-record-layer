@@ -260,14 +260,14 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
                 streamingMode = StreamingMode.EXACT;
             }
 
-            final AsyncIterator<KeyValue> iterator;
+            final AsyncIterator<? extends KeyValue> iterator;
             ReadTransaction transaction = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
             iterator = scanRange(transaction, begin, end, limit, reverse, streamingMode);
 
             final CursorLimitManager limitManager = new CursorLimitManager(context, scanProperties);
             final int valuesLimit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
 
-            return new KeyValueCursor(context, iterator, prefixLength, limitManager, valuesLimit);
+            return new KeyValueCursor(context, (AsyncIterator<KeyValue>)iterator, prefixLength, limitManager, valuesLimit);
         }
 
         public Builder setContext(FDBRecordContext context) {
@@ -330,7 +330,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
          * @param streamingMode the streaming mode
          * @return an iterator over the range or key/values from the DB
          */
-        protected AsyncIterator<KeyValue> scanRange(@Nonnull ReadTransaction transaction,
+        protected AsyncIterator<? extends KeyValue> scanRange(@Nonnull ReadTransaction transaction,
                                                     @Nonnull KeySelector begin,
                                                     @Nonnull KeySelector end,
                                                     int limit, boolean reverse,

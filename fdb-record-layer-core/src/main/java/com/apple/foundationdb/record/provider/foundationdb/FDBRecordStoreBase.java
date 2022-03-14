@@ -914,7 +914,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
      * @param indexName the name of the index
-     * @param scanType the type of scan to perform
      * @param range the range of the index to scan
      * @param commonPrimaryKey the common primary key for the records that would be returned
      * @param continuation any continuation from a previous scan
@@ -923,20 +922,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     default RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(@Nonnull final String indexName,
-                                                                      @Nonnull final IndexScanType scanType,
                                                                       @Nonnull final TupleRange range,
                                                                       @Nullable final KeyExpression commonPrimaryKey,
                                                                       @Nullable byte[] continuation,
                                                                       @Nonnull ScanProperties scanProperties) {
 
         final Index index = getRecordMetaData().getIndex(indexName);
-        return scanIndexPrefetch(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
+        return scanIndexPrefetch(index, range, commonPrimaryKey, continuation, scanProperties);
     }
 
     /**
      * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
      * @param index the index to scan
-     * @param scanType the type of scan to perform
      * @param range the range of the index to scan
      * @param commonPrimaryKey the common primary key for the records that would be returned
      * @param continuation any continuation from a previous scan
@@ -944,7 +941,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
-    RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, final KeyExpression commonPrimaryKey,
+    RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, TupleRange range, final KeyExpression commonPrimaryKey,
                                                               byte[] continuation, ScanProperties scanProperties);
 
     /**
@@ -993,6 +990,19 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
         return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN);
+    }
+
+    /**
+     * Scan the records pointed to by an index equal to indexed values using the Index Prefetch method
+     * @param indexName the name of the index
+     * @param values a left-subset of values of indexed fields
+     * @return a cursor of the records pointed to by the index
+     */
+    @Nonnull
+    default RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchRecordsEqual(@Nonnull final String indexName, KeyExpression primaryKey, @Nonnull final Object... values) {
+        final Tuple tuple = Tuple.from(values);
+        final TupleRange range = TupleRange.allOf(tuple);
+        return scanIndexPrefetch(indexName, range, primaryKey, null, ScanProperties.FORWARD_SCAN);
     }
 
     /**

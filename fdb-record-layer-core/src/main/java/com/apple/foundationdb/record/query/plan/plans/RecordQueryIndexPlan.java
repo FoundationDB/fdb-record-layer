@@ -179,7 +179,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private <M extends Message> RecordCursor<QueryResult> executeUsingIndexPrefetch(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
                                                                                     @Nullable final byte [] continuation, @Nonnull final ExecuteProperties executeProperties) {
         final TupleRange range = getComparisons().toTupleRange(store, context);
-        return store.scanIndexPrefetch(getIndexName(), getScanType(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()))
+        return store.scanIndexPrefetch(getIndexName(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()))
                 .map(store::queriedRecordOfMessage)
                 .map(QueryResult::of);
     }
@@ -349,13 +349,19 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 return indexName.hashCode() + scanParameters.planHash(hashKind) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
+                int planHash;
                 if (scanParameters instanceof IndexScanComparisons) {
                     // Keep hash stable for change in representation.
                     // TODO: If there is another event that changes hashes or they become less critical in tests, this can be removed.
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, getScanType(), getComparisons(), reverse, strictlySorted);
+                    planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, getScanType(), getComparisons(), reverse, strictlySorted);
                 } else {
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
+                    planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
                 }
+                // Backwards compatible calculation to keep previous (non-prefetch) plan hashes the same
+                if (useIndexPrefetch != RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE) {
+                    planHash = Objects.hash(planHash, useIndexPrefetch.name());
+                }
+                return planHash;
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

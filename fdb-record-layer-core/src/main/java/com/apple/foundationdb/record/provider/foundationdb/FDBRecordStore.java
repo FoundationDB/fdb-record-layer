@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.MutableRecordStoreState;
@@ -1213,12 +1212,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, final KeyExpression commonPrimaryKey,
+    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, TupleRange range, final KeyExpression commonPrimaryKey,
                                                                      byte[] continuation, ScanProperties scanProperties) {
-        return scanIndexPrefetchInternal(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
+        return scanIndexPrefetchInternal(index, range, commonPrimaryKey, continuation, scanProperties);
     }
 
-    protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final IndexScanType scanType, final TupleRange range,
+    protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final TupleRange range,
                                                                                 final KeyExpression commonPrimaryKey, final byte[] continuation,
                                                                                 final ScanProperties scanProperties) {
         if (!isIndexReadable(index)) {
@@ -1233,11 +1232,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo(); // ??
         ExecuteState executeState = scanProperties.getExecuteProperties().getState();
         // Get the cursor with the index entries and the records from FDB
-        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanIndexPrefetch(scanType, range, hopInfo.pack(), recordSubspace, continuation, scanProperties);
+        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanIndexPrefetch(range, hopInfo.pack(), continuation, scanProperties);
 
         RecordCursor<FDBIndexedRecord<Message>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
             // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
-            FDBRawRecord fdbRawRecord = unsplitSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties);
+            FDBRawRecord fdbRawRecord = unsplitSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties, useOldVersionFormat());
 
             Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
             // The version future will be ignored in case the record already has a version
@@ -1257,20 +1256,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Create and return an instance of {@link FDBRawRecord} from a given {@link KeyValueAndMappedReqAndResult}. The given
+     * Create and return an instance of {@link FDBRawRecord} from a given {@link MappedKeyValue}. The given
      * parameter represents a series of record splits (and optional version), that the method will "unsplit" and reconstruct
      * into a single raw record.
      * @param recordSubspace the subspace for the record to allow the record keys to be identified from the splits
      * @param sizeInfo Size Info to collect metrics
      * @param mappedResult the record splits, packed into a KeyValueAndMappedReqAndResult
      * @param scanProperties the scam properties to use for the unsplitting
+     * @param oldVersionFormat whether to use the old version record format when reading the records
      * @return an instance of {@link FDBRawRecord} reconsrtucted from the given record splits
      */
-    private FDBRawRecord unsplitSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo, final MappedKeyValue mappedResult, final ScanProperties scanProperties) {
+    private FDBRawRecord unsplitSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo, final MappedKeyValue mappedResult, final ScanProperties scanProperties, final boolean oldVersionFormat) {
         List<KeyValue> recordSplits = mappedResult.getRangeResult();
         ListCursor<KeyValue> splitCursor = new ListCursor<>(recordSplits, null);
 
-        RecordCursor<FDBRawRecord> unsplitRecordCursor = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, splitCursor, false, sizeInfo, scanProperties);
+        // Note that we always set "reverse" to false since regardless of the index scan direction, the MappedKeyValue is in non-reverse order
+        RecordCursor<FDBRawRecord> unsplitRecordCursor = new SplitHelper.KeyValueUnsplitter(context, recordSubspace,
+                splitCursor, oldVersionFormat,
+                sizeInfo, false, new CursorLimitManager(scanProperties));
         return unsplitRecordCursor.getNext().get();
     }
 
