@@ -954,7 +954,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                                  .setMaxWriteLimitBytes(1)
                                  .build()) {
 
-                Key.Evaluated key = indexer.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(25L)).join();
+                Key.Evaluated key = indexer.buildUnbuiltRange(recordStore, Key.Evaluated.scalar(0L), Key.Evaluated.scalar(25L)).join();
                 assertEquals(1, key.getLong(0));
                 assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));

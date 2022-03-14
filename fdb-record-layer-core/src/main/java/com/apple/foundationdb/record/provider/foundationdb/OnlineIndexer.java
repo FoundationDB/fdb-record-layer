@@ -544,12 +544,6 @@ public class OnlineIndexer implements AutoCloseable {
         return getIndexerByRecordsOrThrow().buildUnbuiltRange(store, start, end);
     }
 
-    @VisibleForTesting
-    @Nonnull
-    CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return getIndexerByRecordsOrThrow().buildUnbuiltRange(start, end);
-    }
-
     /**
      * Transactionally rebuild an entire index. This will (1) delete any data in the index that is
      * already there and (2) rebuild the entire key range for the given index. It will attempt to

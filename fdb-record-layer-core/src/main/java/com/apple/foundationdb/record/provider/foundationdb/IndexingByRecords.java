@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -511,17 +510,6 @@ public class IndexingByRecords extends IndexingBase {
                                                                @Nullable AtomicLong recordsScanned) {
         return buildUnbuiltRange(store, convertOrNull(start), convertOrNull(end), recordsScanned, getLimit())
                 .thenApply(tuple -> (tuple == null) ? null : Key.Evaluated.fromTuple(tuple));
-    }
-
-    @VisibleForTesting
-    @Nonnull
-    CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
-                LogMessageKeys.RANGE_START, start,
-                LogMessageKeys.RANGE_END, end);
-        return buildCommitRetryAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
-                true,
-                additionalLogMessageKeyValues);
     }
 
     // Builds the index for all of the keys within a given range. This does not update the range set

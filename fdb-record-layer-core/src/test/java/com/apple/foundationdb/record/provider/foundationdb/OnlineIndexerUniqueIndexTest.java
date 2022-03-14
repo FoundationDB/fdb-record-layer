@@ -159,12 +159,12 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
-            indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
+            indexBuilder.buildRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
                 assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().join());
                 context.commit();
             }
-            indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(5L), Key.Evaluated.scalar(10L)).join();
+            indexBuilder.buildRange(Key.Evaluated.scalar(5L), Key.Evaluated.scalar(10L)).join();
             try (FDBRecordContext context = openContext()) {
                 assertEquals(10, (int)recordStore.scanUniquenessViolations(index).getCount().join());
                 context.commit();
@@ -230,7 +230,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
-            indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
+            indexBuilder.buildRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
                 for (int i = 5; i < records.size(); i++) {
                     recordStore.saveRecord(records.get(i));
