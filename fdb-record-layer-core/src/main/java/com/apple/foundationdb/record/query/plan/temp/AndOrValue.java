@@ -211,15 +211,15 @@ public abstract class AndOrValue implements BooleanValue {
 
         @Nullable
         @Override
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-            final Object leftResult = leftChild.eval(store, context, record, message);
+        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> fdbRecord, @Nullable final M message) {
+            final Object leftResult = leftChild.eval(store, context, fdbRecord, message);
             if (leftResult == null) {
                 return false;
             }
             if (Boolean.TRUE.equals(leftResult)) {
                 return true;
             }
-            final Object rightResult = rightChild.eval(store, context, record, message);
+            final Object rightResult = rightChild.eval(store, context, fdbRecord, message);
             return Objects.requireNonNullElse(rightResult, false);
         }
 

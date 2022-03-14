@@ -59,6 +59,7 @@ public class DynamicSchema {
     private final Map<Type, String> typeToNameMap;
 
     // --- public static ---
+    private static String duplicateNameErrorMessage = "duplicate name: %s";
 
     public static DynamicSchema empty() {
         FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
@@ -80,7 +81,7 @@ public class DynamicSchema {
 
     @SuppressWarnings("PMD.AssignmentInOperand")
     public static DynamicSchema parseFrom(InputStream schemaDescIn) throws DescriptorValidationException, IOException {
-        try {
+        try (schemaDescIn) {
             int len;
             byte[] buf = new byte[4096];
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -88,8 +89,6 @@ public class DynamicSchema {
                 baos.write(buf, 0, len);
             }
             return parseFrom(baos.toByteArray());
-        } finally {
-            schemaDescIn.close();
         }
     }
 
@@ -263,18 +262,13 @@ public class DynamicSchema {
         this.typeToNameMap = ImmutableMap.copyOf(typeToNameMap);
     }
 
-    private Map<String,FileDescriptor> init(FileDescriptorSet fileDescSet) throws DescriptorValidationException {
+    @SuppressWarnings("java:S3776")
+    private static Map<String,FileDescriptor> init(@Nonnull final FileDescriptorSet fileDescSet) throws DescriptorValidationException {
         // check for dupes
-        Set<String> allFdProtoNames = new HashSet<>();
-        for (FileDescriptorProto fdProto : fileDescSet.getFileList()) {
-            if (allFdProtoNames.contains(fdProto.getName())) {
-                throw new IllegalArgumentException("duplicate name: " + fdProto.getName());
-            }
-            allFdProtoNames.add(fdProto.getName());
-        }
+        Set<String> allFdProtoNames = collectFileDescriptorNamesAndCheckForDupes(fileDescSet);
 
         // build FileDescriptors, resolve dependencies (imports) if any
-        Map<String,FileDescriptor> resolvedFileDescMap = new HashMap<>();
+        Map<String, FileDescriptor> resolvedFileDescMap = new HashMap<>();
         while (resolvedFileDescMap.size() < fileDescSet.getFileCount()) {
             for (FileDescriptorProto fdProto : fileDescSet.getFileList()) {
                 if (resolvedFileDescMap.containsKey(fdProto.getName())) {
@@ -304,12 +298,23 @@ public class DynamicSchema {
         return resolvedFileDescMap;
     }
 
+    private static Set<String> collectFileDescriptorNamesAndCheckForDupes(@Nonnull final FileDescriptorSet fileDescSet) {
+        Set<String> result = new HashSet<>();
+        for (FileDescriptorProto fdProto : fileDescSet.getFileList()) {
+            if (result.contains(fdProto.getName())) {
+                throw new IllegalArgumentException(String.format(duplicateNameErrorMessage, fdProto.getName()));
+            }
+            result.add(fdProto.getName());
+        }
+        return result;
+    }
+
     private void addMessageType(Descriptor msgType, String scope, Set<String> msgDupes, Set<String> enumDupes) {
         String msgTypeNameFull = msgType.getFullName();
         String msgTypeNameShort = (scope == null ? msgType.getName() : scope + "." + msgType.getName());
 
         if (msgDescriptorMapFull.containsKey(msgTypeNameFull)) {
-            throw new IllegalArgumentException("duplicate name: " + msgTypeNameFull);
+            throw new IllegalArgumentException(String.format(duplicateNameErrorMessage, msgTypeNameFull));
         }
         if (msgDescriptorMapShort.containsKey(msgTypeNameShort)) {
             msgDupes.add(msgTypeNameShort);
@@ -331,7 +336,7 @@ public class DynamicSchema {
         String enumTypeNameShort = (scope == null ? enumType.getName() : scope + "." + enumType.getName());
 
         if (enumDescriptorMapFull.containsKey(enumTypeNameFull)) {
-            throw new IllegalArgumentException("duplicate name: " + enumTypeNameFull);
+            throw new IllegalArgumentException(String.format(duplicateNameErrorMessage, enumTypeNameFull));
         }
         if (enumDescriptorMapShort.containsKey(enumTypeNameShort)) {
             enumDupes.add(enumTypeNameShort);

@@ -95,15 +95,15 @@ public abstract class BuiltInFunction<T extends Typed> {
     }
 
     @Nonnull
-    public Optional<BuiltInFunction<? extends Typed>> validateCall(@Nonnull final List<Type> argumentTypes) {
+    public Optional<BuiltInFunction<T>> validateCall(@Nonnull final List<Type> argumentTypes) {
         int numberOfArguments = argumentTypes.size();
 
         if (hasVariadicSuffix()) {
             // This is variadic function
-            final Type variadicSuffixType = Objects.requireNonNull(getVariadicSuffixType());
-            if (variadicSuffixType.getTypeCode() != Type.TypeCode.ANY) {
+            final Type functionVariadicSuffixType = Objects.requireNonNull(getVariadicSuffixType());
+            if (functionVariadicSuffixType.getTypeCode() != Type.TypeCode.ANY) {
                 for (int i = getParameterTypes().size(); i < numberOfArguments; i++) {
-                    if (argumentTypes.get(i).getTypeCode() != variadicSuffixType.getTypeCode()) {
+                    if (argumentTypes.get(i).getTypeCode() != functionVariadicSuffixType.getTypeCode()) {
                         return Optional.empty();
                     }
                 }
@@ -112,9 +112,9 @@ public abstract class BuiltInFunction<T extends Typed> {
         }
 
         // check the type codes of the fixed parameters
-        final List<Type> parameterTypes = getParameterTypes();
-        for (int i = 0; i < parameterTypes.size(); i ++) {
-            final Type typeI = parameterTypes.get(i);
+        final List<Type> functionParameterTypes = getParameterTypes();
+        for (int i = 0; i < functionParameterTypes.size(); i ++) {
+            final Type typeI = functionParameterTypes.get(i);
             if (typeI.getTypeCode() != Type.TypeCode.ANY && typeI.getTypeCode() != argumentTypes.get(i).getTypeCode()) {
                 return Optional.empty();
             }
