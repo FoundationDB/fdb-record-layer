@@ -42,22 +42,20 @@ public class LimittedRunner implements AutoCloseable {
             FDBError.TRANSACTION_TOO_LARGE.code());
 
     private int currentLimit;
-    private final int maxLimit;
-    private final Runner runner;
+    private int maxLimit;
     private int retriesAtMinimum = 0;
     private int successCount = 0;
-    private int increaseLimitAfter = 10; // maybe this should be configurable
-    private int maxRetriesAtMinimum;
+    private int increaseLimitAfter;
+    private int maxRetriesAtMinimum = 10; // maybe this should be configurable
     private boolean closed = false;
 
-    public LimittedRunner(final int maxLimit, final int maxRetriesAtMinimum, Runner runner) {
+    public LimittedRunner(final int maxLimit, final int increaseLimitAfter) {
         this.currentLimit = maxLimit;
         this.maxLimit = maxLimit;
-        this.runner = runner;
-        this.maxRetriesAtMinimum = maxRetriesAtMinimum;
+        this.increaseLimitAfter = increaseLimitAfter;
     }
 
-    public CompletableFuture<Void> runAsync() {
+    public CompletableFuture<Void> runAsync(Runner runner) {
         final CompletableFuture<Void> overallResult = new CompletableFuture<>();
         AsyncUtil.whileTrue(() -> {
             if (closed) {
@@ -95,6 +93,7 @@ public class LimittedRunner implements AutoCloseable {
             } else {
                 // TODO should we delay ?
                 // TODO log
+                //      does the log need to include logging details from the runner
                 currentLimit = Math.max(1, (3 * currentLimit) / 4);
                 return true;
             }
@@ -125,6 +124,7 @@ public class LimittedRunner implements AutoCloseable {
         if (successCount >= increaseLimitAfter && currentLimit < maxLimit) {
             currentLimit = Math.min(maxLimit, Math.max(currentLimit + 1, (4 * currentLimit) / 3));
             // TODO log
+            //      does the log need to include logging details from the runner
         }
     }
 
@@ -133,8 +133,20 @@ public class LimittedRunner implements AutoCloseable {
         this.closed = true;
     }
 
+    public void setMaxLimit(final int maxLimit) {
+        // TODO does this need to protect for multiple threads
+        this.maxLimit = maxLimit;
+        if (currentLimit > maxLimit) {
+            currentLimit = maxLimit;
+        }
+    }
+
+    public void setIncreaseLimitAfter(final int increaseLimitAfter) {
+        // TODO does this need to protect for multiple threads
+        this.increaseLimitAfter = increaseLimitAfter;
+    }
+
     public interface Runner {
         CompletableFuture<Boolean> runAsync(int limit);
-        void onSuccess();
     }
 }

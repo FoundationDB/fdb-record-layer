@@ -58,14 +58,11 @@ public abstract class ImportRunner<T> implements LimittedRunner.Runner {
                     save(buffer.get(position), context);
                 }
                 return AsyncUtil.READY_TRUE;
+            }).thenApply(result -> {
+                // these entries were successfully saved, so remove them from the buffer
+                buffer.subList(0, position).clear();
+                return result;
             });
         });
-    }
-
-    @Override
-    public void onSuccess() {
-        // these entries were successfully saved, so remove them from the buffer
-        buffer.subList(0, position).clear();
-        // TODO metrics
     }
 }

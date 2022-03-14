@@ -38,6 +38,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -223,6 +224,14 @@ public class IndexingCommon {
     @Nonnull
     public FDBRecordStore.Builder getRecordStoreBuilder() {
         return recordStoreBuilder;
+    }
+
+    public <R> CompletableFuture<R> runAsyncInStore(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> runner,
+                                                    @Nonnull final List<Object> additionalLogMessageKeyValues) {
+        // TODO should this just add common info to the log values
+        // TODO should this check the index state?
+        return getRunner().runAsync(context -> getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(runner),
+                additionalLogMessageKeyValues);
     }
 
     @Nullable
