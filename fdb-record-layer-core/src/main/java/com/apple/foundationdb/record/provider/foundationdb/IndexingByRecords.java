@@ -237,8 +237,16 @@ public class IndexingByRecords extends IndexingBase {
      */
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints() {
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildEndpoints");
-        return buildCommitRetryAsync(this::buildEndpoints, false, additionalLogMessageKeyValues);
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(
+                LogMessageKeys.CALLING_METHOD, "buildEndpoints",
+                // TODO probably worthwhile to put a method in common to get the key/values
+                //      or perhaps these should be added in runAsyncInStore?
+                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
+                LogMessageKeys.INDEXER_ID, common.getUuid());
+        AtomicLong recordsScanned = new AtomicLong(0);
+        // TODO perhaps this should have different retry counts from the runAsyncInStore used in limittedRunner
+        return common.runAsyncInStore(store -> buildEndpoints(store, recordsScanned),
+                additionalLogMessageKeyValues);
     }
 
     // Builds a range within a single transaction. It will look for the missing ranges within the given range and build those while
