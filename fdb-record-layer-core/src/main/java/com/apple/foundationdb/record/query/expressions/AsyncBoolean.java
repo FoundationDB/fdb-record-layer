@@ -21,8 +21,6 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.protobuf.Message;
 
@@ -31,33 +29,29 @@ import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
 
-class AsyncBoolean<M extends Message> {
+public class AsyncBoolean<M extends Message, Q> {
     private final boolean isOr;
     @Nonnull
-    private final Iterator<QueryComponent> operands;
+    private final Iterator<Q> operands;
+    @Nonnull
+    private final Function<Q, CompletableFuture<Boolean>> evaluateFunction;
     @Nonnull
     private final FDBRecordStoreBase<M> store;
-    @Nonnull
-    private final EvaluationContext context;
-    @Nullable
-    private final FDBRecord<M> record;
-    @Nullable
-    private final Message message;
     @Nullable
     private Boolean retVal;
 
-    public AsyncBoolean(boolean isOr, @Nonnull List<QueryComponent> operands,
-                        @Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                        @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public AsyncBoolean(boolean isOr,
+                        @Nonnull List<Q> operands,
+                        @Nonnull Function<Q, CompletableFuture<Boolean>> evaluateFunction,
+                        @Nonnull FDBRecordStoreBase<M> store) {
         this.isOr = isOr;
         this.operands = operands.iterator();
+        this.evaluateFunction = evaluateFunction;
         this.store = store;
-        this.context = context;
-        this.record = record;
-        this.message = message;
         this.retVal = !isOr;
     }
 
@@ -66,7 +60,7 @@ class AsyncBoolean<M extends Message> {
             if (!operands.hasNext()) {
                 return READY_FALSE;
             } else {
-                return operands.next().evalMessageAsync(store, context, record, message)
+                return evaluateFunction.apply(operands.next())
                     .thenApply(val -> {
                         if (val == null) {
                             retVal = null;

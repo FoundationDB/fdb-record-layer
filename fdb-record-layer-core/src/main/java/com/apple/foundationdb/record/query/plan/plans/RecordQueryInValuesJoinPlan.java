@@ -164,7 +164,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     }
 
     /**
-     * Rewrite the planner graph for better visualization of a query index plan.
+     * Rewrite the planner graph for better visualization of this plan.
      * @param childGraphs planner graphs of children expression that already have been computed
      * @return the rewritten planner graph that models this operator as a logical nested loop join
      *         joining an outer table of values in the IN clause to the correlated inner result of executing (usually)

@@ -31,22 +31,19 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.anyQuantifier;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.anyQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
 
 /**
  * Convert a filter on an {@linkplain OrPredicate or} expression into a plan on the union. In particular, this will
@@ -99,14 +96,31 @@ public class OrToLogicalUnionRule extends PlannerRule<SelectExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final PlannerBindings bindings = call.getBindings();
-        final SelectExpression selectExpression = bindings.get(root);
-        final List<? extends Value> resultValues = selectExpression.getResultValues();
-        final List<? extends Quantifier> quantifiers = bindings.getAll(qunMatcher);
-        final List<? extends QueryPredicate> orTermPredicates = bindings.getAll(orTermPredicateMatcher);
-        final List<ExpressionRef<RelationalExpression>> relationalExpressionRefs = new ArrayList<>(orTermPredicates.size());
-        for (final QueryPredicate orTermPredicate : orTermPredicates) {
-            relationalExpressionRefs.add(call.ref(new SelectExpression(resultValues, quantifiers, ImmutableList.of(orTermPredicate))));
+        final var bindings = call.getBindings();
+        final var selectExpression = bindings.get(root);
+        final var resultValues = selectExpression.getResultValues();
+        final var quantifiers = bindings.getAll(qunMatcher);
+        final var orTermPredicates = bindings.getAll(orTermPredicateMatcher);
+        final var relationalExpressionRefs = Lists.<ExpressionRef<RelationalExpression>>newArrayListWithCapacity(orTermPredicates.size());
+        for (final var orPredicate : orTermPredicates) {
+            final var orCorrelatedTo = orPredicate.getCorrelatedTo();
+
+            //
+            // Subset the quantifiers to only those that are actually needed by this or term. Needed quantifiers are
+            // quantifiers that contribute (in positive or negative ways to the cardinality, i.e. all for-each quantifiers)
+            // and existential quantifiers that are predicated by means of an exists() predicate. As existential
+            // quantifier by itself just creates a true or false but never removes a record or contributes in a meaningful
+            // way to the result set.
+            // TODO This optimization can done for all quantifiers that are not referred to by the term that also have a
+            //      cardinality of one.
+            //
+            final ImmutableList<? extends Quantifier> neededQuantifiers =
+                    quantifiers
+                            .stream()
+                            .filter(quantifier -> quantifier instanceof Quantifier.ForEach ||
+                                                  (quantifier instanceof Quantifier.Existential && orCorrelatedTo.contains(quantifier.getAlias())))
+                            .collect(ImmutableList.toImmutableList());
+            relationalExpressionRefs.add(call.ref(new SelectExpression(resultValues, neededQuantifiers, ImmutableList.of(orPredicate))));
         }
         call.yield(GroupExpressionRef.of(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionRefs))));
     }

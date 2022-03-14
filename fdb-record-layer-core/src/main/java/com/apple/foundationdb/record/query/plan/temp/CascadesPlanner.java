@@ -340,7 +340,7 @@ public class CascadesPlanner implements QueryPlanner {
     private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         currentRoot = GroupExpressionRef.of(expressionSupplier.get());
         aliasResolver = AliasResolver.withRoot(currentRoot);
-        Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
+        Debugger.show(currentRoot);
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
         taskCount = 0;

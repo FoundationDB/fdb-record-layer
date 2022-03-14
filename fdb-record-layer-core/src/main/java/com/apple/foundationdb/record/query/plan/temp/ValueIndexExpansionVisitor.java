@@ -1,5 +1,5 @@
 /*
- * ValueIndexLikeExpansionVisitor.java
+ * ValueIndexExpansionVisitor.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
@@ -39,38 +40,49 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 
 /**
  * Class to expand value index access into a candidate graph. The visitation methods are left unchanged from the super
- * class {@link ValueIndexLikeExpansionVisitor}, this class merely provides a specific {@link #expand} method.
+ * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
-public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
+public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
     private final Index index;
     @Nonnull
     private final List<RecordType> recordTypes;
 
     public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(index.getType().equals(IndexTypes.VALUE));
+        Preconditions.checkArgument(index.getType().equals(IndexTypes.VALUE) || index.getType().equals(IndexTypes.RANK));
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
     }
 
     @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Debugger.updateIndex(ValueComparisonRangePredicate.Placeholder.class, old -> 0);
-        final ImmutableList.Builder<GraphExpansion> allExpansionsBuilder = ImmutableList.builder();
+
+        final var baseQuantifier = baseQuantifierSupplier.get();
+        final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         // add the value for the flow of records
-        final QuantifiedColumnValue recordValue = QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0);
-        allExpansionsBuilder.add(GraphExpansion.ofResultValueAndQuantifier(recordValue, baseQuantifier));
+        final var recordValue = QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0);
+        allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
-        KeyExpression rootExpression = index.getRootExpression();
+        var rootExpression = index.getRootExpression();
+
+        if (rootExpression instanceof GroupingKeyExpression) {
+            if (index.getType().equals(IndexTypes.RANK)) {
+                rootExpression = ((GroupingKeyExpression)rootExpression).getWholeKey();
+            } else {
+                throw new UnsupportedOperationException("cannot create match candidate on grouping expression for unknown index type");
+            }
+        }
 
         final int keyValueSplitPoint;
         if (rootExpression instanceof KeyWithValueExpression) {
@@ -81,10 +93,10 @@ public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
             keyValueSplitPoint = -1;
         }
 
-        final List<Value> keyValues = Lists.newArrayList();
-        final List<Value> valueValues = Lists.newArrayList();
+        final var keyValues = Lists.<Value>newArrayList();
+        final var valueValues = Lists.<Value>newArrayList();
 
-        final VisitorState initialState =
+        final var initialState =
                 VisitorState.of(keyValues,
                         valueValues,
                         baseQuantifier.getAlias(),
@@ -92,39 +104,39 @@ public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
                         keyValueSplitPoint,
                         0);
 
-        final GraphExpansion keyValueExpansion =
+        final var keyValueExpansion =
                 pop(rootExpression.expand(push(initialState)));
 
         allExpansionsBuilder.add(keyValueExpansion);
 
-        final int keySize = keyValues.size();
+        final var keySize = keyValues.size();
 
         if (primaryKey != null) {
             // unfortunately we must copy as the returned list is not guaranteed to be mutable which is needed for the
             // trimPrimaryKey() function as it is causing a side-effect
-            final List<KeyExpression> trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
+            final var trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
             index.trimPrimaryKey(trimmedPrimaryKeys);
 
             for (int i = 0; i < trimmedPrimaryKeys.size(); i++) {
                 final KeyExpression primaryKeyPart = trimmedPrimaryKeys.get(i);
 
-                final VisitorState initialStateForKeyPart =
+                final var initialStateForKeyPart =
                         VisitorState.of(keyValues,
                                 Lists.newArrayList(),
                                 baseQuantifier.getAlias(),
                                 ImmutableList.of(),
                                 -1,
                                 keySize + i);
-                final GraphExpansion primaryKeyPartExpansion =
+                final var primaryKeyPartExpansion =
                         pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
                 allExpansionsBuilder
                         .add(primaryKeyPartExpansion);
             }
         }
 
-        final GraphExpansion completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
-        final List<CorrelationIdentifier> parameters = completeExpansion.getPlaceholderAliases();
-        final MatchableSortExpression matchableSortExpression = new MatchableSortExpression(parameters, isReverse, completeExpansion.buildSelect());
+        final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
+        final var parameters = completeExpansion.getPlaceholderAliases();
+        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, completeExpansion.buildSelect());
         return new ValueIndexScanMatchCandidate(index,
                 recordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
@@ -149,9 +161,9 @@ public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
         if (primaryKey == null) {
             return index.getRootExpression();
         }
-        final ArrayList<KeyExpression> trimmedPrimaryKeyComponents = new ArrayList<>(primaryKey.normalizeKeyForPositions());
+        final var trimmedPrimaryKeyComponents = new ArrayList<>(primaryKey.normalizeKeyForPositions());
         index.trimPrimaryKey(trimmedPrimaryKeyComponents);
-        final ImmutableList.Builder<KeyExpression> fullKeyListBuilder = ImmutableList.builder();
+        final var fullKeyListBuilder = ImmutableList.<KeyExpression>builder();
         fullKeyListBuilder.add(index.getRootExpression());
         fullKeyListBuilder.addAll(trimmedPrimaryKeyComponents);
         return concat(fullKeyListBuilder.build());

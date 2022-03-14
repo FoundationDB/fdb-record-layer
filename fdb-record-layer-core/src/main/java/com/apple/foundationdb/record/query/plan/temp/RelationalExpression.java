@@ -102,22 +102,29 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
                                                 @Nonnull RecordQuery query) {
         query.validate(context.getMetaData());
 
-        Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet())));
-
-        if (!context.getRecordTypes().isEmpty()) {
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(new HashSet<>(context.getRecordTypes()), quantifier)));
+        final GroupExpressionRef<? extends RelationalExpression> baseRef;
+        Quantifier.ForEach quantifier;
+        if (context.getRecordTypes().isEmpty()) {
+            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet()));
+            quantifier = Quantifier.forEach(baseRef);
+        } else {
+            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet()));
+            baseRef = GroupExpressionRef.of(new LogicalTypeFilterExpression(new HashSet<>(context.getRecordTypes()), Quantifier.forEach(fuseRef)));
+            quantifier = Quantifier.forEach(baseRef);
         }
 
         final SelectExpression selectExpression;
         if (query.getFilter() != null) {
             selectExpression =
                     query.getFilter()
-                            .expand(quantifier.getAlias())
-                            .buildSelectWithBase(quantifier);
+                            .expand(quantifier.getAlias(), () -> Quantifier.forEach(baseRef))
+                            .withBase(quantifier)
+                            .buildSelect();
         } else {
             selectExpression =
                     GraphExpansion.empty()
-                            .buildSelectWithBase(quantifier);
+                            .withBase(quantifier)
+                            .buildSelect();
         }
         quantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
 
@@ -582,10 +589,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
         final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
 
         final AliasMap identitiesMap = bindIdentities(otherExpression, boundAliasMap);
-        final Set<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, identitiesMap.sources());
-        final Set<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, identitiesMap.targets());
 
         final AliasMap aliasMapWithIdentities = boundAliasMap.combine(identitiesMap);
+        final Set<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, aliasMapWithIdentities.sources());
+        final Set<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, aliasMapWithIdentities.targets());
+
         return aliasMapWithIdentities
                 .findMatches(
                         unboundCorrelatedTo,

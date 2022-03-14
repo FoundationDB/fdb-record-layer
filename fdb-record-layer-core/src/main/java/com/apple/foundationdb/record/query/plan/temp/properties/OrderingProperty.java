@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -48,7 +47,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RequestedOrdering;
-import com.apple.foundationdb.record.query.plan.temp.ValueIndexExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.ValueIndexLikeMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
@@ -62,8 +61,6 @@ import com.google.common.collect.SetMultimap;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
@@ -93,16 +90,18 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
     public Optional<Ordering> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Optional<Ordering>> childResults) {
         if (expression instanceof RecordQueryScanPlan) {
             final var plan = (RecordQueryScanPlan)expression;
-            return fromKeyAndScanComparisons(context.getCommonPrimaryKey(),
-                    plan.getComparisons(),
-                    plan.isReverse(),
-                    false);
+            return Optional.ofNullable(context.getCommonPrimaryKey())
+                    .map(commonPrimaryKey -> ValueIndexLikeMatchCandidate.computeOrderingFromKeyAndScanComparisons(context.getCommonPrimaryKey(),
+                            plan.getComparisons(),
+                            plan.isReverse(),
+                            false));
         } else if (expression instanceof PrimaryScanExpression) {
             final var plan = (PrimaryScanExpression)expression;
-            return fromKeyAndScanComparisons(context.getCommonPrimaryKey(),
-                    plan.scanComparisons(),
-                    plan.isReverse(),
-                    false);
+            return Optional.ofNullable(context.getCommonPrimaryKey())
+                    .map(commonPrimaryKey -> ValueIndexLikeMatchCandidate.computeOrderingFromKeyAndScanComparisons(context.getCommonPrimaryKey(),
+                            plan.scanComparisons(),
+                            plan.isReverse(),
+                            false));
         } else if (expression instanceof RecordQueryIndexPlan || expression instanceof RecordQueryCoveringIndexPlan) {
             return fromIndexScanOrCoveringIndexScan(context, (RecordQueryPlan)expression);
         } else if (expression instanceof LogicalSortExpression) {
@@ -219,47 +218,9 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
         final String indexName = recordQueryIndexPlan.getIndexName();
         final RecordMetaData metaData = context.getMetaData();
         final Index index = metaData.getIndex(indexName);
-        final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
-        final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
-        final KeyExpression keyExpression = ValueIndexExpansionVisitor.fullKey(index, commonPrimaryKeyForIndex);
         final ScanComparisons scanComparisons = recordQueryIndexPlan.getComparisons();
-        return fromKeyAndScanComparisons(keyExpression, scanComparisons, plan.isReverse(), index.isUnique());
-    }
-
-    @Nonnull
-    private static Optional<Ordering> fromKeyAndScanComparisons(@Nullable final KeyExpression keyExpression,
-                                                                @Nonnull final ScanComparisons scanComparisons,
-                                                                final boolean isReverse,
-                                                                final boolean isDistinct) {
-        if (keyExpression == null) {
-            return Optional.empty();
-        }
-        final ImmutableSetMultimap.Builder<KeyExpression, Comparisons.Comparison> equalityBoundKeyMapBuilder = ImmutableSetMultimap.builder();
-        final List<KeyExpression> normalizedKeyExpressions = keyExpression.normalizeKeyForPositions();
-        final List<Comparisons.Comparison> equalityComparisons = scanComparisons.getEqualityComparisons();
-
-        for (int i = 0; i < equalityComparisons.size(); i++) {
-            final KeyExpression normalizedKeyExpression = normalizedKeyExpressions.get(i);
-            final Comparisons.Comparison comparison = equalityComparisons.get(i);
-
-            equalityBoundKeyMapBuilder.put(normalizedKeyExpression, comparison);
-        }
-
-        final ImmutableList.Builder<KeyPart> result = ImmutableList.builder();
-        for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
-            final KeyExpression currentKeyExpression = normalizedKeyExpressions.get(i);
-
-            //
-            // Note that it is not really important here if the keyExpression can be normalized in a lossless way
-            // or not. A key expression containing repeated fields is sort-compatible with its normalized key
-            // expression. We used to refuse to compute the sort order in the presence of repeats, however,
-            // I think that restriction can be relaxed.
-            //
-
-            result.add(KeyPart.of(currentKeyExpression, isReverse));
-        }
-
-        return Optional.of(new Ordering(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct));
+        return recordQueryIndexPlan.getMatchCandidateOptional()
+                .map(matchCandidate -> matchCandidate.computeOrderingFromScanComparisons(scanComparisons, plan.isReverse(), index.isUnique()));
     }
 
     public static Optional<Ordering> deriveForUnionFromOrderings(@Nonnull final List<Optional<Ordering>> orderingOptionals,

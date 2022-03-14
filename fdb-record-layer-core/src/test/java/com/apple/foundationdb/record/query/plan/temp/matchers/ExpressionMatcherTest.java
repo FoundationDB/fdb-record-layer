@@ -207,9 +207,10 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
-        final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", fullValueScan, true)));
+        final var baseRef = GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", fullValueScan, true));
+        final Quantifier.ForEach quantifier = Quantifier.forEach(baseRef);
         LogicalFilterExpression filterPlan =
-                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier.getAlias()).getPredicates(),
+                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier.getAlias(), () -> Quantifier.forEach(baseRef)).getPredicates(),
                         quantifier);
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         RelationalExpression root =

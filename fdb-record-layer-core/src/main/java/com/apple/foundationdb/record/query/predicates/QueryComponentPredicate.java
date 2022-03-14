@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A {@link QueryPredicate} that is satisfied when its child component is satisfied. This class represents an
@@ -71,10 +72,19 @@ public class QueryComponentPredicate implements LeafQueryPredicate {
         return queryComponent;
     }
 
+    public boolean hasAsyncQueryComponent() {
+        return queryComponent.isAsync();
+    }
+
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         return queryComponent.evalMessage(store, context, record, message);
+    }
+
+    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                                           @Nullable FDBRecord<M> record, @Nullable Message message) {
+        return queryComponent.evalMessageAsync(store, context, record, message);
     }
 
     @Override

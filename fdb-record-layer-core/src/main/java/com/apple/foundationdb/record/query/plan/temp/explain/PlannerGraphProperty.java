@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp.explain;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRefTraversal;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
@@ -134,7 +133,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      * @return the word "done" (IntelliJ really likes a return of String).
      */
     @Nonnull
-    public static String show(final boolean renderSingleGroups, @Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference) {
+    public static String show(final boolean renderSingleGroups, @Nonnull final ExpressionRef<? extends RelationalExpression> rootReference) {
         return show(renderSingleGroups ? RENDER_SINGLE_GROUPS : 0, rootReference);
     }
 
@@ -160,7 +159,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      * @return the word "done" (IntelliJ really likes a return of String).
      */
     @Nonnull
-    public static String show(final int flags, @Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference) {
+    public static String show(final int flags, @Nonnull final ExpressionRef<? extends RelationalExpression> rootReference) {
         final PlannerGraph plannerGraph =
                 Objects.requireNonNull(rootReference.acceptPropertyVisitor(new PlannerGraphProperty(flags)));
         final String dotString = exportToDot(plannerGraph);
@@ -177,7 +176,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      */
     @Nonnull
     public static String show(final boolean renderSingleGroups,
-                              @Nonnull final GroupExpressionRef<? extends RelationalExpression> queryPlanRootReference,
+                              @Nonnull final ExpressionRef<? extends RelationalExpression> queryPlanRootReference,
                               @Nonnull final Set<MatchCandidate> matchCandidates) {
         final PlannerGraph queryPlannerGraph =
                 Objects.requireNonNull(queryPlanRootReference.acceptPropertyVisitor(forInternalShow(renderSingleGroups, true)));
@@ -302,7 +301,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
                 Edge::getAttributes,
                 ImmutableMap.of("fontname", Attribute.dot("courier"),
                         "rankdir", Attribute.dot("BT"),
-                        "splines", Attribute.dot("false")),
+                        "splines", Attribute.dot("polyline")),
                 (network, nodes) -> {
                     final ImmutableList.Builder<Cluster<Node, Edge>> clusterBuilder = ImmutableList.builder();
                     clusterBuilder.addAll(clustersForGroups(plannerGraph.getNetwork(), queryPlannerNodes));
