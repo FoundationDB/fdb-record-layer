@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -41,14 +42,7 @@ public abstract class ImportRunner<T> implements LimitedRunner.Runner {
 
     @Override
     public CompletableFuture<Boolean> runAsync(int limit) {
-        final CompletableFuture<Void> fillBufferFuture;
-        if (buffer.size() < limit) {
-            fillBufferFuture = cursor.limitRowsTo(limit - buffer.size())
-                    .forEach(val -> buffer.add(val));
-        } else {
-            fillBufferFuture = CompletableFuture.completedFuture(null);
-        }
-        return fillBufferFuture.thenCompose(ignored -> {
+        return fillBuffer(limit).thenCompose(ignored -> {
             if (buffer.size() == 0) {
                 return AsyncUtil.READY_FALSE;
             }
@@ -58,11 +52,24 @@ public abstract class ImportRunner<T> implements LimitedRunner.Runner {
                     save(buffer.get(position), context);
                 }
                 return AsyncUtil.READY_TRUE;
-            }).thenApply(result -> {
+            }).thenCompose(result -> {
                 // these entries were successfully saved, so remove them from the buffer
                 buffer.subList(0, position).clear();
-                return result;
+                // fill the buffer back up, and check if there's anything left
+                return fillBuffer(limit).thenApply(vignore -> buffer.size() > 0);
             });
         });
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> fillBuffer(final int limit) {
+        final CompletableFuture<Void> fillBufferFuture;
+        if (buffer.size() < limit) {
+            fillBufferFuture = cursor.limitRowsTo(limit - buffer.size())
+                    .forEach(val -> buffer.add(val));
+        } else {
+            fillBufferFuture = CompletableFuture.completedFuture(null);
+        }
+        return fillBufferFuture;
     }
 }
