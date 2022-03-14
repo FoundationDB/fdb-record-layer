@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;

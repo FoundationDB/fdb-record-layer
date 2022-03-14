@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class BuiltInFunction<T extends Typed> {
     @Nonnull
     final String functionName;
@@ -133,6 +134,7 @@ public abstract class BuiltInFunction<T extends Typed> {
     }
 
     @Nonnull
+    @Override
     public String toString() {
         return functionName + "(" + parameterTypes.stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
     }

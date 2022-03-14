@@ -51,8 +51,9 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
     }
 
     @Override
+    @SuppressWarnings({"java:S2637", "ConstantConditions"}) // TODO the alternative component should not be null
+    @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
     public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
-        // TODO the alternative component should not be null
         return Optional.of(new ExistsPredicate(child.getAlias(), null));
     }
 
@@ -99,18 +100,18 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
     }
 
     /**
-     * Function
-     * exists(RELATION) -> BOOLEAN.
+     * A function that checks whether an item exists in a {@link RelationalExpression}.
      */
     @AutoService(BuiltInFunction.class)
     public static class ExistsFn extends BuiltInFunction<Value> {
         public ExistsFn() {
             super("exists",
-                    ImmutableList.of(new Type.Stream()), ExistsFn::encapsulate);
+                    ImmutableList.of(new Type.Stream()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(parserContext, arguments));
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull ParserContext parserContext, @Nonnull final List<Typed> arguments) {
             // the call is already validated against the resolved function
+            Verify.verify(arguments.size() == 1);
             final Typed in = arguments.get(0);
             Verify.verify(in instanceof RelationalExpression);
 

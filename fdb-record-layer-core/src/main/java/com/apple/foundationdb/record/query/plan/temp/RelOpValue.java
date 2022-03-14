@@ -75,6 +75,14 @@ public class RelOpValue implements BooleanValue {
     @Nonnull
     private final Function<Iterable<Object>, Object> physicalEvalFn;
 
+    @Nonnull
+    private static final Supplier<Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator>> unaryOperatorMapSupplier =
+            Suppliers.memoize(RelOpValue::computeUnaryOperatorMap);
+
+    @Nonnull
+    private static final Supplier<Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
+            Suppliers.memoize(RelOpValue::computeBinaryOperatorMap);
+
     /**
      * Creates a new instance of {@link RelOpValue}.
      * @param functionName The function name.
@@ -164,10 +172,12 @@ public class RelOpValue implements BooleanValue {
 
     Optional<QueryPredicate> tryBoxSelfAsConstantPredicate() {
         Object constantValue = compileTimeEvalFn.apply(this);
-        if (constantValue == Boolean.TRUE) {
-            return Optional.of(ConstantPredicate.TRUE);
-        } else if (constantValue == Boolean.FALSE) {
-            return Optional.of(ConstantPredicate.FALSE);
+        if (constantValue instanceof Boolean) {
+            if ((boolean)constantValue) {
+                return Optional.of(ConstantPredicate.TRUE);
+            } else {
+                return Optional.of(ConstantPredicate.FALSE);
+            }
         } else if (constantValue == null) {
             return Optional.of(ConstantPredicate.FALSE); // null is unknown and doesn't match anything.
         }
@@ -263,10 +273,6 @@ public class RelOpValue implements BooleanValue {
         // when doing this we must make sure that arguments are literals and not e.g. field values.
     }
 
-    @Nonnull
-    private static final Supplier<Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator>> unaryOperatorMapSupplier =
-            Suppliers.memoize(RelOpValue::computeUnaryOperatorMap);
-
     private static Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator> computeUnaryOperatorMap() {
         final ImmutableMap.Builder<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final UnaryPhysicalOperator operator : UnaryPhysicalOperator.values()) {
@@ -279,10 +285,6 @@ public class RelOpValue implements BooleanValue {
     private static Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator> getUnaryOperatorMap() {
         return unaryOperatorMapSupplier.get();
     }
-
-    @Nonnull
-    private static final Supplier<Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
-            Suppliers.memoize(RelOpValue::computeBinaryOperatorMap);
 
     private static Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator> computeBinaryOperatorMap() {
         final ImmutableMap.Builder<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator> mapBuilder = ImmutableMap.builder();

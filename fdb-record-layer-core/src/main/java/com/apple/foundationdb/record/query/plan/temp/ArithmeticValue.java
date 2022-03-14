@@ -42,6 +42,7 @@ import org.apache.commons.lang3.tuple.Triple;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
@@ -60,6 +61,10 @@ public class ArithmeticValue implements Value {
     private final Value leftChild;
     @Nonnull
     private final Value rightChild;
+
+    @Nonnull
+    private static final Supplier<Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator>> operatorMapSupplier =
+            Suppliers.memoize(ArithmeticValue::computeOperatorMap);
 
     /**
      * Constructs a new instance of {@link ArithmeticValue}.
@@ -122,7 +127,7 @@ public class ArithmeticValue implements Value {
 
     @Override
     public String toString() {
-        return operation.name().toLowerCase() + "(" + leftChild + ", " + rightChild + ")";
+        return operation.name().toLowerCase(Locale.getDefault()) + "(" + leftChild + ", " + rightChild + ")";
     }
 
     @Override
@@ -138,17 +143,12 @@ public class ArithmeticValue implements Value {
     }
 
     @Nonnull
-    private static final Supplier<Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator>> operatorMapSupplier =
-            Suppliers.memoize(ArithmeticValue::computeOperatorMap);
-
-    @Nonnull
     private static Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
 
     @Nonnull
-    private static Value encapsulate(@Nonnull ParserContext parserContext,
-                                     @Nonnull BuiltInFunction<Value> builtInFunction,
+    private static Value encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
                                      @Nonnull final List<Typed> arguments) {
         return encapsulate(builtInFunction.getFunctionName(), arguments);
     }
@@ -164,7 +164,7 @@ public class ArithmeticValue implements Value {
         final Type type1 = arg1.getResultType();
         SemanticException.check(type1.isPrimitive(), "only primitive types allowed in arithmetic operation");
 
-        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase()).toJavaUtil();
+        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.getDefault())).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
 
@@ -188,7 +188,7 @@ public class ArithmeticValue implements Value {
     public static class AddFn extends BuiltInFunction<Value> {
         public AddFn() {
             super("add",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulate);
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 
@@ -196,7 +196,7 @@ public class ArithmeticValue implements Value {
     public static class SubFn extends BuiltInFunction<Value> {
         public SubFn() {
             super("sub",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulate);
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 
@@ -204,7 +204,7 @@ public class ArithmeticValue implements Value {
     public static class MulFn extends BuiltInFunction<Value> {
         public MulFn() {
             super("mul",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulate);
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 
@@ -212,7 +212,7 @@ public class ArithmeticValue implements Value {
     public static class DivFn extends BuiltInFunction<Value> {
         public DivFn() {
             super("div",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulate);
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 
@@ -220,7 +220,7 @@ public class ArithmeticValue implements Value {
     public static class ModFn extends BuiltInFunction<Value> {
         public ModFn() {
             super("mod",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulate);
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 

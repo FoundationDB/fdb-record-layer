@@ -129,10 +129,11 @@ public class NotValue implements BooleanValue {
     public static class NotFn extends BuiltInFunction<Value> {
         public NotFn() {
             super("not",
-                    ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN)), NotFn::encapsulate);
+                    ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN)),
+                    (parserContext, builtInFunction, arguments) -> encapsulate(arguments));
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull final List<Typed> arguments) {
             return new NotValue((Value)arguments.get(0));
         }
     }

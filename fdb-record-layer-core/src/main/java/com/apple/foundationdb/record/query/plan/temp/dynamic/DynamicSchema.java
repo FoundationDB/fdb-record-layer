@@ -51,6 +51,13 @@ import java.util.TreeSet;
 public class DynamicSchema {
     public static final DynamicSchema EMPTY_SCHEMA = empty();
 
+    private final FileDescriptorSet fileDescSet;
+    private final Map<String,Descriptor> msgDescriptorMapFull = new HashMap<>();
+    private final Map<String,Descriptor> msgDescriptorMapShort = new HashMap<>();
+    private final Map<String,EnumDescriptor> enumDescriptorMapFull = new HashMap<>();
+    private final Map<String,EnumDescriptor> enumDescriptorMapShort = new HashMap<>();
+    private final Map<Type, String> typeToNameMap;
+
     // --- public static ---
 
     public static DynamicSchema empty() {
@@ -71,6 +78,7 @@ public class DynamicSchema {
         return new Builder();
     }
 
+    @SuppressWarnings("PMD.AssignmentInOperand")
     public static DynamicSchema parseFrom(InputStream schemaDescIn) throws DescriptorValidationException, IOException {
         try {
             int len;
@@ -222,6 +230,7 @@ public class DynamicSchema {
      *
      * @return the schema string
      */
+    @Override
     public String toString() {
         Set<String> msgTypes = getMessageTypes();
         Set<String> enumTypes = getEnumTypes();
@@ -332,17 +341,24 @@ public class DynamicSchema {
         enumDescriptorMapShort.put(enumTypeNameShort, enumType);
     }
 
-    private final FileDescriptorSet fileDescSet;
-    private final Map<String,Descriptor> msgDescriptorMapFull = new HashMap<>();
-    private final Map<String,Descriptor> msgDescriptorMapShort = new HashMap<>();
-    private final Map<String,EnumDescriptor> enumDescriptorMapFull = new HashMap<>();
-    private final Map<String,EnumDescriptor> enumDescriptorMapShort = new HashMap<>();
-    private final Map<Type, String> typeToNameMap;
+
 
     /**
      * DynamicSchema.Builder.
      */
     public static class Builder {
+        // --- private ---
+
+        private final FileDescriptorProto.Builder fileDescProtoBuilder;
+        private final FileDescriptorSet.Builder fileDescSetBuilder;
+        private final Map<Type, String> typeToNameMap;
+
+        private Builder() {
+            fileDescProtoBuilder = FileDescriptorProto.newBuilder();
+            fileDescSetBuilder = FileDescriptorSet.newBuilder();
+            typeToNameMap = Maps.newHashMap();
+        }
+
         // --- public ---
 
         public DynamicSchema build() {
@@ -406,17 +422,5 @@ public class DynamicSchema {
             fileDescSetBuilder.mergeFrom(schema.fileDescSet);
             return this;
         }
-
-        // --- private ---
-
-        private Builder() {
-            fileDescProtoBuilder = FileDescriptorProto.newBuilder();
-            fileDescSetBuilder = FileDescriptorSet.newBuilder();
-            typeToNameMap = Maps.newHashMap();
-        }
-
-        private final FileDescriptorProto.Builder fileDescProtoBuilder;
-        private final FileDescriptorSet.Builder fileDescSetBuilder;
-        private final Map<Type, String> typeToNameMap;
     }
 }

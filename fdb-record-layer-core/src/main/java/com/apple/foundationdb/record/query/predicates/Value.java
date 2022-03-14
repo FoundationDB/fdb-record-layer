@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -92,6 +93,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      */
     @Nullable
     @SuppressWarnings({"java:S2637", "ConstantConditions"})
+    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
     default Object compileTimeEval(@Nonnull final EvaluationContext context) {
         return eval(null, context, null, null);
     }

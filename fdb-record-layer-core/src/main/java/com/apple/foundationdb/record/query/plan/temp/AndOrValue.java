@@ -160,10 +160,10 @@ public abstract class AndOrValue implements BooleanValue {
             public AndFn() {
                 super("and",
                         List.of(Type.primitiveType(Type.TypeCode.BOOLEAN), Type.primitiveType(Type.TypeCode.BOOLEAN)),
-                        AndFn::encapsulate);
+                        (parserContext, builtInFunction, arguments) -> encapsulate(builtInFunction, arguments));
             }
 
-            private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
                 Verify.verify(Iterables.size(arguments) == 2);
                 return new AndValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1));
             }
@@ -227,10 +227,11 @@ public abstract class AndOrValue implements BooleanValue {
         public static class OrFn extends BuiltInFunction<Value> {
             public OrFn() {
                 super("or",
-                        ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN), Type.primitiveType(Type.TypeCode.BOOLEAN)), OrFn::encapsulate);
+                        ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN), Type.primitiveType(Type.TypeCode.BOOLEAN)),
+                        (parserContext, builtInFunction, arguments) -> encapsulate(builtInFunction, arguments));
             }
 
-            private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
                 Verify.verify(Iterables.size(arguments) == 2);
                 return new OrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1));
             }

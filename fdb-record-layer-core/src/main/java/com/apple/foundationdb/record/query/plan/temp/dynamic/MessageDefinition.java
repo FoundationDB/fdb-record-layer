@@ -32,6 +32,14 @@ import java.util.Map;
  */
 public class MessageDefinition
 {
+    // --- private ---
+
+    private final DescriptorProto msgType;
+
+    private MessageDefinition(DescriptorProto msgType) {
+        this.msgType = msgType;
+    }
+
     // --- public static ---
 
     public static Builder newBuilder(String msgTypeName) {
@@ -40,6 +48,7 @@ public class MessageDefinition
 
     // --- public ---
 
+    @Override
     public String toString() {
         return msgType.toString();
     }
@@ -50,19 +59,49 @@ public class MessageDefinition
         return msgType;
     }
 
-    // --- private ---
-
-    private MessageDefinition(DescriptorProto msgType) {
-        this.msgType = msgType;
-    }
-
-    private final DescriptorProto msgType;
-
     /**
      * MessageDefinition.Builder
      */
     public static class Builder
     {
+        // --- private ---
+        private final DescriptorProto.Builder msgTypeBuilder;
+        private int oneofIndex = 0;
+        private static final Map<String,FieldDescriptorProto.Type> sTypeMap;
+        private static final Map<String,FieldDescriptorProto.Label> sLabelMap;
+
+        static {
+            sTypeMap = new HashMap<>();
+            sTypeMap.put("double", FieldDescriptorProto.Type.TYPE_DOUBLE);
+            sTypeMap.put("float", FieldDescriptorProto.Type.TYPE_FLOAT);
+            sTypeMap.put("int32", FieldDescriptorProto.Type.TYPE_INT32);
+            sTypeMap.put("int64", FieldDescriptorProto.Type.TYPE_INT64);
+            sTypeMap.put("uint32", FieldDescriptorProto.Type.TYPE_UINT32);
+            sTypeMap.put("uint64", FieldDescriptorProto.Type.TYPE_UINT64);
+            sTypeMap.put("sint32", FieldDescriptorProto.Type.TYPE_SINT32);
+            sTypeMap.put("sint64", FieldDescriptorProto.Type.TYPE_SINT64);
+            sTypeMap.put("fixed32", FieldDescriptorProto.Type.TYPE_FIXED32);
+            sTypeMap.put("fixed64", FieldDescriptorProto.Type.TYPE_FIXED64);
+            sTypeMap.put("sfixed32", FieldDescriptorProto.Type.TYPE_SFIXED32);
+            sTypeMap.put("sfixed64", FieldDescriptorProto.Type.TYPE_SFIXED64);
+            sTypeMap.put("bool", FieldDescriptorProto.Type.TYPE_BOOL);
+            sTypeMap.put("string", FieldDescriptorProto.Type.TYPE_STRING);
+            sTypeMap.put("bytes", FieldDescriptorProto.Type.TYPE_BYTES);
+            //sTypeMap.put("enum", FieldDescriptorProto.Type.TYPE_ENUM);
+            //sTypeMap.put("message", FieldDescriptorProto.Type.TYPE_MESSAGE);
+            //sTypeMap.put("group", FieldDescriptorProto.Type.TYPE_GROUP);
+
+            sLabelMap = new HashMap<>();
+            sLabelMap.put("optional", FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            sLabelMap.put("required", FieldDescriptorProto.Label.LABEL_REQUIRED);
+            sLabelMap.put("repeated", FieldDescriptorProto.Label.LABEL_REPEATED);
+        }
+
+        private Builder(String msgTypeName) {
+            msgTypeBuilder = DescriptorProto.newBuilder();
+            msgTypeBuilder.setName(msgTypeName);
+        }
+
         // --- public ---
 
         public Builder addField(String label, String type, String name, int num) {
@@ -115,16 +154,6 @@ public class MessageDefinition
         public MessageDefinition build() {
             return new MessageDefinition(msgTypeBuilder.build());
         }
-
-        // --- private ---
-
-        private Builder(String msgTypeName) {
-            msgTypeBuilder = DescriptorProto.newBuilder();
-            msgTypeBuilder.setName(msgTypeName);
-        }
-
-        private final DescriptorProto.Builder msgTypeBuilder;
-        private int oneofIndex = 0;
     }
 
     /**
@@ -132,6 +161,15 @@ public class MessageDefinition
      */
     public static class OneofBuilder
     {
+        // --- private ---
+        private final Builder msgBuilder;
+        private final int idx;
+
+        private OneofBuilder(Builder msgBuilder, int oneofIdx) {
+            this.msgBuilder = msgBuilder;
+            idx = oneofIdx;
+        }
+
         // --- public ---
 
         public OneofBuilder addField(String type, String name, int num) {
@@ -150,47 +188,5 @@ public class MessageDefinition
         public int getIdx() {
             return idx;
         }
-
-        // --- private ---
-
-        private OneofBuilder(Builder msgBuilder, int oneofIdx) {
-            this.msgBuilder = msgBuilder;
-            idx = oneofIdx;
-        }
-
-        private final Builder msgBuilder;
-        private final int idx;
-    }
-
-    // --- private static ---
-
-    private static final Map<String,FieldDescriptorProto.Type> sTypeMap;
-    private static final Map<String,FieldDescriptorProto.Label> sLabelMap;
-
-    static {
-        sTypeMap = new HashMap<>();
-        sTypeMap.put("double", FieldDescriptorProto.Type.TYPE_DOUBLE);
-        sTypeMap.put("float", FieldDescriptorProto.Type.TYPE_FLOAT);
-        sTypeMap.put("int32", FieldDescriptorProto.Type.TYPE_INT32);
-        sTypeMap.put("int64", FieldDescriptorProto.Type.TYPE_INT64);
-        sTypeMap.put("uint32", FieldDescriptorProto.Type.TYPE_UINT32);
-        sTypeMap.put("uint64", FieldDescriptorProto.Type.TYPE_UINT64);
-        sTypeMap.put("sint32", FieldDescriptorProto.Type.TYPE_SINT32);
-        sTypeMap.put("sint64", FieldDescriptorProto.Type.TYPE_SINT64);
-        sTypeMap.put("fixed32", FieldDescriptorProto.Type.TYPE_FIXED32);
-        sTypeMap.put("fixed64", FieldDescriptorProto.Type.TYPE_FIXED64);
-        sTypeMap.put("sfixed32", FieldDescriptorProto.Type.TYPE_SFIXED32);
-        sTypeMap.put("sfixed64", FieldDescriptorProto.Type.TYPE_SFIXED64);
-        sTypeMap.put("bool", FieldDescriptorProto.Type.TYPE_BOOL);
-        sTypeMap.put("string", FieldDescriptorProto.Type.TYPE_STRING);
-        sTypeMap.put("bytes", FieldDescriptorProto.Type.TYPE_BYTES);
-        //sTypeMap.put("enum", FieldDescriptorProto.Type.TYPE_ENUM);
-        //sTypeMap.put("message", FieldDescriptorProto.Type.TYPE_MESSAGE);
-        //sTypeMap.put("group", FieldDescriptorProto.Type.TYPE_GROUP);
-
-        sLabelMap = new HashMap<>();
-        sLabelMap.put("optional", FieldDescriptorProto.Label.LABEL_OPTIONAL);
-        sLabelMap.put("required", FieldDescriptorProto.Label.LABEL_REQUIRED);
-        sLabelMap.put("repeated", FieldDescriptorProto.Label.LABEL_REPEATED);
     }
 }
