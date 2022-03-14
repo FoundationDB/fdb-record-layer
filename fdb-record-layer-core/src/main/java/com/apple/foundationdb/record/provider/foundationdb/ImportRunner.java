@@ -21,55 +21,49 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.RecordCursor;
 
-import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public abstract class ImportRunner<T> implements LimitedRunner.Runner {
-    private RecordCursor<T> cursor;
+    private final Iterator<T> source;
     private final FDBDatabaseRunner runner;
     private List<T> buffer;
     int position = 0;
 
-    public ImportRunner(final RecordCursor<T> cursor, FDBDatabaseRunner runner) {
-        this.cursor = cursor;
+    public ImportRunner(final Iterator<T> source, FDBDatabaseRunner runner) {
+        this.source = source;
         this.runner = runner;
+        buffer = new ArrayList<>();
     }
 
-    protected abstract void save(T value, FDBRecordContext context);
+    protected abstract CompletableFuture<Void> save(T value, FDBRecordContext context);
 
     @Override
     public CompletableFuture<Boolean> runAsync(int limit) {
-        return fillBuffer(limit).thenCompose(ignored -> {
-            if (buffer.size() == 0) {
-                return AsyncUtil.READY_FALSE;
+        fillBuffer(limit);
+        if (buffer.size() == 0) {
+            return AsyncUtil.READY_FALSE;
+        }
+        return runner.runAsync(context -> {
+            while (position < limit && position < buffer.size()) {
+                save(buffer.get(position), context);
             }
-            return runner.runAsync(context -> {
-                while (position < limit && position < buffer.size()) {
-                    // TODO allow save to return a future
-                    save(buffer.get(position), context);
-                }
-                return AsyncUtil.READY_TRUE;
-            }).thenCompose(result -> {
-                // these entries were successfully saved, so remove them from the buffer
-                buffer.subList(0, position).clear();
-                // fill the buffer back up, and check if there's anything left
-                return fillBuffer(limit).thenApply(vignore -> buffer.size() > 0);
-            });
+            return AsyncUtil.READY_TRUE;
+        }).thenApply(result -> {
+            // these entries were successfully saved, so remove them from the buffer
+            buffer.subList(0, position).clear();
+            // fill the buffer back up, and check if there's anything left
+            fillBuffer(limit);
+            return buffer.size() > 0;
         });
     }
 
-    @Nonnull
-    private CompletableFuture<Void> fillBuffer(final int limit) {
-        final CompletableFuture<Void> fillBufferFuture;
-        if (buffer.size() < limit) {
-            fillBufferFuture = cursor.limitRowsTo(limit - buffer.size())
-                    .forEach(val -> buffer.add(val));
-        } else {
-            fillBufferFuture = CompletableFuture.completedFuture(null);
+    private void fillBuffer(final int limit) {
+        while (buffer.size() < limit && source.hasNext()) {
+            buffer.add(source.next());
         }
-        return fillBufferFuture;
     }
 }
