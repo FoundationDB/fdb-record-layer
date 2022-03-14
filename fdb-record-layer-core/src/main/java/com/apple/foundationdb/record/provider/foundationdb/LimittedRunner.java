@@ -72,6 +72,9 @@ public class LimittedRunner implements AutoCloseable {
         if (error == null) {
             // TODO indexer tracks records scanned only for successful
             maybeIncreaseLimit();
+            if (!shouldContinue) {
+                overallResult.complete(null);
+            }
             return shouldContinue;
         } else {
             successCount = 0;
