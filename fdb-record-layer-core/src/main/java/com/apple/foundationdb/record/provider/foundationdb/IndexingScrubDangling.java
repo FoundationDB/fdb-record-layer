@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -111,16 +110,13 @@ public class IndexingScrubDangling extends IndexingBase {
                         context.getReadVersionAsync()
                                 .thenCompose(vignore -> {
                                     SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
-                                    return subspaceProvider.getSubspaceAsync(context)
-                                            .thenCompose(subspace ->
-                                                    scrubIndex(subspaceProvider, subspace, null, null)
-                                            );
+                                    return scrubIndex(subspaceProvider, null, null);
                                 }),
                 common.indexLogMessageKeyValues("IndexingScrubber::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> scrubIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+    private CompletableFuture<Void> scrubIndex(@Nonnull SubspaceProvider subspaceProvider,
                                                @Nullable byte[] start, @Nullable byte[] end) {
 
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "scrubRecords",
@@ -129,7 +125,7 @@ public class IndexingScrubDangling extends IndexingBase {
 
         return iterateAllRanges(additionalLogMessageKeyValues,
                 (store, recordsScanned, limit) -> scrubIndexRangeOnly(store, start, end, recordsScanned, limit),
-                subspaceProvider, subspace);
+                subspaceProvider);
     }
 
     @Nonnull

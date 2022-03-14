@@ -26,6 +26,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -61,6 +62,10 @@ public class IndexingThrottle {
     @Nonnull private final IndexingCommon common;
     private final IndexState expectedIndexState;
 
+    private long timeOfLastProgressLogMillis = 0;
+
+    private final long startingTimeMillis;
+
     private int limit;
 
     // These error codes represent a list of errors that can occur if there is too much work to be done
@@ -82,6 +87,44 @@ public class IndexingThrottle {
         this.common = common;
         this.limit = common.config.getMaxLimit();
         this.expectedIndexState = expectedIndexState;
+        this.startingTimeMillis = System.currentTimeMillis();
+    }
+
+    public CompletableFuture<Void> build(@Nonnull Runner<Boolean> buildFunction,
+                                         @Nullable List<Object> additionalLogMessageKeyValues) {
+        // TODO continue switching over calls to buildCommitRetryAsync to this
+        //      Although, it looks like none of the others really do limit management, so maybe those
+        //      should just use the underlynig FDBDatabaseRunner
+        return AsyncUtil.whileTrue(() ->
+                buildCommitRetryAsync(buildFunction, true, additionalLogMessageKeyValues)
+                        .thenCompose(hasMore -> {
+                            if (Boolean.FALSE.equals(hasMore)) {
+                                return AsyncUtil.READY_FALSE;
+                            } else {
+                                return throttleDelayAndMaybeLogProgress(additionalLogMessageKeyValues);
+                            }
+                            // this used to log when there was an error, hopefully that is redudant, as this class also
+                            // logs errors (I think)
+                        }));
+    }
+
+    public <R> CompletableFuture<R> buildUnlimited(@Nonnull Runner<R> buildFunction,
+                                                   @Nullable List<Object> additionalLogMessageKeyValues) {
+        AtomicLong recordsScanned = new AtomicLong(0);
+        return throttledRunAsync(store -> buildFunction.build(store, recordsScanned, limit),
+                // Run after a single transactional call within runAsync.
+                (result, exception) -> {
+                    // Update records scanned.
+                    if (exception == null) {
+                        common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
+                    } else {
+                        recordsScanned.set(0);
+                    }
+                    return Pair.of(result, exception);
+                },
+                null,
+                additionalLogMessageKeyValues
+        );
     }
 
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull Runner<R> buildFunction,
@@ -263,8 +306,69 @@ public class IndexingThrottle {
         return limit;
     }
 
+
+    private boolean shouldLogBuildProgress() {
+        long interval = common.config.getProgressLogIntervalMillis();
+        long now = System.currentTimeMillis();
+        if (interval == 0 || interval < (now - timeOfLastProgressLogMillis)) {
+            return false;
+        }
+        timeOfLastProgressLogMillis = now;
+        return true;
+    }
+
+    // Helpers for implementing modules. Some of them are public to support unit-testing.
+    protected CompletableFuture<Boolean> throttleDelayAndMaybeLogProgress(List<Object> additionalLogMessageKeyValues) {
+        int limit = getLimit();
+        int recordsPerSecond = common.config.getRecordsPerSecond();
+        int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
+
+        // TODO make sure subspace is added back
+        if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
+            LOGGER.info(KeyValueLogMessage.build("Built Range",
+                            LogMessageKeys.LIMIT, limit,
+                            LogMessageKeys.DELAY, toWait)
+                    .addKeysAndValues(additionalLogMessageKeyValues)
+                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .toString());
+        }
+
+        validateTimeLimit(toWait);
+        return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
+    }
+
+    private void validateTimeLimit(int toWait) {
+        final long timeLimitMilliseconds = common.config.getTimeLimitMilliseconds();
+        if (timeLimitMilliseconds == OnlineIndexer.Config.UNLIMITED_TIME) {
+            return;
+        }
+        final long now = System.currentTimeMillis() + toWait; // adding the time we are about to wait
+        if (startingTimeMillis + timeLimitMilliseconds >= now) {
+            return;
+        }
+        throw new TimeLimitException("Time Limit Exceeded",
+                LogMessageKeys.TIME_LIMIT_MILLIS, timeLimitMilliseconds,
+                LogMessageKeys.TIME_STARTED_MILLIS, startingTimeMillis,
+                LogMessageKeys.TIME_ENDED_MILLIS, now,
+                LogMessageKeys.TIME_TO_WAIT_MILLIS, toWait);
+    }
+
+    /**
+     * Thrown when the indexing process exceeds the time limit.
+     */
+    @SuppressWarnings("serial")
+    public static class TimeLimitException extends RecordCoreException {
+        TimeLimitException(@Nonnull String msg, @Nullable Object ... keyValues) {
+            super(msg, keyValues);
+        }
+    }
+
     public interface Runner<R> {
         CompletableFuture<R> build(FDBRecordStore store, AtomicLong recordsScanned, int limit);
+
+        default CompletableFuture<Void> onSuccess() {
+            return AsyncUtil.DONE;
+        }
     }
 }
 

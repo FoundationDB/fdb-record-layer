@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
@@ -101,21 +100,21 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                             .thenCompose(vignore -> {
                                 SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                 // validation checks, if any, will be performed here
-                                return subspaceProvider.getSubspaceAsync(context)
-                                        .thenCompose(subspace -> buildMultiTargetIndex(subspaceProvider, subspace, null, null));
+                                return buildMultiTargetIndex(subspaceProvider, null, null);
                             })
                 ), common.indexLogMessageKeyValues("IndexingMultiTargetByRecords::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildMultiTargetIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace, @Nullable byte[] start, @Nullable byte[] end) {
+    private CompletableFuture<Void> buildMultiTargetIndex(@Nonnull SubspaceProvider subspaceProvider,
+                                                          @Nullable byte[] start, @Nullable byte[] end) {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex",
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
 
         return iterateAllRanges(additionalLogMessageKeyValues,
                 (store, recordsScanned, limit) -> buildRangeOnly(store, start, end , recordsScanned, limit),
-                subspaceProvider, subspace);
+                subspaceProvider);
     }
 
     @Nonnull

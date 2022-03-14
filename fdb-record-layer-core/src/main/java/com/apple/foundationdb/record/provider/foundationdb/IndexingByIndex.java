@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -130,21 +129,20 @@ public class IndexingByIndex extends IndexingBase {
                     return context.getReadVersionAsync()
                             .thenCompose(vignore -> {
                                 SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
-                                return subspaceProvider.getSubspaceAsync(context)
-                                        .thenCompose(subspace -> buildIndexFromIndex(subspaceProvider, subspace, null, null));
+                                return buildIndexFromIndex(subspaceProvider, null, null);
                             });
                 }), common.indexLogMessageKeyValues("IndexingByIndex::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildIndexFromIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace, @Nullable byte[] start, @Nullable byte[] end) {
+    private CompletableFuture<Void> buildIndexFromIndex(@Nonnull SubspaceProvider subspaceProvider, @Nullable byte[] start, @Nullable byte[] end) {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex",
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
 
         return iterateAllRanges(additionalLogMessageKeyValues,
                 (store, recordsScanned, limit) -> buildRangeOnly(store, start, end , recordsScanned, limit),
-                subspaceProvider, subspace);
+                subspaceProvider);
     }
 
     @Nonnull

@@ -45,8 +45,8 @@ import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.S
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -88,7 +88,7 @@ public abstract class IndexingBase {
     @Nonnull
     protected final OnlineIndexer.IndexingPolicy policy;
     @Nonnull
-    private final IndexingThrottle throttle;
+    protected final IndexingThrottle throttle;
     private final boolean isScrubber;
 
     private long timeOfLastProgressLogMillis = 0;
@@ -764,29 +764,12 @@ public abstract class IndexingBase {
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
                                                        IndexingThrottle.Runner<Boolean> iterateRange,
-                                                       @Nonnull SubspaceProvider subspaceProvider,
-                                                       @Nonnull Subspace subspace) {
-
-        return AsyncUtil.whileTrue(() ->
-                    buildCommitRetryAsync(iterateRange,
-                            true,
-                            additionalLogMessageKeyValues)
-                            .handle((hasMore, ex) -> {
-                                if (ex == null) {
-                                    if (Boolean.FALSE.equals(hasMore)) {
-                                        // all done
-                                        return AsyncUtil.READY_FALSE;
-                                    }
-                                    return throttleDelayAndMaybeLogProgress(subspaceProvider, Collections.emptyList());
-                                }
-                                final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
-                                if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
-                                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
-                                }
-                                throw unwrappedEx;
-                            }).thenCompose(Function.identity()),
-                getRunner().getExecutor());
+                                                       @Nonnull SubspaceProvider subspaceProvider) {
+        return throttle.build(iterateRange,
+                ImmutableList.builder()
+                        .addAll(additionalLogMessageKeyValues)
+                        .add(subspaceProvider.logKey(), subspaceProvider)
+                        .build());
     }
 
     // rebuildIndexAsync - builds the whole index inline (without committing)

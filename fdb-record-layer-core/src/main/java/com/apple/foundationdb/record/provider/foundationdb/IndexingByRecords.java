@@ -62,7 +62,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 /**
  *  This indexer scans all records in the record store.
@@ -238,8 +237,8 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildEndpoints");
-        return buildCommitRetryAsync((store, recordsScanned, ignoredLimit) -> buildEndpoints(store, recordsScanned),
-                false, additionalLogMessageKeyValues);
+        return throttle.buildUnlimited((store, recordsScanned, ignoredLimit) -> buildEndpoints(store, recordsScanned),
+                additionalLogMessageKeyValues);
     }
 
     // Builds a range within a single transaction. It will look for the missing ranges within the given range and build those while
@@ -360,19 +359,45 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Void> buildRanges(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
                                                 RangeSet rangeSet, Queue<Range> rangeDeque) {
-        return AsyncUtil.whileTrue(() -> {
-            if (rangeDeque.isEmpty()) {
-                return CompletableFuture.completedFuture(false); // We're done.
-            }
-            Range toBuild = rangeDeque.remove();
+        AtomicReference<Tuple> currentEnd = new AtomicReference<>();
+        return throttle.build(
+                new IndexingThrottle.Runner<>() {
+                    private Tuple startTuple;
+                    private Tuple endTuple;
+                    @Override
+                    public CompletableFuture<Boolean> build(final FDBRecordStore store, final AtomicLong recordsScanned, final int limit) {
+                        if (rangeDeque.isEmpty()) {
+                            return CompletableFuture.completedFuture(false); // We're done.
+                        }
+                        Range toBuild = rangeDeque.remove();
 
-            // This only works if the things included within the rangeSet are serialized Tuples.
-            Tuple startTuple = Tuple.fromBytes(toBuild.begin);
-            Tuple endTuple = RangeSet.isFinalKey(toBuild.end) ? null : Tuple.fromBytes(toBuild.end);
-            return buildUnbuiltRange(startTuple, endTuple)
-                    .handle((realEnd, ex) -> handleBuiltRange(subspaceProvider, subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
-                    .thenCompose(Function.identity());
-        }, getRunner().getExecutor());
+                        // This only works if the things included within the rangeSet are serialized Tuples.
+                        startTuple = Tuple.fromBytes(toBuild.begin);
+                        endTuple = RangeSet.isFinalKey(toBuild.end) ? null : Tuple.fromBytes(toBuild.end);
+
+                        return IndexingByRecords.this.buildUnbuiltRange(store, startTuple, endTuple, recordsScanned, limit)
+                                .thenApply(realEnd -> {
+                                    currentEnd.set(realEnd);
+                                    return realEnd != null && realEnd.equals(endTuple) && rangeDeque.isEmpty();
+                                });
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> onSuccess() {
+                        final Tuple realEnd = currentEnd.get();
+                        // We didn't make it to the end. Continue on to the next item.
+                        if (endTuple != null) {
+                            rangeDeque.add(new Range(realEnd.pack(), endTuple.pack()));
+                        } else {
+                            rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
+                        }
+                        return AsyncUtil.DONE;
+                    }
+                    // TODO this no longer handles RecordBuiltRangeException
+                },
+                // TODO originally it would add the range_start/end to the logging keys if it failed on a specific
+                //      range...
+                Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange"));
     }
 
     @Nonnull
