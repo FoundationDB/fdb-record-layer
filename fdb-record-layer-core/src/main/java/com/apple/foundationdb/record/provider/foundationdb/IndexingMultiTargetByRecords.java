@@ -114,12 +114,15 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> buildRangeOnly(store, start, end , recordsScanned),
+                (store, recordsScanned, limit) -> buildRangeOnly(store, start, end , recordsScanned, limit),
                 subspaceProvider, subspace);
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store,
+                                                      byte[] startBytes, byte[] endBytes,
+                                                      @Nonnull AtomicLong recordsScanned,
+                                                      final int limit) {
         // return false when done
         /* Multi target consistency:
          * 1. Identify missing ranges from only the first index
@@ -130,7 +133,8 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getPrimaryIndex()));
         AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
         final List<Index> targetIndexes = common.getTargetIndexes();
-        final List<RangeSet> targetRangeSets = targetIndexes.stream().map(targetIndex -> new RangeSet(store.indexRangeSubspace(targetIndex))).collect(Collectors.toList());
+        final List<RangeSet> targetRangeSets = targetIndexes.stream()
+                .map(targetIndex -> new RangeSet(store.indexRangeSubspace(targetIndex))).collect(Collectors.toList());
         final boolean isIdempotent = areTheyAllIdempotent(store, targetIndexes);
 
         final IsolationLevel isolationLevel =
@@ -140,7 +144,9 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(isolationLevel)
-                .setReturnedRowLimit(getLimit() + 1); // always respect limit in this path; +1 allows a continuation item
+                // TODO we do this in a bunch of places, but I don't see anything that stops at limit, so I think this
+                //      just means that we always scan one more than the given limit
+                .setReturnedRowLimit(limit + 1); // always respect limit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
         return ranges.onHasNext().thenCompose(hasNext -> {

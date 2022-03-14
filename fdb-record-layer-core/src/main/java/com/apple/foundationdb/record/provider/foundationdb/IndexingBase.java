@@ -56,6 +56,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -550,8 +551,8 @@ public abstract class IndexingBase {
     }
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
-    protected CompletableFuture<Boolean> throttleDelayAndMaybeLogProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
-        int limit = getLimit();
+    protected CompletableFuture<Boolean> throttleDelayAndMaybeLogProgress(final int limit, SubspaceProvider subspaceProvider,
+                                                                          List<Object> additionalLogMessageKeyValues) {
         int recordsPerSecond = common.config.getRecordsPerSecond();
         int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
 
@@ -763,29 +764,33 @@ public abstract class IndexingBase {
     }
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
-                                                       BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
-                                                       @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
-
-        return AsyncUtil.whileTrue(() ->
-                    buildCommitRetryAsync(iterateRange,
-                            true,
-                            additionalLogMessageKeyValues)
-                            .handle((hasMore, ex) -> {
-                                if (ex == null) {
-                                    if (Boolean.FALSE.equals(hasMore)) {
-                                        // all done
-                                        return AsyncUtil.READY_FALSE;
-                                    }
-                                    return throttleDelayAndMaybeLogProgress(subspaceProvider, Collections.emptyList());
+                                                       RangeConsumer iterateRange,
+                                                       @Nonnull SubspaceProvider subspaceProvider,
+                                                       @Nonnull Subspace subspace) {
+        AtomicLong recordsScanned = new AtomicLong(0);
+        final LimittedRunner limittedRunner = new LimittedRunner(common.config.getMaxLimit(), common.config.getIncreaseLimitAfter());
+        final ArrayList<Object> logMessageKeyValues = new ArrayList<>(Arrays.asList(
+                LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
+                // TODO probably worthwhile to put a method in common to get the key/values
+                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
+                LogMessageKeys.INDEXER_ID, common.getUuid()));
+        logMessageKeyValues.addAll(additionalLogMessageKeyValues);
+        // TODO should this also add the target indexes and uuid from
+        return limittedRunner.runAsync(
+                limit -> {
+                    reloadAndApplyConfig(limittedRunner);
+                    // TODO check index state
+                    return common.runAsyncInStore(
+                                    store -> iterateRange.consume(store, recordsScanned, limit),
+                                    logMessageKeyValues)
+                            .thenCompose(hasMore -> {
+                                if (hasMore) {
+                                    return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Collections.emptyList());
+                                } else {
+                                    return AsyncUtil.READY_FALSE;
                                 }
-                                final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
-                                if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
-                                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
-                                }
-                                throw unwrappedEx;
-                            }).thenCompose(Function.identity()),
-                getRunner().getExecutor());
+                            });
+                });
     }
 
     // rebuildIndexAsync - builds the whole index inline (without committing)
@@ -801,6 +806,13 @@ public abstract class IndexingBase {
             RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
             return rangeSet.insertRange(tr, null, null);
         })).thenCompose(vignore -> rebuildIndexInternalAsync(store));
+    }
+
+    protected void reloadAndApplyConfig(final LimittedRunner limittedRunner) {
+        if (common.loadConfig()) {
+            limittedRunner.setMaxLimit(common.config.getMaxLimit());
+            limittedRunner.setIncreaseLimitAfter(common.config.getIncreaseLimitAfter());
+        }
     }
 
     abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
@@ -900,6 +912,10 @@ public abstract class IndexingBase {
             }
         }
         return null;
+    }
+
+    protected interface RangeConsumer {
+        CompletableFuture<Boolean> consume(FDBRecordStore store, AtomicLong recordsScanned, int limit);
     }
 }
 

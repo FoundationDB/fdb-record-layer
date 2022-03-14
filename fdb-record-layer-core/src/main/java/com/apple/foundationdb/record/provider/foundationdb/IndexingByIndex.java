@@ -143,12 +143,14 @@ public class IndexingByIndex extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> buildRangeOnly(store, start, end , recordsScanned),
+                (store, recordsScanned, limit) -> buildRangeOnly(store, start, end , recordsScanned, limit),
                 subspaceProvider, subspace);
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes,
+                                                      @Nonnull AtomicLong recordsScanned,
+                                                      final int limit) {
         // return false when done
 
         validateSameMetadataOrThrow(store);
@@ -166,7 +168,7 @@ public class IndexingByIndex extends IndexingBase {
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(getLimit() + 1); // respect limit in this path; +1 allows a continuation item
+                .setReturnedRowLimit(limit + 1); // respect limit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
         return ranges.onHasNext().thenCompose(hasNext -> {

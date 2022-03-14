@@ -836,6 +836,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
     @Test
     public void testConfigLoader() throws Exception {
+        // TODO this test needs to be reworked a bit, since we can't assert about the limit in the indexer anymore
         final Index index = new Index("newIndex", field("num_value_unique"));
         final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
             metaDataBuilder.addIndex("MySimpleRecord", index);

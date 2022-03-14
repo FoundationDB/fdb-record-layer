@@ -358,6 +358,7 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Void> buildRanges(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
                                                 @Nonnull RangeSet rangeSet, @Nonnull Queue<Range> rangeDeque) {
+        // TODO can this use `iterateAllRanges`?
         AtomicLong recordsScanned = new AtomicLong(0);
         final LimittedRunner limittedRunner = new LimittedRunner(common.config.getMaxLimit(), common.config.getIncreaseLimitAfter());
         return limittedRunner.runAsync(
@@ -380,29 +381,20 @@ public class IndexingByRecords extends IndexingBase {
                             LogMessageKeys.INDEXER_ID, common.getUuid(),
                             LogMessageKeys.LIMIT, limit);
                     // TODO check index state
-                    // TODO in original code, and this code, recorsdScanned included records scanned on failed actions
-                    //      is that right?
                     return common.runAsyncInStore(
                                     store -> buildUnbuiltRange(store, startTuple, endTuple, recordsScanned, limit),
                                     additionalLogMessageKeyValues)
                             .handle((realEnd, exception) -> handleBuiltRange(subspaceProvider, subspace,
-                                    rangeSet, rangeDeque, startTuple, endTuple, realEnd, exception))
+                                    rangeSet, rangeDeque, startTuple, endTuple, realEnd, exception, limit))
                             .thenCompose(Function.identity());
                 });
-    }
-
-    private void reloadAndApplyConfig(final LimittedRunner limittedRunner) {
-        if (common.loadConfig()) {
-            limittedRunner.setMaxLimit(common.config.getMaxLimit());
-            limittedRunner.setIncreaseLimitAfter(common.config.getIncreaseLimitAfter());
-        }
     }
 
     @Nonnull
     private CompletableFuture<Boolean> handleBuiltRange(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
                                                         @Nonnull RangeSet rangeSet, @Nonnull Queue<Range> rangeDeque,
                                                         Tuple startTuple, Tuple endTuple, Tuple realEnd,
-                                                        Throwable ex) {
+                                                        Throwable ex, final int limit) {
         final RuntimeException unwrappedEx = ex == null ? null : getRunner().getDatabase().mapAsyncToSyncException(ex);
         if (unwrappedEx == null) {
             if (realEnd != null && !realEnd.equals(endTuple)) {
@@ -413,7 +405,7 @@ public class IndexingByRecords extends IndexingBase {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
-            return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
+            return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Arrays.asList(
                     LogMessageKeys.START_TUPLE, startTuple,
                     LogMessageKeys.END_TUPLE, endTuple,
                     LogMessageKeys.REAL_END, realEnd));
@@ -424,7 +416,7 @@ public class IndexingByRecords extends IndexingBase {
                     return rangeSet.missingRanges(getRunner().getDatabase().database(), startTuple.pack(), endTuple.pack())
                             .thenCompose(list -> {
                                 rangeDeque.addAll(list);
-                                return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
+                                return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Arrays.asList(
                                         LogMessageKeys.REASON, "RecordBuiltRangeException",
                                         LogMessageKeys.START_TUPLE, startTuple,
                                         LogMessageKeys.END_TUPLE, endTuple,

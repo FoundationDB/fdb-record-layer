@@ -129,12 +129,16 @@ public class IndexingScrubDangling extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> scrubIndexRangeOnly(store, start, end, recordsScanned),
+                (store, recordsScanned, limit) -> scrubIndexRangeOnly(store, start, end, recordsScanned, limit),
                 subspaceProvider, subspace);
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> scrubIndexRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> scrubIndexRangeOnly(@Nonnull FDBRecordStore store,
+                                                           byte[] startBytes,
+                                                           byte[] endBytes,
+                                                           @Nonnull AtomicLong recordsScanned,
+                                                           final int limit) {
         // return false when done
         Index index = common.getIndex();
         final RecordMetaData metaData = store.getRecordMetaData();
@@ -154,7 +158,7 @@ public class IndexingScrubDangling extends IndexingBase {
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows a continuation item
+                .setReturnedRowLimit(limit + 1); // always respectLimit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
         return ranges.onHasNext().thenCompose(hasNext -> {
