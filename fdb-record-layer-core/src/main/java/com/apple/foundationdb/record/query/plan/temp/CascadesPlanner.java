@@ -315,8 +315,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
         final PlanContext context = MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, query);
-        Debugger.query(query, context);
-        Optional<RecordQueryPlan> maybePlan = tryPlan(context, () -> RelationalExpression.fromRecordQuery(context, query));
+        Optional<RecordQueryPlan> maybePlan = plan(context, () -> RelationalExpression.fromRecordQuery(context, query), query.toString());
         if (maybePlan.isPresent()) {
             return maybePlan.get();
         } else {
@@ -326,7 +325,17 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    public Optional<RecordQueryPlan> tryPlan(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
+    /**
+     * Plans a {@link RelationalExpression} returning an equivalent physical plan.
+     *
+     * @param context The plan context.
+     * @param expressionSupplier A function that returns the logical plan.
+     * @param queryString The corresponding query string for debugging purposes.
+     * @return If the planner is able to plan the given logical plan it returns an equivalent physical plans, otherwise
+     *         an empty {@link Optional}.
+     */
+    public Optional<RecordQueryPlan> plan(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier, @Nonnull String queryString) {
+        Debugger.query(queryString, context);
         try {
             planPartial(context, expressionSupplier);
         } finally {
