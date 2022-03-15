@@ -27,11 +27,9 @@ import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.codecs.lucene50.Lucene50StoredFieldsFormat;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
-import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.MergePolicy;
+import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.apache.lucene.search.suggest.analyzing.BlendedInfixSuggester;
@@ -65,19 +63,19 @@ public class LuceneOptimizedWrappedAnalyzingInfixSuggester extends BlendedInfixS
     protected IndexWriterConfig getIndexWriterConfig(Analyzer indexAnalyzer, IndexWriterConfig.OpenMode openMode) {
         TieredMergePolicy tieredMergePolicy = new TieredMergePolicy();
         tieredMergePolicy.setMaxMergedSegmentMB(Math.max(0.0, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_MERGE_MAX_SIZE)));
-        tieredMergePolicy.setMaxMergeAtOnceExplicit(Math.max(2, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_MERGE_MAX_NUMBER)));
         tieredMergePolicy.setNoCFSRatio(1.00);
         IndexWriterConfig iwc = super.getIndexWriterConfig(indexAnalyzer, openMode);
         iwc.setUseCompoundFile(true);
         iwc.setMergePolicy(tieredMergePolicy);
         iwc.setMergeScheduler(new ConcurrentMergeScheduler() {
+
             @Override
-            protected void doMerge(final IndexWriter writer, final MergePolicy.OneMerge merge) throws IOException {
-                merge.segments.forEach( (segmentCommitInfo) -> LOGGER.trace("Auto-complete index segmentInfo={}", segmentCommitInfo.info.name));
-                super.doMerge(writer, merge);
+            public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
+                LOGGER.trace("Auto-complete index mergeSource={}", mergeSource);
+                super.merge(mergeSource, trigger);
             }
         });
-        iwc.setCodec(new LuceneOptimizedCodec(Lucene50StoredFieldsFormat.Mode.BEST_COMPRESSION));
+        iwc.setCodec(new LuceneOptimizedCodec());
         iwc.setInfoStream(new LuceneLoggerInfoStream(LOGGER));
         return iwc;
     }

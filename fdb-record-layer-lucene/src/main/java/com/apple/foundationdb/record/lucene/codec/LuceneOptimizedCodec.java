@@ -32,8 +32,7 @@ import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.SegmentInfoFormat;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.TermVectorsFormat;
-import org.apache.lucene.codecs.lucene50.Lucene50StoredFieldsFormat;
-import org.apache.lucene.codecs.lucene70.Lucene70Codec;
+import org.apache.lucene.codecs.lucene87.Lucene87Codec;
 
 /**
  *
@@ -48,14 +47,14 @@ import org.apache.lucene.codecs.lucene70.Lucene70Codec;
  * - .si diagnostic information is not stored
  * - Removed checksum validation on Compound File Reader
  *
- * Forwards/backwards compatibility is not supported during transition from the {@link Lucene70Codec} to this implementation unfortunately.
+ * Forwards/backwards compatibility is not supported during transition from the {@link Lucene87Codec} to this implementation unfortunately.
  * Indexes need to rebuilt before handling search requests.
  *
  */
 @AutoService(Codec.class)
 public class LuceneOptimizedCodec extends Codec {
 
-    private final Lucene70Codec baseCodec;
+    private final Lucene87Codec baseCodec;
     private final LuceneOptimizedCompoundFormat compoundFormat;
     private final LuceneOptimizedSegmentInfoFormat segmentInfoFormat;
 
@@ -63,7 +62,7 @@ public class LuceneOptimizedCodec extends Codec {
      * Instantiates a new codec.
      */
     public LuceneOptimizedCodec() {
-        this(Lucene50StoredFieldsFormat.Mode.BEST_SPEED);
+        this(Lucene87Codec.Mode.BEST_SPEED);
     }
 
     /**
@@ -73,9 +72,9 @@ public class LuceneOptimizedCodec extends Codec {
      * @param mode stored fields compression mode to use for newly
      *             flushed/merged segments.
      */
-    public LuceneOptimizedCodec(Lucene50StoredFieldsFormat.Mode mode) {
+    public LuceneOptimizedCodec(Lucene87Codec.Mode mode) {
         super("RL");
-        baseCodec = new Lucene70Codec(mode);
+        baseCodec = new Lucene87Codec(mode);
         compoundFormat = new LuceneOptimizedCompoundFormat();
         segmentInfoFormat = new LuceneOptimizedSegmentInfoFormat();
     }

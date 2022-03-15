@@ -32,6 +32,8 @@ import org.apache.lucene.store.Lock;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isEntriesFile;
 import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isSegmentInfo;
@@ -111,5 +113,10 @@ class LuceneOptimizedWrappedDirectory extends Directory {
     @Override
     public ChecksumIndexInput openChecksumInput(final String name, final IOContext context) throws IOException {
         return new BufferedChecksumIndexInput(openInput(name, context));
+    }
+
+    @Override
+    public Set<String> getPendingDeletions() throws IOException {
+        return Collections.emptySet();
     }
 }

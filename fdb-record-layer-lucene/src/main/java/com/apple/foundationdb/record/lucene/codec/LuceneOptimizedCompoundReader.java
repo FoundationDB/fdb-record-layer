@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-
 import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
@@ -29,28 +29,26 @@ import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.store.IndexOutput;
-import org.apache.lucene.store.Lock;
 import org.apache.lucene.util.IOUtils;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
+ * Class for accessing a compound stream.
+ * This class implements a directory, but is limited to only read operations.
+ * Directory methods that would normally modify data throw an exception.
  *
  * Borrowed from Lucene to remove checksum from end of file.
  * This implementation skips the reading and validation of checksum, which could have quite big data size sometimes.
  *
- * Class for accessing a compound stream.
- * This class implements a directory, but is limited to only read operations.
- * Directory methods that would normally modify data throw an exception.
  * @lucene.experimental
  */
-final class LuceneOptimizedCompoundReader extends Directory {
+final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     private final Directory directory;
     private final String segmentName;
@@ -71,9 +69,9 @@ final class LuceneOptimizedCompoundReader extends Directory {
     public LuceneOptimizedCompoundReader(Directory directory, SegmentInfo si, IOContext context) throws IOException {
         this.directory = directory;
         this.segmentName = si.name;
+        String dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
         String entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
         this.entries = readEntries(si.getId(), directory, entriesFileName);
-        String dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
         handle = directory.openInput(dataFileName, context);
     }
 
@@ -85,8 +83,8 @@ final class LuceneOptimizedCompoundReader extends Directory {
             Throwable priorE = null;
             try {
                 CodecUtil.checkIndexHeader(entriesStream, LuceneOptimizedCompoundFormat.ENTRY_CODEC,
-                         LuceneOptimizedCompoundFormat.VERSION_START,
-                         LuceneOptimizedCompoundFormat.VERSION_CURRENT, segmentID, "");
+                        LuceneOptimizedCompoundFormat.VERSION_START,
+                        LuceneOptimizedCompoundFormat.VERSION_CURRENT, segmentID, "");
                 final int numEntries = entriesStream.readVInt();
                 mapping = new HashMap<>(numEntries);
                 for (int i = 0; i < numEntries; i++) {
@@ -138,26 +136,6 @@ final class LuceneOptimizedCompoundReader extends Directory {
         return res;
     }
 
-    /** Not implemented.
-     * @throws UnsupportedOperationException always: not supported by CFS */
-    @Override
-    public void deleteFile(String name) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** Not implemented.
-     * @throws UnsupportedOperationException always: not supported by CFS */
-    @Override
-    public void rename(String from, String to) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** Not implemented. */
-    @Override
-    public void syncMetaData() {
-        // Not implemented
-    }
-
     /** Returns the length of a file in the directory.
      * @throws IOException if the file does not exist */
     @Override
@@ -171,28 +149,17 @@ final class LuceneOptimizedCompoundReader extends Directory {
     }
 
     @Override
-    public IndexOutput createOutput(String name, IOContext context) throws IOException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public IndexOutput createTempOutput(String prefix, String suffix, IOContext context) throws IOException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void sync(Collection<String> names) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Lock obtainLock(String name) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public String toString() {
         return "CompoundFileDirectory(segment=\"" + segmentName + "\" in dir=" + directory + ")";
     }
-}
 
+    @Override
+    public Set<String> getPendingDeletions() {
+        return Collections.emptySet();
+    }
+
+    @Override
+    public void checkIntegrity() throws IOException {
+        CodecUtil.checksumEntireFile(handle);
+    }
+}
