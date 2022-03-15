@@ -91,12 +91,10 @@ services:
 
   shell:
     <<: *build-setup
+    entrypoint: /bin/bash
     environment:
       - ARTIFACTORY_USER
       - ARTIFACTORY_KEY
-    entrypoint: /bin/bash
-    networks: [test-net]
-    environment:
       - FDBPORT
     links:
       - fdbserver

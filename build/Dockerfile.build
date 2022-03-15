@@ -15,8 +15,6 @@ RUN yum install -y \
     yum clean all && \
     rm -rf /var/cache/yum
 
-RUN mkdir -p /usr/local/bin
 COPY fdb_create_cluster_file.bash /usr/local/bin/fdb_create_cluster_file.bash
 
-ENV PATH="${PATH}:/opt/gradle/gradle-3.4.1/bin:/usr/local/bin"
 ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk
