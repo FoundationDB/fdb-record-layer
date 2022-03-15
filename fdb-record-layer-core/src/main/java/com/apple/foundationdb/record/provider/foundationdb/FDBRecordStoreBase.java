@@ -993,7 +993,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     /**
-     * Scan the records pointed to by an index equal to indexed values using the Index Prefetch method
+     * Scan the records pointed to by an index equal to indexed values using the Index Prefetch method.
      * @param indexName the name of the index
      * @param values a left-subset of values of indexed fields
      * @return a cursor of the records pointed to by the index

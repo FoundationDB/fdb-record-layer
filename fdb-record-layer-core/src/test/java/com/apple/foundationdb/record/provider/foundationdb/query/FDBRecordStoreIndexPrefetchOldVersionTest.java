@@ -72,13 +72,13 @@ public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQue
 
     @BeforeEach
     void setup() throws Exception {
+        complexQuerySetupWithVersion(simpleVersionHook, FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1);
     }
 
     @ParameterizedTest
     @EnumSource()
     @Disabled
     void oldVersionFormatTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
-        complexQuerySetupWithVersion(simpleVersionHook, FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1);
 
         // TODO: This test needs to be fully validated once the real API is here: to ensure the version is indeed read from the old location
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
@@ -158,7 +158,7 @@ public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQue
                 .setMetaDataProvider(metaDataBuilder)
                 .setContext(context)
                 .setKeySpacePath(path)
-//                .setSubspace(subspace)
+                // .setSubspace(subspace)
                 .setFormatVersion(formatVersion)
                 .createOrOpen();
         RecordMetaData metaData = recordStore.getRecordMetaData();

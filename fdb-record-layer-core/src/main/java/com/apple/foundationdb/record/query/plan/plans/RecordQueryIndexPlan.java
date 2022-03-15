@@ -77,7 +77,7 @@ import java.util.Set;
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable {
-    public static final Logger logger = LoggerFactory.getLogger(RecordQueryIndexPlan.class);
+    public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIndexPlan.class);
     protected static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
 
     @Nonnull
@@ -167,7 +167,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 } catch (Exception ex) {
                     KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch plan failed, falling back to Index scan",
                             LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-                    logger.error(message.toString(), ex);
+                    LOGGER.error(message.toString(), ex);
                     return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
                 }
             default:
