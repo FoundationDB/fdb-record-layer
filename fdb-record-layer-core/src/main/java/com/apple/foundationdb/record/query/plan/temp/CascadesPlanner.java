@@ -51,6 +51,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -315,9 +316,19 @@ public class CascadesPlanner implements QueryPlanner {
     public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
         final PlanContext context = new MetaDataPlanContext(configuration, metaData, recordStoreState, query);
         Debugger.query(query, context);
+        Optional<RecordQueryPlan> maybePlan = tryPlan(context, () -> RelationalExpression.fromRecordQuery(context, query));
+        if (maybePlan.isPresent()) {
+            return maybePlan.get();
+        } else {
+            throw new RecordCoreException("Cascades planner could not plan query")
+                    .addLogInfo("query", query)
+                    .addLogInfo("finalExpression", currentRoot.get());
+        }
+    }
+
+    public Optional<RecordQueryPlan> tryPlan(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         try {
-            planPartial(context,
-                    () -> RelationalExpression.fromRecordQuery(context, query));
+            planPartial(context, expressionSupplier);
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
@@ -328,12 +339,9 @@ public class CascadesPlanner implements QueryPlanner {
                 logger.debug(KeyValueLogMessage.of("explain of plan",
                         "explain", PlannerGraphProperty.explain(singleRoot)));
             }
-
-            return (RecordQueryPlan)singleRoot;
+            return Optional.of((RecordQueryPlan)singleRoot);
         } else {
-            throw new RecordCoreException("Cascades planner could not plan query")
-                    .addLogInfo("query", query)
-                    .addLogInfo("finalExpression", currentRoot.get());
+            return Optional.empty();
         }
     }
 
