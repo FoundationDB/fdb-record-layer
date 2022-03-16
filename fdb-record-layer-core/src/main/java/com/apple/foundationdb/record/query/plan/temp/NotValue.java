@@ -81,7 +81,7 @@ public class NotValue implements BooleanValue {
     @Nonnull
     @Override
     public NotValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == 2);
+        Verify.verify(Iterables.size(newChildren) == 1);
         return new NotValue(Iterables.get(newChildren, 0));
     }
 

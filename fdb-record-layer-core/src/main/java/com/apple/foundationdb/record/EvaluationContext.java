@@ -75,7 +75,7 @@ public class EvaluationContext {
      * from parameter names to values.
      * @param bindings a mapping from parameter name to values
      * @param dynamicSchema a dynamic schema
-     * @return a new evaluation context with the bindings
+     * @return a new evaluation context with the bindings and the schema.
      */
     @Nonnull
     public static EvaluationContext forBindingsAndDynamicSchema(@Nonnull Bindings bindings, @Nonnull DynamicSchema dynamicSchema) {

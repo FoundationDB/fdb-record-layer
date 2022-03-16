@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -65,144 +66,194 @@ class ArithmeticValueTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
             return Stream.of(
-                    Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.AddFn(), 2),
-                    Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.SubFn(), 0),
-                    Arguments.of(List.of(INT_2, INT_2), new ArithmeticValue.MulFn(), 4),
-                    Arguments.of(List.of(INT_2, INT_2), new ArithmeticValue.DivFn(), 1),
-                    Arguments.of(List.of(INT_2, INT_1), new ArithmeticValue.ModFn(), 0),
+                    Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.AddFn(), 2, false),
+                    Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.SubFn(), 0, false),
+                    Arguments.of(List.of(INT_2, INT_2), new ArithmeticValue.MulFn(), 4, false),
+                    Arguments.of(List.of(INT_2, INT_2), new ArithmeticValue.DivFn(), 1, false),
+                    Arguments.of(List.of(INT_2, INT_1), new ArithmeticValue.ModFn(), 0, false),
 
-                    Arguments.of(List.of(LONG_1, LONG_1), new ArithmeticValue.AddFn(), 2L),
-                    Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.SubFn(), -1L),
-                    Arguments.of(List.of(LONG_2, LONG_2), new ArithmeticValue.MulFn(), 4L),
-                    Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.DivFn(), 0L),
-                    Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.ModFn(), 1L),
+                    Arguments.of(List.of(LONG_1, LONG_1), new ArithmeticValue.AddFn(), 2L, false),
+                    Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.SubFn(), -1L, false),
+                    Arguments.of(List.of(LONG_2, LONG_2), new ArithmeticValue.MulFn(), 4L, false),
+                    Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.DivFn(), 0L, false),
+                    Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.ModFn(), 1L, false),
 
-                    Arguments.of(List.of(FLOAT_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0F),
-                    Arguments.of(List.of(FLOAT_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0F),
-                    Arguments.of(List.of(FLOAT_2, FLOAT_2), new ArithmeticValue.MulFn(), 4.0F),
-                    Arguments.of(List.of(FLOAT_1, FLOAT_2), new ArithmeticValue.DivFn(), 0.5F),
-                    Arguments.of(List.of(FLOAT_1, FLOAT_2), new ArithmeticValue.ModFn(), 1.0F),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0F, false),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0F, false),
+                    Arguments.of(List.of(FLOAT_2, FLOAT_2), new ArithmeticValue.MulFn(), 4.0F, false),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_2), new ArithmeticValue.DivFn(), 0.5F, false),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_2), new ArithmeticValue.ModFn(), 1.0F, false),
 
-                    Arguments.of(List.of(DOUBLE_1, DOUBLE_1), new ArithmeticValue.AddFn(), 2.0),
-                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new ArithmeticValue.SubFn(), -1.0),
-                    Arguments.of(List.of(DOUBLE_2, DOUBLE_2), new ArithmeticValue.MulFn(), 4.0),
-                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new ArithmeticValue.DivFn(), 0.5),
-                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new ArithmeticValue.ModFn(), 1.0),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_1), new ArithmeticValue.AddFn(), 2.0, false),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new ArithmeticValue.SubFn(), -1.0, false),
+                    Arguments.of(List.of(DOUBLE_2, DOUBLE_2), new ArithmeticValue.MulFn(), 4.0, false),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new ArithmeticValue.DivFn(), 0.5, false),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new ArithmeticValue.ModFn(), 1.0, false),
 
-                    Arguments.of(List.of(STRING_1, STRING_2), new ArithmeticValue.AddFn(), "ab"),
+                    Arguments.of(List.of(STRING_1, STRING_2), new ArithmeticValue.AddFn(), "ab", false),
+                    Arguments.of(List.of(STRING_1, INT_1), new ArithmeticValue.AddFn(), "a1", false),
+                    Arguments.of(List.of(INT_1, STRING_1), new ArithmeticValue.AddFn(), "1a", false),
+                    Arguments.of(List.of(STRING_1, LONG_1), new ArithmeticValue.AddFn(), "a1", false),
+                    Arguments.of(List.of(LONG_1, STRING_1), new ArithmeticValue.AddFn(), "1a", false),
+                    Arguments.of(List.of(STRING_1, FLOAT_1), new ArithmeticValue.AddFn(), "a1.0", false),
+                    Arguments.of(List.of(FLOAT_1, STRING_1), new ArithmeticValue.AddFn(), "1.0a", false),
+                    Arguments.of(List.of(STRING_1, DOUBLE_1), new ArithmeticValue.AddFn(), "a1.0", false),
+                    Arguments.of(List.of(DOUBLE_1, STRING_1), new ArithmeticValue.AddFn(), "1.0a", false),
 
-                    Arguments.of(List.of(LONG_1, INT_1), new ArithmeticValue.AddFn(), 2L),
-                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.SubFn(), -1L),
-                    Arguments.of(List.of(LONG_1, INT_1), new ArithmeticValue.MulFn(), 1L),
-                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.DivFn(), 0L),
-                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.ModFn(), 1L),
+                    Arguments.of(List.of(LONG_1, INT_1), new ArithmeticValue.AddFn(), 2L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.SubFn(), -1L, false),
+                    Arguments.of(List.of(LONG_1, INT_1), new ArithmeticValue.MulFn(), 1L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.DivFn(), 0L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.ModFn(), 1L, false),
 
-                    Arguments.of(List.of(INT_1, LONG_1), new ArithmeticValue.AddFn(), 2L),
-                    Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.SubFn(), -1L),
-                    Arguments.of(List.of(INT_1, LONG_1), new ArithmeticValue.MulFn(), 1L),
-                    Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.DivFn(), 0L),
-                    Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.ModFn(), 1L),
+                    Arguments.of(List.of(INT_1, LONG_1), new ArithmeticValue.AddFn(), 2L, false),
+                    Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.SubFn(), -1L, false),
+                    Arguments.of(List.of(INT_1, LONG_1), new ArithmeticValue.MulFn(), 1L, false),
+                    Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.DivFn(), 0L, false),
+                    Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.ModFn(), 1L, false),
 
-                    Arguments.of(List.of(FLOAT_1, INT_1), new ArithmeticValue.AddFn(), 2.0F),
-                    Arguments.of(List.of(FLOAT_1, INT_2), new ArithmeticValue.SubFn(), -1.0F),
-                    Arguments.of(List.of(FLOAT_1, INT_1), new ArithmeticValue.MulFn(), 1.0F),
-                    Arguments.of(List.of(FLOAT_1, INT_2), new ArithmeticValue.DivFn(), 0.5F),
-                    Arguments.of(List.of(FLOAT_1, INT_2), new ArithmeticValue.ModFn(), 1.0F),
+                    Arguments.of(List.of(FLOAT_1, INT_1), new ArithmeticValue.AddFn(), 2.0F, false),
+                    Arguments.of(List.of(FLOAT_1, INT_2), new ArithmeticValue.SubFn(), -1.0F, false),
+                    Arguments.of(List.of(FLOAT_1, INT_1), new ArithmeticValue.MulFn(), 1.0F, false),
+                    Arguments.of(List.of(FLOAT_1, INT_2), new ArithmeticValue.DivFn(), 0.5F, false),
+                    Arguments.of(List.of(FLOAT_1, INT_2), new ArithmeticValue.ModFn(), 1.0F, false),
 
-                    Arguments.of(List.of(INT_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0F),
-                    Arguments.of(List.of(INT_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0F),
-                    Arguments.of(List.of(INT_1, FLOAT_1), new ArithmeticValue.MulFn(), 1.0F),
-                    Arguments.of(List.of(INT_1, FLOAT_2), new ArithmeticValue.DivFn(), 0.5F),
-                    Arguments.of(List.of(INT_1, FLOAT_2), new ArithmeticValue.ModFn(), 1.0F),
+                    Arguments.of(List.of(INT_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0F, false),
+                    Arguments.of(List.of(INT_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0F, false),
+                    Arguments.of(List.of(INT_1, FLOAT_1), new ArithmeticValue.MulFn(), 1.0F, false),
+                    Arguments.of(List.of(INT_1, FLOAT_2), new ArithmeticValue.DivFn(), 0.5F, false),
+                    Arguments.of(List.of(INT_1, FLOAT_2), new ArithmeticValue.ModFn(), 1.0F, false),
 
-                    Arguments.of(List.of(DOUBLE_1, INT_1), new ArithmeticValue.AddFn(), 2.0),
-                    Arguments.of(List.of(DOUBLE_1, INT_2), new ArithmeticValue.SubFn(), -1.0),
-                    Arguments.of(List.of(DOUBLE_1, INT_1), new ArithmeticValue.MulFn(), 1.0),
-                    Arguments.of(List.of(DOUBLE_1, INT_2), new ArithmeticValue.DivFn(), 0.5),
-                    Arguments.of(List.of(DOUBLE_1, INT_2), new ArithmeticValue.ModFn(), 1.0),
+                    Arguments.of(List.of(DOUBLE_1, INT_1), new ArithmeticValue.AddFn(), 2.0, false),
+                    Arguments.of(List.of(DOUBLE_1, INT_2), new ArithmeticValue.SubFn(), -1.0, false),
+                    Arguments.of(List.of(DOUBLE_1, INT_1), new ArithmeticValue.MulFn(), 1.0, false),
+                    Arguments.of(List.of(DOUBLE_1, INT_2), new ArithmeticValue.DivFn(), 0.5, false),
+                    Arguments.of(List.of(DOUBLE_1, INT_2), new ArithmeticValue.ModFn(), 1.0, false),
 
-                    Arguments.of(List.of(INT_1, DOUBLE_1), new ArithmeticValue.AddFn(), 2.0),
-                    Arguments.of(List.of(INT_1, DOUBLE_2), new ArithmeticValue.SubFn(), -1.0),
-                    Arguments.of(List.of(INT_1, DOUBLE_1), new ArithmeticValue.MulFn(), 1.0),
-                    Arguments.of(List.of(INT_1, DOUBLE_2), new ArithmeticValue.DivFn(), 0.5),
-                    Arguments.of(List.of(INT_1, DOUBLE_2), new ArithmeticValue.ModFn(), 1.0),
+                    Arguments.of(List.of(INT_1, DOUBLE_1), new ArithmeticValue.AddFn(), 2.0, false),
+                    Arguments.of(List.of(INT_1, DOUBLE_2), new ArithmeticValue.SubFn(), -1.0, false),
+                    Arguments.of(List.of(INT_1, DOUBLE_1), new ArithmeticValue.MulFn(), 1.0, false),
+                    Arguments.of(List.of(INT_1, DOUBLE_2), new ArithmeticValue.DivFn(), 0.5, false),
+                    Arguments.of(List.of(INT_1, DOUBLE_2), new ArithmeticValue.ModFn(), 1.0, false),
 
-                    Arguments.of(List.of(FLOAT_1, LONG_1), new ArithmeticValue.AddFn(), 2.0F),
-                    Arguments.of(List.of(FLOAT_1, LONG_2), new ArithmeticValue.SubFn(), -1.0F),
-                    Arguments.of(List.of(FLOAT_1, LONG_1), new ArithmeticValue.MulFn(), 1.0F),
-                    Arguments.of(List.of(FLOAT_1, LONG_2), new ArithmeticValue.DivFn(), 0.5F),
-                    Arguments.of(List.of(FLOAT_1, LONG_2), new ArithmeticValue.ModFn(), 1.0F),
+                    Arguments.of(List.of(FLOAT_1, LONG_1), new ArithmeticValue.AddFn(), 2.0F, false),
+                    Arguments.of(List.of(FLOAT_1, LONG_2), new ArithmeticValue.SubFn(), -1.0F, false),
+                    Arguments.of(List.of(FLOAT_1, LONG_1), new ArithmeticValue.MulFn(), 1.0F, false),
+                    Arguments.of(List.of(FLOAT_1, LONG_2), new ArithmeticValue.DivFn(), 0.5F, false),
+                    Arguments.of(List.of(FLOAT_1, LONG_2), new ArithmeticValue.ModFn(), 1.0F, false),
 
-                    Arguments.of(List.of(LONG_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0F),
-                    Arguments.of(List.of(LONG_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0F),
-                    Arguments.of(List.of(LONG_1, FLOAT_1), new ArithmeticValue.MulFn(), 1.0F),
-                    Arguments.of(List.of(LONG_1, FLOAT_2), new ArithmeticValue.DivFn(), 0.5F),
-                    Arguments.of(List.of(LONG_1, FLOAT_2), new ArithmeticValue.ModFn(), 1.0F),
+                    Arguments.of(List.of(LONG_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0F, false),
+                    Arguments.of(List.of(LONG_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0F, false),
+                    Arguments.of(List.of(LONG_1, FLOAT_1), new ArithmeticValue.MulFn(), 1.0F, false),
+                    Arguments.of(List.of(LONG_1, FLOAT_2), new ArithmeticValue.DivFn(), 0.5F, false),
+                    Arguments.of(List.of(LONG_1, FLOAT_2), new ArithmeticValue.ModFn(), 1.0F, false),
 
-                    Arguments.of(List.of(DOUBLE_1, LONG_1), new ArithmeticValue.AddFn(), 2.0),
-                    Arguments.of(List.of(DOUBLE_1, LONG_2), new ArithmeticValue.SubFn(), -1.0),
-                    Arguments.of(List.of(DOUBLE_1, LONG_1), new ArithmeticValue.MulFn(), 1.0),
-                    Arguments.of(List.of(DOUBLE_1, LONG_2), new ArithmeticValue.DivFn(), 0.5),
-                    Arguments.of(List.of(DOUBLE_1, LONG_2), new ArithmeticValue.ModFn(), 1.0),
+                    Arguments.of(List.of(DOUBLE_1, LONG_1), new ArithmeticValue.AddFn(), 2.0, false),
+                    Arguments.of(List.of(DOUBLE_1, LONG_2), new ArithmeticValue.SubFn(), -1.0, false),
+                    Arguments.of(List.of(DOUBLE_1, LONG_1), new ArithmeticValue.MulFn(), 1.0, false),
+                    Arguments.of(List.of(DOUBLE_1, LONG_2), new ArithmeticValue.DivFn(), 0.5, false),
+                    Arguments.of(List.of(DOUBLE_1, LONG_2), new ArithmeticValue.ModFn(), 1.0, false),
 
-                    Arguments.of(List.of(LONG_1, DOUBLE_1), new ArithmeticValue.AddFn(), 2.0),
-                    Arguments.of(List.of(LONG_1, DOUBLE_2), new ArithmeticValue.SubFn(), -1.0),
-                    Arguments.of(List.of(LONG_1, DOUBLE_1), new ArithmeticValue.MulFn(), 1.0),
-                    Arguments.of(List.of(LONG_1, DOUBLE_2), new ArithmeticValue.DivFn(), 0.5),
-                    Arguments.of(List.of(LONG_1, DOUBLE_2), new ArithmeticValue.ModFn(), 1.0),
+                    Arguments.of(List.of(LONG_1, DOUBLE_1), new ArithmeticValue.AddFn(), 2.0, false),
+                    Arguments.of(List.of(LONG_1, DOUBLE_2), new ArithmeticValue.SubFn(), -1.0, false),
+                    Arguments.of(List.of(LONG_1, DOUBLE_1), new ArithmeticValue.MulFn(), 1.0, false),
+                    Arguments.of(List.of(LONG_1, DOUBLE_2), new ArithmeticValue.DivFn(), 0.5, false),
+                    Arguments.of(List.of(LONG_1, DOUBLE_2), new ArithmeticValue.ModFn(), 1.0, false),
 
-                    Arguments.of(List.of(DOUBLE_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0),
-                    Arguments.of(List.of(DOUBLE_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0),
-                    Arguments.of(List.of(DOUBLE_1, FLOAT_1), new ArithmeticValue.MulFn(), 1.0),
-                    Arguments.of(List.of(DOUBLE_1, FLOAT_2), new ArithmeticValue.DivFn(), 0.5),
-                    Arguments.of(List.of(DOUBLE_1, FLOAT_2), new ArithmeticValue.ModFn(), 1.0),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0, false),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0, false),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_1), new ArithmeticValue.MulFn(), 1.0, false),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_2), new ArithmeticValue.DivFn(), 0.5, false),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_2), new ArithmeticValue.ModFn(), 1.0, false),
 
-                    Arguments.of(List.of(FLOAT_1, DOUBLE_1), new ArithmeticValue.AddFn(), 2.0),
-                    Arguments.of(List.of(FLOAT_1, DOUBLE_2), new ArithmeticValue.SubFn(), -1.0),
-                    Arguments.of(List.of(FLOAT_1, DOUBLE_1), new ArithmeticValue.MulFn(), 1.0),
-                    Arguments.of(List.of(FLOAT_1, DOUBLE_2), new ArithmeticValue.DivFn(), 0.5),
-                    Arguments.of(List.of(FLOAT_1, DOUBLE_2), new ArithmeticValue.ModFn(), 1.0),
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_1), new ArithmeticValue.AddFn(), 2.0, false),
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_2), new ArithmeticValue.SubFn(), -1.0, false),
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_1), new ArithmeticValue.MulFn(), 1.0, false),
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_2), new ArithmeticValue.DivFn(), 0.5, false),
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_2), new ArithmeticValue.ModFn(), 1.0, false),
 
-                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.AddFn(), null),
-                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.SubFn(), null),
-                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.MulFn(), null),
-                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.DivFn(), null),
-                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.ModFn(), null),
-                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.AddFn(), null),
-                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.SubFn(), null),
-                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.MulFn(), null),
-                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.DivFn(), null),
-                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.ModFn(), null),
-                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.AddFn(), null),
-                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.SubFn(), null),
-                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.MulFn(), null),
-                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.DivFn(), null),
-                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.ModFn(), null),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.AddFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.SubFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.MulFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.DivFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.ModFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.AddFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.SubFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.MulFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.DivFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.ModFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.AddFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.SubFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.MulFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.DivFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.ModFn(), null, false),
 
                     /* evaluation of ArithmeticValue having a FieldValue */
-                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.AddFn(), 5L),
-                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.SubFn(), 3L),
-                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.MulFn(), 4L),
-                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.DivFn(), 4L),
-                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.ModFn(), 0L),
+                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.AddFn(), 5L, false),
+                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.SubFn(), 3L, false),
+                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.MulFn(), 4L, false),
+                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.DivFn(), 4L, false),
+                    Arguments.of(List.of(F, INT_1), new ArithmeticValue.ModFn(), 0L, false),
 
-                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.AddFn(), 5L),
-                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.SubFn(), -3L),
-                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.MulFn(), 4L),
-                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.DivFn(), 0L),
-                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.ModFn(), 1L),
+                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.AddFn(), 5L, false),
+                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.SubFn(), -3L, false),
+                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.MulFn(), 4L, false),
+                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.DivFn(), 0L, false),
+                    Arguments.of(List.of(INT_1, F), new ArithmeticValue.ModFn(), 1L, false),
 
-                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.AddFn(), null),
-                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.SubFn(), null),
-                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.MulFn(), null),
-                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.DivFn(), null),
-                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.ModFn(), null),
+                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.AddFn(), null, false),
+                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.SubFn(), null, false),
+                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.MulFn(), null, false),
+                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.DivFn(), null, false),
+                    Arguments.of(List.of(F, INT_NULL), new ArithmeticValue.ModFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.AddFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.SubFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.MulFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.DivFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.ModFn(), null, false),
 
-                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.AddFn(), null),
-                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.SubFn(), null),
-                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.MulFn(), null),
-                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.DivFn(), null),
-                    Arguments.of(List.of(INT_NULL, F), new ArithmeticValue.ModFn(), null)
+                    /* negative tests */
+
+
+                    Arguments.of(List.of(STRING_1, INT_1), new ArithmeticValue.SubFn(), null, true),
+                    Arguments.of(List.of(STRING_1, INT_1), new ArithmeticValue.MulFn(), null, true),
+                    Arguments.of(List.of(STRING_1, INT_1), new ArithmeticValue.DivFn(), null, true),
+                    Arguments.of(List.of(STRING_1, INT_1), new ArithmeticValue.ModFn(), null, true),
+
+                    Arguments.of(List.of(INT_1, STRING_1), new ArithmeticValue.SubFn(), null, true),
+                    Arguments.of(List.of(INT_1, STRING_1), new ArithmeticValue.MulFn(), null, true),
+                    Arguments.of(List.of(INT_1, STRING_1), new ArithmeticValue.DivFn(), null, true),
+                    Arguments.of(List.of(INT_1, STRING_1), new ArithmeticValue.ModFn(), null, true),
+
+                    Arguments.of(List.of(STRING_1, LONG_1), new ArithmeticValue.SubFn(), null, true),
+                    Arguments.of(List.of(STRING_1, LONG_1), new ArithmeticValue.MulFn(), null, true),
+                    Arguments.of(List.of(STRING_1, LONG_1), new ArithmeticValue.DivFn(), null, true),
+                    Arguments.of(List.of(STRING_1, LONG_1), new ArithmeticValue.ModFn(), null, true),
+
+                    Arguments.of(List.of(LONG_1, STRING_1), new ArithmeticValue.SubFn(), null, true),
+                    Arguments.of(List.of(LONG_1, STRING_1), new ArithmeticValue.MulFn(), null, true),
+                    Arguments.of(List.of(LONG_1, STRING_1), new ArithmeticValue.DivFn(), null, true),
+                    Arguments.of(List.of(LONG_1, STRING_1), new ArithmeticValue.ModFn(), null, true),
+
+                    Arguments.of(List.of(STRING_1, FLOAT_1), new ArithmeticValue.SubFn(), null, true),
+                    Arguments.of(List.of(STRING_1, FLOAT_1), new ArithmeticValue.MulFn(), null, true),
+                    Arguments.of(List.of(STRING_1, FLOAT_1), new ArithmeticValue.DivFn(), null, true),
+                    Arguments.of(List.of(STRING_1, FLOAT_1), new ArithmeticValue.ModFn(), null, true),
+
+                    Arguments.of(List.of(FLOAT_1, STRING_1), new ArithmeticValue.SubFn(), null, true),
+                    Arguments.of(List.of(FLOAT_1, STRING_1), new ArithmeticValue.MulFn(), null, true),
+                    Arguments.of(List.of(FLOAT_1, STRING_1), new ArithmeticValue.DivFn(), null, true),
+                    Arguments.of(List.of(FLOAT_1, STRING_1), new ArithmeticValue.ModFn(), null, true),
+
+                    Arguments.of(List.of(STRING_1, DOUBLE_1), new ArithmeticValue.SubFn(), null, true),
+                    Arguments.of(List.of(STRING_1, DOUBLE_1), new ArithmeticValue.MulFn(), null, true),
+                    Arguments.of(List.of(STRING_1, DOUBLE_1), new ArithmeticValue.DivFn(), null, true),
+                    Arguments.of(List.of(STRING_1, DOUBLE_1), new ArithmeticValue.ModFn(), null, true),
+
+                    Arguments.of(List.of(DOUBLE_1, STRING_1), new ArithmeticValue.SubFn(), null, true),
+                    Arguments.of(List.of(DOUBLE_1, STRING_1), new ArithmeticValue.MulFn(), null, true),
+                    Arguments.of(List.of(DOUBLE_1, STRING_1), new ArithmeticValue.DivFn(), null, true),
+                    Arguments.of(List.of(DOUBLE_1, STRING_1), new ArithmeticValue.ModFn(), null, true)
             );
         }
     }
@@ -210,10 +261,20 @@ class ArithmeticValueTest {
     @ParameterizedTest
     @SuppressWarnings({"rawtypes", "unchecked", "ConstantConditions"})
     @ArgumentsSource(BinaryPredicateTestProvider.class)
-    void testPredicate(List<Value> args, BuiltInFunction function, Object result) {
-        Typed value = function.encapsulate(parserContext, args);
-        Assertions.assertTrue(value instanceof ArithmeticValue);
-        Object actualValue = ((ArithmeticValue)value).eval(null, evaluationContext, null, RecordMetaDataProto.Empty.getDefaultInstance());
-        Assertions.assertEquals(result, actualValue);
+    void testPredicate(List<Value> args, BuiltInFunction function, Object result, boolean shouldFail) {
+        if (shouldFail) {
+            try {
+                function.encapsulate(parserContext, args);
+                Assertions.fail("expected an exception to be thrown");
+            } catch (Exception e) {
+                Assertions.assertTrue(e instanceof VerifyException);
+                Assertions.assertTrue(e.getMessage().contains("unable to encapsulate arithmetic operation due to type mismatch(es)"));
+            }
+        } else {
+            Typed value = function.encapsulate(parserContext, args);
+            Assertions.assertTrue(value instanceof ArithmeticValue);
+            Object actualValue = ((ArithmeticValue)value).eval(null, evaluationContext, null, RecordMetaDataProto.Empty.getDefaultInstance());
+            Assertions.assertEquals(result, actualValue);
+        }
     }
 }

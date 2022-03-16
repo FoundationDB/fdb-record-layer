@@ -58,35 +58,35 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
      * A list of values representing the result of this expansion, if sealed and built.
      */
     @Nonnull
-    private final List<Value> resultValues;
+    private final ImmutableList<Value> resultValues;
 
     /**
      * A list of predicates that need to be applied when this expansion is built and sealed. The resulting filter
      * will use the logical conjunct of all predicates to filter the flowed records.
      */
     @Nonnull
-    private final List<QueryPredicate> predicates;
+    private final ImmutableList<QueryPredicate> predicates;
 
     /**
      * A list of quantifiers that the result of this expansion will range over.
      */
     @Nonnull
-    private final List<Quantifier> quantifiers;
+    private final ImmutableList<Quantifier> quantifiers;
 
     /**
      * A list of all placeholders added during the expansion of the associated {@link MatchCandidate}.
      */
     @Nonnull
-    private final List<Placeholder> placeholders;
+    private final ImmutableList<Placeholder> placeholders;
 
-    private GraphExpansion(@Nonnull final List<? extends Value> resultValues,
-                           @Nonnull final List<? extends QueryPredicate> predicates,
-                           @Nonnull final List<? extends Quantifier> quantifiers,
-                           @Nonnull final List<? extends Placeholder> placeholders) {
-        this.resultValues = ImmutableList.copyOf(resultValues);
-        this.predicates = ImmutableList.copyOf(predicates);
-        this.quantifiers = ImmutableList.copyOf(quantifiers);
-        this.placeholders = ImmutableList.copyOf(placeholders);
+    private GraphExpansion(@Nonnull final ImmutableList<Value> resultValues,
+                           @Nonnull final ImmutableList<QueryPredicate> predicates,
+                           @Nonnull final ImmutableList<Quantifier> quantifiers,
+                           @Nonnull final ImmutableList<Placeholder> placeholders) {
+        this.resultValues = resultValues;
+        this.predicates = predicates;
+        this.quantifiers = quantifiers;
+        this.placeholders = placeholders;
     }
 
     @Nonnull
@@ -151,7 +151,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                             .filter(p -> localPredicates.contains(p.getKey()))
                             .collect(Collectors.toList());
 
-            final List<QueryPredicate> resultPredicates = Lists.newArrayList();
+            final ImmutableList.Builder<QueryPredicate> resultPredicates = new ImmutableList.Builder<>();
             for (final QueryPredicate queryPredicate : getPredicates()) {
                 if (queryPredicate instanceof Placeholder) {
                     final Placeholder localPlaceHolder = (Placeholder)queryPredicate;
@@ -176,9 +176,9 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                 }
             }
 
-            graphExpansion = new GraphExpansion(resultValues, resultPredicates, getQuantifiers(), resultPlaceHolders);
+            graphExpansion = new GraphExpansion(resultValues, resultPredicates.build(), quantifiers, ImmutableList.copyOf(resultPlaceHolders));
         } else {
-            graphExpansion = new GraphExpansion(resultValues, getPredicates(), getQuantifiers(), ImmutableList.of());
+            graphExpansion = new GraphExpansion(resultValues, predicates, quantifiers, ImmutableList.of());
         }
         return graphExpansion.new Sealed();
     }
@@ -319,32 +319,32 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
          * A list of values representing the result of this expansion, if sealed and built.
          */
         @Nonnull
-        private final List<Value> resultValues;
+        private final ImmutableList.Builder<Value> resultValues;
 
         /**
          * A list of predicates that need to be applied when this expansion is built and sealed. The resulting filter
          * will use the logical conjunct of all predicates to filter the flowed records.
          */
         @Nonnull
-        private final List<QueryPredicate> predicates;
+        private final ImmutableList.Builder<QueryPredicate> predicates;
 
         /**
          * A list of quantifiers that the result of this expansion will range over.
          */
         @Nonnull
-        private final List<Quantifier> quantifiers;
+        private final ImmutableList.Builder<Quantifier> quantifiers;
 
         /**
          * A list of all placeholders added during the expansion of the associated {@link MatchCandidate}.
          */
         @Nonnull
-        private final List<Placeholder> placeholders;
+        private final ImmutableList.Builder<Placeholder> placeholders;
 
         public Builder() {
-            resultValues = Lists.newArrayList();
-            predicates = Lists.newArrayList();
-            quantifiers = Lists.newArrayList();
-            placeholders = Lists.newArrayList();
+            resultValues = new ImmutableList.Builder<>();
+            predicates = new ImmutableList.Builder<>();
+            quantifiers = new ImmutableList.Builder<>();
+            placeholders = new ImmutableList.Builder<>();
         }
 
         @Nonnull
@@ -399,7 +399,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
 
         @Nonnull
         public GraphExpansion build() {
-            return new GraphExpansion(resultValues, predicates, quantifiers, placeholders);
+            return new GraphExpansion(resultValues.build(), predicates.build(), quantifiers.build(), placeholders.build());
         }
     }
 }

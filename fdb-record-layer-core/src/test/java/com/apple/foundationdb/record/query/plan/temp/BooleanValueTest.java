@@ -34,9 +34,11 @@ import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -424,30 +426,30 @@ class BooleanValueTest {
 
                     /* AND */
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndValue.AndFn(), ConstantPredicate.TRUE),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndValue.AndFn(), ConstantPredicate.FALSE),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndValue.AndFn(), new AndPredicate(List.of(new ValuePredicate(F,
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), new AndPredicate(List.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.AndValue.AndFn(), ConstantPredicate.FALSE),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     /* OR */
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1))), new AndOrValue.OrValue.OrFn(), ConstantPredicate.TRUE),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2))), new AndOrValue.OrValue.OrFn(), ConstantPredicate.FALSE),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrValue.OrFn(), new OrPredicate(List.of(new ValuePredicate(F,
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), new OrPredicate(List.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.OrValue.OrFn(), ConstantPredicate.TRUE),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
 
                     /* lazy evaluation tests */
                     Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
-                            THROWS_VALUE), new AndOrValue.AndValue.AndFn(), ConstantPredicate.FALSE),
+                            THROWS_VALUE), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
-                            THROWS_VALUE), new AndOrValue.OrValue.OrFn(), ConstantPredicate.TRUE)
+                            THROWS_VALUE), new AndOrValue.OrFn(), ConstantPredicate.TRUE)
             );
         }
     }
@@ -461,5 +463,27 @@ class BooleanValueTest {
         Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(CorrelationIdentifier.UNGROUNDED);
         Assertions.assertFalse(maybePredicate.isEmpty());
         Assertions.assertEquals(result, maybePredicate.get());
+    }
+
+    @Test
+    void passingIncorrectNumberOfResolutionParameterToBuiltInFunctionThrows() {
+        try {
+            new RelOpValue.EqualsFn().resolveParameterTypes(-1);
+            Assertions.fail("expected an exception to be thrown");
+        } catch (Exception e) {
+            Assertions.assertTrue(e instanceof VerifyException);
+            Assertions.assertTrue(e.getMessage().contains("unexpected number of arguments"));
+        }
+    }
+
+    @Test
+    void passingIncorrectIndexToBuiltInFunctionThrows() {
+        try {
+            new RelOpValue.EqualsFn().resolveParameterType(-1);
+            Assertions.fail("expected an exception to be thrown");
+        } catch (Exception e) {
+            Assertions.assertTrue(e instanceof VerifyException);
+            Assertions.assertTrue(e.getMessage().contains("unexpected negative parameter index"));
+        }
     }
 }

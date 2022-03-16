@@ -659,6 +659,10 @@ public interface Type {
                 return false;
             }
 
+            if (obj == this) {
+                return true;
+            }
+
             if (getClass() != obj.getClass()) {
                 return false;
             }
