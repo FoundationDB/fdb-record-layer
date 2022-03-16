@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Equivalence;
@@ -132,7 +133,24 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public List<BoundKeyPart> getBoundKeyParts() {
+    public ImmutableMap<CorrelationIdentifier, QueryPredicate> getParameterPredicateMap() {
+        return getAccumulatedPredicateMap()
+                .entries()
+                .stream()
+                .filter(entry -> {
+                    final PredicateMultiMap.PredicateMapping predicateMapping = entry.getValue();
+                    return predicateMapping.getParameterAliasOptional().isPresent();
+                })
+                .collect(ImmutableMap.toImmutableMap(entry -> {
+                    final PredicateMultiMap.PredicateMapping predicateMapping = entry.getValue();
+                    return Objects.requireNonNull(predicateMapping
+                            .getParameterAliasOptional()
+                            .orElseThrow(() -> new RecordCoreException("parameter alias should have been set")));
+                }, entry -> Objects.requireNonNull(entry.getKey())));
+    }
+
+    @Nonnull
+    public List<BoundKeyPart> getOrderingKeyParts() {
         return boundKeyParts;
     }
 
@@ -159,7 +177,7 @@ public class MatchInfo {
             return Optional.empty();
         }
 
-        return Optional.of(((ValueComparisonRangePredicate.Placeholder)candidatePredicate).getParameterAlias());
+        return Optional.of(((ValueComparisonRangePredicate.Placeholder)candidatePredicate).getAlias());
     }
 
     /**
@@ -219,13 +237,13 @@ public class MatchInfo {
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
 
-        final List<BoundKeyPart> boundKeyParts;
+        final List<BoundKeyPart> orderingKeyParts;
         if (regularQuantifiers.size() == 1) {
             final Quantifier regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
             final PartialMatch partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
-            boundKeyParts = partialMatch.getMatchInfo().getBoundKeyParts();
+            orderingKeyParts = partialMatch.getMatchInfo().getOrderingKeyParts();
         } else {
-            boundKeyParts = ImmutableList.of();
+            orderingKeyParts = ImmutableList.of();
         }
 
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
@@ -234,7 +252,7 @@ public class MatchInfo {
                 .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
                         partialMatchMap,
                         predicateMap,
-                        boundKeyParts));
+                        orderingKeyParts));
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {

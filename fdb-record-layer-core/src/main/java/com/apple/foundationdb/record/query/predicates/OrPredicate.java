@@ -36,6 +36,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * A {@link QueryPredicate} that is satisfied when any of its child components is satisfied.
@@ -72,7 +73,10 @@ public class OrPredicate extends AndOrPredicate {
 
     @Override
     public String toString() {
-        return "Or(" + getChildren() + ")";
+        return getChildren()
+                .stream()
+                .map(child -> "(" + child + ")")
+                .collect(Collectors.joining(" or "));
     }
 
     @Override

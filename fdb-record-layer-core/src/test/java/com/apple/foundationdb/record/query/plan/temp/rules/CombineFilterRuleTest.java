@@ -53,9 +53,10 @@ public class CombineFilterRuleTest {
 
     private static LogicalFilterExpression buildLogicalFilter(@Nonnull QueryComponent queryComponent,
                                                               @Nonnull RelationalExpression inner) {
-        final Quantifier.ForEach innerQuantifier = Quantifier.forEach(GroupExpressionRef.of(inner));
+        final var baseRef = GroupExpressionRef.of(inner);
+        final Quantifier.ForEach innerQuantifier = Quantifier.forEach(baseRef);
         return new LogicalFilterExpression(
-                queryComponent.expand(innerQuantifier.getAlias()).getPredicates(),
+                queryComponent.expand(innerQuantifier.getAlias(), () -> Quantifier.forEach(baseRef)).getPredicates(),
                 innerQuantifier);
     }
 

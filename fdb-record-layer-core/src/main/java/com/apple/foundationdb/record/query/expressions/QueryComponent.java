@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -37,6 +38,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * Base component interface for checking whether a given record matches a query.
@@ -148,26 +150,30 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
     /**
      * Expand this query component into a data flow graph. The returned graph represents an adequate representation
      * of the component as composition of relational expressions and operators.
-     * @param baseAlias a an alias that refers to the data flow equivalent of an input to this component
+     * @param baseAlias an alias that refers to the data flow equivalent of an input to this component
+     * @param baseQuantifierSupplier a supplier that creates additional base accesses for the purpose of
+     *        creating semi joins with the actual outer base referred to by means of {@code baseAlias}
      * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
      * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
      */
     @API(API.Status.EXPERIMENTAL)
-    default GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias) {
-        return expand(baseAlias, Collections.emptyList());
+    default GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias, @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier) {
+        return expand(baseAlias, baseQuantifierSupplier, Collections.emptyList());
     }
 
     /**
      * Expand this query component into a data flow graph. The returned graph represents an adequate representation
      * of the component as composition of relational expressions and operators.
      * @param baseAlias a an alias that refers to the data flow equivalent of an input to this component
+     * @param baseQuantifierSupplier a supplier that creates generates additional base accesses for the purpose of
+     *        creating semi joins with the actual outer base referred to by means of {@code baseAlias}
      * @param fieldNamePrefix a list of field names that accumulate a field nesting chain for non-repeated fields
      * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
      * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
-     * TODO make this method private in Java 11
      */
     @API(API.Status.EXPERIMENTAL)
-    GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix);
+    @Nonnull
+    GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias, @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier, @Nonnull List<String> fieldNamePrefix);
 
     @Nonnull
     default QueryComponent withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {

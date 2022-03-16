@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.AsyncBoolean;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
@@ -85,7 +87,14 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Override
     protected boolean hasAsyncFilter() {
-        return false;
+        // TODO Query components can be evaluated in an async way as they may access indexes, etc. themselves. In
+        //      QGM such an access is always explicitly modelled. Therefore predicates don't need this functionality
+        //      and we should not add evalAsync() and isAsync() in the way it is implemented on query components.
+        //      Since predicates cannot speak up for themselves when it comes to async-ness of the filter, we need
+        //      to special case this (shim) class.
+        return predicates.stream()
+                .filter(predicate -> predicate instanceof QueryComponentPredicate)
+                .anyMatch(predicate -> ((QueryComponentPredicate)predicate).hasAsyncQueryComponent());
     }
 
     @Nullable
@@ -102,7 +111,19 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Nullable
     @Override
     protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record) {
-        throw new UnsupportedOperationException();
+        return new AsyncBoolean<>(false,
+                getPredicates(),
+                predicate -> {
+                    final M message = record == null ? null : record.getRecord();
+                    if (predicate instanceof QueryComponentPredicate) {
+                        final QueryComponentPredicate queryComponentPredicate = (QueryComponentPredicate)predicate;
+                        if (queryComponentPredicate.hasAsyncQueryComponent()) {
+                            return queryComponentPredicate.evalMessageAsync(store, context, record, message);
+                        }
+                    }
+                    return CompletableFuture.completedFuture(predicate.eval(store, context, record, message));
+                },
+                store).eval();
     }
 
     @Nonnull

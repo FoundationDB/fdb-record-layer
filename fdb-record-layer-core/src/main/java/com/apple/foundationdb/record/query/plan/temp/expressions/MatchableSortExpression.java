@@ -21,18 +21,14 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.BoundKeyPart;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
-import com.apple.foundationdb.record.query.plan.temp.PredicateMap;
-import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -41,19 +37,14 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -113,7 +104,7 @@ import java.util.function.Supplier;
  *     sort happens (conceptually) and allows for deferred-fetch optimizations.
  *
  * As a direct result of this we now have two different logical sort expressions. One, {@link LogicalSortExpression}
- * which expresses order by using {@link KeyExpression}s and which has the problems layed out in (1), and a this one
+ * which expresses order by using {@link KeyExpression}s and which has the problems layed out in (1), and  one
  * {@link MatchableSortExpression} which expresses order by explicitly naming the constituent parts of an index.
  * In the future, we should strive to unify these two classes to one logical sort expression. For now, we have
  * a logical sort expression ({@link LogicalSortExpression}) on the query side and a matchable sort expression
@@ -132,7 +123,7 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class MatchableSortExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
     /**
-     * A list of of {@link CorrelationIdentifier}s that refer to parameter ids of this match candidate. This
+     * A list of {@link CorrelationIdentifier}s that refer to parameter ids of this match candidate. This
      * restricts the expressiveness of this operator to only use index keys (or non-repeateds in primary scans) to
      * express order.
      */
@@ -233,71 +224,23 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     @Nonnull
     @Override
     public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
-        final MatchInfo matchInfo = partialMatch.getMatchInfo();
+        final var matchInfo = partialMatch.getMatchInfo();
         return Optional.of(matchInfo.withOrderingInfo(forPartialMatch(partialMatch)));
     }
 
     /**
      * This synthesizes a list of {@link BoundKeyPart}s from the current partial match and the ordering information
-     * contained in this expression. Using the list of parameter ids, each {@link BoundKeyPart} links together the
-     * (1) normalized key expression that originally produced the key (from index, or common primary key)
-     * (2) a comparison range for this parameter which is contained in the already existent partial match
-     * (3) the predicate on the query part that participated and bound this parameter (and implicitly was used to
-     *     synthesize the comparison range in (2)
-     * (4) the candidate predicate on the candidate side that is the {@link Placeholder} for the parameter
+     * contained in this expression. It delegates to {@link MatchCandidate#computeBoundKeyParts} to do this work as
+     * while there is a lot of commonality across different index kinds, special indexes may need to define and declare
+     * their order in a specific unique way.
      * @param partialMatch the pre-existing partial match on {@code (expression, this)} that the caller wants to adjust.
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate
      */
     @Nonnull
     private List<BoundKeyPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
-        final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
-        final MatchInfo matchInfo = partialMatch.getMatchInfo();
-        final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
-                matchInfo.getParameterBindingMap();
-        final PredicateMap accumulatedPredicateMap = matchInfo.getAccumulatedPredicateMap();
-
-        final ImmutableMap<CorrelationIdentifier, QueryPredicate> parameterBindingPredicateMap =
-                accumulatedPredicateMap
-                        .entries()
-                        .stream()
-                        .filter(entry -> {
-                            final PredicateMapping predicateMapping = entry.getValue();
-                            return predicateMapping.getParameterAliasOptional().isPresent();
-                        })
-                        .collect(ImmutableMap.toImmutableMap(entry -> {
-                            final PredicateMapping predicateMapping = entry.getValue();
-                            return Objects.requireNonNull(predicateMapping
-                                    .getParameterAliasOptional()
-                                    .orElseThrow(() -> new RecordCoreException("parameter alias should have been set")));
-                        }, entry -> Objects.requireNonNull(entry.getKey())));
-
-        final List<KeyExpression> normalizedKeys =
-                matchCandidate.getAlternativeKeyExpression().normalizeKeyForPositions();
-
-        final ImmutableList.Builder<BoundKeyPart> builder = ImmutableList.builder();
-        final List<CorrelationIdentifier> candidateParameterIds = matchCandidate.getParameters();
-
-        for (final CorrelationIdentifier parameterId : sortParameterIds) {
-            final int ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
-            Verify.verify(ordinalInCandidate >= 0);
-            final KeyExpression normalizedKey = normalizedKeys.get(ordinalInCandidate);
-
-            Objects.requireNonNull(parameterId);
-            Objects.requireNonNull(normalizedKey);
-            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameterId);
-            @Nullable final QueryPredicate queryPredicate = parameterBindingPredicateMap.get(parameterId);
-
-            Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
-
-            builder.add(
-                    BoundKeyPart.of(normalizedKey,
-                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
-                            queryPredicate,
-                            isReverse));
-        }
-
-        return builder.build();
+        final var matchCandidate = partialMatch.getMatchCandidate();
+        return matchCandidate.computeBoundKeyParts(partialMatch.getMatchInfo(), getSortParameterIds(), isReverse());
     }
 
     @Nonnull
@@ -317,7 +260,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
             return false;
         }
 
-        final MatchableSortExpression other = (MatchableSortExpression) otherExpression;
+        final var other = (MatchableSortExpression) otherExpression;
 
         return isReverse == other.isReverse && !sortParameterIds.equals(other.sortParameterIds);
     }

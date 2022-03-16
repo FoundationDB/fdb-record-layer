@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -37,21 +40,25 @@ import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 /**
- * Case class to represent a match candidate that is backed by an index.
+ * Case class to represent a match candidate that is backed by a windowed index such as a rank index.
  */
-public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate, ValueIndexLikeMatchCandidate {
+public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandidate {
     /**
      * Index metadata structure.
      */
@@ -64,10 +71,28 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     private final List<RecordType> recordTypes;
 
     /**
-     * Holds the parameter names for all necessary parameters that need to be bound during matching.
+     * Holds the grouping aliases for all groupings that can to be bound during matching.
      */
     @Nonnull
-    private final List<CorrelationIdentifier> parameters;
+    private final List<CorrelationIdentifier> groupingAliases;
+
+    /**
+     * Holds the alias for the score placeholder in the match candidate.
+     */
+    @Nonnull
+    private final CorrelationIdentifier scoreAlias;
+
+    /**
+     * Holds the alias for the rank placeholder in the match candidate.
+     */
+    @Nonnull
+    private final CorrelationIdentifier rankAlias;
+
+    /**
+     * Holds the grouping aliases for all primary keys.
+     */
+    @Nonnull
+    private final List<CorrelationIdentifier> primaryKeyAliases;
 
     /**
      * Value that flows the actual record.
@@ -82,12 +107,6 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     private final List<Value> indexKeyValues;
 
     /**
-     * List of values that represent the value parts of the index represented by the candidate in the expanded graph.
-     */
-    @Nonnull
-    private final List<Value> indexValueValues;
-
-    /**
      * Traversal object of the expanded index scan graph.
      */
     @Nonnull
@@ -96,21 +115,25 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     private final KeyExpression alternativeKeyExpression;
 
-    public ValueIndexScanMatchCandidate(@Nonnull Index index,
-                                        @Nonnull Collection<RecordType> recordTypes,
-                                        @Nonnull final ExpressionRefTraversal traversal,
-                                        @Nonnull final List<CorrelationIdentifier> parameters,
-                                        @Nonnull final QuantifiedValue recordValue,
-                                        @Nonnull final List<Value> indexKeyValues,
-                                        @Nonnull final List<Value> indexValueValues,
-                                        @Nonnull final KeyExpression alternativeKeyExpression) {
+    public WindowedIndexScanMatchCandidate(@Nonnull Index index,
+                                           @Nonnull Collection<RecordType> recordTypes,
+                                           @Nonnull final ExpressionRefTraversal traversal,
+                                           @Nonnull final List<CorrelationIdentifier> groupingAliases,
+                                           @Nonnull final CorrelationIdentifier scoreAlias,
+                                           @Nonnull final CorrelationIdentifier rankAlias,
+                                           @Nonnull final List<CorrelationIdentifier> primaryKeyAliases,
+                                           @Nonnull final QuantifiedValue recordValue,
+                                           @Nonnull final List<Value> indexKeyValues,
+                                           @Nonnull final KeyExpression alternativeKeyExpression) {
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.traversal = traversal;
-        this.parameters = ImmutableList.copyOf(parameters);
+        this.groupingAliases = ImmutableList.copyOf(groupingAliases);
+        this.scoreAlias = scoreAlias;
+        this.rankAlias = rankAlias;
+        this.primaryKeyAliases = ImmutableList.copyOf(primaryKeyAliases);
         this.recordValue = recordValue;
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
-        this.indexValueValues = ImmutableList.copyOf(indexValueValues);
         this.alternativeKeyExpression = alternativeKeyExpression;
     }
 
@@ -133,13 +156,13 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
-        return parameters;
+        return ImmutableList.<CorrelationIdentifier>builder().addAll(groupingAliases).add(rankAlias).build();
     }
 
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
-        return getSargableAliases();
+        return orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases);
     }
 
     @Nonnull
@@ -153,14 +176,97 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     }
 
     @Nonnull
-    public List<Value> getIndexValueValues() {
-        return indexValueValues;
+    @Override
+    public KeyExpression getAlternativeKeyExpression() {
+        return alternativeKeyExpression;
     }
 
     @Nonnull
     @Override
-    public KeyExpression getAlternativeKeyExpression() {
-        return alternativeKeyExpression;
+    public List<BoundKeyPart> computeBoundKeyParts(@Nonnull MatchInfo matchInfo,
+                                                   @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                                   boolean isReverse) {
+        final var parameterBindingMap = matchInfo.getParameterBindingMap();
+        final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
+
+        final var normalizedKeys =
+                getAlternativeKeyExpression().normalizeKeyForPositions();
+
+        final var builder = ImmutableList.<BoundKeyPart>builder();
+        final var candidateParameterIds = getOrderingAliases();
+
+        for (final var parameterId : sortParameterIds) {
+            final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
+            Verify.verify(ordinalInCandidate >= 0);
+            final var normalizedKey = normalizedKeys.get(ordinalInCandidate);
+            Objects.requireNonNull(normalizedKey);
+            Objects.requireNonNull(parameterId);
+            @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
+            @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
+
+            Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
+
+            if (parameterId.equals(scoreAlias)) {
+                //
+                // This is the score field of the index which is returned at this ordinal position.
+                // Even though we may not have bound the score field itself via matching we may have bound the
+                // rank (we should have). If the rank is bound by equality, the score is also bound by equality.
+                // We need to record that.
+                //
+                @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
+                @Nullable final var rankQueryPredicate = parameterBindingPredicateMap.get(rankAlias);
+
+                builder.add(
+                        BoundKeyPart.of(normalizedKey,
+                                rankComparisonRange == null ? ComparisonRange.Type.EMPTY : rankComparisonRange.getRangeType(),
+                                rankQueryPredicate,
+                                isReverse));
+            } else {
+                builder.add(
+                        BoundKeyPart.of(normalizedKey,
+                                comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
+                                queryPredicate,
+                                isReverse));
+            }
+        }
+
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
+        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<KeyExpression, Comparisons.Comparison>builder();
+        final var normalizedKeyExpressions = getAlternativeKeyExpression().normalizeKeyForPositions();
+        final var equalityComparisons = scanComparisons.getEqualityComparisons();
+        final var groupingExpression = (GroupingKeyExpression)index.getRootExpression();
+        final var scoreOrdinal = groupingExpression.getGroupingCount();
+
+        for (var i = 0; i < equalityComparisons.size(); i++) {
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
+            final var comparison = equalityComparisons.get(i);
+
+            if (i == scoreOrdinal) {
+                equalityBoundKeyMapBuilder.put(normalizedKeyExpression, new Comparisons.OpaqueEqualityComparison());
+            } else {
+                equalityBoundKeyMapBuilder.put(normalizedKeyExpression, comparison);
+            }
+        }
+
+        final var result = ImmutableList.<KeyPart>builder();
+        for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
+            final KeyExpression currentKeyExpression = normalizedKeyExpressions.get(i);
+
+            //
+            // Note that it is not really important here if the keyExpression can be normalized in a lossless way
+            // or not. A key expression containing repeated fields is sort-compatible with its normalized key
+            // expression. We used to refuse to compute the sort order in the presence of repeats, however,
+            // I think that restriction can be relaxed.
+            //
+            result.add(KeyPart.of(currentKeyExpression, isReverse));
+        }
+
+        return new Ordering(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct);
     }
 
     @Nonnull
@@ -178,7 +284,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 reverseScanOrder,
                                 false,
-                                (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()));
+                                (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate()));
     }
 
     @Nonnull
@@ -200,26 +306,17 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
             }
         }
 
-        for (int i = 0; i < indexValueValues.size(); i++) {
-            final Value valueValue = indexValueValues.get(i);
-            if (valueValue instanceof FieldValue && valueValue.isFunctionallyDependentOn(recordValue)) {
-                final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i);
-                addCoveringField(builder, (FieldValue)valueValue, fieldData);
-            }
-        }
-
         if (!builder.isValid()) {
             return Optional.empty();
         }
 
-        final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
+        final IndexScanParameters scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges));
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
                         scanParameters,
                         isReverse,
                         false,
-                        (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate());
+                        (WindowedIndexScanMatchCandidate)partialMatch.getMatchCandidate());
 
         final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 recordType.getName(),
@@ -252,7 +349,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         final Value translatedValue = translatedValueOptional.get();
         final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(recordValue.getAlias()));
 
-        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(recordValue), indexKeyValues, indexValueValues)) {
+        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(recordValue), indexKeyValues)) {
             final Set<CorrelationIdentifier> resultValueCorrelatedTo = matchResultValue.getCorrelatedTo();
             if (resultValueCorrelatedTo.size() != 1) {
                 continue;
@@ -287,5 +384,12 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         if (!builder.hasField(fieldName)) {
             builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
         }
+    }
+
+    @Nonnull
+    public static List<CorrelationIdentifier> orderingAliases(@Nonnull final List<CorrelationIdentifier> groupingAliases,
+                                                              @Nonnull final CorrelationIdentifier scoreAlias,
+                                                              @Nonnull final List<CorrelationIdentifier> primaryKeyAliases) {
+        return ImmutableList.<CorrelationIdentifier>builder().addAll(groupingAliases).add(scoreAlias).addAll(primaryKeyAliases).build();
     }
 }

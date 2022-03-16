@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -78,7 +78,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     protected final boolean reverse;
     protected final boolean strictlySorted;
     @Nonnull
-    private final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional;
+    private final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, scanParameters, reverse, false);
@@ -95,7 +95,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                 @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted,
-                                @Nonnull final ValueIndexScanMatchCandidate matchCandidate) {
+                                @Nonnull final ScanWithFetchMatchCandidate matchCandidate) {
         this(indexName, scanParameters, reverse, strictlySorted, Optional.of(matchCandidate));
     }
 
@@ -103,7 +103,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                  @Nonnull final IndexScanParameters scanParameters,
                                  final boolean reverse,
                                  final boolean strictlySorted,
-                                 @Nonnull final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional) {
+                                 @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional) {
         this.indexName = indexName;
         this.scanParameters = scanParameters;
         this.reverse = reverse;
@@ -180,7 +180,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public Optional<ValueIndexScanMatchCandidate> getMatchCandidateOptional() {
+    public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateOptional() {
         return matchCandidateOptional;
     }
 

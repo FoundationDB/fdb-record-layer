@@ -320,7 +320,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     /**
-     * A scalar value type that can be evaluated.
+     * A scalar value type that cannot be evaluated.
      */
     @API(API.Status.EXPERIMENTAL)
     interface CompileTimeValue extends Value {
@@ -331,6 +331,22 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                                                 @Nullable FDBRecord<M> record,
                                                 @Nullable M message) {
             throw new RecordCoreException("value is compile-time only and cannot be evaluated");
+        }
+    }
+
+    /**
+     * A scalar value type that can only fetched from an index, that is the value cannot be fetched from the base record
+     * nor can it be computed "on-the-fly".
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface IndexOnlyValue extends Value {
+        @Nullable
+        @Override
+        default <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+                                                @Nonnull final EvaluationContext context,
+                                                @Nullable FDBRecord<M> record,
+                                                @Nullable M message) {
+            throw new RecordCoreException("value is index-only and cannot be evaluated");
         }
     }
 }

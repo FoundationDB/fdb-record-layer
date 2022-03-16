@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
@@ -38,6 +39,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * A {@link QueryComponent} that is satisfied when its child component is not satisfied.
@@ -147,8 +149,10 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
 
     @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
-        final GraphExpansion childGraphExpansion = child.expand(base, fieldNamePrefix);
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier base,
+                                 @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+                                 @Nonnull final List<String> fieldNamePrefix) {
+        final GraphExpansion childGraphExpansion = child.expand(base, baseQuantifierSupplier, fieldNamePrefix);
         return childGraphExpansion.withPredicate(NotPredicate.not(childGraphExpansion.asAndPredicate()));
     }
 }

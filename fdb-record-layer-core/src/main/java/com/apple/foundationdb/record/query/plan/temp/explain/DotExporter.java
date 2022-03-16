@@ -32,6 +32,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.PrintWriter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -166,6 +167,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         final ImmutableNetwork<N, E> network = context.getNetwork();
         final PrintWriter out = context.getPrintWriter();
 
+        //
         // dependsOn is a property of an edge specifying a partial order between that edge and
         // other inEdges to the target of that edge:
         //
@@ -190,45 +192,85 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         // If the current node had children that explicitly encode an order we do the following:
         // We create a sub-block and set rank=same, rankDir=LR in order to have all children be rendered
         // on the same level but left to right.
+        //
         final Set<E> childrenEdges = network.inEdges(n);
 
-        final boolean needsInvisibleEdges = childrenEdges.stream().anyMatch(edge -> !edge.getDependsOn().isEmpty());
+        if (childrenEdges.stream().allMatch(edge -> edge.getDependsOn().isEmpty())) {
+            // no correlations
+            return;
+        }
+        
+        //
+        // Find all descendant nodes and check for common subexpressions, if there are common subexpressions,
+        // don't to layout hinting as GraphViz doesn't do a good job on left to right if the graph is not a tree
+        // but a DAG.
+        //
+        if (hasCommonSubexpressions(network, childrenEdges)) {
+            return;
+        }
 
-        if (needsInvisibleEdges) {
-            final Optional<List<E>> orderedChildrenEdgesOptional =
-                    TopologicalSort.anyTopologicalOrderPermutation(childrenEdges, edge -> (Set<E>)edge.getDependsOn());
-            Verify.verify(orderedChildrenEdgesOptional.isPresent());
-            final List<E> orderedChildrenEdges = orderedChildrenEdgesOptional.get();
+        final Optional<List<E>> orderedChildrenEdgesOptional =
+                TopologicalSort.anyTopologicalOrderPermutation(childrenEdges, edge -> (Set<E>)edge.getDependsOn());
+        Verify.verify(orderedChildrenEdgesOptional.isPresent());
+        final List<E> orderedChildrenEdges = orderedChildrenEdgesOptional.get();
 
-            final ArrayList<N> childrenOperatorList = new ArrayList<>();
-            for (final E currentEdge : orderedChildrenEdges) {
-                final N currentChildNode = network.incidentNodes(currentEdge).nodeU();
-                if (currentChildNode instanceof PlannerGraph.ExpressionRefHeadNode) {
-                    final Set<N> refMembers = network.predecessors(currentChildNode);
-                    for (final N refMember : Sets.filter(refMembers, refMember -> refMember instanceof PlannerGraph.ExpressionRefMemberNode)) {
-                        childrenOperatorList.addAll(network.predecessors(refMember));
+        final ArrayList<N> childrenOperatorList = new ArrayList<>();
+        for (final E currentEdge : orderedChildrenEdges) {
+            final N currentChildNode = network.incidentNodes(currentEdge).nodeU();
+            if (currentChildNode instanceof PlannerGraph.ExpressionRefHeadNode) {
+                final Set<N> refMembers = network.predecessors(currentChildNode);
+                for (final N refMember : Sets.filter(refMembers, refMember -> refMember instanceof PlannerGraph.ExpressionRefMemberNode)) {
+                    childrenOperatorList.addAll(network.predecessors(refMember));
+                }
+            } else {
+                childrenOperatorList.add(currentChildNode);
+            }
+        }
+
+        // We have already exported all nodes; we will now render "hidden" edges to encode the edge order.
+        for (int index = 0; index < childrenOperatorList.size() - 1; index ++) {
+            final N currentChildNode = childrenOperatorList.get(index);
+            final N nextChildNode = childrenOperatorList.get(index + 1);
+            out.println(indentation + "{");
+            out.println(indentation + INDENT + "rank=same;");
+            out.println(indentation + INDENT + "rankDir=LR;");
+            out.print(indentation);
+            renderEdge(context,
+                    true,
+                    currentChildNode,
+                    nextChildNode,
+                    ImmutableMap.of("color", Attribute.dot("red"), "style", Attribute.dot("invis")));
+            out.println(indentation + "}");
+        }
+    }
+
+    private boolean hasCommonSubexpressions(final ImmutableNetwork<N, E> network, final Set<E> childrenEdges) {
+        final var nodesReachable = Sets.newHashSet();
+
+        for (final var childrenEdge : childrenEdges) {
+            final var child = network.incidentNodes(childrenEdge).nodeU();
+            final var queue = new ArrayDeque<N>();
+            queue.push(child);
+
+            final var nodesReachableForChild = Sets.<N>newHashSet();
+            while (queue.peek() != null) {
+                final var currentNode = queue.poll();
+                final var predecessors = network.predecessors(currentNode);
+                for (final var predecessor : predecessors) {
+                    if (nodesReachableForChild.add(predecessor)) {
+                        queue.push(predecessor);
                     }
-                } else {
-                    childrenOperatorList.add(currentChildNode);
                 }
             }
 
-            // We have already exported all nodes; we will now render "hidden" edges to encode the edge order.
-            for (int index = 0; index < childrenOperatorList.size() - 1; index ++) {
-                final N currentChildNode = childrenOperatorList.get(index);
-                final N nextChildNode = childrenOperatorList.get(index + 1);
-                out.println(indentation + "{");
-                out.println(indentation + INDENT + "rank=same;");
-                out.println(indentation + INDENT + "rankDir=LR;");
-                out.print(indentation);
-                renderEdge(context,
-                        true,
-                        currentChildNode,
-                        nextChildNode,
-                        ImmutableMap.of("color", Attribute.dot("red"), "style", Attribute.dot("invis")));
-                out.println(indentation + "}");
+            if (Sets.intersection(nodesReachable, nodesReachableForChild).isEmpty()) {
+                nodesReachable.addAll(nodesReachableForChild);
+            } else {
+                // there are CSEs and we shouldn't do left to right layout hinting
+                return true;
             }
         }
+        return false;
     }
 
     @Override
@@ -397,7 +439,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                                @Nullable final Attribute details,
                                @Nonnull final Map<String, Attribute> nodeAttributes) {
         if (details == null || ((List<?>)details.getReference()).isEmpty()) {
-            return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\"><tr><td>" +
+            return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\"><tr><td align=\"left\">" +
                    escaper.escape(name.getReference().toString()) +
                    "</td></tr></table>>";
         }
@@ -415,10 +457,10 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                                                      : (attribute.getReference() instanceof Collection)
                                                        ? escapeCollection((Collection<Attribute>)attribute.getReference())
                                                        : escaper.escape(attribute.getReference().toString())))
-                        .map(detail -> "<tr><td>" + detail + "</td></tr>")
+                        .map(detail -> "<tr><td align=\"left\">" + detail + "</td></tr>")
                         .collect(Collectors.joining());
 
-        return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\"><tr><td>" +
+        return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\"><tr><td align=\"left\">" +
                escaper.escape(name.getReference().toString()) + "</td></tr>" +
                detailsString + "</table>>";
     }

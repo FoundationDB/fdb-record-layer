@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
-import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.temp.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPre
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -49,11 +50,12 @@ import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredic
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -174,7 +176,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getPredicates());
+        return Objects.hash(getPredicates(), getResultValues());
     }
 
     @Nonnull
@@ -259,6 +261,21 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         //      a real value, or even null if the underlying graph evaluates to empty. The presence of such a property
         //      would help us here to make sure the additional non-matched quantifier is not eliminating records.
         if (!allOtherForEachQuantifiersMatched) {
+            return ImmutableList.of();
+        }
+
+        //
+        // Go through all matched existential quantifiers. Make sure that there is a top level exists() predicate
+        // corresponding to  each  one.
+        //
+        if (getQuantifiers()
+                .stream()
+                .filter(quantifier -> quantifier instanceof Quantifier.Existential && aliasMap.containsSource(quantifier.getAlias()))
+                .anyMatch(quantifier -> getPredicates()
+                        .stream()
+                        .noneMatch(predicate -> predicate instanceof ExistsPredicate &&
+                                                ((ExistsPredicate)predicate).getExistentialAlias().equals(quantifier.getAlias()))
+                )) {
             return ImmutableList.of();
         }
 
@@ -359,8 +376,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
-                        "Select",
-                        ImmutableList.of("SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) +  " WHERE " + AndPredicate.and(getPredicates())),
+                        "SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")),
+                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.and(getPredicates())),
                         ImmutableMap.of()),
                 childGraphs);
     }
@@ -397,11 +414,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         final BoundEquivalence boundEquivalence = new BoundEquivalence(boundIdentitiesMap);
 
-        final HashMultimap<Equivalence.Wrapper<Value>, PredicateWithValue> partitionedPredicatesWithValues =
+        final Multimap<Equivalence.Wrapper<Value>, PredicateWithValue> partitionedPredicatesWithValues =
                 predicateWithValues
                         .stream()
                         .collect(Multimaps.toMultimap(
-                                predicate -> boundEquivalence.wrap(predicate.getValue()), Function.identity(), HashMultimap::create));
+                                predicate -> boundEquivalence.wrap(predicate.getValue()), Function.identity(), LinkedHashMultimap::create));
 
         partitionedPredicatesWithValues
                 .asMap()

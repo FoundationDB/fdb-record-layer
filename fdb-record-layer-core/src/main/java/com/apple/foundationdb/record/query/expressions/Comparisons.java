@@ -1005,15 +1005,21 @@ public class Comparisons {
             if (type != that.type) {
                 return false;
             }
-            if (!Objects.equals(relatedByEquality(), that.relatedByEquality())) {
-                return false;
-            }
 
+            //
+            // Either this parameter is a proper correlation in which case the alias map needs to be consulted,
+            // or, if it is a non-correlation like an extracted literal we need to consult the parameter relationship
+            // graph.
+            //
             if (isCorrelation() && that.isCorrelation()) {
                 return aliasMap.containsMapping(getAlias(), that.getAlias());
-            } else {
-                return getParameter().equals(that.getParameter());
             }
+
+            if (!getParameter().equals(that.getParameter())) {
+                return false;
+            }
+            
+            return Objects.equals(relatedByEquality(), that.relatedByEquality());
         }
 
         @Nullable
@@ -1385,6 +1391,75 @@ public class Comparisons {
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return HashUtils.queryHash(hashKind, BASE_HASH, type);
+        }
+    }
+
+    /**
+     * A predicate for comparisons to things unknown or opaque to the planner. We only know it is equal to some value.
+     */
+    public static class OpaqueEqualityComparison implements Comparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Opaque-Equality-Comparison");
+
+        @Nullable
+        @Override
+        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+            return false;
+        }
+
+        @Override
+        public void validate(@Nonnull final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
+            throw new UnsupportedOperationException("comparison should not be used in a plan");
+        }
+
+        @Nonnull
+        @Override
+        public Type getType() {
+            return Type.EQUALS;
+        }
+
+        @Nullable
+        @Override
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+            return null;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison rebase(@Nonnull final AliasMap translationMap) {
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        public String typelessString() {
+            return ":?:";
+        }
+
+        @Override
+        public String toString() {
+            return Type.EQUALS + " " + typelessString();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            // same as standard object implementation
+            return this == o;
+        }
+
+        @Override
+        public int hashCode() {
+            // same as standard object implementation
+            return System.identityHashCode(this);
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
         }
     }
 

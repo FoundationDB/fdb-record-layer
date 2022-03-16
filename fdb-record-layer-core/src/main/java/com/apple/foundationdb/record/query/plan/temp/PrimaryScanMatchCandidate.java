@@ -34,7 +34,7 @@ import java.util.Set;
 /**
  * Case class to represent a match candidate that is backed by an index.
  */
-public class PrimaryScanMatchCandidate implements MatchCandidate {
+public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLikeMatchCandidate {
     /**
      * Holds the parameter names for all necessary parameters that need to be bound during matching.
      */
@@ -88,8 +88,14 @@ public class PrimaryScanMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    public List<CorrelationIdentifier> getParameters() {
+    public List<CorrelationIdentifier> getSargableAliases() {
         return parameters;
+    }
+
+    @Nonnull
+    @Override
+    public List<CorrelationIdentifier> getOrderingAliases() {
+        return getSargableAliases();
     }
 
     @Nonnull

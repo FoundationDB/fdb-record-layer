@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.temp.matching;
 
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.IterableHelpers;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -265,11 +264,10 @@ public class BaseMatcher<T> {
 
         final List<CorrelationIdentifier> otherPermutation = otherOrderedOptional.orElse(ImmutableList.of());
 
-        final Iterable<List<CorrelationIdentifier>> otherCombinationsIterable =
+        final Iterable<Set<CorrelationIdentifier>> otherCombinationsIterable =
                 isCompleteMatchesOnly
-                ? ImmutableList.of(otherPermutation)
-                : otherCombinations(otherPermutation,
-                        Math.min(aliases.size(), otherPermutation.size()));
+                ? ImmutableList.of(getOtherAliases())
+                : otherCombinations(Math.min(aliases.size(), otherPermutation.size()));
 
         return IterableHelpers
                 .flatMap(otherCombinationsIterable,
@@ -278,12 +276,19 @@ public class BaseMatcher<T> {
                                     topologicalOrderPermutations(
                                             getAliases(),
                                             dependsOnMap);
-                            return () -> enumerationFunction.apply(permutationsIterable.iterator(), otherCombination);
+                            final List<CorrelationIdentifier> otherFilteredPermutation =
+                                    otherPermutation
+                                            .stream()
+                                            .filter(otherCombination::contains)
+                                            .collect(ImmutableList.toImmutableList());
+
+                            return () -> enumerationFunction.apply(permutationsIterable.iterator(), otherFilteredPermutation);
                         });
     }
 
     @Nonnull
-    protected Iterable<List<CorrelationIdentifier>> otherCombinations(final List<CorrelationIdentifier> otherPermutation, final int limitInclusive) {
+    @SuppressWarnings("java:S3776")
+    private Iterable<Set<CorrelationIdentifier>> otherCombinations(final int limitInclusive) {
         final Set<CorrelationIdentifier> otherAliases = getOtherAliases();
         final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap = getOtherDependsOnMap();
         Preconditions.checkArgument(limitInclusive <= otherAliases.size());
@@ -294,31 +299,30 @@ public class BaseMatcher<T> {
                             ChooseK.chooseK(otherAliases, k)
                                     .iterator();
 
-                    final Iterator<List<CorrelationIdentifier>> filteredCombinationsIterator = new AbstractIterator<List<CorrelationIdentifier>>() {
+                    final Iterator<Set<CorrelationIdentifier>> filteredCombinationsIterator = new AbstractIterator<>() {
                         @Override
-                        protected List<CorrelationIdentifier> computeNext() {
+                        protected Set<CorrelationIdentifier> computeNext() {
                             while (combinationsIterator.hasNext()) {
                                 final List<CorrelationIdentifier> combination = combinationsIterator.next();
-                                final Set<CorrelationIdentifier> visibleAliases = Sets.newHashSetWithExpectedSize(otherAliases.size());
+                                final Set<CorrelationIdentifier> combinationAsSet = ImmutableSet.copyOf(combination);
 
                                 int i;
                                 for (i = 0; i < combination.size(); i++) {
                                     final CorrelationIdentifier alias = combination.get(i);
+
                                     final boolean brokenCombination = otherDependsOnMap.get(alias)
                                             .stream()
                                             .anyMatch(dependsOnAlias -> otherAliases.contains(dependsOnAlias) && // not an external dependency
-                                                                        !visibleAliases.contains(dependsOnAlias));
+                                                                        !combinationAsSet.contains(dependsOnAlias));
                                     if (brokenCombination) {
                                         break;
-                                    } else {
-                                        visibleAliases.add(alias);
                                     }
                                 }
 
                                 if (i < combination.size()) {
                                     combinationsIterator.skip(i);
                                 } else {
-                                    return combination;
+                                    return combinationAsSet;
                                 }
                             }
                             return endOfData();
@@ -343,7 +347,7 @@ public class BaseMatcher<T> {
     protected boolean isIsomorphic(@Nonnull final AliasMap aliasMap,
                                    @Nonnull final Set<CorrelationIdentifier> set,
                                    @Nonnull final Set<CorrelationIdentifier> otherSet) {
-        // is the depends-on relation ship isomorphic under matching?
+        // is the depends-on relationship isomorphic under matching?
         if (set.size() != otherSet.size()) {
             return false;
         }

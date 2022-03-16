@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,7 +42,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -79,11 +80,19 @@ public interface MatchCandidate {
     ExpressionRefTraversal getTraversal();
 
     /**
-     * Returns the parameter names for all necessary parameters that need to be bound during matching.
-     * @return a list of {@link CorrelationIdentifier}s for all the used parameters in this match candidate
+     * Returns a list of parameter names for sargable parameters that can to be bound during matching.
+     * @return a list of {@link CorrelationIdentifier}s for all sargable parameters in this match candidate
      */
     @Nonnull
-    List<CorrelationIdentifier> getParameters();
+    List<CorrelationIdentifier> getSargableAliases();
+
+    /**
+     * Returns the parameter names for the resulting order for parameters that can be bound during matching
+     * (sargable and residual).
+     * @return a list of {@link CorrelationIdentifier}s describing the ordering of the result set of this match candidate
+     */
+    @Nonnull
+    List<CorrelationIdentifier> getOrderingAliases();
 
     /**
      * This method returns a key expression that can be used to actually compute the the keys of this candidate for a
@@ -109,14 +118,13 @@ public interface MatchCandidate {
      *         with a physical scan over the materialized view (of the candidate)
      */
     default Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap(@Nonnull final MatchInfo matchInfo) {
-        final Map<CorrelationIdentifier, ComparisonRange> prefixMap = Maps.newHashMap();
-        final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
-                matchInfo.getParameterBindingMap();
+        final var prefixMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
+        final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
-        final List<CorrelationIdentifier> parameters = getParameters();
-        for (final CorrelationIdentifier parameter : parameters) {
+        final var parameters = getSargableAliases();
+        for (final var parameter : parameters) {
             Objects.requireNonNull(parameter);
-            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameter);
+            @Nullable final var comparisonRange = parameterBindingMap.get(parameter);
             if (comparisonRange == null) {
                 return ImmutableMap.copyOf(prefixMap);
             }
@@ -142,23 +150,41 @@ public interface MatchCandidate {
     }
 
     /**
+     * Compute a list of {@link BoundKeyPart}s which forms a bridge to relate {@link KeyExpression}s and
+     * {@link QueryPredicate}s.
+     * @param matchInfo a pre-existing match info structure
+     * @param sortParameterIds the query should be ordered by
+     * @param isReverse reversed-ness of the order
+     * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
+     *         between query and match candidate
+     */
+    @Nonnull
+    List<BoundKeyPart> computeBoundKeyParts(@Nonnull MatchInfo matchInfo,
+                                            @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                            boolean isReverse);
+
+    @Nonnull
+    Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons,
+                                                final boolean isReverse,
+                                                final boolean isDistinct);
+
+    /**
      * Creates a logical expression that represents a scan over the materialized candidate data.
      * @param partialMatch the match to be used
-     * @return a new {@link RelationalExpression}
-     */
+         * @return a new {@link RelationalExpression}
+         */
     @SuppressWarnings("java:S135")
     default RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch) {
-        final MatchInfo matchInfo = partialMatch.getMatchInfo();
-        final Map<CorrelationIdentifier, ComparisonRange> prefixMap = computeBoundParameterPrefixMap(matchInfo);
+        final var matchInfo = partialMatch.getMatchInfo();
+        final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
-        final ImmutableList.Builder<ComparisonRange> comparisonRangesForScanBuilder =
-                ImmutableList.builder();
+        final var comparisonRangesForScanBuilder = ImmutableList.<ComparisonRange>builder();
 
         // iterate through the parameters in order -- stop:
         // 1. if the current mapping does not exist
         // 2. the current mapping is EMPTY
         // 3. after the current mapping if the mapping is an INEQUALITY
-        for (final CorrelationIdentifier parameterAlias : getParameters()) {
+        for (final var parameterAlias : getSargableAliases()) {
             // get the mapped side
             if (!prefixMap.containsKey(parameterAlias)) {
                 break;
@@ -181,16 +207,16 @@ public interface MatchCandidate {
 
     @Nonnull
     default SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references) {
-        final ExpressionRefTraversal traversal = getTraversal();
+        final var traversal = getTraversal();
 
-        final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
-                Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
+        final var refToExpressionMap =
+                Multimaps.<ExpressionRef<? extends RelationalExpression>, RelationalExpression>newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
 
         // going up may yield duplicates -- deduplicate with this multimap
         for (final ExpressionRef<? extends RelationalExpression> rangesOverRef : references) {
-            final Set<PartialMatch> partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(this);
-            for (final PartialMatch partialMatch : partialMatchesForCandidate) {
-                for (final ExpressionRefTraversal.ReferencePath parentReferencePath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
+            final var partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(this);
+            for (final var partialMatch : partialMatchesForCandidate) {
+                for (final var parentReferencePath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
                     refToExpressionMap.put(parentReferencePath.getReference(), parentReferencePath.getExpression());
                 }
             }
@@ -199,39 +225,75 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    static Optional<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
+    static Iterable<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
                                                         @Nonnull final Index index,
                                                         final boolean isReverse) {
-        final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
-        final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
+        final var resultBuilder = ImmutableList.<MatchCandidate>builder();
+        final var recordTypesForIndex = metaData.recordTypesForIndex(index);
+        final var commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
 
-        final ImmutableSet<String> recordTypeNamesForIndex =
+        final var recordTypeNamesForIndex =
                 recordTypesForIndex
                         .stream()
                         .map(RecordType::getName)
                         .collect(ImmutableSet.toImmutableSet());
 
-        final Set<String> availableRecordTypes = metaData.getRecordTypes().keySet();
+        final var availableRecordTypes = metaData.getRecordTypes().keySet();
 
-        final String type = index.getType();
+        final var type = index.getType();
 
         if (type.equals(IndexTypes.VALUE)) {
-            final Quantifier.ForEach baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypeNamesForIndex);
-            final ValueIndexExpansionVisitor expansionVisitor = new ValueIndexExpansionVisitor(index, recordTypesForIndex);
-            try {
-                return Optional.of(expansionVisitor.expand(baseQuantifier, commonPrimaryKeyForIndex, isReverse));
-            } catch (final UnsupportedOperationException uOE) {
-                // just log and return empty
-                if (LOGGER.isDebugEnabled()) {
-                    final String message =
-                            KeyValueLogMessage.of("unsupported value index",
-                                    "reason", uOE.getMessage(),
-                                    "indexName", index.getName());
-                    LOGGER.debug(message, uOE);
-                }
-            }
+            expandMatchCandidate(index,
+                    recordTypeNamesForIndex,
+                    availableRecordTypes,
+                    isReverse,
+                    commonPrimaryKeyForIndex,
+                    new ValueIndexExpansionVisitor(index, recordTypesForIndex))
+                    .ifPresent(resultBuilder::add);
         }
 
+        if (type.equals(IndexTypes.RANK)) {
+            // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
+            expandMatchCandidate(index,
+                    recordTypeNamesForIndex,
+                    availableRecordTypes,
+                    isReverse,
+                    commonPrimaryKeyForIndex,
+                    new ValueIndexExpansionVisitor(index, recordTypesForIndex))
+                    .ifPresent(resultBuilder::add);
+
+            expandMatchCandidate(index,
+                    recordTypeNamesForIndex,
+                    availableRecordTypes,
+                    isReverse,
+                    commonPrimaryKeyForIndex,
+                    new WindowedIndexExpansionVisitor(index, recordTypesForIndex))
+                    .ifPresent(resultBuilder::add);
+        }
+
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    private static Optional<MatchCandidate> expandMatchCandidate(@Nonnull final Index index,
+                                                                 @Nonnull final ImmutableSet<String> recordTypeNamesForIndex,
+                                                                 @Nonnull final Set<String> availableRecordTypes,
+                                                                 final boolean isReverse,
+                                                                 @Nullable final KeyExpression commonPrimaryKeyForIndex,
+                                                                 @Nonnull final ExpansionVisitor<?> expansionVisitor) {
+        final var baseRef = createBaseRef(availableRecordTypes, recordTypeNamesForIndex);
+        try {
+            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
+        } catch (final UnsupportedOperationException uOE) {
+            // just log and return empty
+            if (LOGGER.isDebugEnabled()) {
+                final String message =
+                        KeyValueLogMessage.of("unsupported index",
+                                "reason", uOE.getMessage(),
+                                "indexName", index.getName());
+                LOGGER.debug(message, uOE);
+            }
+        }
         return Optional.empty();
     }
 
@@ -241,18 +303,19 @@ public interface MatchCandidate {
                                                           @Nullable KeyExpression commonPrimaryKey,
                                                           final boolean isReverse) {
         if (commonPrimaryKey != null) {
-            final Set<String> availableRecordTypes = metaData.getRecordTypes().keySet();
-            final Quantifier.ForEach baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypes);
-            final PrimaryAccessExpansionVisitor expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
-            return Optional.of(expansionVisitor.expand(baseQuantifier, commonPrimaryKey, isReverse));
+            final var availableRecordTypes = metaData.getRecordTypes().keySet();
+            final var baseRef = createBaseRef(availableRecordTypes, recordTypes);
+            final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
+            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, isReverse));
         }
 
         return Optional.empty();
     }
 
     @Nonnull
-    static Quantifier.ForEach createBaseQuantifier(@Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
-        final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
-        return Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(recordTypesForIndex, quantifier)));
+    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
+        final var quantifier =
+                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
+        return GroupExpressionRef.of(new LogicalTypeFilterExpression(recordTypesForIndex, quantifier));
     }
 }
