@@ -148,6 +148,21 @@ class LimitedRunnerTest {
         }
     }
 
+    @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
+    @EnumSource(ExceptionStyle.class)
+    void failWithNonFDBException(ExceptionStyle exceptionStyle) {
+        final RuntimeException cause = exceptionStyle.wrap(new NullPointerException());
+        List<Integer> limits = new ArrayList<>();
+        final CompletionException completionException = assertThrows(CompletionException.class,
+                () -> new LimitedRunner(executor, 10)
+                        .setDecreaseLimitAfter(3)
+                        .runAsync(limit -> {
+                            limits.add(limit);
+                            return exceptionStyle.hasMore(cause);
+                        }).join());
+        assertEquals(cause, completionException.getCause());
+        assertEquals(List.of(10), limits);
+    }
 
     @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
     @EnumSource(ExceptionStyle.class)
@@ -304,6 +319,10 @@ class LimitedRunnerTest {
 
         RuntimeException wrap(FDBException rawCause) {
             return isWrapped ? new FDBExceptions.FDBStoreRetriableException(rawCause) : rawCause;
+        }
+
+        RuntimeException wrap(RuntimeException rawCause) {
+            return isWrapped ? new RuntimeException(rawCause) : rawCause;
         }
 
         CompletableFuture<Boolean> hasMore(RuntimeException cause) {

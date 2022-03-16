@@ -110,7 +110,7 @@ public class LimitedRunner implements AutoCloseable {
     private boolean maybeDecreaseLimit(final Throwable error) {
         FDBException fdbException = getFDBException(error);
         // TODO retry without decreasing
-        if (isRetryable(fdbException)) {
+        if (fdbException != null && isRetryable(fdbException)) {
             retriesWithoutDecreasing++;
             if (retriesWithoutDecreasing < decreaseLimitAfter) {
                 return true;
@@ -134,7 +134,7 @@ public class LimitedRunner implements AutoCloseable {
         }
     }
 
-    private boolean isRetryable(final FDBException fdbException) {
+    private boolean isRetryable(@Nonnull final FDBException fdbException) {
         // FDBException.isRetryable requires the api version to be set, otherwise it throws IllegalStateException
         // we catch it here, because otherwise, we would just not complete the future ever.
         // We won't complete with this exception, we'll just fail with the original exception
