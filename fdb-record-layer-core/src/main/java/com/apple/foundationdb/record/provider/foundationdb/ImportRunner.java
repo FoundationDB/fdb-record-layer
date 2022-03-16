@@ -27,7 +27,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public abstract class ImportRunner<T> implements LimitedRunner.Runner {
+public abstract class ImportRunner<T> implements TransactionalLimitedRunner.Runner {
     private final Iterator<T> source;
     private final FDBDatabaseRunner runner;
     private List<T> buffer;
@@ -42,23 +42,27 @@ public abstract class ImportRunner<T> implements LimitedRunner.Runner {
     protected abstract CompletableFuture<Void> save(T value, FDBRecordContext context);
 
     @Override
-    public CompletableFuture<Boolean> runAsync(int limit) {
+    public CompletableFuture<Void> prep(final int limit) {
+        // TODO fillBuffer should probably be async
         fillBuffer(limit);
-        if (buffer.size() == 0) {
+        return AsyncUtil.DONE;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> runAsync(FDBRecordContext context, int limit) {
+        if (buffer.isEmpty()) {
             return AsyncUtil.READY_FALSE;
         }
-        return runner.runAsync(context -> {
-            while (position < limit && position < buffer.size()) {
-                save(buffer.get(position), context);
-            }
-            return AsyncUtil.READY_TRUE;
-        }).thenApply(result -> {
+        context.addPostCommit(() -> {
             // these entries were successfully saved, so remove them from the buffer
             buffer.subList(0, position).clear();
-            // fill the buffer back up, and check if there's anything left
-            fillBuffer(limit);
-            return buffer.size() > 0;
+            return AsyncUtil.DONE;
         });
+        return AsyncUtil.whileTrue(
+                        () -> save(buffer.get(position), context)
+                                .thenApply(vignore -> position < limit && position < buffer.size()),
+                        context.getExecutor())
+                .thenApply(vignore -> buffer.isEmpty() && !source.hasNext());
     }
 
     private void fillBuffer(final int limit) {

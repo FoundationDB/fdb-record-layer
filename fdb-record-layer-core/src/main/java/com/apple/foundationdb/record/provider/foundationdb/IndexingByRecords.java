@@ -245,7 +245,10 @@ public class IndexingByRecords extends IndexingBase {
                 LogMessageKeys.INDEXER_ID, common.getUuid());
         AtomicLong recordsScanned = new AtomicLong(0);
         // TODO perhaps this should have different retry counts from the runAsyncInStore used in limittedRunner
-        return common.runAsyncInStore(store -> buildEndpoints(store, recordsScanned),
+        // TODO should this just add common info to the log values
+        // TODO should this check the index state?
+        return common.getRunner().runAsync(context -> common.openStoreAsync(context)
+                        .thenCompose(store -> buildEndpoints(store, recordsScanned)),
                 additionalLogMessageKeyValues);
     }
 
@@ -372,9 +375,9 @@ public class IndexingByRecords extends IndexingBase {
                                                 @Nonnull RangeSet rangeSet, @Nonnull Queue<Range> rangeDeque) {
         // TODO can this use `iterateAllRanges`?
         AtomicLong recordsScanned = new AtomicLong(0);
-        final LimitedRunner limitedRunner = common.createRunner();
+        final TransactionalLimitedRunner limitedRunner = common.createRunner();
         return limitedRunner.runAsync(
-                limit -> {
+                (context, limit) -> {
                     if (rangeDeque.isEmpty()) {
                         return AsyncUtil.READY_FALSE; // We're done.
                     }
@@ -392,61 +395,80 @@ public class IndexingByRecords extends IndexingBase {
                             LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                             LogMessageKeys.INDEXER_ID, common.getUuid(),
                             LogMessageKeys.LIMIT, limit);
+                    AtomicReference<Tuple> postCommitRealEnd = new AtomicReference<>(startTuple);
+                    context.addPostCommit(() -> {
+                        final Tuple realEnd = postCommitRealEnd.get();
+                        return handleBuiltRange(subspaceProvider, rangeDeque, startTuple, endTuple, realEnd, limit)
+                                .thenApply(vignore -> null);
+                    });
                     // TODO check index state
                     // TODO if the transaction succeeds increment common.getTotalRecordsScanned()
-                    return common.runAsyncInStore(
-                                    store -> buildUnbuiltRange(store, startTuple, endTuple, recordsScanned, limit),
-                                    additionalLogMessageKeyValues)
-                            .handle((realEnd, exception) -> handleBuiltRange(subspaceProvider, subspace,
-                                    rangeSet, rangeDeque, startTuple, endTuple, realEnd, exception, limit))
-                            .thenCompose(Function.identity());
+                    return common.openStoreAsync(context)
+                            .thenCompose(store -> buildUnbuiltRange(store, startTuple, endTuple, recordsScanned, limit))
+                            .handle((realEnd, exception) -> {
+                                if (exception != null) {
+                                    return handleFailedBuildRange(subspaceProvider, subspace, rangeSet, rangeDeque,
+                                            startTuple, endTuple, exception, limit)
+                                            .thenApply(vignore -> (Tuple) null);
+                                } else {
+                                    postCommitRealEnd.set(realEnd);
+                                    return CompletableFuture.completedFuture(realEnd);
+                                }
+                            })
+                            .thenCompose(Function.identity())
+                            .thenApply(realEnd -> realEnd.equals(endTuple));
                 });
     }
 
-    @Nonnull
-    private CompletableFuture<Boolean> handleBuiltRange(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
-                                                        @Nonnull RangeSet rangeSet, @Nonnull Queue<Range> rangeDeque,
-                                                        Tuple startTuple, Tuple endTuple, Tuple realEnd,
-                                                        Throwable ex, final int limit) {
-        final RuntimeException unwrappedEx = ex == null ? null : getRunner().getDatabase().mapAsyncToSyncException(ex);
-        if (unwrappedEx == null) {
-            if (realEnd != null && !realEnd.equals(endTuple)) {
-                // We didn't make it to the end. Continue on to the next item.
-                if (endTuple != null) {
-                    rangeDeque.add(new Range(realEnd.pack(), endTuple.pack()));
-                } else {
-                    rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
-                }
+    private CompletableFuture<Boolean> handleBuiltRange(final SubspaceProvider subspaceProvider,
+                                                        final @Nonnull Queue<Range> rangeDeque,
+                                                        final Tuple startTuple, final Tuple endTuple,
+                                                        final Tuple realEnd, final int limit) {
+        if (realEnd != null && !realEnd.equals(endTuple)) {
+            // We didn't make it to the end. Continue on to the next item.
+            if (endTuple != null) {
+                rangeDeque.add(new Range(realEnd.pack(), endTuple.pack()));
+            } else {
+                rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
             }
-            return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Arrays.asList(
-                    LogMessageKeys.START_TUPLE, startTuple,
-                    LogMessageKeys.END_TUPLE, endTuple,
-                    LogMessageKeys.REAL_END, realEnd));
-        } else {
-            Throwable cause = unwrappedEx;
-            while (cause != null) {
-                if (cause instanceof OnlineIndexer.RecordBuiltRangeException) {
-                    return rangeSet.missingRanges(getRunner().getDatabase().database(), startTuple.pack(), endTuple.pack())
-                            .thenCompose(list -> {
-                                rangeDeque.addAll(list);
-                                return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Arrays.asList(
-                                        LogMessageKeys.REASON, "RecordBuiltRangeException",
-                                        LogMessageKeys.START_TUPLE, startTuple,
-                                        LogMessageKeys.END_TUPLE, endTuple,
-                                        LogMessageKeys.REAL_END, realEnd));
-                            });
-                } else {
-                    cause = cause.getCause();
-                }
-            }
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
-                        LogMessageKeys.RANGE_START, startTuple,
-                        LogMessageKeys.RANGE_END, endTuple,
-                        LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
-            }
-            throw unwrappedEx; // made it to the bottom, throw original exception
         }
+        return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Arrays.asList(
+                LogMessageKeys.START_TUPLE, startTuple,
+                LogMessageKeys.END_TUPLE, endTuple,
+                LogMessageKeys.REAL_END, realEnd));
+    }
+
+    private CompletableFuture<Boolean> handleFailedBuildRange(final SubspaceProvider subspaceProvider,
+                                                              final @Nonnull Subspace subspace,
+                                                              final @Nonnull RangeSet rangeSet,
+                                                              final @Nonnull Queue<Range> rangeDeque,
+                                                              final Tuple startTuple,
+                                                              final Tuple endTuple,
+                                                              final Throwable ex, final int limit) {
+        final RuntimeException unwrappedEx = ex == null ? null : getRunner().getDatabase().mapAsyncToSyncException(ex);
+        Throwable cause = unwrappedEx;
+        while (cause != null) {
+            if (cause instanceof OnlineIndexer.RecordBuiltRangeException) {
+                return rangeSet.missingRanges(getRunner().getDatabase().database(), startTuple.pack(), endTuple.pack())
+                        .thenCompose(list -> {
+                            rangeDeque.addAll(list);
+                            return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Arrays.asList(
+                                    LogMessageKeys.REASON, "RecordBuiltRangeException",
+                                    LogMessageKeys.START_TUPLE, startTuple,
+                                    LogMessageKeys.END_TUPLE, endTuple,
+                                    LogMessageKeys.REAL_END, null));
+                        });
+            } else {
+                cause = cause.getCause();
+            }
+        }
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
+                    LogMessageKeys.RANGE_START, startTuple,
+                    LogMessageKeys.RANGE_END, endTuple,
+                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
+        }
+        throw unwrappedEx; // made it to the bottom, throw original exception
     }
 
     // Helper function that works on Tuples instead of keys.

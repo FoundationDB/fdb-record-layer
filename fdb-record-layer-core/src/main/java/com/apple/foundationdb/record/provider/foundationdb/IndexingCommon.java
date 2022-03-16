@@ -230,15 +230,21 @@ public class IndexingCommon {
                                                     @Nonnull final List<Object> additionalLogMessageKeyValues) {
         // TODO should this just add common info to the log values
         // TODO should this check the index state?
-        return getRunner().runAsync(context -> getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(runner),
+        return getRunner().runAsync(context -> openStoreAsync(context).thenCompose(runner),
                 additionalLogMessageKeyValues);
     }
 
-    @Nonnull LimitedRunner createRunner() {
-        return new LimitedRunner(runner.getExecutor(), config.getMaxLimit())
-                .setIncreaseLimitAfter(config.getIncreaseLimitAfter())
+    @Nonnull
+    public CompletableFuture<FDBRecordStore> openStoreAsync(final FDBRecordContext context) {
+        return getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
+    }
+
+    @Nonnull TransactionalLimitedRunner createRunner() {
+        final TransactionalLimitedRunner limitedRunner = new TransactionalLimitedRunner(runner.getDatabase(), runner.getContextConfigBuilder(), config.getMaxLimit());
+        limitedRunner.setIncreaseLimitAfter(config.getIncreaseLimitAfter())
                 .setDecreaseLimitAfter(getRunner().getMaxAttempts())
                 .setMaxDecreaseRetries(config.getMaxRetries());
+        return limitedRunner;
     }
 
     @Nullable

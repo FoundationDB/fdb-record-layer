@@ -768,7 +768,7 @@ public abstract class IndexingBase {
                                                        @Nonnull SubspaceProvider subspaceProvider,
                                                        @Nonnull Subspace subspace) {
         AtomicLong recordsScanned = new AtomicLong(0);
-        final LimitedRunner limitedRunner = common.createRunner();
+        final TransactionalLimitedRunner limitedRunner = common.createRunner();
         final ArrayList<Object> logMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
                 // TODO probably worthwhile to put a method in common to get the key/values
@@ -777,18 +777,24 @@ public abstract class IndexingBase {
         logMessageKeyValues.addAll(additionalLogMessageKeyValues);
         // TODO should this also add the target indexes and uuid from
         return limitedRunner.runAsync(
-                limit -> {
+                (context, limit) -> {
                     reloadAndApplyConfig(limitedRunner);
                     // TODO check index state
                     // TODO if the transaction succeeds increment common.getTotalRecordsScanned()
-                    return common.runAsyncInStore(
-                                    store -> iterateRange.consume(store, recordsScanned, limit),
-                                    logMessageKeyValues)
-                            .thenCompose(hasMore -> {
-                                if (hasMore) {
-                                    return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Collections.emptyList());
-                                } else {
-                                    return AsyncUtil.READY_FALSE;
+                    AtomicBoolean hasMoreForHook = new AtomicBoolean(true);
+                    context.addPostCommit(() -> {
+                        if (hasMoreForHook.get()) {
+                            return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Collections.emptyList())
+                                    .thenApply(vignore -> null);
+                        } else {
+                            return AsyncUtil.DONE;
+                        }
+                    });
+                    return common.openStoreAsync(context)
+                            .thenCompose(store -> iterateRange.consume(store, recordsScanned, limit))
+                            .whenComplete((hasMore, error) -> {
+                                if (hasMore != null) {
+                                    hasMoreForHook.set(hasMore);
                                 }
                             });
                 });
