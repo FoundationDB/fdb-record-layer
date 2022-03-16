@@ -122,8 +122,9 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
     @Nonnull
     private static Value encapsulateInternal(@Nonnull final List<Typed> typedArgs) {
         final ImmutableList<Value> arguments = typedArgs.stream()
-                .peek(typedArg -> Verify.verify(typedArg.getResultType().getTypeCode() != Type.TypeCode.RELATION && typedArg instanceof Value))
-                .map(typedArg -> (Value)typedArg)
+                .map(typedArg -> {
+                    Verify.verify(typedArg.getResultType().getTypeCode() != Type.TypeCode.RELATION && typedArg instanceof Value);
+                    return (Value)typedArg; } )
                 .collect(ImmutableList.toImmutableList());
 
         final Type elementType = resolveElementType(arguments);

@@ -200,7 +200,7 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
         return new RecordConstructorValue(newChildrenAndNames);
     }
 
-    public static List<? extends Value> tryUnwrapIfTuple(@Nonnull final List<? extends Value> values) {
+    public static List<Value> tryUnwrapIfTuple(@Nonnull final List<Value> values) {
         if (values.size() != 1) {
             return values;
         }
@@ -225,8 +225,9 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
         final ImmutableList<Pair<? extends Value, Optional<String>>> namedArguments =
                 arguments.stream()
                         .map(typed -> Pair.of(typed.narrowMaybe(Value.class), Optional.<String>empty()))
-                        .peek(pair -> Verify.verify(pair.getKey().isPresent()))
-                        .map(pair -> Pair.of(pair.getKey().get(), pair.getValue()))
+                        .map(pair -> {
+                            Verify.verify(pair.getKey().isPresent());
+                            return Pair.of(pair.getKey().get(), pair.getValue()); })
                         .collect(ImmutableList.toImmutableList());
         return new RecordConstructorValue(namedArguments);
     }
