@@ -25,15 +25,12 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
@@ -43,7 +40,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -185,11 +181,6 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
 
     @SuppressWarnings("java:S2160")
     public static class ArrayConstructorValue extends AbstractArrayConstructorValue {
-        @Nonnull
-        private final Cache<DynamicSchema, String> protoTypeNameCache =
-                CacheBuilder.newBuilder()
-                        .maximumSize(3)
-                        .build();
 
         public ArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
             super(children, elementType);
@@ -224,11 +215,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
 
         @Nonnull
         private DynamicMessage.Builder newMessageBuilderForType(@Nonnull DynamicSchema dynamicSchema) {
-            try {
-                return dynamicSchema.newMessageBuilder(protoTypeNameCache.get(dynamicSchema, () -> dynamicSchema.getProtoTypeName(getResultType())));
-            } catch (final ExecutionException ee) {
-                throw new RecordCoreException("unable to retrieve typename from type cache", ee);
-            }
+            return dynamicSchema.newMessageBuilder(dynamicSchema.getProtoTypeName(getResultType()));
         }
     }
 
