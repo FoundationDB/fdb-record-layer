@@ -245,7 +245,7 @@ public class MemoExpressionTest {
 
         @Nonnull
         @Override
-        public List<? extends Value> getResultValues() {
+        public List<? extends Value> getResultValue() {
             return ImmutableList.of();
         }
     }

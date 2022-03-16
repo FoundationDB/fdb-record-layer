@@ -83,6 +83,6 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
         final Quantifier.ForEach compensatedScanQuantifier = Quantifier.forEach(compensatedScanGraph);
         allQuantifiersBuilder.add(compensatedScanQuantifier);
 
-        return GroupExpressionRef.of(new SelectExpression(compensatedScanQuantifier.getFlowedValues(), allQuantifiersBuilder.build(), ImmutableList.of()));
+        return GroupExpressionRef.of(new SelectExpression(compensatedScanQuantifier.getFlowedObjectValue(), allQuantifiersBuilder.build(), ImmutableList.of()));
     }
 }

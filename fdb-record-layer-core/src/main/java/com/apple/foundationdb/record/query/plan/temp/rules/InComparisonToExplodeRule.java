@@ -169,7 +169,7 @@ public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
 
         transformedQuantifiers.addAll(bindings.getAll(innerQuantifierMatcher));
 
-        call.yield(call.ref(new SelectExpression(selectExpression.getResultValues(),
+        call.yield(call.ref(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
                 transformedPredicates.build())));
     }

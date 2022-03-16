@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
@@ -60,8 +59,6 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     private final Set<String> recordTypes;
     @Nonnull
     private final Quantifier inner;
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalExpression inner) {
         this(recordTypes, Quantifier.forEach(GroupExpressionRef.of(inner)));
@@ -70,13 +67,12 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner) {
         this.recordTypes = recordTypes;
         this.inner = inner;
-        this.resultValuesSupplier = inner::getFlowedValues;
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedObjectValue();
     }
 
     @Override

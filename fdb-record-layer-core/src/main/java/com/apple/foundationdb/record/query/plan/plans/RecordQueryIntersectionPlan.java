@@ -89,7 +89,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     private final boolean reverse;
 
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Supplier<Value> resultValueSupplier;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
@@ -100,7 +100,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         this.comparisonKey = comparisonKey;
         this.reverse = reverse;
 
-        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValueSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
     }
 
     @Nonnull
@@ -175,8 +175,8 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
     }
 
     @Override

@@ -98,7 +98,7 @@ public class OrToLogicalUnionRule extends PlannerRule<SelectExpression> {
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
-        final var resultValues = selectExpression.getResultValues();
+        final var resultValues = selectExpression.getResultValue();
         final var quantifiers = bindings.getAll(qunMatcher);
         final var orTermPredicates = bindings.getAll(orTermPredicateMatcher);
         final var relationalExpressionRefs = Lists.<ExpressionRef<RelationalExpression>>newArrayListWithCapacity(orTermPredicates.size());

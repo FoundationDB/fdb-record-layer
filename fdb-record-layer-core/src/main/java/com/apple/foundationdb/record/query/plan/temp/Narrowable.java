@@ -1,5 +1,5 @@
 /*
- * Typed.java
+ * Narrowable.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,28 +21,26 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 /**
- * Provides {@link Type} information about result set. Implementations of this interface allow the caller to inspect
- * the {@link Type} of their result sets.
+ * Narrow-able trait that can safely downcast to a particular implementation. Should be mixed in if supported.
+ * @param <T> type parameter
  */
-public interface Typed {
+public interface Narrowable<T> {
 
     /**
-     * Returns the {@link Type} of the result set.
-     * @return the {@link Type} of the result set.
-     */
-    @Nonnull
-    Type getResultType();
-
-    /**
-     * Returns a human-friendly textual representation of both the type-producing instance and its result set {@link Type}.
+     * Safe-casts the {@link Narrowable} instance to another type.
      *
-     * @param formatter The formatter used to format the textual representation.
-     * @return a human-friendly textual representation of both the type-producing instance and its result set {@link Type}.
+     * @param clazz marker object.
+     * @return if cast is successful, an {@link Optional} containing the instance cast to {@link T}, otherwise an
+     * empty {@link Optional}.
      */
-    @Nonnull
-    default String describe(@Nonnull final Formatter formatter) {
-        return getResultType().describe(formatter);
+    default <T1 extends T> Optional<T1> narrowMaybe(@Nonnull final Class<T1> clazz) {
+        if (clazz.isInstance(this)) {
+            return Optional.of(clazz.cast(this));
+        } else {
+            return Optional.empty();
+        }
     }
 }

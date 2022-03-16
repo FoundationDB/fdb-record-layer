@@ -219,8 +219,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue();
     }
 
     @Override

@@ -30,10 +30,12 @@ import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,6 +44,7 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -50,16 +53,22 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression implements RelationalExpression, InternalPlannerGraphRewritable {
     @Nonnull
-    private final Value resultValue;
+    private final Value collectionValue;
 
-    public ExplodeExpression(@Nonnull final Value resultValue) {
-        this.resultValue = resultValue;
+    public ExplodeExpression(@Nonnull final Value collectionValue) {
+        this.collectionValue = collectionValue;
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(resultValue);
+    public Value getResultValue() {
+        if (collectionValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY) {
+            final Type innerType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
+            return new QueriedValue(innerType);
+        } else {
+            // TODO currently needed for index candidate compilation
+            return new QueriedValue(Type.primitiveType(Type.TypeCode.UNKNOWN));
+        }
     }
 
     @Nonnull
@@ -71,7 +80,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return resultValue.getCorrelatedTo();
+        return collectionValue.getCorrelatedTo();
     }
 
     @Override
@@ -92,8 +101,8 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public ExplodeExpression rebase(@Nonnull final AliasMap translationMap) {
-        final Value rebasedResultValue = resultValue.rebase(translationMap);
-        if (rebasedResultValue == this.resultValue) {
+        final Value rebasedResultValue = collectionValue.rebase(translationMap);
+        if (rebasedResultValue == this.collectionValue) {
             return this;
         } else {
             return new ExplodeExpression(rebasedResultValue);
@@ -126,7 +135,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Override
     public String toString() {
-        return resultValue.toString();
+        return collectionValue.toString();
     }
 
     public static ExplodeExpression explodeField(@Nonnull final CorrelationIdentifier correlationIdentifier,

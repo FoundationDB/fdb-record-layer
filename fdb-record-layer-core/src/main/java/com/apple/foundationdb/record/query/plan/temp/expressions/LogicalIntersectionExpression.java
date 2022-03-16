@@ -68,7 +68,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     @Nonnull
     private final KeyExpression comparisonKey;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Supplier<Value> resultValueSupplier;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private LogicalIntersectionExpression(@Nonnull List<Quantifier.ForEach> quantifiers,
@@ -76,7 +76,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKey = comparisonKey;
 
-        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValueSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
     }
 
     @Nonnull
@@ -113,8 +113,8 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
     }
 
     @Override

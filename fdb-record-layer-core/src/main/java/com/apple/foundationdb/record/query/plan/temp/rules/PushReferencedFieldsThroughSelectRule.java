@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
@@ -74,7 +75,7 @@ public class PushReferencedFieldsThroughSelectRule extends PlannerRule<SelectExp
                 RelationalExpressionWithPredicates.fieldValuesFromPredicates(predicates);
 
         final Set<FieldValue> fieldValuesFromResultValues =
-                selectExpression.getFieldValuesFromResultValues();
+                getFieldValuesFromResultValues(selectExpression);
 
         final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
         final ImmutableSet<FieldValue> allReferencedValues = ImmutableSet.<FieldValue>builder()
@@ -87,5 +88,18 @@ public class PushReferencedFieldsThroughSelectRule extends PlannerRule<SelectExp
         call.pushRequirement(lowerRef,
                 ReferencedFieldsAttribute.REFERENCED_FIELDS,
                 new ReferencedFields(allReferencedValues));
+    }
+
+    /**
+     * Return all {@link FieldValue}s contained in the result values of this expression.
+     * @return a set of {@link FieldValue}s
+     */
+    private ImmutableSet<FieldValue> getFieldValuesFromResultValues(@Nonnull final SelectExpression selectExpression) {
+        return StreamSupport.stream(selectExpression
+                        .getResultValue()
+                        .filter(value -> value instanceof FieldValue)
+                        .spliterator(), false)
+                .map(value -> (FieldValue)value)
+                .collect(ImmutableSet.toImmutableSet());
     }
 }

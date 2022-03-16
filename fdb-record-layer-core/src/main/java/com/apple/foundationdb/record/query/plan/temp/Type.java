@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
  * Finally, {@link Type}s are non-referential, so two structural types are considered equal iff their structures
  * are equal.
  */
-public interface Type {
+public interface Type extends Narrowable<Type> {
     /**
      * A map from Java {@link Class} to corresponding {@link TypeCode}.
      */
@@ -101,20 +101,10 @@ public interface Type {
         return getTypeCode().isNumeric();
     }
 
-    /**
-     * Safe-casts the {@link Type} instance to another type.
-     *
-     * @param clazz marker object.
-     * @param <T> The type to cast to.
-     * @return if cast is successful, an {@link Optional} containing the instance cast to {@link T}, otherwise an
-     * empty {@link Optional}.
-     */
-    default <T extends Type> Optional<T> narrow(@Nonnull final Class<T> clazz) {
-        if (clazz.isInstance(this)) {
-            return Optional.of(clazz.cast(this));
-        } else {
-            return Optional.empty();
-        }
+    @Nonnull
+    default String describe(@Nonnull final Formatter formatter) {
+        // TODO make better
+        return toString();
     }
 
     /**
@@ -257,7 +247,7 @@ public interface Type {
     }
 
     /**
-     * Maps a {@link List} of {@link Typed} instance to a {@link List} of their {@link Type}s.
+     * Maps a {@link List} of {@link Typed} instances to a {@link List} of their {@link Type}s.
      * @param typedList The list of {@link Typed} objects.
      * @return The list of {@link Type}s.
      */
@@ -1030,9 +1020,9 @@ public interface Type {
     }
 
     /**
-     * Represents a stream of values.
+     * Represents a relational type.
      */
-    class Stream implements Type {
+    class Relation implements Type {
         /**
          * The type of the stream values.
          */
@@ -1040,18 +1030,18 @@ public interface Type {
         private final Type innerType;
 
         /**
-         * Constructs a new {@link Stream} object without an value type.
+         * Constructs a new {@link Relation} object without a value type.
          */
-        public Stream() {
+        public Relation() {
             this(null);
         }
 
         /**
-         * Constructs a new {@link Stream} object.
+         * Constructs a new {@link Relation} object.
          *
          * @param innerType The {@code Type} of the stream values.
          */
-        public Stream(@Nullable final Type innerType) {
+        public Relation(@Nullable final Type innerType) {
             this.innerType = innerType;
         }
 
@@ -1129,7 +1119,7 @@ public interface Type {
                 return false;
             }
 
-            final Stream otherType = (Stream)obj;
+            final Relation otherType = (Relation)obj;
 
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));

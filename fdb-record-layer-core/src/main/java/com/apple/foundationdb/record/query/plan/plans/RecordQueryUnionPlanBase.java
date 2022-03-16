@@ -71,7 +71,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     private final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Supplier<Value> resultValueSupplier;
 
     protected RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
         this(Quantifiers.fromPlans(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right))), reverse);
@@ -82,7 +82,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         Verify.verify(!quantifiers.isEmpty());
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.reverse = reverse;
-        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValueSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
     }
 
     @Nonnull
@@ -145,8 +145,8 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
     }
 
     @Override

@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -56,7 +55,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A query plan that removes duplicates by means of a hash table of previously seen values.
@@ -69,8 +67,6 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
     @Nonnull
     private final KeyExpression comparisonKey;
     @Nonnull
@@ -90,7 +86,6 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
                                              @Nonnull KeyExpression comparisonKey) {
         this.inner = inner;
         this.comparisonKey = comparisonKey;
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Nonnull
@@ -160,8 +155,8 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedObjectValue();
     }
 
     @Override

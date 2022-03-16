@@ -128,7 +128,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         }
         final var innerQuantifier = innerQuantifierOptional.get();
 
-        final List<? extends Value> resultValues = selectExpression.getResultValues();
+        final List<? extends Value> resultValues = selectExpression.getResultValue();
         if (resultValues.stream()
                 .anyMatch(resultValue ->
                         !(resultValue instanceof QuantifiedColumnValue) ||
@@ -144,7 +144,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
 
         for (final var explodeExpression : explodeExpressions) {
             final var explodeQuantifier = Objects.requireNonNull(explodeToQuantifierBiMap.getUnwrapped(explodeExpression));
-            final List<? extends Value> explodeResultValues = explodeExpression.getResultValues();
+            final List<? extends Value> explodeResultValues = explodeExpression.getResultValue();
             if (explodeResultValues.size() != 1) {
                 return;
             }
