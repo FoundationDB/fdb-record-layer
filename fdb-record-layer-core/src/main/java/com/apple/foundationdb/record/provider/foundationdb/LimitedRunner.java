@@ -35,14 +35,6 @@ public class LimitedRunner implements AutoCloseable {
 
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(LimitedRunner.class);
 
-    // TODO Combine all retry logic here
-    // there are 3 classes of failure:
-    //  1. decrease limit without retry (transaction too large)
-    //  2. retry, then decrease limit (lessenWorkCodes)
-    //  3. retry without decreasing (all other retriable)
-    // Increase after N successes like it does now, but we'll probably want to improve later
-
-
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
     private static final Set<Integer> lessenWorkCodes = Set.of(
@@ -203,22 +195,6 @@ public class LimitedRunner implements AutoCloseable {
     public LimitedRunner setMaxDecreaseRetries(final int maxDecreases) {
         this.maxDecreaseRetries = maxDecreases;
         return this;
-    }
-
-    @Override
-    public String toString() {
-        final StringBuilder sb = new StringBuilder("LimitedRunner{");
-        sb.append("currentLimit:").append(currentLimit);
-        sb.append(", maxLimit:").append(maxLimit);
-        sb.append(", increaseLimitAfter:").append(increaseLimitAfter);
-        sb.append(", decreaseLimitAfter:").append(decreaseLimitAfter);
-        sb.append(", maxDecreaseRetries:").append(maxDecreaseRetries);
-        sb.append(", successCount:").append(successCount);
-        sb.append(", retriesWithoutDecreasing:").append(retriesWithoutDecreasing);
-        sb.append(", decreaseRetries:").append(decreaseRetries);
-        sb.append(", closed:").append(closed);
-        sb.append('}');
-        return sb.toString();
     }
 
     public interface Runner {
