@@ -136,6 +136,7 @@ public class AndOrValue implements BooleanValue {
         return Objects.requireNonNullElse(rightResult, false);
     }
 
+    @SuppressWarnings("java:S3776")
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         Verify.verify(leftChild instanceof BooleanValue);
