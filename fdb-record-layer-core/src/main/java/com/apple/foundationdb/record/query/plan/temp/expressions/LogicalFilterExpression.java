@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -45,7 +44,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A relational planner expression that represents an unimplemented filter on the records produced by its inner
@@ -58,14 +56,11 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     private final List<QueryPredicate> queryPredicates;
     @Nonnull
     private final Quantifier inner;
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public LogicalFilterExpression(@Nonnull Iterable<? extends QueryPredicate> queryPredicates,
                                    @Nonnull Quantifier inner) {
         this.queryPredicates = ImmutableList.copyOf(queryPredicates);
         this.inner = inner;
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Nonnull
@@ -121,8 +116,8 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedObjectValue();
     }
 
     @SuppressWarnings("UnstableApiUsage")

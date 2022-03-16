@@ -145,7 +145,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         // Create a new SelectExpression with just the non-eligible quantifiers.
         //
         final var lowerSelectExpression =
-                new SelectExpression(selectExpression.getResultValues(), partitionedQuantifiers.get(false), selectExpression.getPredicates());
+                new SelectExpression(selectExpression.getResultValue(), partitionedQuantifiers.get(false), selectExpression.getPredicates());
         final var lowerQuantifier = Quantifier.forEach(GroupExpressionRef.of(lowerSelectExpression));
 
         //
@@ -170,7 +170,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         }
 
         return selectExpression
-                .getResultValues()
+                .getResultValue()
                 .stream()
                 .noneMatch(value ->
                         value.narrowMaybe(QuantifiedValue.class)

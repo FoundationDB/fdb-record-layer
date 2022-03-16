@@ -155,7 +155,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             //
 
             // predicate on rank
-            final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValues().size() - 1);
+            final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValue().size() - 1);
             final var rankComparisonExpansion =
                     GraphExpansion.ofPredicateAndQuantifier(new ValuePredicate(rankColumnValue, comparison),
                             rankQuantifier);

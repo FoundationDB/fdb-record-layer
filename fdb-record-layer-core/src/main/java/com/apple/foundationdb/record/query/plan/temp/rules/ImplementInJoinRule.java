@@ -122,7 +122,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
         }
         final var innerQuantifier = innerQuantifierOptional.get();
 
-        final List<? extends Value> resultValues = selectExpression.getResultValues();
+        final List<? extends Value> resultValues = selectExpression.getResultValue();
         if (resultValues.stream()
                 .anyMatch(resultValue ->
                         !(resultValue instanceof QuantifiedColumnValue) ||
@@ -249,7 +249,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
             // and we have our hands on a particular explode expression leading us directly do the in source.
             //
 
-            final var explodeResultValues = explodeExpression.getResultValues();
+            final var explodeResultValues = explodeExpression.getResultValue();
             if (explodeResultValues.size() != 1) {
                 return ImmutableList.of();
             }
@@ -300,7 +300,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                         Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
                 final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
 
-                final var explodeResultValues = explodeExpression.getResultValues();
+                final var explodeResultValues = explodeExpression.getResultValue();
                 if (explodeResultValues.size() != 1) {
                     return ImmutableList.of();
                 }

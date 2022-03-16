@@ -76,7 +76,7 @@ public class NormalizePredicatesRule extends PlannerRule<SelectExpression> {
 
         cnfNormalizer.normalize(conjunctedPredicate, false)
                 .ifPresent(cnfPredicate ->
-                        call.yield(call.ref(new SelectExpression(selectExpression.getResultValues(),
+                        call.yield(call.ref(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
                                 AndPredicate.conjuncts(cnfPredicate)))));
 
@@ -86,7 +86,7 @@ public class NormalizePredicatesRule extends PlannerRule<SelectExpression> {
 
         dnfNormalizer.normalize(conjunctedPredicate, false)
                 .ifPresent(dnfPredicate ->
-                        call.yield(call.ref(new SelectExpression(selectExpression.getResultValues(),
+                        call.yield(call.ref(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
                                 ImmutableList.of(dnfPredicate)))));
     }

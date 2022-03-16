@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -45,7 +44,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * A query plan that executes a child plan once for each of the elements of some {@code IN} list.
@@ -69,9 +67,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Nonnull
     protected final Bindings.Internal internal;
 
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
-
     protected RecordQueryInJoinPlan(@Nonnull final Quantifier.Physical inner,
                                     @Nonnull final InSource inSource,
                                     @Nonnull final Bindings.Internal internal) {
@@ -79,7 +74,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
         this.inner = inner;
         this.inSource = inSource;
         this.internal = internal;
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Nonnull
@@ -136,8 +130,8 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedObjectValue();
     }
 
     @Override

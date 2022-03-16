@@ -172,7 +172,7 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
 
         RecordQueryPlan plan = RecordQuerySelectorPlan.from(plan(query1, query2), List.of(50, 50));
 
-        List<? extends Value> resultValues = plan.getResultValues();
+        List<? extends Value> resultValues = plan.getResultValue();
         assertThat(resultValues.size(), is(1));
         ValuePickerValue value = (ValuePickerValue)resultValues.get(0);
         List<Value> subValues = ImmutableList.copyOf(value.getChildren());

@@ -86,7 +86,7 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
+    public List<? extends Value> getResultValue() {
         return resultValuesSupplier.get();
     }
 

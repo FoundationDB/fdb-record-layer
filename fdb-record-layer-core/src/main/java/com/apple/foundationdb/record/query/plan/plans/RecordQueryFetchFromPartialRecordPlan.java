@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.DerivedValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -52,7 +51,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A query plan that transforms a stream of partial records (derived from index entries, as in the {@link RecordQueryCoveringIndexPlan})
@@ -65,7 +63,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Nonnull
     private final Quantifier.Physical inner;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Value resultValue;
     @Nonnull
     private final TranslateValueFunction translateValueFunction;
 
@@ -75,7 +73,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction) {
         this.inner = inner;
-        this.resultValuesSupplier = Suppliers.memoize(() -> ImmutableList.of(new DerivedValue(inner.getFlowedValues())));
+        this.resultValue = new DerivedValue(ImmutableList.of(inner.getFlowedObjectValue()));
         this.translateValueFunction = translateValueFunction;
     }
 
@@ -160,8 +158,8 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValue;
     }
 
     @Override

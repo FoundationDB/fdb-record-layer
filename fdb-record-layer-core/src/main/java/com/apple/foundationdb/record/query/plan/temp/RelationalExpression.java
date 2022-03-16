@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
-import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -44,7 +43,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -96,7 +94,7 @@ import java.util.stream.StreamSupport;
  * implementations of each.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RelationalExpression extends Correlated<RelationalExpression> {
+public interface RelationalExpression extends Correlated<RelationalExpression>, Typed, Narrowable<RelationalExpression> {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
                                                 @Nonnull RecordQuery query) {
@@ -153,32 +151,17 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
     }
 
     @Nonnull
-    List<? extends Value> getResultValues();
-
-    /**
-     * Return all {@link FieldValue}s contained in the result values of this expression.
-     * @return a set of {@link FieldValue}s
-     */
-    default ImmutableSet<FieldValue> getFieldValuesFromResultValues() {
-        return getResultValues()
-                .stream()
-                .flatMap(resultValue ->
-                        StreamSupport.stream(resultValue
-                                .filter(v -> v instanceof FieldValue).spliterator(), false))
-                .map(value -> (FieldValue)value)
-                .collect(ImmutableSet.toImmutableSet());
+    @Override
+    default Type.Relation getResultType() {
+        return new Type.Relation(getResultValue().getResultType());
     }
+
+    @Nonnull
+    Value getResultValue();
 
     @SuppressWarnings({"java:S3655", "UnstableApiUsage"})
     default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
-        final List<? extends Value> resultValues = getResultValues();
-        final List<? extends Value> otherResultValues = otherExpression.getResultValues();
-        if (resultValues.size() != otherResultValues.size()) {
-            return false;
-        }
-        return Streams.zip(resultValues.stream(), otherResultValues.stream(),
-                (resultValue, otherResultValue) -> resultValue.semanticEquals(otherResultValue, aliasMap))
-                .allMatch(isEquals -> isEquals);
+        return getResultValue().semanticEquals(otherExpression.getResultValue(), aliasMap);
     }
 
     /**
