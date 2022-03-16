@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.CreatesDynamicTypesValue;
 import com.apple.foundationdb.record.query.plan.temp.Formatter;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.ScalarTranslationVisitor;
@@ -74,6 +75,33 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @Override
     default Type getResultType() {
         return Type.primitiveType(Type.TypeCode.UNKNOWN);
+    }
+
+    /**
+     * Iterates over the entire expression tree collecting a set of all dynamically-generated types.
+     * A {@link Type} could be generated dynamically by a {@link Value} that e.g. encapsulates children {@link Type}s
+     * into a single structured type such as a {@link com.apple.foundationdb.record.query.plan.temp.Type.Record}.
+     *
+     * For more information, check implementations of {@link CreatesDynamicTypesValue} interface.
+     *
+     * @return A set of dynamically-generated {@link Type} by this {@link Value} and all of its children.
+     */
+    @SuppressWarnings("java:S4738")
+    @Nonnull
+    default Set<Type> getDynamicTypes() {
+        return fold(p -> {
+            if (p instanceof CreatesDynamicTypesValue) {
+                return ImmutableSet.of(p.getResultType());
+            }
+            return ImmutableSet.<Type>of();
+        }, (thisTypes, childTypeSets) -> {
+            final ImmutableSet.Builder<Type> nestedBuilder = ImmutableSet.builder();
+            for (final Set<Type> childTypes : childTypeSets) {
+                nestedBuilder.addAll(childTypes);
+            }
+            nestedBuilder.addAll(thisTypes);
+            return nestedBuilder.build();
+        });
     }
 
     /**
