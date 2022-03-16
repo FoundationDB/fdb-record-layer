@@ -96,6 +96,8 @@ public class IndexingThrottle {
                     }
                     // Update records scanned.
                     if (exception == null) {
+                        // this is only used for logging, I believe the intent is to indicate some sort of progress
+                        // as the index build proceeds
                         common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
                     } else {
                         recordsScanned.set(0);

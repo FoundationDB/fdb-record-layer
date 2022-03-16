@@ -393,6 +393,7 @@ public class IndexingByRecords extends IndexingBase {
                             LogMessageKeys.INDEXER_ID, common.getUuid(),
                             LogMessageKeys.LIMIT, limit);
                     // TODO check index state
+                    // TODO if the transaction succeeds increment common.getTotalRecordsScanned()
                     return common.runAsyncInStore(
                                     store -> buildUnbuiltRange(store, startTuple, endTuple, recordsScanned, limit),
                                     additionalLogMessageKeyValues)

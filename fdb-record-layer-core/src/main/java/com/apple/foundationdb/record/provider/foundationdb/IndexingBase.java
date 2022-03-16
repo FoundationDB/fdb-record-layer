@@ -780,6 +780,7 @@ public abstract class IndexingBase {
                 limit -> {
                     reloadAndApplyConfig(limitedRunner);
                     // TODO check index state
+                    // TODO if the transaction succeeds increment common.getTotalRecordsScanned()
                     return common.runAsyncInStore(
                                     store -> iterateRange.consume(store, recordsScanned, limit),
                                     logMessageKeyValues)
