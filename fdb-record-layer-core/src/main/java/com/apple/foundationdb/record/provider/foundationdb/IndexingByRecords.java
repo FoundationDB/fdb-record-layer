@@ -372,7 +372,7 @@ public class IndexingByRecords extends IndexingBase {
                                                 @Nonnull RangeSet rangeSet, @Nonnull Queue<Range> rangeDeque) {
         // TODO can this use `iterateAllRanges`?
         AtomicLong recordsScanned = new AtomicLong(0);
-        final LimitedRunner limitedRunner = new LimitedRunner(common.config.getMaxLimit(), common.config.getIncreaseLimitAfter());
+        final LimitedRunner limitedRunner = common.createRunner();
         return limitedRunner.runAsync(
                 limit -> {
                     if (rangeDeque.isEmpty()) {

@@ -234,6 +234,13 @@ public class IndexingCommon {
                 additionalLogMessageKeyValues);
     }
 
+    @Nonnull LimitedRunner createRunner() {
+        return new LimitedRunner(config.getMaxLimit())
+                .setIncreaseLimitAfter(config.getIncreaseLimitAfter())
+                .setDecreaseLimitAfter(getRunner().getMaxAttempts())
+                .setMaxDecreaseRetries(config.getMaxRetries());
+    }
+
     @Nullable
     public SynchronizedSessionRunner getSynchronizedSessionRunner() {
         return synchronizedSessionRunner;

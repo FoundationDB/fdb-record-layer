@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -30,6 +32,16 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class LimitedRunner implements AutoCloseable {
+
+    @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(LimitedRunner.class);
+
+    // TODO Combine all retry logic here
+    // there are 3 classes of failure:
+    //  1. decrease limit without retry (transaction too large)
+    //  2. retry, then decrease limit (lessenWorkCodes)
+    //  3. retry without decreasing (all other retriable)
+    // Increase after N successes like it does now, but we'll probably want to improve later
+
 
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
@@ -41,36 +53,48 @@ public class LimitedRunner implements AutoCloseable {
             FDBError.COMMIT_READ_INCOMPLETE.code(),
             FDBError.TRANSACTION_TOO_LARGE.code());
 
-    private int currentLimit;
-    private int maxLimit;
-    private int retriesAtMinimum = 0;
+    public static final int DO_NOT_INCREASE_LIMIT = -1;
+
+    private int currentLimit = 100;
+    private int maxLimit = 100;
+    private int increaseLimitAfter = DO_NOT_INCREASE_LIMIT;
+    private int decreaseLimitAfter = 10;
+    private int maxDecreaseRetries = 100;
     private int successCount = 0;
-    private int increaseLimitAfter;
-    private int maxRetriesAtMinimum = 10; // maybe this should be configurable
+    private int retriesWithoutDecreasing = 0;
+    private int decreaseRetries = 0;
     private boolean closed = false;
 
-    public LimitedRunner(final int maxLimit, final int increaseLimitAfter) {
+    public LimitedRunner(final int maxLimit) {
         this.currentLimit = maxLimit;
         this.maxLimit = maxLimit;
-        this.increaseLimitAfter = increaseLimitAfter;
     }
 
     public CompletableFuture<Void> runAsync(Runner runner) {
         final CompletableFuture<Void> overallResult = new CompletableFuture<>();
+        successCount = 0;
+        decreaseRetries = 0;
+        retriesWithoutDecreasing = 0;
         AsyncUtil.whileTrue(() -> {
             if (closed) {
                 overallResult.completeExceptionally(new FDBDatabaseRunner.RunnerClosed());
                 return AsyncUtil.READY_FALSE;
             }
-            return runner.runAsync(currentLimit)
-                    .handle((shouldContinue, error) -> handle(overallResult, shouldContinue, error));
+            try {
+                return runner.runAsync(currentLimit)
+                        .handle((shouldContinue, error) -> handle(overallResult, shouldContinue, error));
+            } catch (RuntimeException e) {
+                return CompletableFuture.completedFuture(handle(overallResult, true, e));
+            }
         });
         return overallResult;
     }
 
     private Boolean handle(final CompletableFuture<Void> overallResult, final Boolean shouldContinue, final Throwable error) {
         if (error == null) {
-            // TODO indexer tracks records scanned only for successful
+            // TODO indexer also counts failures that occur in the inner-runner
+            decreaseRetries = 0;
+            successCount++;
             maybeIncreaseLimit();
             if (!shouldContinue) {
                 overallResult.complete(null);
@@ -78,6 +102,7 @@ public class LimitedRunner implements AutoCloseable {
             return shouldContinue;
         } else {
             successCount = 0;
+            decreaseRetries++;
             if (!maybeDecreaseLimit(error)) {
                 overallResult.completeExceptionally(error);
                 return false;
@@ -89,19 +114,39 @@ public class LimitedRunner implements AutoCloseable {
 
     private boolean maybeDecreaseLimit(final Throwable error) {
         FDBException fdbException = getFDBException(error);
+        // TODO retry without decreasing
+        if (isRetryable(fdbException)) {
+            retriesWithoutDecreasing++;
+            if (retriesWithoutDecreasing < decreaseLimitAfter) {
+                return true;
+            }
+        }
         if (fdbException != null && lessenWorkCodes.contains(fdbException.getCode())) {
-            if (currentLimit == 1) {
-                retriesAtMinimum++;
-                return retriesAtMinimum < maxRetriesAtMinimum;
+            if (decreaseRetries > maxDecreaseRetries) {
+                return false;
             } else {
-                // TODO should we delay ?
+                retriesWithoutDecreasing = 0;
+                // TODO delay here
                 // TODO log
                 //      does the log need to include logging details from the runner
                 currentLimit = Math.max(1, (3 * currentLimit) / 4);
                 return true;
             }
+            // TODO else if isRetriable successCount=0; return true;
         } else {
             // Not something to lessen work, so don't retry
+            return false;
+        }
+    }
+
+    private boolean isRetryable(final FDBException fdbException) {
+        // FDBException.isRetryable requires the api version to be set, otherwise it throws IllegalStateException
+        // we catch it here, because otherwise, we would just not complete the future ever.
+        // We won't complete with this exception, we'll just fail with the original exception
+        try {
+            return fdbException.isRetryable();
+        } catch (IllegalStateException e) {
+            LOGGER.warn("Failed to check if exception is retryable", e);
             return false;
         }
     }
@@ -123,7 +168,6 @@ public class LimitedRunner implements AutoCloseable {
     }
 
     private void maybeIncreaseLimit() {
-        successCount++;
         if (successCount >= increaseLimitAfter && currentLimit < maxLimit) {
             currentLimit = Math.min(maxLimit, Math.max(currentLimit + 1, (4 * currentLimit) / 3));
             // TODO log
@@ -136,17 +180,45 @@ public class LimitedRunner implements AutoCloseable {
         this.closed = true;
     }
 
-    public void setMaxLimit(final int maxLimit) {
+    public LimitedRunner setMaxLimit(final int maxLimit) {
         // TODO does this need to protect for multiple threads
         this.maxLimit = maxLimit;
         if (currentLimit > maxLimit) {
             currentLimit = maxLimit;
         }
+        return this;
     }
 
-    public void setIncreaseLimitAfter(final int increaseLimitAfter) {
+    public LimitedRunner setIncreaseLimitAfter(final int increaseLimitAfter) {
         // TODO does this need to protect for multiple threads
         this.increaseLimitAfter = increaseLimitAfter;
+        return this;
+    }
+
+    public LimitedRunner setDecreaseLimitAfter(final int decreaseLimitAfter) {
+        this.decreaseLimitAfter = decreaseLimitAfter;
+        return this;
+    }
+
+    public LimitedRunner setMaxDecreaseRetries(final int maxDecreases) {
+        this.maxDecreaseRetries = maxDecreases;
+        return this;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("LimitedRunner{");
+        sb.append("currentLimit:").append(currentLimit);
+        sb.append(", maxLimit:").append(maxLimit);
+        sb.append(", increaseLimitAfter:").append(increaseLimitAfter);
+        sb.append(", decreaseLimitAfter:").append(decreaseLimitAfter);
+        sb.append(", maxDecreaseRetries:").append(maxDecreaseRetries);
+        sb.append(", successCount:").append(successCount);
+        sb.append(", retriesWithoutDecreasing:").append(retriesWithoutDecreasing);
+        sb.append(", decreaseRetries:").append(decreaseRetries);
+        sb.append(", closed:").append(closed);
+        sb.append('}');
+        return sb.toString();
     }
 
     public interface Runner {
