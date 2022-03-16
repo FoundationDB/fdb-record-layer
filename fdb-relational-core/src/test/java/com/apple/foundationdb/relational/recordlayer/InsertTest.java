@@ -82,7 +82,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
@@ -182,7 +182,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
@@ -200,7 +200,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/insert_test"), Options.create())) {
             conn.setSchema("doesNotExist");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {

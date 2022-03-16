@@ -53,7 +53,7 @@ import java.util.Collections;
 public class RecordTypeKeyTest {
     @RegisterExtension
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
-    final URI dbUrl = URI.create("rlsc:embed:///type_key_db");
+    final URI dbUrl = URI.create("jdbc:embed:///type_key_db");
 
     @BeforeEach
     public final void setupCatalog() throws RelationalException {

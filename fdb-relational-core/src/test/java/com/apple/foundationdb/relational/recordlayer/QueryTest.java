@@ -73,7 +73,7 @@ public class QueryTest {
 
     @Test
     void canExecuteABasicQuery() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (RelationalStatement s = dbConn.createStatement()) {
@@ -92,7 +92,7 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumns() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (RelationalStatement s = dbConn.createStatement()) {
@@ -115,7 +115,7 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumnsWithSimpleWhereClause() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (RelationalStatement s = dbConn.createStatement()) {
@@ -135,7 +135,7 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumnsWithOrClause() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (RelationalStatement s = dbConn.createStatement()) {
@@ -157,7 +157,7 @@ public class QueryTest {
 
     @Test
     void canQuerySpecificColumnsWithAndClause() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/query_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:/query_test"), Options.create())) {
             dbConn.setSchema("test");
             Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
             try (RelationalStatement s = dbConn.createStatement()) {

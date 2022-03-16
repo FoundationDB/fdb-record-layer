@@ -55,7 +55,7 @@ public class DatabaseRule implements BeforeEachCallback, AfterEachCallback {
     }
 
     public URI getConnectionUri() {
-        return URI.create("rlsc:embed:/" + dbName);
+        return URI.create("jdbc:embed:/" + dbName);
     }
 
     public String getPathString() {

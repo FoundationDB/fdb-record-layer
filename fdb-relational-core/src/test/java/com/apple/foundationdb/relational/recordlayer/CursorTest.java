@@ -247,7 +247,7 @@ public class CursorTest {
 
     private void havingInsertedRecordsDo(int numRecords,
                                          BiConsumer<Iterable<Restaurant.RestaurantRecord>, RelationalStatement> test) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {

@@ -41,10 +41,9 @@ public final class Relational {
     }
 
     public static RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
-        //all connection URLs should start with "rlsc" to represent "relational layer service connection",
-        // so we strip that out from the URI and pass the remainder in
+        // All connection URLs should start with "jdbc" so we strip that out from the URI and pass the remainder in
         String scheme = url.getScheme();
-        if (!"rlsc".equalsIgnoreCase(scheme)) {
+        if (!"jdbc".equalsIgnoreCase(scheme)) {
             throw new RelationalException("Unable to connect to url <" + url + ">: invalid scheme <" + scheme + ">", ErrorCode.INVALID_PATH);
         }
         URI nonSchemeUri = URI.create(url.toString().substring(5));

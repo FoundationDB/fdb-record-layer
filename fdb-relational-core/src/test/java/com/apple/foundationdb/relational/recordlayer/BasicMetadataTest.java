@@ -75,7 +75,7 @@ public class BasicMetadataTest {
 
     @Test
     void canGetSchemasForDatabase() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
 
@@ -92,7 +92,7 @@ public class BasicMetadataTest {
 
     @Test
     void canGetTablesForSchema() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
 
@@ -108,7 +108,7 @@ public class BasicMetadataTest {
 
     @Test
     void canGetTableColumns() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
 
@@ -135,7 +135,7 @@ public class BasicMetadataTest {
 
     @Test
     void canDescribeTable() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(URI.create("rlsc:embed:/basic_metadata_test"), Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:/basic_metadata_test"), Options.create())) {
             final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
             Assertions.assertNotNull(metaData, "Null metadata returned");
 

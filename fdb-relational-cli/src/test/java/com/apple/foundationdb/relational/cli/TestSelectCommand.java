@@ -43,7 +43,7 @@ class TestSelectCommand {
                     "{\"rest_no\":\"42\",\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}",
                     "{\"rest_no\":\"43\",\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}",
                     "{\"rest_no\":\"44\",\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}");
-            TestUtils.runCommand("connect rlsc:embed:/test_select_command_db", cli);
+            TestUtils.runCommand("connect jdbc:embed:/test_select_command_db", cli);
             TestUtils.runCommand("config --no-pretty-print", cli);
             TestUtils.runCommand("config --delimiter ####", cli);
             TestUtils.runCommand("setschema test_select_schema", cli);

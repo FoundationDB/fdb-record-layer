@@ -34,7 +34,7 @@ class TestInsertCommand {
     void testInsert() throws RelationalException {
         try {
             TestUtils.runCommand("createdb --path /test_insert_db --schema test_insert_schema --schema-template com.apple.foundationdb.record.Restaurant", cli);
-            TestUtils.runCommand("connect rlsc:embed:/test_insert_db", cli);
+            TestUtils.runCommand("connect jdbc:embed:/test_insert_db", cli);
             TestUtils.runCommand("config --no-pretty-print", cli);
             TestUtils.runCommand("setschema test_insert_schema", cli);
             String insertRecord = "{\"rest_no\":\"42\",\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}";

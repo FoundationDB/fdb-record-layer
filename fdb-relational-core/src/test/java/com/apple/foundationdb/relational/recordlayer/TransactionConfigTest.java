@@ -68,7 +68,7 @@ public class TransactionConfigTest {
 
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
-        final URI dbUrl = URI.create("rlsc:embed:/record_layer_transaction_config_test");
+        final URI dbUrl = URI.create("jdbc:embed:/record_layer_transaction_config_test");
         try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction(testTransactionConfig());
             conn.setSchema("test");

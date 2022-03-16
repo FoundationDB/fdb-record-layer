@@ -47,7 +47,7 @@ class TestListSchemasCommand {
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaA", "RestaurantRecord", "RestaurantReviewer");
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaB", "RestaurantRecord", "RestaurantReviewer");
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaC", "RestaurantRecord", "RestaurantReviewer");
-            TestUtils.runCommand("connect rlsc:embed:/test_list_schemas_db", cli);
+            TestUtils.runCommand("connect jdbc:embed:/test_list_schemas_db", cli);
             TestUtils.runCommand("config --no-pretty-print", cli);
             Assertions.assertEquals(Set.of("testSchemaA", "testSchemaB", "testSchemaC"),
                     Arrays.stream(TestUtils.runCommandGetOutput("listschemas", cli).split("\\s+")).collect(Collectors.toSet()));
@@ -62,7 +62,7 @@ class TestListSchemasCommand {
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaC --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaD --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaE --schema-template com.apple.foundationdb.record.Restaurant", cli);
-            TestUtils.runCommand("connect rlsc:embed:/test_list_schemas_db", cli);
+            TestUtils.runCommand("connect jdbc:embed:/test_list_schemas_db", cli);
             TestUtils.runCommand("config --no-pretty-print", cli);
             Assertions.assertEquals(Set.of("testSchemaC", "testSchemaD", "testSchemaE"),
                     Arrays.stream(TestUtils.runCommandGetOutput("listschemas", cli).split("\\s+")).collect(Collectors.toSet()));

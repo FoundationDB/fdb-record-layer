@@ -161,7 +161,7 @@ public class QueryPropertiesTest {
     }
 
     List<Long> testScan(QueryProperties queryProperties, long firstRestNo) throws RelationalException, SQLException {
-        final URI dbUrl = URI.create("rlsc:embed:/record_layer_query_properties_test");
+        final URI dbUrl = URI.create("jdbc:embed:/record_layer_query_properties_test");
         try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");

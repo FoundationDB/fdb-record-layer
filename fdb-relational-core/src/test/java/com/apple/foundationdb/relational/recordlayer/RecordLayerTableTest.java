@@ -73,7 +73,7 @@ public class RecordLayerTableTest {
 
     @Test
     void canInsertAndGetASingleRecord() throws RelationalException, SQLException {
-        final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
+        final URI dbUrl = URI.create("jdbc:embed:/record_layer_table_test");
         try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
@@ -105,7 +105,7 @@ public class RecordLayerTableTest {
 
     @Test
     void canDeleteASingleRecord() throws RelationalException, SQLException {
-        final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
+        final URI dbUrl = URI.create("jdbc:embed:/record_layer_table_test");
         try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
@@ -146,7 +146,7 @@ public class RecordLayerTableTest {
 
     @Test
     void canInsertAndScanASingleRecordFromIndex() throws Exception {
-        URI uri = URI.create("rlsc:embed:/record_layer_table_test");
+        URI uri = URI.create("jdbc:embed:/record_layer_table_test");
         try (RelationalConnection conn = Relational.connect(uri, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
@@ -177,7 +177,7 @@ public class RecordLayerTableTest {
 
     @Test
     void canInsertAndScanASingleRecord() throws Exception {
-        final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
+        final URI dbUrl = URI.create("jdbc:embed:/record_layer_table_test");
         try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
@@ -207,7 +207,7 @@ public class RecordLayerTableTest {
 
     @Test
     void demo() throws RelationalException, SQLException {
-        final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
+        final URI dbUrl = URI.create("jdbc:embed:/record_layer_table_test");
 
         try (RelationalConnection conn = Relational.connect(dbUrl, null, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
