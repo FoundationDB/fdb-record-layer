@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 public class LimitedRunner implements AutoCloseable {
 
@@ -47,6 +48,7 @@ public class LimitedRunner implements AutoCloseable {
 
     public static final int DO_NOT_INCREASE_LIMIT = -1;
 
+    private final Executor executor;
     private int currentLimit = 100;
     private int maxLimit = 100;
     private int increaseLimitAfter = DO_NOT_INCREASE_LIMIT;
@@ -57,7 +59,8 @@ public class LimitedRunner implements AutoCloseable {
     private int decreaseRetries = 0;
     private boolean closed = false;
 
-    public LimitedRunner(final int maxLimit) {
+    public LimitedRunner(final Executor executor, final int maxLimit) {
+        this.executor = executor;
         this.currentLimit = maxLimit;
         this.maxLimit = maxLimit;
     }
@@ -78,7 +81,7 @@ public class LimitedRunner implements AutoCloseable {
             } catch (RuntimeException e) {
                 return CompletableFuture.completedFuture(handle(overallResult, true, e));
             }
-        });
+        }, executor);
         return overallResult;
     }
 

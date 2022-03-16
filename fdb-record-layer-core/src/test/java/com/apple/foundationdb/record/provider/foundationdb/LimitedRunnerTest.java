@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -49,6 +51,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 // never completing
 @Timeout(value = 2, unit = TimeUnit.SECONDS)
 class LimitedRunnerTest {
+
+    private Executor executor = ForkJoinPool.commonPool();
+
     @BeforeAll
     static void beforeAll() {
         // We do this because checking whether an exception is retryable or not requires the version to be set
@@ -58,7 +63,7 @@ class LimitedRunnerTest {
     @Test
     void completesInOnePass() {
         List<Integer> limits = new ArrayList<>();
-        new LimitedRunner(10).runAsync(limit -> {
+        new LimitedRunner(executor, 10).runAsync(limit -> {
             limits.add(limit);
             return AsyncUtil.READY_FALSE;
         }).join();
@@ -68,7 +73,7 @@ class LimitedRunnerTest {
     @Test
     void loopsSuccessfully() {
         List<Integer> limits = new ArrayList<>();
-        new LimitedRunner(10).runAsync(limit -> {
+        new LimitedRunner(executor, 10).runAsync(limit -> {
             limits.add(limit);
             return limits.size() < 20 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
         }).join();
@@ -83,7 +88,7 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(retriableNonLessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(10)
+                () -> new LimitedRunner(executor, 10)
                         .setDecreaseLimitAfter(3)
                         .runAsync(limit -> {
                             limits.add(limit);
@@ -102,7 +107,7 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(10).runAsync(limit -> {
+                () -> new LimitedRunner(executor, 10).runAsync(limit -> {
                     limits.add(limit);
                     return exceptionStyle.hasMore(cause);
                 }).join());
@@ -120,7 +125,7 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(retryAndLessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(10)
+                () -> new LimitedRunner(executor, 10)
                         .setDecreaseLimitAfter(3)
                         .runAsync(limit -> {
                             limits.add(limit);
@@ -156,7 +161,7 @@ class LimitedRunnerTest {
         //           F                 F
         // Note: I'm picking an even multiple of 4 here, because we do 3/4 decrease and 4/3 and this means there's
         // no rounding
-        new LimitedRunner(12).setIncreaseLimitAfter(3).runAsync(limit -> {
+        new LimitedRunner(executor, 12).setIncreaseLimitAfter(3).runAsync(limit -> {
             limits.add(limit);
             if (limits.size() % 5 == 4) {
                 return exceptionStyle.hasMore(cause);
@@ -185,7 +190,7 @@ class LimitedRunnerTest {
         AtomicBoolean increasing = new AtomicBoolean(false);
         final int maxLimit = 93;
         final int minLimit = 1;
-        new LimitedRunner(maxLimit).setIncreaseLimitAfter(5).runAsync(limit -> {
+        new LimitedRunner(executor, maxLimit).setIncreaseLimitAfter(5).runAsync(limit -> {
             limits.add(limit);
             if (limit == maxLimit) {
                 increasing.set(false);
@@ -241,7 +246,7 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(10).runAsync(limit -> {
+                () -> new LimitedRunner(executor, 10).runAsync(limit -> {
                     limits.add(limit);
                     return exceptionStyle.hasMore(cause);
                 }).join());

@@ -235,7 +235,7 @@ public class IndexingCommon {
     }
 
     @Nonnull LimitedRunner createRunner() {
-        return new LimitedRunner(config.getMaxLimit())
+        return new LimitedRunner(runner.getExecutor(), config.getMaxLimit())
                 .setIncreaseLimitAfter(config.getIncreaseLimitAfter())
                 .setDecreaseLimitAfter(getRunner().getMaxAttempts())
                 .setMaxDecreaseRetries(config.getMaxRetries());
