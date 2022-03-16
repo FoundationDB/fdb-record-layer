@@ -30,7 +30,7 @@ import java.util.List;
 public interface EncapsulationFunction<T extends Typed> {
 
     /**
-     * Produces a {@link Typed} object that is able to carry a computation against a list of arguments.
+     * Produces a {@link Typed} object that is able to carry out a computation against a list of arguments.
      *
      * @param parserContext The parsing context.
      * @param builtInFunction The function that refers to the computation.

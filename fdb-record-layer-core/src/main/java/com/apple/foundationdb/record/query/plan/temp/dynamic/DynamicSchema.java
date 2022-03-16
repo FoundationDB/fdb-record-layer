@@ -46,7 +46,10 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * DynamicSchema.
+ * A utility class that enables mapping of a structured {@link Type} into a dynamically-generated equivalent Protobuf message.
+ *
+ * The generation cost is amortized, i.e. if two {@link Type}s are equal, then only a single Protobuf message will be
+ * generated.
  */
 public class DynamicSchema {
     public static final DynamicSchema EMPTY_SCHEMA = empty();
@@ -387,11 +390,6 @@ public class DynamicSchema {
             return this;
         }
 
-        public Builder addMessageDefinition(MessageDefinition msgDef) {
-            fileDescProtoBuilder.addMessageType(msgDef.getMessageType());
-            return this;
-        }
-
         public Builder addType(@Nonnull final Type type) {
             if (type.isPrimitive()) {
                 throw new IllegalArgumentException("unexpected primitive type " + type.getTypeCode());
@@ -401,11 +399,6 @@ public class DynamicSchema {
                 fileDescProtoBuilder.addMessageType(type.buildDescriptor(protoTypeName));
                 return protoTypeName;
             });
-            return this;
-        }
-
-        public Builder addEnumDefinition(EnumDefinition enumDef) {
-            fileDescProtoBuilder.addEnumType(enumDef.getEnumType());
             return this;
         }
 

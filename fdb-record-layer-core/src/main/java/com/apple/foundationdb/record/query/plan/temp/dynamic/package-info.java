@@ -19,6 +19,6 @@
  */
 
 /**
- * Code to create dynamic messages using protobuf.
+ * Code to create dynamic messages from structured {@link com.apple.foundationdb.record.query.plan.temp.Type}s using protobuf.
  */
 package com.apple.foundationdb.record.query.plan.temp.dynamic;

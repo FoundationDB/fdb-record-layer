@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
@@ -32,6 +35,7 @@ import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,6 +43,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -64,9 +70,47 @@ class BooleanValueTest {
     private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 2.0);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
+    private static final ThrowsValue THROWS_VALUE = new ThrowsValue();
     private static final DynamicSchema.Builder dynamicSchemaBuilder = DynamicSchema.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
     private static final ParserContext parserContext = new ParserContext(null, dynamicSchemaBuilder, null, null);
+
+    @SuppressWarnings("ConstantConditions")
+    static class ThrowsValue implements BooleanValue {
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            return 0;
+        }
+
+        @Override
+        public int semanticHashCode() {
+            return 0;
+        }
+
+        @Nonnull
+        @Override
+        public Iterable<? extends Value> getChildren() {
+            return null;
+        }
+
+        @Nonnull
+        @Override
+        public Value withChildren(final Iterable<? extends Value> newChildren) {
+            return null;
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+            throw new RuntimeException("Should not be called!");
+        }
+
+        @Override
+        public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+            return Optional.empty();
+        }
+    }
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
@@ -397,8 +441,14 @@ class BooleanValueTest {
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrValue.OrFn(), new OrPredicate(List.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.OrValue.OrFn(), ConstantPredicate.TRUE)
-                    );
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.OrValue.OrFn(), ConstantPredicate.TRUE),
+
+                    /* lazy evaluation tests */
+                    Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
+                            THROWS_VALUE), new AndOrValue.AndValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
+                            THROWS_VALUE), new AndOrValue.OrValue.OrFn(), ConstantPredicate.TRUE)
+            );
         }
     }
 
