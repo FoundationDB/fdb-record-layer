@@ -126,7 +126,7 @@ public class LiteralValue<T> implements LeafValue {
 
     @Nonnull
     @Override
-    public String describe(@Nonnull final Formatter formatter) {
+    public String explain(@Nonnull final Formatter formatter) {
         return formatLiteral(resultType, Comparisons.toPrintable(value));
     }
 

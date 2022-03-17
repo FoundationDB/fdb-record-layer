@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -111,6 +112,15 @@ public abstract class WindowedValue implements Value {
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return getName() + "(" +
+               argumentValues.stream().map(a -> a.explain(formatter)).collect(Collectors.joining(", ")) + " PARTITION BY [" +
+               partitioningValues.stream().map(a -> a.explain(formatter)).collect(Collectors.joining(", ")) +
+               "])";
     }
 
     @Override

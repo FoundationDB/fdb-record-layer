@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.CreatesDynamicTypesValue;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.Narrowable;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -103,6 +104,18 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             nestedBuilder.addAll(thisTypes);
             return nestedBuilder.build();
         });
+    }
+
+
+    /**
+     * Returns a human-friendly textual representation of this {@link Value}.
+     *
+     * @param formatter The formatter used to format the textual representation.
+     * @return a human-friendly textual representation of this {@link Value}.
+     */
+    @Nonnull
+    default String explain(@Nonnull final Formatter formatter) {
+        throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
     }
 
     /**
