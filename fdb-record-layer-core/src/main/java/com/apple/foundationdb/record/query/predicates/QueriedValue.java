@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
 import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.common.collect.ImmutableSet;
 
@@ -81,6 +82,12 @@ public class QueriedValue implements LeafValue, Value.CompileTimeValue {
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         return PlanHashable.objectsPlanHash(hashKind, BASE_HASH);
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "base()";
     }
 
     @Override

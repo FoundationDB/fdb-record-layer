@@ -77,7 +77,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public String describe(@Nonnull final Formatter formatter) {
+    public String explain(@Nonnull final Formatter formatter) {
         return formatter.getQuantifierName(alias) + "#" + ordinalPosition;
     }
 

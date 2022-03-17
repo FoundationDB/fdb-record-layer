@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -106,5 +108,17 @@ public class RecordTypeValue implements QuantifiedValue {
             return getAlias().equals(((QuantifiedValue)otherValue).getAlias());
         }
         return false;
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return Type.primitiveType(Type.TypeCode.LONG); // eval returns a Tuple-friendly record type key which is Long.
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "recordTypeKey(" + alias + ")";
     }
 }

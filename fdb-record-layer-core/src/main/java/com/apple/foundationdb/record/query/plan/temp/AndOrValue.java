@@ -59,8 +59,20 @@ public class AndOrValue implements BooleanValue {
     protected final Operator operator;
 
     private enum Operator {
-        AND,
-        OR
+        AND("&&"),
+        OR("||");
+
+        @Nonnull
+        private final String infixRepresentation;
+
+        Operator(@Nonnull final String infixRepresentation) {
+            this.infixRepresentation = infixRepresentation;
+        }
+
+        @Nonnull
+        public String getInfixRepresentation() {
+            return infixRepresentation;
+        }
     }
 
     /**
@@ -79,6 +91,12 @@ public class AndOrValue implements BooleanValue {
         this.leftChild = leftChild;
         this.rightChild = rightChild;
         this.operator = operator;
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "(" + leftChild.explain(formatter) + " " + operator.getInfixRepresentation() + " " + rightChild.explain(formatter) + ")";
     }
 
     @Nonnull

@@ -121,6 +121,11 @@ public class NotValue implements BooleanValue {
         return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, child);
     }
 
+    @Nonnull
+    public String explain(@Nonnull final Formatter formatter) {
+        return "not(" + child.explain(formatter) + ")";
+    }
+
     @Override
     public String toString() {
         return "not(" + child + ")";

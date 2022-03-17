@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.cursors.aggregate.RecordValueAccumulator;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -64,6 +66,22 @@ public class AggregateValue<T, R> extends DerivedValue {
         this.accumulatorFunction = accumulatorFunction;
     }
 
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        // it is not possible to simply dispatch on <R> due to type erasure, have to infer the type manually.
+        switch (aggregateType) {
+            case SUM: // fallthrough
+            case MIN: // fallthrough
+            case MAX: // fallthrough
+                return getChild().getResultType();
+            case AVG:
+                return Type.primitiveType(Type.TypeCode.DOUBLE);
+            default:
+                throw new IllegalArgumentException("unexpected aggregation type " + aggregateType);
+        }
+    }
+
     /**
      * Create a new accumulator from the Value. This accumulator will perform state management and accumulate evaluated
      * values representing this value. Note that the accumulator contains the {@link #getChild} of this value, as this
@@ -90,6 +108,11 @@ public class AggregateValue<T, R> extends DerivedValue {
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         return PlanHashable.objectsPlanHash(hashKind, OBJECT_PLAN_HASH, aggregateType, super.planHash(hashKind));
+    }
+
+    @Nonnull
+    public String explain(@Nonnull final Formatter formatter) {
+        return aggregateType.name() + '(' + getChild().explain(formatter) + ')';
     }
 
     @Override

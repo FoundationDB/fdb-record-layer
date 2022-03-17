@@ -82,6 +82,12 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
         return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, child);
     }
 
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "exists(" + child.explain(formatter) + ")";
+    }
+
     @Override
     public String toString() {
         return "exists(" + child + ")";

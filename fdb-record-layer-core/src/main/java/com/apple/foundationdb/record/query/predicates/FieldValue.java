@@ -140,8 +140,8 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public String describe(@Nonnull final Formatter formatter) {
-        return columnValue.describe(formatter) + "." + String.join(".", fieldPath);
+    public String explain(@Nonnull final Formatter formatter) {
+        return columnValue.explain(formatter) + "." + String.join(".", fieldPath);
     }
 
     @Override

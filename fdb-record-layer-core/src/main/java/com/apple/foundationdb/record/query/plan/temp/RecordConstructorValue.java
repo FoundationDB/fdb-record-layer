@@ -137,6 +137,22 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
 
     @Nonnull
     @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "record(" +
+               columns.stream()
+                       .map(column -> {
+                           final var field = column.getField();
+                           final var value = column.getValue();
+                           if (field.getFieldNameOptional().isPresent()) {
+                               return column.getValue().explain(formatter) + " as " + field.getFieldName();
+                           }
+                           return value.explain(formatter);
+                       })
+                       .collect(Collectors.joining(", ")) + ")";
+    }
+
+    @Nonnull
+    @Override
     public String describe(@Nonnull final Formatter formatter) {
         return "(" +
                columns.stream()

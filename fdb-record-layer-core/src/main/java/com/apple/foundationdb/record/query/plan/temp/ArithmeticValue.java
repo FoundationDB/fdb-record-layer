@@ -90,8 +90,8 @@ public class ArithmeticValue implements Value {
 
     @Nonnull
     @Override
-    public String describe(@Nonnull final Formatter formatter) {
-        return "(" + leftChild.describe(formatter) + " " + operation.getLogicalOperator().getInfixNotation() + " " + rightChild.describe(formatter) + ")";
+    public String explain(@Nonnull final Formatter formatter) {
+        return "(" + leftChild.explain(formatter) + " " + operation.getLogicalOperator().getInfixNotation() + " " + rightChild.explain(formatter) + ")";
     }
 
     @Nonnull

@@ -194,6 +194,11 @@ public class RelOpValue implements BooleanValue {
         return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisonType, StreamSupport.stream(children.spliterator(), false).toArray(Value[]::new));
     }
 
+    @Nonnull
+    public String explain(@Nonnull final Formatter formatter) {
+        return functionName + "(" + StreamSupport.stream(children.spliterator(), false).map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
+    }
+
     @Override
     public String toString() {
         return functionName + "(" + StreamSupport.stream(children.spliterator(), false).map(Value::toString).collect(Collectors.joining(",")) + ")";
