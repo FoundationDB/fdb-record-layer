@@ -40,4 +40,9 @@ public class ValueTuple extends AbstractTuple {
     public Object getObject(int position) {
         return obj;
     }
+
+    @Override
+    public String toString() {
+        return "(" + obj + ")";
+    }
 }

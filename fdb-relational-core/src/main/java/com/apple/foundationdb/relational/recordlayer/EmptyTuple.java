@@ -32,4 +32,9 @@ public class EmptyTuple extends AbstractTuple {
     public Object getObject(int position) {
         return null;
     }
+
+    @Override
+    public String toString() {
+        return "()";
+    }
 }

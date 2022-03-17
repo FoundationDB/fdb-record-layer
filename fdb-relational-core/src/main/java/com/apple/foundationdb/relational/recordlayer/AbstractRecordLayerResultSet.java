@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.protobuf.Message;
 
@@ -33,11 +34,13 @@ import java.sql.SQLException;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public IsolationLevel getActualIsolationLevel() throws SQLException {
         throw new OperationUnsupportedException("Not Implemented in the Relational layer").toSqlException();
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public IsolationLevel getRequestedIsolationLevel() throws SQLException {
         throw new OperationUnsupportedException("Not Implemented in the Relational layer").toSqlException();
     }

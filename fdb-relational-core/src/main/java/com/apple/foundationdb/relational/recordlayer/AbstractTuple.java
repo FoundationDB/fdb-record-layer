@@ -25,7 +25,9 @@ import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 
+import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 public abstract class AbstractTuple implements NestableTuple {
@@ -133,4 +135,32 @@ public abstract class AbstractTuple implements NestableTuple {
         }
     }
 
+    @Override
+    public boolean equals(Object other) {
+        if (other == null) {
+            return false;
+        }
+        if (!(other instanceof NestableTuple)) {
+            return false;
+        }
+        NestableTuple otherTuple = (NestableTuple) other;
+        final int numFields = this.getNumFields();
+        if (numFields != otherTuple.getNumFields()) {
+            return false;
+        }
+        for (int i = 0; i < numFields; i++) {
+            if (!Objects.equals(this.getObject(i), otherTuple.getObject(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        if (this.getNumFields() == 0) {
+            return 0;
+        }
+        return Objects.hash(IntStream.range(0, getNumFields()).mapToObj(this::getObject).toArray());
+    }
 }

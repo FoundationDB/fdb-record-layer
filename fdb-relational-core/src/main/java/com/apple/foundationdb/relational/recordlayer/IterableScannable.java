@@ -81,7 +81,7 @@ public class IterableScannable<T> implements Scannable {
         ResumableIterator<KeyValue> kvs = openScan(t, key, key, null, scanOptions);
         while (kvs.hasNext()) {
             final KeyValue next = kvs.next();
-            if (next.key().equalTo(key)) {
+            if (next.key().equals(key)) {
                 return next;
             }
         }

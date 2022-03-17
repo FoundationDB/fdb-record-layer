@@ -23,8 +23,6 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 
-import java.util.Objects;
-
 /**
  * Represents a tuple within the store.
  * <p>
@@ -114,20 +112,4 @@ public interface NestableTuple {
     Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, InvalidColumnReferenceException;
 
     Object getObject(int position);
-
-    default boolean equalTo(NestableTuple other) {
-        if (other == null) {
-            return false;
-        }
-        final int numFields = this.getNumFields();
-        if (numFields != other.getNumFields()) {
-            return false;
-        }
-        for (int i = 0; i < numFields; i++) {
-            if (!Objects.equals(this.getObject(i), other.getObject(i))) {
-                return false;
-            }
-        }
-        return true;
-    }
 }

@@ -164,9 +164,9 @@ public class TransactionConfig {
     }
 
     public static class WeakReadSemantics {
-        private long minVersion;
-        private long stalenessBoundMillis;
-        private boolean isCausalReadRisky;
+        private final long minVersion;
+        private final long stalenessBoundMillis;
+        private final boolean isCausalReadRisky;
 
         /**
          * To specify a stale read semantics for the transaction.
