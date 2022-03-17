@@ -775,6 +775,8 @@ public abstract class IndexingBase {
                 LogMessageKeys.INDEXER_ID, common.getUuid()));
         logMessageKeyValues.addAll(additionalLogMessageKeyValues);
         // TODO should this also add the target indexes and uuid from
+        // load the config before starting, in case the MaxLimit needs to be updated before it starts work
+        common.loadConfig();
         return common.getLimitedRunner().runAsync(
                 (context, limit) -> {
                     common.loadConfig();

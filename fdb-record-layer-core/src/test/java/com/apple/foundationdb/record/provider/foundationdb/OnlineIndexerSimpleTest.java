@@ -42,6 +42,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.ThreadContext;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -875,13 +876,11 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
                 .build()) {
-            int limit = indexBuilder.getLimit();
             future = indexBuilder.buildIndexAsync();
             int pass = 0;
             while (!future.isDone() && timer.getCount(FDBStoreTimer.Events.COMMIT) < 10 && pass++ < 100) {
                 Thread.sleep(100);
                 assertThat("Should have invoked the configuration loader at least once", indexBuilder.getConfigLoaderInvocationCount(), greaterThan(0));
-                assertEquals(indexBuilder.getLimit(), limit - indexBuilder.getConfigLoaderInvocationCount());
                 assertEquals(indexBuilder.getConfig().getMaxRetries(), 3);
                 assertEquals(indexBuilder.getConfig().getRecordsPerSecond(), 10000);
                 assertEquals(indexBuilder.getConfig().getProgressLogIntervalMillis(), DEFAULT_PROGRESS_LOG_INTERVAL);
@@ -890,6 +889,68 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             assertThat("Should have done several transactions in a few seconds", pass, lessThan(100));
         }
     }
+
+    @Test
+    public void testConfigLoaderDecreaseMaxLimit() {
+        // If the config loader decreases the limit, that should affect the next step in the build range
+        // even if the limit was previously higher
+        // TODO this test tests IndexingByRecords.buildRanges. Either that should be updated to use iterateAllRanges
+        //      or a different test is needed to execute that
+        final Index index = new Index("newIndex", field("num_value_unique"));
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.addIndex("MySimpleRecord", index);
+        };
+        openSimpleMetaData(hook);
+
+        final int recordCount = 1000;
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 0; i < recordCount; i++) {
+                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValueUnique(i).build();
+                recordStore.saveRecord(record);
+            }
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            context.commit();
+        }
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int startingLimit = 105;
+        final int decreaseBy = 1;
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setLimit(startingLimit)
+                .setTimer(timer)
+                .setConfigLoader(old ->
+                        old.toBuilder()
+                                .setMaxLimit(old.getMaxLimit() > startingLimit - 9 ?
+                                             old.getMaxLimit() - decreaseBy :
+                                             2)
+                                .setMaxRetries(3)
+                                .setRecordsPerSecond(10000)
+                                .build())
+                .build()) {
+            indexBuilder.buildIndex();
+            assertThat(timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT), Matchers.greaterThan(50));
+        }
+
+        timer.reset();
+
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setLimit(startingLimit)
+                .setTimer(timer)
+                .setConfigLoader(old ->
+                        old.toBuilder()
+                                .setMaxLimit(old.getMaxLimit())
+                                .setMaxRetries(3)
+                                .setRecordsPerSecond(10000)
+                                .build())
+                .build()) {
+            indexBuilder.buildIndex();
+            assertThat(timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT), Matchers.lessThan(30));
+        }
+
+    }
+
 
     @Test
     public void testOnlineIndexerBuilderWriteLimitBytes() throws Exception {

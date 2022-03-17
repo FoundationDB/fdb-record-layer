@@ -375,6 +375,8 @@ public class IndexingByRecords extends IndexingBase {
                                                 @Nonnull RangeSet rangeSet, @Nonnull Queue<Range> rangeDeque) {
         // TODO can this use `iterateAllRanges`?
         AtomicLong recordsScanned = new AtomicLong(0);
+        // load the config before starting, in case the MaxLimit needs to be updated before it starts work
+        common.loadConfig();
         return common.getLimitedRunner().runAsync(
                 (context, limit) -> {
                     if (rangeDeque.isEmpty()) {
