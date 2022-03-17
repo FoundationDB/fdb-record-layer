@@ -67,7 +67,7 @@ import java.util.function.Function;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
-import static org.apache.lucene.codecs.lucene70.Lucene70SegmentInfoFormat.SI_EXTENSION;
+import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXTENSION;
 
 /**
  * Directory implementation backed by FDB which attempts to

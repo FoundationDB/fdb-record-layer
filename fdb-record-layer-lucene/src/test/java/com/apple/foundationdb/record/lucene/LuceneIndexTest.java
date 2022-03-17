@@ -325,7 +325,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             RecordCursorProto.LuceneIndexContinuation continuation =  RecordCursorProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(1)
-                    .setScore(0.27130663F)
+                    .setScore(0.12324655F)
                     .setShard(0)
                     .build();
             RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
@@ -409,7 +409,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             RecordCursorProto.LuceneIndexContinuation continuation = RecordCursorProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(151)
-                    .setScore(0.0025435707F)
+                    .setScore(0.0011561684F)
                     .setShard(0)
                     .build();
             assertEquals(48, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
@@ -1059,7 +1059,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static String[] generateRandomWords(int numberOfWords) {
+    public static String[] generateRandomWords(int numberOfWords) {
         assert numberOfWords > 0 : "Number of words have to be greater than 0";
         StringBuilder builder = new StringBuilder();
         Random random = new Random();

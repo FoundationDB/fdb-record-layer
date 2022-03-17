@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
 import org.apache.lucene.index.IndexFileNames;
@@ -53,7 +54,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     }
 
     @Override
-    public Directory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
+    public CompoundDirectory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
         dir = (dir instanceof LuceneOptimizedWrappedDirectory) ? dir : new LuceneOptimizedWrappedDirectory(dir);
         return new LuceneOptimizedCompoundReader(dir, si, context);
     }

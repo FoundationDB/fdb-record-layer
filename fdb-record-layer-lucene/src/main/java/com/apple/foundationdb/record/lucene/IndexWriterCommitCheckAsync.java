@@ -29,11 +29,10 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.codecs.lucene50.Lucene50StoredFieldsFormat;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.MergePolicy;
+import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
@@ -71,19 +70,18 @@ public class IndexWriterCommitCheckAsync implements FDBRecordContext.CommitCheck
                                        @Nonnull DirectoryCommitCheckAsync directoryCommitCheckAsync, Executor executor) throws IOException {
         TieredMergePolicy tieredMergePolicy = new TieredMergePolicy();
         tieredMergePolicy.setMaxMergedSegmentMB(Math.max(0.0, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE)));
-        tieredMergePolicy.setMaxMergeAtOnceExplicit(Math.max(2, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_NUMBER)));
         tieredMergePolicy.setNoCFSRatio(1.00);
         IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzer);
         indexWriterConfig.setUseCompoundFile(true);
         indexWriterConfig.setMergePolicy(tieredMergePolicy);
         indexWriterConfig.setMergeScheduler(new ConcurrentMergeScheduler() {
             @Override
-            protected void doMerge(final IndexWriter writer, final MergePolicy.OneMerge merge) throws IOException {
-                merge.segments.forEach( (segmentCommitInfo) -> LOGGER.trace("segmentInfo={}", segmentCommitInfo.info.name));
-                super.doMerge(writer, merge);
+            public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
+                LOGGER.trace("mergeSource={}", mergeSource);
+                super.merge(mergeSource, trigger);
             }
         });
-        indexWriterConfig.setCodec(new LuceneOptimizedCodec(Lucene50StoredFieldsFormat.Mode.BEST_COMPRESSION));
+        indexWriterConfig.setCodec(new LuceneOptimizedCodec());
         indexWriterConfig.setInfoStream(new LuceneLoggerInfoStream(LOGGER));
         this.indexWriter = new IndexWriter(directoryCommitCheckAsync.getDirectory(), indexWriterConfig);
         this.executor = executor;

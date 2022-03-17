@@ -118,7 +118,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * MultiFieldQueryParser.
      *
      * @param scanType the {@link IndexScanType type} of scan to perform
-     * @param range the range to scan
+     * @param range the range to scan with the range representing a parsable lucene syntax string.
      * @param continuation any continuation from a previous scan invocation
      * @param scanProperties skip, limit and other properties of the scan
      * @return RecordCursor
