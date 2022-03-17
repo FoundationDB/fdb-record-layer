@@ -776,10 +776,10 @@ public abstract class IndexingBase {
         logMessageKeyValues.addAll(additionalLogMessageKeyValues);
         // TODO should this also add the target indexes and uuid from
         // load the config before starting, in case the MaxLimit needs to be updated before it starts work
-        common.loadConfig();
         return common.getLimitedRunner().runAsync(
-                (context, limit) -> {
+                (context, startingLimit) -> {
                     common.loadConfig();
+                    int limit = Math.max(startingLimit, common.config.getMaxLimit());
                     // TODO check index state
                     // TODO if the transaction succeeds increment common.getTotalRecordsScanned()
                     AtomicBoolean hasMoreForHook = new AtomicBoolean(true);

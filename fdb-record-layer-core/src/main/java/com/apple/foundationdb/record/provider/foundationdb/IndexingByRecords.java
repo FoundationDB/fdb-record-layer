@@ -247,6 +247,7 @@ public class IndexingByRecords extends IndexingBase {
         // TODO perhaps this should have different retry counts from the runAsyncInStore used in limittedRunner
         // TODO should this just add common info to the log values
         // TODO should this check the index state?
+        common.loadConfig();
         return common.getRunner().runAsync(context -> common.openStoreAsync(context)
                         .thenCompose(store -> buildEndpoints(store, recordsScanned)),
                 additionalLogMessageKeyValues);
@@ -376,13 +377,13 @@ public class IndexingByRecords extends IndexingBase {
         // TODO can this use `iterateAllRanges`?
         AtomicLong recordsScanned = new AtomicLong(0);
         // load the config before starting, in case the MaxLimit needs to be updated before it starts work
-        common.loadConfig();
         return common.getLimitedRunner().runAsync(
-                (context, limit) -> {
+                (context, startingLimit) -> {
                     if (rangeDeque.isEmpty()) {
                         return AsyncUtil.READY_FALSE; // We're done.
                     }
                     common.loadConfig();
+                    int limit = Math.max(startingLimit, common.config.getMaxLimit());
                     Range toBuild = rangeDeque.remove();
 
                     // This only works if the things included within the rangeSet are serialized Tuples.
