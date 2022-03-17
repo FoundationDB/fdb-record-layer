@@ -33,7 +33,9 @@ import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -46,13 +48,13 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalProjectionExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
     @Nonnull
-    private final Value projectedValue;
+    private final List<? extends Value> projectedValues;
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalProjectionExpression(@Nonnull final Value projectedValue,
+    public LogicalProjectionExpression(@Nonnull final List<? extends Value> projectedValues,
                                        @Nonnull final Quantifier inner) {
-        this.projectedValue = projectedValue;
+        this.projectedValues = ImmutableList.copyOf(projectedValues);
         this.inner = inner;
     }
 
@@ -76,7 +78,9 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return projectedValue.getCorrelatedTo();
+        return projectedValues.stream()
+                .flatMap(projectedValue -> projectedValue.getCorrelatedTo().stream())
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull
@@ -90,8 +94,10 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
     @Override
     public LogicalProjectionExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                     @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        final Value rebasedValue =
-                projectedValue.rebase(translationMap);
+        final List<? extends Value> rebasedValue =
+                getProjectedValues().stream()
+                        .map(projectedValue -> projectedValue.rebase(translationMap))
+                        .collect(ImmutableList.toImmutableList());
 
         return new LogicalProjectionExpression(rebasedValue,
                 Iterables.getOnlyElement(rebasedQuantifiers));
@@ -100,7 +106,12 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
     @Nonnull
     @Override
     public Value getResultValue() {
-        return projectedValue;
+        return inner.getFlowedObjectValue();
+    }
+
+    @Nonnull
+    public List<? extends Value> getProjectedValues() {
+        return projectedValues;
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -114,8 +125,13 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
             return false;
         }
         final LogicalProjectionExpression otherLogicalProjectionExpression = (LogicalProjectionExpression)otherExpression;
-        final Value otherProjectedValue = otherLogicalProjectionExpression.getResultValue();
-        return projectedValue.semanticEquals(otherProjectedValue, equivalencesMap);
+        final List<? extends Value> otherProjectedValues = otherLogicalProjectionExpression.getProjectedValues();
+        if (projectedValues.size() != otherProjectedValues.size()) {
+            return false;
+        }
+        return Streams.zip(projectedValues.stream(), otherProjectedValues.stream(),
+                        (value, otherValue) -> value.semanticEquals(otherValue, equivalencesMap))
+                .allMatch(isSame -> isSame);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -143,7 +159,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
                         ImmutableList.of("COMPUTE {{values}}"),
                         ImmutableMap.of("values",
-                                Attribute.gml(getResultValue().toString()))),
+                                Attribute.gml(getProjectedValues().toString()))),
                 childGraphs);
     }
 }

@@ -153,7 +153,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         // the newly created lower SelectExpression.
         //
         final var upperSelectExpression =
-                new SelectExpression(lowerQuantifier.getFlowedValues(),
+                new SelectExpression(lowerQuantifier.getFlowedObjectValue(),
                         ImmutableList.<Quantifier>builder()
                                 .addAll(partitionedQuantifiers.get(true))
                                 .add(lowerQuantifier)
@@ -170,7 +170,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         }
 
         return selectExpression
-                .getResultValue()
+                .getResultValues()
                 .stream()
                 .noneMatch(value ->
                         value.narrowMaybe(QuantifiedValue.class)

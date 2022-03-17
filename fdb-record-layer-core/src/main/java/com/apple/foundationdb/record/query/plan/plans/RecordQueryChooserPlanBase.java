@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RecordConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValuePickerValue;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -53,7 +52,7 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
     protected final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Value resultValue;
 
     protected RecordQueryChooserPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers) {
         Verify.verify(!quantifiers.isEmpty());
@@ -64,7 +63,7 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
         }
         this.reverse = firstReverse;
         // Create a list of values that capture all the given sub-plans
-        this.resultValuesSupplier = Suppliers.memoize(this::calculateChildrenValues);
+        this.resultValue = RecordConstructorValue.ofUnnamed(calculateChildrenValues(quantifiers));
     }
 
     @Override
@@ -86,8 +85,8 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValue() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValue;
     }
 
     @Nonnull
@@ -144,7 +143,7 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
      *
      * @return list of {@link ValuePickerValue} representing all the values from all the sub plans
      */
-    private List<? extends Value> calculateChildrenValues() {
+    private static List<? extends Value> calculateChildrenValues(@Nonnull final List<? extends Quantifier> quantifiers) {
         // Store all values in a multimap, indexed by the ordinal of the value in the returned list
         // Each list represents all the i'th Value from each of the sub plans
         ImmutableListMultimap.Builder<Integer, Value> mapBuilder = ImmutableListMultimap.builder();

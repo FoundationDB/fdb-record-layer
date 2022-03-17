@@ -286,7 +286,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     public class Sealed {
         @Nonnull
         public SelectExpression buildSelect() {
-            return new SelectExpression(resultValues, quantifiers, getPredicates());
+            return new SelectExpression(RecordConstructorValue.flattenRecords(resultValues), quantifiers, getPredicates());
         }
 
         @Nonnull

@@ -210,10 +210,9 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
     private static Value encapsulateInternal(@Nonnull final List<Typed> arguments) {
         final ImmutableList<Pair<? extends Value, Optional<String>>> namedArguments =
                 arguments.stream()
-                        .map(typed -> Pair.of(typed.narrowMaybe(Value.class), Optional.<String>empty()))
+                        .map(typed -> Pair.of((Value)typed, Optional.<String>empty()))
                         .map(pair -> {
-                            Verify.verify(pair.getKey().isPresent());
-                            return Pair.of(pair.getKey().get(), pair.getValue()); })
+                            return Pair.of(pair.getKey(), pair.getValue()); })
                         .collect(ImmutableList.toImmutableList());
         return new RecordConstructorValue(namedArguments);
     }
@@ -234,6 +233,30 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
         return new RecordConstructorValue(arguments.stream()
                         .map(argument -> Pair.of(argument, Optional.<String>empty()))
                         .collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
+    public static Value flattenRecords(@Nonnull final List<? extends Value> values) {
+        Verify.verify(!values.isEmpty());
+
+        final ImmutableList.Builder<Pair<? extends Value, Optional<String>>> childrenAndNamesBuilder = ImmutableList.builder();
+        for (final Value value : values) {
+            final Type type = value.getResultType();
+
+            if (type.getTypeCode() != Type.TypeCode.RECORD) {
+                childrenAndNamesBuilder.add(Pair.of(value, Optional.empty()));
+            } else {
+                final Type.Record recordType = (Type.Record)type;
+                final List<? extends Value> elementValues = Type.Record.deconstructRecord(value);
+                final List<Type.Record.Field> fields = Objects.requireNonNull(recordType.getFields());
+                Verify.verify(elementValues.size() == fields.size());
+                for (int i = 0, fieldsSize = fields.size(); i < fieldsSize; i++) {
+                    final Type.Record.Field field = fields.get(i);
+                    childrenAndNamesBuilder.add(Pair.of(elementValues.get(i), field.getFieldNameOptional()));
+                }
+            }
+        }
+        return RecordConstructorValue.of(childrenAndNamesBuilder.build());
     }
 
     @AutoService(BuiltInFunction.class)

@@ -128,7 +128,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         // predicate between the outer and the inner base as we model this index access as a semi join
         //
         // predicate on rank is expressed as an index placeholder
-        final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValue().size() - 1);
+        final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValues().size() - 1);
         final var rankAndJoiningPredicateExpansion = buildRankComparisonSelectExpression(baseAlias, rankQuantifier, rankColumnValue);
         Verify.verify(rankAndJoiningPredicateExpansion.getPlaceholders().size() == 1);
         final var rankAlias = Iterables.getOnlyElement(rankAndJoiningPredicateExpansion.getPlaceholderAliases());
