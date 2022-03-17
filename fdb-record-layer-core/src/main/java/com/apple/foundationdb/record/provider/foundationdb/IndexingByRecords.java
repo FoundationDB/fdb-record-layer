@@ -416,7 +416,7 @@ public class IndexingByRecords extends IndexingBase {
                                 }
                             })
                             .thenCompose(Function.identity())
-                            .thenApply(realEnd -> realEnd.equals(endTuple));
+                            .thenApply(realEnd -> realEnd == null || !realEnd.equals(endTuple));
                 });
     }
 
