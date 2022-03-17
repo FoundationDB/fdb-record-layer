@@ -768,7 +768,6 @@ public abstract class IndexingBase {
                                                        @Nonnull SubspaceProvider subspaceProvider,
                                                        @Nonnull Subspace subspace) {
         AtomicLong recordsScanned = new AtomicLong(0);
-        final TransactionalLimitedRunner limitedRunner = common.createRunner();
         final ArrayList<Object> logMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
                 // TODO probably worthwhile to put a method in common to get the key/values
@@ -776,9 +775,9 @@ public abstract class IndexingBase {
                 LogMessageKeys.INDEXER_ID, common.getUuid()));
         logMessageKeyValues.addAll(additionalLogMessageKeyValues);
         // TODO should this also add the target indexes and uuid from
-        return limitedRunner.runAsync(
+        return common.getLimitedRunner().runAsync(
                 (context, limit) -> {
-                    reloadAndApplyConfig(limitedRunner);
+                    common.loadConfig();
                     // TODO check index state
                     // TODO if the transaction succeeds increment common.getTotalRecordsScanned()
                     AtomicBoolean hasMoreForHook = new AtomicBoolean(true);
@@ -813,13 +812,6 @@ public abstract class IndexingBase {
             RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
             return rangeSet.insertRange(tr, null, null);
         })).thenCompose(vignore -> rebuildIndexInternalAsync(store));
-    }
-
-    protected void reloadAndApplyConfig(final LimitedRunner limitedRunner) {
-        if (common.loadConfig()) {
-            limitedRunner.setMaxLimit(common.config.getMaxLimit());
-            limitedRunner.setIncreaseLimitAfter(common.config.getIncreaseLimitAfter());
-        }
     }
 
     abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);

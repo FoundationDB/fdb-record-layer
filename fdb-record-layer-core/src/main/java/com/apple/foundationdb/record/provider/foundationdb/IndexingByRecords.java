@@ -375,13 +375,12 @@ public class IndexingByRecords extends IndexingBase {
                                                 @Nonnull RangeSet rangeSet, @Nonnull Queue<Range> rangeDeque) {
         // TODO can this use `iterateAllRanges`?
         AtomicLong recordsScanned = new AtomicLong(0);
-        final TransactionalLimitedRunner limitedRunner = common.createRunner();
-        return limitedRunner.runAsync(
+        return common.getLimitedRunner().runAsync(
                 (context, limit) -> {
                     if (rangeDeque.isEmpty()) {
                         return AsyncUtil.READY_FALSE; // We're done.
                     }
-                    reloadAndApplyConfig(limitedRunner);
+                    common.loadConfig();
                     Range toBuild = rangeDeque.remove();
 
                     // This only works if the things included within the rangeSet are serialized Tuples.

@@ -52,6 +52,7 @@ public class IndexingCommon {
     private final UUID uuid = UUID.randomUUID();
 
     @Nonnull private final FDBDatabaseRunner runner;
+    @Nonnull private final TransactionalLimitedRunner limitedRunner;
     @Nullable private SynchronizedSessionRunner synchronizedSessionRunner = null;
 
     @Nonnull private final FDBRecordStore.Builder recordStoreBuilder;
@@ -106,6 +107,12 @@ public class IndexingCommon {
         this.totalRecordsScanned = new AtomicLong(0);
         this.targetIndexContexts = new ArrayList<>(targetIndexes.size());
         this.allRecordTypes = new HashSet<>();
+
+        limitedRunner = new TransactionalLimitedRunner(
+                this.runner.getDatabase(), this.runner.getContextConfigBuilder(), this.config.getMaxLimit());
+        limitedRunner.setIncreaseLimitAfter(this.config.getIncreaseLimitAfter())
+                .setDecreaseLimitAfter(getRunner().getMaxAttempts())
+                .setMaxDecreaseRetries(this.config.getMaxRetries());
 
         fillTargetIndexers(targetIndexes, allRecordTypes);
     }
@@ -171,6 +178,11 @@ public class IndexingCommon {
         if (condition) {
             list.addAll(Arrays.asList(a));
         }
+    }
+
+    public TransactionalLimitedRunner getLimitedRunner() {
+        // TODO synchronizedSessionRunner :(
+        return limitedRunner;
     }
 
     @Nonnull
@@ -275,11 +287,14 @@ public class IndexingCommon {
         }
         configLoaderInvocationCount++;
         config = configLoader.apply(config);
+        limitedRunner.setMaxLimit(config.getMaxLimit());
+        limitedRunner.setIncreaseLimitAfter(config.getIncreaseLimitAfter());
         return true;
     }
 
     public void close() {
         runner.close();
+        limitedRunner.close();
         if (synchronizedSessionRunner != null) {
             synchronizedSessionRunner.close();
         }
