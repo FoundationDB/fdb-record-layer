@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredic
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Sargable;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.predicates.Values;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -97,6 +98,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     public Value getResultValue() {
         return resultValue;
+    }
+
+    @Nonnull
+    public List<? extends Value> getResultValues() {
+        return Values.deconstructRecord(getResultValue());
     }
 
     @Nonnull

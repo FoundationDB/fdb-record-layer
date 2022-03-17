@@ -35,10 +35,10 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
+import com.apple.foundationdb.record.query.plan.temp.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -50,7 +50,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -71,7 +70,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     private final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
     @Nonnull
-    private final Supplier<Value> resultValueSupplier;
+    private final Value resultValue;
 
     protected RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
         this(Quantifiers.fromPlans(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right))), reverse);
@@ -82,7 +81,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         Verify.verify(!quantifiers.isEmpty());
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.reverse = reverse;
-        this.resultValueSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValue = RecordConstructorValue.ofUnnamed(MergeValue.pivotAndMergeValues(quantifiers));
     }
 
     @Nonnull
@@ -146,7 +145,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     @Nonnull
     @Override
     public Value getResultValue() {
-        return resultValueSupplier.get();
+        return resultValue;
     }
 
     @Override
@@ -254,6 +253,6 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
                 })
                 .map(QueryPlan::isReverse)
                 .findAny()
-                .orElseThrow(() -> new RecordCoreException("unable to determine reversedness"));
+                .orElseThrow(() -> new RecordCoreException("unable to determine reversed-ness"));
     }
 }

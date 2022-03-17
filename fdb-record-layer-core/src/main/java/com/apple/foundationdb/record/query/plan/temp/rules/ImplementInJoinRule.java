@@ -122,7 +122,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
         }
         final var innerQuantifier = innerQuantifierOptional.get();
 
-        final List<? extends Value> resultValues = selectExpression.getResultValue();
+        final List<? extends Value> resultValues = selectExpression.getResultValues();
         if (resultValues.stream()
                 .anyMatch(resultValue ->
                         !(resultValue instanceof QuantifiedColumnValue) ||
@@ -249,15 +249,11 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
             // and we have our hands on a particular explode expression leading us directly do the in source.
             //
 
-            final var explodeResultValues = explodeExpression.getResultValue();
-            if (explodeResultValues.size() != 1) {
-                return ImmutableList.of();
-            }
-            final var explodeValue = Iterables.getOnlyElement(explodeResultValues);
+            final var explodeCollectionValue = explodeExpression.getCollectionValue();
 
             final InSource inSource;
-            if (explodeValue instanceof LiteralValue<?>) {
-                final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
+            if (explodeCollectionValue instanceof LiteralValue<?>) {
+                final Object literalValue = ((LiteralValue<?>)explodeCollectionValue).getLiteralValue();
                 if (literalValue instanceof List<?>) {
                     inSource = new SortedInValuesSource(
                             CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
@@ -266,9 +262,9 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                 } else {
                     return ImmutableList.of();
                 }
-            } else if (explodeValue instanceof QuantifiedColumnValue) {
+            } else if (explodeCollectionValue instanceof QuantifiedColumnValue) {
                 inSource = new SortedInParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                        ((QuantifiedColumnValue)explodeValue).getAlias().getId(),
+                        ((QuantifiedColumnValue)explodeCollectionValue).getAlias().getId(),
                         requestedOrderingKeyPart.isReverse());
             } else {
                 return ImmutableList.of();
@@ -300,15 +296,11 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                         Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
                 final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
 
-                final var explodeResultValues = explodeExpression.getResultValue();
-                if (explodeResultValues.size() != 1) {
-                    return ImmutableList.of();
-                }
-                final var explodeValue = Iterables.getOnlyElement(explodeResultValues);
+                final var explodeCollectionValue = explodeExpression.getResultValue();
 
                 final InSource inSource;
-                if (explodeValue instanceof LiteralValue<?>) {
-                    final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
+                if (explodeCollectionValue instanceof LiteralValue<?>) {
+                    final Object literalValue = ((LiteralValue<?>)explodeCollectionValue).getLiteralValue();
                     if (literalValue instanceof List<?>) {
                         inSource = new InValuesSource(
                                 CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
@@ -316,9 +308,9 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                     } else {
                         return ImmutableList.of();
                     }
-                } else if (explodeValue instanceof QuantifiedColumnValue) {
+                } else if (explodeCollectionValue instanceof QuantifiedColumnValue) {
                     inSource = new InParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                            ((QuantifiedColumnValue)explodeValue).getAlias().getId());
+                            ((QuantifiedColumnValue)explodeCollectionValue).getAlias().getId());
                 } else {
                     return ImmutableList.of();
                 }

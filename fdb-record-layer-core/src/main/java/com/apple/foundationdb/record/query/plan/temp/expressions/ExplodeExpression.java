@@ -72,6 +72,11 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     }
 
     @Nonnull
+    public Value getCollectionValue() {
+        return collectionValue;
+    }
+
+    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return Collections.emptyList();

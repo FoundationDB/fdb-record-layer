@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValuePickerValue;
+import com.apple.foundationdb.record.query.predicates.Values;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -172,7 +173,7 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
 
         RecordQueryPlan plan = RecordQuerySelectorPlan.from(plan(query1, query2), List.of(50, 50));
 
-        List<? extends Value> resultValues = plan.getResultValue();
+        List<? extends Value> resultValues = Values.deconstructRecord(plan.getResultValue());
         assertThat(resultValues.size(), is(1));
         ValuePickerValue value = (ValuePickerValue)resultValues.get(0);
         List<Value> subValues = ImmutableList.copyOf(value.getChildren());
