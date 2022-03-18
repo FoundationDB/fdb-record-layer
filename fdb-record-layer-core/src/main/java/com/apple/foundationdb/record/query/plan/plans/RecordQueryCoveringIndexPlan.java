@@ -43,7 +43,7 @@ import com.apple.foundationdb.record.query.plan.temp.ScanWithFetchMatchCandidate
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.IndexedValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -198,10 +198,10 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                                 @Nonnull QuantifiedColumnValue newQuantifiedColumnValue) {
+                                                 @Nonnull QuantifiedObjectValue newQuantifiedObjectValue) {
         return indexPlan.getMatchCandidateOptional()
                 .flatMap(matchCandidate -> matchCandidate instanceof ScanWithFetchMatchCandidate ? Optional.of((ScanWithFetchMatchCandidate)matchCandidate) : Optional.empty())
-                .flatMap(scanWithFetchMatchCandidate -> scanWithFetchMatchCandidate.pushValueThroughFetch(value, newQuantifiedColumnValue));
+                .flatMap(scanWithFetchMatchCandidate -> scanWithFetchMatchCandidate.pushValueThroughFetch(value, newQuantifiedObjectValue));
     }
 
     @Override

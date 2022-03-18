@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -110,11 +109,10 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
+        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, fieldNames)));
         final GraphExpansion graphExpansion = getChild().expand(childBase.getAlias(), baseQuantifierSupplier, Collections.emptyList());
         final SelectExpression selectExpression =
-                graphExpansion
-                        .withBase(childBase)
+                GraphExpansion.ofOthers(GraphExpansion.builder().pullUpQuantifier(childBase).build(), graphExpansion)
                         .buildSelect();
 
         Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
@@ -128,7 +126,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
             withPrefix = Query.field(fieldName).matches(withPrefix);
         }
 
-        return GraphExpansion.ofPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias(), withPrefix), childQuantifier);
+        return GraphExpansion.ofExists(childQuantifier, withPrefix);
     }
 
     @Override

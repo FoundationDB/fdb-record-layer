@@ -133,8 +133,8 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValue() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue();
     }
 
     @Override

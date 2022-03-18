@@ -37,8 +37,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -71,6 +70,12 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     private final List<RecordType> recordTypes;
 
     /**
+     * Base Alias.
+     */
+    @Nonnull
+    private final CorrelationIdentifier baseAlias;
+
+    /**
      * Holds the grouping aliases for all groupings that can to be bound during matching.
      */
     @Nonnull
@@ -95,12 +100,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     private final List<CorrelationIdentifier> primaryKeyAliases;
 
     /**
-     * Value that flows the actual record.
-     */
-    @Nonnull
-    private final QuantifiedValue recordValue;
-
-    /**
      * List of values that represent the key parts of the index represented by the candidate in the expanded graph.
      */
     @Nonnull
@@ -118,21 +117,21 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     public WindowedIndexScanMatchCandidate(@Nonnull Index index,
                                            @Nonnull Collection<RecordType> recordTypes,
                                            @Nonnull final ExpressionRefTraversal traversal,
+                                           @Nonnull final CorrelationIdentifier baseAlias,
                                            @Nonnull final List<CorrelationIdentifier> groupingAliases,
                                            @Nonnull final CorrelationIdentifier scoreAlias,
                                            @Nonnull final CorrelationIdentifier rankAlias,
                                            @Nonnull final List<CorrelationIdentifier> primaryKeyAliases,
-                                           @Nonnull final QuantifiedValue recordValue,
                                            @Nonnull final List<Value> indexKeyValues,
                                            @Nonnull final KeyExpression alternativeKeyExpression) {
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.traversal = traversal;
+        this.baseAlias = baseAlias;
         this.groupingAliases = ImmutableList.copyOf(groupingAliases);
         this.scoreAlias = scoreAlias;
         this.rankAlias = rankAlias;
         this.primaryKeyAliases = ImmutableList.copyOf(primaryKeyAliases);
-        this.recordValue = recordValue;
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
         this.alternativeKeyExpression = alternativeKeyExpression;
     }
@@ -166,8 +165,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     }
 
     @Nonnull
-    public QuantifiedValue getRecordValue() {
-        return recordValue;
+    public CorrelationIdentifier getBaseAlias() {
+        return baseAlias;
     }
 
     @Nonnull
@@ -297,9 +296,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
         final RecordType recordType = Iterables.getOnlyElement(recordTypes);
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
+        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias);
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
-            if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(recordValue)) {
+            if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
                 final AvailableFields.FieldData fieldData =
                         AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
                 addCoveringField(builder, (FieldValue)keyValue, fieldData);
@@ -329,33 +329,34 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     @Override
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                                 @Nonnull QuantifiedColumnValue indexRecordColumnValue) {
+                                                 @Nonnull QuantifiedObjectValue indexRecordQuantifiedObjectValue) {
 
-        final Set<Value> quantifiedColumnValues = ImmutableSet.copyOf(value.filter(v -> v instanceof QuantifiedColumnValue));
+        final Set<Value> quantifiedObjectValues = ImmutableSet.copyOf(value.filter(v -> v instanceof QuantifiedObjectValue));
 
         // if this is a value that is referring to more than one value from its quantifier or two multiple quantifiers
-        if (quantifiedColumnValues.size() != 1) {
+        if (quantifiedObjectValues.size() != 1) {
             return Optional.empty();
         }
 
-        final QuantifiedColumnValue quantifiedColumnValue = (QuantifiedColumnValue)Iterables.getOnlyElement(quantifiedColumnValues);
+        final QuantifiedObjectValue quantifiedObjectValue = (QuantifiedObjectValue)Iterables.getOnlyElement(quantifiedObjectValues);
 
         // replace the quantified column value inside the given value with the quantified value in the match candidate
+        final var baseObjectValue = QuantifiedObjectValue.of(baseAlias);
         final Optional<Value> translatedValueOptional =
-                value.translate(ImmutableMap.of(quantifiedColumnValue, QuantifiedColumnValue.of(recordValue.getAlias(), 0)));
+                value.translate(ImmutableMap.of(quantifiedObjectValue, baseObjectValue));
         if (!translatedValueOptional.isPresent()) {
             return Optional.empty();
         }
         final Value translatedValue = translatedValueOptional.get();
-        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(recordValue.getAlias()));
+        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseAlias));
 
-        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(recordValue), indexKeyValues)) {
+        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(baseObjectValue), indexKeyValues)) {
             final Set<CorrelationIdentifier> resultValueCorrelatedTo = matchResultValue.getCorrelatedTo();
             if (resultValueCorrelatedTo.size() != 1) {
                 continue;
             }
             if (translatedValue.semanticEquals(matchResultValue, equivalenceMap)) {
-                return matchResultValue.translate(ImmutableMap.of(QuantifiedColumnValue.of(recordValue.getAlias(), 0), indexRecordColumnValue));
+                return matchResultValue.translate(ImmutableMap.of(baseObjectValue, indexRecordQuantifiedObjectValue));
             }
         }
 

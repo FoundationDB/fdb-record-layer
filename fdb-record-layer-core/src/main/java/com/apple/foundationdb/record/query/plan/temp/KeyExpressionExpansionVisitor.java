@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.temp.KeyExpressionExpansionVisit
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.EmptyValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
@@ -142,9 +141,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion.Sealed sealedChildExpansion =
                         childExpansion.seal();
                 return sealedChildExpansion
-                        .derivedWithQuantifier(childQuantifier);
+                        .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case None:
-                value = state.registerValue(new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames));
+                value = state.registerValue(new FieldValue(QuantifiedObjectValue.of(baseAlias), fieldNames));
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
                     return GraphExpansion.ofResultValueAndPlaceholder(value, predicate);
@@ -202,7 +201,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final SelectExpression selectExpression =
                         sealedBaseAndChildExpansion.buildSelect();
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
-                return sealedBaseAndChildExpansion.derivedWithQuantifier(childQuantifier);
+                return sealedBaseAndChildExpansion.builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case Concatenate:
             default:
                 throw new RecordCoreException("unsupported fan type");

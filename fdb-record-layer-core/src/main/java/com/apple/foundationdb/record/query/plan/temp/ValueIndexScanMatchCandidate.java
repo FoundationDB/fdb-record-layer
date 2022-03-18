@@ -34,8 +34,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -70,10 +69,10 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     private final List<CorrelationIdentifier> parameters;
 
     /**
-     * Value that flows the actual record.
+     * Base alias.
      */
     @Nonnull
-    private final QuantifiedValue recordValue;
+    private final CorrelationIdentifier baseAlias;
 
     /**
      * List of values that represent the key parts of the index represented by the candidate in the expanded graph.
@@ -100,7 +99,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                         @Nonnull Collection<RecordType> recordTypes,
                                         @Nonnull final ExpressionRefTraversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
-                                        @Nonnull final QuantifiedValue recordValue,
+                                        @Nonnull final CorrelationIdentifier baseAlias,
                                         @Nonnull final List<Value> indexKeyValues,
                                         @Nonnull final List<Value> indexValueValues,
                                         @Nonnull final KeyExpression alternativeKeyExpression) {
@@ -108,7 +107,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
-        this.recordValue = recordValue;
+        this.baseAlias = baseAlias;
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
         this.indexValueValues = ImmutableList.copyOf(indexValueValues);
         this.alternativeKeyExpression = alternativeKeyExpression;
@@ -143,8 +142,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     }
 
     @Nonnull
-    public QuantifiedValue getRecordValue() {
-        return recordValue;
+    public CorrelationIdentifier getBaseAlias() {
+        return baseAlias;
     }
 
     @Nonnull
@@ -191,9 +190,10 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
         final RecordType recordType = Iterables.getOnlyElement(recordTypes);
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
+        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias);
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
-            if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(recordValue)) {
+            if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
                 final AvailableFields.FieldData fieldData =
                         AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
                 addCoveringField(builder, (FieldValue)keyValue, fieldData);
@@ -202,7 +202,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
         for (int i = 0; i < indexValueValues.size(); i++) {
             final Value valueValue = indexValueValues.get(i);
-            if (valueValue instanceof FieldValue && valueValue.isFunctionallyDependentOn(recordValue)) {
+            if (valueValue instanceof FieldValue && valueValue.isFunctionallyDependentOn(baseObjectValue)) {
                 final AvailableFields.FieldData fieldData =
                         AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i);
                 addCoveringField(builder, (FieldValue)valueValue, fieldData);
@@ -232,33 +232,34 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     @Override
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                                 @Nonnull QuantifiedColumnValue indexRecordColumnValue) {
+                                                 @Nonnull QuantifiedObjectValue indexRecordQuantifiedValue) {
 
-        final Set<Value> quantifiedColumnValues = ImmutableSet.copyOf(value.filter(v -> v instanceof QuantifiedColumnValue));
+        final Set<Value> quantifiedObjectValues = ImmutableSet.copyOf(value.filter(v -> v instanceof QuantifiedObjectValue));
 
         // if this is a value that is referring to more than one value from its quantifier or two multiple quantifiers
-        if (quantifiedColumnValues.size() != 1) {
+        if (quantifiedObjectValues.size() != 1) {
             return Optional.empty();
         }
 
-        final QuantifiedColumnValue quantifiedColumnValue = (QuantifiedColumnValue)Iterables.getOnlyElement(quantifiedColumnValues);
+        final QuantifiedObjectValue quantifiedObjectValue = (QuantifiedObjectValue)Iterables.getOnlyElement(quantifiedObjectValues);
+        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias);
 
         // replace the quantified column value inside the given value with the quantified value in the match candidate
         final Optional<Value> translatedValueOptional =
-                value.translate(ImmutableMap.of(quantifiedColumnValue, QuantifiedColumnValue.of(recordValue.getAlias(), 0)));
+                value.translate(ImmutableMap.of(quantifiedObjectValue, baseObjectValue));
         if (!translatedValueOptional.isPresent()) {
             return Optional.empty();
         }
         final Value translatedValue = translatedValueOptional.get();
-        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(recordValue.getAlias()));
+        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseAlias));
 
-        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(recordValue), indexKeyValues, indexValueValues)) {
+        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(baseObjectValue), indexKeyValues, indexValueValues)) {
             final Set<CorrelationIdentifier> resultValueCorrelatedTo = matchResultValue.getCorrelatedTo();
             if (resultValueCorrelatedTo.size() != 1) {
                 continue;
             }
             if (translatedValue.semanticEquals(matchResultValue, equivalenceMap)) {
-                return matchResultValue.translate(ImmutableMap.of(QuantifiedColumnValue.of(recordValue.getAlias(), 0), indexRecordColumnValue));
+                return matchResultValue.translate(ImmutableMap.of(baseObjectValue, indexRecordQuantifiedValue));
             }
         }
 

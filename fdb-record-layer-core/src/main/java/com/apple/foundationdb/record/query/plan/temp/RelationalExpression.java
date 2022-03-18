@@ -114,14 +114,14 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         final SelectExpression selectExpression;
         if (query.getFilter() != null) {
             selectExpression =
-                    query.getFilter()
-                            .expand(quantifier.getAlias(), () -> Quantifier.forEach(baseRef))
-                            .withBase(quantifier)
+                    GraphExpansion.ofOthers(GraphExpansion.builder().pullUpQuantifier(quantifier).build(),
+                                    query.getFilter()
+                                            .expand(quantifier.getAlias(), () -> Quantifier.forEach(baseRef)))
                             .buildSelect();
+
         } else {
             selectExpression =
-                    GraphExpansion.empty()
-                            .withBase(quantifier)
+                    GraphExpansion.builder().pullUpQuantifier(quantifier).build()
                             .buildSelect();
         }
         quantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));

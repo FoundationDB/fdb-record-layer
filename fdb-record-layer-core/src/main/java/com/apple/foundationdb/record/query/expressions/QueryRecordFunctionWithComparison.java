@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.RankValue;
@@ -144,8 +143,11 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
             final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
             final var rankExpansion =
-                    GraphExpansion.ofOthers(partitioningAndArgumentExpansion,
-                            GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier));
+                    partitioningAndArgumentExpansion
+                            .toBuilder()
+                            .addQuantifier(innerBaseQuantifier)
+                            .addResultValue(rankValue)
+                            .build();
             final var rankSelectExpression = rankExpansion.buildSelect();
             final var rankQuantifier = Quantifier.forEach(GroupExpressionRef.of(rankSelectExpression));
 
@@ -157,8 +159,10 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             // predicate on rank
             final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValues().size() - 1);
             final var rankComparisonExpansion =
-                    GraphExpansion.ofPredicateAndQuantifier(new ValuePredicate(rankColumnValue, comparison),
-                            rankQuantifier);
+                    GraphExpansion.builder()
+                            .addQuantifier(rankQuantifier)
+                            .addPredicate(new ValuePredicate(rankColumnValue, comparison))
+                            .build();
 
             // join predicate
             final var selfJoinPredicate =
@@ -181,7 +185,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                 withPrefix = Query.field(fieldName).matches(withPrefix);
             }
 
-            return GraphExpansion.ofPredicateAndQuantifier(new ExistsPredicate(rankComparisonQuantifier.getAlias(), withPrefix), rankComparisonQuantifier);
+            return GraphExpansion.ofExists(rankComparisonQuantifier, withPrefix);
         }
 
         throw new UnsupportedOperationException();
