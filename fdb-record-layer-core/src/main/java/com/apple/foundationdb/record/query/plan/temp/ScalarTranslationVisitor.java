@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.predicates.EmptyValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -126,7 +126,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
                 .build();
-        return new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames);
+        return new FieldValue(QuantifiedObjectValue.of(baseAlias), fieldNames);
     }
 
     @Nonnull

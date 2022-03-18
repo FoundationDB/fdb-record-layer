@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
@@ -110,10 +109,12 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
+        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, fieldNames)));
         final SelectExpression selectExpression =
-                GraphExpansion.ofPredicate(QuantifiedObjectValue.of(childBase.getAlias()).withComparison(comparison))
-                        .withBase(childBase)
+                GraphExpansion.builder()
+                        .pullUpQuantifier(childBase)
+                        .addPredicate(QuantifiedObjectValue.of(childBase.getAlias()).withComparison(comparison))
+                        .build()
                         .buildSelect();
         final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
 
@@ -126,7 +127,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
             withPrefix = Query.field(fieldName).matches(withPrefix);
         }
 
-        return GraphExpansion.ofPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias(), withPrefix), childQuantifier);
+        return GraphExpansion.ofExists(childQuantifier, withPrefix);
     }
 
     @Override

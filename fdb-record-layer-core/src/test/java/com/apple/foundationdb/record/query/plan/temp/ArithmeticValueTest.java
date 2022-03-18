@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.TestRecords7Proto;
 import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +45,7 @@ import java.util.stream.Stream;
  * Tests evaluation of {@link ArithmeticValue}.
  */
 class ArithmeticValueTest {
-    private static final FieldValue F = new FieldValue(QuantifiedColumnValue.of(CorrelationIdentifier.of("ident"), 0), ImmutableList.of("rec_no"), Type.primitiveType(Type.TypeCode.LONG));
+    private static final FieldValue F = new FieldValue(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident")), ImmutableList.of("rec_no"), Type.primitiveType(Type.TypeCode.LONG));
     private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
     private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
     private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);

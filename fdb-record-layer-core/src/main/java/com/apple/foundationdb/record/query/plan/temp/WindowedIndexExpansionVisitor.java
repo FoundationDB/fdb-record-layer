@@ -106,7 +106,6 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var baseQuantifier = baseQuantifierSupplier.get();
 
         // add the value for the flow of records
-        final var recordValue = QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0);
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
         final var baseAlias = baseQuantifier.getAlias();
@@ -177,11 +176,11 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 index,
                 recordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
+                baseAlias,
                 groupingAliases,
                 scoreAlias,
                 rankAlias,
                 primaryKeyAliases,
-                recordValue,
                 indexKeyValues,
                 ValueIndexExpansionVisitor.fullKey(index, primaryKey));
     }
@@ -296,7 +295,10 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var partitioningExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
         final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
         final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
-        return GraphExpansion.ofOthers(partitioningAndArgumentExpansion,
-                        GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier));
+        return partitioningAndArgumentExpansion
+                .toBuilder()
+                .addQuantifier(innerBaseQuantifier)
+                .addResultValue(rankValue)
+                .build();
     }
 }

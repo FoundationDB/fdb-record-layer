@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
@@ -62,11 +62,11 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
     @Nonnull
     default TranslateValueFunction pushValueFunction(final List<TranslateValueFunction> dependentFunctions) {
         Verify.verify(!dependentFunctions.isEmpty());
-        return (value, newBaseColumnValue) -> {
+        return (value, newBaseQuantifiedValue) -> {
             @Nullable Value previousPushedValue = null;
             @Nullable AliasMap equivalencesMap = null;
             for (final TranslateValueFunction dependentFunction : dependentFunctions) {
-                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseColumnValue);
+                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseQuantifiedValue);
                 if (!pushedValueOptional.isPresent()) {
                     return Optional.empty();
                 }
@@ -97,7 +97,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                         .collect(Collectors.toSet());
 
         final CorrelationIdentifier newBaseAlias = CorrelationIdentifier.uniqueID();
-        final QuantifiedColumnValue newBaseColumnValue = QuantifiedColumnValue.of(newBaseAlias, 0);
+        final QuantifiedObjectValue newBaseObjectValue = QuantifiedObjectValue.of(newBaseAlias);
 
         for (final Value value : values) {
             final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(newBaseAlias));
@@ -111,7 +111,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                     continue;
                 }
 
-                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseColumnValue);
+                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseObjectValue);
 
                 if (!pushedValueOptional.isPresent()) {
                     candidatesAliases.remove(quantifier.getAlias());

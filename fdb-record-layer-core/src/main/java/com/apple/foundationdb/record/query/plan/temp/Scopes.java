@@ -49,7 +49,7 @@ public class Scopes {
 
     public Scopes push(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
                        @Nonnull final Map<String, Value> boundIdentifiers) {
-        this.currentScope = new Scope(this.currentScope, visibleAliases, boundIdentifiers, new GraphExpansion.Builder());
+        this.currentScope = new Scope(this.currentScope, visibleAliases, boundIdentifiers, GraphExpansion.builder());
         return this;
     }
 

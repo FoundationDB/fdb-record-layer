@@ -243,7 +243,7 @@ public interface MatchCandidate {
         final var type = index.getType();
 
         if (type.equals(IndexTypes.VALUE)) {
-            expandMatchCandidate(index,
+            expandIndexMatchCandidate(index,
                     recordTypeNamesForIndex,
                     availableRecordTypes,
                     isReverse,
@@ -254,7 +254,7 @@ public interface MatchCandidate {
 
         if (type.equals(IndexTypes.RANK)) {
             // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
-            expandMatchCandidate(index,
+            expandIndexMatchCandidate(index,
                     recordTypeNamesForIndex,
                     availableRecordTypes,
                     isReverse,
@@ -262,7 +262,7 @@ public interface MatchCandidate {
                     new ValueIndexExpansionVisitor(index, recordTypesForIndex))
                     .ifPresent(resultBuilder::add);
 
-            expandMatchCandidate(index,
+            expandIndexMatchCandidate(index,
                     recordTypeNamesForIndex,
                     availableRecordTypes,
                     isReverse,
@@ -275,12 +275,12 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    private static Optional<MatchCandidate> expandMatchCandidate(@Nonnull final Index index,
-                                                                 @Nonnull final ImmutableSet<String> recordTypeNamesForIndex,
-                                                                 @Nonnull final Set<String> availableRecordTypes,
-                                                                 final boolean isReverse,
-                                                                 @Nullable final KeyExpression commonPrimaryKeyForIndex,
-                                                                 @Nonnull final ExpansionVisitor<?> expansionVisitor) {
+    private static Optional<MatchCandidate> expandIndexMatchCandidate(@Nonnull final Index index,
+                                                                      @Nonnull final ImmutableSet<String> recordTypeNamesForIndex,
+                                                                      @Nonnull final Set<String> availableRecordTypes,
+                                                                      final boolean isReverse,
+                                                                      @Nullable final KeyExpression commonPrimaryKeyForIndex,
+                                                                      @Nonnull final ExpansionVisitor<?> expansionVisitor) {
         final var baseRef = createBaseRef(availableRecordTypes, recordTypeNamesForIndex);
         try {
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
