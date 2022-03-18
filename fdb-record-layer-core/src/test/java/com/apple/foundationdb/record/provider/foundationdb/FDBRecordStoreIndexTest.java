@@ -135,6 +135,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void init() {
         // Clear the cached databases.
         FDBDatabaseFactory.instance().clear();
+        clearAndInitialize();
     }
 
     @Test
