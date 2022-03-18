@@ -276,6 +276,12 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 }
             }
 
+            try (FDBRecordContext context = openContext()) {
+                // Verify that all ranges have been built by trying to mark the index as readable
+                recordStore.markIndexReadable(index).join();
+                context.isClosed();
+            }
+
             assertThat(indexBuilder.getTotalRecordsScanned(),
                     allOf(
                             greaterThanOrEqualTo((long)records.size()),

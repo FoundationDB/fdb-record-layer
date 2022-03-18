@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBError;
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.annotation.API;
@@ -381,8 +383,9 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Void> buildRanges(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
                                                 @Nonnull RangeSet rangeSet, @Nonnull Queue<Range> rangeDeque) {
-        // TODO can this use `iterateAllRanges`?
-        // load the config before starting, in case the MaxLimit needs to be updated before it starts work
+        // Unlike iterateAllRanges, this stores the ranges to build in a queue in memory (rangeDeque) and if there is an
+        // issue where a range is already built, it reloads them in memory. This might be an unnecessary optimization,
+        // especially considering how complicated it makes this code.
         return common.getLimitedRunner().runAsync(
                 (context, startingLimit) -> {
                     if (rangeDeque.isEmpty()) {
@@ -390,7 +393,7 @@ public class IndexingByRecords extends IndexingBase {
                     }
                     common.loadConfig();
                     int limit = Math.max(startingLimit, common.config.getMaxLimit());
-                    Range toBuild = rangeDeque.remove();
+                    Range toBuild = rangeDeque.peek();
 
                     // This only works if the things included within the rangeSet are serialized Tuples.
                     Tuple startTuple = Tuple.fromBytes(toBuild.begin);
@@ -408,6 +411,8 @@ public class IndexingByRecords extends IndexingBase {
                     context.addPostCommit(() -> {
                         final Tuple realEnd = postCommitRealEnd.get();
                         common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
+                        // this will add back realEnd->END if realEnd is not already at the end
+                        final Range removed = rangeDeque.remove();// remove the successfully built range
                         return handleBuiltRange(subspaceProvider, rangeDeque, startTuple, endTuple, realEnd, limit)
                                 .thenApply(vignore -> null);
                     });
@@ -435,11 +440,13 @@ public class IndexingByRecords extends IndexingBase {
                                                         final Tuple realEnd, final int limit) {
         if (realEnd != null && !realEnd.equals(endTuple)) {
             // We didn't make it to the end. Continue on to the next item.
+            final Range newRange;
             if (endTuple != null) {
-                rangeDeque.add(new Range(realEnd.pack(), endTuple.pack()));
+                newRange = new Range(realEnd.pack(), endTuple.pack());
             } else {
-                rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
+                newRange = new Range(realEnd.pack(), END_BYTES);
             }
+            rangeDeque.add(newRange);
         }
         return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Arrays.asList(
                 LogMessageKeys.START_TUPLE, startTuple,
@@ -465,7 +472,15 @@ public class IndexingByRecords extends IndexingBase {
                                     LogMessageKeys.REASON, "RecordBuiltRangeException",
                                     LogMessageKeys.START_TUPLE, startTuple,
                                     LogMessageKeys.END_TUPLE, endTuple,
-                                    LogMessageKeys.REAL_END, null));
+                                    LogMessageKeys.REAL_END, null))
+                                    .thenCompose(hasMore -> {
+                                        // Abort the transaction and retry.
+                                        // Perhaps RecordBuiltRangeException should extend something "retriable"
+                                        // rather than having to create a NOT_COMMITTED
+                                        CompletableFuture<Boolean> notCommitted = new CompletableFuture<>();
+                                        notCommitted.completeExceptionally(new FDBException("BuiltRangeException", FDBError.NOT_COMMITTED.code()));
+                                        return notCommitted;
+                                    });
                         });
             } else {
                 cause = cause.getCause();
