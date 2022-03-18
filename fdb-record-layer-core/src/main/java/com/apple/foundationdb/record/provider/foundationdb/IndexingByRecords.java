@@ -243,13 +243,20 @@ public class IndexingByRecords extends IndexingBase {
                 //      or perhaps these should be added in runAsyncInStore?
                 LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                 LogMessageKeys.INDEXER_ID, common.getUuid());
-        AtomicLong recordsScanned = new AtomicLong(0);
         // TODO perhaps this should have different retry counts from the runAsyncInStore used in limittedRunner
         // TODO should this just add common info to the log values
         // TODO should this check the index state?
         common.loadConfig();
-        return common.getRunner().runAsync(context -> common.openStoreAsync(context)
-                        .thenCompose(store -> buildEndpoints(store, recordsScanned)),
+        return common.getRunner().runAsync(
+                context -> {
+                    AtomicLong recordsScanned = new AtomicLong(0);
+                    context.addPostCommit(() -> {
+                        common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
+                        return AsyncUtil.DONE;
+                    });
+                    return common.openStoreAsync(context)
+                            .thenCompose(store -> buildEndpoints(store, recordsScanned));
+                },
                 additionalLogMessageKeyValues);
     }
 
@@ -375,7 +382,6 @@ public class IndexingByRecords extends IndexingBase {
     private CompletableFuture<Void> buildRanges(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
                                                 @Nonnull RangeSet rangeSet, @Nonnull Queue<Range> rangeDeque) {
         // TODO can this use `iterateAllRanges`?
-        AtomicLong recordsScanned = new AtomicLong(0);
         // load the config before starting, in case the MaxLimit needs to be updated before it starts work
         return common.getLimitedRunner().runAsync(
                 (context, startingLimit) -> {
@@ -398,13 +404,14 @@ public class IndexingByRecords extends IndexingBase {
                             LogMessageKeys.INDEXER_ID, common.getUuid(),
                             LogMessageKeys.LIMIT, limit);
                     AtomicReference<Tuple> postCommitRealEnd = new AtomicReference<>(startTuple);
+                    AtomicLong recordsScanned = new AtomicLong(0);
                     context.addPostCommit(() -> {
                         final Tuple realEnd = postCommitRealEnd.get();
+                        common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
                         return handleBuiltRange(subspaceProvider, rangeDeque, startTuple, endTuple, realEnd, limit)
                                 .thenApply(vignore -> null);
                     });
                     // TODO check index state
-                    // TODO if the transaction succeeds increment common.getTotalRecordsScanned()
                     return common.openStoreAsync(context)
                             .thenCompose(store -> buildUnbuiltRange(store, startTuple, endTuple, recordsScanned, limit))
                             .handle((realEnd, exception) -> {

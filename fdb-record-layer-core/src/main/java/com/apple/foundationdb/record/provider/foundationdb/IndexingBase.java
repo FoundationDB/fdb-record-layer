@@ -767,7 +767,6 @@ public abstract class IndexingBase {
                                                        RangeConsumer iterateRange,
                                                        @Nonnull SubspaceProvider subspaceProvider,
                                                        @Nonnull Subspace subspace) {
-        AtomicLong recordsScanned = new AtomicLong(0);
         final ArrayList<Object> logMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
                 // TODO probably worthwhile to put a method in common to get the key/values
@@ -781,9 +780,10 @@ public abstract class IndexingBase {
                     common.loadConfig();
                     int limit = Math.max(startingLimit, common.config.getMaxLimit());
                     // TODO check index state
-                    // TODO if the transaction succeeds increment common.getTotalRecordsScanned()
                     AtomicBoolean hasMoreForHook = new AtomicBoolean(true);
+                    AtomicLong recordsScanned = new AtomicLong(0);
                     context.addPostCommit(() -> {
+                        common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
                         if (hasMoreForHook.get()) {
                             return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Collections.emptyList())
                                     .thenApply(vignore -> null);

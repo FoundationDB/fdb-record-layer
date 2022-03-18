@@ -268,6 +268,7 @@ public class IndexingCommon {
         this.synchronizedSessionRunner = synchronizedSessionRunner;
     }
 
+    // TODO rename to totalRecordsIndexed?
     @Nonnull
     public AtomicLong getTotalRecordsScanned() {
         return totalRecordsScanned;
