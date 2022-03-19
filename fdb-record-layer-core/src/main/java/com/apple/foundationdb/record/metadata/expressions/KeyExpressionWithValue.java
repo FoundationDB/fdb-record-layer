@@ -34,7 +34,7 @@ import java.util.List;
  *     <li>It's a single value rather than a complex tuple.</li>
  *     <li>It does not produce multiple values because of fan-out.</li>
  * </ul>
- * This is completely unrelated to the the (disturbingly) similarly named {@link KeyWithValueExpression}.
+ * This is completely unrelated to the (disturbingly) similarly named {@link KeyWithValueExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface KeyExpressionWithValue extends KeyExpression {

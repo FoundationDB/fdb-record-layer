@@ -65,7 +65,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
         final var graphExpansion =
                 pop(primaryKey.expand(push(VisitorState.of(Lists.newArrayList(),
                         Lists.newArrayList(),
-                        baseQuantifier.getAlias(),
+                        baseQuantifier,
                         ImmutableList.of(),
                         -1,
                         0))));

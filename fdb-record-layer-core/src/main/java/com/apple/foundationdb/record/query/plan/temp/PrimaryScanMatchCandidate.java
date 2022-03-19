@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
@@ -116,7 +117,8 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch,
+    public RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
+                                                       @Nonnull PartialMatch partialMatch,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
@@ -126,6 +128,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
                 new PrimaryScanExpression(getAvailableRecordTypes(),
                         comparisonRanges,
-                        reverseScanOrder));
+                        reverseScanOrder),
+                Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(getQueriedRecordTypes())));
     }
 }

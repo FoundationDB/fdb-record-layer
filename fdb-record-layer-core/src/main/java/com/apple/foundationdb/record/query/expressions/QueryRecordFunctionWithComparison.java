@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionExpansionVisitor;
@@ -120,20 +119,19 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
-                                 @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
-
         // TODO for now we only do this for rank but we can do this for more than that
         if (function instanceof IndexRecordFunction && function.getName().equals(FunctionNames.RANK)) {
             final var groupingKeyExpression = ((IndexRecordFunction<?>)function).getOperand();
             final var wholeKeyExpression = groupingKeyExpression.getWholeKey();
             final var expansionVisitor = new KeyExpressionExpansionVisitor();
-            final var innerBaseQuantifier = baseQuantifierSupplier.get();
+            final var innerBaseQuantifier = outerQuantifierSupplier.get();
             final var partitioningAndArgumentExpansion =
                     wholeKeyExpression.expand(
                             expansionVisitor.push(VisitorState.forQueries(Lists.newArrayList(),
-                                    innerBaseQuantifier.getAlias(),
+                                    innerBaseQuantifier,
                                     fieldNamePrefix)));
             final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal();
 
@@ -168,7 +166,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             final var selfJoinPredicate =
                     QuantifiedObjectValue.of(rankQuantifier.getAlias())
                             .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
-                                    Bindings.Internal.CORRELATION.bindingName(baseAlias.toString()), Bindings.Internal.CORRELATION));
+                                    Bindings.Internal.CORRELATION.bindingName(baseQuantifier.getAlias().toString()), Bindings.Internal.CORRELATION));
             final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
 
             final var rankAndJoiningPredicateSelectExpression =

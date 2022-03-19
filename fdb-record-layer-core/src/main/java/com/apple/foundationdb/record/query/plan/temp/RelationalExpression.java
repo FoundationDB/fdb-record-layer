@@ -98,16 +98,22 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
                                                 @Nonnull RecordQuery query) {
-        query.validate(context.getMetaData());
+        final var recordMetaData = context.getMetaData();
+        query.validate(recordMetaData);
+        final var recordTypes = context.getRecordTypes();
 
         final GroupExpressionRef<? extends RelationalExpression> baseRef;
         Quantifier.ForEach quantifier;
-        if (context.getRecordTypes().isEmpty()) {
+        if (recordTypes.isEmpty()) {
             baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
             final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet()));
-            baseRef = GroupExpressionRef.of(new LogicalTypeFilterExpression(new HashSet<>(context.getRecordTypes()), Quantifier.forEach(fuseRef)));
+            baseRef = GroupExpressionRef.of(
+                    new LogicalTypeFilterExpression(
+                            new HashSet<>(recordTypes),
+                            Quantifier.forEach(fuseRef),
+                            Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(recordTypes))));
             quantifier = Quantifier.forEach(baseRef);
         }
 
@@ -116,7 +122,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
             selectExpression =
                     GraphExpansion.ofOthers(GraphExpansion.builder().pullUpQuantifier(quantifier).build(),
                                     query.getFilter()
-                                            .expand(quantifier.getAlias(), () -> Quantifier.forEach(baseRef)))
+                                            .expand(quantifier, () -> Quantifier.forEach(baseRef)))
                             .buildSelect();
 
         } else {

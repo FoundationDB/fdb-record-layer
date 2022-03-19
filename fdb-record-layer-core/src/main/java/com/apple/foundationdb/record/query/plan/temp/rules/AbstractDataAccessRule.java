@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
@@ -191,6 +192,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @Override
     @SuppressWarnings("java:S135")
     public void onMatch(@Nonnull PlannerRuleCall call) {
+        final var planContext = call.getContext();
         final var bindings = call.getBindings();
         final var completeMatches = bindings.getAll(getCompleteMatchMatcher());
         final var expression = bindings.get(getExpressionMatcher());
@@ -219,7 +221,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         // create scans for all best matches
         final var bestMatchToExpressionMap =
-                createScansForMatches(bestMaximumCoverageMatches);
+                createScansForMatches(planContext.getMetaData(), bestMaximumCoverageMatches);
 
         final var toBeInjectedReference = GroupExpressionRef.empty();
 
@@ -372,17 +374,19 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
     /**
      * Private helper method to compute a map of matches to scans (no compensation applied yet).
+     * @param recordMetaData the mata data used by the plann context
      * @param matches a collection of matches
      * @return a map of the matches where a match is associated with a scan expression created based on that match
      */
     @Nonnull
-    private static Map<PartialMatch, RelationalExpression> createScansForMatches(@Nonnull final Collection<PartialMatch> matches) {
+    private static Map<PartialMatch, RelationalExpression> createScansForMatches(@Nonnull RecordMetaData recordMetaData,
+                                                                                 @Nonnull final Collection<PartialMatch> matches) {
         return matches
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
                         Function.identity(),
                         partialMatch -> partialMatch.getMatchCandidate()
-                                .toEquivalentExpression(partialMatch)));
+                                .toEquivalentExpression(recordMetaData, partialMatch)));
     }
 
     /**
