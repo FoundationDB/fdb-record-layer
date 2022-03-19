@@ -143,8 +143,8 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         return collectionValue.toString();
     }
 
-    public static ExplodeExpression explodeField(@Nonnull final CorrelationIdentifier correlationIdentifier,
+    public static ExplodeExpression explodeField(@Nonnull final Quantifier.ForEach baseQuantifier,
                                                  @Nonnull final List<String> fieldNames) {
-        return new ExplodeExpression(new FieldValue(QuantifiedObjectValue.of(correlationIdentifier), fieldNames));
+        return new ExplodeExpression(new FieldValue(QuantifiedObjectValue.of(baseQuantifier.getAlias()), fieldNames));
     }
 }

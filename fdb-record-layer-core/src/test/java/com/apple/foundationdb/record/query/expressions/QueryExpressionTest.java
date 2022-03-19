@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.test.Tags;
@@ -102,7 +101,7 @@ public class QueryExpressionTest {
         }
 
         @Override
-        public @Nonnull GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier, @Nonnull final List<String> fieldNamePrefix) {
+        public @Nonnull GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier, @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier, @Nonnull final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
     }

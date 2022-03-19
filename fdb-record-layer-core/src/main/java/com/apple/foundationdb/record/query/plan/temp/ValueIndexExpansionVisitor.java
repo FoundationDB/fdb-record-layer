@@ -97,7 +97,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         final var initialState =
                 VisitorState.of(keyValues,
                         valueValues,
-                        baseQuantifier.getAlias(),
+                        baseQuantifier,
                         ImmutableList.of(),
                         keyValueSplitPoint,
                         0);
@@ -121,7 +121,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 final var initialStateForKeyPart =
                         VisitorState.of(keyValues,
                                 Lists.newArrayList(),
-                                baseQuantifier.getAlias(),
+                                baseQuantifier,
                                 ImmutableList.of(),
                                 -1,
                                 keySize + i);

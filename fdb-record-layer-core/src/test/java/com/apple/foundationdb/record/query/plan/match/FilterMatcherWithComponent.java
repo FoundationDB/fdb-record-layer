@@ -25,20 +25,17 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.base.Suppliers;
-import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
 import javax.annotation.Nonnull;
-import java.util.function.Supplier;
 
 /**
  * A specialized Hamcrest matcher that recognizes both {@link RecordQueryFilterPlan}s and the {@link QueryComponent}s
@@ -53,24 +50,9 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
     @Nonnull
     private final QueryComponent component;
 
-    @Nonnull
-    private final CorrelationIdentifier baseAlias;
-
-    @Nonnull
-    private final Supplier<QueryPredicate> componentAsPredicateSupplier;
-
     public FilterMatcherWithComponent(@Nonnull QueryComponent component, @Nonnull Matcher<RecordQueryPlan> childMatcher) {
         super(childMatcher);
         this.component = component;
-        this.baseAlias = CorrelationIdentifier.uniqueID();
-        this.componentAsPredicateSupplier = Suppliers.memoize(() -> {
-            final GraphExpansion graphExpansion =
-                    component.expand(baseAlias, () -> {
-                        throw new UnsupportedOperationException();
-                    });
-            Verify.verify(graphExpansion.getQuantifiers().isEmpty());
-            return graphExpansion.asAndPredicate();
-        });
     }
 
     @Override
@@ -83,10 +65,16 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
             // we lazily convert the given component to a predicate and let semantic equals establish equality
             // under the given equivalence: baseAlias <-> planBaseAlias
             final QueryPredicate predicate = AndPredicate.and(((RecordQueryPredicatesFilterPlan)plan).getPredicates());
-            final CorrelationIdentifier planBaseAlias = Iterables.getOnlyElement(plan.getQuantifiers()).getAlias();
+
 
             if (predicate instanceof PredicateWithValue) {
-                return predicate.semanticEquals(componentAsPredicateSupplier.get(), AliasMap.of(planBaseAlias, baseAlias))
+                final Quantifier planBaseQuantifier = Iterables.getOnlyElement(plan.getQuantifiers());
+                final Quantifier.ForEach expandBaseQuantifier = Quantifier.forEach(planBaseQuantifier.getRangesOver(), planBaseQuantifier.getAlias());
+                final GraphExpansion graphExpansion =
+                        component.expand(expandBaseQuantifier, () -> {
+                            throw new UnsupportedOperationException();
+                        });
+                return predicate.semanticEquals(graphExpansion.asAndPredicate(), AliasMap.emptyMap())
                        && super.matchesSafely(plan);
             } else if (predicate instanceof QueryComponentPredicate) {
                 return component.equals(((QueryComponentPredicate)predicate).getQueryComponent()) && super.matchesSafely(plan);
@@ -100,7 +88,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
 
     @Override
     public void describeTo(Description description) {
-        description.appendText("Filter(" + component.toString() + "; ");
+        description.appendText("Filter(" + component + "; ");
         super.describeTo(description);
         description.appendText(")");
     }

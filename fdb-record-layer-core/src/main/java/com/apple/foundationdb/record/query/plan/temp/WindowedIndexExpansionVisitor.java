@@ -153,7 +153,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 final var initialStateForKeyPart =
                         VisitorState.of(primaryKeyValues,
                                 Lists.newArrayList(),
-                                baseQuantifier.getAlias(),
+                                baseQuantifier,
                                 ImmutableList.of(),
                                 -1,
                                 0);
@@ -279,7 +279,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final VisitorState initialState =
                 VisitorState.of(groupingAndArgumentValues,
                         Lists.newArrayList(),
-                        innerBaseQuantifier.getAlias(),
+                        innerBaseQuantifier,
                         ImmutableList.of(),
                         -1,
                         0);

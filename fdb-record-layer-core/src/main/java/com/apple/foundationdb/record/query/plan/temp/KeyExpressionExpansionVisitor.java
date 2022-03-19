@@ -114,7 +114,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         final KeyExpression.FanType fanType = fieldKeyExpression.getFanType();
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
-        final CorrelationIdentifier baseAlias = state.getBaseAlias();
+        final Quantifier.ForEach baseQuantifier = state.getBaseQuantifier();
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
@@ -124,7 +124,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         switch (fanType) {
             case FanOut:
                 // explode this field and prefixes of this field
-                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseAlias, fieldNamePrefix);
+                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
                 value = state.registerValue(QuantifiedObjectValue.of(childBase.getAlias()));
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
@@ -143,7 +143,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case None:
-                value = state.registerValue(new FieldValue(QuantifiedObjectValue.of(baseAlias), fieldNames));
+                value = state.registerValue(new FieldValue(QuantifiedObjectValue.of(baseQuantifier.getAlias()), fieldNames));
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
                     return GraphExpansion.ofResultValueAndPlaceholder(value, predicate);
@@ -159,7 +159,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Override
     public GraphExpansion visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
         final VisitorState state = getCurrentState();
-        final Value value = state.registerValue(keyExpressionWithValue.toValue(state.getBaseAlias(), state.getFieldNamePrefix()));
+        final Value value = state.registerValue(keyExpressionWithValue.toValue(state.getBaseQuantifier().getAlias(), state.getFieldNamePrefix()));
         if (state.isKey()) {
             final Placeholder predicate =
                     value.asPlaceholder(newParameterAlias());
@@ -179,7 +179,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     public GraphExpansion visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
-        final CorrelationIdentifier baseAlias = state.getBaseAlias();
+        final Quantifier.ForEach baseQuantifier = state.getBaseQuantifier();
 
         final FieldKeyExpression parent = nestingKeyExpression.getParent();
         final KeyExpression child = nestingKeyExpression.getChild();
@@ -192,10 +192,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
             case FanOut:
                 // explode the parent field(s) also depending on the prefix
-                final Quantifier.ForEach childBase = parent.explodeField(baseAlias, fieldNamePrefix);
+                final Quantifier.ForEach childBase = parent.explodeField(baseQuantifier, fieldNamePrefix);
                 // expand the children of the key expression and then unify them into an expansion of this expression
                 final GraphExpansion childExpansion =
-                        pop(child.expand(push(state.withBaseAlias(childBase.getAlias()).withFieldNamePrefix(ImmutableList.of()))));
+                        pop(child.expand(push(state.withBaseQuantifier(childBase).withFieldNamePrefix(ImmutableList.of()))));
                 final GraphExpansion baseAndChildExpansion = childExpansion.withBase(childBase);
                 final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
                 final SelectExpression selectExpression =
@@ -238,11 +238,11 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      */
     public static class VisitorState implements KeyExpressionVisitor.State {
         /**
-         * Correlated input to operators using the current state. This alias usually refers to the global record type
+         * Correlated input to operators using the current state. This quantifier usually refers to the global record type
          * input or an exploded field (an iteration) defining this state.
          */
         @Nonnull
-        private final CorrelationIdentifier baseAlias;
+        private final Quantifier.ForEach baseQuantifier;
 
         /**
          * List of field names that form a nesting chain of non-repeated fields.
@@ -276,13 +276,13 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
 
         private VisitorState(@Nonnull final List<Value> keyOrdinalMap,
                              @Nonnull final List<Value> valueValues,
-                             @Nonnull final CorrelationIdentifier baseAlias,
+                             @Nonnull final Quantifier.ForEach baseQuantifier,
                              @Nonnull final List<String> fieldNamePrefix,
                              final int splitPointForValues,
                              final int currentOrdinal) {
             this.keyValues = keyOrdinalMap;
             this.valueValues = valueValues;
-            this.baseAlias = baseAlias;
+            this.baseQuantifier = baseQuantifier;
             this.fieldNamePrefix = fieldNamePrefix;
             this.splitPointForValues = splitPointForValues;
             this.currentOrdinal = currentOrdinal;
@@ -299,8 +299,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         }
 
         @Nonnull
-        public CorrelationIdentifier getBaseAlias() {
-            return baseAlias;
+        public Quantifier.ForEach getBaseQuantifier() {
+            return baseQuantifier;
         }
 
         @Nonnull
@@ -330,10 +330,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             return value;
         }
 
-        public VisitorState withBaseAlias(@Nonnull final CorrelationIdentifier baseAlias) {
+        public VisitorState withBaseQuantifier(@Nonnull final Quantifier.ForEach baseQuantifier) {
             return new VisitorState(this.keyValues,
                     this.valueValues,
-                    baseAlias,
+                    baseQuantifier,
                     this.fieldNamePrefix,
                     this.splitPointForValues,
                     this.currentOrdinal);
@@ -342,7 +342,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         public VisitorState withFieldNamePrefix(@Nonnull final List<String> fieldNamePrefix) {
             return new VisitorState(this.keyValues,
                     this.valueValues,
-                    this.baseAlias,
+                    this.baseQuantifier,
                     fieldNamePrefix,
                     this.splitPointForValues,
                     this.currentOrdinal);
@@ -351,7 +351,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         public VisitorState withSplitPointForValues(final int splitPointForValues) {
             return new VisitorState(this.keyValues,
                     this.valueValues,
-                    this.baseAlias,
+                    this.baseQuantifier,
                     fieldNamePrefix,
                     splitPointForValues,
                     this.currentOrdinal);
@@ -360,19 +360,19 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         public VisitorState withCurrentOrdinal(final int currentOrdinal) {
             return new VisitorState(this.keyValues,
                     this.valueValues,
-                    this.baseAlias,
+                    this.baseQuantifier,
                     this.fieldNamePrefix,
                     this.splitPointForValues,
                     currentOrdinal);
         }
 
         public static VisitorState forQueries(@Nonnull final List<Value> valueValues,
-                                              @Nonnull final CorrelationIdentifier baseAlias,
+                                              @Nonnull final Quantifier.ForEach baseQuantifier,
                                               @Nonnull final List<String> fieldNamePrefix) {
             return new VisitorState(
                     Lists.newArrayList(),
                     valueValues,
-                    baseAlias,
+                    baseQuantifier,
                     fieldNamePrefix,
                     0,
                     0);
@@ -380,14 +380,14 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
 
         public static VisitorState of(@Nonnull final List<Value> keyValues,
                                       @Nonnull final List<Value> valueValues,
-                                      @Nonnull final CorrelationIdentifier baseAlias,
+                                      @Nonnull final Quantifier.ForEach baseQuantifier,
                                       @Nonnull final List<String> fieldNamePrefix,
                                       final int splitPointForValues,
                                       final int currentOrdinal) {
             return new VisitorState(
                     keyValues,
                     valueValues,
-                    baseAlias,
+                    baseQuantifier,
                     fieldNamePrefix,
                     splitPointForValues,
                     currentOrdinal);

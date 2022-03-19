@@ -210,7 +210,7 @@ public class ExpressionMatcherTest {
         final var baseRef = GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", fullValueScan, true));
         final Quantifier.ForEach quantifier = Quantifier.forEach(baseRef);
         LogicalFilterExpression filterPlan =
-                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier.getAlias(), () -> Quantifier.forEach(baseRef)).getPredicates(),
+                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier, () -> Quantifier.forEach(baseRef)).getPredicates(),
                         quantifier);
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         RelationalExpression root =

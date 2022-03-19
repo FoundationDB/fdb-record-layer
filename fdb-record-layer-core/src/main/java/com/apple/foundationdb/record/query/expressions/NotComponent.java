@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
@@ -149,10 +148,10 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
 
     @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier base,
-                                 @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
-        final GraphExpansion childGraphExpansion = child.expand(base, baseQuantifierSupplier, fieldNamePrefix);
+        final GraphExpansion childGraphExpansion = child.expand(baseQuantifier, outerQuantifierSupplier, fieldNamePrefix);
         return childGraphExpansion.withPredicate(NotPredicate.not(childGraphExpansion.asAndPredicate()));
     }
 }

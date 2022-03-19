@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.QueryHashable;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -79,11 +78,11 @@ public class AndComponent extends AndOrComponent {
 
     @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier base,
-                                 @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
         return GraphExpansion.ofOthers(getChildren().stream()
-                .map(child -> child.expand(base, baseQuantifierSupplier, fieldNamePrefix))
+                .map(child -> child.expand(baseQuantifier, outerQuantifierSupplier, fieldNamePrefix))
                 .collect(ImmutableList.toImmutableList()));
     }
 

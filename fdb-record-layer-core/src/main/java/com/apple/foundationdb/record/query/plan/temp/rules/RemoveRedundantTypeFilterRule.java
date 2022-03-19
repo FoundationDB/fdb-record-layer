@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers;
@@ -32,10 +33,9 @@ import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesPrope
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalTypeFilterExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalTypeFilterExpression;
 
 /**
  * A rule that eliminates logical type filters that are completely redundant; that is, when the child of the logical
@@ -52,21 +52,28 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final LogicalTypeFilterExpression typeFilter = call.get(root);
-        final Quantifier.ForEach qun = call.get(qunMatcher);
+        final var typeFilter = call.get(root);
+        final var qun = call.get(qunMatcher);
 
         // TODO add overload
-        final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), qun.getRangesOver());
-        final Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
+        final var childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), qun.getRangesOver());
+        final var filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
         if (filterRecordTypes.containsAll(childRecordTypes)) {
             // type filter is completely redundant, so remove it entirely
             call.yield(qun.getRangesOver());
         } else {
             // otherwise, keep a logical filter on record types which the quantifier might produce and are included in the filter
-            final Set<String> unsatisfiedTypeFilters = Sets.intersection(childRecordTypes, filterRecordTypes);
+            final var unsatisfiedTypeFilters = Sets.intersection(childRecordTypes, filterRecordTypes);
             if (!unsatisfiedTypeFilters.equals(filterRecordTypes)) {
+                final var planContext = call.getContext();
+                final var metaData = planContext.getMetaData();
                 // there were some unnecessary filters, so remove them
-                call.yield(GroupExpressionRef.of(new LogicalTypeFilterExpression(unsatisfiedTypeFilters, qun)));
+                call.yield(
+                        GroupExpressionRef.of(
+                                new LogicalTypeFilterExpression(
+                                        unsatisfiedTypeFilters,
+                                        qun,
+                                        Type.Record.fromFieldDescriptorsMap(metaData.getFieldDescriptorMapFromNames(unsatisfiedTypeFilters)))));
             } // otherwise, nothing changes
         }
     }
