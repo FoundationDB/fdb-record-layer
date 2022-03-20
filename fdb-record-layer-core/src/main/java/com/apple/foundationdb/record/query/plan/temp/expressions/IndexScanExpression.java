@@ -188,6 +188,7 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
         dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA,
+                getResultType(),
                 ImmutableList.of("index name: {{indexName}}"),
                 ImmutableMap.of("indexName", Attribute.gml(getIndexName())));
 

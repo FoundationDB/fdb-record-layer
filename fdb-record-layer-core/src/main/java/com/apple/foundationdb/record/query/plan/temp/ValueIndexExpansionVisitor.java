@@ -139,7 +139,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 recordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
                 parameters,
-                baseQuantifier.getAlias(),
+                baseQuantifier,
                 keyValues,
                 valueValues,
                 fullKey(index, primaryKey));

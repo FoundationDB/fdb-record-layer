@@ -351,7 +351,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                         attributeMapBuilder.build()),
                 ImmutableList.of(
                         PlannerGraph.fromNodeAndChildGraphs(
-                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.copyOf(getUsedIndexes())),
+                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, getResultType(), ImmutableList.copyOf(getUsedIndexes())),
                                 ImmutableList.of())));
     }
 }

@@ -149,6 +149,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
         dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                getResultType(),
                 ImmutableList.of("record types: {{types}}"),
                 ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList()))));
 

@@ -302,9 +302,11 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         if (getRecordTypes() == null) {
             dataNodeWithInfo =
                     new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                            getResultType(),
                             ImmutableList.of("ALL"));
         } else {
             dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                    getResultType(),
                     ImmutableList.of("record types: {{types}}"),
                     ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList()))));
         }

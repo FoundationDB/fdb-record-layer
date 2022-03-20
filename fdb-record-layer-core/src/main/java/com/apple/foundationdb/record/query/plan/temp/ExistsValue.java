@@ -121,7 +121,7 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
             final Quantifier.Existential existsQuantifier = Quantifier.existential(GroupExpressionRef.of((RelationalExpression)in));
             graphExpansionBuilder.addQuantifier(existsQuantifier);
 
-            return new ExistsValue(QuantifiedObjectValue.of(existsQuantifier.getAlias()));
+            return new ExistsValue(existsQuantifier.getFlowedObjectValue());
         }
     }
 }

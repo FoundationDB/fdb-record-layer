@@ -30,7 +30,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Formatter;
 import com.apple.foundationdb.record.query.plan.temp.MessageValue;
+import com.apple.foundationdb.record.query.plan.temp.SemanticException;
 import com.apple.foundationdb.record.query.plan.temp.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -54,9 +56,10 @@ public class FieldValue implements ValueWithChild {
     private final Type resultType;
 
     public FieldValue(@Nonnull QuantifiedValue columnValue, @Nonnull List<String> fieldPath) {
-        this(columnValue, fieldPath, Type.primitiveType(Type.TypeCode.UNKNOWN));
+        this(columnValue, fieldPath, resolveTypeForPath(columnValue.getResultType(), fieldPath));
     }
 
+    @VisibleForTesting
     public FieldValue(@Nonnull QuantifiedValue columnValue, @Nonnull List<String> fieldPath, @Nonnull Type resultType) {
         Preconditions.checkArgument(!fieldPath.isEmpty());
         this.columnValue = columnValue;
@@ -102,7 +105,7 @@ public class FieldValue implements ValueWithChild {
         if (message == null) {
             return null;
         }
-        final Object childResult = columnValue.eval(store, context, record, message);
+        final var childResult = columnValue.eval(store, context, record, message);
         if (!(childResult instanceof Message)) {
             return null;
         }
@@ -115,7 +118,7 @@ public class FieldValue implements ValueWithChild {
             return false;
         }
 
-        final FieldValue that = (FieldValue)other;
+        final var that = (FieldValue)other;
         return columnValue.semanticEquals(that.columnValue, equivalenceMap) &&
                fieldPath.equals(that.fieldPath);
     }
@@ -151,5 +154,20 @@ public class FieldValue implements ValueWithChild {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(columnValue.getCorrelatedTo()));
+    }
+
+    private static Type resolveTypeForPath(@Nonnull final Type inputType, @Nonnull final List<String> fieldPath) {
+        var currentType = inputType;
+        for (final var fieldName : fieldPath) {
+            if (currentType.getTypeCode() == Type.TypeCode.ANY) {
+                return new Type.Any();
+            }
+            SemanticException.check(inputType.getTypeCode() == Type.TypeCode.RECORD, "field type can only be resolved on records");
+            final var recordType = (Type.Record)currentType;
+            final var fieldTypeMap = recordType.getFieldTypeMap();
+            SemanticException.check(fieldTypeMap.containsKey(fieldName), "record does not contain specified field");
+            currentType = fieldTypeMap.get(fieldName);
+        }
+        return currentType;
     }
 }

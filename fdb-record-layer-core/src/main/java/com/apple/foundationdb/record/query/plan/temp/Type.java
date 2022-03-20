@@ -159,7 +159,8 @@ public interface Type extends Narrowable<Type> {
      * @return a field name generated using the field suffix.
      */
     static String fieldName(final Object fieldSuffix) {
-        return "__field__" + fieldSuffix;
+        // do this in the style of Scala
+        return "_" + fieldSuffix;
     }
 
     /**

@@ -193,6 +193,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
         final PlannerGraph.DataNodeWithInfo valuesNode =
                 new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
+                        getResultType(),
                         ImmutableList.of("VALUES({{values}}"),
                         ImmutableMap.of("values",
                                 Attribute.gml(Objects.requireNonNull(valuesSources).stream()

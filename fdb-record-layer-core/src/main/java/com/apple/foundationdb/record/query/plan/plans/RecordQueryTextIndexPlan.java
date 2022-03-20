@@ -271,7 +271,7 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
                         nodeInfo,
                         detailsBuilder.build(),
                         attributeMapBuilder.build());
-        final PlannerGraph.DataNodeWithInfo source = new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.of(getIndexName()));
+        final PlannerGraph.DataNodeWithInfo source = new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, getResultType(), ImmutableList.of(getIndexName()));
         return PlannerGraph.builder(root)
                 .addNode(source)
                 .addEdge(source, root, new PlannerGraph.Edge())

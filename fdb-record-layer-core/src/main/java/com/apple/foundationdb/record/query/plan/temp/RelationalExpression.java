@@ -149,7 +149,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                     .stream()
                                     .flatMap(keyExpression -> keyExpression.normalizeKeyForPositions().stream())
                                     .collect(ImmutableList.toImmutableList()),
-                            quantifier.getAlias());
+                            quantifier);
             quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalProjectionExpression(projectedValues, quantifier)));
         }
 

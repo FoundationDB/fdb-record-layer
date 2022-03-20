@@ -179,6 +179,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
         final PlannerGraph.DataNodeWithInfo valuesNode =
                 new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
+                        getResultType(),
                         ImmutableList.of("VALUES({{values}}"),
                         ImmutableMap.of("values",
                                 Attribute.gml(Objects.requireNonNull(getInListValues()).stream()

@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.temp.KeyExpressionExpansionVisit
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.EmptyValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.google.common.collect.ImmutableList;
@@ -125,7 +124,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             case FanOut:
                 // explode this field and prefixes of this field
                 final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
-                value = state.registerValue(QuantifiedObjectValue.of(childBase.getAlias()));
+                value = state.registerValue(childBase.getFlowedObjectValue());
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
@@ -143,7 +142,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case None:
-                value = state.registerValue(new FieldValue(QuantifiedObjectValue.of(baseQuantifier.getAlias()), fieldNames));
+                value = state.registerValue(new FieldValue(baseQuantifier.getFlowedObjectValue(), fieldNames));
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
                     return GraphExpansion.ofResultValueAndPlaceholder(value, predicate);

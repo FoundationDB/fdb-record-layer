@@ -70,10 +70,10 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     private final List<CorrelationIdentifier> parameters;
 
     /**
-     * Base alias.
+     * Base quantifier.
      */
     @Nonnull
-    private final CorrelationIdentifier baseAlias;
+    private final Quantifier.ForEach baseQuantifier;
 
     /**
      * List of values that represent the key parts of the index represented by the candidate in the expanded graph.
@@ -100,7 +100,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                         @Nonnull Collection<RecordType> recordTypes,
                                         @Nonnull final ExpressionRefTraversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
-                                        @Nonnull final CorrelationIdentifier baseAlias,
+                                        @Nonnull final Quantifier.ForEach baseQuantifier,
                                         @Nonnull final List<Value> indexKeyValues,
                                         @Nonnull final List<Value> indexValueValues,
                                         @Nonnull final KeyExpression alternativeKeyExpression) {
@@ -108,7 +108,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
-        this.baseAlias = baseAlias;
+        this.baseQuantifier = baseQuantifier;
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
         this.indexValueValues = ImmutableList.copyOf(indexValueValues);
         this.alternativeKeyExpression = alternativeKeyExpression;
@@ -143,8 +143,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     }
 
     @Nonnull
-    public CorrelationIdentifier getBaseAlias() {
-        return baseAlias;
+    public Quantifier.ForEach getBaseQuantifier() {
+        return baseQuantifier;
     }
 
     @Nonnull
@@ -192,7 +192,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
         final RecordType recordType = Iterables.getOnlyElement(recordTypes);
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
-        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias);
+        final Value baseObjectValue = baseQuantifier.getFlowedObjectValue();
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
             if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
@@ -244,7 +244,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         }
 
         final QuantifiedObjectValue quantifiedObjectValue = (QuantifiedObjectValue)Iterables.getOnlyElement(quantifiedObjectValues);
-        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias);
+        final Value baseObjectValue = baseQuantifier.getFlowedObjectValue();
 
         // replace the quantified column value inside the given value with the quantified value in the match candidate
         final Optional<Value> translatedValueOptional =
@@ -253,7 +253,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
             return Optional.empty();
         }
         final Value translatedValue = translatedValueOptional.get();
-        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseAlias));
+        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseQuantifier.getAlias()));
 
         for (final Value matchResultValue : Iterables.concat(ImmutableList.of(baseObjectValue), indexKeyValues, indexValueValues)) {
             final Set<CorrelationIdentifier> resultValueCorrelatedTo = matchResultValue.getCorrelatedTo();
