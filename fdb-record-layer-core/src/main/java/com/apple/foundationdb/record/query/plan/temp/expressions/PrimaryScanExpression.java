@@ -166,6 +166,7 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
         dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                getResultType(),
                 ImmutableList.of("record types: {{recordTypes}}"),
                 ImmutableMap.of("recordTypes", Attribute.gml(String.join(", ", recordTypes))));
 

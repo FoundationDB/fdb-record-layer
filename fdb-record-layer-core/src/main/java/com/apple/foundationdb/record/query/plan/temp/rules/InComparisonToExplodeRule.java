@@ -152,6 +152,7 @@ public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
                 if (comparison instanceof Comparisons.ListComparison) {
                     explodeExpression = new ExplodeExpression(new LiteralValue<>(comparison.getComparand()));
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
+                    // TODO this needs to resolve the proper type
                     explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter())));
                 } else {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());

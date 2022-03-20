@@ -248,6 +248,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
         final PlannerGraph.DataNodeWithInfo valuesNode =
                 new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
+                        getResultType(),
                         ImmutableList.of("VALUES({{values}}"),
                         ImmutableMap.of("values",
                                 Attribute.gml(Objects.requireNonNull(getRanks()).stream()

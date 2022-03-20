@@ -167,7 +167,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         @Override
         public List<? extends QuantifiedColumnValue> computeFlowedValues() {
-            return pullUpResultValues(typeRangedOver(), getAlias());
+            return pullUpResultValues(getFlowedObjectType(), getAlias());
         }
     }
 
@@ -405,7 +405,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         @Override
         public List<? extends QuantifiedColumnValue> computeFlowedValues() {
-            return pullUpResultValues(typeRangedOver(), getAlias());
+            return pullUpResultValues(getFlowedObjectType(), getAlias());
         }
     }
 
@@ -575,11 +575,11 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     public QuantifiedObjectValue getFlowedObjectValue() {
-        return QuantifiedObjectValue.of(getAlias(), typeRangedOver());
+        return QuantifiedObjectValue.of(getAlias(), getFlowedObjectType());
     }
 
     @Nonnull
-    protected Type typeRangedOver() {
+    public Type getFlowedObjectType() {
         final ExpressionRef<? extends RelationalExpression> rangesOver = getRangesOver();
 
         return rangesOver.getMembers()

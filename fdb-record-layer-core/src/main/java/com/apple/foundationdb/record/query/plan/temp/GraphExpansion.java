@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
@@ -157,13 +156,6 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     @Nonnull
     public Sealed seal() {
         final ImmutableList.Builder<Value> allResultValuesBuilder = ImmutableList.builder();
-        final ImmutableList<? extends QuantifiedColumnValue> pulledUpResultValues =
-                quantifiers
-                        .stream()
-                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                        .flatMap(quantifier -> quantifier.getFlowedValues().stream())
-                        .collect(ImmutableList.toImmutableList());
-        allResultValuesBuilder.addAll(pulledUpResultValues);
         allResultValuesBuilder.addAll(resultValues);
         final ImmutableList<Value> allResultValues = allResultValuesBuilder.build();
 

@@ -45,7 +45,7 @@ import java.util.stream.Stream;
  * Tests evaluation of {@link ArithmeticValue}.
  */
 class ArithmeticValueTest {
-    private static final FieldValue F = new FieldValue(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident")), ImmutableList.of("rec_no"), Type.primitiveType(Type.TypeCode.LONG));
+    private static final FieldValue F = new FieldValue(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident"), new Type.Any()), ImmutableList.of("rec_no"), Type.primitiveType(Type.TypeCode.LONG));
     private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
     private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
     private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);

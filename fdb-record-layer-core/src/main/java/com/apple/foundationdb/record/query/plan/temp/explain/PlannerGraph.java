@@ -22,8 +22,10 @@ package com.apple.foundationdb.record.query.plan.temp.explain;
 
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Formatter;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -159,6 +161,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .put("fillcolor", Attribute.dot(getFillColor()))
                     .put("fontname", Attribute.dot(getFontName()))
                     .put("fontsize", Attribute.dot(getFontSize()))
+                    .put("tooltip", Attribute.dot(getToolTip()))
                     .build();
         }
 
@@ -192,6 +195,10 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             return getDetails() == null || getDetails().isEmpty()
                    ? "12"
                    : "8";
+        }
+
+        @Nonnull String getToolTip() {
+            return getClass().getSimpleName();
         }
     }
 
@@ -263,16 +270,16 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      */
     @SuppressWarnings("squid:S2160")
     public static class DataNodeWithInfo extends NodeWithInfo {
-        public DataNodeWithInfo(@Nonnull final NodeInfo nodeInfo) {
-            this(nodeInfo, null);
+        @Nonnull
+        private final Type type;
+
+        public DataNodeWithInfo(@Nonnull final NodeInfo nodeInfo, @Nonnull Type type, @Nullable final List<String> sources) {
+            this(nodeInfo, type, sources, ImmutableMap.of());
         }
 
-        public DataNodeWithInfo(@Nonnull final NodeInfo nodeInfo, @Nullable final List<String> sources) {
-            this(nodeInfo, sources, ImmutableMap.of());
-        }
-
-        public DataNodeWithInfo(@Nonnull final NodeInfo nodeInfo, @Nullable final List<String> sources, @Nonnull final Map<String, Attribute> additionalAttributes) {
+        public DataNodeWithInfo(@Nonnull final NodeInfo nodeInfo, @Nonnull Type type, @Nullable final List<String> sources, @Nonnull final Map<String, Attribute> additionalAttributes) {
             super(new Object(), nodeInfo, sources, additionalAttributes);
+            this.type = type;
         }
 
         @Nonnull
@@ -302,6 +309,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         public String getFillColor() {
             return "lightblue";
+        }
+
+        @Nonnull
+        @Override
+        String getToolTip() {
+            return type.describe(new Formatter());
         }
     }
 
@@ -341,6 +354,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .putAll(attributes)
                     .put("classifier", Attribute.gml("operator"))
                     .build();
+        }
+
+        @Nonnull
+        @Override
+        String getToolTip() {
+            return expression == null ? "no plan" : expression.getResultType().describe(new Formatter());
         }
 
         @Nullable
@@ -389,6 +408,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             return "darkseagreen2";
         }
 
+        @Nonnull
+        @Override
+        String getToolTip() {
+            return expression == null ? "no expression" : expression.getResultType().describe(new Formatter());
+        }
+
         @Nullable
         @Override
         public RelationalExpression getExpression() {
@@ -433,6 +458,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         public String getFillColor() {
             return "darkseagreen2";
+        }
+
+        @Nonnull
+        @Override
+        String getToolTip() {
+            return expression == null ? "no expression" : expression.getResultType().describe(new Formatter());
         }
 
         @Nullable

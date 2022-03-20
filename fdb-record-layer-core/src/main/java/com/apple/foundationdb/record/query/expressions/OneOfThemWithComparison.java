@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -112,7 +111,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
         final SelectExpression selectExpression =
                 GraphExpansion.builder()
                         .pullUpQuantifier(childBase)
-                        .addPredicate(QuantifiedObjectValue.of(childBase.getAlias()).withComparison(comparison))
+                        .addPredicate(childBase.getFlowedObjectValue().withComparison(comparison))
                         .build()
                         .buildSelect();
         final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));

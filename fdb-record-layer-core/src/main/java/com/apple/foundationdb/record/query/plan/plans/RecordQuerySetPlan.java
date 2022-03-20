@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
@@ -55,8 +56,8 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @return a list of values where each value is required to be evaluable by the set base operation
      */
     @Nonnull
-    default List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier baseAlias) {
-        return Value.fromKeyExpressions(getRequiredFields(), baseAlias);
+    default List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull Type inputType) {
+        return Value.fromKeyExpressions(getRequiredFields(), baseAlias, inputType);
     }
 
     @Nonnull

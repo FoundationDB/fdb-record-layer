@@ -66,7 +66,7 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     @Override
     public QuantifiedObjectValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(alias)) {
-            return QuantifiedObjectValue.of(translationMap.getTargetOrThrow(alias));
+            return QuantifiedObjectValue.of(translationMap.getTargetOrThrow(alias), resultType);
         }
         return this;
     }

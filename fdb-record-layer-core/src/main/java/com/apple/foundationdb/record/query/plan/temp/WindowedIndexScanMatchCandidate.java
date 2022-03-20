@@ -71,7 +71,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     private final List<RecordType> recordTypes;
 
     /**
-     * Base Alias.
+     * Base quantifier.
      */
     @Nonnull
     private final CorrelationIdentifier baseAlias;

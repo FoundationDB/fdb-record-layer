@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.RankValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
@@ -262,7 +261,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
 
         // join predicate
         final var selfJoinPredicate =
-                QuantifiedObjectValue.of(rankQuantifier.getAlias())
+                rankQuantifier.getFlowedObjectValue()
                         .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
                                 Bindings.Internal.CORRELATION.bindingName(baseAlias.toString()), Bindings.Internal.CORRELATION));
         final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
