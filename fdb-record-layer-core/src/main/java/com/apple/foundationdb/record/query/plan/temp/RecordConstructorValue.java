@@ -112,7 +112,7 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
             if (childResultElement != null) {
                 resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), childResultElement);
             }
-            i ++;
+            i++;
         }
 
         return resultMessageBuilder.build();
@@ -120,7 +120,7 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
 
     @Nonnull
     private DynamicMessage.Builder newMessageBuilderForType(@Nonnull DynamicSchema dynamicSchema) {
-        return dynamicSchema.newMessageBuilder(dynamicSchema.getProtoTypeName(getResultType()));
+        return Objects.requireNonNull(dynamicSchema.newMessageBuilder(getResultType()));
     }
 
     @Override

@@ -33,6 +33,7 @@ import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.protobuf.DynamicMessage;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,24 +47,38 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * A utility class that enables mapping of a structured {@link Type} into a dynamically-generated equivalent Protobuf message.
+ * A utility class that enables mapping of a structured {@link Type} into a dynamically-generated equivalent Protobuf message
+ * descriptor.
  *
- * The generation cost is amortized, i.e. if two {@link Type}s are equal, then only a single Protobuf message will be
+ * The generation cost is amortized, i.e. if two {@link Type}s are equal, then only a single Protobuf message descriptor will be
  * generated.
  */
 public class DynamicSchema {
+    @Nonnull
     public static final DynamicSchema EMPTY_SCHEMA = empty();
 
+    @Nonnull
     private final FileDescriptorSet fileDescSet;
-    private final Map<String,Descriptor> msgDescriptorMapFull = new HashMap<>();
-    private final Map<String,Descriptor> msgDescriptorMapShort = new HashMap<>();
-    private final Map<String,EnumDescriptor> enumDescriptorMapFull = new HashMap<>();
-    private final Map<String,EnumDescriptor> enumDescriptorMapShort = new HashMap<>();
+
+    @Nonnull
+    private final Map<String, Descriptor> msgDescriptorMapFull = new HashMap<>();
+
+    @Nonnull
+    private final Map<String, Descriptor> msgDescriptorMapShort = new HashMap<>();
+
+    @Nonnull
+    private final Map<String, EnumDescriptor> enumDescriptorMapFull = new HashMap<>();
+
+    @Nonnull
+    private final Map<String, EnumDescriptor> enumDescriptorMapShort = new HashMap<>();
+
+    @Nonnull
     private final Map<Type, String> typeToNameMap;
 
-    // --- public static ---
-    private static String duplicateNameErrorMessage = "duplicate name: %s";
+    @Nonnull
+    private static final String duplicateNameErrorMessage = "duplicate name: %s";
 
+    @Nonnull
     public static DynamicSchema empty() {
         FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
         try {
@@ -78,12 +93,14 @@ public class DynamicSchema {
      *
      * @return the schema builder
      */
+    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
 
     @SuppressWarnings("PMD.AssignmentInOperand")
-    public static DynamicSchema parseFrom(InputStream schemaDescIn) throws DescriptorValidationException, IOException {
+    @Nonnull
+    public static DynamicSchema parseFrom(@Nonnull final InputStream schemaDescIn) throws DescriptorValidationException, IOException {
         try (schemaDescIn) {
             int len;
             byte[] buf = new byte[4096];
@@ -95,11 +112,10 @@ public class DynamicSchema {
         }
     }
 
-    public static DynamicSchema parseFrom(byte[] schemaDescBuf) throws DescriptorValidationException, IOException {
+    @Nonnull
+    public static DynamicSchema parseFrom(@Nonnull final byte[] schemaDescBuf) throws DescriptorValidationException, IOException {
         return new DynamicSchema(FileDescriptorSet.parseFrom(schemaDescBuf), Maps.newHashMap());
     }
-
-    // --- public ---
 
     /**
      * Creates a new dynamic message builder for the given message type.
@@ -107,7 +123,8 @@ public class DynamicSchema {
      * @param msgTypeName the message type name
      * @return the message builder (null if not found)
      */
-    public DynamicMessage.Builder newMessageBuilder(String msgTypeName) {
+    @Nullable
+    public DynamicMessage.Builder newMessageBuilder(@Nonnull final String msgTypeName) {
         Descriptor msgType = getMessageDescriptor(msgTypeName);
         if (msgType == null) {
             return null;
@@ -121,16 +138,22 @@ public class DynamicSchema {
      * @param type the type name
      * @return the message builder (null if not found)
      */
+    @Nullable
     public DynamicMessage.Builder newMessageBuilder(@Nonnull final Type type) {
         final String msgTypeName = typeToNameMap.get(type);
         Objects.requireNonNull(msgTypeName);
         return newMessageBuilder(msgTypeName);
     }
 
+    /**
+     * Returns the protobuf type name of the given {@link Type}.
+     * @param type The type to get the name of.
+     * @return The protobuf type name of the {@link Type}.
+     */
+    @Nonnull
     public String getProtoTypeName(@Nonnull final Type type) {
         final String typeName = typeToNameMap.get(type);
-        Objects.requireNonNull(typeName);
-        return typeName;
+        return Objects.requireNonNull(typeName);
     }
 
     /**
@@ -139,7 +162,8 @@ public class DynamicSchema {
      * @param msgTypeName the message type name
      * @return the message descriptor (null if not found)
      */
-    public Descriptor getMessageDescriptor(String msgTypeName) {
+    @Nullable
+    public Descriptor getMessageDescriptor(@Nonnull final String msgTypeName) {
         Descriptor msgType = msgDescriptorMapShort.get(msgTypeName);
         if (msgType == null) {
             msgType = msgDescriptorMapFull.get(msgTypeName);
@@ -154,7 +178,8 @@ public class DynamicSchema {
      * @param enumName the enum name
      * @return the enum value descriptor (null if not found)
      */
-    public EnumValueDescriptor getEnumValue(String enumTypeName, String enumName) {
+    @Nullable
+    public EnumValueDescriptor getEnumValue(@Nonnull final String enumTypeName, String enumName) {
         EnumDescriptor enumType = getEnumDescriptor(enumTypeName);
         if (enumType == null) {
             return null;
@@ -169,7 +194,8 @@ public class DynamicSchema {
      * @param enumNumber the enum number
      * @return the enum value descriptor (null if not found)
      */
-    public EnumValueDescriptor getEnumValue(String enumTypeName, int enumNumber) {
+    @Nullable
+    public EnumValueDescriptor getEnumValue(@Nonnull final String enumTypeName, int enumNumber) {
         EnumDescriptor enumType = getEnumDescriptor(enumTypeName);
         if (enumType == null) {
             return null;
@@ -183,7 +209,8 @@ public class DynamicSchema {
      * @param enumTypeName the enum type name
      * @return the enum descriptor (null if not found)
      */
-    public EnumDescriptor getEnumDescriptor(String enumTypeName) {
+    @Nullable
+    public EnumDescriptor getEnumDescriptor(@Nonnull final String enumTypeName) {
         EnumDescriptor enumType = enumDescriptorMapShort.get(enumTypeName);
         if (enumType == null) {
             enumType = enumDescriptorMapFull.get(enumTypeName);
@@ -196,6 +223,7 @@ public class DynamicSchema {
      *
      * @return the set of message type names
      */
+    @Nonnull
     public Set<String> getMessageTypes() {
         return new TreeSet<>(msgDescriptorMapFull.keySet());
     }
@@ -205,6 +233,7 @@ public class DynamicSchema {
      *
      * @return the set of enum type names
      */
+    @Nonnull
     public Set<String> getEnumTypes() {
         return new TreeSet<>(enumDescriptorMapFull.keySet());
     }
@@ -214,6 +243,7 @@ public class DynamicSchema {
      *
      * @return the file descriptor set
      */
+    @Nonnull
     public FileDescriptorSet getFileDescriptorSet() {
         return fileDescSet;
     }
@@ -223,6 +253,7 @@ public class DynamicSchema {
      *
      * @return the serialized schema descriptor
      */
+    @Nonnull
     public byte[] toByteArray() {
         return fileDescSet.toByteArray();
     }
@@ -239,8 +270,8 @@ public class DynamicSchema {
         return "types: " + msgTypes + "\nenums: " + enumTypes + "\n" + fileDescSet;
     }
 
-    // --- private ---
-    private DynamicSchema(FileDescriptorSet fileDescSet, Map<Type, String> typeToNameMap) throws DescriptorValidationException {
+    private DynamicSchema(@Nonnull final FileDescriptorSet fileDescSet,
+                          @Nonnull final Map<Type, String> typeToNameMap) throws DescriptorValidationException {
         this.fileDescSet = fileDescSet;
         Map<String,FileDescriptor> fileDescMap = init(fileDescSet);
 
@@ -266,7 +297,8 @@ public class DynamicSchema {
     }
 
     @SuppressWarnings("java:S3776")
-    private static Map<String,FileDescriptor> init(@Nonnull final FileDescriptorSet fileDescSet) throws DescriptorValidationException {
+    @Nonnull
+    private static Map<String, FileDescriptor> init(@Nonnull final FileDescriptorSet fileDescSet) throws DescriptorValidationException {
         // check for dupes
         Set<String> allFdProtoNames = collectFileDescriptorNamesAndCheckForDupes(fileDescSet);
 
@@ -301,6 +333,7 @@ public class DynamicSchema {
         return resolvedFileDescMap;
     }
 
+    @Nonnull
     private static Set<String> collectFileDescriptorNamesAndCheckForDupes(@Nonnull final FileDescriptorSet fileDescSet) {
         Set<String> result = new HashSet<>();
         for (FileDescriptorProto fdProto : fileDescSet.getFileList()) {
@@ -312,7 +345,10 @@ public class DynamicSchema {
         return result;
     }
 
-    private void addMessageType(Descriptor msgType, String scope, Set<String> msgDupes, Set<String> enumDupes) {
+    private void addMessageType(@Nonnull final Descriptor msgType,
+                                @Nullable final String scope,
+                                @Nonnull final Set<String> msgDupes,
+                                @Nonnull final Set<String> enumDupes) {
         String msgTypeNameFull = msgType.getFullName();
         String msgTypeNameShort = (scope == null ? msgType.getName() : scope + "." + msgType.getName());
 
@@ -334,7 +370,9 @@ public class DynamicSchema {
         }
     }
 
-    private void addEnumType(EnumDescriptor enumType, String scope, Set<String> enumDupes) {
+    private void addEnumType(@Nonnull final EnumDescriptor enumType,
+                             @Nullable final String scope,
+                             @Nonnull final Set<String> enumDupes) {
         String enumTypeNameFull = enumType.getFullName();
         String enumTypeNameShort = (scope == null ? enumType.getName() : scope + "." + enumType.getName());
 
@@ -349,17 +387,13 @@ public class DynamicSchema {
         enumDescriptorMapShort.put(enumTypeNameShort, enumType);
     }
 
-
-
     /**
-     * DynamicSchema.Builder.
+     * A builder that builds a {@link DynamicSchema} object.
      */
     public static class Builder {
-        // --- private ---
-
-        private final FileDescriptorProto.Builder fileDescProtoBuilder;
-        private final FileDescriptorSet.Builder fileDescSetBuilder;
-        private final Map<Type, String> typeToNameMap;
+        private @Nonnull final FileDescriptorProto.Builder fileDescProtoBuilder;
+        private @Nonnull final FileDescriptorSet.Builder fileDescSetBuilder;
+        private @Nonnull final Map<Type, String> typeToNameMap;
 
         private Builder() {
             fileDescProtoBuilder = FileDescriptorProto.newBuilder();
@@ -367,8 +401,7 @@ public class DynamicSchema {
             typeToNameMap = Maps.newHashMap();
         }
 
-        // --- public ---
-
+        @Nonnull
         public DynamicSchema build() {
             FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
             resultBuilder.addFile(fileDescProtoBuilder.build());
@@ -380,16 +413,19 @@ public class DynamicSchema {
             }
         }
 
-        public Builder setName(String name) {
+        @Nonnull
+        public Builder setName(@Nonnull final String name) {
             fileDescProtoBuilder.setName(name);
             return this;
         }
 
-        public Builder setPackage(String name) {
+        @Nonnull
+        public Builder setPackage(@Nonnull final String name) {
             fileDescProtoBuilder.setPackage(name);
             return this;
         }
 
+        @Nonnull
         public Builder addType(@Nonnull final Type type) {
             if (type.isPrimitive()) {
                 throw new IllegalArgumentException("unexpected primitive type " + type.getTypeCode());
@@ -402,12 +438,14 @@ public class DynamicSchema {
             return this;
         }
 
-        public Builder addDependency(String dependency) {
+        @Nonnull
+        public Builder addDependency(@Nonnull final String dependency) {
             fileDescProtoBuilder.addDependency(dependency);
             return this;
         }
 
-        public Builder addPublicDependency(String dependency) {
+        @Nonnull
+        public Builder addPublicDependency(@Nonnull final String dependency) {
             for (int i = 0; i < fileDescProtoBuilder.getDependencyCount(); i++) {
                 if (fileDescProtoBuilder.getDependency(i).equals(dependency)) {
                     fileDescProtoBuilder.addPublicDependency(i);
@@ -419,7 +457,8 @@ public class DynamicSchema {
             return this;
         }
 
-        public Builder addSchema(DynamicSchema schema) {
+        @Nonnull
+        public Builder addSchema(@Nonnull final DynamicSchema schema) {
             fileDescSetBuilder.mergeFrom(schema.fileDescSet);
             return this;
         }

@@ -47,17 +47,19 @@ public class ConstantPredicate implements LeafQueryPredicate {
     public static final ConstantPredicate TRUE = new ConstantPredicate(true);
     @Nonnull
     public static final ConstantPredicate FALSE = new ConstantPredicate(false);
-
     @Nonnull
+    public static final ConstantPredicate NULL = new ConstantPredicate(null);
+
+    @Nullable
     private final Boolean value;
 
-    public ConstantPredicate(@Nonnull Boolean value) {
+    public ConstantPredicate(@Nullable Boolean value) {
         this.value = value;
     }
 
     @Override
     public boolean isTautology() {
-        return value;
+        return value != null && value;
     }
 
     @Nullable
@@ -84,7 +86,7 @@ public class ConstantPredicate implements LeafQueryPredicate {
             return false;
         }
         final ConstantPredicate that = (ConstantPredicate)other;
-        return value.equals(that.value);
+        return Objects.equals(value, that.value);
     }
 
     @Override
@@ -94,7 +96,7 @@ public class ConstantPredicate implements LeafQueryPredicate {
 
     @Override
     public int planHash() {
-        return value ? 0 : 1;
+        return value == null ? 2 : (value ? 0 : 1);
     }
 
     @Override

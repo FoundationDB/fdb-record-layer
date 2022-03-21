@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -68,8 +69,21 @@ public class NotValue implements BooleanValue {
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         Verify.verify(child instanceof BooleanValue);
-        final Optional<? extends QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(innermostAlias);
-        return predicateOptional.map(NotPredicate::not);
+        final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(innermostAlias);
+        if (predicateOptional.isPresent()) {
+            QueryPredicate queryPredicate = predicateOptional.get();
+            if (queryPredicate.equals(ConstantPredicate.FALSE)) {
+                return Optional.of(ConstantPredicate.TRUE);
+            }
+            if (queryPredicate.equals(ConstantPredicate.TRUE)) {
+                return Optional.of(ConstantPredicate.FALSE);
+            }
+            if (queryPredicate.equals(ConstantPredicate.NULL)) {
+                return Optional.of(ConstantPredicate.NULL);
+            }
+            return predicateOptional;
+        }
+        return Optional.empty();
     }
 
     @Nonnull
@@ -93,7 +107,7 @@ public class NotValue implements BooleanValue {
                                            @Nullable final M message) {
         final Object result = child.eval(store, context, fdbRecord, message);
         if (result == null) {
-            return false;
+            return null;
         }
         return !(Boolean)result;
     }

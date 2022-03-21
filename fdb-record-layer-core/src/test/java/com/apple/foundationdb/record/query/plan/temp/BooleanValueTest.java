@@ -57,10 +57,13 @@ import java.util.stream.Stream;
  *   <li>Compile-time evaluation of simple constant expressions.</li>
  *   <li>Manipulation of field expressions such that they become map-able to {@link QueryPredicate}.</li>
  *   <li>Correctness of mapping {@link RelOpValue} functions to corresponding {@link QueryPredicate}s.</li>
+ *   <li>Nullability tests.</li>
  * </ul>
  */
 class BooleanValueTest {
     private static final FieldValue F = new FieldValue(QuantifiedColumnValue.of(CorrelationIdentifier.UNGROUNDED, 0), ImmutableList.of("f"), Type.primitiveType(Type.TypeCode.INT));
+    private static final LiteralValue<Boolean> BOOL_TRUE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
+    private static final LiteralValue<Boolean> BOOL_FALSE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
     private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
     private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
     private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);
@@ -118,6 +121,11 @@ class BooleanValueTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
             return Stream.of(
+                    Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BOOL_FALSE, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BOOL_FALSE, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
+
                     Arguments.of(List.of(INT_1, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_1, INT_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
@@ -374,20 +382,20 @@ class BooleanValueTest {
                     Arguments.of(List.of(FLOAT_2, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_1, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
 
-                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.GtFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.GtFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.LteFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.LteFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.LteFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
 
                     /* translation of predicates involving a field value, make sure field value is always LHS */
                     Arguments.of(List.of(F, INT_1), new RelOpValue.EqualsFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
@@ -434,6 +442,10 @@ class BooleanValueTest {
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2)),
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_NULL)),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
                     /* OR */
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
@@ -444,6 +456,15 @@ class BooleanValueTest {
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2)),
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_NULL)),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.NULL),
+
+                    /* NOT */
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1))), new NotValue.NotFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1))), new NotValue.NotFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_1))), new NotValue.NotFn(), ConstantPredicate.NULL),
 
                     /* lazy evaluation tests */
                     Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),

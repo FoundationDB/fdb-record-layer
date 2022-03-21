@@ -124,7 +124,7 @@ public class AndOrValue implements BooleanValue {
         final Object leftResult = leftChild.eval(store, context, fdbRecord, message);
 
         if (leftResult == null) {
-            return false;
+            return null;
         }
         if (operator == Operator.AND && !(Boolean)leftResult) {
             return false;
@@ -145,14 +145,20 @@ public class AndOrValue implements BooleanValue {
         if (leftPredicateOptional.isPresent()) {
             QueryPredicate leftPredicate = leftPredicateOptional.get();
             if (operator == Operator.AND && leftPredicate.equals(ConstantPredicate.FALSE)) {
-                return leftPredicateOptional; // short-cut
+                return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
             }
             if (operator == Operator.OR && leftPredicate.equals(ConstantPredicate.TRUE)) {
-                return leftPredicateOptional; // short-cut
+                return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
+            }
+            if (leftPredicate.equals(ConstantPredicate.NULL)) {
+                return Optional.of(ConstantPredicate.NULL);
             }
             final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
             if (rightPredicateOptional.isPresent()) {
                 QueryPredicate rightPredicate = rightPredicateOptional.get();
+                if (rightPredicate.equals(ConstantPredicate.NULL)) {
+                    return Optional.of(ConstantPredicate.NULL);
+                }
                 if (leftPredicate instanceof ConstantPredicate && rightPredicate instanceof ConstantPredicate) { // aggressive eval
                     if (operator == Operator.AND) {
                         return Optional.of((leftPredicate.isTautology() && rightPredicate.isTautology()) ? ConstantPredicate.TRUE : ConstantPredicate.FALSE);

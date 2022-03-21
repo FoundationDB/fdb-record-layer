@@ -36,10 +36,12 @@ import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -215,7 +217,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
 
         @Nonnull
         private DynamicMessage.Builder newMessageBuilderForType(@Nonnull DynamicSchema dynamicSchema) {
-            return dynamicSchema.newMessageBuilder(dynamicSchema.getProtoTypeName(getResultType()));
+            return Objects.requireNonNull(dynamicSchema.newMessageBuilder(getResultType()));
         }
     }
 

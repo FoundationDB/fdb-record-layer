@@ -179,7 +179,7 @@ public class RelOpValue implements BooleanValue {
                 return Optional.of(ConstantPredicate.FALSE);
             }
         } else if (constantValue == null) {
-            return Optional.of(ConstantPredicate.FALSE); // null is unknown and doesn't match anything.
+            return Optional.of(ConstantPredicate.NULL);
         }
         return Optional.empty();
     }
@@ -397,6 +397,7 @@ public class RelOpValue implements BooleanValue {
 
     private enum BinaryPhysicalOperator {
         // TODO think about equality epsilon for floating-point types.
+        EQ_BB(Comparisons.Type.EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.BOOLEAN, (l, r) -> (boolean)l == (boolean)r),
         EQ_II(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l == (int)r),
         EQ_IL(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l == (long)r),
         EQ_IF(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l == (float)r),
@@ -423,6 +424,7 @@ public class RelOpValue implements BooleanValue {
         // EQ_SD(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         EQ_SS(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> l.equals(r)), // TODO: locale-aware comparison
 
+        NEQ_BB(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.BOOLEAN, (l, r) -> (boolean)l != (boolean)r),
         NEQ_II(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l != (int)r),
         NEQ_IL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l != (long)r),
         NEQ_IF(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l != (float)r),
