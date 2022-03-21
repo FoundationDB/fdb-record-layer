@@ -36,7 +36,6 @@ import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

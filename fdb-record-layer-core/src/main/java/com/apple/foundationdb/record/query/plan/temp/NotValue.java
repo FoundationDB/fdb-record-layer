@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
-import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;

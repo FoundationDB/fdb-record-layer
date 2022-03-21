@@ -58,6 +58,9 @@ public class DynamicSchema {
     public static final DynamicSchema EMPTY_SCHEMA = empty();
 
     @Nonnull
+    private static final String DUPLICATE_NAME_ERROR_MESSAGE = "duplicate name: %s";
+
+    @Nonnull
     private final FileDescriptorSet fileDescSet;
 
     @Nonnull
@@ -74,9 +77,6 @@ public class DynamicSchema {
 
     @Nonnull
     private final Map<Type, String> typeToNameMap;
-
-    @Nonnull
-    private static final String duplicateNameErrorMessage = "duplicate name: %s";
 
     @Nonnull
     public static DynamicSchema empty() {
@@ -338,7 +338,7 @@ public class DynamicSchema {
         Set<String> result = new HashSet<>();
         for (FileDescriptorProto fdProto : fileDescSet.getFileList()) {
             if (result.contains(fdProto.getName())) {
-                throw new IllegalArgumentException(String.format(duplicateNameErrorMessage, fdProto.getName()));
+                throw new IllegalArgumentException(String.format(DUPLICATE_NAME_ERROR_MESSAGE, fdProto.getName()));
             }
             result.add(fdProto.getName());
         }
@@ -353,7 +353,7 @@ public class DynamicSchema {
         String msgTypeNameShort = (scope == null ? msgType.getName() : scope + "." + msgType.getName());
 
         if (msgDescriptorMapFull.containsKey(msgTypeNameFull)) {
-            throw new IllegalArgumentException(String.format(duplicateNameErrorMessage, msgTypeNameFull));
+            throw new IllegalArgumentException(String.format(DUPLICATE_NAME_ERROR_MESSAGE, msgTypeNameFull));
         }
         if (msgDescriptorMapShort.containsKey(msgTypeNameShort)) {
             msgDupes.add(msgTypeNameShort);
@@ -377,7 +377,7 @@ public class DynamicSchema {
         String enumTypeNameShort = (scope == null ? enumType.getName() : scope + "." + enumType.getName());
 
         if (enumDescriptorMapFull.containsKey(enumTypeNameFull)) {
-            throw new IllegalArgumentException(String.format(duplicateNameErrorMessage, enumTypeNameFull));
+            throw new IllegalArgumentException(String.format(DUPLICATE_NAME_ERROR_MESSAGE, enumTypeNameFull));
         }
         if (enumDescriptorMapShort.containsKey(enumTypeNameShort)) {
             enumDupes.add(enumTypeNameShort);
