@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
-import com.apple.foundationdb.relational.api.CatalogData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.generated.CatalogData;
 
 import java.util.Map;
 import java.util.Set;

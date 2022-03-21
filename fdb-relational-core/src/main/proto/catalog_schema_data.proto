@@ -20,9 +20,9 @@
 
 syntax = "proto3";
 
-package com.apple.foundationdb.relational.api;
+package com.apple.foundationdb.relational.api.generated;
 
-option java_package = "com.apple.foundationdb.relational.api";
+option java_package = "com.apple.foundationdb.relational.api.generated";
 option java_outer_classname = "CatalogData";
 
 import "record_metadata.proto";

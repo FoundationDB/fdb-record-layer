@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
-import com.apple.foundationdb.relational.api.CatalogData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.generated.CatalogData;
 
 import javax.annotation.Nonnull;
 
-public class CatalogValidator {
+public final class CatalogValidator {
     public static void validateSchema(@Nonnull CatalogData.Schema schema) throws RelationalException {
         // fields schema_name, schema_version, schema_template_name, database_id are required
         if (schema.getSchemaName().isEmpty()) {
@@ -53,5 +53,8 @@ public class CatalogValidator {
         if (table.getName().isEmpty()) {
             throw new RelationalException("Field name in Table must be set!", ErrorCode.INVALID_PARAMETER);
         }
+    }
+
+    private CatalogValidator() {
     }
 }

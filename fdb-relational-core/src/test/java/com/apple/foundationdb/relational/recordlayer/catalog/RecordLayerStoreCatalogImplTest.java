@@ -30,13 +30,14 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
-import com.apple.foundationdb.relational.api.CatalogData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaData;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -133,13 +134,12 @@ public class RecordLayerStoreCatalogImplTest {
     @Test
     void testLoadSchemaWithClosedTransaction() throws RelationalException {
         // close
-        try (Transaction txn3 = new RecordContextTransaction(fdb.openContext())) {
-            txn3.close();
-            RelationalException exception5 = Assertions.assertThrows(RelationalException.class, () -> {
-                storeCatalog.loadSchema(txn3, URI.create("test_database_id"), "test_schema_name");
-            });
-            Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception5.getErrorCode());
-        }
+        Transaction txn3 = new RecordContextTransaction(fdb.openContext());
+        txn3.close();
+        RelationalException exception5 = Assertions.assertThrows(RelationalException.class, () -> {
+            storeCatalog.loadSchema(txn3, URI.create("test_database_id"), "test_schema_name");
+        });
+        Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception5.getErrorCode());
     }
 
     @Test
@@ -171,13 +171,12 @@ public class RecordLayerStoreCatalogImplTest {
     @Test
     void testUpdateSchemaWithClosedTransaction() throws RelationalException {
         CatalogData.Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
-        try (Transaction txn3 = new RecordContextTransaction(fdb.openContext())) {
-            txn3.close();
-            RelationalException exception3 = Assertions.assertThrows(RelationalException.class, () -> {
-                storeCatalog.updateSchema(txn3, schema1);
-            });
-            Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception3.getErrorCode());
-        }
+        Transaction txn3 = new RecordContextTransaction(fdb.openContext());
+        txn3.close();
+        RelationalException exception3 = Assertions.assertThrows(RelationalException.class, () -> {
+            storeCatalog.updateSchema(txn3, schema1);
+        });
+        Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception3.getErrorCode());
     }
 
     @Test

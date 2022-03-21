@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
-import com.apple.foundationdb.relational.api.CatalogData;
+import com.apple.foundationdb.relational.api.generated.CatalogData;
 
 public class TableInfo {
     String tableName;
