@@ -49,7 +49,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     public boolean getBoolean(int position) throws SQLException {
         Object o = getObject(position);
         if (o == null) {
-            return false; //TODO(bfines) return a default value here
+            return false;
         }
         if (!(o instanceof Boolean)) {
             throw new SQLException("Boolean", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
@@ -60,7 +60,11 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
 
     @Override
     public boolean getBoolean(String fieldName) throws SQLException {
-        throw new OperationUnsupportedException("Not Implemented in the Relational layer").toSqlException();
+        try {
+            return getBoolean(getPosition(fieldName));
+        } catch (InvalidColumnReferenceException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
@@ -92,7 +96,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             return 0L;
         }
         if (!(o instanceof Number)) {
-            throw new SQLException("Long", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+            throw new SQLException("Float", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return ((Number) o).floatValue();
@@ -114,7 +118,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             return 0L;
         }
         if (!(o instanceof Number)) {
-            throw new SQLException("Long", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+            throw new SQLException("Double", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return ((Number) o).doubleValue();
