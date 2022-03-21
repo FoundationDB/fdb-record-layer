@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlanBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -99,7 +100,8 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
             }
             RecordQueryPlan newUnionPlan = new RecordQueryFetchFromPartialRecordPlan(
                     unionPlan.withChildrenReferences(newChildren),
-                    TranslateValueFunction.unableToTranslate());
+                    TranslateValueFunction.unableToTranslate(),
+                    new Type.Any());
 
             if (shouldPullOutFilter) {
                 return new RecordQueryFilterPlan(newUnionPlan, filter);

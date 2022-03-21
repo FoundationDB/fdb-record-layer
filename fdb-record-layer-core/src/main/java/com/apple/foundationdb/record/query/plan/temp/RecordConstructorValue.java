@@ -35,17 +35,14 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -58,14 +55,14 @@ import java.util.stream.StreamSupport;
 public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Constructor-Value");
     @Nonnull
-    protected final List<Pair<? extends Value, Optional<String>>> childrenAndNames;
+    protected final List<Column<? extends Value>> columns;
     @Nonnull
     private final Supplier<List<? extends Value>> childrenSupplier;
     @Nonnull
     private final Supplier<Type.Record> resultTypeSupplier;
 
-    private RecordConstructorValue(@Nonnull List<Pair<? extends Value, Optional<String>>> childrenAndNames) {
-        this.childrenAndNames = ImmutableList.copyOf(childrenAndNames);
+    private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns) {
+        this.columns = ImmutableList.copyOf(columns);
         this.childrenSupplier = Suppliers.memoize(this::computeChildren);
         this.resultTypeSupplier = Suppliers.memoize(this::computeResultType);
     }
@@ -77,9 +74,9 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
     }
 
     private List<? extends Value> computeChildren() {
-        return childrenAndNames
+        return columns
                 .stream()
-                .map(Pair::getKey)
+                .map(Column::getValue)
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -91,9 +88,9 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
 
     @Nonnull
     public Type.Record computeResultType() {
-        final ImmutableList<Type.Record.Field> fields = childrenAndNames
+        final var fields = columns
                 .stream()
-                .map(childAndName -> Type.Record.Field.of(childAndName.getKey().getResultType(), childAndName.getValue()))
+                .map(Column::getField)
                 .collect(ImmutableList.toImmutableList());
         return Type.Record.fromFields(fields);
     }
@@ -101,8 +98,8 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(context.getDynamicSchema());
-        final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
+        final var resultMessageBuilder = newMessageBuilderForType(context.getDynamicSchema());
+        final var descriptorForType = resultMessageBuilder.getDescriptorForType();
 
         int i = 0;
         final List<Type.Record.Field> fields = Objects.requireNonNull(getResultType().getFields());
@@ -125,12 +122,12 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
 
     @Override
     public int semanticHashCode() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, childrenAndNames);
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, columns);
     }
     
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, childrenAndNames);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, columns);
     }
 
     @Override
@@ -142,12 +139,14 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
     @Override
     public String describe(@Nonnull final Formatter formatter) {
         return "(" +
-               childrenAndNames.stream()
-                       .map(childAndName -> {
-                           if (childAndName.getValue().isPresent()) {
-                               return childAndName.getKey().describe(formatter) + " as " + childAndName.getValue().get();
+               columns.stream()
+                       .map(column -> {
+                           final var field = column.getField();
+                           final var value = column.getValue();
+                           if (field.getFieldNameOptional().isPresent()) {
+                               return column.getValue().describe(formatter) + " as " + field.getFieldName();
                            }
-                           return childAndName.getKey().describe(formatter);
+                           return value.describe(formatter);
                        })
                        .collect(Collectors.joining(", ")) + ")";
     }
@@ -155,12 +154,14 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
     @Override
     public String toString() {
         return "(" +
-               childrenAndNames.stream()
-                       .map(childAndName -> {
-                           if (childAndName.getValue().isPresent()) {
-                               return childAndName.getKey() + " as " + childAndName.getValue().get();
+               columns.stream()
+                       .map(column -> {
+                           final var field = column.getField();
+                           final var value = column.getValue();
+                           if (field.getFieldNameOptional().isPresent()) {
+                               return column.getValue() + " as " + field.getFieldName();
                            }
-                           return childAndName.getKey().toString();
+                           return value.toString();
                        })
                        .collect(Collectors.joining(", ")) + ")";
     }
@@ -175,15 +176,14 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
     @Nonnull
     @Override
     public RecordConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(childrenAndNames.size() == Iterables.size(newChildren));
+        Verify.verify(columns.size() == Iterables.size(newChildren));
         //noinspection UnstableApiUsage
-        final ImmutableList<Pair<? extends Value, Optional<String>>> newChildrenAndNames =
+        final ImmutableList<Column<? extends Value>> newColumns =
                 Streams.zip(StreamSupport.stream(newChildren.spliterator(), false),
-                        this.childrenAndNames.stream(),
-                        (newChild, childAndName) -> Pair.of(newChild, childAndName.getValue()))
+                                this.columns.stream(),
+                                (newChild, column) -> Column.of(column.getField(), newChild))
                         .collect(ImmutableList.toImmutableList());
-
-        return new RecordConstructorValue(newChildrenAndNames);
+        return new RecordConstructorValue(newColumns);
     }
 
     public static List<Value> tryUnwrapIfTuple(@Nonnull final List<Value> values) {
@@ -199,64 +199,23 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
         return ImmutableList.copyOf(onlyElement.getChildren());
     }
 
-    public static RecordConstructorValue wrapIfNotTuple(@Nonnull final Value value) {
-        if (value instanceof RecordConstructorValue) {
-            return (RecordConstructorValue)value;
-        }
-
-        return RecordConstructorValue.ofUnnamed(value);
-    }
-
     private static Value encapsulateInternal(@Nonnull final List<Typed> arguments) {
-        final ImmutableList<Pair<? extends Value, Optional<String>>> namedArguments =
+        final ImmutableList<Column<? extends Value>> namedArguments =
                 arguments.stream()
-                        .map(typed -> Pair.of((Value)typed, Optional.<String>empty()))
-                        .map(pair -> {
-                            return Pair.of(pair.getKey(), pair.getValue()); })
+                        .map(typed -> (Value)typed)
+                        .map(Column::unnamedOf)
                         .collect(ImmutableList.toImmutableList());
         return new RecordConstructorValue(namedArguments);
     }
 
-    public static RecordConstructorValue of(@Nonnull final List<Pair<? extends Value, Optional<String>>> namedArguments) {
-        return new RecordConstructorValue(namedArguments);
-    }
-
-    public static RecordConstructorValue of(@Nonnull final Pair<? extends Value, Optional<String>> namedArgument) {
-        return new RecordConstructorValue(ImmutableList.of(namedArgument));
-    }
-
-    public static RecordConstructorValue ofUnnamed(@Nonnull final Value argument) {
-        return new RecordConstructorValue(ImmutableList.of(Pair.of(argument, Optional.empty())));
+    public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns) {
+        return new RecordConstructorValue(columns);
     }
 
     public static RecordConstructorValue ofUnnamed(@Nonnull final Collection<? extends Value> arguments) {
         return new RecordConstructorValue(arguments.stream()
-                        .map(argument -> Pair.of(argument, Optional.<String>empty()))
+                        .map(Column::unnamedOf)
                         .collect(ImmutableList.toImmutableList()));
-    }
-
-    @Nonnull
-    public static Value flattenRecords(@Nonnull final List<? extends Value> values) {
-        Verify.verify(!values.isEmpty());
-
-        final ImmutableList.Builder<Pair<? extends Value, Optional<String>>> childrenAndNamesBuilder = ImmutableList.builder();
-        for (final Value value : values) {
-            final Type type = value.getResultType();
-
-            if (type.getTypeCode() != Type.TypeCode.RECORD) {
-                childrenAndNamesBuilder.add(Pair.of(value, Optional.empty()));
-            } else {
-                final Type.Record recordType = (Type.Record)type;
-                final List<? extends Value> elementValues = Type.Record.deconstructRecord(value);
-                final List<Type.Record.Field> fields = Objects.requireNonNull(recordType.getFields());
-                Verify.verify(elementValues.size() == fields.size());
-                for (int i = 0, fieldsSize = fields.size(); i < fieldsSize; i++) {
-                    final Type.Record.Field field = fields.get(i);
-                    childrenAndNamesBuilder.add(Pair.of(elementValues.get(i), field.getFieldNameOptional()));
-                }
-            }
-        }
-        return RecordConstructorValue.of(childrenAndNamesBuilder.build());
     }
 
     @AutoService(BuiltInFunction.class)

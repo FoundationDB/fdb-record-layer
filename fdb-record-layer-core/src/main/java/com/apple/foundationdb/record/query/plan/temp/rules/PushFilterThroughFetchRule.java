@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
@@ -205,7 +206,7 @@ public class PushFilterThroughFetchRule extends PlannerRule<RecordQueryPredicate
                 new RecordQueryPredicatesFilterPlan(newInnerQuantifier, pushedPredicates);
 
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(pushedFilterPlan, fetchPlan.getPushValueFunction());
+                new RecordQueryFetchFromPartialRecordPlan(pushedFilterPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()));
 
         if (residualPredicates.isEmpty()) {
             // case 2

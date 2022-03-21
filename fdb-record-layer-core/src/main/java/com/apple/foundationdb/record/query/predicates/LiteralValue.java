@@ -31,10 +31,12 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Formatter;
 import com.apple.foundationdb.record.query.plan.temp.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -55,6 +57,7 @@ public class LiteralValue<T> implements LeafValue {
         this(Type.primitiveType(typeCodeFromLiteral(value), false), value);
     }
 
+    @VisibleForTesting
     public LiteralValue(@Nonnull Type resultType, @Nullable final T value) {
         this.resultType = resultType;
         this.value = value;
@@ -177,5 +180,29 @@ public class LiteralValue<T> implements LeafValue {
             comparandString = literal;
         }
         return comparandString;
+    }
+
+    public static <T> LiteralValue<T> ofScalar(final T value) {
+        return new LiteralValue<>(value);
+    }
+
+    public static <T> LiteralValue<List<T>> ofList(final List<T> listValue) {
+        Type resolvedElementType = null;
+        for (final var elementValue : listValue) {
+            final var currentType = Type.primitiveType(typeCodeFromLiteral(elementValue));
+            if (resolvedElementType == null) {
+                resolvedElementType = currentType;
+            } else {
+                if (!currentType.equals(resolvedElementType)) {
+                    resolvedElementType = new Type.Any();
+                    break;
+                }
+            }
+        }
+
+        resolvedElementType = resolvedElementType == null
+                       ? new Type.Any()
+                       : resolvedElementType;
+        return new LiteralValue<>(new Type.Array(resolvedElementType), listValue);
     }
 }

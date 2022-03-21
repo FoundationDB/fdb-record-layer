@@ -34,7 +34,7 @@ import java.util.Set;
  * @param <T> the type of planner expression that is contained in this reference
  */
 @API(API.Status.EXPERIMENTAL)
-public interface ExpressionRef<T extends RelationalExpression> extends Correlated<ExpressionRef<T>> {
+public interface ExpressionRef<T extends RelationalExpression> extends Correlated<ExpressionRef<T>>, Typed {
     /**
      * Insert a new expression into this reference.
      * @param newValue the value to be inserted

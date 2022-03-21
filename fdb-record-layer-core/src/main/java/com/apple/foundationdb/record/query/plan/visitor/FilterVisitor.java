@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 
@@ -94,7 +95,8 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
 
             recordQueryPlan = new RecordQueryFetchFromPartialRecordPlan(
                     new RecordQueryFilterPlan(removedFetchPlan, indexFilters),
-                    TranslateValueFunction.unableToTranslate());
+                    TranslateValueFunction.unableToTranslate(),
+                    new Type.Any());
 
             if (!residualFilters.isEmpty()) {
                 recordQueryPlan = new RecordQueryFilterPlan(recordQueryPlan, residualFilters);

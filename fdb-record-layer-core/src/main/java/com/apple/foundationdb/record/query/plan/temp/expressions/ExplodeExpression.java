@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -61,13 +62,9 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public Value getResultValue() {
-        if (collectionValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY) {
-            final Type innerType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
-            return new QueriedValue(innerType);
-        } else {
-            // TODO currently needed for index candidate compilation
-            return new QueriedValue(Type.primitiveType(Type.TypeCode.UNKNOWN));
-        }
+        Verify.verify(collectionValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY);
+
+        return new QueriedValue(Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType()));
     }
 
     @Nonnull
@@ -93,13 +90,19 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         if (this == otherExpression) {
             return true;
         }
-        return getClass() == otherExpression.getClass() &&
+        if (!(otherExpression instanceof ExplodeExpression)) {
+            return false;
+        }
+
+        final var otherExplodeExpression = (ExplodeExpression)otherExpression;
+
+        return collectionValue.semanticEquals(otherExplodeExpression.getCollectionValue(), equivalencesMap) &&
                semanticEqualsForResults(otherExpression, equivalencesMap);
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return 17;
+        return Objects.hash();
     }
 
     @Nonnull

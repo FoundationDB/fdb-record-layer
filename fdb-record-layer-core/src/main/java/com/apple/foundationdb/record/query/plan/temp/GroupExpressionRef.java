@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.google.common.base.Verify;
@@ -209,6 +210,23 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                 // an o1 where o1.getClass() == o.getClass()
                 .map(member -> (T)member.rebase(translationMap))
                 .collect(Collectors.toList()));
+    }
+
+    /**
+     * Method that resolves the result type by looking and unifying the result types from all the members.
+     * @return {@link Type} representing result type
+     */
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return getMembers()
+                .stream()
+                .map(relationExpression -> relationExpression.getResultType().getInnerType())
+                .reduce((left, right) -> {
+                    Verify.verify(left.equals(right));
+                    return left;
+                })
+                .orElseThrow(() -> new RecordCoreException("unable to resolve result values"));
     }
 
     public void clear() {

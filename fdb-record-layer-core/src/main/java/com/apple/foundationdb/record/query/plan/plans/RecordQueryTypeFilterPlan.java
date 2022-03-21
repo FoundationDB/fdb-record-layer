@@ -33,10 +33,12 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -67,6 +69,8 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Nonnull
     private final Collection<String> recordTypes;
     @Nonnull
+    private final Type resultType;
+    @Nonnull
     private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_TYPE_FILTER_PLAN_GIVEN);
     @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_TYPE_FILTER);
@@ -76,12 +80,13 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
     public RecordQueryTypeFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull Collection<String> recordTypes) {
-        this(Quantifier.physical(GroupExpressionRef.of(inner)), recordTypes);
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), recordTypes, new Type.Any());
     }
 
-    public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes) {
+    public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes, @Nonnull Type resultType) {
         this.inner = inner;
         this.recordTypes = recordTypes;
+        this.resultType = resultType;
     }
 
     @Nonnull
@@ -127,7 +132,8 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
                                                                   @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryTypeFilterPlan(
                 Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                getRecordTypes());
+                getRecordTypes(),
+                resultType);
     }
 
     @Nonnull
@@ -139,7 +145,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Nonnull
     @Override
     public Value getResultValue() {
-        return inner.getFlowedObjectValue();
+        return QuantifiedObjectValue.of(inner.getAlias(), resultType);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

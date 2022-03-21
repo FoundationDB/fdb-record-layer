@@ -245,7 +245,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
             }
 
             final var rebasedPlaceholder = (Placeholder)placeholder.rebase(AliasMap.of(innerBaseAlias, baseAlias));
-            expansions.add(GraphExpansion.ofResultValueAndPlaceholder(rebasedPlaceholder.getValue(), rebasedPlaceholder));
+            expansions.add(GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(rebasedPlaceholder.getValue()), rebasedPlaceholder));
         }
 
         return GraphExpansion.ofOthers(expansions);

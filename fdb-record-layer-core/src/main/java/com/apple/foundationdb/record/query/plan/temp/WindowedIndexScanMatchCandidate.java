@@ -279,19 +279,23 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
 
-        return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, reverseScanOrder)
+        final var baseRecordType = Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
+
+        return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 reverseScanOrder,
                                 false,
-                                (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate()));
+                                (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate(),
+                                baseRecordType));
     }
 
     @Nonnull
     private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final List<ComparisonRange> comparisonRanges,
-                                                                     final boolean isReverse) {
+                                                                     final boolean isReverse,
+                                                                     @Nonnull final Type.Record baseRecordType) {
         if (recordTypes.size() > 1) {
             return Optional.empty();
         }
@@ -318,14 +322,15 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         scanParameters,
                         isReverse,
                         false,
-                        (WindowedIndexScanMatchCandidate)partialMatch.getMatchCandidate());
+                        (WindowedIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
+                        baseRecordType);
 
         final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 recordType.getName(),
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
                 builder.build());
 
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch));
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch, baseRecordType));
     }
 
     @Nonnull

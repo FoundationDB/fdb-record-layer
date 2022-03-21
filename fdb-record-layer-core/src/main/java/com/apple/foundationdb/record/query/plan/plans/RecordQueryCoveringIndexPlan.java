@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.ScanWithFetchMatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.IndexedValue;
@@ -175,7 +176,9 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     @Override
     public Value getResultValue() {
-        return new IndexedValue();
+        return new IndexedValue(indexPlan.getMatchCandidateOptional()
+                .map(matchCandidate -> matchCandidate.getTraversal().getRootReference().getResultType())
+                .orElse(new Type.Any()));
     }
 
     @Nonnull

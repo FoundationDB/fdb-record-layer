@@ -103,7 +103,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final EmptyKeyExpression emptyKeyExpression) {
-        return GraphExpansion.ofResultValue(new EmptyValue());
+        return GraphExpansion.ofResultColumn(Column.unnamedOf(new EmptyValue()));
     }
 
     @Nonnull
@@ -128,9 +128,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
-                    childExpansion = GraphExpansion.ofResultValueAndPlaceholder(value, predicate);
+                    childExpansion = GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);
                 } else {
-                    childExpansion = GraphExpansion.ofResultValue(value);
+                    childExpansion = GraphExpansion.ofResultColumn(Column.unnamedOf(value));
                 }
                 final SelectExpression selectExpression =
                         childExpansion
@@ -145,9 +145,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 value = state.registerValue(new FieldValue(baseQuantifier.getFlowedObjectValue(), fieldNames));
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
-                    return GraphExpansion.ofResultValueAndPlaceholder(value, predicate);
+                    return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);
                 }
-                return GraphExpansion.ofResultValue(value);
+                return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
             case Concatenate: // TODO collect/concatenate function
             default:
         }
@@ -162,9 +162,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         if (state.isKey()) {
             final Placeholder predicate =
                     value.asPlaceholder(newParameterAlias());
-            return GraphExpansion.ofResultValueAndPlaceholder(value, predicate);
+            return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);
         }
-        return GraphExpansion.ofResultValue(value);
+        return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
     }
     
     @Nonnull
@@ -200,7 +200,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final SelectExpression selectExpression =
                         sealedBaseAndChildExpansion.buildSelect();
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
-                return sealedBaseAndChildExpansion.builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
+                return sealedBaseAndChildExpansion
+                        .builderWithInheritedPlaceholders()
+                        .pullUpQuantifier(childQuantifier)
+                        .build();
             case Concatenate:
             default:
                 throw new RecordCoreException("unsupported fan type");
@@ -215,7 +218,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         int currentOrdinal = state.getCurrentOrdinal();
         for (KeyExpression child : thenKeyExpression.getChildren()) {
             final GraphExpansion graphExpansion = pop(child.expand(push(state.withCurrentOrdinal(currentOrdinal))));
-            currentOrdinal += graphExpansion.getResultValues().size();
+            currentOrdinal += graphExpansion.getResultColumns().size();
             expandedPredicatesBuilder.add(graphExpansion);
         }
         return GraphExpansion.ofOthers(expandedPredicatesBuilder.build());

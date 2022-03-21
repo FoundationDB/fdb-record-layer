@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
@@ -111,7 +112,7 @@ public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends
         final RecordQueryPlanWithChild pushedInJoinPlan = inJoinPlan.withChild(innerPlan);
 
         final var newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(pushedInJoinPlan, fetchPlan.getPushValueFunction());
+                new RecordQueryFetchFromPartialRecordPlan(pushedInJoinPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()));
 
         call.yield(call.ref(newFetchPlan));
     }

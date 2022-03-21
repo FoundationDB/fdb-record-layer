@@ -226,7 +226,8 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         final RecordQuerySetPlan newSetOperationPlan = setOperationPlan.withChildrenReferences(newPushedInnerPlans);
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
                 new RecordQueryFetchFromPartialRecordPlan(newSetOperationPlan,
-                        combinedTranslateValueFunction);
+                        combinedTranslateValueFunction,
+                        Type.Relation.scalarOf(setOperationPlan.getResultType()));
 
         if (nonPushableQuantifiers.isEmpty()) {
             call.yield(GroupExpressionRef.of(newFetchPlan));

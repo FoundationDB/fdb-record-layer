@@ -39,19 +39,16 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
@@ -65,33 +62,22 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Nonnull
     private final Quantifier inner;
     @Nonnull
-    private final Supplier<Value> resultValueSupplier;
-    @Nullable
     private final Type resultType;
 
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalExpression inner, @Nonnull Type resultType) {
         this(recordTypes, Quantifier.forEach(GroupExpressionRef.of(inner)), resultType);
     }
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner, @Nullable Type resultType) {
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner, @Nonnull Type resultType) {
         this.recordTypes = recordTypes;
         this.inner = inner;
         this.resultType = resultType;
-        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
-    }
-
-    @Nonnull
-    public Value computeResultValue() {
-        if (resultType == null) {
-            return inner.getFlowedObjectValue();
-        }
-        return QuantifiedObjectValue.of(inner.getAlias(), resultType);
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return resultValueSupplier.get();
+        return QuantifiedObjectValue.of(inner.getAlias(), resultType);
     }
 
     @Override
