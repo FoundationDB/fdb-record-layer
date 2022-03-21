@@ -1236,7 +1236,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         RecordCursor<FDBIndexedRecord<Message>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
             // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
-            FDBRawRecord fdbRawRecord = unsplitSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties, useOldVersionFormat());
+            FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties, useOldVersionFormat());
 
             Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
             // The version future will be ignored in case the record already has a version
@@ -1262,19 +1262,36 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param recordSubspace the subspace for the record to allow the record keys to be identified from the splits
      * @param sizeInfo Size Info to collect metrics
      * @param mappedResult the record splits, packed into a KeyValueAndMappedReqAndResult
-     * @param scanProperties the scam properties to use for the unsplitting
+     * @param scanProperties the scam properties to use
      * @param oldVersionFormat whether to use the old version record format when reading the records
-     * @return an instance of {@link FDBRawRecord} reconsrtucted from the given record splits
+     * @return an instance of {@link FDBRawRecord} reconstructed from the given record splits
      */
-    private FDBRawRecord unsplitSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo, final MappedKeyValue mappedResult, final ScanProperties scanProperties, final boolean oldVersionFormat) {
-        List<KeyValue> recordSplits = mappedResult.getRangeResult();
-        ListCursor<KeyValue> splitCursor = new ListCursor<>(recordSplits, null);
-
-        // Note that we always set "reverse" to false since regardless of the index scan direction, the MappedKeyValue is in non-reverse order
-        RecordCursor<FDBRawRecord> unsplitRecordCursor = new SplitHelper.KeyValueUnsplitter(context, recordSubspace,
-                splitCursor, oldVersionFormat,
-                sizeInfo, false, new CursorLimitManager(scanProperties));
-        return unsplitRecordCursor.getNext().get();
+    private FDBRawRecord reconstructSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo,
+                                                 final MappedKeyValue mappedResult, final ScanProperties scanProperties,
+                                                 final boolean oldVersionFormat) {
+        List<KeyValue> scannedRange = mappedResult.getRangeResult();
+        ListCursor<KeyValue> rangeCursor = new ListCursor<>(scannedRange, null);
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+        final RecordCursor<FDBRawRecord> rawRecords;
+        if (metaData.isSplitLongRecords()) {
+            // Note that we always set "reverse" to false since regardless of the index scan direction, the MappedKeyValue is in non-reverse order
+            rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, rangeCursor, oldVersionFormat,
+                    sizeInfo, false, new CursorLimitManager(scanProperties));
+        } else {
+            if (omitUnsplitRecordSuffix) {
+                rawRecords = rangeCursor.map(kv -> {
+                    sizeInfo.set(kv);
+                    Tuple primaryKey = SplitHelper.unpackKey(recordSubspace, kv); // TODO: Can this be taken from the index entry in the mappedresult?
+                    return new FDBRawRecord(primaryKey, kv.getValue(), null, sizeInfo);
+                });
+            } else {
+                // Note that we always set "reverse" to false since regardless of the index scan direction, the MappedKeyValue is in non-reverse order
+                rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, rangeCursor, oldVersionFormat,
+                        sizeInfo, false, new CursorLimitManager(scanProperties));
+            }
+        }
+        // Everything is synchronous, just get the only value from the cursor
+        return rawRecords.getNext().get();
     }
 
     /**

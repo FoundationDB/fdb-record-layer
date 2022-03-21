@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -77,9 +76,7 @@ public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQue
 
     @ParameterizedTest
     @EnumSource()
-    @Disabled
     void oldVersionFormatTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
-
         // TODO: This test needs to be fully validated once the real API is here: to ensure the version is indeed read from the old location
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
 
