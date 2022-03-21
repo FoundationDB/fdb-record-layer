@@ -87,7 +87,7 @@ public class OrdinalFieldValue implements ValueWithChild {
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return child.describe(formatter) + "#" + ordinalPosition;
+        return child.explain(formatter) + "#" + ordinalPosition;
     }
 
     @SuppressWarnings("ConstantConditions")
