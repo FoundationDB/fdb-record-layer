@@ -68,7 +68,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
             @Nullable AliasMap equivalencesMap = null;
             for (final TranslateValueFunction dependentFunction : dependentFunctions) {
                 final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseQuantifiedValue);
-                if (!pushedValueOptional.isPresent()) {
+                if (pushedValueOptional.isEmpty()) {
                     return Optional.empty();
                 }
                 if (previousPushedValue == null) {

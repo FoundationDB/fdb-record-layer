@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -42,8 +43,16 @@ public class DerivedValue implements Value, Value.CompileTimeValue {
     @Nonnull
     private final List<? extends Value> children;
 
+    @Nonnull
+    private final Type resultType;
+
     public DerivedValue(@Nonnull Iterable<? extends Value> values) {
+        this(values, Type.primitiveType(Type.TypeCode.UNKNOWN));
+    }
+
+    public DerivedValue(@Nonnull Iterable<? extends Value> values, @Nonnull Type resultType) {
         this.children = ImmutableList.copyOf(values);
+        this.resultType = resultType;
         Preconditions.checkArgument(!children.isEmpty());
     }
 
@@ -51,6 +60,12 @@ public class DerivedValue implements Value, Value.CompileTimeValue {
     @Override
     public Iterable<? extends Value> getChildren() {
         return children;
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return resultType;
     }
 
     @Nonnull

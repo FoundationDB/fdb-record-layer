@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -81,7 +82,9 @@ public class IntersectionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 newChildren.add(newPlan);
             }
             return new RecordQueryFetchFromPartialRecordPlan(
-                    RecordQueryIntersectionPlan.from(newChildren, intersectionPlan.getComparisonKey()), TranslateValueFunction.unableToTranslate());
+                    RecordQueryIntersectionPlan.from(newChildren, intersectionPlan.getComparisonKey()),
+                    TranslateValueFunction.unableToTranslate(),
+                    new Type.Any());
         }
 
         return recordQueryPlan;

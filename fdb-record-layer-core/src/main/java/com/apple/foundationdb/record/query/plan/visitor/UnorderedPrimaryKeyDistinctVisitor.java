@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,7 +69,8 @@ public class UnorderedPrimaryKeyDistinctVisitor extends RecordQueryPlannerSubsti
             if (newPlan != null) {
                 return new RecordQueryFetchFromPartialRecordPlan(
                         new RecordQueryUnorderedPrimaryKeyDistinctPlan(newPlan),
-                        TranslateValueFunction.unableToTranslate());
+                        TranslateValueFunction.unableToTranslate(),
+                        new Type.Any());
             }
         }
         return recordQueryPlan;

@@ -1017,6 +1017,15 @@ public interface Type extends Narrowable<Type> {
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional) {
                 return new Field(fieldType, fieldNameOptional, Optional.empty());
             }
+
+            /**
+             * Constructs a new field that has no name and no protobuf field index.
+             *
+             * @param fieldType The field {@link Type}.
+             */
+            public static Field unnamedOf(@Nonnull final Type fieldType) {
+                return new Field(fieldType, Optional.empty(), Optional.empty());
+            }
         }
     }
 
@@ -1131,6 +1140,11 @@ public interface Type extends Narrowable<Type> {
             return isErased()
                    ? getTypeCode().toString()
                    : getTypeCode() + "(" + Objects.requireNonNull(getInnerType()) + ")";
+        }
+
+        public static Type scalarOf(@Nonnull final Type relationType) {
+            Verify.verify(relationType.getTypeCode() == TypeCode.RELATION && relationType instanceof Relation);
+            return ((Relation)relationType).getInnerType();
         }
     }
 
