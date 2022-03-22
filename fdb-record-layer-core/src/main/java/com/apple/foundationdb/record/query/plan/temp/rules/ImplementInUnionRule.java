@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -127,11 +128,9 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         }
         final var innerQuantifier = innerQuantifierOptional.get();
 
-        final List<? extends Value> resultValues = selectExpression.getResultValues();
-        if (resultValues.stream()
-                .anyMatch(resultValue ->
-                        !(resultValue instanceof QuantifiedColumnValue) ||
-                        !((QuantifiedColumnValue)resultValue).getAlias().equals(innerQuantifier.getAlias()))) {
+        final var resultValue = selectExpression.getResultValue();
+        if (!(resultValue instanceof QuantifiedValue) ||
+                !((QuantifiedValue)resultValue).getAlias().equals(innerQuantifier.getAlias())) {
             return;
         }
 

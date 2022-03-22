@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
@@ -92,7 +93,7 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
                     new RecordQueryTypeFilterPlan(
                             Quantifier.physical(GroupExpressionRef.from(unsatisfiedEntry.getValue())),
                             unsatisfiedEntry.getKey(),
-                            logicalTypeFilterExpression.getResultType())));
+                            Type.Relation.scalarOf(logicalTypeFilterExpression.getResultType()))));
         }
     }
 }
