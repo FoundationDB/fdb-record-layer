@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
-import com.apple.foundationdb.record.query.plan.temp.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
@@ -98,7 +97,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKey = comparisonKey;
         this.reverse = reverse;
-        this.resultValue = RecordConstructorValue.ofUnnamed(MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValue = MergeValue.pivotAndMergeValues(quantifiers);
     }
 
     @Nonnull

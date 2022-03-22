@@ -23,9 +23,10 @@ package com.apple.foundationdb.record.query.plan.planning;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -51,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link BooleanPredicateNormalizer}.
  */
 class BooleanPredicateNormalizerTest {
-    private static final FieldValue F = new FieldValue(QuantifiedColumnValue.of(CorrelationIdentifier.UNGROUNDED, 0), ImmutableList.of("f"));
+    private static final FieldValue F = new FieldValue(QuantifiedObjectValue.of(CorrelationIdentifier.UNGROUNDED, Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f"))))), ImmutableList.of("f"));
     private static final QueryPredicate P1 = new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1));
     private static final QueryPredicate P2 = new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2));
     private static final QueryPredicate P3 = new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 3));
@@ -208,9 +210,15 @@ class BooleanPredicateNormalizerTest {
                 IntStream.rangeClosed(1, 9).boxed().map(i ->
                         or(IntStream.rangeClosed(1, 9).boxed()
                                 .map(j -> and(
-                                        new ValuePredicate(new FieldValue(QuantifiedColumnValue.of(CorrelationIdentifier.UNGROUNDED, 0), ImmutableList.of("num_value_3_indexed")),
+                                        new ValuePredicate(new FieldValue(
+                                                QuantifiedObjectValue.of(CorrelationIdentifier.UNGROUNDED,
+                                                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("num_value_3_indexed"))))),
+                                                ImmutableList.of("num_value_3_indexed")),
                                                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, i * 9 + j)),
-                                        new ValuePredicate(new FieldValue(QuantifiedColumnValue.of(CorrelationIdentifier.UNGROUNDED, 0), ImmutableList.of("str_value_indexed")),
+                                        new ValuePredicate(new FieldValue(
+                                                QuantifiedObjectValue.of(CorrelationIdentifier.UNGROUNDED,
+                                                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("str_value_indexed"))))),
+                                                ImmutableList.of("str_value_indexed")),
                                                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "foo"))))
                                 .collect(Collectors.toList())))
                         .collect(Collectors.toList()));

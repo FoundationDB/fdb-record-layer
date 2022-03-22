@@ -47,7 +47,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -122,11 +122,9 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
         }
         final var innerQuantifier = innerQuantifierOptional.get();
 
-        final List<? extends Value> resultValues = selectExpression.getResultValues();
-        if (resultValues.stream()
-                .anyMatch(resultValue ->
-                        !(resultValue instanceof QuantifiedColumnValue) ||
-                        !((QuantifiedColumnValue)resultValue).getAlias().equals(innerQuantifier.getAlias()))) {
+        final var resultValue = selectExpression.getResultValue();
+        if (!(resultValue instanceof QuantifiedValue) ||
+                !((QuantifiedValue)resultValue).getAlias().equals(innerQuantifier.getAlias())) {
             return;
         }
 
@@ -296,7 +294,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                         Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
                 final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
 
-                final var explodeCollectionValue = explodeExpression.getResultValue();
+                final var explodeCollectionValue = explodeExpression.getCollectionValue();
 
                 final InSource inSource;
                 if (explodeCollectionValue instanceof LiteralValue<?>) {

@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -140,30 +142,37 @@ public class MergeValue implements Value {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
-    public static List<? extends MergeValue> pivotAndMergeValues(@Nonnull final List<? extends Quantifier> quantifiers) {
+    public static Value pivotAndMergeValues(@Nonnull final List<? extends Quantifier> quantifiers) {
         Verify.verify(!quantifiers.isEmpty());
-        int numberOfFields = -1;
+        var numberOfFields = -1;
         final ImmutableList.Builder<List<? extends QuantifiedColumnValue>> allFlowedValuesBuilder = ImmutableList.builder();
-        for (final Quantifier quantifier : quantifiers) {
-            final List<? extends QuantifiedColumnValue> flowedValues = quantifier.getFlowedValues();
+        for (final var quantifier : quantifiers) {
+            //
+            // The following is a shim for the old planner which does not flow type information.
+            //
+            if (quantifier.getFlowedObjectType().getTypeCode() == Type.TypeCode.UNKNOWN || quantifier.getFlowedObjectType().getTypeCode() == Type.TypeCode.ANY) {
+                return quantifier.getFlowedObjectValue();
+            }
+            
+            final var flowedValues = quantifier.getFlowedValues();
             allFlowedValuesBuilder.add(flowedValues);
             if (numberOfFields == -1 || numberOfFields > flowedValues.size()) {
                 numberOfFields = flowedValues.size();
             }
         }
 
-        final ImmutableList<List<? extends QuantifiedColumnValue>> allFlowedValues = allFlowedValuesBuilder.build();
-        final ImmutableList.Builder<MergeValue> mergeValuesBuilder = ImmutableList.builder();
+        final var allFlowedValues = allFlowedValuesBuilder.build();
+        final var mergeValuesBuilder = ImmutableList.<MergeValue>builder();
 
         for (int i = 0; i < numberOfFields; i ++) {
-            final ImmutableList.Builder<QuantifiedColumnValue> toBeMergedValuesBuilder = ImmutableList.builder();
+            final var toBeMergedValuesBuilder = ImmutableList.<QuantifiedColumnValue>builder();
             for (final List<? extends QuantifiedColumnValue> allFlowedValuesFromQuantifier : allFlowedValues) {
-                final QuantifiedColumnValue quantifiedColumnValue = allFlowedValuesFromQuantifier.get(i);
+                final var quantifiedColumnValue = allFlowedValuesFromQuantifier.get(i);
                 toBeMergedValuesBuilder.add(quantifiedColumnValue);
             }
             mergeValuesBuilder.add(new MergeValue(toBeMergedValuesBuilder.build()));
         }
 
-        return mergeValuesBuilder.build();
+        return RecordConstructorValue.ofUnnamed(mergeValuesBuilder.build());
     }
 }

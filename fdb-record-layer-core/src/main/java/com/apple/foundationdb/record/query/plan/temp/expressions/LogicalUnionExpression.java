@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -47,7 +46,7 @@ public class LogicalUnionExpression implements RelationalExpressionWithChildren 
 
     public LogicalUnionExpression(@Nonnull List<? extends Quantifier> quantifiers) {
         this.quantifiers = quantifiers;
-        this.resultValue = RecordConstructorValue.ofUnnamed(MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValue = MergeValue.pivotAndMergeValues(quantifiers);
     }
 
     @Override

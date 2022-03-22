@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
@@ -336,7 +335,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     @Override
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                                 @Nonnull QuantifiedObjectValue indexRecordQuantifiedObjectValue) {
+                                                 @Nonnull CorrelationIdentifier targetAlias) {
 
         final Set<Value> quantifiedObjectValues = ImmutableSet.copyOf(value.filter(v -> v instanceof QuantifiedObjectValue));
 
@@ -349,12 +348,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
         // replace the quantified column value inside the given value with the quantified value in the match candidate
         final var baseObjectValue = QuantifiedObjectValue.of(baseAlias);
-        final Optional<Value> translatedValueOptional =
-                value.translate(ImmutableMap.of(quantifiedObjectValue, baseObjectValue));
-        if (!translatedValueOptional.isPresent()) {
-            return Optional.empty();
-        }
-        final Value translatedValue = translatedValueOptional.get();
+        final Value translatedValue =
+                value.rebase(AliasMap.of(quantifiedObjectValue.getAlias(), baseAlias));
         final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseAlias));
 
         for (final Value matchResultValue : Iterables.concat(ImmutableList.of(baseObjectValue), indexKeyValues)) {
@@ -363,7 +358,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 continue;
             }
             if (translatedValue.semanticEquals(matchResultValue, equivalenceMap)) {
-                return matchResultValue.translate(ImmutableMap.of(baseObjectValue, indexRecordQuantifiedObjectValue));
+                return Optional.of(matchResultValue.rebase(AliasMap.of(baseAlias, targetAlias)));
             }
         }
 

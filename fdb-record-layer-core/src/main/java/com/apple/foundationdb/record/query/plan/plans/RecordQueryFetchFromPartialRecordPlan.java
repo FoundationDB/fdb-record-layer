@@ -153,9 +153,8 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     @Nonnull
-    public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier newAlias) {
-        // TODO this should maybe just be the alias we hand in so that type info can be preserved during the translate
-        return translateValueFunction.translateValue(value, QuantifiedObjectValue.of(newAlias));
+    public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier targetAlias) {
+        return translateValueFunction.translateValue(value, targetAlias);
     }
 
     @Nonnull

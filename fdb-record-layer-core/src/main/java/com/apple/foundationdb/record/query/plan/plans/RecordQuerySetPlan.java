@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Type;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
@@ -98,7 +97,6 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                         .collect(Collectors.toSet());
 
         final CorrelationIdentifier newBaseAlias = CorrelationIdentifier.uniqueID();
-        final QuantifiedObjectValue newBaseObjectValue = QuantifiedObjectValue.of(newBaseAlias);
 
         for (final Value value : values) {
             final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(newBaseAlias));
@@ -112,7 +110,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                     continue;
                 }
 
-                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseObjectValue);
+                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseAlias);
 
                 if (!pushedValueOptional.isPresent()) {
                     candidatesAliases.remove(quantifier.getAlias());

@@ -853,27 +853,6 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * transpose the result type of {@link Value} expression, which is a tuple, into a list {@link Value}s with
-         * corresponding types of the tuple elements.
-         *
-         * @param recordValue The {@link Value} whose result set we want to transpose.
-         * @return A list {@link Value}s with corresponding types of the tuple elements.
-         */
-        @Nonnull
-        public static List<Value> deconstructRecord(@Nonnull Value recordValue) {
-            Verify.verify(recordValue.getResultType().getTypeCode() == TypeCode.RECORD);
-            Verify.verify(recordValue.getResultType() instanceof Record);
-            final Record resultType = (Record)recordValue.getResultType();
-
-            final List<Field> fields = Objects.requireNonNull(resultType.getFields());
-            final ImmutableList.Builder<Value> resultBuilder = ImmutableList.builder();
-            for (int i = 0; i < fields.size(); i++) {
-                resultBuilder.add(OrdinalFieldValue.of(recordValue, i));
-            }
-            return resultBuilder.build();
-        }
-
-        /**
          * Normalizes a list of {@link Field}s such that their names and indices are consistent.
          *
          * @param fields The list of {@link Field}s to normalize.
