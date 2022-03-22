@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.expressions.LuceneQueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -59,19 +58,19 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
 
     private final Index textIndex = new Index("Complex$text_index",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-            IndexTypes.LUCENE);
+            LuceneIndexTypes.LUCENE);
 
     private final Index text2Index = new Index("Complex$text2_index",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text2")),
-            IndexTypes.LUCENE);
+            LuceneIndexTypes.LUCENE);
 
     private final Index nestedDualIndex = new Index("Complex$nested_index",
             concat(field("header").nest("header_id"), function(LuceneFunctionNames.LUCENE_TEXT, field("text"))),
-            IndexTypes.LUCENE);
+            LuceneIndexTypes.LUCENE);
 
     private final Index nestedDualIndex2 = new Index("Complex$nested_index2",
             concat(field("header").nest("header_id"), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
-            IndexTypes.LUCENE);
+            LuceneIndexTypes.LUCENE);
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
@@ -83,7 +82,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
                         Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
                         Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
                         Sets.newHashSet(IndexTypes.TEXT),
-                        Sets.newHashSet(IndexTypes.LUCENE)
+                        Sets.newHashSet(LuceneIndexTypes.LUCENE)
                 );
             }
 

@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.lucene.synonym;
 
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.google.auto.service.AutoService;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
@@ -104,7 +104,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         @Nonnull
         @Override
         public Analyzer getQueryAnalyzer(@Nonnull Index index, @Nonnull Analyzer indexAnalyzer) {
-            String name = index.getOption(IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION);
+            String name = index.getOption(LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION);
             if (name == null) {
                 name = EnglishSynonymMapConfig.CONFIG_NAME;
             }

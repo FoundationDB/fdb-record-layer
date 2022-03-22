@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.LuceneFileSystemProto;
 import com.apple.foundationdb.record.lucene.directory.LuceneSerializer;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;

@@ -103,12 +103,6 @@ message ComposedBitmapIndexContinuation {
     repeated CursorState child_state = 1;
 }
 
-message LuceneIndexContinuation {
-    required uint64 doc = 1;
-    required float score = 2;
-    optional uint64 shard = 3;
-}
-
 message SelectorPlanContinuation {
     optional uint64 selected_plan = 1; // The selected plan executing from the list of optional plans
     optional bytes inner_continuation = 2; // The selected plan's continuation
@@ -120,15 +114,4 @@ message ComparatorContinuation {
         optional bool started = 2;
     }
     repeated CursorState child_state = 1;
-}
-
-message LuceneAutoCompleteIndexContinuation {
-    required string key = 1;
-    required uint64 value = 2;
-    optional bytes payload = 3;
-}
-
-message LuceneSpellcheckIndexContinuation {
-    required uint64 location = 1;
-    required bytes value = 2;
 }

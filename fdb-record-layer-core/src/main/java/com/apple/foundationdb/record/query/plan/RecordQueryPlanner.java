@@ -624,26 +624,15 @@ public class RecordQueryPlanner implements QueryPlanner {
                 GroupingKeyExpression grouping = (GroupingKeyExpression) indexExpr;
                 p = planRank(candidateScan, index, grouping, filter);
                 indexExpr = grouping.getWholeKey(); // Plan as just value index.
-            } else if (indexTypes.getTextTypes().contains(index.getType())) {
-                p = planText(candidateScan, index, filter, sort);
-                if (p != null) {
-                    p = planRemoveDuplicates(planContext, p);
-                }
-                if (p != null) {
-                    p = computeIndexFilters(planContext, p);
-                }
-                return p;
-            } else if (indexTypes.getLuceneTypes().contains(index.getType())) {
-                p = planLucene(candidateScan, index, filter, sort);
-                if (p != null) {
-                    p = planRemoveDuplicates(planContext, p);
-                }
-                if (p != null) {
-                    p = computeIndexFilters(planContext, p);
-                }
-                return p;
             } else if (!indexTypes.getValueTypes().contains(index.getType())) {
-                return null;
+                p = planOther(candidateScan, index, filter, sort);
+                if (p != null) {
+                    p = planRemoveDuplicates(planContext, p);
+                }
+                if (p != null) {
+                    p = computeIndexFilters(planContext, p);
+                }
+                return p;
             }
         }
         if (p == null) {
@@ -691,6 +680,8 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         return p;
     }
+
+
 
     private ScoredPlan computeIndexFilters(@Nonnull PlanContext planContext, @Nonnull final ScoredPlan plan) {
         if (plan.plan instanceof RecordQueryPlanWithIndex) {
@@ -1343,10 +1334,14 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    protected ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
-                                @Nonnull Index index, @Nonnull QueryComponent filter,
-                                @Nullable KeyExpression sort) {
-        return null;
+    protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
+                                   @Nonnull Index index, @Nonnull QueryComponent filter,
+                                   @Nullable KeyExpression sort) {
+        if (indexTypes.getTextTypes().contains(index.getType())) {
+            return planText(candidateScan, index, filter, sort);
+        } else {
+            return null;
+        }
     }
 
     @Nullable

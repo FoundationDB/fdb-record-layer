@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
@@ -52,6 +52,7 @@ public class LuceneOptimizedWrappedAnalyzingInfixSuggester extends BlendedInfixS
     @Nonnull
     private final IndexMaintainerState state;
 
+    @SuppressWarnings("squid:S107")
     private LuceneOptimizedWrappedAnalyzingInfixSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir, @Nonnull Analyzer indexAnalyzer,
                                                           @Nonnull Analyzer queryAnalyzer, int minPrefixChars, BlenderType blenderType, int numFactor,
                                                           @Nullable Double exponent, boolean highlight) throws IOException {
@@ -82,10 +83,10 @@ public class LuceneOptimizedWrappedAnalyzingInfixSuggester extends BlendedInfixS
 
     @Nonnull
     public static AnalyzingInfixSuggester getSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir, @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer, boolean highlight) {
-        String autoCompleteBlenderType = state.index.getOption(IndexOptions.AUTO_COMPLETE_BLENDER_TYPE);
-        String autoCompleteBlenderNumFactor = state.index.getOption(IndexOptions.AUTO_COMPLETE_BLENDER_NUM_FACTOR);
-        String autoCompleteMinPrefixSize = state.index.getOption(IndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE);
-        String autoCompleteBlenderExponent = state.index.getOption(IndexOptions.AUTO_COMPLETE_BLENDER_EXPONENT);
+        String autoCompleteBlenderType = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_TYPE);
+        String autoCompleteBlenderNumFactor = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_NUM_FACTOR);
+        String autoCompleteMinPrefixSize = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE);
+        String autoCompleteBlenderExponent = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_EXPONENT);
 
         try {
             return new LuceneOptimizedWrappedAnalyzingInfixSuggester(state, dir, indexAnalyzer, queryAnalyzer,

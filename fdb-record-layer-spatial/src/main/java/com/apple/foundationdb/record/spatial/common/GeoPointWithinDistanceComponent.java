@@ -76,7 +76,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
 
     @Nullable
     @Override
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> rec, @Nullable Message message) {
         Double distanceValue = distance.getValue(context);
         Double centerLatitudeValue = centerLatitude.getValue(context);
         Double centerLongitudeValue = centerLongitude.getValue(context);

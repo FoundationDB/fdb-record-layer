@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.LuceneFileSystemProto;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneFileSystemProto;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 

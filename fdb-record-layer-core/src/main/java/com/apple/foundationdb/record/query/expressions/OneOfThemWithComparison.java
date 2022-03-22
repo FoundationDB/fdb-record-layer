@@ -65,7 +65,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null ) {
             return getComparison().eval(store, context, null);
         }

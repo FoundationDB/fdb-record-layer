@@ -69,15 +69,15 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return invert(getChild().evalMessage(store, context, record, message));
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
+        return invert(getChild().evalMessage(store, context, rec, message));
     }
 
     @Override
     @Nonnull
     public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                           @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return getChild().evalMessageAsync(store, context, record, message).thenApply(this::invert);
+                                                                           @Nullable FDBRecord<M> rec, @Nullable Message message) {
+        return getChild().evalMessageAsync(store, context, rec, message).thenApply(this::invert);
     }
 
     @Override

@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -32,7 +31,6 @@ import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.util.LogMessageKeys;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -42,8 +40,6 @@ import org.apache.lucene.search.spell.SuggestWord;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-//import org.slf4j.Logger;
-//import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -60,11 +56,9 @@ import static com.apple.foundationdb.record.lucene.DirectoryCommitCheckAsync.get
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getIndexWriterCommitCheckAsync;
 import static java.util.Comparator.comparing;
 
-public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
+public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
 
-    // TODO: log some stuff.
-    // private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellcheckRecordCursor.class);
-    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneAutoCompleteResultCursor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellCheckRecordCursor.class);
     @Nonnull
     private final Executor executor;
     @Nonnull
@@ -87,25 +81,13 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
     private final List<String> fields;
 
 
-    public LuceneSpellcheckRecordCursor(@Nonnull final String value,
+    public LuceneSpellCheckRecordCursor(@Nonnull List<String> fields, @Nonnull String wordToSpellCheck,
                                         @Nonnull final Executor executor,
                                         final ScanProperties scanProperties,
                                         @Nonnull final IndexMaintainerState state,
-                                        @Nullable Tuple groupingKey,
-                                        final String[] fieldNames) {
-        if (value.contains(":")) {
-            String[] fieldAndWord = value.split(":", 2);
-            if ( Arrays.stream(fieldNames).noneMatch(name -> name.equals(fieldAndWord[0]))) {
-                throw new RecordCoreException("Invalid field name in Lucene index query")
-                        .addLogInfo(LogMessageKeys.FIELD_NAME, fieldAndWord[0])
-                        .addLogInfo(LogMessageKeys.INDEX_FIELDS, fieldNames);
-            }
-            fields = List.of(fieldAndWord[0]);
-            wordToSpellCheck = fieldAndWord[1];
-        } else {
-            fields = List.of(fieldNames);
-            wordToSpellCheck = value;
-        }
+                                        @Nullable Tuple groupingKey) {
+        this.fields = fields;
+        this.wordToSpellCheck = wordToSpellCheck;
         this.executor = executor;
         this.state = state;
         this.limit = Math.min(
@@ -143,8 +125,8 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
 
     @Nonnull
     private RecordCursorContinuation continuationHelper(@Nonnull IndexEntry lookupResult) {
-        RecordCursorProto.LuceneSpellcheckIndexContinuation.Builder continuationBuilder =
-                RecordCursorProto.LuceneSpellcheckIndexContinuation.newBuilder().setValue(ByteString.copyFromUtf8(lookupResult.toString()));
+        LuceneContinuationProto.LuceneSpellCheckIndexContinuation.Builder continuationBuilder =
+                LuceneContinuationProto.LuceneSpellCheckIndexContinuation.newBuilder().setValue(ByteString.copyFromUtf8(lookupResult.toString()));
         continuationBuilder.setLocation(currentPosition);
         return ByteArrayContinuation.fromNullable(continuationBuilder.build().toByteArray());
     }
@@ -193,7 +175,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                         suggestion -> suggestion.suggestWord.string,
                         Function.identity(),
                         // TODO: For arnaud, are we checking for a merge on ALL suggested words against eachother?
-                        LuceneSpellcheckRecordCursor::mergeTwoSuggestWords))
+                        LuceneSpellCheckRecordCursor::mergeTwoSuggestWords))
                 .values()
                 .stream()
                 // Sort the suggested words from large to small by score then by frequency then by the field.
@@ -202,15 +184,17 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                                 .thenComparing(s -> s.suggestWord.string))
                 .limit(limit)
                 // Map the words from suggestions to index entries.
-                .map(suggestion -> new IndexEntry(
-                        state.index,
-                        Tuple.from(groupingKey == null || groupingKey.isEmpty() ? "" : groupingKey.getString(0),
-                                suggestion.indexField, suggestion.suggestWord.string),
-                        Tuple.from(suggestion.suggestWord.score)))
+                .map(suggestion -> {
+                    Tuple key = Tuple.from(suggestion.indexField, suggestion.suggestWord.string);
+                    if (groupingKey != null) {
+                        key = groupingKey.addAll(key);
+                    }
+                    return new IndexEntry(state.index, key, Tuple.from(suggestion.suggestWord.score));
+                })
                 .collect(Collectors.toList());
         if (timer != null) {
-            timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_SPELLCHECK_SCAN, startTime);
-            timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_SPELLCHECKER_SUGGESTIONS, spellcheckSuggestions.size());
+            timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_SPELLCHECK_SCAN, startTime);
+            timer.increment(LuceneEvents.Counts.LUCENE_SCAN_SPELLCHECKER_SUGGESTIONS, spellcheckSuggestions.size());
         }
     }
 

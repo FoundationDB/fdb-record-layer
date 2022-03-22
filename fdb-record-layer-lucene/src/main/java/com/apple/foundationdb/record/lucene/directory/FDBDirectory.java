@@ -27,8 +27,10 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
-import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -150,7 +152,7 @@ public class FDBDirectory extends Directory {
      * @return current increment value
      */
     public synchronized long getIncrement() {
-        increment(FDBStoreTimer.Counts.LUCENE_GET_INCREMENT_CALLS);
+        increment(LuceneEvents .Counts.LUCENE_GET_INCREMENT_CALLS);
         return context.ensureActive().get(sequenceSubspaceKey).thenApply(
             (value) -> {
                 if (value == null) {
@@ -164,14 +166,14 @@ public class FDBDirectory extends Directory {
             }).join();
     }
 
-    private void increment(FDBStoreTimer.Counts counter) {
+    private void increment(StoreTimer.Count counter) {
         final FDBStoreTimer timer = context.getTimer();
         if (timer != null) {
             timer.increment(counter);
         }
     }
 
-    private void increment(FDBStoreTimer.Counts counter, int amount) {
+    private void increment(StoreTimer.Count counter, int amount) {
         final FDBStoreTimer timer = context.getTimer();
         if (timer != null) {
             timer.increment(counter, amount);
@@ -192,11 +194,11 @@ public class FDBDirectory extends Directory {
     public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReference(@Nonnull final String name) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("getFDBLuceneFileReference",
-                    LogMessageKeys.FILE_NAME, name));
+                    LuceneLogMessageKeys.FILE_NAME, name));
         }
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
         if (fileReference == null) {
-            return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
+            return context.instrument(LuceneEvents.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
                     .thenApply((value) -> {
                         final FDBLuceneFileReference fetchedRef = FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(value));
                         if (fetchedRef != null) {
@@ -266,14 +268,14 @@ public class FDBDirectory extends Directory {
         }
         final byte[] fileReferenceBytes = reference.getBytes();
         final byte[] encodedBytes = LuceneSerializer.encode(reference.getBytes(), compressionEnabled, encryptionEnabled);
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
+        increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
+        increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene file reference",
-                    LogMessageKeys.FILE_NAME, name,
-                    LogMessageKeys.DATA_SIZE, fileReferenceBytes.length,
-                    LogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length,
-                    LogMessageKeys.FILE_REFERENCE, reference));
+                    LuceneLogMessageKeys.FILE_NAME, name,
+                    LuceneLogMessageKeys.DATA_SIZE, fileReferenceBytes.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length,
+                    LuceneLogMessageKeys.FILE_REFERENCE, reference));
         }
         context.ensureActive().set(metaSubspace.pack(name), encodedBytes);
         fileReferenceCache.put(name, reference);
@@ -289,14 +291,14 @@ public class FDBDirectory extends Directory {
     public int writeData(long id, int block, @Nonnull byte[] value) {
         final byte[] encodedBytes = LuceneSerializer.encode(value, compressionEnabled, encryptionEnabled);
         //This may not be correct transactionally
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_CALL);
+        increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
+        increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene data",
-                    LogMessageKeys.FILE_ID, id,
-                    LogMessageKeys.BLOCK_NUMBER, block,
-                    LogMessageKeys.DATA_SIZE, value.length,
-                    LogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length));
+                    LuceneLogMessageKeys.FILE_ID, id,
+                    LuceneLogMessageKeys.BLOCK_NUMBER, block,
+                    LuceneLogMessageKeys.DATA_SIZE, value.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length));
         }
         Verify.verify(value.length <= blockSize);
         context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), encodedBytes);
@@ -318,8 +320,8 @@ public class FDBDirectory extends Directory {
         try {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace(getLogMessage("readBlock",
-                        LogMessageKeys.FILE_NAME, resourceDescription,
-                        LogMessageKeys.BLOCK_NUMBER, block));
+                        LuceneLogMessageKeys.FILE_NAME, resourceDescription,
+                        LuceneLogMessageKeys.BLOCK_NUMBER, block));
             }
             final FDBLuceneFileReference reference = referenceFuture.join(); // Tried to fully pipeline this but the reality is that this is mostly cached after listAll, delete, etc.
             if (reference == null) {
@@ -328,8 +330,8 @@ public class FDBDirectory extends Directory {
             Long id = reference.getId();
 
             long start = System.nanoTime();
-            return context.instrument(FDBStoreTimer.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
-                    () -> context.instrument(FDBStoreTimer.Events.LUCENE_FDB_READ_BLOCK,
+            return context.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
+                    () -> context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
                             context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
                                     .thenApplyAsync(data -> LuceneSerializer.decode(data)))
             ), start);
@@ -353,7 +355,7 @@ public class FDBDirectory extends Directory {
         try {
             outList = listAllInternal();
         } finally {
-            record(FDBStoreTimer.Events.LUCENE_LIST_ALL, System.nanoTime() - start);
+            record(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - start);
         }
         //noinspection ToArrayCallWithZeroLengthArrayArgument
         return outList.toArray(new String[outList.size()]);
@@ -383,7 +385,7 @@ public class FDBDirectory extends Directory {
                     readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
                 } catch (RecordCoreException e) {
                     LOGGER.warn(getLogMessage("Exception thrown during prefetch",
-                            LogMessageKeys.FILE_NAME, name));
+                            LuceneLogMessageKeys.FILE_NAME, name));
                 }
             }
             this.fileReferenceCache.put(name, fileReference);
@@ -400,10 +402,10 @@ public class FDBDirectory extends Directory {
         }
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(getLogMessage("listAllFiles",
-                    LogMessageKeys.FILE_COUNT, outList.size(),
-                    LogMessageKeys.FILE_LIST, displayList,
-                    LogMessageKeys.FILE_TOTAL_SIZE, totalSize,
-                    LogMessageKeys.FILE_ACTUAL_TOTAL_SIZE, actualTotalSize));
+                    LuceneLogMessageKeys.FILE_COUNT, outList.size(),
+                    LuceneLogMessageKeys.FILE_LIST, displayList,
+                    LuceneLogMessageKeys.FILE_TOTAL_SIZE, totalSize,
+                    LuceneLogMessageKeys.FILE_ACTUAL_TOTAL_SIZE, actualTotalSize));
         }
         return outList;
     }
@@ -417,13 +419,13 @@ public class FDBDirectory extends Directory {
 
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("deleteFile",
-                    LogMessageKeys.FILE_NAME, name));
+                    LuceneLogMessageKeys.FILE_NAME, name));
         }
 
         if (isEntriesFile(name) || isSegmentInfo(name)) {
             return;
         }
-        boolean deleted = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReference(name).thenApplyAsync(
+        boolean deleted = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReference(name).thenApplyAsync(
                 (value) -> {
                     if (value == null) {
                         return false;
@@ -450,10 +452,10 @@ public class FDBDirectory extends Directory {
     public long fileLength(@Nonnull String name) throws NoSuchFileException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("fileLength",
-                    LogMessageKeys.FILE_NAME, name));
+                    LuceneLogMessageKeys.FILE_NAME, name));
         }
         name = convertToDataFile(name);
-        FDBLuceneFileReference reference = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReference(name));
+        FDBLuceneFileReference reference = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReference(name));
         if (isEntriesFile(name)) {
             return reference.getEntries().length;
         }
@@ -477,7 +479,7 @@ public class FDBDirectory extends Directory {
     public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("createOutput",
-                    LogMessageKeys.FILE_NAME, name));
+                    LuceneLogMessageKeys.FILE_NAME, name));
         }
         return new FDBIndexOutput(name, name, this);
     }
@@ -496,8 +498,8 @@ public class FDBDirectory extends Directory {
     public IndexOutput createTempOutput(@Nonnull final String prefix, @Nonnull final String suffix, @Nonnull final IOContext ioContext) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("createTempOutput",
-                    LogMessageKeys.FILE_PREFIX, prefix,
-                    LogMessageKeys.FILE_SUFFIX, suffix));
+                    LuceneLogMessageKeys.FILE_PREFIX, prefix,
+                    LuceneLogMessageKeys.FILE_SUFFIX, suffix));
         }
         return createOutput(getTempFileName(prefix, suffix, this.nextTempFileCounter.getAndIncrement()), ioContext);
     }
@@ -511,7 +513,7 @@ public class FDBDirectory extends Directory {
     public void sync(@Nonnull final Collection<String> collection) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("sync",
-                    LogMessageKeys.FILE_NAME, String.join(", ", collection)));
+                    LuceneLogMessageKeys.FILE_NAME, String.join(", ", collection)));
         }
     }
 
@@ -533,17 +535,17 @@ public class FDBDirectory extends Directory {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("rename",
                     LogMessageKeys.SOURCE_FILE, source,
-                    LogMessageKeys.DEST_FILE, dest));
+                    LuceneLogMessageKeys.DEST_FILE, dest));
         }
         final byte[] key = metaSubspace.pack(source);
-        context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_RENAME, context.ensureActive().get(key).thenApply((Function<byte[], Void>)value -> {
+        context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_RENAME, context.ensureActive().get(key).thenApply((Function<byte[], Void>)value -> {
             if (value == null) {
                 throw new RecordCoreArgumentException("Invalid source name in rename function for source")
                         .addLogInfo(LogMessageKeys.SOURCE_FILE,source)
-                        .addLogInfo(LogMessageKeys.INDEX_TYPE, IndexTypes.LUCENE)
+                        .addLogInfo(LogMessageKeys.INDEX_TYPE, LuceneIndexTypes.LUCENE)
                         .addLogInfo(LogMessageKeys.SUBSPACE, subspace)
-                        .addLogInfo(LogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
-                        .addLogInfo(LogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
+                        .addLogInfo(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
+                        .addLogInfo(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
             }
             fileReferenceCache.invalidate(source);
             context.ensureActive().set(metaSubspace.pack(dest), value);
@@ -558,7 +560,7 @@ public class FDBDirectory extends Directory {
     public IndexInput openInput(@Nonnull final String name, @Nonnull final IOContext ioContext) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("openInput",
-                    LogMessageKeys.FILE_NAME, name));
+                    LuceneLogMessageKeys.FILE_NAME, name));
         }
         return new FDBIndexInput(name, this);
     }
@@ -568,7 +570,7 @@ public class FDBDirectory extends Directory {
     public Lock obtainLock(@Nonnull final String lockName) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("obtainLock",
-                    LogMessageKeys.LOCK_NAME, lockName));
+                    LuceneLogMessageKeys.LOCK_NAME, lockName));
         }
         return lockFactory.obtainLock(null, lockName);
     }
@@ -580,8 +582,8 @@ public class FDBDirectory extends Directory {
     public void close() {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(getLogMessage("close called",
-                    LogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats(),
-                    LogMessageKeys.REFERENCE_CACHE_STATUS, fileReferenceCache.stats()));
+                    LuceneLogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats(),
+                    LuceneLogMessageKeys.REFERENCE_CACHE_STATUS, fileReferenceCache.stats()));
         }
     }
 
@@ -615,8 +617,8 @@ public class FDBDirectory extends Directory {
     private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, subspace)
-                .addKeyAndValue(LogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
-                .addKeyAndValue(LogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled)
+                .addKeyAndValue(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
+                .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled)
                 .toString();
     }
 }

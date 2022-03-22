@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -101,7 +100,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nullable ExecutorService executorService,
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state, Query query,
-                       byte[] continuation, List<KeyExpression> fields,
+                       byte[] continuation,
                        @Nullable Tuple groupingKey) {
         this.state = state;
         this.executor = executor;
@@ -112,7 +111,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.query = query;
         if (continuation != null) {
             try {
-                RecordCursorProto.LuceneIndexContinuation luceneIndexContinuation = RecordCursorProto.LuceneIndexContinuation.parseFrom(continuation);
+                LuceneContinuationProto.LuceneIndexContinuation luceneIndexContinuation = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(continuation);
                 searchAfter = new ScoreDoc((int)luceneIndexContinuation.getDoc(), luceneIndexContinuation.getScore(), (int)luceneIndexContinuation.getShard());
             } catch (Exception e) {
                 throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, e);
@@ -122,7 +121,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (scanProperties.getExecuteProperties().getSkip() > 0) {
             this.currentPosition += scanProperties.getExecuteProperties().getSkip();
         }
-        this.fields = fields;
+        this.fields = state.index.getRootExpression().normalizeKeyForPositions();
         this.groupingKey = groupingKey;
     }
 
@@ -166,8 +165,15 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     if (limitRemaining != Integer.MAX_VALUE) {
                         limitRemaining--;
                     }
-                    List<Object> setPrimaryKey = Tuple.fromBytes(pk.bytes).getItems();
+                    Tuple setPrimaryKey = Tuple.fromBytes(pk.bytes);
+                    // Initialized with values that aren't really legal in a Tuple to find offset bugs.
                     List<Object> fieldValues = Lists.newArrayList(fields);
+                    if (groupingKey != null) {
+                        // Grouping keys are at the front.
+                        for (int i = 0; i < groupingKey.size(); i++) {
+                            fieldValues.set(i, groupingKey.get(i));
+                        }
+                    }
                     int[] keyPos = state.index.getPrimaryKeyComponentPositions();
                     Tuple tuple;
                     if (keyPos != null) {
@@ -214,7 +220,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (currentPosition >= topDocs.scoreDocs.length && limitRemaining > 0) {
             return ByteArrayContinuation.fromNullable(null);
         } else {
-            RecordCursorProto.LuceneIndexContinuation continuation = RecordCursorProto.LuceneIndexContinuation.newBuilder()
+            LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(searchAfter.doc)
                     .setScore(searchAfter.score)
                     .setShard(searchAfter.shardIndex)
@@ -270,8 +276,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             searchAfter = topDocs.scoreDocs[topDocs.scoreDocs.length - 1];
         }
         if (timer != null) {
-            timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_INDEX_SCAN, startTime);
-            timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
+            timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_INDEX_SCAN, startTime);
+            timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
         }
     }
 }

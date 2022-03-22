@@ -65,7 +65,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null) {
             return null;
         }
@@ -76,7 +76,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
             for (Object value : values) {
                 if (value != null) {
                     if (value instanceof Message) {
-                        final Boolean val = getChild().evalMessage(store, context, record, (Message) value);
+                        final Boolean val = getChild().evalMessage(store, context, rec, (Message) value);
                         if (val != null && val) {
                             return true;
                         }

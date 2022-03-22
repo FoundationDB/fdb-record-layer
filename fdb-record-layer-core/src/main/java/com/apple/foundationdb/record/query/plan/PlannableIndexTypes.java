@@ -54,7 +54,7 @@ public class PlannableIndexTypes {
     @Nonnull
     private final Set<String> textTypes;
     @Nonnull
-    private final Set<String> luceneTypes;
+    private final Set<String> unstoredNonPrimaryKeyTypes;
 
 
     // TODO extend with more in the future?
@@ -68,11 +68,11 @@ public class PlannableIndexTypes {
     public PlannableIndexTypes(@Nonnull Set<String> valueTypes,
                                @Nonnull Set<String> rankTypes,
                                @Nonnull Set<String> textTypes,
-                               @Nonnull Set<String> luceneTypes) {
+                               @Nonnull Set<String> unstoredNonPrimaryKeyTypes) {
         this.valueTypes = valueTypes;
         this.rankTypes = rankTypes;
         this.textTypes = textTypes;
-        this.luceneTypes = luceneTypes;
+        this.unstoredNonPrimaryKeyTypes = unstoredNonPrimaryKeyTypes;
     }
 
     @Nonnull
@@ -91,8 +91,8 @@ public class PlannableIndexTypes {
     }
 
     @Nonnull
-    public Set<String> getLuceneTypes() {
-        return luceneTypes;
+    public Set<String> getUnstoredNonPrimaryKeyTypes() {
+        return unstoredNonPrimaryKeyTypes;
     }
 
 }
