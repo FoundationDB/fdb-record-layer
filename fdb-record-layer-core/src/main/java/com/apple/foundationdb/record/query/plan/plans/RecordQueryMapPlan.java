@@ -49,7 +49,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A query plan that applies the values it contains over the incoming ones. In a sense, this is similar to the {@code Stream.map()}
@@ -62,12 +61,12 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     @Nonnull
     private final Quantifier.Physical inner;
     @Nonnull
-    private final List<? extends Value> resultValues;
+    private final Value resultValue;
 
     public RecordQueryMapPlan(@Nonnull Quantifier.Physical inner,
-                              @Nonnull List<? extends Value> resultValues) {
+                              @Nonnull Value resultValue) {
         this.inner = inner;
-        this.resultValues = ImmutableList.copyOf(resultValues);
+        this.resultValue = resultValue;
     }
 
     @Nonnull
@@ -80,7 +79,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
                 .map(innerResult -> {
                     final EvaluationContext nestedContext = context.withBinding(inner.getAlias(), innerResult);
                     // Apply (map) each value to the incoming record
-                    return resultValues.stream().map(value -> value.eval(store, nestedContext, null, null)).collect(Collectors.toList());
+                    return resultValue.eval(store, nestedContext, null, null);
                 })
                 .map(QueryResult::of);
     }
@@ -93,20 +92,20 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), resultValues);
+        return new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), resultValue);
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return resultValues.stream().flatMap(value -> value.getCorrelatedToWithoutChildren().stream()).collect(Collectors.toSet());
+        return resultValue.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     public RecordQueryMapPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
         Verify.verify(rebasedQuantifiers.size() == 1);
-        final List<? extends Value> rebasedResultValues = resultValues.stream().map(value -> value.rebase(translationMap)).collect(Collectors.toList());
+        final Value rebasedResultValues = resultValue.rebase(translationMap);
         return new RecordQueryMapPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), rebasedResultValues);
     }
 
@@ -127,14 +126,14 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValues;
+    public Value getResultValue() {
+        return resultValue;
     }
 
     @Nonnull
     @Override
     public String toString() {
-        return "map(" + getChild() + "[" + resultValues + "])";
+        return "map(" + getChild() + "[" + resultValue + "])";
     }
 
     @Override
@@ -162,7 +161,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValues());
+        return Objects.hash(getResultValue());
     }
 
     @Override
@@ -181,7 +180,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
             case LEGACY:
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild(), getResultValues());
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild(), getResultValue());
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
@@ -200,7 +199,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
                         ImmutableList.of("MAP {{expr}}"),
-                        ImmutableMap.of("expr", Attribute.gml(getResultValues().toString()))),
+                        ImmutableMap.of("expr", Attribute.gml(getResultValue().toString()))),
                 childGraphs);
     }
 }
