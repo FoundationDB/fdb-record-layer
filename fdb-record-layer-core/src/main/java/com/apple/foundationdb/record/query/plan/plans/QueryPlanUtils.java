@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -49,7 +48,6 @@ public class QueryPlanUtils {
                                                                                                                              final @Nonnull String recordTypeName,
                                                                                                                              final @Nonnull String indexName,
                                                                                                                              final @Nonnull IndexKeyValueToPartialRecord toRecord,
-                                                                                                                             final @Nonnull IndexScanType scanType,
                                                                                                                              final boolean hasPrimaryKey) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final RecordType recordType = metaData.getRecordType(recordTypeName);

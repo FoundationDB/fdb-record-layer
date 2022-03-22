@@ -52,16 +52,16 @@ public class NestedField extends BaseNestedField {
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
         final QueryComponent component = getChild();
         if (message == null) {
-            return component.evalMessage(store, context, record, null);
+            return component.evalMessage(store, context, rec, null);
         }
         final Object value = getFieldValue(message);
         if (value == null) {
-            return component.evalMessage(store, context, record, null);
+            return component.evalMessage(store, context, rec, null);
         } else if (value instanceof Message) {
-            return component.evalMessage(store, context, record, (Message) value);
+            return component.evalMessage(store, context, rec, (Message) value);
         } else {
             throw new Query.InvalidExpressionException("Expression requiring nesting found a non-message value");
         }

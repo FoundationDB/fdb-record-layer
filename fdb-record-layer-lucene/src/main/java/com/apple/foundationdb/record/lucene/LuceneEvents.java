@@ -82,6 +82,7 @@ public class LuceneEvents {
     /**
      * Detail events.
      */
+    @SuppressWarnings("squid:S1144")    // Until there are some actual detail events.
     public enum DetailEvents implements StoreTimer.DetailEvent {
         ;            
 

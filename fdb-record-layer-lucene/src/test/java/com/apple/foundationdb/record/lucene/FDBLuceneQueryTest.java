@@ -347,7 +347,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void simpleLuceneScans(boolean shouldDeferFetch) throws Exception {
+    void simpleLuceneScans(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -372,7 +372,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void testThenExpressionBeforeFieldExpression(boolean shouldDeferFetch) throws Exception {
+    void testThenExpressionBeforeFieldExpression(boolean shouldDeferFetch) throws Exception {
         initializeNestedWithField();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -393,7 +393,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void simpleLuceneScansDocId(boolean shouldDeferFetch) throws Exception {
+    void simpleLuceneScansDocId(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -413,7 +413,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnOrOfLuceneScanWithFieldFilter(boolean shouldDeferFetch) throws Exception {
+    void delayFetchOnOrOfLuceneScanWithFieldFilter(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -446,7 +446,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnLuceneFilterWithSort(boolean shouldDeferFetch) throws Exception {
+    void delayFetchOnLuceneFilterWithSort(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -471,7 +471,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnAndOfLuceneAndFieldFilter(boolean shouldDeferFetch) throws Exception {
+    void delayFetchOnAndOfLuceneAndFieldFilter(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -501,7 +501,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnOrOfLuceneFiltersGivesUnion(boolean shouldDeferFetch) throws Exception {
+    void delayFetchOnOrOfLuceneFiltersGivesUnion(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -543,7 +543,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnAndOfLuceneFilters(boolean shouldDeferFetch) throws Exception {
+    void delayFetchOnAndOfLuceneFilters(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -572,7 +572,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnLuceneComplexStringAnd(boolean shouldDeferFetch) throws Exception {
+    void delayFetchOnLuceneComplexStringAnd(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -600,7 +600,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnLuceneComplexStringOr(boolean shouldDeferFetch) throws Exception {
+    void delayFetchOnLuceneComplexStringOr(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -628,7 +628,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void misMatchQueryShouldReturnNoResult(boolean shouldDeferFetch) throws Exception {
+    void misMatchQueryShouldReturnNoResult(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -653,7 +653,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
-    public void threadedLuceneScanDoesntBreakPlannerAndSearch() throws Exception {
+    void threadedLuceneScanDoesntBreakPlannerAndSearch() throws Exception {
         CountingThreadFactory threadFactory = new CountingThreadFactory();
         executorService = Executors.newFixedThreadPool(10, threadFactory);
         initializeFlat();
@@ -699,7 +699,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void nestedLuceneAndQuery(boolean shouldDeferFetch) throws Exception {
+    void nestedLuceneAndQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -727,7 +727,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void nestedLuceneFieldQuery(boolean shouldDeferFetch) throws Exception {
+    void nestedLuceneFieldQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -750,7 +750,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void nestedOneOfThemQuery(boolean shouldDeferFetch) throws Exception {
+    void nestedOneOfThemQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -778,7 +778,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void nestedOneOfThemWithAndQuery(boolean shouldDeferFetch) throws Exception {
+    void nestedOneOfThemWithAndQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -810,7 +810,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void nestedOneOfThemWithOrQuery(boolean shouldDeferFetch) throws Exception {
+    void nestedOneOfThemWithOrQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);

@@ -59,7 +59,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null) {
             getComparison().eval(store, context, null);
         }

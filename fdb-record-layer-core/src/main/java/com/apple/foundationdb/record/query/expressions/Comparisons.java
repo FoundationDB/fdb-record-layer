@@ -1394,8 +1394,6 @@ public class Comparisons {
      * A predicate for comparisons to things unknown or opaque to the planner. We only know it is equal to some value.
      */
     public static class OpaqueEqualityComparison implements Comparison {
-        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Opaque-Equality-Comparison");
-
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {

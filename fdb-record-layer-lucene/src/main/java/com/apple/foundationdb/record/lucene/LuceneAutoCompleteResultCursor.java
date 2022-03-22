@@ -149,6 +149,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
 
     @Override
     public void close() {
+        // Nothing to close.
     }
 
     @Nonnull

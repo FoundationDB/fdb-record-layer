@@ -111,7 +111,7 @@ public class QueryExpressionTest {
         @Nullable
         @Override
         public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                       @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                       @Nullable FDBRecord<M> rec, @Nullable Message message) {
             return true;
         }
     };
@@ -119,7 +119,7 @@ public class QueryExpressionTest {
         @Nullable
         @Override
         public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                       @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                       @Nullable FDBRecord<M> rec, @Nullable Message message) {
             return false;
         }
     };
@@ -127,7 +127,7 @@ public class QueryExpressionTest {
         @Nullable
         @Override
         public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                       @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                       @Nullable FDBRecord<M> rec, @Nullable Message message) {
             return null;
         }
     };

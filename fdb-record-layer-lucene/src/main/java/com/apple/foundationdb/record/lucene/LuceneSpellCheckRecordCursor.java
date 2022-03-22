@@ -58,9 +58,7 @@ import static java.util.Comparator.comparing;
 
 public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
 
-    // TODO: log some stuff.
-    // private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellcheckRecordCursor.class);
-    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneAutoCompleteResultCursor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellCheckRecordCursor.class);
     @Nonnull
     private final Executor executor;
     @Nonnull

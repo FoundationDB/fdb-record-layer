@@ -52,6 +52,7 @@ public class LuceneOptimizedWrappedAnalyzingInfixSuggester extends BlendedInfixS
     @Nonnull
     private final IndexMaintainerState state;
 
+    @SuppressWarnings("squid:S107")
     private LuceneOptimizedWrappedAnalyzingInfixSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir, @Nonnull Analyzer indexAnalyzer,
                                                           @Nonnull Analyzer queryAnalyzer, int minPrefixChars, BlenderType blenderType, int numFactor,
                                                           @Nullable Double exponent, boolean highlight) throws IOException {

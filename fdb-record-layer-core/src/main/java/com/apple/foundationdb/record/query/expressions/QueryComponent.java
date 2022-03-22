@@ -66,14 +66,14 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      * @param <M> the type of records
      * @param store the record store from which the record came
      * @param context context against which evaluation takes place
-     * @param record a record of the appropriate record type for this component
+     * @param rec a record of the appropriate record type for this component
      * @return true/false/null, true if the given record should be included in results, false if it should not, and
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
     default <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                             @Nullable FDBRecord<M> record) {
-        return evalMessage(store, context, record, record == null ? null : record.getRecord());
+                                             @Nullable FDBRecord<M> rec) {
+        return evalMessage(store, context, rec, rec == null ? null : rec.getRecord());
     }
 
     /**
@@ -91,28 +91,28 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      * @param <M> the type of record
      * @param store the record store from which the record came
      * @param context context for bound expressions
-     * @param record the record
+     * @param rec the record
      * @param message the Protobuf message to evaluate against
      * @return true/false/null, true if the given record should be included in results, false if it should not, and
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
     <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                            @Nullable FDBRecord<M> record, @Nullable Message message);
+                                            @Nullable FDBRecord<M> rec, @Nullable Message message);
 
     /**
      * Asynchronous version of {@code eval}.
      * @param <M> the type of records
      * @param store the record store from which the record came
      * @param context context against which evaluation takes place
-     * @param record a record of the appropriate record type for this component
+     * @param rec a record of the appropriate record type for this component
      * @return a future that completes with whether the record should be included in the query result
      * @see #eval
      */
     @Nonnull
     default <M extends Message> CompletableFuture<Boolean> evalAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                     @Nullable FDBRecord<M> record) {
-        return evalMessageAsync(store, context, record, record == null ? null : record.getRecord());
+                                                                     @Nullable FDBRecord<M> rec) {
+        return evalMessageAsync(store, context, rec, rec == null ? null : rec.getRecord());
     }
 
     /**
@@ -121,14 +121,14 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      * @param <M> the type of record
      * @param store the record store from which the record came
      * @param context context for bound expressions
-     * @param record the record
+     * @param rec the record
      * @param message the Protobuf message to evaluate against
      * @return a future that completes with whether the record should be included in the query result
      */
     @Nonnull
     default <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                            @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return CompletableFuture.completedFuture(evalMessage(store, context, record, message));
+                                                                            @Nullable FDBRecord<M> rec, @Nullable Message message) {
+        return CompletableFuture.completedFuture(evalMessage(store, context, rec, message));
     }
 
     /**

@@ -206,6 +206,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
     }
 
+    @SuppressWarnings("java:S3776")
     private LuceneQueryClause getQueryForAndOr(@Nonnull LucenePlanState state, @Nonnull AndOrComponent filter,
                                                @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterMask) {
         final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;

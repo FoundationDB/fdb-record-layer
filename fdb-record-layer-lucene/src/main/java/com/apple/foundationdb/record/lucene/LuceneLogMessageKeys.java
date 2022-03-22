@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.Locale;
 
 /**
@@ -74,10 +73,6 @@ public enum LuceneLogMessageKeys {
 
     LuceneLogMessageKeys() {
         this.logKey = name().toLowerCase(Locale.ROOT);
-    }
-
-    LuceneLogMessageKeys(@Nonnull String key) {
-        this.logKey = key;
     }
 
     @Override

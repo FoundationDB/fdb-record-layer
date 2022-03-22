@@ -92,7 +92,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
 
     @Nonnull
     @Override
-    public <M extends Message> Boolean evalMessage(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final Message message) {
+    public <M extends Message> Boolean evalMessage(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> rec, @Nullable final Message message) {
         throw new RecordCoreException("Residual lucene components are not yet supported");
     }
 

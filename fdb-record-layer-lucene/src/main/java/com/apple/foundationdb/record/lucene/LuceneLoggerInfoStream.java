@@ -51,5 +51,6 @@ public class LuceneLoggerInfoStream extends InfoStream {
 
     @Override
     public void close() {
+        // Nothing to close
     }
 }

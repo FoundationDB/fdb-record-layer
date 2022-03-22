@@ -997,8 +997,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             spellCheckHelper(SPELLCHECK_INDEX, "hello", List.of());
             spellCheckHelper(SPELLCHECK_INDEX, "mous", List.of(Pair.of("mouse", "text")));
 
+            final List<Pair<String, String>> emptyList = List.of();
             assertThrows(RecordCoreException.class,
-                    () -> spellCheckHelper(SPELLCHECK_INDEX, "wrongField:helo", List.of()),
+                    () -> spellCheckHelper(SPELLCHECK_INDEX, "wrongField:helo", emptyList),
                     "Invalid field name in Lucene index query");
         }
     }

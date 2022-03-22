@@ -102,7 +102,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     public <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> indexEntryToQueriedRecord(final @Nonnull FDBRecordStoreBase<M> store) {
         final IndexScanType scanType = getScanType();
         boolean hasPrimaryKey = scanType != IndexScanType.BY_GROUP;
-        return QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordTypeName, getIndexName(), toRecord, scanType, hasPrimaryKey);
+        return QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordTypeName, getIndexName(), toRecord, hasPrimaryKey);
     }
 
     @Nonnull
