@@ -41,7 +41,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -122,18 +121,26 @@ public class AndOrValue implements BooleanValue {
                                            @Nullable final FDBRecord<M> fdbRecord,
                                            @Nullable final M message) {
         final Object leftResult = leftChild.eval(store, context, fdbRecord, message);
-
-        if (leftResult == null) {
-            return null;
-        }
-        if (operator == Operator.AND && !(Boolean)leftResult) {
+        if (operator == Operator.AND && Boolean.FALSE.equals(leftResult)) {
             return false;
         }
         if (operator == Operator.OR && Boolean.TRUE.equals(leftResult)) {
             return true;
         }
         final Object rightResult = rightChild.eval(store, context, fdbRecord, message);
-        return Objects.requireNonNullElse(rightResult, false);
+        if (operator == Operator.AND && Boolean.FALSE.equals(rightResult)) {
+            return false;
+        }
+        if (operator == Operator.OR && Boolean.TRUE.equals(rightResult)) {
+            return true;
+        }
+        if (leftResult == null || rightResult == null) {
+            return null;
+        }
+        if (operator == Operator.OR) {
+            return (Boolean)rightResult || (Boolean)leftResult;
+        }
+        return (Boolean)rightResult && (Boolean)leftResult;
     }
 
     @SuppressWarnings("java:S3776")
@@ -143,20 +150,23 @@ public class AndOrValue implements BooleanValue {
         Verify.verify(rightChild instanceof BooleanValue);
         final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
         if (leftPredicateOptional.isPresent()) {
-            QueryPredicate leftPredicate = leftPredicateOptional.get();
+            final QueryPredicate leftPredicate = leftPredicateOptional.get();
             if (operator == Operator.AND && leftPredicate.equals(ConstantPredicate.FALSE)) {
                 return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
             }
             if (operator == Operator.OR && leftPredicate.equals(ConstantPredicate.TRUE)) {
                 return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
             }
-            if (leftPredicate.equals(ConstantPredicate.NULL)) {
-                return Optional.of(ConstantPredicate.NULL);
-            }
             final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
             if (rightPredicateOptional.isPresent()) {
-                QueryPredicate rightPredicate = rightPredicateOptional.get();
-                if (rightPredicate.equals(ConstantPredicate.NULL)) {
+                final QueryPredicate rightPredicate = rightPredicateOptional.get();
+                if (operator == Operator.AND && rightPredicate.equals(ConstantPredicate.FALSE)) {
+                    return rightPredicateOptional;
+                }
+                if (operator == Operator.OR && rightPredicate.equals(ConstantPredicate.TRUE)) {
+                    return rightPredicateOptional;
+                }
+                if (leftPredicate.equals(ConstantPredicate.NULL) || rightPredicate.equals(ConstantPredicate.NULL)) {
                     return Optional.of(ConstantPredicate.NULL);
                 }
                 if (leftPredicate instanceof ConstantPredicate && rightPredicate instanceof ConstantPredicate) { // aggressive eval
@@ -171,7 +181,6 @@ public class AndOrValue implements BooleanValue {
                 } else {
                     return Optional.of(OrPredicate.or(leftPredicate, rightPredicate));
                 }
-
             }
         }
         return Optional.empty();

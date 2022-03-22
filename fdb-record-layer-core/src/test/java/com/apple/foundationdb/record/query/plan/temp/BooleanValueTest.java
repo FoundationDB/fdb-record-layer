@@ -1,5 +1,5 @@
 /*
- * RelOpTest.java
+ * BooleanValueTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -446,18 +446,26 @@ class BooleanValueTest {
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_NULL)),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     /* OR */
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), new OrPredicate(List.of(new ValuePredicate(F,
-                                    new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2))), new AndOrValue.OrFn(), new OrPredicate(List.of(new ValuePredicate(F,
+                                    new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.FALSE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2)),
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_NULL)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.NULL),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2)),
+                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_NULL))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
                             new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.NULL),
 
