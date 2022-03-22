@@ -469,6 +469,12 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
+        public Builder pullUpAllExistingQuantifiers() {
+            quantifiers.build().stream().filter(qun -> qun instanceof Quantifier.ForEach).forEach(qun -> resultColumns.addAll(qun.getFlowedColumns()));
+            return this;
+        }
+
+        @Nonnull
         public Builder addPlaceholder(@Nonnull final Placeholder placeholder) {
             placeholders.add(placeholder);
             return this;
