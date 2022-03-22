@@ -56,7 +56,7 @@ public class OrdinalFieldValue implements ValueWithChild {
 
     private OrdinalFieldValue(@Nonnull final Value child,
                               final int ordinalPosition) {
-        SemanticException.check(child.getResultType().getTypeCode() == Type.TypeCode.TUPLE, "child has to be a tuple");
+        SemanticException.check(child.getResultType().getTypeCode() == Type.TypeCode.RECORD, "child has to be a record");
         this.child = child;
         this.ordinalPosition = ordinalPosition;
         this.field = Objects.requireNonNull(((Type.Record)child.getResultType()).getFields()).get(ordinalPosition);

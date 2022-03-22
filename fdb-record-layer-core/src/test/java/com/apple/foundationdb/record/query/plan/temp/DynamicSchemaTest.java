@@ -1,0 +1,236 @@
+/*
+ * DynamicSchemaTest.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.query.plan.temp;
+
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
+import com.apple.foundationdb.record.query.predicates.LiteralValue;
+import com.google.common.base.VerifyException;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Random;
+import java.util.stream.Collectors;
+
+/**
+ * Tests for:
+ *  <ul>
+ *      <li>{@link com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema}.</li>
+ *      <li>{@link AbstractArrayConstructorValue} type hierarchy.</li>
+ *      <li>{@link RecordConstructorValue}.</li>
+ *  </ul>
+ * Tests mainly target aspects of dynamic schema generation in these classes.
+ */
+@SuppressWarnings("ConstantConditions")
+class DynamicSchemaTest {
+
+    private static final int SEED = 42;
+    private static final int MAX_ALLOWED_DEPTH = 100;
+    private static final Random random = new Random(SEED);
+    private static int counter = 0;
+
+    private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
+    private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
+    private static final LiteralValue<Integer> INT_NOT_NULLABLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT, false), 1);
+    private static final LiteralValue<Integer> INT_NOT_NULLABLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT, false), 2);
+    private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
+    private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
+
+    private static Type generateRandomType() {
+        return generateRandomTypeInternal(0);
+    }
+
+    private static Type generateRandomStructuredType() {
+        boolean isRecordType = random.nextBoolean();
+        if (isRecordType) {
+            return generateType(0, Type.TypeCode.RECORD);
+        } else {
+            return generateType(0, Type.TypeCode.ARRAY);
+        }
+    }
+
+    private static Type generateRandomTypeInternal(int depth) {
+        int booleanIndex = Type.TypeCode.valueOf("BOOLEAN").ordinal();
+        int stringIndex = Type.TypeCode.valueOf("STRING").ordinal();
+        int recordIndex = Type.TypeCode.valueOf("RECORD").ordinal();
+        int lowerBound = booleanIndex;
+        int upperBound = (depth >= MAX_ALLOWED_DEPTH ? stringIndex + 1 : recordIndex + 1) - lowerBound;
+        int pick = random.nextInt(upperBound) + lowerBound;
+        Type.TypeCode randomTypeCode = Type.TypeCode.values()[pick];
+        return generateType(depth, randomTypeCode);
+    }
+
+    private static Type generateType(int depth, Type.TypeCode requestedTypeCode) {
+        switch (requestedTypeCode) {
+            case BOOLEAN: // fallthrough
+            case BYTES: // fallthrough
+            case DOUBLE: // fallthrough
+            case FLOAT: // fallthrough
+            case INT: // fallthrough
+            case LONG: // fallthrough
+            case STRING:
+                return Type.primitiveType(requestedTypeCode, random.nextBoolean());
+            case ARRAY:
+                return new Type.Array(generateRandomTypeInternal(depth + 1));
+            case RECORD:
+                int numFields = random.nextInt(3) + 1;
+                List<Type.Record.Field> fields = new ArrayList<>();
+                for (int i = 0; i < numFields; ++i) {
+                    fields.add(Type.Record.Field.of(generateRandomTypeInternal(depth + 1), Optional.of("random" + ++counter), Optional.empty()));
+                }
+                return Type.Record.fromFields(fields);
+            case RELATION: // fallthrough
+            case UNKNOWN: // fallthrough
+            case ANY: // fallthrough
+            default:
+                throw new IllegalArgumentException("unexpected random type: " + requestedTypeCode);
+        }
+    }
+
+    private static String generateRandomString() {
+        return "str" + RandomStringUtils.randomAlphanumeric(10);
+    }
+
+    @Test
+    void addPrimitiveTypeIsNotAllowed() {
+        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
+        try {
+            builder.addType(generateType(0, Type.TypeCode.DOUBLE));
+            Assertions.fail("expected an exception to be thrown");
+        } catch (Exception e) {
+            Assertions.assertTrue(e instanceof IllegalArgumentException);
+            Assertions.assertTrue(e.getMessage().contains("unexpected primitive type " + Type.TypeCode.DOUBLE));
+        }
+    }
+
+    @Test
+    void createDynamicSchemaFromRecordTypeWorks() {
+        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
+        Type t = generateType(0, Type.TypeCode.RECORD);
+        builder.addType(t);
+        DynamicSchema actualSchema = builder.build();
+        String typeName = actualSchema.getFileDescriptorSet().getFile(0).getMessageTypeList().get(0).getName();
+        Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
+        Assertions.assertEquals(t.buildDescriptor(typeName), actualDescriptor.toProto());
+    }
+
+    @Test
+    void createDynamicSchemaFromArrayTypeWorks() {
+        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
+        Type t = generateType(0, Type.TypeCode.ARRAY);
+        builder.addType(t);
+        DynamicSchema actualSchema = builder.build();
+        String typeName = actualSchema.getFileDescriptorSet().getFile(0).getMessageTypeList().get(0).getName();
+        Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
+        Assertions.assertEquals(t.buildDescriptor(typeName), actualDescriptor.toProto());
+    }
+
+    @Test
+    void addSameTypeMultipleTimesShouldNotCreateMultipleMessages() {
+        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
+        Type t = generateRandomStructuredType();
+        builder.addType(t);
+        builder.addType(t);
+        builder.addType(t);
+        DynamicSchema actualSchema = builder.build();
+        Assertions.assertEquals(1, actualSchema.getMessageTypes().size());
+        String typeName = actualSchema.getMessageTypes().stream().findFirst().get();
+        Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
+        Assertions.assertEquals(t.buildDescriptor(typeName), actualDescriptor.toProto());
+    }
+
+    @Test
+    void attemptToCreateArrayConstructorValueWithDifferentChildrenTypesFails() {
+        try {
+            new AbstractArrayConstructorValue.ArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, STRING_1 /*invalid*/));
+            Assertions.fail("expected an exception to be thrown");
+        } catch (Exception e) {
+            Assertions.assertTrue(e instanceof VerifyException);
+            Assertions.assertTrue(e.getMessage().contains("types of children must be equal"));
+        }
+    }
+
+    @Test
+    void createArrayConstructorValueWorks() {
+        final Typed value = new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, INT_2));
+        Assertions.assertTrue(value instanceof AbstractArrayConstructorValue.ArrayConstructorValue);
+        final AbstractArrayConstructorValue.ArrayConstructorValue arrayConstructorValue = (AbstractArrayConstructorValue.ArrayConstructorValue)value;
+        final Type resultType = arrayConstructorValue.getResultType();
+        Assertions.assertEquals(new Type.Array(Type.primitiveType(Type.TypeCode.INT)), resultType);
+        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forDynamicSchema(DynamicSchema.newBuilder().addType(arrayConstructorValue.getResultType()).build()));
+        Assertions.assertTrue(result instanceof List);
+        final List<?> list = (List<?>)result;
+        Assertions.assertEquals(2, list.size());
+        Assertions.assertTrue(list.stream().allMatch(i -> i instanceof DynamicMessage));
+
+        final DynamicMessage firstItem = (DynamicMessage)list.get(0);
+        Assertions.assertEquals(1, firstItem.getAllFields().size());
+        Assertions.assertTrue(firstItem.getAllFields().keySet().stream().findFirst().isPresent());
+        Assertions.assertEquals(1, firstItem.getField(firstItem.getAllFields().keySet().stream().findFirst().get()));
+
+        final DynamicMessage secondItem = (DynamicMessage)list.get(1);
+        Assertions.assertEquals(1, secondItem.getAllFields().size());
+        Assertions.assertTrue(secondItem.getAllFields().keySet().stream().findFirst().isPresent());
+        Assertions.assertEquals(2, secondItem.getField(secondItem.getAllFields().keySet().stream().findFirst().get()));
+    }
+
+    @Test
+    void createLightArrayConstructorValueWorks() {
+        final Typed value = new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_NOT_NULLABLE_1, INT_NOT_NULLABLE_2));
+        Assertions.assertTrue(value instanceof AbstractArrayConstructorValue.LightArrayConstructorValue);
+        final AbstractArrayConstructorValue.LightArrayConstructorValue arrayConstructorValue = (AbstractArrayConstructorValue.LightArrayConstructorValue)value;
+        final Type resultType = arrayConstructorValue.getResultType();
+        Assertions.assertEquals(new Type.Array(Type.primitiveType(Type.TypeCode.INT, false)), resultType);
+        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forDynamicSchema(DynamicSchema.newBuilder().addType(arrayConstructorValue.getResultType()).build()));
+        Assertions.assertTrue(result instanceof List);
+        final List<?> list = (List<?>)result;
+        Assertions.assertEquals(2, list.size());
+        Assertions.assertEquals(1, list.get(0));
+        Assertions.assertEquals(2, list.get(1));
+    }
+
+    @Test
+    void createRecordTypeConstructorWorks() {
+        final Typed value = new RecordConstructorValue.RecordFn().encapsulate(null, List.of(STRING_1, INT_2, FLOAT_1));
+        Assertions.assertTrue(value instanceof RecordConstructorValue);
+        final RecordConstructorValue recordConstructorValue = (RecordConstructorValue)value;
+        final Type resultType = recordConstructorValue.getResultType();
+        Assertions.assertEquals(Type.Record.fromFields(List.of(Type.Record.Field.of(STRING_1.getResultType(), Optional.empty()),
+                Type.Record.Field.of(INT_2.getResultType(), Optional.empty()),
+                Type.Record.Field.of(FLOAT_1.getResultType(), Optional.empty())
+                )), resultType);
+        final Object result = recordConstructorValue.compileTimeEval(EvaluationContext.forDynamicSchema(DynamicSchema.newBuilder().addType(recordConstructorValue.getResultType()).build()));
+        Assertions.assertTrue(result instanceof DynamicMessage);
+        final DynamicMessage resultMessage = (DynamicMessage)result;
+        Assertions.assertEquals(3, resultMessage.getAllFields().size());
+        List<Object> fieldSorted = resultMessage.getAllFields().entrySet().stream().map(kv -> Pair.of(kv.getKey().getIndex(), kv.getValue())).sorted().map(Pair::getValue).collect(Collectors.toList());
+        Assertions.assertEquals("a", fieldSorted.get(0));
+        Assertions.assertEquals(2, fieldSorted.get(1));
+        Assertions.assertEquals(1.0F, fieldSorted.get(2));
+    }
+}

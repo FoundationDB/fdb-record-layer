@@ -290,7 +290,6 @@ public interface Type {
         INT(Integer.class, FieldDescriptorProto.Type.TYPE_INT32, true, true),
         LONG(Long.class, FieldDescriptorProto.Type.TYPE_INT64, true, true),
         STRING(String.class, FieldDescriptorProto.Type.TYPE_STRING, true, false),
-        TUPLE(List.class, null, false, false),
         RECORD(Message.class, null, false, false),
         ARRAY(Array.class, null, false, false),
         RELATION(null, null, false, false);
@@ -423,7 +422,7 @@ public interface Type {
                 case ENUM:
                     throw new IllegalArgumentException("protobuf type " + protobufType + " is not supported");
                 case MESSAGE:
-                    return TypeCode.TUPLE;
+                    return TypeCode.RECORD;
                 case BYTES:
                     return TypeCode.BYTES;
                 default:
@@ -544,7 +543,7 @@ public interface Type {
          */
         @Override
         public TypeCode getTypeCode() {
-            return TypeCode.TUPLE;
+            return TypeCode.RECORD;
         }
 
         /**
@@ -658,6 +657,10 @@ public interface Type {
         public boolean equals(final Object obj) {
             if (obj == null) {
                 return false;
+            }
+
+            if (obj == this) {
+                return true;
             }
 
             if (getClass() != obj.getClass()) {
@@ -805,7 +808,7 @@ public interface Type {
             } else {
                 if (typeCode.isPrimitive()) {
                     return primitiveType(typeCode, isNullable);
-                } else if (typeCode == TypeCode.TUPLE) {
+                } else if (typeCode == TypeCode.RECORD) {
                     Objects.requireNonNull(descriptor);
                     return fromFieldDescriptorsMap(isNullable, toFieldDescriptorMap(descriptor.getFields()));
                 }
@@ -862,19 +865,19 @@ public interface Type {
          * transpose the result type of {@link Value} expression, which is a tuple, into a list {@link Value}s with
          * corresponding types of the tuple elements.
          *
-         * @param tupleValue The {@link Value} whose result set we want to transpose.
+         * @param recordValue The {@link Value} whose result set we want to transpose.
          * @return A list {@link Value}s with corresponding types of the tuple elements.
          */
         @Nonnull
-        public static List<Value> deconstructTuple(@Nonnull Value tupleValue) {
-            Verify.verify(tupleValue.getResultType().getTypeCode() == TypeCode.TUPLE);
-            Verify.verify(tupleValue.getResultType() instanceof Record);
-            final Record resultType = (Record)tupleValue.getResultType();
+        public static List<Value> deconstructRecord(@Nonnull Value recordValue) {
+            Verify.verify(recordValue.getResultType().getTypeCode() == TypeCode.RECORD);
+            Verify.verify(recordValue.getResultType() instanceof Record);
+            final Record resultType = (Record)recordValue.getResultType();
 
             final List<Field> fields = Objects.requireNonNull(resultType.getFields());
             final ImmutableList.Builder<Value> resultBuilder = ImmutableList.builder();
             for (int i = 0; i < fields.size(); i++) {
-                resultBuilder.add(OrdinalFieldValue.of(tupleValue, i));
+                resultBuilder.add(OrdinalFieldValue.of(recordValue, i));
             }
             return resultBuilder.build();
         }

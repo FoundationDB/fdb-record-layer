@@ -165,7 +165,6 @@ public class LiteralValue<T> implements LeafValue {
                 case ANY: // fallthrough
                 case BOOLEAN: // fallthrough
                 case BYTES: // fallthrough
-                case TUPLE: // fallthrough
                 case RECORD: // fallthrough
                 case ARRAY: // fallthrough
                 case RELATION: // fallthrough
