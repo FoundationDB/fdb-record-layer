@@ -50,7 +50,7 @@ public interface StoreCatalog {
      *                           InternalErrorException if txn is incompatible type
      *                           TransactionInactiveException if txn is no longer active
      */
-    SchemaData loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
+    CatalogData.Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
 
     /**
      * Updates schema, returns true if succeeds. Change applied after transaction is committed.

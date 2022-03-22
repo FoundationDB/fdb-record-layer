@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.SchemaData;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -79,13 +78,13 @@ public class RecordLayerStoreCatalogImplTest {
 
         // test loadSchema method with correct schema name
         try (Transaction loadTxn1 = new RecordContextTransaction(fdb.openContext())) {
-            SchemaData result = storeCatalog.loadSchema(loadTxn1, URI.create("test_database_id"), "test_schema_name");
-            Assertions.assertEquals("test_schema_name", result.getName());
-            Assertions.assertEquals("test_template_name", result.getTemplateName());
-            Assertions.assertEquals(1, result.getVersion());
-            Assertions.assertEquals(2, result.getTables().size());
-            Assertions.assertNotNull(result.getTable("test_table1"));
-            Assertions.assertNotNull(result.getTable("test_table2"));
+            CatalogData.Schema result = storeCatalog.loadSchema(loadTxn1, URI.create("test_database_id"), "test_schema_name");
+            Assertions.assertEquals("test_schema_name", result.getSchemaName());
+            Assertions.assertEquals("test_template_name", result.getSchemaTemplateName());
+            Assertions.assertEquals(1, result.getSchemaVersion());
+            Assertions.assertEquals(2, result.getTablesList().size());
+            Assertions.assertEquals("test_table1", result.getTables(0).getName());
+            Assertions.assertEquals("test_table2", result.getTables(1).getName());
         }
 
         // test loadSchema method with a not existed database_id
@@ -195,15 +194,15 @@ public class RecordLayerStoreCatalogImplTest {
         }
         // read after 1st transaction commit
         try (Transaction readTransaction1 = new RecordContextTransaction(fdb.openContext())) {
-            SchemaData result1 = storeCatalog.loadSchema(readTransaction1, URI.create("test_database_id"), "test_schema_name");
+            CatalogData.Schema result1 = storeCatalog.loadSchema(readTransaction1, URI.create("test_database_id"), "test_schema_name");
             // Assert result is correct
             Assertions.assertTrue(updateSuccess1);
-            Assertions.assertEquals("test_schema_name", result1.getName());
-            Assertions.assertEquals("test_template_name", result1.getTemplateName());
-            Assertions.assertEquals(1, result1.getVersion());
-            Assertions.assertEquals(2, result1.getTables().size());
-            Assertions.assertNotNull(result1.getTable("test_table1"));
-            Assertions.assertNotNull(result1.getTable("test_table2"));
+            Assertions.assertEquals("test_schema_name", result1.getSchemaName());
+            Assertions.assertEquals("test_template_name", result1.getSchemaTemplateName());
+            Assertions.assertEquals(1, result1.getSchemaVersion());
+            Assertions.assertEquals(2, result1.getTablesList().size());
+            Assertions.assertEquals("test_table1", result1.getTables(0).getName());
+            Assertions.assertEquals("test_table2", result1.getTables(1).getName());
         }
 
         // update with schema2 (version = 2)
@@ -214,15 +213,15 @@ public class RecordLayerStoreCatalogImplTest {
         }
         // read after 2nd transaction
         try (Transaction readTransaction2 = new RecordContextTransaction(fdb.openContext())) {
-            SchemaData result2 = storeCatalog.loadSchema(readTransaction2, URI.create("test_database_id"), "test_schema_name");
+            CatalogData.Schema result2 = storeCatalog.loadSchema(readTransaction2, URI.create("test_database_id"), "test_schema_name");
             // Assert result is correct
             Assertions.assertTrue(updateSuccess2);
-            Assertions.assertEquals("test_schema_name", result2.getName());
-            Assertions.assertEquals("test_template_name", result2.getTemplateName());
-            Assertions.assertEquals(2, result2.getVersion());
-            Assertions.assertEquals(2, result2.getTables().size());
-            Assertions.assertNotNull(result2.getTable("test_table1"));
-            Assertions.assertNotNull(result2.getTable("test_table2"));
+            Assertions.assertEquals("test_schema_name", result2.getSchemaName());
+            Assertions.assertEquals("test_template_name", result2.getSchemaTemplateName());
+            Assertions.assertEquals(2, result2.getSchemaVersion());
+            Assertions.assertEquals(2, result2.getTablesList().size());
+            Assertions.assertEquals("test_table1", result2.getTables(0).getName());
+            Assertions.assertEquals("test_table2", result2.getTables(1).getName());
         }
     }
 

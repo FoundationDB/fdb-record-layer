@@ -32,8 +32,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
-import com.apple.foundationdb.relational.api.catalog.SchemaData;
-import com.apple.foundationdb.relational.api.catalog.SchemaDataImpl;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
@@ -43,9 +41,6 @@ import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.google.protobuf.Message;
 
 import java.net.URI;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
@@ -60,7 +55,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
-    public SchemaData loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
+    public CatalogData.Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
         // open FDBRecordStore
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         // arbitrarily define primary key as a combination of databaseId and schemaName here
@@ -69,7 +64,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         if (record == null) {
             throw new RelationalException(String.format("Primary key %s not existed in Catalog!", primaryKey), ErrorCode.SCHEMA_NOT_FOUND);
         }
-        return recordToSchemaData(record);
+        return CatalogData.Schema.newBuilder().mergeFrom(record.getRecord()).build();
     }
 
     @Override
@@ -84,12 +79,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
             // log error here?
             return false;
         }
-    }
-
-    private SchemaData recordToSchemaData(@Nonnull FDBStoredRecord<Message> record) {
-        CatalogData.Schema schema = CatalogData.Schema.newBuilder().mergeFrom(record.getRecord()).build();
-        Map<String, CatalogData.Table> tableMap = schema.getTablesList().stream().collect(Collectors.toMap(CatalogData.Table::getName, Function.identity()));
-        return new SchemaDataImpl(tableMap, schema.getSchemaVersion(), schema.getSchemaTemplateName(), schema.getSchemaName());
     }
 
     private FDBRecordStore openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
