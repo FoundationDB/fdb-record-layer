@@ -74,6 +74,6 @@ public class ImplementMapRule extends PlannerRule<SelectExpression> {
                         Quantifier.physicalBuilder()
                                 .morphFrom(innerQuantifier)
                                 .build(referenceOverPlans),
-                        selectExpression.getResultValues())));
+                        selectExpression.getResultValue())));
     }
 }
