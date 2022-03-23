@@ -20,15 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 public class Scopes {
     @Nullable
@@ -47,9 +45,8 @@ public class Scopes {
         return currentScope;
     }
 
-    public Scopes push(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
-                       @Nonnull final Map<String, Value> boundIdentifiers) {
-        this.currentScope = new Scope(this.currentScope, visibleAliases, boundIdentifiers, GraphExpansion.builder());
+    public Scopes push(@Nonnull final Map<CorrelationIdentifier, QuantifiedValue> boundIdentifiers) {
+        this.currentScope = new Scope(this.currentScope, boundIdentifiers, GraphExpansion.builder());
         return this;
     }
 
@@ -62,12 +59,13 @@ public class Scopes {
     }
 
     @Nonnull
-    public Value resolveIdentifier(@Nonnull final String identifier) {
+    public QuantifiedValue resolveIdentifier(@Nonnull final String identifier) {
         Scope scope = currentScope;
+        final CorrelationIdentifier needle = CorrelationIdentifier.of(identifier);
         while (scope != null)  {
-            final Map<String, Value> boundIdentifiers = scope.getBoundIdentifiers();
-            if (boundIdentifiers.containsKey(identifier)) {
-                return boundIdentifiers.get(identifier);
+            final Map<CorrelationIdentifier, QuantifiedValue> boundIdentifiers = scope.getBoundQuantifiers();
+            if (boundIdentifiers.containsKey(needle)) {
+                return boundIdentifiers.get(needle);
             }
             scope = scope.getParentScope();
         }
@@ -78,19 +76,15 @@ public class Scopes {
         @Nullable
         private final Scope parentScope;
         @Nonnull
-        private final Set<CorrelationIdentifier> visibleAliases;
-        @Nonnull
-        private final Map<String, Value> boundIdentifiers;
+        private final Map<CorrelationIdentifier, QuantifiedValue> boundQuantifiers;
         @Nonnull
         private final GraphExpansion.Builder graphExpansionBuilder;
 
         public Scope(@Nullable Scope parentScope,
-                     @Nonnull final Set<CorrelationIdentifier> visibleAliases,
-                     @Nonnull final Map<String, Value> boundIdentifiers,
+                     @Nonnull final Map<CorrelationIdentifier, QuantifiedValue> boundQuantifiers,
                      @Nonnull final GraphExpansion.Builder graphExpansionBuilder) {
             this.parentScope = parentScope;
-            this.visibleAliases = ImmutableSet.copyOf(visibleAliases);
-            this.boundIdentifiers = ImmutableMap.copyOf(boundIdentifiers);
+            this.boundQuantifiers = ImmutableMap.copyOf(boundQuantifiers);
             this.graphExpansionBuilder = graphExpansionBuilder;
         }
 
@@ -99,12 +93,8 @@ public class Scopes {
             return parentScope;
         }
 
-        public Set<CorrelationIdentifier> getVisibleAliases() {
-            return visibleAliases;
-        }
-
-        public Map<String, Value> getBoundIdentifiers() {
-            return boundIdentifiers;
+        public Map<CorrelationIdentifier, QuantifiedValue> getBoundQuantifiers() {
+            return boundQuantifiers;
         }
 
         @Nonnull
