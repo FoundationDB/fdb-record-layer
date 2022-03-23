@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
-import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.net.URI;
@@ -55,6 +53,4 @@ public interface Catalog {
     RelationalDatabase getDatabase(@Nonnull URI dbUrl) throws RelationalException;
 
     void deleteDatabase(@Nonnull URI dbUrl) throws RelationalException;
-
-    RelationalResultSet listDatabases(@Nonnull Transaction transaction) throws RelationalException;
 }

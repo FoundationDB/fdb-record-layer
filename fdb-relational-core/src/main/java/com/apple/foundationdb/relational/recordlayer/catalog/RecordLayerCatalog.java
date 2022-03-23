@@ -25,9 +25,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.relational.api.QueryProperties;
-import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
@@ -73,11 +70,6 @@ public final class RecordLayerCatalog implements Catalog {
         this.keySpace = keySpace;
         this.storeTimer = storeTimer;
         this.formatVersion = formatVersion;
-    }
-
-    @Override
-    public RelationalResultSet listDatabases(@Nonnull Transaction txn) throws RelationalException {
-        return new SystemDatabaseResultSet(txn, new DirectoryScannable(keySpace), QueryProperties.DEFAULT, false);
     }
 
     @Override

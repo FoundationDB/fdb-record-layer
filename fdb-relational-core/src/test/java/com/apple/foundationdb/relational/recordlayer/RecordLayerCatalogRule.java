@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
@@ -119,11 +118,6 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
             engine.getConstantActionFactory().getDeleteDatabaseContantAction(dbUrl, Options.create()).execute(txn);
             txn.commit();
         }
-    }
-
-    @Override
-    public RelationalResultSet listDatabases(@Nonnull Transaction transaction) throws RelationalException {
-        return engine.getCatalog().listDatabases(transaction);
     }
 
     private KeySpace getKeySpaceForSetup() {
