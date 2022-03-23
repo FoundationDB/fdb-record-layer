@@ -87,7 +87,6 @@ public class LimitedRunner implements AutoCloseable {
 
     private Boolean handle(final CompletableFuture<Void> overallResult, final Boolean shouldContinue, final Throwable error) {
         if (error == null) {
-            // TODO indexer also counts failures that occur in the inner-runner
             decreaseRetries = 0;
             successCount++;
             maybeIncreaseLimit();
@@ -109,7 +108,6 @@ public class LimitedRunner implements AutoCloseable {
 
     private boolean maybeDecreaseLimit(final Throwable error) {
         FDBException fdbException = getFDBException(error);
-        // TODO retry without decreasing
         if (fdbException != null && isRetryable(fdbException)) {
             retriesWithoutDecreasing++;
             if (retriesWithoutDecreasing < decreaseLimitAfter) {
@@ -127,7 +125,6 @@ public class LimitedRunner implements AutoCloseable {
                 currentLimit = Math.max(1, (3 * currentLimit) / 4);
                 return true;
             }
-            // TODO else if isRetriable successCount=0; return true;
         } else {
             // Not something to lessen work, so don't retry
             return false;

@@ -257,6 +257,32 @@ class LimitedRunnerTest {
 
     @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
     @EnumSource(ExceptionStyle.class)
+    void increaseAfterWithRetriableNonLessenWorkException(ExceptionStyle exceptionStyle) {
+        // If we're failing intermittently with a retriable exception that doesn't lessen the work,
+        // we shouldn't increase the limit.
+        final RuntimeException cause = exceptionStyle.wrap(retriableNonLessenWorkException());
+        final RuntimeException lessenCause = exceptionStyle.wrap(lessenWorkException());
+        List<Integer> limits = new ArrayList<>();
+        new LimitedRunner(executor, 12).setIncreaseLimitAfter(3).runAsync(limit -> {
+            limits.add(limit);
+            if (limits.size() < 3) {
+                // Cause the limit to go down, so that it could go back up, if it were reliably successful
+                return exceptionStyle.hasMore(lessenCause);
+            } else if (limits.size() % 2 == 0) {
+                // Fail every other attempt
+                return exceptionStyle.hasMore(cause);
+            } else {
+                return limits.size() < 40 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+            }
+        });
+        assertThat(buildPointerMessage(limits, 3), limits.get(3), Matchers.lessThan(12));
+        for (int i = 3; i < limits.size(); i++) {
+            assertEquals(limits.get(3), limits.get(i), buildPointerMessage(limits, i));
+        }
+    }
+
+    @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
+    @EnumSource(ExceptionStyle.class)
     void retryAtMinLimit(ExceptionStyle exceptionStyle) {
         final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
