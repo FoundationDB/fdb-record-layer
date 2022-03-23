@@ -98,4 +98,9 @@ class FDBTuple extends AbstractTuple {
     Tuple fdbTuple() {
         return tuple;
     }
+
+    @Override
+    public String toString() {
+        return tuple.toString();
+    }
 }
