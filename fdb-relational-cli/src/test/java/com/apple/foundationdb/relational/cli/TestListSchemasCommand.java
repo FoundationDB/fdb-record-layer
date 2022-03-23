@@ -30,9 +30,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 class TestListSchemasCommand {
+    private static final Pattern ASCII_TABLE_PATTERN = Pattern.compile("([─└┘│┌┐\\s]+)");
 
     @RegisterExtension
     CliRule cli = new CliRule();
@@ -48,9 +50,21 @@ class TestListSchemasCommand {
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaB", "RestaurantRecord", "RestaurantReviewer");
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaC", "RestaurantRecord", "RestaurantReviewer");
             TestUtils.runCommand("connect jdbc:embed:/test_list_schemas_db", cli);
+
+            //test with both pretty print and not pretty print, just to make sure that the printer works in both cases
+
+            //run with  pretty print
+            Set<String> possibleOutputs = ASCII_TABLE_PATTERN.splitAsStream(TestUtils.runCommandGetOutput("listschemas", cli))
+                    .filter(str -> !str.isBlank())
+                    .collect(Collectors.toSet());
+            Assertions.assertEquals(Set.of("testSchemaA", "testSchemaB", "testSchemaC"), possibleOutputs);
+
+            //now run again without it
             TestUtils.runCommand("config --no-pretty-print", cli);
-            Assertions.assertEquals(Set.of("testSchemaA", "testSchemaB", "testSchemaC"),
-                    Arrays.stream(TestUtils.runCommandGetOutput("listschemas", cli).split("\\s+")).collect(Collectors.toSet()));
+            possibleOutputs = ASCII_TABLE_PATTERN.splitAsStream(TestUtils.runCommandGetOutput("listschemas", cli))
+                    .filter(str -> !str.isBlank())
+                    .collect(Collectors.toSet());
+            Assertions.assertEquals(Set.of("testSchemaA", "testSchemaB", "testSchemaC"), possibleOutputs);
         } finally {
             TestUtils.deleteDb("test_list_schemas_db", cli);
         }

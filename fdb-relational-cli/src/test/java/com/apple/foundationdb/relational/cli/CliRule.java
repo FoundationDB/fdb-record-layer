@@ -24,43 +24,41 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import picocli.CommandLine;
-import picocli.shell.jline3.PicocliCommands;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
 public class CliRule implements BeforeEachCallback, AfterEachCallback {
-    private DbState dbState;
-
-    private CommandLine cmd;
-
     private StringWriter output;
+    private StringWriter error;
+
+    private CliManager cliManager;
 
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
-        dbState = new DbState();
-        CliCommands cli = new CliCommands();
-        CommandFactory commandFactory = new CommandFactory(dbState);
-        PicocliCommands.PicocliCommandsFactory factory = new PicocliCommands.PicocliCommandsFactory(commandFactory);
-        cmd = new CommandLine(cli, factory);
         output = new StringWriter();
-        cmd.setOut(new PrintWriter(output));
+        error = new StringWriter();
+        cliManager = new CliManager(new PrintWriter(output), new PrintWriter(error));
     }
 
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        dbState.getEngine().deregisterDriver();
+        cliManager.close();
     }
 
     public CommandLine getCmd() {
-        return cmd;
+        return cliManager.getCommandLine();
     }
 
     public DbState getDbState() {
-        return dbState;
+        return cliManager.getDbState();
     }
 
     public String getOutput() {
         return output.toString();
+    }
+
+    public String getError() {
+        return error.toString();
     }
 }

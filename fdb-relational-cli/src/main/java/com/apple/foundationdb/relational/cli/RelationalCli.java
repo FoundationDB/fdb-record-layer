@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import org.fusesource.jansi.AnsiConsole;
 import org.jline.console.SystemRegistry;
 import org.jline.console.impl.Builtins;
@@ -44,8 +46,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Supplier;
 
-import static org.fusesource.jansi.Ansi.ansi;
-
 /**
  * Main entry point of Relational CLI; an interactive shell that offers a set of commands allowing
  * the user to interact with Relational and the underlying FDB database.
@@ -57,6 +57,8 @@ import static org.fusesource.jansi.Ansi.ansi;
 @SuppressWarnings({"PMD.AvoidCatchingThrowable", "PMD.AvoidPrintStackTrace", "PMD.EmptyCatchBlock"}) // justification: interactive shell.
 public class RelationalCli {
 
+    //excluded because it's almost entirely configuring jline and running it
+    @ExcludeFromJacocoGeneratedReport
     public static void main(String[] args) {
         AnsiConsole.systemInstall();
         try {
@@ -65,60 +67,45 @@ public class RelationalCli {
             Builtins builtins = new Builtins(workDir, null, null);
             builtins.rename(Builtins.Command.TTOP, "top");
 
-            DbState dbState = new DbState();
+            try (CliManager cliManager = new CliManager(null, null)) {
+                RelationalCommands picocliCommands = new RelationalCommands(cliManager.getCommandLine());
+                Parser parser = new DefaultParser();
+                try (Terminal terminal = TerminalBuilder.builder().build()) {
+                    SystemRegistry systemRegistry = new SystemRegistryImpl(parser, terminal, workDir, null);
+                    systemRegistry.setCommandRegistries(builtins, picocliCommands);
+                    systemRegistry.register("help", picocliCommands);
 
-            // set up picocli commands
-            CliCommands commands = new CliCommands();
+                    LineReader reader = LineReaderBuilder.builder()
+                            .terminal(terminal)
+                            .completer(systemRegistry.completer())
+                            .parser(parser)
+                            .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates
+                            .build();
+                    builtins.setLineReader(reader);
+                    cliManager.setReader(reader);
+                    cliManager.setTerminal(terminal);
+                    TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5, TailTipWidgets.TipType.COMPLETER);
+                    widgets.enable();
+                    KeyMap<Binding> keyMap = reader.getKeyMaps().get("main");
+                    keyMap.bind(new Reference("tailtip-toggle"), KeyMap.alt("s"));
 
-            CommandLine.IExecutionExceptionHandler errorHandler = (ex, commandLine, parseResult) -> {
-                commandLine.getErr().println(ansi().render("@|red " + ex.getMessage() + "|@"));
-                if (dbState.isPrintStacktrace()) {
-                    ex.printStackTrace(commandLine.getErr());
-                }
-                commandLine.usage(commandLine.getErr());
-                return commandLine.getCommandSpec().exitCodeOnExecutionException();
-            };
+                    String prompt = "prompt> ";
+                    String rightPrompt = null;
 
-            CommandFactory commandFactory = new CommandFactory(dbState);
-            PicocliCommands.PicocliCommandsFactory factory = new PicocliCommands.PicocliCommandsFactory(commandFactory);
-            CommandLine cmd = new CommandLine(commands, factory).setExecutionExceptionHandler(errorHandler);
-            RelationalCommands picocliCommands = new RelationalCommands(cmd);
-            Parser parser = new DefaultParser();
-            try (Terminal terminal = TerminalBuilder.builder().build()) {
-                SystemRegistry systemRegistry = new SystemRegistryImpl(parser, terminal, workDir, null);
-                systemRegistry.setCommandRegistries(builtins, picocliCommands);
-                systemRegistry.register("help", picocliCommands);
-
-                LineReader reader = LineReaderBuilder.builder()
-                        .terminal(terminal)
-                        .completer(systemRegistry.completer())
-                        .parser(parser)
-                        .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates
-                        .build();
-                builtins.setLineReader(reader);
-                commands.setReader(reader);
-                factory.setTerminal(terminal);
-                TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5, TailTipWidgets.TipType.COMPLETER);
-                widgets.enable();
-                KeyMap<Binding> keyMap = reader.getKeyMaps().get("main");
-                keyMap.bind(new Reference("tailtip-toggle"), KeyMap.alt("s"));
-
-                String prompt = "prompt> ";
-                String rightPrompt = null;
-
-                // start the shell and process input until the user quits with Ctrl-D
-                String line;
-                while (true) {
-                    try {
-                        systemRegistry.cleanUp();
-                        line = reader.readLine(prompt, rightPrompt, (MaskingCallback) null, null);
-                        systemRegistry.execute(line);
-                    } catch (UserInterruptException e) {
-                        // Ignore
-                    } catch (EndOfFileException e) {
-                        return;
-                    } catch (Exception e) {
-                        systemRegistry.trace(e);
+                    // start the shell and process input until the user quits with Ctrl-D
+                    String line;
+                    while (true) {
+                        try {
+                            systemRegistry.cleanUp();
+                            line = reader.readLine(prompt, rightPrompt, (MaskingCallback) null, null);
+                            systemRegistry.execute(line);
+                        } catch (UserInterruptException e) {
+                            // Ignore
+                        } catch (EndOfFileException e) {
+                            return;
+                        } catch (Exception e) {
+                            systemRegistry.trace(e);
+                        }
                     }
                 }
             }

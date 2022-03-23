@@ -38,16 +38,14 @@ public class ConfCommand extends Command {
     }
 
     @Override
-    public void callInternal() throws Exception {
+    public void callInternal() {
         if (args.bt != null) {
             dbState.setPrintStacktrace(args.bt);
-        } else if (args.prefix != null) {
-            dbState.setPrefix(args.prefix);
         } else if (args.prettyPrint != null) {
             dbState.setPrettyPrint(args.prettyPrint);
         } else if (args.delimiter != null) {
             if (dbState.isPrettyPrint()) {
-                throw new IllegalStateException("can not set delimiter with pretty-print on");
+                throw new IllegalStateException("cannot set delimiter with pretty-print on");
             } else {
                 dbState.setDelimiter(args.delimiter);
             }
@@ -57,9 +55,6 @@ public class ConfCommand extends Command {
     static class Args {
         @CommandLine.Option(names = "--bt", description = "print exception backtrace", negatable = true)
         private Boolean bt;
-
-        @CommandLine.Option(names = "--prefix", description = "schema template package")
-        private String prefix;
 
         @CommandLine.Option(names = "--pretty-print", description = "pretty-print result set", negatable = true)
         private Boolean prettyPrint;
