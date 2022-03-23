@@ -212,7 +212,7 @@ class LimitedRunnerTest {
             } else {
                 return limits.size() < 40 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
             }
-        }, List.of());
+        }, List.of()).join();
         assertEquals(12, limits.get(0));
         for (int i = 1; i < limits.size(); i++) {
             String message = buildPointerMessage(limits, i);
@@ -247,7 +247,7 @@ class LimitedRunnerTest {
             } else {
                 return exceptionStyle.hasMore(cause);
             }
-        }, List.of());
+        }, List.of()).join();
         increasing.set(false);
         assertEquals(93, limits.get(0));
         int changedDirection = 0;
@@ -292,18 +292,20 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(retriableNonLessenWorkException());
         final RuntimeException lessenCause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
-        new LimitedRunner(executor, 12, mockDelay()).setIncreaseLimitAfter(3).runAsync(limit -> {
-            limits.add(limit);
-            if (limits.size() < 3) {
-                // Cause the limit to go down, so that it could go back up, if it were reliably successful
-                return exceptionStyle.hasMore(lessenCause);
-            } else if (limits.size() % 2 == 0) {
-                // Fail every other attempt
-                return exceptionStyle.hasMore(cause);
-            } else {
-                return limits.size() < 40 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
-            }
-        }, List.of());
+        new LimitedRunner(executor, 12, mockDelay())
+                .setIncreaseLimitAfter(3)
+                .runAsync(limit -> {
+                    limits.add(limit);
+                    if (limits.size() < 3) {
+                        // Cause the limit to go down, so that it could go back up, if it were reliably successful
+                        return exceptionStyle.hasMore(lessenCause);
+                    } else if (limits.size() % 2 == 0) {
+                        // Fail every other attempt
+                        return exceptionStyle.hasMore(cause);
+                    } else {
+                        return limits.size() < 20 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+                    }
+                }, List.of()).join();
         assertThat(buildPointerMessage(limits, 3), limits.get(3), Matchers.lessThan(12));
         for (int i = 3; i < limits.size(); i++) {
             assertEquals(limits.get(3), limits.get(i), buildPointerMessage(limits, i));
