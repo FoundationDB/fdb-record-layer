@@ -29,7 +29,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -42,17 +44,20 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 // if any of these tests take longer than 2 seconds, it almost certainly indicates a bug resulting in the future
 // never completing
 @Timeout(value = 2, unit = TimeUnit.SECONDS)
 class LimitedRunnerTest {
 
-    private Executor executor = ForkJoinPool.commonPool();
+    private final Executor executor = ForkJoinPool.commonPool();
 
     @BeforeAll
     static void beforeAll() {
@@ -60,10 +65,18 @@ class LimitedRunnerTest {
         FDB.selectAPIVersion(630);
     }
 
+    public static Stream<Arguments> allCauseTypes() {
+        return Stream.of(retriableNonLessenWorkException(),
+                retryAndLessenWorkException(),
+                lessenWorkException(),
+                nonRetriableException())
+                .map(Arguments::of);
+    }
+
     @Test
     void completesInOnePass() {
         List<Integer> limits = new ArrayList<>();
-        new LimitedRunner(executor, 10).runAsync(limit -> {
+        new LimitedRunner(executor, 10, mockDelay()).runAsync(limit -> {
             limits.add(limit);
             return AsyncUtil.READY_FALSE;
         }, List.of()).join();
@@ -73,7 +86,7 @@ class LimitedRunnerTest {
     @Test
     void loopsSuccessfully() {
         List<Integer> limits = new ArrayList<>();
-        new LimitedRunner(executor, 10).runAsync(limit -> {
+        new LimitedRunner(executor, 10, mockDelay()).runAsync(limit -> {
             limits.add(limit);
             return limits.size() < 20 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
         }, List.of()).join();
@@ -88,7 +101,7 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(retriableNonLessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10)
+                () -> new LimitedRunner(executor, 10, mockDelay())
                         .setDecreaseLimitAfter(3)
                         .runAsync(limit -> {
                             limits.add(limit);
@@ -96,8 +109,8 @@ class LimitedRunnerTest {
                         }, List.of()).join());
         assertEquals(cause, completionException.getCause());
         assertThat(limits, Matchers.hasSize(3));
-        for (int i = 0; i < limits.size(); i++) {
-            assertEquals(10, limits.get(i));
+        for (Integer limit : limits) {
+            assertEquals(10, limit);
         }
     }
 
@@ -107,7 +120,7 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10).runAsync(limit -> {
+                () -> new LimitedRunner(executor, 10, mockDelay()).runAsync(limit -> {
                     limits.add(limit);
                     return exceptionStyle.hasMore(cause);
                 }, List.of()).join());
@@ -127,7 +140,7 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(retryAndLessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10)
+                () -> new LimitedRunner(executor, 10, mockDelay())
                         .setDecreaseLimitAfter(3)
                         .runAsync(limit -> {
                             limits.add(limit);
@@ -158,10 +171,20 @@ class LimitedRunnerTest {
     @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
     @EnumSource(ExceptionStyle.class)
     void failWithNonFDBException(ExceptionStyle exceptionStyle) {
-        final RuntimeException cause = exceptionStyle.wrap(new NullPointerException());
+        failWithNonRetriableException(exceptionStyle, new NullPointerException());
+    }
+
+    @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
+    @EnumSource(ExceptionStyle.class)
+    void failWithNonRetriableException(ExceptionStyle exceptionStyle) {
+        failWithNonRetriableException(exceptionStyle, nonRetriableException());
+    }
+
+    void failWithNonRetriableException(ExceptionStyle exceptionStyle, final RuntimeException rootCause) {
+        final RuntimeException cause = exceptionStyle.wrap(rootCause);
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10)
+                () -> new LimitedRunner(executor, 10, mockDelay())
                         .setDecreaseLimitAfter(3)
                         .runAsync(limit -> {
                             limits.add(limit);
@@ -183,7 +206,7 @@ class LimitedRunnerTest {
         //           F                 F
         // Note: I'm picking an even multiple of 4 here, because we do 3/4 decrease and 4/3 and this means there's
         // no rounding
-        new LimitedRunner(executor, 12).setIncreaseLimitAfter(3).runAsync(limit -> {
+        new LimitedRunner(executor, 12, mockDelay()).setIncreaseLimitAfter(3).runAsync(limit -> {
             limits.add(limit);
             if (limits.size() % 5 == 4) {
                 return exceptionStyle.hasMore(cause);
@@ -212,7 +235,7 @@ class LimitedRunnerTest {
         AtomicBoolean increasing = new AtomicBoolean(false);
         final int maxLimit = 93;
         final int minLimit = 1;
-        new LimitedRunner(executor, maxLimit).setIncreaseLimitAfter(5).runAsync(limit -> {
+        new LimitedRunner(executor, maxLimit, mockDelay()).setIncreaseLimitAfter(5).runAsync(limit -> {
             limits.add(limit);
             if (limit == maxLimit) {
                 increasing.set(false);
@@ -270,7 +293,7 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(retriableNonLessenWorkException());
         final RuntimeException lessenCause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
-        new LimitedRunner(executor, 12).setIncreaseLimitAfter(3).runAsync(limit -> {
+        new LimitedRunner(executor, 12, mockDelay()).setIncreaseLimitAfter(3).runAsync(limit -> {
             limits.add(limit);
             if (limits.size() < 3) {
                 // Cause the limit to go down, so that it could go back up, if it were reliably successful
@@ -294,7 +317,7 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10).runAsync(limit -> {
+                () -> new LimitedRunner(executor, 10, mockDelay()).runAsync(limit -> {
                     limits.add(limit);
                     return exceptionStyle.hasMore(cause);
                 }, List.of()).join());
@@ -310,6 +333,53 @@ class LimitedRunnerTest {
         }
     }
 
+    @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
+    @MethodSource("allCauseTypes")
+    void delaysWhenRetrying(FDBException cause) {
+        final ExceptionStyle exceptionStyle = ExceptionStyle.WrappedAsFuture;
+        final RuntimeException wrappedCause = exceptionStyle.wrap(cause);
+        List<Integer> limits = new ArrayList<>();
+        final MockDelay mockDelay = mockDelay();
+        final CompletionException completionException = assertThrows(CompletionException.class,
+                () -> new LimitedRunner(executor, 10, mockDelay)
+                        .runAsync(limit -> {
+                            limits.add(limit);
+                            System.out.println(mockDelay.getNextDelayMillis());
+                            return exceptionStyle.hasMore(wrappedCause);
+                        }, List.of()).join());
+        assertEquals(wrappedCause, completionException.getCause());
+        assertEquals(limits.size() - 1, mockDelay.delayCount);
+    }
+
+    @Test
+    void closesFuture() {
+        assumeTrue(false, "TODO implement this");
+        final CompletableFuture<Void> future;
+        try (LimitedRunner limitedRunner = new LimitedRunner(executor, 10, mockDelay())) {
+            future = limitedRunner.runAsync(limit -> new CompletableFuture<>(), List.of());
+        }
+        CompletionException completionException = assertThrows(CompletionException.class, future::join);
+        assertThat(completionException.getCause(), Matchers.instanceOf(FDBDatabaseRunner.RunnerClosed.class));
+    }
+
+    @Test
+    void closesDelay() {
+        assumeTrue(false, "TODO implement this");
+        final ExceptionStyle exceptionStyle = ExceptionStyle.WrappedAsFuture;
+        final RuntimeException wrappedCause = exceptionStyle.wrap(retryAndLessenWorkException());
+        final CompletableFuture<Void> future;
+        final InfiniteDelay infiniteDelay = new InfiniteDelay();
+        try (LimitedRunner limitedRunner = new LimitedRunner(executor, 10, infiniteDelay)) {
+            future = limitedRunner.runAsync(limit -> exceptionStyle.hasMore(wrappedCause), List.of());
+        }
+        CompletionException completionException = assertThrows(CompletionException.class, future::join);
+        assertThat(completionException.getCause(), Matchers.instanceOf(FDBDatabaseRunner.RunnerClosed.class));
+        assertTrue(infiniteDelay.future.isCompletedExceptionally());
+        completionException = assertThrows(CompletionException.class,
+                () -> infiniteDelay.future.join());
+        assertThat(completionException.getCause(), Matchers.instanceOf(FDBDatabaseRunner.RunnerClosed.class));
+    }
+
     @Nonnull
     private String buildPointerMessage(final List<Integer> limits, final int i) {
         return limits.stream()
@@ -320,19 +390,29 @@ class LimitedRunnerTest {
     }
 
     @Nonnull
-    private FDBException retriableNonLessenWorkException() {
+    private static FDBException retriableNonLessenWorkException() {
         return new FDBException("A retriable", FDBError.FUTURE_VERSION.code());
     }
 
     @Nonnull
-    private FDBException retryAndLessenWorkException() {
+    private static FDBException retryAndLessenWorkException() {
         return new FDBException("A retriable that could indicate the transaction is too large",
                 FDBError.TRANSACTION_TOO_OLD.code());
     }
 
     @Nonnull
-    private FDBException lessenWorkException() {
+    private static FDBException lessenWorkException() {
         return new FDBException("Transaction too large", FDBError.TRANSACTION_TOO_LARGE.code());
+    }
+
+    @Nonnull
+    private static FDBException nonRetriableException() {
+        return new FDBException("Non Retriable", FDBError.INTERNAL_ERROR.code());
+    }
+
+    @Nonnull
+    private MockDelay mockDelay() {
+        return new MockDelay();
     }
 
     enum ExceptionStyle {
@@ -366,6 +446,34 @@ class LimitedRunnerTest {
             } else {
                 throw cause;
             }
+        }
+    }
+
+    private static class InfiniteDelay extends ExponentialDelay {
+        public CompletableFuture<Void> future = new CompletableFuture<>();
+
+        public InfiniteDelay() {
+            super(Long.MAX_VALUE, Long.MAX_VALUE);
+        }
+
+        @Override
+        public CompletableFuture<Void> delay() {
+            return future;
+        }
+    }
+
+    private static class MockDelay extends ExponentialDelay {
+
+        int delayCount = 0;
+
+        public MockDelay() {
+            super(3000, 10000);
+        }
+
+        @Override
+        public CompletableFuture<Void> delay() {
+            delayCount++;
+            return CompletableFuture.runAsync(this::calculateNextDelay);
         }
     }
 

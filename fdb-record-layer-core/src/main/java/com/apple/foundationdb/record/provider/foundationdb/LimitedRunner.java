@@ -52,6 +52,7 @@ public class LimitedRunner implements AutoCloseable {
     public static final int DO_NOT_INCREASE_LIMIT = -1;
 
     private final Executor executor;
+    private final ExponentialDelay exponentialDelay;
     private int currentLimit = 100;
     private int maxLimit = 100;
     private int increaseLimitAfter = DO_NOT_INCREASE_LIMIT;
@@ -62,10 +63,12 @@ public class LimitedRunner implements AutoCloseable {
     private int failuresSinceLastSuccess = 0;
     private boolean closed = false;
 
-    public LimitedRunner(final Executor executor, final int maxLimit) {
+    public LimitedRunner(final Executor executor, final int maxLimit,
+                         final ExponentialDelay exponentialDelay) {
         this.executor = executor;
         this.currentLimit = maxLimit;
         this.maxLimit = maxLimit;
+        this.exponentialDelay = exponentialDelay;
     }
 
     public CompletableFuture<Void> runAsync(Runner runner, final List<Object> additionalLogMessageKeyValues) {
@@ -108,6 +111,7 @@ public class LimitedRunner implements AutoCloseable {
                 overallResult.completeExceptionally(error);
                 return false;
             } else {
+                exponentialDelay.delay();
                 return true;
             }
         }
@@ -185,8 +189,9 @@ public class LimitedRunner implements AutoCloseable {
                     LogMessageKeys.MESSAGE, fdbException.getMessage(),
                     LogMessageKeys.CODE, fdbException.getCode(),
                     LogMessageKeys.CURR_ATTEMPT, failuresSinceLastDecrease,
-                    LogMessageKeys.LIMIT, currentLimit);
-            // TODO add configuration parameters, and delay information
+                    LogMessageKeys.LIMIT, currentLimit,
+                    LogMessageKeys.DELAY, exponentialDelay.getNextDelayMillis());
+            // TODO add configuration parameters
             // TODO does this need to add information about the specific attempt, since that wolud change
             //      after each success, perhaps expect additionalLogMessageKeyValues to change?
             if (additionalLogMessageKeyValues != null) {

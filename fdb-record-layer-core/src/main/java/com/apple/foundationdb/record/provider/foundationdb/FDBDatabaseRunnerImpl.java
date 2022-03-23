@@ -250,6 +250,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                     addFutureToCompleteExceptionally(future);
                     return future.thenApply(vignore -> {
                         currAttempt += 1;
+                        // https://github.com/FoundationDB/fdb-record-layer/issues/1565
                         currDelay = Math.max(Math.min(delay * 2, getMaxDelayMillis()), getMinDelayMillis());
                         return true;
                     });

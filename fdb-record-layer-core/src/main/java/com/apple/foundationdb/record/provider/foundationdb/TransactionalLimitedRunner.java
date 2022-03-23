@@ -37,7 +37,7 @@ public class TransactionalLimitedRunner extends LimitedRunner {
     public TransactionalLimitedRunner(@Nonnull FDBDatabase database,
                                       FDBRecordContextConfig.Builder contextConfigBuilder,
                                       int maxLimit) {
-        super(database.newContextExecutor(contextConfigBuilder.getMdcContext()), maxLimit);
+        super(database.newContextExecutor(contextConfigBuilder.getMdcContext()), maxLimit, new ExponentialDelay(3, 10));
         this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
     }
 
