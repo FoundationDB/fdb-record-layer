@@ -50,7 +50,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 // if any of these tests take longer than 2 seconds, it almost certainly indicates a bug resulting in the future
 // never completing
@@ -353,7 +352,6 @@ class LimitedRunnerTest {
 
     @Test
     void closesFuture() {
-        assumeTrue(false, "TODO implement this");
         final CompletableFuture<Void> future;
         try (LimitedRunner limitedRunner = new LimitedRunner(executor, 10, mockDelay())) {
             future = limitedRunner.runAsync(limit -> new CompletableFuture<>(), List.of());
@@ -364,19 +362,25 @@ class LimitedRunnerTest {
 
     @Test
     void closesDelay() {
-        assumeTrue(false, "TODO implement this");
         final ExceptionStyle exceptionStyle = ExceptionStyle.WrappedAsFuture;
         final RuntimeException wrappedCause = exceptionStyle.wrap(retryAndLessenWorkException());
         final CompletableFuture<Void> future;
         final InfiniteDelay infiniteDelay = new InfiniteDelay();
-        try (LimitedRunner limitedRunner = new LimitedRunner(executor, 10, infiniteDelay)) {
-            future = limitedRunner.runAsync(limit -> exceptionStyle.hasMore(wrappedCause), List.of());
+        LimitedRunner limitedRunner = new LimitedRunner(executor, 10, infiniteDelay);
+        try {
+            future = limitedRunner.runAsync(limit -> exceptionStyle.hasMore(wrappedCause)
+                    .whenComplete((ignoredResult, ignoredError) -> {
+                        limitedRunner.close();
+                    }), List.of());
+        } finally {
+            limitedRunner.close();
         }
-        CompletionException completionException = assertThrows(CompletionException.class, future::join);
-        assertThat(completionException.getCause(), Matchers.instanceOf(FDBDatabaseRunner.RunnerClosed.class));
         assertTrue(infiniteDelay.future.isCompletedExceptionally());
-        completionException = assertThrows(CompletionException.class,
+        CompletionException completionException = assertThrows(CompletionException.class,
                 () -> infiniteDelay.future.join());
+        assertThat(completionException.getCause(), Matchers.instanceOf(FDBDatabaseRunner.RunnerClosed.class));
+
+        completionException = assertThrows(CompletionException.class, future::join);
         assertThat(completionException.getCause(), Matchers.instanceOf(FDBDatabaseRunner.RunnerClosed.class));
     }
 

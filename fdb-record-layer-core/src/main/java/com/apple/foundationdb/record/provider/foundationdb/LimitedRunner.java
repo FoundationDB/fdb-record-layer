@@ -30,10 +30,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 
 public class LimitedRunner implements AutoCloseable {
 
@@ -53,6 +55,8 @@ public class LimitedRunner implements AutoCloseable {
 
     private final Executor executor;
     private final ExponentialDelay exponentialDelay;
+    @Nonnull
+    private final List<CompletableFuture<?>> futuresToCompleteExceptionally;
     private int currentLimit = 100;
     private int maxLimit = 100;
     private int increaseLimitAfter = DO_NOT_INCREASE_LIMIT;
@@ -69,10 +73,12 @@ public class LimitedRunner implements AutoCloseable {
         this.currentLimit = maxLimit;
         this.maxLimit = maxLimit;
         this.exponentialDelay = exponentialDelay;
+        futuresToCompleteExceptionally = new ArrayList<>();
     }
 
     public CompletableFuture<Void> runAsync(Runner runner, final List<Object> additionalLogMessageKeyValues) {
         final CompletableFuture<Void> overallResult = new CompletableFuture<>();
+        addFutureToCompleteExceptionally(overallResult);
         successCount = 0;
         failuresSinceLastSuccess = 0;
         failuresSinceLastDecrease = 0;
@@ -84,15 +90,16 @@ public class LimitedRunner implements AutoCloseable {
             try {
                 return runner.runAsync(currentLimit)
                         .handle((shouldContinue, error) -> handle(overallResult, shouldContinue, error,
-                                additionalLogMessageKeyValues));
+                                additionalLogMessageKeyValues))
+                        .thenCompose(Function.identity());
             } catch (RuntimeException e) {
-                return CompletableFuture.completedFuture(handle(overallResult, true, e, additionalLogMessageKeyValues));
+                return handle(overallResult, true, e, additionalLogMessageKeyValues);
             }
         }, executor);
         return overallResult;
     }
 
-    private Boolean handle(final CompletableFuture<Void> overallResult,
+    private CompletableFuture<Boolean> handle(final CompletableFuture<Void> overallResult,
                            final Boolean shouldContinue,
                            final Throwable error,
                            final List<Object> additionalLogMessageKeyValues) {
@@ -103,16 +110,17 @@ public class LimitedRunner implements AutoCloseable {
             if (!shouldContinue) {
                 overallResult.complete(null);
             }
-            return shouldContinue;
+            return CompletableFuture.completedFuture(shouldContinue);
         } else {
             successCount = 0;
             failuresSinceLastSuccess++;
             if (!maybeDecreaseLimit(error, additionalLogMessageKeyValues)) {
                 overallResult.completeExceptionally(error);
-                return false;
+                return AsyncUtil.READY_FALSE;
             } else {
-                exponentialDelay.delay();
-                return true;
+                final CompletableFuture<Void> delayFuture = exponentialDelay.delay();
+                addFutureToCompleteExceptionally(delayFuture);
+                return delayFuture.thenApply(vignore -> true);
             }
         }
     }
@@ -217,7 +225,26 @@ public class LimitedRunner implements AutoCloseable {
 
     @Override
     public void close() {
-        this.closed = true;
+        if (closed) {
+            return;
+        }
+        closed = true;
+        final Exception exception = new FDBDatabaseRunner.RunnerClosed();
+        for (CompletableFuture<?> future : futuresToCompleteExceptionally) {
+            if (!future.isDone()) {
+                future.completeExceptionally(exception);
+            }
+        }
+    }
+
+    private synchronized void addFutureToCompleteExceptionally(@Nonnull CompletableFuture<?> future) {
+        if (closed) {
+            final FDBDatabaseRunner.RunnerClosed exception = new FDBDatabaseRunner.RunnerClosed();
+            future.completeExceptionally(exception);
+            throw exception;
+        }
+        futuresToCompleteExceptionally.removeIf(CompletableFuture::isDone);
+        futuresToCompleteExceptionally.add(future);
     }
 
     public LimitedRunner setMaxLimit(final int maxLimit) {
