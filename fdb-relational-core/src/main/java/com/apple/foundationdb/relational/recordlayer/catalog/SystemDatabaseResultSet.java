@@ -99,6 +99,7 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
         if (!nextCalled) {
             throw new InvalidCursorStateException("Iterator was not advanced or has terminated").toSqlException();
         }
+        position -= 1; // Switch to 0-based
         if (nextKeyValue.keyColumnCount() > position) {
             return nextKeyValue.key().getObject(position);
         } else {
@@ -125,7 +126,7 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    protected int getPosition(String fieldName) {
+    protected int getZeroBasedPosition(String fieldName) {
         for (int i = 0; i < fields.length; i++) {
             if (fields[i] != null && fields[i].equalsIgnoreCase(fieldName)) {
                 return i;

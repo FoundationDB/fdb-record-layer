@@ -46,8 +46,8 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public boolean getBoolean(int position) throws SQLException {
-        Object o = getObject(position);
+    public boolean getBoolean(int oneBasedPosition) throws SQLException {
+        Object o = getObject(oneBasedPosition);
         if (o == null) {
             return false;
         }
@@ -59,17 +59,17 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public boolean getBoolean(String fieldName) throws SQLException {
+    public boolean getBoolean(String columnLabel) throws SQLException {
         try {
-            return getBoolean(getPosition(fieldName));
+            return getBoolean(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
     }
 
     @Override
-    public long getLong(int position) throws SQLException {
-        Object o = getObject(position);
+    public long getLong(int oneBasedPosition) throws SQLException {
+        Object o = getObject(oneBasedPosition);
         if (o == null) {
             return 0L;
         }
@@ -81,17 +81,17 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public long getLong(String fieldName) throws SQLException {
+    public long getLong(String columnLabel) throws SQLException {
         try {
-            return getLong(getPosition(fieldName));
+            return getLong(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
     }
 
     @Override
-    public float getFloat(int position) throws SQLException {
-        Object o = getObject(position);
+    public float getFloat(int oneBasedPosition) throws SQLException {
+        Object o = getObject(oneBasedPosition);
         if (o == null) {
             return 0L;
         }
@@ -103,17 +103,17 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public float getFloat(String fieldName) throws SQLException {
+    public float getFloat(String columnLabel) throws SQLException {
         try {
-            return getFloat(getPosition(fieldName));
+            return getFloat(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
     }
 
     @Override
-    public double getDouble(int position) throws SQLException {
-        Object o = getObject(position);
+    public double getDouble(int oneBasedPosition) throws SQLException {
+        Object o = getObject(oneBasedPosition);
         if (o == null) {
             return 0L;
         }
@@ -125,26 +125,26 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public double getDouble(String fieldName) throws SQLException {
+    public double getDouble(String columnLabel) throws SQLException {
         try {
-            return getDouble(getPosition(fieldName));
+            return getDouble(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
     }
 
     @Override
-    public Object getObject(String fieldName) throws SQLException {
+    public Object getObject(String columnLabel) throws SQLException {
         try {
-            return getObject(getPosition(fieldName));
+            return getObject(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
     }
 
     @Override
-    public String getString(int position) throws SQLException {
-        Object o = getObject(position);
+    public String getString(int oneBasedPosition) throws SQLException {
+        Object o = getObject(oneBasedPosition);
         if (o == null) {
             return null;
         }
@@ -156,17 +156,17 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public String getString(String fieldName) throws SQLException {
+    public String getString(String columnLabel) throws SQLException {
         try {
-            return getString(getPosition(fieldName));
+            return getString(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
     }
 
     @Override
-    public Message getMessage(int position) throws SQLException {
-        Object o = getObject(position);
+    public Message getMessage(int oneBasedPosition) throws SQLException {
+        Object o = getObject(oneBasedPosition);
         if (o == null) {
             return null;
         }
@@ -178,17 +178,17 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public Message getMessage(String fieldName) throws SQLException {
+    public Message getMessage(String columnLabel) throws SQLException {
         try {
-            return getMessage(getPosition(fieldName));
+            return getMessage(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
     }
 
     @Override
-    public Iterable<?> getRepeated(int position) throws SQLException {
-        Object o = getObject(position);
+    public Iterable<?> getRepeated(int oneBasedPosition) throws SQLException {
+        Object o = getObject(oneBasedPosition);
         if (o == null) {
             return null;
         }
@@ -200,9 +200,9 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public Iterable<?> getRepeated(String fieldName) throws SQLException {
+    public Iterable<?> getRepeated(String columnLabel) throws SQLException {
         try {
-            return getRepeated(getPosition(fieldName));
+            return getRepeated(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
@@ -223,7 +223,25 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
         return new RecordResultSetMetaData(getFieldNames());
     }
 
-    protected abstract int getPosition(String fieldName) throws SQLException, InvalidColumnReferenceException;
+    /**
+     * Returns a 0-based position number for this column label.
+     * @param columnLabel the name of the column
+     * @return The 0-based position of the field in this result set
+     * @throws SQLException if parsing the underlying message fails
+     * @throws InvalidColumnReferenceException if this field name does not exist
+     */
+    protected abstract int getZeroBasedPosition(String columnLabel) throws SQLException, InvalidColumnReferenceException;
+
+    /**
+     * Returns a 1-based position number for this column label.
+     * @param columnLabel the name of the column
+     * @return The 1-based position of the column in this result set
+     * @throws SQLException if parsing the underlying message fails
+     * @throws InvalidColumnReferenceException if this field name does not exist
+     */
+    protected int getOneBasedPosition(String columnLabel) throws SQLException, InvalidColumnReferenceException {
+        return getZeroBasedPosition(columnLabel) + 1;
+    }
 
     protected abstract String[] getFieldNames();
 }

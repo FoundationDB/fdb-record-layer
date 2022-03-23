@@ -183,7 +183,7 @@ class AbstractRecordLayerResultSetTest {
         fieldNameMethod.invoke(Mockito.doCallRealMethod().when(resultSet), "field1");
 
         Mockito.when(resultSet.getObject(1)).thenReturn(testCase.field);
-        Mockito.when(resultSet.getPosition("field1")).thenReturn(1);
+        Mockito.when(resultSet.getOneBasedPosition("field1")).thenReturn(1);
 
         Object positionResult = positionMethod.invoke(resultSet, 1);
         Object fieldNameResult = fieldNameMethod.invoke(resultSet, "field1");
@@ -207,7 +207,7 @@ class AbstractRecordLayerResultSetTest {
         Method fieldNameMethod = AbstractRecordLayerResultSet.class.getMethod(testCase.method, String.class);
 
         Mockito.when(resultSet.getObject(1)).thenReturn(testCase.field);
-        Mockito.when(resultSet.getPosition("field1")).thenReturn(1);
+        Mockito.when(resultSet.getOneBasedPosition("field1")).thenReturn(1);
 
         assertThatThrownBy(() -> {
             try {
@@ -238,7 +238,7 @@ class AbstractRecordLayerResultSetTest {
     @MethodSource("testCases")
     void getThrowInvalidColumnReference(TestCase testCase) throws SQLException, InvalidColumnReferenceException, NoSuchMethodException {
         Method method = AbstractRecordLayerResultSet.class.getMethod(testCase.method, String.class);
-        Mockito.when(resultSet.getPosition("field1")).thenThrow(new InvalidColumnReferenceException("field1"));
+        Mockito.when(resultSet.getOneBasedPosition("field1")).thenThrow(new InvalidColumnReferenceException("field1"));
         assertThatThrownBy(() -> {
             try {
                 method.invoke(Mockito.doCallRealMethod().when(resultSet), "field1");

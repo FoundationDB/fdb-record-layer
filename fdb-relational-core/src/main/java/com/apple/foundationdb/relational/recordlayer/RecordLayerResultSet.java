@@ -101,12 +101,13 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
             }
             if (supportsMessageParsing()) {
                 Message m = ((MessageTuple) currentRow.value()).parseMessage();
-                return m.getField(m.getDescriptorForType().findFieldByNumber(position + 1));
+                return m.getField(m.getDescriptorForType().findFieldByNumber(position));
             }
-            if (position < 0 || position >= (currentRow.keyColumnCount() + currentRow.value().getNumFields())) {
+            if (position < 1 || position > (currentRow.keyColumnCount() + currentRow.value().getNumFields())) {
                 throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
             }
             Object o;
+            position -= 1; // Switch to 0 based index
             if (position < currentRow.keyColumnCount()) {
                 o = currentRow.key().getObject(position);
             } else {
@@ -119,7 +120,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    protected int getPosition(String fieldName) throws SQLException, InvalidColumnReferenceException {
+    protected int getZeroBasedPosition(String fieldName) throws SQLException, InvalidColumnReferenceException {
         if (supportsMessageParsing()) {
             Message m = parseMessage();
             final List<Descriptors.FieldDescriptor> fields = m.getDescriptorForType().getFields();

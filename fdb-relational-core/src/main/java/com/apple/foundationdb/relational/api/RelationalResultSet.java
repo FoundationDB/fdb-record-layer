@@ -73,16 +73,16 @@ public interface RelationalResultSet extends java.sql.ResultSet {
     /**
      * Return this value as a protobuf message (if possible).
      *
-     * @param position the position to get the value from
+     * @param oneBasedPosition the 1-based position to get the value from
      * @return the object at the specified position, as a protobuf Message
      * @throws SQLException if something goes wrong
      * @throws ArrayIndexOutOfBoundsException if the specified position is invalid
      */
-    Message getMessage(int position) throws SQLException;
+    Message getMessage(int oneBasedPosition) throws SQLException;
 
     Message getMessage(String fieldName) throws SQLException;
 
-    Iterable<?> getRepeated(int position) throws SQLException;
+    Iterable<?> getRepeated(int oneBasedPosition) throws SQLException;
 
     Iterable<?> getRepeated(String fieldName) throws SQLException;
 
