@@ -23,11 +23,14 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -65,7 +68,7 @@ public class LimitedRunner implements AutoCloseable {
         this.maxLimit = maxLimit;
     }
 
-    public CompletableFuture<Void> runAsync(Runner runner) {
+    public CompletableFuture<Void> runAsync(Runner runner, final List<Object> additionalLogMessageKeyValues) {
         final CompletableFuture<Void> overallResult = new CompletableFuture<>();
         successCount = 0;
         failuresSinceLastSuccess = 0;
@@ -77,19 +80,23 @@ public class LimitedRunner implements AutoCloseable {
             }
             try {
                 return runner.runAsync(currentLimit)
-                        .handle((shouldContinue, error) -> handle(overallResult, shouldContinue, error));
+                        .handle((shouldContinue, error) -> handle(overallResult, shouldContinue, error,
+                                additionalLogMessageKeyValues));
             } catch (RuntimeException e) {
-                return CompletableFuture.completedFuture(handle(overallResult, true, e));
+                return CompletableFuture.completedFuture(handle(overallResult, true, e, additionalLogMessageKeyValues));
             }
         }, executor);
         return overallResult;
     }
 
-    private Boolean handle(final CompletableFuture<Void> overallResult, final Boolean shouldContinue, final Throwable error) {
+    private Boolean handle(final CompletableFuture<Void> overallResult,
+                           final Boolean shouldContinue,
+                           final Throwable error,
+                           final List<Object> additionalLogMessageKeyValues) {
         if (error == null) {
             failuresSinceLastSuccess = 0;
             successCount++;
-            maybeIncreaseLimit();
+            maybeIncreaseLimit(additionalLogMessageKeyValues);
             if (!shouldContinue) {
                 overallResult.complete(null);
             }
@@ -97,7 +104,7 @@ public class LimitedRunner implements AutoCloseable {
         } else {
             successCount = 0;
             failuresSinceLastSuccess++;
-            if (!maybeDecreaseLimit(error)) {
+            if (!maybeDecreaseLimit(error, additionalLogMessageKeyValues)) {
                 overallResult.completeExceptionally(error);
                 return false;
             } else {
@@ -106,11 +113,19 @@ public class LimitedRunner implements AutoCloseable {
         }
     }
 
-    private boolean maybeDecreaseLimit(final Throwable error) {
+    private void maybeIncreaseLimit(final List<Object> additionalLogMessageKeyValues) {
+        if (successCount >= increaseLimitAfter && currentLimit < maxLimit) {
+            currentLimit = Math.min(maxLimit, Math.max(currentLimit + 1, (4 * currentLimit) / 3));
+            logIncreaseLimit("Increasing limit", additionalLogMessageKeyValues);
+        }
+    }
+
+    private boolean maybeDecreaseLimit(final Throwable error, final List<Object> additionalLogMessageKeyValues) {
         FDBException fdbException = getFDBException(error);
         if (fdbException != null && isRetryable(fdbException)) {
             failuresSinceLastDecrease++;
             if (failuresSinceLastDecrease < decreaseLimitAfter) {
+                logRetryException("Retrying with same limit", additionalLogMessageKeyValues, error, fdbException);
                 return true;
             }
         }
@@ -119,9 +134,8 @@ public class LimitedRunner implements AutoCloseable {
                 return false;
             } else {
                 failuresSinceLastDecrease = 0;
+                logRetryException("Decreasing limit", additionalLogMessageKeyValues, error, fdbException);
                 // TODO delay here
-                // TODO log
-                //      does the log need to include logging details from the runner
                 // Note: the way this works it means that if maxDecreaseRetries is substantially higher than
                 // the limit, it will retry at 1 many times. This might not make much sense, and instead it should
                 // only retry at one in the `isRetryable` path, and not here.
@@ -162,11 +176,37 @@ public class LimitedRunner implements AutoCloseable {
         return null;
     }
 
-    private void maybeIncreaseLimit() {
-        if (successCount >= increaseLimitAfter && currentLimit < maxLimit) {
-            currentLimit = Math.min(maxLimit, Math.max(currentLimit + 1, (4 * currentLimit) / 3));
-            // TODO log
-            //      does the log need to include logging details from the runner
+    private void logRetryException(final String staticMessage,
+                                   final List<Object> additionalLogMessageKeyValues,
+                                   final Throwable error,
+                                   final FDBException fdbException) {
+        if (LOGGER.isWarnEnabled()) {
+            final KeyValueLogMessage message = KeyValueLogMessage.build(staticMessage,
+                    LogMessageKeys.MESSAGE, fdbException.getMessage(),
+                    LogMessageKeys.CODE, fdbException.getCode(),
+                    LogMessageKeys.CURR_ATTEMPT, failuresSinceLastDecrease,
+                    LogMessageKeys.LIMIT, currentLimit);
+            // TODO add configuration parameters, and delay information
+            // TODO does this need to add information about the specific attempt, since that wolud change
+            //      after each success, perhaps expect additionalLogMessageKeyValues to change?
+            if (additionalLogMessageKeyValues != null) {
+                message.addKeysAndValues(additionalLogMessageKeyValues);
+            }
+            LOGGER.warn(message.toString(), error);
+        }
+    }
+
+    private void logIncreaseLimit(final String staticMessage,
+                                   final List<Object> additionalLogMessageKeyValues) {
+        if (LOGGER.isInfoEnabled()) {
+            final KeyValueLogMessage message = KeyValueLogMessage.build(staticMessage,
+                    LogMessageKeys.CURR_ATTEMPT, successCount,
+                    LogMessageKeys.LIMIT, currentLimit);
+            // TODO add configuration parameters
+            if (additionalLogMessageKeyValues != null) {
+                message.addKeysAndValues(additionalLogMessageKeyValues);
+            }
+            LOGGER.info(message.toString());
         }
     }
 

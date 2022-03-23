@@ -799,7 +799,8 @@ public abstract class IndexingBase {
                                     hasMoreForHook.set(hasMore);
                                 }
                             });
-                });
+                },
+                logMessageKeyValues);
     }
 
     // rebuildIndexAsync - builds the whole index inline (without committing)

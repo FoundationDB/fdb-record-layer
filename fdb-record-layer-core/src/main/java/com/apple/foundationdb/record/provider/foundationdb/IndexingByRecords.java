@@ -384,6 +384,10 @@ public class IndexingByRecords extends IndexingBase {
         // Unlike iterateAllRanges, this stores the ranges to build in a queue in memory (rangeDeque) and if there is an
         // issue where a range is already built, it reloads them in memory. This might be an unnecessary optimization,
         // especially considering how complicated it makes this code.
+
+        // Note: the returned futures go through `handleFailedBuildRange` which logs any failures with information like
+        // startTuple/endTuple, these values are just added to retry logic in LimitedRunner.
+        final List<Object> additionalLogMessageKeyValues = common.indexLogMessageKeyValues();
         return common.getLimitedRunner().runAsync(
                 (context, startingLimit) -> {
                     if (rangeDeque.isEmpty()) {
@@ -397,11 +401,6 @@ public class IndexingByRecords extends IndexingBase {
                     Tuple startTuple = Tuple.fromBytes(toBuild.begin);
                     Tuple endTuple = RangeSet.isFinalKey(toBuild.end) ? null : Tuple.fromBytes(toBuild.end);
 
-                    final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
-                            LogMessageKeys.RANGE_START, startTuple,
-                            LogMessageKeys.RANGE_END, endTuple,
-                            LogMessageKeys.LIMIT, limit);
-                    additionalLogMessageKeyValues.addAll(common.indexLogMessageKeyValues());
                     AtomicReference<Tuple> postCommitRealEnd = new AtomicReference<>(startTuple);
                     AtomicLong recordsScanned = new AtomicLong(0);
                     context.addPostCommit(() -> {
@@ -429,7 +428,8 @@ public class IndexingByRecords extends IndexingBase {
                             })
                             .thenCompose(Function.identity())
                             .thenApply(realEnd -> realEnd == null || !realEnd.equals(endTuple));
-                });
+                },
+                additionalLogMessageKeyValues);
     }
 
     private CompletableFuture<Boolean> handleBuiltRange(final SubspaceProvider subspaceProvider,

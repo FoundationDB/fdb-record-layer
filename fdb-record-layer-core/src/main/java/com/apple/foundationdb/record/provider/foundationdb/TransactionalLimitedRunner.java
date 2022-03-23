@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -40,12 +41,12 @@ public class TransactionalLimitedRunner extends LimitedRunner {
         this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
     }
 
-    public CompletableFuture<Void> runAsync(Runner runnable) {
+    public CompletableFuture<Void> runAsync(Runner runnable, final List<Object> additionalLogMessageKeyValues) {
         AtomicBoolean isFirst = new AtomicBoolean(true);
         return runAsync(limit ->
                 runnable.prep(limit).thenCompose(vignore ->
                         transactionalRunner.runAsync(isFirst.getAndSet(false),
-                                context -> runnable.runAsync(context, limit))));
+                                context -> runnable.runAsync(context, limit))), additionalLogMessageKeyValues);
     }
 
     @Override

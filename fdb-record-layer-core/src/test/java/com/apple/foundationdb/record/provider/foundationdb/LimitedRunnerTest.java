@@ -66,7 +66,7 @@ class LimitedRunnerTest {
         new LimitedRunner(executor, 10).runAsync(limit -> {
             limits.add(limit);
             return AsyncUtil.READY_FALSE;
-        }).join();
+        }, List.of()).join();
         assertEquals(List.of(10), limits);
     }
 
@@ -76,7 +76,7 @@ class LimitedRunnerTest {
         new LimitedRunner(executor, 10).runAsync(limit -> {
             limits.add(limit);
             return limits.size() < 20 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
-        }).join();
+        }, List.of()).join();
         assertEquals(20, limits.size());
         // If we ever change the starting limit to be less than the max limit, this should start at 10, but go up
         assertEquals(Set.of(10), Set.copyOf(limits), "The limit should not decrease");
@@ -93,7 +93,7 @@ class LimitedRunnerTest {
                         .runAsync(limit -> {
                             limits.add(limit);
                             return exceptionStyle.hasMore(cause);
-                        }).join());
+                        }, List.of()).join());
         assertEquals(cause, completionException.getCause());
         assertThat(limits, Matchers.hasSize(3));
         for (int i = 0; i < limits.size(); i++) {
@@ -110,7 +110,7 @@ class LimitedRunnerTest {
                 () -> new LimitedRunner(executor, 10).runAsync(limit -> {
                     limits.add(limit);
                     return exceptionStyle.hasMore(cause);
-                }).join());
+                }, List.of()).join());
         assertEquals(cause, completionException.getCause());
         assertEquals(10, limits.get(0));
         assertEquals(1, limits.get(limits.size() - 1));
@@ -132,7 +132,7 @@ class LimitedRunnerTest {
                         .runAsync(limit -> {
                             limits.add(limit);
                             return exceptionStyle.hasMore(cause);
-                        }).join());
+                        }, List.of()).join());
         assertEquals(cause, completionException.getCause());
         assertEquals(10, limits.get(0));
         assertEquals(1, limits.get(limits.size() - 1));
@@ -166,7 +166,7 @@ class LimitedRunnerTest {
                         .runAsync(limit -> {
                             limits.add(limit);
                             return exceptionStyle.hasMore(cause);
-                        }).join());
+                        }, List.of()).join());
         assertEquals(cause, completionException.getCause());
         assertEquals(List.of(10), limits);
     }
@@ -190,7 +190,7 @@ class LimitedRunnerTest {
             } else {
                 return limits.size() < 40 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
             }
-        });
+        }, List.of());
         assertEquals(12, limits.get(0));
         for (int i = 1; i < limits.size(); i++) {
             String message = buildPointerMessage(limits, i);
@@ -225,7 +225,7 @@ class LimitedRunnerTest {
             } else {
                 return exceptionStyle.hasMore(cause);
             }
-        });
+        }, List.of());
         increasing.set(false);
         assertEquals(93, limits.get(0));
         int changedDirection = 0;
@@ -281,7 +281,7 @@ class LimitedRunnerTest {
             } else {
                 return limits.size() < 40 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
             }
-        });
+        }, List.of());
         assertThat(buildPointerMessage(limits, 3), limits.get(3), Matchers.lessThan(12));
         for (int i = 3; i < limits.size(); i++) {
             assertEquals(limits.get(3), limits.get(i), buildPointerMessage(limits, i));
@@ -297,7 +297,7 @@ class LimitedRunnerTest {
                 () -> new LimitedRunner(executor, 10).runAsync(limit -> {
                     limits.add(limit);
                     return exceptionStyle.hasMore(cause);
-                }).join());
+                }, List.of()).join());
         assertEquals(cause, completionException.getCause());
         assertEquals(10, limits.get(0));
         assertEquals(1, limits.get(limits.size() - 1));
