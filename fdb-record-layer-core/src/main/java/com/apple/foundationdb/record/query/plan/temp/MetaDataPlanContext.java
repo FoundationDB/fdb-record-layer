@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.BiMap;
@@ -37,6 +38,8 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -44,6 +47,7 @@ import java.util.stream.Collectors;
  * A {@link PlanContext} where the underlying meta-data comes from {@link RecordMetaData} and {@link RecordStoreState}
  * objects, as is generally the case when planning actual queries.
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class MetaDataPlanContext implements PlanContext {
     @Nonnull
@@ -70,6 +74,22 @@ public class MetaDataPlanContext implements PlanContext {
                                @Nonnull RecordMetaData metaData,
                                @Nonnull RecordStoreState recordStoreState,
                                @Nonnull RecordQuery query) {
+        this(plannerConfiguration,
+                metaData,
+                recordStoreState,
+                query.getRecordTypes().isEmpty() ? Optional.empty() : Optional.of(query.getRecordTypes()),
+                query.hasAllowedIndexes() ? Optional.of(Objects.requireNonNull(query.getAllowedIndexes())) : Optional.empty(),
+                query.getIndexQueryabilityFilter(),
+                query.isSortReverse());
+    }
+
+    public MetaDataPlanContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+                               @Nonnull final RecordMetaData metaData,
+                               @Nonnull final RecordStoreState recordStoreState,
+                               @Nonnull final Optional<Collection<String>> recordTypeNamesOptional,
+                               @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
+                               @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
+                               final boolean isSortReverse) {
         this.plannerConfiguration = plannerConfiguration;
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
@@ -79,13 +99,14 @@ public class MetaDataPlanContext implements PlanContext {
         recordStoreState.beginRead();
         List<Index> indexList = new ArrayList<>();
         try {
-            if (query.getRecordTypes().isEmpty()) { // ALL_TYPES
+            if (recordTypeNamesOptional.isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
                 greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(metaData.getRecordTypes().values());
                 this.recordTypes = metaData.getRecordTypes().keySet();
             } else {
-                this.recordTypes = ImmutableSet.copyOf(query.getRecordTypes());
-                final List<RecordType> recordTypes = query.getRecordTypes().stream().map(metaData::getRecordType).collect(Collectors.toList());
+                final var recordTypeNames = recordTypeNamesOptional.get();
+                this.recordTypes = ImmutableSet.copyOf(recordTypeNames);
+                final List<RecordType> recordTypes = recordTypeNames.stream().map(metaData::getRecordType).collect(Collectors.toList());
                 greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(recordTypes);
                 if (recordTypes.size() == 1) {
                     final RecordType recordType = recordTypes.get(0);
@@ -110,19 +131,23 @@ public class MetaDataPlanContext implements PlanContext {
         } finally {
             recordStoreState.endRead();
         }
-        indexList.removeIf(query.hasAllowedIndexes() ?
-                index -> !query.getAllowedIndexes().contains(index.getName()) :
-                index -> !query.getIndexQueryabilityFilter().isQueryable(index));
+
+        if (allowedIndexesOptional.isPresent()) {
+            final Collection<String> allowedIndexes = allowedIndexesOptional.get();
+            indexList.removeIf(index -> allowedIndexes.contains(index.getName()));
+        } else {
+            indexList.removeIf(index -> !indexQueryabilityFilter.isQueryable(index));
+        }
 
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (Index index : indexList) {
             indexes.put(index, index.getName());
             final Iterable<MatchCandidate> candidatesForIndex =
-                    MatchCandidate.fromIndexDefinition(metaData, index, query.isSortReverse());
+                    MatchCandidate.fromIndexDefinition(metaData, index, isSortReverse);
             matchCandidatesBuilder.addAll(candidatesForIndex);
         }
 
-        MatchCandidate.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey, query.isSortReverse())
+        MatchCandidate.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey, isSortReverse)
                 .ifPresent(matchCandidatesBuilder::add);
 
         this.matchCandidates = matchCandidatesBuilder.build();
