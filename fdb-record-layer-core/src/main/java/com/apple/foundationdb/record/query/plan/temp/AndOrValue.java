@@ -59,8 +59,8 @@ public class AndOrValue implements BooleanValue {
     protected final Operator operator;
 
     private enum Operator {
-        AND("&&"),
-        OR("||");
+        AND("AND"),
+        OR("OR");
 
         @Nonnull
         private final String infixRepresentation;
