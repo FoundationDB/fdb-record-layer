@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
@@ -34,6 +33,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerDatabase;
 import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.net.URI;
 
@@ -74,12 +74,6 @@ public final class RecordLayerCatalog implements Catalog {
 
     @Override
     @Nonnull
-    public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) {
-        return metaDataStore.loadTemplate(templateId);
-    }
-
-    @Override
-    @Nonnull
     public RelationalDatabase getDatabase(@Nonnull URI dbUrl) throws RelationalException {
         KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUrl, keySpace);
         final FDBDatabase fdbDatabase = databaseFinder.locateDatabase(dbPath);
@@ -88,16 +82,13 @@ public final class RecordLayerCatalog implements Catalog {
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public void deleteDatabase(@Nonnull URI dbUrl) throws RelationalException {
         throw new OperationUnsupportedException("Unimplemented");
     }
 
     public KeySpace getKeySpace() {
         return keySpace;
-    }
-
-    public KeySpace extendKeySpaceForSchema(@Nonnull KeySpacePath dbPath, @Nonnull String schemaId) {
-        return KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, schemaId);
     }
 
     public static class Builder {

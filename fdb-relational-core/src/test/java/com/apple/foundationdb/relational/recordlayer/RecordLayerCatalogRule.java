@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -90,12 +89,6 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
                 new TestSerializerRegistry(),
                 keySpace, new TestStoreTimer(metrics));
         engine.registerDriver();
-    }
-
-    @Override
-    @Nonnull
-    public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
-        return engine.getCatalog().getSchemaTemplate(templateId);
     }
 
     @Nonnull

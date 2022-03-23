@@ -30,18 +30,6 @@ import javax.annotation.Nonnull;
  * Representation of a metadata catalog.
  */
 public interface Catalog {
-
-    /**
-     * Get the Schema Template uniquely identified by the templateId.
-     *
-     * @param templateId the unique id of the template.
-     * @return the SchemaTemplate.
-     * @throws RelationalException If there is no schema with the given id, or if something systemic goes
-     *                           wrong. If there is no schema template with the given id, then the error code is NO_SUCH_SCHEMA_TEMPLATE
-     */
-    @Nonnull
-    SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException;
-
     /**
      * Get a database at the specified location.
      *

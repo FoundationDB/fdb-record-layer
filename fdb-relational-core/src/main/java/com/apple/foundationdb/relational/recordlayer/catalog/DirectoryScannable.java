@@ -46,6 +46,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.Scannable;
 import com.apple.foundationdb.relational.recordlayer.TupleUtils;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import java.net.URI;
@@ -61,22 +62,6 @@ public class DirectoryScannable implements Scannable {
     private final String[] fieldNames;
     private final Function<NestableTuple, NestableTuple> directoryTransform;
 
-    public DirectoryScannable(KeySpace keySpace) {
-        this(keySpace, URI.create("/"));
-    }
-
-    public DirectoryScannable(KeySpace keySpace, Function<NestableTuple, NestableTuple> dirTransform) {
-        this(keySpace, URI.create("/"), new String[]{"path"}, dirTransform);
-    }
-
-    public DirectoryScannable(KeySpace keySpace, URI prefix) {
-        this(keySpace, prefix, new String[]{"path"}, objects -> objects);
-    }
-
-    public DirectoryScannable(KeySpace keySpace, URI prefix, Function<NestableTuple, NestableTuple> directoryTransform) {
-        this(keySpace, prefix, new String[]{"path"}, directoryTransform);
-    }
-
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Internal class expects proper usage")
     public DirectoryScannable(KeySpace keySpace, URI prefix, String[] fieldNames, Function<NestableTuple, NestableTuple> directoryTransform) {
         this.keySpace = keySpace;
@@ -86,6 +71,7 @@ public class DirectoryScannable implements Scannable {
     }
 
     @Override
+    @Nonnull
     public ResumableIterator<KeyValue> openScan(@Nonnull Transaction transaction, @Nullable NestableTuple startKey, @Nullable NestableTuple endKey, @Nullable Continuation continuation, @Nonnull QueryProperties scanOptions) throws RelationalException {
         FDBRecordContext ctx = transaction.unwrap(FDBRecordContext.class);
         //TODO(bfines) add continuation here
@@ -102,14 +88,13 @@ public class DirectoryScannable implements Scannable {
             cursor = listDirectory(prefixPath, null, ctx);
         }
 
-        int ml = mergeLevel;
         RecordCursor<NestableTuple> mappedCursor = cursor.map(resolvedKeySpacePath -> {
             KeySpacePath path = resolvedKeySpacePath.toPath();
             String basePath = KeySpaceUtils.toPathString(path);
             Tuple remainder = resolvedKeySpacePath.getRemainder();
             Tuple tuple = new Tuple();
             tuple = tuple.addObject(basePath);
-            for (int i = 0; i < ml; i++) {
+            for (int i = 0; i < mergeLevel; i++) {
                 tuple = tuple.addObject(remainder.get(i));
             }
             return TupleUtils.toRelationalTuple(tuple);
@@ -162,6 +147,7 @@ public class DirectoryScannable implements Scannable {
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties scanOptions) throws RelationalException {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
