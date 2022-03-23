@@ -46,21 +46,4 @@ public interface ConstantActionFactory {
 
     @Nonnull
     ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull Options options);
-
-    /**
-     * Create a ConstantAction which maps the schema at the specified URI to the specified template.
-     *
-     * This is primarily for the use case where the underlying schema metadata store is not persistent, and we
-     * need to rebuild the individual mappings dynamically (i.e. not for true production use).
-     *
-     * Note that if the schema is already mapped to a template, then this will throw an error.
-     *
-     * @param schemaUrl the path to the schema to map
-     * @param templateId the unique name of the template which is to be mapped.
-     * @param constantActionOptions any options required for the mapping.
-     * @return a constant action which will map the schema to the template.
-     * does not exist, or if something else goes wrong.
-     */
-    @Nonnull
-    ConstantAction getMapSchemaToTemplateConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions);
 }

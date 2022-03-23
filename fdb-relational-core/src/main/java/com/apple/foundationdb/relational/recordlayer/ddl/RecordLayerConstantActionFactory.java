@@ -84,12 +84,6 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
         return new DropSchemaConstantAction(schemaUrl, baseKeySpace, metaDataStore);
     }
 
-    @Nonnull
-    @Override
-    public ConstantAction getMapSchemaToTemplateConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions) {
-        return new MapSchemaToTemplateConstantAction(schemaUrl, templateId, metaDataStore);
-    }
-
     public static class Builder {
         private MutableRecordMetaDataStore metaDataStore;
         private SerializerRegistry serializerRegistry;
