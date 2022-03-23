@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.ScanProperties;
@@ -39,14 +37,12 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -58,26 +54,20 @@ import java.util.List;
 import javax.annotation.Nonnull;
 
 public class QueryPropertiesTest {
-
     @RegisterExtension
+    @Order(0)
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
-    @BeforeEach
-    public final void setupCatalog() throws RelationalException {
-        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
-        builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
-        catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
+    @RegisterExtension
+    @Order(1)
+    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("RestaurantRecord", catalog)
+            .setRecordFile(Restaurant.getDescriptor())
+            .configureTable("RestaurantRecord", table -> table.setPrimaryKey(Key.Expressions.field("rest_no")));
 
-        catalog.createDatabase(URI.create("/record_layer_query_properties_test"),
-                DatabaseTemplate.newBuilder()
-                        .withSchema("test", "RestaurantRecord")
-                        .build());
-    }
-
-    @AfterEach
-    void tearDown() throws RelationalException {
-        catalog.deleteDatabase(URI.create("/record_layer_query_properties_test"));
-    }
+    @RegisterExtension
+    @Order(2)
+    public final DatabaseRule database = new DatabaseRule("record_layer_query_properties_test", catalog)
+            .withSchema("test", template);
 
     @Test
     void verifyExecuteAndScanPropertiesGivenQueryProperties() {

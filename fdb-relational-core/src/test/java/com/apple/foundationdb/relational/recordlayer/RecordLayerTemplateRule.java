@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 
 import com.google.protobuf.Descriptors;
@@ -54,5 +55,14 @@ public class RecordLayerTemplateRule implements BeforeEachCallback {
     public RecordLayerTemplateRule configureTable(String tableName, Consumer<RecordTypeBuilder> builderConfig) {
         builderConfig.accept(metaDataBuilder.getRecordType(tableName));
         return this;
+    }
+
+    public RecordLayerTemplateRule addIndex(String tableName, Index index) {
+        metaDataBuilder.addIndex(tableName, index);
+        return this;
+    }
+
+    public String getTemplateName() {
+        return templateName;
     }
 }

@@ -20,35 +20,27 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.TableScan;
-import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,32 +50,36 @@ import java.util.function.BiConsumer;
 public class CursorTest {
 
     @RegisterExtension
+    @Order(0)
     RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
-    @BeforeEach
-    public final void setupCatalog() throws RelationalException {
-        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
-        RecordTypeBuilder recordBuilder = builder.getRecordType("RestaurantRecord");
-        recordBuilder.setRecordTypeKey(0);
+    @RegisterExtension
+    @Order(1)
+    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("Restaurant", catalog)
+            .setRecordFile(Restaurant.getDescriptor())
+            .configureTable("RestaurantRecord", table -> table.setRecordTypeKey(0))
+            .addIndex(
+                    "RestaurantRecord", new Index("record_type_covering",
+                            Key.Expressions.keyWithValue(
+                                    Key.Expressions.concat(
+                                            Key.Expressions.recordType(), Key.Expressions.field("rest_no"),
+                                            Key.Expressions.field("name")), 2),
+                            IndexTypes.VALUE));
 
-        builder.addIndex("RestaurantRecord", new Index("record_type_covering",
-                Key.Expressions.keyWithValue(
-                        Key.Expressions.concat(
-                                Key.Expressions.recordType(), Key.Expressions.field("rest_no"),
-                                Key.Expressions.field("name")), 2),
-                IndexTypes.VALUE));
-        catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
+    @RegisterExtension
+    @Order(2)
+    public final DatabaseRule database = new DatabaseRule("cursor_test", catalog)
+            .withSchema("main", template);
 
-        catalog.createDatabase(URI.create("/insert_test"),
-                DatabaseTemplate.newBuilder()
-                        .withSchema("main", "Restaurant")
-                        .build());
-    }
+    @RegisterExtension
+    @Order(3)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(database)
+            .withOptions(Options.create().withOption(OperationOption.forceVerifyDdl()))
+            .withSchema("main");
 
-    @AfterEach
-    void tearDown() throws RelationalException {
-        catalog.deleteDatabase(URI.create("/insert_test"));
-    }
+    @RegisterExtension
+    @Order(4)
+    public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test
     public void canIterateOverAllResults() throws RelationalException, SQLException {
@@ -246,21 +242,14 @@ public class CursorTest {
     // helper methods
 
     private void havingInsertedRecordsDo(int numRecords,
-                                         BiConsumer<Iterable<Restaurant.RestaurantRecord>, RelationalStatement> test) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/insert_test"), Options.create())) {
-            conn.setSchema("main");
-            conn.beginTransaction();
-            try (RelationalStatement s = conn.createStatement()) {
+                                         BiConsumer<Iterable<Restaurant.RestaurantRecord>, RelationalStatement> test) throws RelationalException {
+        // 1/2 add all records to table insert_test.main.Restaurant.RestaurantRecord
+        Iterable<Restaurant.RestaurantRecord> records = Utils.generateRestaurantRecords(numRecords);
+        int count = statement.executeInsert("RestaurantRecord", records, Options.create());
+        Assertions.assertEquals(numRecords, count);
 
-                // 1/2 add all records to table insert_test.main.Restaurant.RestaurantRecord
-                Iterable<Restaurant.RestaurantRecord> records = Utils.generateRestaurantRecords(numRecords);
-                int count = s.executeInsert("RestaurantRecord", records, Options.create());
-                Assertions.assertEquals(numRecords, count);
-
-                // 2/2 test logic follows
-                test.accept(records, s);
-            }
-        }
+        // 2/2 test logic follows
+        test.accept(records, statement);
     }
 
     private Restaurant.RestaurantRecord readFirstRecordWithContinuation(RelationalStatement s, Continuation c) throws SQLException, RelationalException {

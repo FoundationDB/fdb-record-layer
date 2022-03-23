@@ -20,172 +20,142 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TableScan;
-import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.Collections;
 
 public class RecordTypeKeyTest {
     @RegisterExtension
+    @Order(0)
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
-    final URI dbUrl = URI.create("jdbc:embed:///type_key_db");
 
-    @BeforeEach
-    public final void setupCatalog() throws RelationalException {
-        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
-        RecordTypeBuilder recordBuilder = builder.getRecordType("RestaurantRecord");
-        recordBuilder.setRecordTypeKey(0);
-        recordBuilder.setPrimaryKey(Key.Expressions.recordType());
+    @RegisterExtension
+    @Order(1)
+    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("Restaurant", catalog)
+            .setRecordFile(Restaurant.getDescriptor())
+            .configureTable("RestaurantRecord", table -> {
+                table.setRecordTypeKey(0);
+                table.setPrimaryKey(Key.Expressions.recordType());
+            })
+            .addIndex("RestaurantRecord",
+                    new Index("record_rt_covering_idx", Key.Expressions.keyWithValue(
+                            Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("rest_no"), Key.Expressions.field("name")), 2), IndexTypes.VALUE))
+            .configureTable("RestaurantReviewer", table -> {
+                table.setRecordTypeKey(1);
+                table.setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id")));
+            });
 
-        builder.addIndex("RestaurantRecord", new Index("record_rt_covering_idx",
-                Key.Expressions.keyWithValue(
-                        Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("rest_no"), Key.Expressions.field("name")), 2), IndexTypes.VALUE));
-        final RecordTypeBuilder reviewerBuilder = builder.getRecordType("RestaurantReviewer");
-        reviewerBuilder.setRecordTypeKey(1);
-        reviewerBuilder.setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id")));
+    @RegisterExtension
+    @Order(2)
+    public final DatabaseRule database = new DatabaseRule("type_key_db", catalog)
+            .withSchema("main", template);
 
-        catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
+    @RegisterExtension
+    @Order(3)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(database)
+            .withOptions(Options.create().withOption(OperationOption.forceVerifyDdl()))
+            .withSchema("main");
 
-        catalog.createDatabase(URI.create("/type_key_db"),
-                DatabaseTemplate.newBuilder()
-                        .withSchema("main", "Restaurant")
-                        .build());
-
-    }
-
-    @AfterEach
-    void tearDown() throws RelationalException {
-        catalog.deleteDatabase(URI.create("/type_key_db"));
-    }
+    @RegisterExtension
+    @Order(4)
+    public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test
     void testPrimaryKeyWithOnlyRecordTypeKey() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(dbUrl, Options.create())) {
-            dbConn.setSchema("main");
-            dbConn.beginTransaction();
-            try (RelationalStatement s = dbConn.createStatement()) {
-                long id = System.currentTimeMillis();
-                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
-                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
-                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
+        long id = System.currentTimeMillis();
+        Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
+        int count = statement.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
+        Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-                Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setId(id + 1).setName("review").build();
-                count = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer), Options.create());
-                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
+        Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setId(id + 1).setName("review").build();
+        count = statement.executeInsert("RestaurantReviewer", Collections.singleton(reviewer), Options.create());
+        Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-                // Only scan the "RestaurantRecord" table
-                TableScan scan = TableScan.newBuilder()
-                        .withTableName("RestaurantRecord")
-                        .build();
-                try (final RelationalResultSet resultSet = s.executeScan(scan, Options.create())) {
-                    // Only 1 RestaurantRecord is expected to be returned
-                    Assertions.assertNotNull(resultSet, "No result set returned!");
-                    Assertions.assertTrue(resultSet.next(), "No records returned from scanning");
-                    Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
-                    Message m = resultSet.parseMessage();
-                    Assertions.assertEquals(record, m, "Did not return the correct message!");
-                    Assertions.assertFalse(resultSet.next(), "More than 1 record returned from scanning, which is unexpected");
-                }
-            }
+        // Only scan the "RestaurantRecord" table
+        TableScan scan = TableScan.newBuilder()
+                .withTableName("RestaurantRecord")
+                .build();
+        try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.create())) {
+            // Only 1 RestaurantRecord is expected to be returned
+            Assertions.assertNotNull(resultSet, "No result set returned!");
+            Assertions.assertTrue(resultSet.next(), "No records returned from scanning");
+            Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
+            Message m = resultSet.parseMessage();
+            Assertions.assertEquals(record, m, "Did not return the correct message!");
+            Assertions.assertFalse(resultSet.next(), "More than 1 record returned from scanning, which is unexpected");
         }
     }
 
     @Test
     void testScanningWithUnknownKeys() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(dbUrl, Options.create())) {
-            dbConn.setSchema("main");
-            dbConn.beginTransaction();
-            try (RelationalStatement s = dbConn.createStatement()) {
-                long id = System.currentTimeMillis();
-                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
-                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
-                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
+        long id = System.currentTimeMillis();
+        Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
+        int count = statement.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
+        Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-                TableScan scan = TableScan.newBuilder()
-                        .withTableName("RestaurantRecord")
-                        .setStartKey("rest_no", id)
-                        .setEndKey("rest_no", id + 1)
-                        .build();
-                // Scan is expected to rejected because it uses fields which are not included in primary key
-                RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> s.executeScan(scan, Options.create()));
-                Assertions.assertEquals("Unknown keys for primary key of <RestaurantRecord>, unknown keys: <REST_NO>", exception.getMessage());
-                Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
-            }
-        }
+        TableScan scan = TableScan.newBuilder()
+                .withTableName("RestaurantRecord")
+                .setStartKey("rest_no", id)
+                .setEndKey("rest_no", id + 1)
+                .build();
+        // Scan is expected to rejected because it uses fields which are not included in primary key
+        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> statement.executeScan(scan, Options.create()));
+        Assertions.assertEquals("Unknown keys for primary key of <RestaurantRecord>, unknown keys: <REST_NO>", exception.getMessage());
+        Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
     }
 
     @Test
     void canGetWithRecordTypeInPrimaryKey() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(dbUrl, Options.create())) {
-            dbConn.setSchema("main");
-            dbConn.beginTransaction();
-            try (RelationalStatement s = dbConn.createStatement()) {
-                long id = System.currentTimeMillis();
-                Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setId(id).setName("review_1").build();
-                int count = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer), Options.create());
-                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
+        long id = System.currentTimeMillis();
+        Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setId(id).setName("review_1").build();
+        int count = statement.executeInsert("RestaurantReviewer", Collections.singleton(reviewer), Options.create());
+        Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-                try (final RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", id), Options.create())) {
-                    Assertions.assertTrue(rrs.next(), "Did not return a record from a GET");
-                    //this should return the full protobuf, so it should support message parsing
-                    Assertions.assertTrue(rrs.supportsMessageParsing(), "Does not support message parsing!");
-                    Message m = rrs.parseMessage();
-                    Assertions.assertEquals(reviewer, m, "Did not return the correct message!");
-                }
-            }
+        try (final RelationalResultSet rrs = statement.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", id), Options.create())) {
+            Assertions.assertTrue(rrs.next(), "Did not return a record from a GET");
+            //this should return the full protobuf, so it should support message parsing
+            Assertions.assertTrue(rrs.supportsMessageParsing(), "Does not support message parsing!");
+            Message m = rrs.parseMessage();
+            Assertions.assertEquals(reviewer, m, "Did not return the correct message!");
         }
     }
 
     @Test
     void canGetWithRecordTypeKeyIndex() throws RelationalException, SQLException {
-        try (RelationalConnection dbConn = Relational.connect(dbUrl, Options.create())) {
-            dbConn.setSchema("main");
-            dbConn.beginTransaction();
-            try (RelationalStatement s = dbConn.createStatement()) {
-                long id = System.currentTimeMillis();
-                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
-                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
-                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
+        long id = System.currentTimeMillis();
+        Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
+        int count = statement.executeInsert("RestaurantRecord", Collections.singleton(record), Options.create());
+        Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-                try (final RelationalResultSet rrs = s.executeGet("RestaurantRecord",
-                        new KeySet().setKeyColumn("rest_no", id),
-                        Options.create().withOption(OperationOption.index("record_rt_covering_idx")))) {
-                    Assertions.assertTrue(rrs.next(), "Did not return a record from a GET");
-                    //this should be doing an index fetch, so it's not the full protobuf
-                    if (rrs.supportsMessageParsing()) {
-                        Message m = rrs.parseMessage();
-                        Assertions.assertEquals(record, m, "Did not return the correct message!");
-                    } else {
-                        //match the records returned
-                        Assertions.assertEquals(record.getName(), rrs.getString("name"), "Incorrect returned name!");
-                        Assertions.assertEquals(record.getRestNo(), rrs.getLong("rest_no"), "Incorrect returned Rest no!");
-                    }
-                }
+        try (final RelationalResultSet rrs = statement.executeGet("RestaurantRecord",
+                new KeySet().setKeyColumn("rest_no", id),
+                Options.create().withOption(OperationOption.index("record_rt_covering_idx")))) {
+            Assertions.assertTrue(rrs.next(), "Did not return a record from a GET");
+            //this should be doing an index fetch, so it's not the full protobuf
+            if (rrs.supportsMessageParsing()) {
+                Message m = rrs.parseMessage();
+                Assertions.assertEquals(record, m, "Did not return the correct message!");
+            } else {
+                //match the records returned
+                Assertions.assertEquals(record.getName(), rrs.getString("name"), "Incorrect returned name!");
+                Assertions.assertEquals(record.getRestNo(), rrs.getLong("rest_no"), "Incorrect returned Rest no!");
             }
         }
     }

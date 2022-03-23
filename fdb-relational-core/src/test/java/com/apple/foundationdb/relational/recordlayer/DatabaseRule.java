@@ -49,8 +49,8 @@ public class DatabaseRule implements BeforeEachCallback, AfterEachCallback {
         catalog.createDatabase(URI.create("/" + dbName), template.build());
     }
 
-    public DatabaseRule withSchema(String schema, String template) {
-        this.template.withSchema(schema, template);
+    public DatabaseRule withSchema(String schema, RecordLayerTemplateRule template) {
+        this.template.withSchema(schema, template.getTemplateName());
         return this;
     }
 

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.relational.api.OperationOption;
@@ -30,46 +28,37 @@ import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.Iterators;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.UUID;
 
 public class TransactionConfigTest {
     @RegisterExtension
+    @Order(0)
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
-    @BeforeEach
-    public final void setupCatalog() throws RelationalException {
-        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
-        builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
-        catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
+    @RegisterExtension
+    @Order(1)
+    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("RestaurantRecord", catalog)
+            .setRecordFile(Restaurant.getDescriptor())
+            .configureTable("RestaurantRecord", table -> table.setPrimaryKey(Key.Expressions.field("rest_no")));
 
-        catalog.createDatabase(URI.create("/record_layer_transaction_config_test"),
-                DatabaseTemplate.newBuilder()
-                        .withSchema("test", "RestaurantRecord")
-                        .build());
-    }
-
-    @AfterEach
-    void tearDown() throws RelationalException {
-        catalog.deleteDatabase(URI.create("/record_layer_transaction_config_test"));
-    }
+    @RegisterExtension
+    @Order(2)
+    public final DatabaseRule database = new DatabaseRule("record_layer_transaction_config_test", catalog)
+            .withSchema("test", template);
 
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
-        final URI dbUrl = URI.create("jdbc:embed:/record_layer_transaction_config_test");
-        try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction(testTransactionConfig());
             conn.setSchema("test");
             try (RelationalStatement s = conn.createStatement()) {

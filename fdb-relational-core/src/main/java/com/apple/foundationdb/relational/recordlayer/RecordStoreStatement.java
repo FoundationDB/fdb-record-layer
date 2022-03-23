@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Descriptors;
@@ -108,7 +109,7 @@ public class RecordStoreStatement implements RelationalStatement {
             recQueryBuilder.setFilter(WhereClauseUtils.convertClause(query.getWhereClause()));
         }
 
-        final QueryScannable scannable = new QueryScannable(conn.frl.loadSchema(query.getSchema(), options), recQueryBuilder.build(), queryColumns.toArray(new String[0]), query.isExplain());
+        final QueryScannable scannable = new QueryScannable(conn.frl.loadSchema(schemaAndTable[0], options), recQueryBuilder.build(), queryColumns.toArray(new String[0]), query.isExplain());
         return new RecordLayerResultSet(scannable, null, null, conn, query.getQueryOptions(), options.getOption(OperationOption.CONTINUATION_NAME, null));
     }
 
@@ -175,34 +176,16 @@ public class RecordStoreStatement implements RelationalStatement {
 
         Table table = schema.loadTable(schemaAndTable[1], options);
 
-        int rowCount = 0;
-        RelationalException err = null;
-        try {
+        return executeMutation(() -> {
+            int rowCount = 0;
             while (data.hasNext()) {
                 Message message = data.next();
                 if (table.insertRecord(message)) {
                     rowCount++;
                 }
             }
-            if (conn.getAutoCommit()) {
-                conn.commit();
-            }
-
-        } catch (RuntimeException | SQLException re) {
-            err = RelationalException.convert(re);
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ve) {
-                    err.addSuppressed(ve);
-                }
-            }
-        }
-
-        if (err != null) {
-            throw err;
-        }
-        return rowCount;
+            return rowCount;
+        });
     }
 
     @Override
@@ -218,10 +201,9 @@ public class RecordStoreStatement implements RelationalStatement {
         Table table = schema.loadTable(schemaAndTable[1], options);
 
         Scannable source = getSourceScannable(options, table);
-        NestableTuple toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
-        int count = 0;
-        RelationalException err = null;
-        try {
+        return executeMutation(() -> {
+            int count = 0;
+            NestableTuple toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
             while (toDelete != null) {
                 if (table.deleteRecord(toDelete)) {
                     count++;
@@ -231,10 +213,23 @@ public class RecordStoreStatement implements RelationalStatement {
                     toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
                 }
             }
+            return count;
+        });
+    }
+
+    private interface Mutation {
+        int execute() throws SQLException, RelationalException;
+    }
+
+    private int executeMutation(Mutation mutation) throws RelationalException {
+        int count = 0;
+        RelationalException err = null;
+        try {
+            count = mutation.execute();
             if (conn.getAutoCommit()) {
                 conn.commit();
             }
-        } catch (RuntimeException | SQLException re) {
+        } catch (RuntimeException | RelationalException | SQLException re) {
             err = RelationalException.convert(re);
             if (conn.getAutoCommit()) {
                 try {
@@ -251,6 +246,7 @@ public class RecordStoreStatement implements RelationalStatement {
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public Continuation getContinuation() throws RelationalException {
         throw new OperationUnsupportedException("Not Implemented in the Relational layer");
     }

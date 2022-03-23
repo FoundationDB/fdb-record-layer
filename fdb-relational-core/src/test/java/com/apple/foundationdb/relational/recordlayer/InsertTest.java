@@ -20,13 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
@@ -35,14 +32,12 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -53,29 +48,22 @@ import java.util.function.Consumer;
 
 public class InsertTest {
     @RegisterExtension
+    @Order(0)
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
-    @BeforeEach
-    public final void setupCatalog() throws RelationalException {
-        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
-        RecordTypeBuilder recordBuilder = builder.getRecordType("RestaurantRecord");
-        recordBuilder.setRecordTypeKey(0);
+    @RegisterExtension
+    @Order(1)
+    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("Restaurant", catalog)
+            .setRecordFile(Restaurant.getDescriptor())
+            .configureTable("RestaurantRecord", table -> table.setRecordTypeKey(0))
+            .addIndex("RestaurantRecord", new Index("record_type_covering",
+                    Key.Expressions.keyWithValue(
+                            Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("rest_no"), Key.Expressions.field("name")), 2), IndexTypes.VALUE));
 
-        builder.addIndex("RestaurantRecord", new Index("record_type_covering",
-                Key.Expressions.keyWithValue(
-                        Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("rest_no"), Key.Expressions.field("name")), 2), IndexTypes.VALUE));
-        catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
-
-        catalog.createDatabase(URI.create("/insert_test"),
-                DatabaseTemplate.newBuilder()
-                        .withSchema("main", "Restaurant")
-                        .build());
-    }
-
-    @AfterEach
-    void tearDown() throws RelationalException {
-        catalog.deleteDatabase(URI.create("/insert_test"));
-    }
+    @RegisterExtension
+    @Order(2)
+    public final DatabaseRule database = new DatabaseRule("insert_test", catalog)
+            .withSchema("main", template);
 
     @Test
     void canInsertWithMultipleRecordTypes() throws RelationalException, SQLException {
