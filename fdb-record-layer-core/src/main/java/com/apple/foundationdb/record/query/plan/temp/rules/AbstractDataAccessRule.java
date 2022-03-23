@@ -87,7 +87,7 @@ import java.util.stream.StreamSupport;
  * </ul>
  *
  * The logic that this rules delegates to to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(PartialMatch)}.
+ * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch)}.
  * @param <R> sub type of {@link RelationalExpression}
  */
 @API(API.Status.EXPERIMENTAL)

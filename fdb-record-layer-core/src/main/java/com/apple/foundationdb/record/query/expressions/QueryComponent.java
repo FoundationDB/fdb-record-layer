@@ -164,8 +164,8 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      * Expand this query component into a data flow graph. The returned graph represents an adequate representation
      * of the component as composition of relational expressions and operators.
      * @param baseQuantifier a quantifier that flows the data for this level of expansion
-     * @param outerQuantifierSupplier a supplier that creates generates additional base accesses for the purpose of
-     *        creating semi joins with the actual outer base referred to by means of {@code baseAlias}
+     * @param outerQuantifierSupplier a supplier that can create additional base accesses for the purpose of
+     *        constructing semi joins with the actual outer base referred to by means of {@code baseAlias}
      * @param fieldNamePrefix a list of field names that accumulate a field nesting chain for non-repeated fields
      * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
      * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand

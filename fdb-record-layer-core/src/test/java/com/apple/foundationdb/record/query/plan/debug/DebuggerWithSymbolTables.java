@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -50,7 +49,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     private final Deque<State> stateStack;
 
     @Nullable
-    private RecordQuery recordQuery;
+    private String queryAsString;
     @Nullable
     private PlanContext planContext;
 
@@ -110,9 +109,9 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Override
-    public void onQuery(@Nonnull final RecordQuery recordQuery, @Nonnull final PlanContext planContext) {
+    public void onQuery(@Nonnull final String recordQuery, @Nonnull final PlanContext planContext) {
         this.stateStack.push(State.copyOf(getCurrentState()));
-        this.recordQuery = recordQuery;
+        this.queryAsString = recordQuery;
         this.planContext = planContext;
 
         logQuery();
@@ -125,7 +124,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public void onEvent(final Event event) {
-        Objects.requireNonNull(recordQuery);
+        Objects.requireNonNull(queryAsString);
         Objects.requireNonNull(planContext);
         getCurrentState().addCurrentEvent(event);
     }
@@ -192,13 +191,11 @@ public class DebuggerWithSymbolTables implements Debugger {
         this.stateStack.clear();
         this.stateStack.push(State.initial());
         this.planContext = null;
-        this.recordQuery = null;
+        this.queryAsString = null;
     }
 
     void logQuery() {
-        getSilently("query.toString()", () -> Objects.requireNonNull(recordQuery).toString())
-                .ifPresent(queryAsString ->
-                        logger.debug(KeyValueLogMessage.of("planning started", "query", queryAsString)));
+        logger.debug(KeyValueLogMessage.of("planning started", "query", queryAsString));
     }
 
     @Nonnull

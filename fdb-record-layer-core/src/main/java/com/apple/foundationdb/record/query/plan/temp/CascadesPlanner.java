@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfo;
@@ -49,8 +50,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -183,6 +186,7 @@ import java.util.function.Supplier;
  * @see PlannerRule
  * @see CascadesCostModel
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class CascadesPlanner implements QueryPlanner {
     @Nonnull
@@ -197,7 +201,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private final PlannerRuleSet ruleSet;
     @Nonnull
-    private GroupExpressionRef<RelationalExpression> currentRoot;
+    private GroupExpressionRef<? extends RelationalExpression> currentRoot;
     @Nonnull
     private AliasResolver aliasResolver;
     @Nonnull
@@ -314,14 +318,40 @@ public class CascadesPlanner implements QueryPlanner {
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
         final PlanContext context = new MetaDataPlanContext(configuration, metaData, recordStoreState, query);
-        Debugger.query(query, context);
         try {
             planPartial(context,
-                    () -> RelationalExpression.fromRecordQuery(context, query));
+                    () -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(context, query)));
+        } finally {
+            Debugger.withDebugger(Debugger::onDone);
+        }
+        
+        return resultOrFail();
+    }
+
+    @Nonnull
+    public RecordQueryPlan planGraph(@Nonnull Supplier<GroupExpressionRef<? extends RelationalExpression>> expressionRefSupplier,
+                                     @Nonnull final Optional<Collection<String>> recordTypeNamesOptional,
+                                     @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
+                                     @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
+                                     final boolean isSortReverse,
+                                     @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        final PlanContext context = new MetaDataPlanContext(configuration,
+                metaData,
+                recordStoreState,
+                recordTypeNamesOptional,
+                allowedIndexesOptional,
+                indexQueryabilityFilter,
+                isSortReverse);
+        try {
+            planPartial(context, expressionRefSupplier);
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
 
+        return resultOrFail();
+    }
+
+    private RecordQueryPlan resultOrFail() {
         final RelationalExpression singleRoot = currentRoot.getMembers().iterator().next();
         if (singleRoot instanceof RecordQueryPlan) {
             if (logger.isDebugEnabled()) {
@@ -332,13 +362,14 @@ public class CascadesPlanner implements QueryPlanner {
             return (RecordQueryPlan)singleRoot;
         } else {
             throw new RecordCoreException("Cascades planner could not plan query")
-                    .addLogInfo("query", query)
                     .addLogInfo("finalExpression", currentRoot.get());
         }
     }
 
-    private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
-        currentRoot = GroupExpressionRef.of(expressionSupplier.get());
+    private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<GroupExpressionRef<? extends RelationalExpression>> expressionRefSupplier) {
+        currentRoot = expressionRefSupplier.get();
+        final RelationalExpression expression = currentRoot.get();
+        Debugger.withDebugger(debugger -> debugger.onQuery(expression.toString(), context));
         aliasResolver = AliasResolver.withRoot(currentRoot);
         Debugger.show(currentRoot);
         taskStack = new ArrayDeque<>();
@@ -379,7 +410,7 @@ public class CascadesPlanner implements QueryPlanner {
                             "memo", new GroupExpressionPrinter(currentRoot)));
                 }
                 taskStack.clear();
-                currentRoot = GroupExpressionRef.of(expressionSupplier.get());
+                currentRoot = expressionRefSupplier.get();
                 taskStack.push(new OptimizeGroup(context, currentRoot));
             }
         }

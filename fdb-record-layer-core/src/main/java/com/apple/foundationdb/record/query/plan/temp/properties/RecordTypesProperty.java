@@ -41,12 +41,14 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpres
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -55,16 +57,17 @@ import java.util.stream.Collectors;
  * could produce. This property is used in determining whether type filters are necessary, among other things.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RecordTypesProperty implements PlannerProperty<Set<String>> {
     @Nonnull
     private final PlanContext context;
     @Nonnull
-    private final AliasResolver aliasResolver;
+    private final Optional<AliasResolver> aliasResolverOptional;
 
     private RecordTypesProperty(@Nonnull PlanContext context,
-                                @Nonnull AliasResolver aliasResolver) {
+                                @Nonnull Optional<AliasResolver> aliasResolverOptional) {
         this.context = context;
-        this.aliasResolver = aliasResolver;
+        this.aliasResolverOptional = aliasResolverOptional;
     }
 
     @Nonnull
@@ -93,7 +96,9 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
             // try to see if the leaf expression is correlated and follow up the correlations
             final Set<String> recordTypes = Sets.newHashSet();
             for (final CorrelationIdentifier alias : expression.getCorrelatedTo()) {
-                final Set<Quantifier> quantifiers = aliasResolver.resolveCorrelationAlias(expression, alias);
+                final Set<Quantifier> quantifiers = aliasResolverOptional
+                        .map(aliasResolver -> aliasResolver.resolveCorrelationAlias(expression, alias))
+                        .orElse(ImmutableSet.of());
                 for (final Quantifier quantifier : quantifiers) {
                     recordTypes.addAll(Objects.requireNonNull(quantifier.getRangesOver().acceptPropertyVisitor(this)));
                 }
@@ -152,15 +157,21 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
 
     @Nonnull
     public static Set<String> evaluate(@Nonnull PlanContext context,
+                                       @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, Optional.empty())));
+    }
+
+    @Nonnull
+    public static Set<String> evaluate(@Nonnull PlanContext context,
                                        @Nonnull AliasResolver aliasResolver,
                                        @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, aliasResolver)));
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, Optional.of(aliasResolver))));
     }
 
     @Nonnull
     public static Set<String> evaluate(@Nonnull PlanContext context,
                                        @Nonnull AliasResolver aliasResolver,
                                        @Nonnull RelationalExpression ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, aliasResolver)));
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, Optional.of(aliasResolver))));
     }
 }
