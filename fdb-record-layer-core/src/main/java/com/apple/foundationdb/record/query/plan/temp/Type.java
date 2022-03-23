@@ -437,13 +437,10 @@ public interface Type extends Narrowable<Type> {
          * Memoized hash function.
          */
         @Nonnull
-        private final Supplier<Integer> memoizedHashFunction;
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-        /**
-         * Constructs a new instance of {@link Any} type.
-         */
-        public Any() {
-            this.memoizedHashFunction = Suppliers.memoize(() -> Objects.hash(getTypeCode().hashCode(), isNullable()));
+        private int computeHashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable());
         }
 
         /**
@@ -485,7 +482,7 @@ public interface Type extends Narrowable<Type> {
 
         @Override
         public int hashCode() {
-            return memoizedHashFunction.get();
+            return hashCodeSupplier.get();
         }
 
         @Override
@@ -544,7 +541,11 @@ public interface Type extends Narrowable<Type> {
          * Memoized hash function.
          */
         @Nonnull
-        private final Supplier<Integer> memoizedHashFunction;
+        private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashCode);
+
+        private int computeHashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), fields);
+        }
 
         /**
          * Constructs a new {@link Record} using a list of {@link Field}s.
@@ -557,7 +558,6 @@ public interface Type extends Narrowable<Type> {
             this.fields = fields == null ? null : normalizeFields(fields);
             this.fieldTypeMapSupplier = Suppliers.memoize(this::computeFieldTypeMap);
             this.elementTypesSupplier = Suppliers.memoize(this::computeElementTypes);
-            this.memoizedHashFunction = Suppliers.memoize(() -> Objects.hash(getTypeCode().hashCode(), isNullable(), fields));
         }
 
         /**
@@ -672,7 +672,7 @@ public interface Type extends Narrowable<Type> {
 
         @Override
         public int hashCode() {
-            return memoizedHashFunction.get();
+            return hashFunctionSupplier.get();
         }
 
         @Override
@@ -934,7 +934,11 @@ public interface Type extends Narrowable<Type> {
              * Memoized hash function.
              */
             @Nonnull
-            private final Supplier<Integer> memoizedHashFunction;
+            private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashFunction);
+
+            private int computeHashFunction() {
+                return Objects.hash(getFieldType(), getFieldNameOptional(), getFieldIndexOptional());
+            }
 
             /**
              * Constructs a new field.
@@ -947,7 +951,6 @@ public interface Type extends Narrowable<Type> {
                 this.fieldType = fieldType;
                 this.fieldNameOptional = fieldNameOptional;
                 this.fieldIndexOptional = fieldIndexOptional;
-                this.memoizedHashFunction = Suppliers.memoize(() -> Objects.hash(getFieldType(), getFieldNameOptional(), getFieldIndexOptional()));
             }
 
             /**
@@ -1014,7 +1017,7 @@ public interface Type extends Narrowable<Type> {
 
             @Override
             public int hashCode() {
-                return memoizedHashFunction.get();
+                return hashFunctionSupplier.get();
             }
 
             /**
@@ -1063,7 +1066,11 @@ public interface Type extends Narrowable<Type> {
          * Memoized hash function.
          */
         @Nonnull
-        private final Supplier<Integer> memoizedHashFunction;
+        private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashFunction);
+
+        private int computeHashFunction() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), innerType);
+        }
 
         /**
          * Constructs a new {@link Relation} object without a value type.
@@ -1079,7 +1086,6 @@ public interface Type extends Narrowable<Type> {
          */
         public Relation(@Nullable final Type innerType) {
             this.innerType = innerType;
-            this.memoizedHashFunction = Suppliers.memoize(() -> Objects.hash(getTypeCode().hashCode(), isNullable(), innerType));
         }
 
         /**
@@ -1143,7 +1149,7 @@ public interface Type extends Narrowable<Type> {
 
         @Override
         public int hashCode() {
-            return memoizedHashFunction.get();
+            return hashFunctionSupplier.get();
         }
 
         @Override
@@ -1198,7 +1204,11 @@ public interface Type extends Narrowable<Type> {
          * Memoized hash function.
          */
         @Nonnull
-        private final Supplier<Integer> memoizedHashFunction;
+        private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashFunction);
+
+        private int computeHashFunction() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), elementType);
+        }
 
         /**
          * Constructs a new <i>nullable</i> array type instance without a value {@link Type}.
@@ -1225,7 +1235,6 @@ public interface Type extends Narrowable<Type> {
         public Array(final boolean isNullable, @Nullable final Type elementType) {
             this.isNullable = isNullable;
             this.elementType = elementType;
-            this.memoizedHashFunction = Suppliers.memoize(() -> Objects.hash(getTypeCode().hashCode(), isNullable(), elementType));
         }
 
         /**
@@ -1320,7 +1329,7 @@ public interface Type extends Narrowable<Type> {
 
         @Override
         public int hashCode() {
-            return memoizedHashFunction.get();
+            return hashFunctionSupplier.get();
         }
 
         @Override
