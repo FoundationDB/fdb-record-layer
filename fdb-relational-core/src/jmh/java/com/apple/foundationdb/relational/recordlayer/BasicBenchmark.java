@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.query.ValueComparisonClause
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
@@ -63,21 +64,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Threads(Threads.MAX)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class BasicBenchmark extends EmbeddedRelationalBenchmark {
-    final String dbName = "/BasicBenchmark";
-    final String singleReadSchema = "singleReadSchema";
-    final String singleWriteSchema = "singleWriteSchema";
+    static final String dbName = "/BasicBenchmark";
+    static final String singleReadSchema = "singleReadSchema";
+    static final String singleWriteSchema = "singleWriteSchema";
     AtomicInteger restNo = new AtomicInteger();
 
-    @Setup
-    public void setUp() throws RelationalException, SQLException {
-        super.setUp();
-        createDatabase(
+    @Setup(Level.Iteration)
+    public void setUp(Driver driver, ThreadScopedDatabases databases) throws RelationalException, SQLException {
+        databases.createDatabase(
+                driver,
                 DatabaseTemplate.newBuilder()
                         .withSchema(singleReadSchema, restaurantRecord)
                         .withSchema(singleWriteSchema, restaurantRecord)
                         .build(),
-                getUri(dbName, false),
-                0);
+                dbName);
 
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
             dbConn.setSchema(singleReadSchema);
@@ -108,7 +108,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
-                Queryable query = new RelationalQuery(restaurantRecord, singleReadSchema, List.of("rest_no"), null, false, QueryProperties.DEFAULT);
+                WhereClause clause = new ValueComparisonClause("rest_no", ValueComparisonClause.ComparisonType.EQUALS, 42L);
+                Queryable query = new RelationalQuery(restaurantRecord, singleReadSchema, List.of("rest_no"), clause, false, QueryProperties.DEFAULT);
                 RelationalResultSet resultSet = stmt.executeQuery(query, com.apple.foundationdb.relational.api.Options.create());
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));

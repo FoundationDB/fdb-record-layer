@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.query.ValueComparisonClause
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
@@ -50,6 +51,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import java.net.URI;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.List;
@@ -73,29 +75,25 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
     @Param({"1", "10", "100", "1000", "10000"})
     int dbCount;
 
-    @Setup
-    public void setUp() throws SQLException, RelationalException {
-        System.out.printf("Creating and populating %s databases...%n", dbCount);
+    @Setup(Level.Trial)
+    public void setUp(Driver driver, BenchmarkScopedDatabases databases) throws RelationalException {
+        System.out.printf("Creating %s databases...%n", dbCount);
         long startTime = System.nanoTime();
-        super.setUp();
-        IntStream.range(0, dbCount).parallel().forEach(i ->
-        {
-            try {
-                createAndPopulateDatabase(i);
-            } catch (RelationalException e) {
-                throw e.toUncheckedWrappedException();
-            } catch (SQLException e) {
-                throw RelationalException.convert(e).toUncheckedWrappedException();
-            }
-        });
+        databases.createMultipleDatabases(driver,
+                DatabaseTemplate.newBuilder()
+                        .withSchema(schema, restaurantRecord)
+                        .build(),
+                dbCount,
+                this::dbName,
+                this::populateDatabase);
         long endTime = System.nanoTime();
         System.out.printf("Done in %s %n.", Duration.ofNanos(endTime - startTime));
     }
 
     @Benchmark
     public void singleRead(Blackhole bh) throws SQLException, RelationalException {
-        int dbId = ThreadLocalRandom.current().nextInt(0, createdDatabases.size());
-        try (RelationalConnection dbConn = Relational.connect(getUri(createdDatabases.get(dbId).toString(), true), com.apple.foundationdb.relational.api.Options.create())) {
+        long dbId = ThreadLocalRandom.current().nextInt(0, dbCount);
+        try (RelationalConnection dbConn = Relational.connect(getUri(dbName(dbId), true), com.apple.foundationdb.relational.api.Options.create())) {
             dbConn.setSchema(schema);
             long restId = ThreadLocalRandom.current().nextInt(1, dbSize + 1);
             try (RelationalStatement stmt = dbConn.createStatement()) {
@@ -109,15 +107,8 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
         }
     }
 
-    private void createAndPopulateDatabase(int dbId) throws RelationalException, SQLException {
-        createDatabase(
-                DatabaseTemplate.newBuilder()
-                        .withSchema(schema, restaurantRecord)
-                        .build(),
-                getUri(dbName(dbId), false),
-                dbId);
-
-        try (RelationalConnection dbConn = Relational.connect(getUri(dbName(dbId), true), com.apple.foundationdb.relational.api.Options.create())) {
+    private void populateDatabase(URI uri) {
+        try (RelationalConnection dbConn = Relational.connect(uri, com.apple.foundationdb.relational.api.Options.create())) {
             dbConn.setSchema(schema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(
@@ -125,6 +116,10 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
                         records,
                         com.apple.foundationdb.relational.api.Options.create());
             }
+        } catch (SQLException e) {
+            throw RelationalException.convert(e).toUncheckedWrappedException();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
         }
     }
 
