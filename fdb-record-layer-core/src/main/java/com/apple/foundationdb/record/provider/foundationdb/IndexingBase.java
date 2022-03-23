@@ -91,6 +91,7 @@ public abstract class IndexingBase {
     @Nonnull
     private final IndexingThrottle throttle;
     private final boolean isScrubber;
+    protected final IndexState expectedIndexState;
 
     private long timeOfLastProgressLogMillis = 0;
     private boolean forceStampOverwrite = false;
@@ -108,7 +109,7 @@ public abstract class IndexingBase {
         this.common = common;
         this.policy = policy;
         this.isScrubber = isScrubber;
-        IndexState expectedIndexState = isScrubber ? IndexState.READABLE : IndexState.WRITE_ONLY;
+        this.expectedIndexState = isScrubber ? IndexState.READABLE : IndexState.WRITE_ONLY;
         this.throttle = new IndexingThrottle(common, expectedIndexState);
         this.startingTimeMillis = System.currentTimeMillis();
     }
@@ -775,7 +776,6 @@ public abstract class IndexingBase {
                 (context, startingLimit) -> {
                     common.loadConfig();
                     int limit = Math.max(startingLimit, common.config.getMaxLimit());
-                    // TODO check index state
                     AtomicBoolean hasMoreForHook = new AtomicBoolean(true);
                     AtomicLong recordsScanned = new AtomicLong(0);
                     context.addPostCommit(() -> {
@@ -788,7 +788,12 @@ public abstract class IndexingBase {
                         }
                     });
                     return common.openStoreAsync(context)
-                            .thenCompose(store -> iterateRange.consume(store, recordsScanned, limit))
+                            .thenCompose(store -> {
+                                // In a multi-target build, this will fail if one of the targets becomes readable
+                                // perhaps it shouldn't
+                                common.checkTargetIndexState(expectedIndexState, store);
+                                return iterateRange.consume(store, recordsScanned, limit);
+                            })
                             .whenComplete((hasMore, error) -> {
                                 if (hasMore != null) {
                                     hasMoreForHook.set(hasMore);

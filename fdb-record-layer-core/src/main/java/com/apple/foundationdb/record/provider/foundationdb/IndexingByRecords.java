@@ -243,7 +243,6 @@ public class IndexingByRecords extends IndexingBase {
                 LogMessageKeys.CALLING_METHOD, "buildEndpoints");
         additionalLogMessageKeyValues.addAll(common.indexLogMessageKeyValues());
         // TODO perhaps this should have different retry counts from the runAsyncInStore used in limittedRunner
-        // TODO should this check the index state?
         common.loadConfig();
         return common.getRunner().runAsync(
                 context -> {
@@ -253,7 +252,10 @@ public class IndexingByRecords extends IndexingBase {
                         return AsyncUtil.DONE;
                     });
                     return common.openStoreAsync(context)
-                            .thenCompose(store -> buildEndpoints(store, recordsScanned));
+                            .thenCompose(store -> {
+                                common.checkTargetIndexState(expectedIndexState, store);
+                                return buildEndpoints(store, recordsScanned);
+                            });
                 },
                 additionalLogMessageKeyValues);
     }
@@ -410,9 +412,11 @@ public class IndexingByRecords extends IndexingBase {
                         return handleBuiltRange(subspaceProvider, rangeDeque, startTuple, endTuple, realEnd, limit)
                                 .thenApply(vignore -> null);
                     });
-                    // TODO check index state
                     return common.openStoreAsync(context)
-                            .thenCompose(store -> buildUnbuiltRange(store, startTuple, endTuple, recordsScanned, limit))
+                            .thenCompose(store -> {
+                                common.checkTargetIndexState(expectedIndexState, store);
+                                return buildUnbuiltRange(store, startTuple, endTuple, recordsScanned, limit);
+                            })
                             .handle((realEnd, exception) -> {
                                 if (exception != null) {
                                     return handleFailedBuildRange(subspaceProvider, subspace, rangeSet, rangeDeque,

@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -220,6 +222,20 @@ public class IndexingCommon {
         return targetIndexContexts.stream().map(targetIndexContext -> targetIndexContext.index).collect(Collectors.toList());
     }
 
+    public void checkTargetIndexState(@Nonnull final IndexState expectedIndexState, @Nonnull final FDBRecordStore store) {
+        for (Index index: getTargetIndexes()) {
+            IndexState indexState = store.getIndexState(index);
+            if (indexState != expectedIndexState) {
+                throw new RecordCoreStorageException("Unexpected index state",
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        getRecordStoreBuilder().getSubspaceProvider().logKey(), getRecordStoreBuilder().getSubspaceProvider().toString(store.context),
+                        LogMessageKeys.INDEX_STATE, indexState,
+                        LogMessageKeys.INDEX_STATE_PRECONDITION, expectedIndexState)
+                        .addLogInfo(indexLogMessageKeyValues());
+            }
+        }
+    }
+
     @Nonnull
     public List<String> getTargetIndexesNames() {
         return getTargetIndexes().stream().map(Index::getName).collect(Collectors.toList());
@@ -236,14 +252,6 @@ public class IndexingCommon {
     @Nonnull
     public FDBRecordStore.Builder getRecordStoreBuilder() {
         return recordStoreBuilder;
-    }
-
-    public <R> CompletableFuture<R> runAsyncInStore(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> runner,
-                                                    @Nonnull final List<Object> additionalLogMessageKeyValues) {
-        // TODO should this just add common info to the log values
-        // TODO should this check the index state?
-        return getRunner().runAsync(context -> openStoreAsync(context).thenCompose(runner),
-                additionalLogMessageKeyValues);
     }
 
     @Nonnull
