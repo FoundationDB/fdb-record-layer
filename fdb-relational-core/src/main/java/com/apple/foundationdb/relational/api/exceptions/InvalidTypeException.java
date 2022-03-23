@@ -30,8 +30,4 @@ public class InvalidTypeException extends RelationalException {
     public InvalidTypeException(String message, Throwable cause) {
         super(message, ErrorCode.CANNOT_CONVERT_TYPE, cause);
     }
-
-    public InvalidTypeException(Throwable cause) {
-        super(ErrorCode.CANNOT_CONVERT_TYPE, cause);
-    }
 }

@@ -28,14 +28,6 @@ public class InvalidColumnReferenceException extends RelationalException {
         super(message, ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
-    public InvalidColumnReferenceException(String message, Throwable cause) {
-        super(message, ErrorCode.INVALID_COLUMN_REFERENCE, cause);
-    }
-
-    public InvalidColumnReferenceException(Throwable cause) {
-        super(ErrorCode.INVALID_COLUMN_REFERENCE, cause);
-    }
-
     public static InvalidColumnReferenceException getExceptionForInvalidPositionNumber(int position) {
         return new InvalidColumnReferenceException(MESSAGE_PREFIX_FOR_INVALID_POSITION_NUMBER + position);
     }

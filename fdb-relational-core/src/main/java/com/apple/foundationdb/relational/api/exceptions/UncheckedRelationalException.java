@@ -30,5 +30,4 @@ public class UncheckedRelationalException extends RuntimeException {
     public RelationalException unwrap() {
         return (RelationalException) this.getCause();
     }
-
 }
