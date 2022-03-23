@@ -55,8 +55,8 @@ public class LimitedRunner implements AutoCloseable {
     private int decreaseLimitAfter = 10;
     private int maxDecreaseRetries = 100;
     private int successCount = 0;
-    private int retriesWithoutDecreasing = 0;
-    private int decreaseRetries = 0;
+    private int failuresSinceLastDecrease = 0;
+    private int failuresSinceLastSuccess = 0;
     private boolean closed = false;
 
     public LimitedRunner(final Executor executor, final int maxLimit) {
@@ -68,8 +68,8 @@ public class LimitedRunner implements AutoCloseable {
     public CompletableFuture<Void> runAsync(Runner runner) {
         final CompletableFuture<Void> overallResult = new CompletableFuture<>();
         successCount = 0;
-        decreaseRetries = 0;
-        retriesWithoutDecreasing = 0;
+        failuresSinceLastSuccess = 0;
+        failuresSinceLastDecrease = 0;
         AsyncUtil.whileTrue(() -> {
             if (closed) {
                 overallResult.completeExceptionally(new FDBDatabaseRunner.RunnerClosed());
@@ -87,7 +87,7 @@ public class LimitedRunner implements AutoCloseable {
 
     private Boolean handle(final CompletableFuture<Void> overallResult, final Boolean shouldContinue, final Throwable error) {
         if (error == null) {
-            decreaseRetries = 0;
+            failuresSinceLastSuccess = 0;
             successCount++;
             maybeIncreaseLimit();
             if (!shouldContinue) {
@@ -96,7 +96,7 @@ public class LimitedRunner implements AutoCloseable {
             return shouldContinue;
         } else {
             successCount = 0;
-            decreaseRetries++;
+            failuresSinceLastSuccess++;
             if (!maybeDecreaseLimit(error)) {
                 overallResult.completeExceptionally(error);
                 return false;
@@ -109,19 +109,22 @@ public class LimitedRunner implements AutoCloseable {
     private boolean maybeDecreaseLimit(final Throwable error) {
         FDBException fdbException = getFDBException(error);
         if (fdbException != null && isRetryable(fdbException)) {
-            retriesWithoutDecreasing++;
-            if (retriesWithoutDecreasing < decreaseLimitAfter) {
+            failuresSinceLastDecrease++;
+            if (failuresSinceLastDecrease < decreaseLimitAfter) {
                 return true;
             }
         }
         if (fdbException != null && lessenWorkCodes.contains(fdbException.getCode())) {
-            if (decreaseRetries > maxDecreaseRetries) {
+            if (failuresSinceLastSuccess > maxDecreaseRetries) {
                 return false;
             } else {
-                retriesWithoutDecreasing = 0;
+                failuresSinceLastDecrease = 0;
                 // TODO delay here
                 // TODO log
                 //      does the log need to include logging details from the runner
+                // Note: the way this works it means that if maxDecreaseRetries is substantially higher than
+                // the limit, it will retry at 1 many times. This might not make much sense, and instead it should
+                // only retry at one in the `isRetryable` path, and not here.
                 currentLimit = Math.max(1, (3 * currentLimit) / 4);
                 return true;
             }

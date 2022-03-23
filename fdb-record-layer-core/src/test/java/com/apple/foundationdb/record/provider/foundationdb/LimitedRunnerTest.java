@@ -122,6 +122,8 @@ class LimitedRunnerTest {
     @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
     @EnumSource(ExceptionStyle.class)
     void failWithRetryAndLessenWork(ExceptionStyle exceptionStyle) {
+        // If the exception being thrown is retriable, but could indicate that we are also doing too much
+        // work, we want to retry a few times at each limit.
         final RuntimeException cause = exceptionStyle.wrap(retryAndLessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
@@ -144,7 +146,12 @@ class LimitedRunnerTest {
         for (int i = 4; i < 6; i++) {
             String message = buildPointerMessage(limits, i);
             assertThat(message, limits.get(i), Matchers.lessThan(10));
-            assertEquals(limits.get(i - 1), limits.get(i), message);
+            assertEquals(limits.get(3), limits.get(i), message);
+        }
+        for (int i = 7; i < 9; i++) {
+            String message = buildPointerMessage(limits, i);
+            assertThat(message, limits.get(i), Matchers.lessThan(limits.get(5)));
+            assertEquals(limits.get(6), limits.get(i), message);
         }
     }
 
