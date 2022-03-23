@@ -240,13 +240,9 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(
-                LogMessageKeys.CALLING_METHOD, "buildEndpoints",
-                // TODO probably worthwhile to put a method in common to get the key/values
-                //      or perhaps these should be added in runAsyncInStore?
-                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                LogMessageKeys.INDEXER_ID, common.getUuid());
+                LogMessageKeys.CALLING_METHOD, "buildEndpoints");
+        additionalLogMessageKeyValues.addAll(common.indexLogMessageKeyValues());
         // TODO perhaps this should have different retry counts from the runAsyncInStore used in limittedRunner
-        // TODO should this just add common info to the log values
         // TODO should this check the index state?
         common.loadConfig();
         return common.getRunner().runAsync(
@@ -402,10 +398,8 @@ public class IndexingByRecords extends IndexingBase {
                     final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
                             LogMessageKeys.RANGE_START, startTuple,
                             LogMessageKeys.RANGE_END, endTuple,
-                            // TODO probably worthwhile to put a method in common to get the key/values
-                            LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                            LogMessageKeys.INDEXER_ID, common.getUuid(),
                             LogMessageKeys.LIMIT, limit);
+                    additionalLogMessageKeyValues.addAll(common.indexLogMessageKeyValues());
                     AtomicReference<Tuple> postCommitRealEnd = new AtomicReference<>(startTuple);
                     AtomicLong recordsScanned = new AtomicLong(0);
                     context.addPostCommit(() -> {

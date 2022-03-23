@@ -768,13 +768,9 @@ public abstract class IndexingBase {
                                                        @Nonnull SubspaceProvider subspaceProvider,
                                                        @Nonnull Subspace subspace) {
         final ArrayList<Object> logMessageKeyValues = new ArrayList<>(Arrays.asList(
-                LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
-                // TODO probably worthwhile to put a method in common to get the key/values
-                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                LogMessageKeys.INDEXER_ID, common.getUuid()));
+                LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())));
         logMessageKeyValues.addAll(additionalLogMessageKeyValues);
-        // TODO should this also add the target indexes and uuid from
-        // load the config before starting, in case the MaxLimit needs to be updated before it starts work
+        logMessageKeyValues.addAll(common.indexLogMessageKeyValues());
         return common.getLimitedRunner().runAsync(
                 (context, startingLimit) -> {
                     common.loadConfig();
