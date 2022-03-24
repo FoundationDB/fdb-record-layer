@@ -147,7 +147,6 @@ public class LimitedRunner implements AutoCloseable {
             } else {
                 failuresSinceLastDecrease = 0;
                 logRetryException("Decreasing limit", additionalLogMessageKeyValues, error, fdbException);
-                // TODO delay here
                 // Note: the way this works it means that if maxDecreaseRetries is substantially higher than
                 // the limit, it will retry at 1 many times. This might not make much sense, and instead it should
                 // only retry at one in the `isRetryable` path, and not here.

@@ -144,8 +144,6 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(isolationLevel)
-                // TODO we do this in a bunch of places, but I don't see anything that stops at limit, so I think this
-                //      just means that we always scan one more than the given limit
                 .setReturnedRowLimit(limit + 1); // always respect limit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
