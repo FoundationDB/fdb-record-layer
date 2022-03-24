@@ -224,12 +224,12 @@ public class KeyExpressionTest {
      * check un-suppressed.
      */
     @Test
-    public void testEmptyNotSerializable() {
+    void testEmptyNotSerializable() {
         assertThat(EmptyKeyExpression.EMPTY, not(instanceOf(Serializable.class)));
     }
 
     @Test
-    public void testScalarFieldAccess() throws Exception {
+    void testScalarFieldAccess() {
         final KeyExpression expression = field("field");
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertFalse(expression.createsDuplicates());
@@ -242,7 +242,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testFunctions() throws Exception {
+    void testFunctions() {
         final KeyExpression expression = function("substr", concat(field("field"), value(0), value(2)));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Collections.singletonList(scalar("Pl")),
@@ -254,7 +254,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testCharFunction() throws Exception {
+    void testCharFunction() {
         final KeyExpression expression = function("chars", field("field"));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(ImmutableList.of(scalar("n"), scalar("u"), scalar("m"), scalar("b"), scalar("e"), scalar("r"), scalar("s")),
@@ -262,21 +262,21 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testFunctionTooFewArguments() throws Exception {
+    void testFunctionTooFewArguments() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             function("two_min_three_max", field("field"));
         });
     }
 
     @Test
-    public void testFunctionTooManyArguments() throws Exception {
+    void testFunctionTooManyArguments() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             function("two_min_three_max", concat(field("field"), value(1), value(2), value(3)));
         });
     }
 
     @Test
-    public void testFunctionWrongColumnCount() throws Exception {
+    void testFunctionWrongColumnCount() {
         // two_min_three_max declares that it will return only one column, but it really returns the result of
         // the expression that is its argument, in this case, will return three columns.
         assertThrows(KeyExpression.InvalidResultException.class, () -> {
@@ -287,13 +287,13 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testFunctionNotExists() throws Exception {
+    void testFunctionNotExists() {
         assertThrows(KeyExpression.InvalidExpressionException.class,
                 () -> function("fooberries", field("field")));
     }
 
     @Test
-    public void testFunctionEvalToWrongType() throws Exception {
+    void testFunctionEvalToWrongType() {
         assertThrows(KeyExpression.InvalidResultException.class,
                 () -> {
                     final KeyExpression expression = function("substr", concat(field("field"), field("field"), value(2)));
@@ -303,7 +303,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testSubstrFunctionStaticFanout() throws Exception {
+    void testSubstrFunctionStaticFanout() {
         final KeyExpression expression = function("substr", concat(field("repeat_me", FanType.FanOut),value(0), value(3)));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         List<Key.Evaluated> results = evaluate(expression, plantsBoxesAndBowls);
@@ -312,7 +312,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testSubstrFunctionDynamicFanout() throws Exception {
+    void testSubstrFunctionDynamicFanout() {
         final KeyExpression expression = function("substr",
                 field("substrings", FanType.FanOut).nest(
                         concatenateFields("content", "start", "end")));
@@ -328,7 +328,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testConcatenateSingleRepeatedField() throws Exception {
+    void testConcatenateSingleRepeatedField() {
         final KeyExpression expression = field("repeat_me", FanType.Concatenate);
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertFalse(expression.createsDuplicates());
@@ -341,7 +341,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testFieldThenConcatenateRepeated() throws Exception {
+    void testFieldThenConcatenateRepeated() {
         final KeyExpression expression = Key.Expressions.concat(field("field"),
                 field("repeat_me", FanType.Concatenate));
         expression.validate(TestScalarFieldAccess.getDescriptor());
@@ -355,7 +355,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testFanSingleRepeatedField() throws Exception {
+    void testFanSingleRepeatedField() {
         final KeyExpression expression = field("repeat_me", FanType.FanOut);
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertTrue(expression.createsDuplicates());
@@ -368,35 +368,35 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testValidateFanRequiresRepeated() throws Exception {
+    void testValidateFanRequiresRepeated() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             field("field", FanType.FanOut).validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
     @Test
-    public void testValidateConcatenateRequiresRepeated() throws Exception {
+    void testValidateConcatenateRequiresRepeated() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             field("field", FanType.Concatenate).validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
     @Test
-    public void testValidateRepeatedRequiresFanType() throws Exception {
+    void testValidateRepeatedRequiresFanType() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             field("repeat_me").validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
     @Test
-    public void testValidateMissingField() throws Exception {
+    void testValidateMissingField() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             field("no_field_here").validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
     @Test
-    public void testScalarThenFanned() throws Exception {
+    void testScalarThenFanned() {
         final KeyExpression expression = concat(
                 field("field"),
                 field("repeat_me", FanType.FanOut));
@@ -413,7 +413,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testFannedThenScalar() throws Exception {
+    void testFannedThenScalar() {
         final KeyExpression expression = concat(
                 field("repeat_me", FanType.FanOut),
                 field("field"));
@@ -430,14 +430,14 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testValidateThenFailsOnFirst() throws Exception {
+    void testValidateThenFailsOnFirst() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             concat(field("repeat_me"), field("field")).validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
     @Test
-    public void testValidateThenFailsOnSecond() throws Exception {
+    void testValidateThenFailsOnSecond() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             concat(field("repeat_me", FanType.FanOut), field("field", FanType.FanOut))
                     .validate(TestScalarFieldAccess.getDescriptor());
@@ -445,7 +445,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testNestedScalars() throws Exception {
+    void testNestedScalars() {
         final KeyExpression expression = field("nesty").nest("regular_old_field");
         expression.validate(NestedField.getDescriptor());
         assertFalse(expression.createsDuplicates());
@@ -461,7 +461,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testNestedRepeats() throws Exception {
+    void testNestedRepeats() {
         final KeyExpression expression =
                 field("repeated_nesty", FanType.FanOut).nest("regular_old_field");
         expression.validate(NestedField.getDescriptor());
@@ -479,7 +479,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testNestedThenRepeats() throws Exception {
+    void testNestedThenRepeats() {
         final KeyExpression expression =
                 field("nesty").nest("repeated_field", FanType.FanOut);
         expression.validate(NestedField.getDescriptor());
@@ -497,7 +497,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testNestedThenRepeatsConcatentated() throws Exception {
+    void testNestedThenRepeatsConcatenated() {
         final KeyExpression expression =
                 field("nesty").nest("repeated_field", FanType.Concatenate);
         expression.validate(NestedField.getDescriptor());
@@ -513,7 +513,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testNestedThenConatenatedFields() throws Exception {
+    void testNestedThenConcatenatedFields() {
         final KeyExpression expression = field("nesty").nest(concatenateFields("regular_old_field", "regular_int_field"));
         expression.validate(NestedField.getDescriptor());
         assertFalse(expression.createsDuplicates());
@@ -528,38 +528,38 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testInvalidFanOnNested() throws Exception {
+    void testInvalidFanOnNested() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             field("nesty").nest("regular_old_field", FanType.FanOut).validate(NestedField.getDescriptor());
         });
     }
 
     @Test
-    public void testInvalidFanOnParentNested() throws Exception {
+    void testInvalidFanOnParentNested() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             field("repeated_nesty", FanType.Concatenate).nest("regular_old_field").validate(NestedField.getDescriptor());
         });
     }
 
     @Test
-    public void testInvalidDoubleNested() throws Exception {
+    void testInvalidDoubleNested() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             field("nesty").nest(field("nesty").nest("regular_old_field", FanType.FanOut)).validate(NestedField.getDescriptor());
         });
     }
 
     @Test
-    public void testValidDoubleNested() throws Exception {
+    void testValidDoubleNested() {
         field("nesty").nest(field("nesty").nest("repeated_field", FanType.FanOut)).validate(NestedField.getDescriptor());
     }
 
     @Test
-    public void testValidDoubleNested2() throws Exception {
+    void testValidDoubleNested2() {
         field("nesty2").nest(field("nesty3").nest("last_field")).validate(NestedField.getDescriptor());
     }
 
     @Test
-    public void testNestWithParentField() throws Exception {
+    void testNestWithParentField() {
         final KeyExpression expression = concat(
                 field("regular_old_field"),
                 field("repeated_nesty", FanType.FanOut).nest("regular_old_field"));
@@ -580,7 +580,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testNestWithParentField2() throws Exception {
+    void testNestWithParentField2() {
         final KeyExpression expression =
                 field("repeated_nesty", FanType.FanOut).nest(
                         field("regular_old_field"),
@@ -602,7 +602,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testDoubleNested() throws Exception {
+    void testDoubleNested() {
         final KeyExpression expression = concat(
                 field("id"),
                 field("order", FanType.FanOut).nest(
@@ -636,7 +636,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testDoubleNestedWithExtraConcats() throws Exception {
+    void testDoubleNestedWithExtraConcats() {
         final KeyExpression expressionWithConcats = concat(
                 field("id"),
                 field("order", FanType.FanOut).nest(
@@ -674,7 +674,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testThenFlattens() throws Exception {
+    void testThenFlattens() {
         final KeyExpression concat = concat(field("f1"),
                 concat(field("f2"), field("f3")),
                 field("f4"));
@@ -689,7 +689,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testList() throws Exception {
+    void testList() {
         final KeyExpression list = list(field("field"), field("repeat_me", FanType.Concatenate));
         list.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Collections.singletonList(concatenate(
@@ -699,7 +699,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testSerializeField() throws Exception {
+    void testSerializeField() {
         final FieldKeyExpression f1 = field("f1", FanType.FanOut, Key.Evaluated.NullStandin.NULL_UNIQUE);
         final FieldKeyExpression f1Deserialized = new FieldKeyExpression(f1.toProto());
         assertEquals("f1", f1Deserialized.getFieldName());
@@ -708,7 +708,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testSerializeThen() throws Exception {
+    void testSerializeThen() {
         final ThenKeyExpression concat = concat(field("f1"), field("f2"));
         final ThenKeyExpression then = new ThenKeyExpression(concat.toProto());
         assertEquals(2, then.getChildren().size());
@@ -716,7 +716,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testSerializeList() throws Exception {
+    void testSerializeList() {
         final ListKeyExpression list = list(field("f1"), field("f2"));
         final ListKeyExpression then = new ListKeyExpression(list.toProto());
         assertEquals(2, then.getChildren().size());
@@ -724,7 +724,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testSerializeNesting() throws Exception {
+    void testSerializeNesting() {
         final NestingKeyExpression nest = field("f1").nest(field("f2", FanType.FanOut).nest("f3"));
         final NestingKeyExpression reserialized = new NestingKeyExpression(nest.toProto());
         assertEquals("f1", reserialized.getParent().getFieldName());
@@ -734,7 +734,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testSplit() throws Exception {
+    void testSplit() {
         final SplitKeyExpression split = field("repeat_me", FanType.FanOut).split(3);
         split.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Arrays.asList(
@@ -746,7 +746,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testSplitBad() throws Exception {
+    void testSplitBad() {
         assertThrows(RecordCoreException.class, () -> {
             final SplitKeyExpression split = field("repeat_me", FanType.FanOut).split(4);
             split.validate(TestScalarFieldAccess.getDescriptor());
@@ -755,7 +755,7 @@ public class KeyExpressionTest {
     }
 
     @Test
-    public void testSplitConcat() throws Exception {
+    void testSplitConcat() {
         final ThenKeyExpression splitConcat = concat(field("field"),
                 field("repeat_me", FanType.FanOut).split(3));
         splitConcat.validate(TestScalarFieldAccess.getDescriptor());
@@ -894,7 +894,7 @@ public class KeyExpressionTest {
 
     @ParameterizedTest
     @MethodSource("getPrefixKeyComparisons")
-    public void testIsPrefixKey(@Nonnull KeyExpression prefix, @Nonnull KeyExpression key, boolean shouldBePrefix) {
+    void testIsPrefixKey(@Nonnull KeyExpression prefix, @Nonnull KeyExpression key, boolean shouldBePrefix) {
         assertEquals(shouldBePrefix, prefix.isPrefixKey(key));
     }
 
@@ -945,7 +945,7 @@ public class KeyExpressionTest {
 
     @ParameterizedTest(name = "testRecordTypePrefix[key={0}]")
     @MethodSource
-    public void testRecordTypePrefix(@Nonnull KeyExpression key, boolean hasRecordTypePrefix) {
+    void testRecordTypePrefix(@Nonnull KeyExpression key, boolean hasRecordTypePrefix) {
         assertEquals(hasRecordTypePrefix, Key.Expressions.hasRecordTypePrefix(key),
                 () -> String.format("%s should%s have a record type prefix", key, hasRecordTypePrefix ? "" : " not"));
     }

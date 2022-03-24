@@ -68,12 +68,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
 
     @Test
-    public void testDeleteWhereCountIndex() throws Exception {
+    void testDeleteWhereCountIndex() throws Exception {
         testDeleteWhere(true);
     }
 
     @Test
-    public void testDeleteWhere() throws Exception {
+    void testDeleteWhere() throws Exception {
         testDeleteWhere(false);
     }
 
@@ -125,7 +125,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereGroupedCount() throws Exception {
+    void testDeleteWhereGroupedCount() throws Exception {
         KeyExpression groupExpr = concat(
                 field("header").nest(field("rec_no")),
                 field("header").nest(field("path")));
@@ -175,7 +175,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereMissingPrimaryKey() throws Exception {
+    void testDeleteWhereMissingPrimaryKey() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeaderPrimaryKey(context, false);
             assertThrows(Query.InvalidExpressionException.class, () ->
@@ -184,7 +184,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereMissingIndex() {
+    void testDeleteWhereMissingIndex() {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
@@ -199,7 +199,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereWithFunctionIndexSplit() throws Exception {
+    void testDeleteWhereWithFunctionIndexSplit() throws Exception {
         // Index key is (header.path, first three characters of str_value)
         // Value is remaining suffix of str_value
         Index splitStringIndex = new Index(
@@ -229,7 +229,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereSingleTypeWithFunctionIndexSplit() throws Exception {
+    void testDeleteWhereSingleTypeWithFunctionIndexSplit() throws Exception {
         // Index key is (header.path, first three characters of str_value)
         // Value is remaining suffix of str_value
         Index splitStringIndex = new Index(
@@ -261,7 +261,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereSingleTypeWithRecordTypePrefixedFunctionIndexSplit() throws Exception {
+    void testDeleteWhereSingleTypeWithRecordTypePrefixedFunctionIndexSplit() throws Exception {
         // Index key is (recordType, header.path, first three characters of str_value)
         // Value is remaining suffix of str_value
         Index splitStringIndex = new Index(
