@@ -215,9 +215,24 @@ public class QueryToKeyMatcher {
             return matches(query, ((GroupingKeyExpression) key).getWholeKey(), matchingMode, filterMask);
         }
         if (key instanceof KeyWithValueExpression) {
+            KeyWithValueExpression keyWithValue = (KeyWithValueExpression)key;
             try {
-                return matches(query, ((KeyWithValueExpression)key).getKeyExpression(), matchingMode, filterMask);
+                return matches(query, keyWithValue.getKeyExpression(), matchingMode, filterMask);
             } catch (BaseKeyExpression.UnsplittableKeyExpressionException e) {
+                // We can get here if the KeyWithValueExpression splits something that cannot be split, e.g.,
+                // a function key expression. There's still a possibility that a prefix of the key still can
+                // cover the entire query, so keep trying a more and more selective prefix of the key until
+                // we either no longer hit the unsplittable exception and see if that prefix is enough.
+                if (matchingMode == MatchingMode.SATISFY_QUERY) {
+                    int adjustedSplitPoint = keyWithValue.getSplitPoint() - 1;
+                    while (adjustedSplitPoint >= 0) {
+                        try {
+                            return matches(query, keyWithValue.getInnerKey().getSubKey(0, adjustedSplitPoint), matchingMode, filterMask);
+                        } catch (BaseKeyExpression.UnsplittableKeyExpressionException innerErr) {
+                            adjustedSplitPoint--;
+                        }
+                    }
+                }
                 return Match.none();
             }
         }

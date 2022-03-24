@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
@@ -363,19 +363,22 @@ public class Key {
          * @return {@code true} if the given key expression has a record type key prefix
          */
         public static boolean hasRecordTypePrefix(@Nonnull KeyExpression key) {
-            if (key instanceof GroupingKeyExpression) {
-                return hasRecordTypePrefix(((GroupingKeyExpression)key).getWholeKey());
-            }
-            if (key instanceof KeyWithValueExpression) {
-                return hasRecordTypePrefix(((KeyWithValueExpression)key).getKeyExpression());
-            }
-            if (key instanceof ThenKeyExpression) {
-                return ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression;
-            }
             if (key instanceof RecordTypeKeyExpression) {
                 return true;
+            } else if (key instanceof GroupingKeyExpression) {
+                GroupingKeyExpression grouping = (GroupingKeyExpression)key;
+                return grouping.getGroupingCount() > 0 && hasRecordTypePrefix(grouping.getWholeKey());
+            } else if (key instanceof KeyWithValueExpression) {
+                KeyWithValueExpression keyWithValue = (KeyWithValueExpression)key;
+                return keyWithValue.getSplitPoint() > 0 && hasRecordTypePrefix(keyWithValue.getInnerKey());
+            } else if (key instanceof ThenKeyExpression) {
+                ThenKeyExpression then = (ThenKeyExpression)key;
+                return !then.getChildren().isEmpty() && hasRecordTypePrefix(then.getChildren().get(0));
+            } else if (key instanceof NestingKeyExpression) {
+                return hasRecordTypePrefix(((NestingKeyExpression)key).getChild());
+            } else {
+                return false;
             }
-            return false;
         }
     }
 

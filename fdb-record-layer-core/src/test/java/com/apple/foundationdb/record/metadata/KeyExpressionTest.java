@@ -70,6 +70,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.list;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression.EMPTY;
 import static com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression.VERSION;
@@ -897,8 +898,60 @@ public class KeyExpressionTest {
         assertEquals(shouldBePrefix, prefix.isPrefixKey(key));
     }
 
+    @SuppressWarnings("unused") // used as argument provider for parameterized test
+    static Stream<Arguments> testRecordTypePrefix() {
+        return Stream.of(
+                Arguments.of(EMPTY, false),
+                Arguments.of(field("foo"), false),
+                Arguments.of(value(1066L), false),
+                Arguments.of(function("substr", concat(field("foo"), field("bar"))), false),
+                Arguments.of(function("transpose", concat(recordType(), field("foo"))), false), // recordType first in arguments, but not in result
+                Arguments.of(function("transpose", concat(field("foo"), recordType())), false), // record actually is first in result, but that's hidden behind the function implementation
+                Arguments.of(list(recordType(), field("foo")), false),
+                Arguments.of(list(field("foo"), recordType()), false),
+                Arguments.of(new SplitKeyExpression(concat(recordType(), field("foo", FanType.FanOut)), 2), false), // this maybe should be true? it's conservative for this to return false
+                Arguments.of(new SplitKeyExpression(concat(field("foo", FanType.FanOut), recordType()), 2), false),
+                Arguments.of(recordType(), true),
+                Arguments.of(VERSION, false),
+                Arguments.of(field("foo").groupBy(recordType()), true),
+                Arguments.of(field("foo").groupBy(recordType(), field("bar")), true),
+                Arguments.of(field("foo").groupBy(field("bar"), recordType()), false),
+                Arguments.of(new GroupingKeyExpression(concat(field("bar"), recordType()), 1), false),
+                Arguments.of(new GroupingKeyExpression(concat(recordType(), function("split_string", concat(field("foo"), value(2L)))), 1), true),
+                Arguments.of(new GroupingKeyExpression(concat(recordType(), function("split_string", concat(field("foo"), value(2L)))), 2), true),
+                Arguments.of(new GroupingKeyExpression(concat(recordType(), function("split_string", concat(field("foo"), value(2L)))), 3), false),
+                Arguments.of(concat(recordType(), field("foo")), true),
+                Arguments.of(concat(field("foo"), recordType()), false),
+                Arguments.of(concat(field("parent").nest(recordType(), field("child")), field("foo")), true),
+                Arguments.of(concat(field("parent").nest(field("child"), recordType()), field("foo")), false),
+                Arguments.of(keyWithValue(concat(recordType(), field("foo"), field("bar")), 0), false),
+                Arguments.of(keyWithValue(concat(recordType(), field("foo"), field("bar")), 1), true),
+                Arguments.of(keyWithValue(concat(recordType(), field("foo"), field("bar")), 2), true),
+                Arguments.of(keyWithValue(concat(field("foo"), recordType(), field("bar")), 0), false),
+                Arguments.of(keyWithValue(concat(field("foo"), recordType(), field("bar")), 1), false),
+                Arguments.of(keyWithValue(concat(field("foo"), recordType(), field("bar")), 2), false),
+                Arguments.of(keyWithValue(concat(recordType(), function("split_string", concat(field("foo"), value(3L)))), 0), false),
+                Arguments.of(keyWithValue(concat(recordType(), function("split_string", concat(field("foo"), value(3L)))), 1), true),
+                Arguments.of(keyWithValue(concat(recordType(), function("split_string", concat(field("foo"), value(3L)))), 2), true),
+                Arguments.of(keyWithValue(concat(recordType(), function("split_string", concat(field("foo"), value(3L)))), 3), true),
+                Arguments.of(keyWithValue(concat(function("split_string", concat(field("foo"), value(3L))), recordType()), 0), false),
+                Arguments.of(keyWithValue(concat(function("split_string", concat(field("foo"), value(3L))), recordType()), 1), false),
+                Arguments.of(keyWithValue(concat(function("split_string", concat(field("foo"), value(3L))), recordType()), 2), false),
+                Arguments.of(keyWithValue(concat(function("split_string", concat(field("foo"), value(3L))), recordType()), 3), false),
+                Arguments.of(field("parent").nest(concat(recordType(), field("child"))), true),
+                Arguments.of(field("parent").nest(concat(field("child"), recordType())), false)
+        );
+    }
+
+    @ParameterizedTest(name = "testRecordTypePrefix[key={0}]")
+    @MethodSource
+    public void testRecordTypePrefix(@Nonnull KeyExpression key, boolean hasRecordTypePrefix) {
+        assertEquals(hasRecordTypePrefix, Key.Expressions.hasRecordTypePrefix(key),
+                () -> String.format("%s should%s have a record type prefix", key, hasRecordTypePrefix ? "" : " not"));
+    }
+
     /**
-     * Function registry for {@link TwoMinThreeMaxFunction}.
+     * Function registry for functions defined in this class.
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class TestFunctionRegistry implements FunctionKeyExpression.Factory {
@@ -908,7 +961,16 @@ public class KeyExpressionTest {
             return Lists.newArrayList(
                     new FunctionKeyExpression.BiFunctionBuilder("substr", SubstrFunction::new),
                     new FunctionKeyExpression.BiFunctionBuilder("chars", CharsFunction::new),
-                    new FunctionKeyExpression.BiFunctionBuilder("two_min_three_max", TwoMinThreeMaxFunction::new));
+                    new FunctionKeyExpression.BiFunctionBuilder("two_min_three_max", TwoMinThreeMaxFunction::new),
+                    new FunctionKeyExpression.BiFunctionBuilder("split_string", SplitStringFunction::new),
+                    new FunctionKeyExpression.Builder("transpose") {
+                        @Nonnull
+                        @Override
+                        public FunctionKeyExpression build(@Nonnull final KeyExpression arguments) {
+                            return new TransposeFunction(getName(), arguments);
+                        }
+                    }
+            );
         }
     }
 
@@ -1071,6 +1133,109 @@ public class KeyExpressionTest {
         @Override
         public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+    }
+
+    /**
+     * Function that splits a string at a given split point.
+     */
+    public static class SplitStringFunction extends FunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Split-String-Function");
+
+        public SplitStringFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
+            super(name, arguments);
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 2;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 2;
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
+                                                                        @Nullable Message message,
+                                                                        @Nonnull Key.Evaluated arguments) {
+            final String arg = arguments.getString(0);
+            if (arg == null) {
+                return Collections.singletonList(concatenate(null, (Object)null));
+            }
+            final int splitPoint = (int)arguments.getLong(1);
+            return Collections.singletonList(Key.Evaluated.concatenate(arg.substring(0, splitPoint), arg.substring(splitPoint)));
+        }
+
+        @Override
+        public boolean createsDuplicates() {
+            return false;
+        }
+
+        @Override
+        public int getColumnSize() {
+            return 2;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+    }
+
+    /**
+     * Function that reverses its arguments.
+     */
+    public static class TransposeFunction extends FunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Transpose-Function");
+
+        public TransposeFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
+            super(name, arguments);
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 0;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return Integer.MAX_VALUE;
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
+                                                                        @Nullable Message message,
+                                                                        @Nonnull Key.Evaluated arguments) {
+            return Collections.singletonList(Key.Evaluated.concatenate(Lists.reverse(arguments.toList())));
+        }
+
+        @Override
+        public boolean createsDuplicates() {
+            return false;
+        }
+
+        @Override
+        public int getColumnSize() {
+            return arguments.getColumnSize();
         }
 
         @Override
