@@ -242,7 +242,6 @@ public class IndexingByRecords extends IndexingBase {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(
                 LogMessageKeys.CALLING_METHOD, "buildEndpoints");
         additionalLogMessageKeyValues.addAll(common.indexLogMessageKeyValues());
-        // TODO perhaps this should have different retry counts from the runAsyncInStore used in limittedRunner
         common.loadConfig();
         return common.getRunner().runAsync(
                 context -> {
@@ -547,7 +546,6 @@ public class IndexingByRecords extends IndexingBase {
      * @throws OnlineIndexer.RecordBuiltRangeException if the given range contains keys already processed by the index build
      */
     @Nonnull
-    // TODO deprecate this method?
     public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
                                                               @Nullable Key.Evaluated start,
                                                               @Nullable Key.Evaluated end,

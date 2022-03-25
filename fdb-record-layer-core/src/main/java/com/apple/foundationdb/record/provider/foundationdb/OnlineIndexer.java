@@ -539,7 +539,6 @@ public class OnlineIndexer implements AutoCloseable {
      * @throws RecordBuiltRangeException if the given range contains keys already processed by the index build
      */
     @Nonnull
-    // TODO deprecate this method?
     public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
                                                               @Nullable Key.Evaluated start,
                                                               @Nullable Key.Evaluated end) {
