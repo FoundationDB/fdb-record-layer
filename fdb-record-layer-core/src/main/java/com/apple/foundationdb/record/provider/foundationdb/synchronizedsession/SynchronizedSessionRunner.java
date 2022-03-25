@@ -44,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * An {@link FDBDatabaseRunner} implementation that performs all work in the context of a
@@ -148,6 +149,16 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
                 });
     }
 
+    public <T> CompletableFuture<T> runInSessionAsync(final FDBRecordContext context,
+                                                      Supplier<CompletableFuture<T>> work) {
+        return session.checkLockAsync(context.ensureActive())
+                .thenCompose(vignore -> work.get())
+                .thenApply(result -> {
+                    session.updateLockSessionLeaseEndTime(context.ensureActive());
+                    return result;
+                });
+    }
+
     public UUID getSessionId() {
         return session.getSessionId();
     }
@@ -207,6 +218,14 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
                                              @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
         final List<Object> logDetails;
+        logDetails = addLoggingDetails(additionalLogMessageKeyValues);
+
+        return underlying.runAsync(runInSessionAsync(retriable), handlePostTransaction, logDetails);
+    }
+
+    @Nonnull
+    public List<Object> addLoggingDetails(final @Nullable List<Object> additionalLogMessageKeyValues) {
+        final List<Object> logDetails;
         if (additionalLogMessageKeyValues == null || additionalLogMessageKeyValues.isEmpty()) {
             logDetails = Arrays.asList(LogMessageKeys.SESSION_ID, session.getSessionId());
         } else {
@@ -214,8 +233,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
             logDetails.add(LogMessageKeys.SESSION_ID);
             logDetails.add(session.getSessionId());
         }
-
-        return underlying.runAsync(runInSessionAsync(retriable), handlePostTransaction, logDetails);
+        return logDetails;
     }
 
     // The other methods below simply delegate to the implementations of the underlying runner, including the three

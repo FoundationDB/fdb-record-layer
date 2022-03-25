@@ -388,7 +388,7 @@ public class IndexingByRecords extends IndexingBase {
         // Note: the returned futures go through `handleFailedBuildRange` which logs any failures with information like
         // startTuple/endTuple, these values are just added to retry logic in LimitedRunner.
         final List<Object> additionalLogMessageKeyValues = common.indexLogMessageKeyValues();
-        return common.getLimitedRunner().runAsync(
+        return common.runAsync(
                 (context, startingLimit) -> {
                     if (rangeDeque.isEmpty()) {
                         return AsyncUtil.READY_FALSE; // We're done.

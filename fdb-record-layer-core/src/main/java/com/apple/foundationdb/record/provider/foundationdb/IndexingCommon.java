@@ -182,9 +182,23 @@ public class IndexingCommon {
         }
     }
 
-    public TransactionalLimitedRunner getLimitedRunner() {
-        // TODO synchronizedSessionRunner :(
-        return limitedRunner;
+    CompletableFuture<Void> runAsync(TransactionalLimitedRunner.Runner runnable,
+                                     @Nonnull final List<Object> additionalLogMessageKeyValues) {
+        if (synchronizedSessionRunner == null) {
+            return limitedRunner.runAsync(runnable, additionalLogMessageKeyValues);
+        } else {
+            return limitedRunner.runAsync(new TransactionalLimitedRunner.Runner() {
+                @Override
+                public CompletableFuture<Void> prep(final int limit) {
+                    return runnable.prep(limit);
+                }
+
+                @Override
+                public CompletableFuture<Boolean> runAsync(final FDBRecordContext context, final int limit) {
+                    return synchronizedSessionRunner.runInSessionAsync(context, () -> runnable.runAsync(context, limit));
+                }
+            }, synchronizedSessionRunner.addLoggingDetails(additionalLogMessageKeyValues));
+        }
     }
 
     @Nonnull

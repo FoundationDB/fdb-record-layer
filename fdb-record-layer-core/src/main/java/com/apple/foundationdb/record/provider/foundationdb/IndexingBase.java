@@ -772,7 +772,7 @@ public abstract class IndexingBase {
                 LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())));
         logMessageKeyValues.addAll(additionalLogMessageKeyValues);
         logMessageKeyValues.addAll(common.indexLogMessageKeyValues());
-        return common.getLimitedRunner().runAsync(
+        return common.runAsync(
                 (context, startingLimit) -> {
                     common.loadConfig();
                     int limit = Math.max(startingLimit, common.config.getMaxLimit());
