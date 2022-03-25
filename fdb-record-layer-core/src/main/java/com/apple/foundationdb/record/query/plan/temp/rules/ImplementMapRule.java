@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -66,7 +67,12 @@ public class ImplementMapRule extends PlannerRule<SelectExpression> {
         }
 
         final Quantifier.ForEach innerQuantifier = bindings.get(innerQuantifierMatcher);
-
+        final var resultValue = selectExpression.getResultValue();
+        if (resultValue instanceof QuantifiedObjectValue &&
+                ((QuantifiedObjectValue)resultValue).getAlias().equals(innerQuantifier.getAlias())) {
+            return;
+        }
+        
         final GroupExpressionRef<? extends RecordQueryPlan> referenceOverPlans = GroupExpressionRef.from(innerPlans);
 
         call.yield(GroupExpressionRef.of(
@@ -74,6 +80,6 @@ public class ImplementMapRule extends PlannerRule<SelectExpression> {
                         Quantifier.physicalBuilder()
                                 .morphFrom(innerQuantifier)
                                 .build(referenceOverPlans),
-                        selectExpression.getResultValue())));
+                        resultValue)));
     }
 }

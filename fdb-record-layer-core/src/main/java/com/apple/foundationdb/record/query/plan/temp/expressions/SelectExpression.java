@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
-import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.Compensation;
@@ -49,14 +47,12 @@ import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredic
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Sargable;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.predicates.Values;
-import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -171,7 +167,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return false;
         }
 
-        final List<? extends QueryPredicate> otherPredicates = ((SelectExpression)otherExpression).getPredicates();
+        final var otherPredicates = ((SelectExpression)otherExpression).getPredicates();
         return semanticEqualsForResults(otherExpression, aliasMap) &&
                predicates.size() == otherPredicates.size() &&
                Streams.zip(predicates.stream(),
@@ -198,29 +194,29 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         if (getClass() != candidateExpression.getClass()) {
             return ImmutableList.of();
         }
-        final SelectExpression otherSelectExpression = (SelectExpression)candidateExpression;
+        final var otherSelectExpression = (SelectExpression)candidateExpression;
 
         // merge parameter maps -- early out if a binding clashes
-        final ImmutableList<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps =
+        final var parameterBindingMaps =
                 matchInfos
                         .stream()
                         .map(MatchInfo::getParameterBindingMap)
                         .collect(ImmutableList.toImmutableList());
-        final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingMapOptional =
+        final var mergedParameterBindingMapOptional =
                 MatchInfo.tryMergeParameterBindings(parameterBindingMaps);
         if (!mergedParameterBindingMapOptional.isPresent()) {
             return ImmutableList.of();
         }
-        final Map<CorrelationIdentifier, ComparisonRange> mergedParameterBindingMap = mergedParameterBindingMapOptional.get();
+        final var mergedParameterBindingMap = mergedParameterBindingMapOptional.get();
         
-        final ImmutableSet.Builder<CorrelationIdentifier> matchedCorrelatedToBuilder = ImmutableSet.builder();
+        final var matchedCorrelatedToBuilder = ImmutableSet.<CorrelationIdentifier>builder();
         // Loop through all child matches and reject a match if the children matches were unable to match all
         // for-each quantifiers. Also keep track of all aliases the matched quantifiers are correlated to.
-        for (final Quantifier quantifier : getQuantifiers()) {
+        for (final var quantifier : getQuantifiers()) {
             if (partialMatchMap.containsKeyUnwrapped(quantifier)) {
                 if (quantifier instanceof Quantifier.ForEach) {
                     // current quantifier is matched
-                    final PartialMatch childPartialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(quantifier));
+                    final var childPartialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(quantifier));
 
                     if (!childPartialMatch.getQueryExpression()
                             .computeUnmatchedForEachQuantifiers(childPartialMatch).isEmpty()) {
@@ -234,7 +230,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         matchedCorrelatedToBuilder.addAll(getResultValue().getCorrelatedTo());
 
-        final ImmutableSet<CorrelationIdentifier> matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
+        final var matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
 
         if (getQuantifiers()
                 .stream()
@@ -242,7 +238,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return ImmutableList.of();
         }
 
-        final boolean allNonMatchedQuantifiersIndependent =
+        final var allNonMatchedQuantifiersIndependent =
                 getQuantifiers()
                         .stream()
                         .filter(quantifier -> !partialMatchMap.containsKeyUnwrapped(quantifier))
@@ -254,7 +250,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         // Loop through all for-each quantifiers on the other side to ensure that they are all matched.
         // If any are not matched we cannot establish a match at all.
-        final boolean allOtherForEachQuantifiersMatched =
+        final var allOtherForEachQuantifiersMatched =
                 otherSelectExpression.getQuantifiers()
                         .stream()
                         .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
@@ -284,6 +280,21 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         }
 
         //
+        // Check the result values of both expressions to see if we can match and if we can, whether we need a
+        // compensating computation.
+        //
+        
+        final var resultValue = getResultValue();
+        final var otherResultValue = otherSelectExpression.getResultValue();
+        final Optional<Value> remainingValueComputationOptional;
+        if (!resultValue.semanticEquals(otherResultValue, aliasMap)) {
+            // we potentially need to compensate
+            remainingValueComputationOptional = Optional.of(resultValue);
+        } else {
+            remainingValueComputationOptional = Optional.empty();
+        }
+
+        //
         // Map predicates on the query side to predicates on the candidate side. Record parameter bindings and/or
         // compensations for each mapped predicate.
         // A predicate on this side (the query side) can cause us to filter out rows, a mapped predicate (for that
@@ -292,7 +303,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // would mean that the candidate eliminates records that the query side may not eliminate. If we detect that
         // case we MUST not create a match.
         //
-        final ImmutableList.Builder<Iterable<PredicateMapping>> predicateMappingsBuilder = ImmutableList.builder();
+        final var predicateMappingsBuilder = ImmutableList.<Iterable<PredicateMapping>>builder();
 
         //
         // Handle the "on empty" case, i.e., the case where there are no predicates on the query side that can
@@ -301,11 +312,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // produce a match is that the candidate side MUST NOT be filtering at all, as the query side is not either.
         //
         if (getPredicates().isEmpty()) {
-            final boolean allNonFiltering = otherSelectExpression.getPredicates()
+            final var allNonFiltering = otherSelectExpression.getPredicates()
                     .stream()
                     .allMatch(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
             if (allNonFiltering) {
-                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty())
+                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional)
                         .map(ImmutableList::of)
                         .orElse(ImmutableList.of());
             } else {
@@ -325,23 +336,23 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // through their cross product exhaustively. Each complete and non-contradictory element of that cross product
         // can lead to a match.
         //
-        final EnumeratingIterable<PredicateMapping> crossedMappings =
+        final var crossedMappings =
                 CrossProduct.crossProduct(predicateMappingsBuilder.build());
 
         return IterableHelpers.flatMap(crossedMappings,
                 predicateMappings -> {
-                    final Set<QueryPredicate> unmappedOtherPredicates = Sets.newIdentityHashSet();
+                    final var unmappedOtherPredicates = Sets.<QueryPredicate>newIdentityHashSet();
                     unmappedOtherPredicates.addAll(otherSelectExpression.getPredicates());
 
-                    final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap = Maps.newHashMap();
-                    final PredicateMap.Builder predicateMapBuilder = PredicateMap.builder();
+                    final var parameterBindingMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
+                    final var predicateMapBuilder = PredicateMap.builder();
 
-                    for (final PredicateMapping predicateMapping : predicateMappings) {
+                    for (final var predicateMapping : predicateMappings) {
                         predicateMapBuilder.put(predicateMapping.getQueryPredicate(), predicateMapping);
                         unmappedOtherPredicates.remove(predicateMapping.getCandidatePredicate());
 
-                        final Optional<CorrelationIdentifier> parameterAliasOptional = predicateMapping.getParameterAliasOptional();
-                        final Optional<ComparisonRange> comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
+                        final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
+                        final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
                         if (parameterAliasOptional.isPresent() &&
                                 comparisonRangeOptional.isPresent()) {
                             parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
@@ -360,14 +371,14 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                         return ImmutableList.of();
                     }
 
-                    final Optional<? extends PredicateMap> predicateMapOptional = predicateMapBuilder.buildMaybe();
+                    final var predicateMapOptional = predicateMapBuilder.buildMaybe();
                     return predicateMapOptional
                             .map(predicateMap -> {
                                 final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
                                         MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
 
                                 return allParameterBindingMapOptional
-                                        .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap, allParameterBindingMap, predicateMap))
+                                        .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap, allParameterBindingMap, predicateMap, remainingValueComputationOptional))
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
                             })
@@ -392,16 +403,16 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     }
 
     private static List<? extends QueryPredicate> partitionPredicates(final List<? extends QueryPredicate> predicates) {
-        final ImmutableList<QueryPredicate> flattenedAndPredicates =
+        final var flattenedAndPredicates =
                 predicates.stream()
                         .flatMap(predicate -> flattenAndPredicate(predicate).stream())
                         .collect(ImmutableList.toImmutableList());
 
         // partition predicates in value-based predicates and non-value-based predicates
-        final ImmutableList.Builder<PredicateWithValue> predicateWithValuesBuilder = ImmutableList.builder();
-        final ImmutableList.Builder<QueryPredicate> resultPredicatesBuilder = ImmutableList.builder();
+        final var predicateWithValuesBuilder = ImmutableList.<PredicateWithValue>builder();
+        final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
-        for (final QueryPredicate flattenedAndPredicate : flattenedAndPredicates) {
+        for (final var flattenedAndPredicate : flattenedAndPredicates) {
             if (flattenedAndPredicate instanceof PredicateWithValue) {
                 predicateWithValuesBuilder.add((PredicateWithValue)flattenedAndPredicate);
             } else {
@@ -409,16 +420,16 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             }
         }
 
-        final ImmutableList<PredicateWithValue> predicateWithValues = predicateWithValuesBuilder.build();
+        final var predicateWithValues = predicateWithValuesBuilder.build();
 
-        final AliasMap boundIdentitiesMap = AliasMap.identitiesFor(
+        final var boundIdentitiesMap = AliasMap.identitiesFor(
                 flattenedAndPredicates.stream()
                         .flatMap(predicate -> predicate.getCorrelatedTo().stream())
                         .collect(ImmutableSet.toImmutableSet()));
 
-        final BoundEquivalence boundEquivalence = new BoundEquivalence(boundIdentitiesMap);
+        final var boundEquivalence = new BoundEquivalence(boundIdentitiesMap);
 
-        final Multimap<Equivalence.Wrapper<Value>, PredicateWithValue> partitionedPredicatesWithValues =
+        final var partitionedPredicatesWithValues =
                 predicateWithValues
                         .stream()
                         .collect(Multimaps.toMultimap(
@@ -427,14 +438,13 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         partitionedPredicatesWithValues
                 .asMap()
                 .forEach((valueWrapper, predicatesOnValue) -> {
-                    final Value value = Objects.requireNonNull(valueWrapper.get());
-                    ComparisonRange resultRange = ComparisonRange.EMPTY;
+                    final var value = Objects.requireNonNull(valueWrapper.get());
+                    var resultRange = ComparisonRange.EMPTY;
                     for (final PredicateWithValue predicateOnValue : predicatesOnValue) {
                         if (predicateOnValue instanceof ValuePredicate) {
-                            final Comparisons.Comparison comparison = ((ValuePredicate)predicateOnValue).getComparison();
+                            final var comparison = ((ValuePredicate)predicateOnValue).getComparison();
 
-                            final ComparisonRange.MergeResult mergeResult =
-                                    resultRange.merge(comparison);
+                            final var mergeResult = resultRange.merge(comparison);
 
                             resultRange = mergeResult.getComparisonRange();
 
@@ -442,11 +452,10 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                                     .forEach(residualComparison ->
                                             resultPredicatesBuilder.add(value.withComparison(residualComparison)));
                         } else if (predicateOnValue instanceof Sargable) {
-                            final Sargable valueComparisonRangePredicate = (Sargable)predicateOnValue;
-                            final ComparisonRange comparisonRange = valueComparisonRangePredicate.getComparisonRange();
+                            final var valueComparisonRangePredicate = (Sargable)predicateOnValue;
+                            final var comparisonRange = valueComparisonRangePredicate.getComparisonRange();
 
-                            final ComparisonRange.MergeResult mergeResult =
-                                    resultRange.merge(comparisonRange);
+                            final var mergeResult = resultRange.merge(comparisonRange);
 
                             resultRange = mergeResult.getComparisonRange();
 
@@ -466,10 +475,10 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     }
 
     private static List<QueryPredicate> flattenAndPredicate(final QueryPredicate predicate) {
-        final ImmutableList.Builder<QueryPredicate> result = ImmutableList.builder();
+        final var result = ImmutableList.<QueryPredicate>builder();
 
         if (predicate instanceof AndPredicate) {
-            for (final QueryPredicate child : ((AndPredicate)predicate).getChildren()) {
+            for (final var child : ((AndPredicate)predicate).getChildren()) {
                 result.addAll(flattenAndPredicate(child));
             }
             return result.build();
@@ -480,9 +489,9 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     @SuppressWarnings({"java:S135", "java:S1066"})
     public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        final Map<QueryPredicate, QueryPredicate> toBeReappliedPredicatesMap = Maps.newIdentityHashMap();
-        final MatchInfo matchInfo = partialMatch.getMatchInfo();
-        final PredicateMap predicateMap = matchInfo.getPredicateMap();
+        final var toBeReappliedPredicatesMap = Maps.<QueryPredicate, QueryPredicate>newIdentityHashMap();
+        final var matchInfo = partialMatch.getMatchInfo();
+        final var predicateMap = matchInfo.getPredicateMap();
 
         //
         // The partial match we are called with here has child matches that have compensations on their own.
@@ -491,7 +500,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // optimal way. We need to fold over all those compensations to form one child compensation. The tree that
         // is formed by partial matches therefore collapses into a chain of compensations.
         //
-        final List<? extends Quantifier> quantifiers = getQuantifiers();
+        final var quantifiers = getQuantifiers();
         final Compensation childCompensation = quantifiers
                 .stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
@@ -508,16 +517,21 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         Verify.verify(!childCompensation.isImpossible());
 
         //
+        // The fact that the childCompensation must mean it can be deferred as we should not have matched otherwise.
+        //
+        Verify.verify(childCompensation.canBeDeferred());
+
+        //
         // Go through all predicates and invoke the reapplication logic for each associated mapping. Remember, each
         // predicate MUST have a mapping to the other side (which may just be a tautology). If something needs to be
         // reapplied that logic creates the correct predicates. The reapplication logic is also passed enough context
         // to skip reapplication in which case we won't do anything when compensation needs to be applied.
         //
-        for (final QueryPredicate predicate : getPredicates()) {
-            final Optional<PredicateMapping> predicateMappingOptional = predicateMap.getMappingOptional(predicate);
+        for (final var predicate : getPredicates()) {
+            final var predicateMappingOptional = predicateMap.getMappingOptional(predicate);
             Verify.verify(predicateMappingOptional.isPresent());
 
-            final PredicateMapping predicateMapping = predicateMappingOptional.get();
+            final var predicateMapping = predicateMappingOptional.get();
 
             final Optional<QueryPredicate> reappliedPredicateOptional =
                     predicateMapping
@@ -530,6 +544,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         return Compensation.ofChildCompensationAndPredicateMap(childCompensation,
                 toBeReappliedPredicatesMap,
                 computeMappedQuantifiers(partialMatch),
-                computeUnmatchedForEachQuantifiers(partialMatch));
+                computeUnmatchedForEachQuantifiers(partialMatch),
+                matchInfo.getRemainingComputationValueOptional());
     }
 }

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -599,6 +600,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     @Nonnull
     public Type getFlowedObjectType() {
-        return getRangesOver().getResultType();
+        final var resolvedTypeAcrossReference = getRangesOver().getResultType();
+        Verify.verify(resolvedTypeAcrossReference.getTypeCode() == Type.TypeCode.RELATION);
+        return Objects.requireNonNull(((Type.Relation)resolvedTypeAcrossReference).getInnerType());
     }
 }

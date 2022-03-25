@@ -134,7 +134,7 @@ public class MetaDataPlanContext implements PlanContext {
 
         if (allowedIndexesOptional.isPresent()) {
             final Collection<String> allowedIndexes = allowedIndexesOptional.get();
-            indexList.removeIf(index -> allowedIndexes.contains(index.getName()));
+            indexList.removeIf(index -> !allowedIndexes.contains(index.getName()));
         } else {
             indexList.removeIf(index -> !indexQueryabilityFilter.isQueryable(index));
         }

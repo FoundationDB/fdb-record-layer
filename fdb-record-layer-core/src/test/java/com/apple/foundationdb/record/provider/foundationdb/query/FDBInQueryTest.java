@@ -311,11 +311,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(2045945193, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertMatchesExactly(plan,
-                    fetchFromPartialRecordPlan(inUnionPlan(
-                            coveringIndexPlan().where(indexPlanOf(indexPlan()
-                                    .where(indexName("multi_index"))
-                                    .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison()))))))
-                    ).where(RecordQueryPlanMatchers.inUnionValuesSources(exactly(inUnionInParameter(equalsObject("valueThrees")))))));
+                    fetchFromPartialRecordPlan(
+                            inUnionPlan(
+                                    coveringIndexPlan().where(indexPlanOf(indexPlan()
+                                            .where(indexName("multi_index"))
+                                            .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison()))))))
+                            ).where(RecordQueryPlanMatchers.inUnionValuesSources(exactly(inUnionInParameter(equalsObject("valueThrees")))))));
             assertEquals(1947663752, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));

@@ -47,7 +47,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.HashMultimap;
@@ -155,9 +155,9 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                 } else {
                     return;
                 }
-            } else if (explodeCollectionValue instanceof QuantifiedColumnValue) {
+            } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
                 inSource = new InParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                        ((QuantifiedColumnValue)explodeCollectionValue).getAlias().getId());
+                        ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId());
             } else {
                 return;
             }

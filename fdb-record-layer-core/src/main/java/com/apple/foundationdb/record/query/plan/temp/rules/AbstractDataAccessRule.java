@@ -426,7 +426,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                    @Nonnull final RelationalExpression scanExpression) {
         final var compensation = partialMatch.compensate(partialMatch.getBoundParameterPrefixMap());
         return compensation.isNeeded()
-               ? compensation.apply(GroupExpressionRef.of(scanExpression))
+               ? compensation.apply(scanExpression)
                : scanExpression;
     }
 
@@ -520,7 +520,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             final var logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, comparisonKey);
             final var compensatedIntersection =
                     compensation.isNeeded()
-                    ? compensation.apply(GroupExpressionRef.of(logicalIntersectionExpression))
+                    ? compensation.apply(logicalIntersectionExpression)
                     : logicalIntersectionExpression;
             expressionsBuilder.add(compensatedIntersection);
         }

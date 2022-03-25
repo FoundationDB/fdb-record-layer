@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
@@ -36,6 +37,7 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 /**
  * A specialized Hamcrest matcher that recognizes both {@link RecordQueryFilterPlan}s and the {@link QueryComponent}s
@@ -65,16 +67,20 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
             // we lazily convert the given component to a predicate and let semantic equals establish equality
             // under the given equivalence: baseAlias <-> planBaseAlias
             final QueryPredicate predicate = AndPredicate.and(((RecordQueryPredicatesFilterPlan)plan).getPredicates());
-
-
+            
             if (predicate instanceof PredicateWithValue) {
+                final Set<CorrelationIdentifier> predicateCorrelatedTo = predicate.getCorrelatedTo();
+                if (predicateCorrelatedTo.size() != 1) {
+                    return false;
+                }
+                final CorrelationIdentifier singlePredicateAlias = Iterables.getOnlyElement(predicateCorrelatedTo);
                 final Quantifier planBaseQuantifier = Iterables.getOnlyElement(plan.getQuantifiers());
                 final Quantifier.ForEach expandBaseQuantifier = Quantifier.forEach(planBaseQuantifier.getRangesOver(), planBaseQuantifier.getAlias());
                 final GraphExpansion graphExpansion =
                         component.expand(expandBaseQuantifier, () -> {
                             throw new UnsupportedOperationException();
                         });
-                return predicate.semanticEquals(graphExpansion.asAndPredicate(), AliasMap.emptyMap())
+                return predicate.semanticEquals(graphExpansion.asAndPredicate(), AliasMap.of(planBaseQuantifier.getAlias(), singlePredicateAlias))
                        && super.matchesSafely(plan);
             } else if (predicate instanceof QueryComponentPredicate) {
                 return component.equals(((QueryComponentPredicate)predicate).getQueryComponent()) && super.matchesSafely(plan);
