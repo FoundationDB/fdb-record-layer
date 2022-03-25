@@ -243,7 +243,7 @@ class LimitedRunnerTest {
                 increasing.set(true);
             }
             if (increasing.get()) {
-                return limits.size() < 100 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+                return limits.size() < 200 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
             } else {
                 return exceptionStyle.hasMore(cause);
             }
@@ -282,6 +282,53 @@ class LimitedRunnerTest {
         }
         // make sure that the constants result in the limiter going all the way down, and back up a couple times
         assertThat(changedDirection, Matchers.greaterThan(4));
+    }
+
+
+    @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
+    @EnumSource(ExceptionStyle.class)
+    void increaseAfterSteps(ExceptionStyle exceptionStyle) {
+        // Make sure that when it is increasing, it doesn't just keep increasing, but it waits for some successes at
+        // each limit.
+        // This just asserts that it goes in batches, increaseAfterABunch asserts that it keeps going up
+        final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
+        List<Integer> limits = new ArrayList<>();
+        AtomicBoolean increasing = new AtomicBoolean(false);
+        final int maxLimit = 93;
+        final int minLimit = 1;
+        // decrease until we get to the minLimit, than be successful until we get to the maxLimit
+        new LimitedRunner(executor, maxLimit, mockDelay()).setIncreaseLimitAfter(7).runAsync(limit -> {
+            limits.add(limit);
+            if (increasing.get()) {
+                if (limit == maxLimit) {
+                    return AsyncUtil.READY_FALSE;
+                } else {
+                    return AsyncUtil.READY_TRUE;
+                }
+            } else {
+                if (limit == minLimit) {
+                    increasing.set(true);
+                    return AsyncUtil.READY_TRUE;
+                } else {
+                    return exceptionStyle.hasMore(cause);
+                }
+            }
+        }, List.of()).join();
+        increasing.set(false);
+        assertEquals(93, limits.get(0));
+        int changedDirection = 0;
+        final int hitMin = limits.indexOf(1);
+        int expectedLimit = -1;
+        for (int i = hitMin; i < limits.size(); i++) {
+            String message = buildPointerMessage(limits, i);
+            // it should increase every 7
+            if ((i - hitMin) % 7 == 0) {
+                assertThat(message, limits.get(i), Matchers.greaterThan(expectedLimit));
+                expectedLimit = limits.get(i);
+            } else {
+                assertEquals(expectedLimit, limits.get(i), message);
+            }
+        }
     }
 
     @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")

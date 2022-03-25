@@ -62,7 +62,7 @@ public class LimitedRunner implements AutoCloseable {
     private int increaseLimitAfter = DO_NOT_INCREASE_LIMIT;
     private int decreaseLimitAfter = 10;
     private int maxDecreaseRetries = 100;
-    private int successCount = 0;
+    private int successSinceLastIncrease = 0;
     private int failuresSinceLastDecrease = 0;
     private int failuresSinceLastSuccess = 0;
     private boolean closed = false;
@@ -79,7 +79,7 @@ public class LimitedRunner implements AutoCloseable {
     public CompletableFuture<Void> runAsync(Runner runner, final List<Object> additionalLogMessageKeyValues) {
         final CompletableFuture<Void> overallResult = new CompletableFuture<>();
         addFutureToCompleteExceptionally(overallResult);
-        successCount = 0;
+        successSinceLastIncrease = 0;
         failuresSinceLastSuccess = 0;
         failuresSinceLastDecrease = 0;
         AsyncUtil.whileTrue(() -> {
@@ -105,14 +105,14 @@ public class LimitedRunner implements AutoCloseable {
                            final List<Object> additionalLogMessageKeyValues) {
         if (error == null) {
             failuresSinceLastSuccess = 0;
-            successCount++;
+            successSinceLastIncrease++;
             maybeIncreaseLimit(additionalLogMessageKeyValues);
             if (!shouldContinue) {
                 overallResult.complete(null);
             }
             return CompletableFuture.completedFuture(shouldContinue);
         } else {
-            successCount = 0;
+            successSinceLastIncrease = 0;
             failuresSinceLastSuccess++;
             if (!maybeDecreaseLimit(error, additionalLogMessageKeyValues)) {
                 overallResult.completeExceptionally(error);
@@ -126,9 +126,10 @@ public class LimitedRunner implements AutoCloseable {
     }
 
     private void maybeIncreaseLimit(final List<Object> additionalLogMessageKeyValues) {
-        if (successCount >= increaseLimitAfter && currentLimit < maxLimit) {
+        if (successSinceLastIncrease >= increaseLimitAfter && currentLimit < maxLimit) {
             currentLimit = Math.min(maxLimit, Math.max(currentLimit + 1, (4 * currentLimit) / 3));
             logIncreaseLimit("Increasing limit", additionalLogMessageKeyValues);
+            successSinceLastIncrease = 0;
         }
     }
 
@@ -213,7 +214,7 @@ public class LimitedRunner implements AutoCloseable {
                                    final List<Object> additionalLogMessageKeyValues) {
         if (LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage message = KeyValueLogMessage.build(staticMessage,
-                    LogMessageKeys.CURR_ATTEMPT, successCount,
+                    LogMessageKeys.CURR_ATTEMPT, successSinceLastIncrease,
                     LogMessageKeys.MAX_LIMIT, maxLimit,
                     LogMessageKeys.LIMIT, currentLimit);
             if (additionalLogMessageKeyValues != null) {
