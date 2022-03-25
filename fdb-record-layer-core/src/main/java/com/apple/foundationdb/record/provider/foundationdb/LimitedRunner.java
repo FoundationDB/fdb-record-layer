@@ -137,7 +137,7 @@ public class LimitedRunner implements AutoCloseable {
         if (fdbException != null && isRetryable(fdbException)) {
             failuresSinceLastDecrease++;
             if (failuresSinceLastDecrease < decreaseLimitAfter) {
-                logRetryException("Retrying with same limit", additionalLogMessageKeyValues, error, fdbException);
+                logRetryException(false, additionalLogMessageKeyValues, error, fdbException);
                 return true;
             }
         }
@@ -146,7 +146,7 @@ public class LimitedRunner implements AutoCloseable {
                 return false;
             } else {
                 failuresSinceLastDecrease = 0;
-                logRetryException("Decreasing limit", additionalLogMessageKeyValues, error, fdbException);
+                logRetryException(true, additionalLogMessageKeyValues, error, fdbException);
                 // Note: the way this works it means that if maxDecreaseRetries is substantially higher than
                 // the limit, it will retry at 1 many times. This might not make much sense, and instead it should
                 // only retry at one in the `isRetryable` path, and not here.
@@ -187,18 +187,19 @@ public class LimitedRunner implements AutoCloseable {
         return null;
     }
 
-    private void logRetryException(final String staticMessage,
+    private void logRetryException(final boolean isDecreasingLimit,
                                    final List<Object> additionalLogMessageKeyValues,
                                    final Throwable error,
                                    final FDBException fdbException) {
         if (LOGGER.isWarnEnabled()) {
-            final KeyValueLogMessage message = KeyValueLogMessage.build(staticMessage,
+            final KeyValueLogMessage message = KeyValueLogMessage.build(
+                    isDecreasingLimit ? "Decreasing limit" : "Retrying with same limit",
                     LogMessageKeys.MESSAGE, fdbException.getMessage(),
                     LogMessageKeys.CODE, fdbException.getCode(),
-                    LogMessageKeys.CURR_ATTEMPT, failuresSinceLastDecrease,
+                    LogMessageKeys.CURR_ATTEMPT, isDecreasingLimit ? failuresSinceLastSuccess : failuresSinceLastDecrease,
+                    LogMessageKeys.MAX_ATTEMPTS, isDecreasingLimit ? maxDecreaseRetries : decreaseLimitAfter,
                     LogMessageKeys.LIMIT, currentLimit,
                     LogMessageKeys.DELAY, exponentialDelay.getNextDelayMillis());
-            // TODO add configuration parameters
             // TODO does this need to add information about the specific attempt, since that wolud change
             //      after each success, perhaps expect additionalLogMessageKeyValues to change?
             if (additionalLogMessageKeyValues != null) {
@@ -213,8 +214,8 @@ public class LimitedRunner implements AutoCloseable {
         if (LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage message = KeyValueLogMessage.build(staticMessage,
                     LogMessageKeys.CURR_ATTEMPT, successCount,
+                    LogMessageKeys.MAX_LIMIT, maxLimit,
                     LogMessageKeys.LIMIT, currentLimit);
-            // TODO add configuration parameters
             if (additionalLogMessageKeyValues != null) {
                 message.addKeysAndValues(additionalLogMessageKeyValues);
             }
