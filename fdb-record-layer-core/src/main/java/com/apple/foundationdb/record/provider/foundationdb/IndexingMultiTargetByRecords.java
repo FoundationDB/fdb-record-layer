@@ -144,7 +144,9 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(isolationLevel)
-                .setReturnedRowLimit(limit + 1); // always respect limit in this path; +1 allows a continuation item
+                // +1 because iterateRangeOnly stops one short, returning the last element found as the continuation,
+                // unless the continuation at the last element is SOURCE_EXHAUSTED, in which case it indexes that too.
+                .setReturnedRowLimit(limit + 1);
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
         return ranges.onHasNext().thenCompose(hasNext -> {

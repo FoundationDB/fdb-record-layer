@@ -589,7 +589,9 @@ public class IndexingByRecords extends IndexingBase {
                         IsolationLevel.SNAPSHOT :
                         IsolationLevel.SERIALIZABLE);
         if (limit != Integer.MAX_VALUE) {
-            executeProperties.setReturnedRowLimit(limit + 1); // +1 allows continuation item
+            // +1 because iterateRangeOnly stops one short, returning the last element found as the continuation,
+            // unless the continuation at the last element is SOURCE_EXHAUSTED, in which case it indexes that too.
+            executeProperties.setReturnedRowLimit(limit + 1);
         }
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(range, null, scanProperties);
