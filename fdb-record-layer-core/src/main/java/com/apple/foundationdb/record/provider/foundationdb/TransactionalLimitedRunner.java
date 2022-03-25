@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+// TODO make this have a LimitedRunner, not extend LimitedRunner. It should still be AutoCloseable though
 @API(API.Status.EXPERIMENTAL)
 public class TransactionalLimitedRunner extends LimitedRunner {
 

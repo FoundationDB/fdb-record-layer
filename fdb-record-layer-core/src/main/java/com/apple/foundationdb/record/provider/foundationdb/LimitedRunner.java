@@ -118,6 +118,7 @@ public class LimitedRunner implements AutoCloseable {
                 overallResult.completeExceptionally(error);
                 return AsyncUtil.READY_FALSE;
             } else {
+                // TODO test and ensure that the delay gets reset after success
                 final CompletableFuture<Void> delayFuture = exponentialDelay.delay();
                 addFutureToCompleteExceptionally(delayFuture);
                 return delayFuture.thenApply(vignore -> true);

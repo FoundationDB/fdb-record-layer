@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 @API(API.Status.INTERNAL)
 public class ExponentialDelay {
+    // TODO write some tests for this, namely that it trends towards maxDelayMillis, rather than minDelayMillis
     private static final long MIN_DELAY_MILLIS = 2;
     private long currentDelayMillis;
     private long maxDelayMillis;
