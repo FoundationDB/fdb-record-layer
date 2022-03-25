@@ -273,14 +273,6 @@ public class IndexingCommon {
         return getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
     }
 
-    @Nonnull TransactionalLimitedRunner createRunner() {
-        final TransactionalLimitedRunner limitedRunner = new TransactionalLimitedRunner(runner.getDatabase(), runner.getContextConfigBuilder(), config.getMaxLimit());
-        limitedRunner.setIncreaseLimitAfter(config.getIncreaseLimitAfter())
-                .setDecreaseLimitAfter(getRunner().getMaxAttempts())
-                .setMaxDecreaseRetries(config.getMaxRetries());
-        return limitedRunner;
-    }
-
     @Nullable
     public SynchronizedSessionRunner getSynchronizedSessionRunner() {
         return synchronizedSessionRunner;
