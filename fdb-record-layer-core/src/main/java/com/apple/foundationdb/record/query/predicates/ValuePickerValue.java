@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
@@ -69,6 +70,12 @@ public class ValuePickerValue implements Value.CompileTimeValue {
     @Override
     public Iterable<? extends Value> getChildren() {
         return alternativeValues;
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return alternativeValues.get(selectedAlternative).getResultType();
     }
 
     @Nonnull

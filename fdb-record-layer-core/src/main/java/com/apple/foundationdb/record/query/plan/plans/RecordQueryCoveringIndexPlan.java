@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.ScanWithFetchMatchCandidate;
-import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.IndexedValue;
@@ -175,9 +174,11 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     @Override
     public Value getResultValue() {
-        return new IndexedValue(indexPlan.getMatchCandidateOptional()
-                .map(matchCandidate -> matchCandidate.getTraversal().getRootReference().getResultType())
-                .orElse(new Type.Any()));
+        // TODO This should generate a value whose result type are the parts of what the index returns flattened out
+        //      in the way that it is stored on disk. As we currently massage the index keys (and values) into a partial
+        //      record we cannot do that just yet. In essence, we currently have to create a type that is the base record
+        //      type with the assumption that columns not contained in the index are omitted from that record.
+        return new IndexedValue(Objects.requireNonNull(indexPlan.getResultType().getInnerType()));
     }
 
     @Nonnull

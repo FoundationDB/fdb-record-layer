@@ -154,7 +154,7 @@ public class ExistsPredicate implements LeafQueryPredicate {
     public Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull final MatchInfo matchInfo, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         final Optional<PartialMatch> childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
         final Optional<Compensation> compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
-        if (!compensationOptional.isPresent() || compensationOptional.get().isNeeded()) {
+        if (!compensationOptional.isPresent() || compensationOptional.get().isNeededForFiltering()) {
             // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
             //      make a predicate that can evaluate a QueryComponent
             return Optional.of(toResidualPredicate());

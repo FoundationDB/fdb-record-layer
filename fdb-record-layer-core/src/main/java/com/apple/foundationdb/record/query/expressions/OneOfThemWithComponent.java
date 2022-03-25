@@ -111,8 +111,8 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
         final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
         final GraphExpansion graphExpansion = getChild().expand(childBase, outerQuantifierSupplier, Collections.emptyList());
         final SelectExpression selectExpression =
-                GraphExpansion.ofOthers(GraphExpansion.builder().pullUpQuantifier(childBase).build(), graphExpansion)
-                        .buildSelect();
+                GraphExpansion.ofOthers(GraphExpansion.builder().addQuantifier(childBase).build(), graphExpansion)
+                        .buildSimpleSelectOverQuantifier(childBase);
 
         Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
 

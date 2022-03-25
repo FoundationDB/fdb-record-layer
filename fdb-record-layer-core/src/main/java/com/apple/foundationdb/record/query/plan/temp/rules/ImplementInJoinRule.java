@@ -46,7 +46,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -260,9 +260,9 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                 } else {
                     return ImmutableList.of();
                 }
-            } else if (explodeCollectionValue instanceof QuantifiedColumnValue) {
+            } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
                 inSource = new SortedInParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                        ((QuantifiedColumnValue)explodeCollectionValue).getAlias().getId(),
+                        ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId(),
                         requestedOrderingKeyPart.isReverse());
             } else {
                 return ImmutableList.of();
@@ -306,9 +306,9 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                     } else {
                         return ImmutableList.of();
                     }
-                } else if (explodeCollectionValue instanceof QuantifiedColumnValue) {
+                } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
                     inSource = new InParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                            ((QuantifiedColumnValue)explodeCollectionValue).getAlias().getId());
+                            ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId());
                 } else {
                     return ImmutableList.of();
                 }

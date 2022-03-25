@@ -28,8 +28,10 @@ import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
@@ -236,6 +238,11 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     }
 
     @Nonnull
+    public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier) {
+        return seal().buildSimpleSelectOverQuantifier(overQuantifier);
+    }
+
+    @Nonnull
     public static GraphExpansion empty() {
         return builder().build();
     }
@@ -319,6 +326,16 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         @Nonnull
         public SelectExpression buildSelect() {
             return new SelectExpression(RecordConstructorValue.ofColumns(resultColumns), quantifiers, getPredicates());
+        }
+
+        @Nonnull
+        public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier) {
+            final var forEachQuantifiers = quantifiers.stream()
+                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                    .collect(ImmutableList.toImmutableList());
+            Verify.verify(forEachQuantifiers.size() == 1);
+            Verify.verify(Iterables.getOnlyElement(forEachQuantifiers) == overQuantifier);
+            return new SelectExpression(overQuantifier.getFlowedObjectValue(), quantifiers, getPredicates());
         }
 
         @Nonnull

@@ -221,7 +221,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     public Type getResultType() {
         return getMembers()
                 .stream()
-                .map(relationExpression -> relationExpression.getResultType().getInnerType())
+                .map(RelationalExpression::getResultType)
                 .reduce((left, right) -> {
                     Verify.verify(left.equals(right));
                     return left;
