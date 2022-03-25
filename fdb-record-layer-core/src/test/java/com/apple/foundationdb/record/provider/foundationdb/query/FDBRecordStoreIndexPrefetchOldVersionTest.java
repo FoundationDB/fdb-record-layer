@@ -77,7 +77,6 @@ public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQue
     @ParameterizedTest
     @EnumSource()
     void oldVersionFormatTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
-        // TODO: This test needs to be fully validated once the real API is here: to ensure the version is indeed read from the old location
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
 
         int count = 0;

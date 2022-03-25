@@ -1252,7 +1252,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
         }, 1);
 
-        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD, indexedRecordCursor);
+        return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, indexedRecordCursor);
     }
 
     /**

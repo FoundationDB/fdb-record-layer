@@ -35,8 +35,8 @@ import javax.annotation.Nonnull;
  * A {@link KeyValueCursor} that scans an index using the IndexPrefetch operation.
  * This subclass of {@link KeyValueCursor} uses a different scan operation ({@link com.apple.foundationdb.Transaction#getMappedRange})
  * and therefore the actual returned types of the scanned range are different too - they need to be parsed into records
- * rather than Index entries. The returned values are {@link KeyValueAndMappedReqAndResult} and contain all splits of
- * a hte record for an particular index entry.
+ * rather than Index entries. The returned values are MappedKeyValues and contain all splits of
+ * the record for an particular index entry.
  */
 @API(API.Status.EXPERIMENTAL)
 public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {

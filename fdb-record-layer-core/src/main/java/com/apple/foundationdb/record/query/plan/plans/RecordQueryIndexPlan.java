@@ -87,7 +87,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     protected final IndexScanParameters scanParameters;
     @Nonnull
-    private final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch;
+    private RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch;
     protected final boolean reverse;
     protected final boolean strictlySorted;
     @Nonnull
@@ -145,6 +145,20 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this.matchCandidateOptional = matchCandidateOptional;
         this.resultType = resultType;
         this.useIndexPrefetch = useIndexPrefetch;
+        if (useIndexPrefetch != RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE) {
+            if (commonPrimaryKey == null) {
+                KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch cannot be used without a primary key. Falling back to regular scan.",
+                        LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                LOGGER.error(message.toString());
+                this.useIndexPrefetch = RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE;
+            }
+            if (scanParameters.getScanType() != IndexScanType.BY_VALUE) {
+                KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch can only be used with VALUE index scan. Falling back to regular scan.",
+                        LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                LOGGER.error(message.toString());
+                this.useIndexPrefetch = RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE;
+            }
+        }
     }
 
     @Nonnull
