@@ -296,8 +296,9 @@ public class IndexingCommon {
         }
         configLoaderInvocationCount++;
         config = configLoader.apply(config);
-        limitedRunner.setMaxLimit(config.getMaxLimit());
-        limitedRunner.setIncreaseLimitAfter(config.getIncreaseLimitAfter());
+        limitedRunner.setMaxLimit(config.getMaxLimit())
+                .setIncreaseLimitAfter(this.config.getIncreaseLimitAfter())
+                .setMaxDecreaseRetries(this.config.getMaxRetries());
         return true;
     }
 
