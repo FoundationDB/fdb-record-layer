@@ -26,13 +26,12 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDire
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.UUID;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -142,7 +141,7 @@ public final class KeySpaceUtils {
                                     @Nonnull KeySpaceDirectory directory,
                                     KeySpacePath parentPath,
                                     @Nonnull String[] pathElems,
-                                    int position) {
+                                    int position) throws OperationUnsupportedException {
         if (position >= pathElems.length) {
             return parentPath;
         }
@@ -156,15 +155,6 @@ public final class KeySpaceUtils {
                 if (!pathElem.isEmpty()) {
                     return null;
                 }
-                break;
-            case BYTES:
-                //TODO(bfines) this may not be correct,depending on how charsets are used
-                byte[] pathUtf8 = pathElem.getBytes(StandardCharsets.UTF_8);
-                byte[] dirBytes = (byte[]) directory.getValue();
-                if (!Arrays.equals(dirBytes, pathUtf8)) {
-                    return null;
-                }
-                pathValue = pathUtf8;
                 break;
             case STRING:
                 pathValue = pathElem;
@@ -198,46 +188,8 @@ public final class KeySpaceUtils {
                     return null;
                 }
                 break;
-            case FLOAT:
-                try {
-                    float l = Float.parseFloat(pathElem);
-                    pathValue = l;
-                    if (!Objects.equals(directory.getValue(), l)) {
-                        return null;
-                    }
-                } catch (NumberFormatException nfe) {
-                    //the field isn't a long, so can't match this directory
-                    return null;
-                }
-                break;
-            case DOUBLE:
-                try {
-                    double l = Double.parseDouble(pathElem);
-                    pathValue = l;
-                    if (!Objects.equals(directory.getValue(), l)) {
-                        return null;
-                    }
-                } catch (NumberFormatException nfe) {
-                    //the field isn't a long, so can't match this directory
-                    return null;
-                }
-                break;
-            case BOOLEAN:
-                Boolean l = Boolean.parseBoolean(pathElem);
-                pathValue = l;
-                if (!Objects.equals(directory.getValue(), l)) {
-                    return null;
-                }
-                break;
-            case UUID:
-                UUID uuid = UUID.fromString(pathElem);
-                pathValue = uuid;
-                if (!Objects.equals(directory.getValue(), uuid)) {
-                    return null;
-                }
-                break;
             default:
-                return null;
+                throw new OperationUnsupportedException("Key Space paths only supported for NULL, LONG and STRING");
         }
 
         try {
