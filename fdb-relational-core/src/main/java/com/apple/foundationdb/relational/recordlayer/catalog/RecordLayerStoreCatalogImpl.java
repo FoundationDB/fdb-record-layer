@@ -37,12 +37,10 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
-
 import com.google.protobuf.Message;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     private final KeySpacePath keySpacePath;
@@ -89,4 +87,5 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
             throw new RelationalException(ErrorCode.TRANSACTION_INACTIVE, ex);
         }
     }
+
 }
