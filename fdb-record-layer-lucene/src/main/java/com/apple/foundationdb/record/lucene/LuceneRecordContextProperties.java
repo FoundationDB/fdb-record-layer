@@ -97,4 +97,20 @@ public final class LuceneRecordContextProperties {
      * Maximum number of segments to be merged at a time for auto-complete search with Lucene, during forceMerge for forceMergeDeletes.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_MERGE_MAX_NUMBER = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteMergeMaxNum", 2);
+
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_SUGGESTER_COMMIT_ON_BUILD = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteSuggesterCommitOnBuild", false);
+
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoComplete.withTermVectors", true);
+
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS_POSITIONS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoComplete.withTermVectorsPositions", true);
+
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_WITH_OMIT_NORMS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoComplete.withOmitNorms", true);
+
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_WITH_FREQUENCIES_AND_POSITIONS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoComplete.withFrequenciesAndPositions", true);
+
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_FULL_TEXT_WITH_TERM_VECTORS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.withTermVectors", false);
+
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_FULL_TEXT_WITH_TERM_VECTOR_POSITIONS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.withTermVectorPositions", false);
+
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_FULL_TEXT_WITH_OMIT_NORMS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.withOmitNorms", false);
 }

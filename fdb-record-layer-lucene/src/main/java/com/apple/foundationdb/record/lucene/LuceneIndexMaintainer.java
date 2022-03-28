@@ -55,6 +55,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.SortedDocValuesField;
@@ -196,6 +197,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
+    private FieldType getTextFieldType(boolean isStored) {
+        final boolean omitNorms = this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_FULL_TEXT_WITH_OMIT_NORMS);
+        final boolean withTermVectors = this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_FULL_TEXT_WITH_TERM_VECTORS);
+        final boolean withTermVectorPositions = this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_FULL_TEXT_WITH_TERM_VECTOR_POSITIONS);
+
+        FieldType ft = new FieldType(isStored ? TextField.TYPE_STORED : TextField.TYPE_NOT_STORED);
+        ft.setStoreTermVectors(withTermVectors);
+        ft.setStoreTermVectorPositions(withTermVectorPositions);
+        ft.setOmitNorms(omitNorms);
+        return ft;
+    }
+
     /**
      * Insert a field into the document and add a suggestion into the suggester if needed.
      * @return whether a suggestion has been added to the suggester
@@ -209,6 +222,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         switch (field.getType()) {
             case TEXT:
                 luceneField = new TextField(fieldName, (String)value, field.isStored() ? Field.Store.YES : Field.Store.NO);
+                luceneField = new Field(fieldName, (String) value, getTextFieldType(field.isStored()));
                 suggestionAdded = addTermToSuggesterIfNeeded((String) value, fieldName, suggester);
                 break;
             case STRING:

@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.document.FieldType;
+import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergeTrigger;
@@ -56,7 +58,8 @@ public class LuceneOptimizedWrappedAnalyzingInfixSuggester extends BlendedInfixS
     private LuceneOptimizedWrappedAnalyzingInfixSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir, @Nonnull Analyzer indexAnalyzer,
                                                           @Nonnull Analyzer queryAnalyzer, int minPrefixChars, BlenderType blenderType, int numFactor,
                                                           @Nullable Double exponent, boolean highlight) throws IOException {
-        super(dir, indexAnalyzer, queryAnalyzer, minPrefixChars, blenderType, numFactor, exponent, false, true, highlight);
+        super(dir, indexAnalyzer, queryAnalyzer, minPrefixChars, blenderType, numFactor, exponent,
+                state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SUGGESTER_COMMIT_ON_BUILD), true, highlight);
         this.state = state;
     }
 
@@ -102,5 +105,17 @@ public class LuceneOptimizedWrappedAnalyzingInfixSuggester extends BlendedInfixS
             throw new RecordCoreArgumentException("Failure with underlying lucene index opening for auto complete suggester", ioe)
                     .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
         }
+    }
+
+    @Override
+    protected FieldType getTextFieldType() {
+        FieldType ft = new FieldType(TextField.TYPE_NOT_STORED);
+        ft.setIndexOptions(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_FREQUENCIES_AND_POSITIONS)
+                           ? org.apache.lucene.index.IndexOptions.DOCS_AND_FREQS_AND_POSITIONS : org.apache.lucene.index.IndexOptions.DOCS);
+        ft.setStoreTermVectors(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS));
+        ft.setStoreTermVectorPositions(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS_POSITIONS));
+        ft.setOmitNorms(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_OMIT_NORMS));
+
+        return ft;
     }
 }
