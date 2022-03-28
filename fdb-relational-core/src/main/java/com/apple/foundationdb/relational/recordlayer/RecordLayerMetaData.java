@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.DirectoryScannable;
 
@@ -83,6 +84,8 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
             });
             //TODO: This should return the elements sorted by TABLE_CATALOG,TABLE_SCHEM as per JDBC recommendations
             return new RecordLayerResultSet(scannable, null, null, conn, QueryProperties.DEFAULT, null);
+        } catch (UncheckedRelationalException e) {
+            throw e.unwrap().toSqlException();
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
@@ -156,7 +159,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
                             .add(fd.getName()) // COLUMN_NAME
                             .add(formatFieldType(fd, fd.getType())) // TYPE_NAME
                             .add(fd.getIndex()) // ORDINAL_POSITION
-                            .add(formatOptions(fd.getOptions()))) // BL_OPTIONS (Relational Layer specific)
+                            .add(formatOptions(fd.getOptions()))) // BL_OPTIONS (Relational Layer specific) // TODO (arnaud) remove this column once the information is available elsewhere
                     .sorted(Comparator.comparing((Tuple t) -> t.getString(0))
                             .thenComparing((Tuple t) -> t.getString(1))
                             .thenComparing((Tuple t) -> t.getString(2))
@@ -180,52 +183,40 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
         return table.getMetaData();
     }
 
-    @Nonnull
-    @Override
-    public URI getDatabasePath() {
-        return conn.frl.getPath();
-    }
-
     private String formatFieldType(Descriptors.FieldDescriptor field, Descriptors.FieldDescriptor.Type t) {
-        String typeStr = "";
         if (t != Descriptors.FieldDescriptor.Type.MESSAGE) {
-            typeStr = t.name();
+            return t.name();
         } else {
             final Descriptors.Descriptor messageType = field.getMessageType();
-            typeStr = "Message(" + messageType.getFullName().toUpperCase(Locale.ROOT) + ")";
+            return "Message(" + messageType.getFullName().toUpperCase(Locale.ROOT) + ")";
         }
-        return typeStr;
     }
 
     private String formatOptions(DescriptorProtos.FieldOptions options) {
-        String optionsStr = "{";
-        final Map<Descriptors.FieldDescriptor, Object> allFields = options.getAllFields();
-        boolean isFirst = true;
-        for (Map.Entry<Descriptors.FieldDescriptor, Object> fieldPair : allFields.entrySet()) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                optionsStr += ",";
+        return "{" +
+                options.getAllFields().entrySet().stream()
+                        .map(this::formatOptionField)
+                        .collect(Collectors.joining(",")) +
+                "}";
+    }
+
+    private String formatOptionField(Map.Entry<Descriptors.FieldDescriptor, Object> fieldPair) {
+        final Object value = fieldPair.getValue();
+        String valueStr = null;
+        String keyStr = null;
+        if (value instanceof RecordMetaDataOptionsProto.FieldOptions) {
+            RecordMetaDataOptionsProto.FieldOptions vfo = (RecordMetaDataOptionsProto.FieldOptions) value;
+            if (vfo.hasPrimaryKey()) {
+                keyStr = "primary_key";
+                valueStr = Boolean.toString(vfo.getPrimaryKey());
+            } else if (vfo.hasIndex()) {
+                keyStr = "index";
+                valueStr = vfo.getIndex().getType();
             }
-            final Object value = fieldPair.getValue();
-            String valueStr = null;
-            String keyStr = null;
-            if (value instanceof RecordMetaDataOptionsProto.FieldOptions) {
-                RecordMetaDataOptionsProto.FieldOptions vfo = (RecordMetaDataOptionsProto.FieldOptions) value;
-                if (vfo.hasPrimaryKey()) {
-                    keyStr = "primary_key";
-                    valueStr = Boolean.toString(vfo.getPrimaryKey());
-                } else if (vfo.hasIndex()) {
-                    keyStr = "index";
-                    valueStr = vfo.getIndex().getType();
-                }
-            } else {
-                keyStr = fieldPair.getKey().getName();
-                valueStr = value == null ? "null" : value.toString();
-            }
-            optionsStr += String.format("%s:%s", keyStr, valueStr);
+        } else {
+            keyStr = fieldPair.getKey().getName();
+            valueStr = value == null ? "null" : value.toString();
         }
-        optionsStr += "}";
-        return optionsStr;
+        return String.format("%s:%s", keyStr, valueStr);
     }
 }

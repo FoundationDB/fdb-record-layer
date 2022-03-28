@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
@@ -127,13 +126,6 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      * @throws RelationalException if something goes wrong.
      */
     @Nonnull TableMetaData describeTable(@Nonnull String schema, @Nonnull String table)throws RelationalException;
-
-    /**
-     * Get the path of the database this metadata is for.
-     *
-     * @return the full of the database this is for.
-     */
-    @Nonnull URI getDatabasePath();
 
     @Override
     @ExcludeFromJacocoGeneratedReport
