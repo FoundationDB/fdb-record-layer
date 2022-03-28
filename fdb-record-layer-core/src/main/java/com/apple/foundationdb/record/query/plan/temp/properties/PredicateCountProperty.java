@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
@@ -70,6 +71,8 @@ public class PredicateCountProperty implements PlannerProperty<Integer> {
             return ((AndOrPredicate)predicate).getChildren().stream()
                     .mapToInt(PredicateCountProperty::getValuePredicateCount)
                     .sum();
+        } else if (predicate instanceof ConstantPredicate) {
+            return 0;
         } else if (predicate instanceof ExistsPredicate) {
             // exists() should not count as it would only reapply the predicates that are underneath using its
             // alternative expression
