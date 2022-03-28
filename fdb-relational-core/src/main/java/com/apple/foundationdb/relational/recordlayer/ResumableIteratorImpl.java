@@ -84,7 +84,7 @@ public class ResumableIteratorImpl<T> implements ResumableIterator<T> {
     }
 
     @Override
-    public void close() throws RelationalException {
+    public void close() {
         //no-op
     }
 

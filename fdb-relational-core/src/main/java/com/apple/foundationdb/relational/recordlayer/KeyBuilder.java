@@ -54,11 +54,6 @@ public class KeyBuilder {
     }
 
     @Nonnull
-    public NestableTuple buildKey(Map<String, Object> keyFields) throws RelationalException {
-        return buildKey(keyFields, true, true);
-    }
-
-    @Nonnull
     public NestableTuple buildKey(Map<String, Object> keyFields, boolean failOnMissingColumn, boolean failOnUnknownColumn) throws RelationalException {
         Object[] flattenedFields = new Object[key.getColumnSize()];
         Map<String, Object> keysNotPicked = new HashMap<>();
