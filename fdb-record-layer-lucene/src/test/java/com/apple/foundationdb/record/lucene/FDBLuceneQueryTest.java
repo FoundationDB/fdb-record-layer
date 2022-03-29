@@ -288,7 +288,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "testSynonym[shouldDeferFetch={0}]")
     @BooleanSource
     void testSynonym(boolean shouldDeferFetch) throws Exception {
         initializedWithSynonymIndex("Good morning Mr Tian");
@@ -298,7 +298,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         assertTermIndexedOrNot("full", false, shouldDeferFetch);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "testNgram[shouldDeferFetch={0}]")
     @BooleanSource
     void testNgram(boolean shouldDeferFetch) throws Exception {
         initializeWithNgramIndex("Good morning Mr Tian", false, 3, 5);
@@ -327,7 +327,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         assertTermIndexedOrNot("Mr T", true, shouldDeferFetch);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "testNgramEdgesOnly[shouldDeferFetch={0}]")
     @BooleanSource
     void testNgramEdgesOnly(boolean shouldDeferFetch) throws Exception {
         initializeWithNgramIndex("Good morning Mr Tian", true, 3, 5);
@@ -345,7 +345,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         assertTermIndexedOrNot("rning", false, shouldDeferFetch);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "simpleLuceneScans[shouldDeferFetch={0}]")
     @BooleanSource
     void simpleLuceneScans(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -370,7 +370,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "testThenExpressionBeforeFieldExpression[shouldDeferFetch={0}]")
     @BooleanSource
     void testThenExpressionBeforeFieldExpression(boolean shouldDeferFetch) throws Exception {
         initializeNestedWithField();
@@ -391,7 +391,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "simpleLuceneScansDocId[shouldDeferFetch={0}]")
     @BooleanSource
     void simpleLuceneScansDocId(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -411,7 +411,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "delayFetchOnOrOfLuceneScanWithFieldFilter[shouldDeferFetch={0}]")
     @BooleanSource
     void delayFetchOnOrOfLuceneScanWithFieldFilter(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -444,7 +444,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "delayFetchOnFilterWithSort[shouldDeferFetch={0}]")
     @BooleanSource
     void delayFetchOnLuceneFilterWithSort(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -469,7 +469,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "delayFetchOnAndOfLuceneAndFieldFilter[shouldDeferFetch={0}]")
     @BooleanSource
     void delayFetchOnAndOfLuceneAndFieldFilter(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -499,7 +499,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "delayFetchOnOrOfLuceneFiltersGivesUnion[shouldDeferFetch={0}]")
     @BooleanSource
     void delayFetchOnOrOfLuceneFiltersGivesUnion(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -541,7 +541,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "delayFetchOnAndOfLuceneFilters[shouldDeferFetch={0}]")
     @BooleanSource
     void delayFetchOnAndOfLuceneFilters(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -570,7 +570,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "delayFetchOnLuceneComplexStringAnd[shouldDeferFetch={0}]")
     @BooleanSource
     void delayFetchOnLuceneComplexStringAnd(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -598,7 +598,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "delayFetchOnLuceneComplexStringOr[shouldDeferFetch={0}]")
     @BooleanSource
     void delayFetchOnLuceneComplexStringOr(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -626,7 +626,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "misMatchQueryShouldReturnNoResult[shouldDeferFetch={0}]")
     @BooleanSource
     void misMatchQueryShouldReturnNoResult(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
@@ -697,7 +697,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "nestedLuceneAndQuery[shouldDeferFetch={0}]")
     @BooleanSource
     void nestedLuceneAndQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
@@ -725,7 +725,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "nestedLuceneFieldQuery[shouldDeferFetch={0}]")
     @BooleanSource
     void nestedLuceneFieldQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
@@ -748,7 +748,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "nestedOneOfThemQuery[shouldDeferFetch={0}]")
     @BooleanSource
     void nestedOneOfThemQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
@@ -776,7 +776,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "nestedOneOfThemWithAndQuery[shouldDeferFetch={0}]")
     @BooleanSource
     void nestedOneOfThemWithAndQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
@@ -808,7 +808,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "nestedOneOfThemWithOrQuery[shouldDeferFetch={0}]")
     @BooleanSource
     void nestedOneOfThemWithOrQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
@@ -839,7 +839,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "longFieldQuery[shouldDeferFetch={0}]")
     @BooleanSource
     public void longFieldQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();

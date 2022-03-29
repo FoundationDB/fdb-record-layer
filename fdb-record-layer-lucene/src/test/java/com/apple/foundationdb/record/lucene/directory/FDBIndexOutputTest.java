@@ -42,7 +42,7 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         random.nextBytes(data);
         output.writeBytes(data, data.length);
         output.close();
-        assertEquals(data.length, directory.getFDBLuceneFileReference(FILE_NAME).get().getSize());
+        assertEquals(data.length, directory.getFDBLuceneFileReference(FILE_NAME).getSize());
     }
     
     @Test
@@ -50,7 +50,7 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         FDBIndexOutput output = new FDBIndexOutput(FILE_NAME, directory);
         output.writeByte((byte) 0);
         output.close();
-        assertEquals(1, directory.getFDBLuceneFileReference(FILE_NAME).get().getSize());
+        assertEquals(1, directory.getFDBLuceneFileReference(FILE_NAME).getSize());
     }
 
 }

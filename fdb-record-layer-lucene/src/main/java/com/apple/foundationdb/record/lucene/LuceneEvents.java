@@ -118,10 +118,16 @@ public class LuceneEvents {
     public enum Waits implements StoreTimer.Wait {
         /** Wait to delete a file from Lucene's FDBDirectory.*/
         WAIT_LUCENE_DELETE_FILE("lucene delete file"),
-        /** Time to get the length of the a file in Lucene's FDBDirectory.*/
+        /** Wait to get the length of the a file in Lucene's FDBDirectory.*/
         WAIT_LUCENE_FILE_LENGTH("lucene file length"),
-        /** Time to rename a file in Lucene's FDBDirectory.*/
+        /** Wait to rename a file in Lucene's FDBDirectory.*/
         WAIT_LUCENE_RENAME("lucene rename"),
+        /** Wait to get a new file counter increment. */
+        WAIT_LUCENE_GET_INCREMENT("lucene file counter increment"),
+        /** Wait to read a file reference. */
+        WAIT_LUCENE_GET_FILE_REFERENCE("lucene get file reference"),
+        /** Wait to read a data block. */
+        WAIT_LUCENE_GET_DATA_BLOCK("lucene get data block"),
         ;
 
         private final String title;

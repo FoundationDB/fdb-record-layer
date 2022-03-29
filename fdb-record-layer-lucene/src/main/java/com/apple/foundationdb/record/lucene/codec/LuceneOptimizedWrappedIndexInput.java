@@ -49,7 +49,7 @@ public class LuceneOptimizedWrappedIndexInput extends IndexInput {
     public LuceneOptimizedWrappedIndexInput(@Nonnull String name, @Nonnull FDBDirectory directory, boolean isSegmentInfo) {
         super(name);
         this.directory = directory;
-        reference = this.directory.getFDBLuceneFileReference(convertToDataFile(name)).join();
+        reference = this.directory.getFDBLuceneFileReference(convertToDataFile(name));
         value = isSegmentInfo ? reference.getSegmentInfo() : reference.getEntries();
         position = 0;
     }
