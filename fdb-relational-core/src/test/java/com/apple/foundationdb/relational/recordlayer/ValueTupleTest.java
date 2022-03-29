@@ -102,11 +102,11 @@ class ValueTupleTest {
 
     @Test
     void getTuple() throws InvalidTypeException, InvalidColumnReferenceException {
-        assertThat(testNestableTuple.getTuple(0)).isEqualTo(EmptyTuple.INSTANCE);
-        assertThat(testFdbTuple.getTuple(0)).isEqualTo(new FDBTuple(fdbTuple));
+        assertThat(testNestableTuple.getRow(0)).isEqualTo(EmptyTuple.INSTANCE);
+        assertThat(testFdbTuple.getRow(0)).isEqualTo(new FDBTuple(fdbTuple));
         for (ValueTuple invalid : List.of(testLong, testInt, testDouble, testFloat, testString, testBytes, testArray)) {
             assertThatExceptionOfType(InvalidTypeException.class).isThrownBy(
-                    () -> invalid.getTuple(0)
+                    () -> invalid.getRow(0)
             );
         }
     }
@@ -137,7 +137,7 @@ class ValueTupleTest {
     }
 
     @Test
-    void setObject() {
+    void setObject() throws InvalidColumnReferenceException {
         ValueTuple v = new ValueTuple(5);
         assertThat(v.getObject(0)).isEqualTo(5);
         v.setObject("five");
@@ -174,13 +174,18 @@ class ValueTupleTest {
         assertThatExceptionOfType(InvalidColumnReferenceException.class).isThrownBy(
                 () -> testBytes.getBytes(1));
         assertThatExceptionOfType(InvalidColumnReferenceException.class).isThrownBy(
-                () -> testNestableTuple.getTuple(-1));
+                () -> testNestableTuple.getRow(-1));
         assertThatExceptionOfType(InvalidColumnReferenceException.class).isThrownBy(
-                () -> testNestableTuple.getTuple(1));
+                () -> testNestableTuple.getRow(1));
         assertThatExceptionOfType(InvalidColumnReferenceException.class).isThrownBy(
                 () -> testArray.getArray(-1));
         assertThatExceptionOfType(InvalidColumnReferenceException.class).isThrownBy(
                 () -> testArray.getArray(1));
+
+        assertThatExceptionOfType(InvalidColumnReferenceException.class).isThrownBy(
+                () -> testLong.getObject(-1));
+        assertThatExceptionOfType(InvalidColumnReferenceException.class).isThrownBy(
+                () -> testLong.getObject(1));
     }
 
     @Test

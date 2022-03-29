@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 
@@ -59,23 +60,29 @@ class FDBTupleTest {
     }
 
     @Test
-    void getObject() {
+    void getObject() throws InvalidColumnReferenceException {
         assertThat(longTuple.getObject(0)).isEqualTo(5L);
         assertThat(fdbTuple.getObject(0)).isEqualTo("five");
         assertThat(fdbTuple.getObject(1)).isEqualTo(5L);
         assertThat(fdbTuple.getObject(2)).isEqualTo(5.0f);
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> fdbTuple.getObject(-1),
+                ErrorCode.INVALID_COLUMN_REFERENCE);
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> fdbTuple.getObject(10),
+                ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Test
     void getTuple() throws InvalidTypeException, InvalidColumnReferenceException {
-        assertThatThrownBy(() -> emptyTuple.getTuple(-1))
+        assertThatThrownBy(() -> emptyTuple.getRow(-1))
                 .isInstanceOf(InvalidColumnReferenceException.class);
-        assertThatThrownBy(() -> fdbTuple.getTuple(4))
+        assertThatThrownBy(() -> fdbTuple.getRow(4))
                 .isInstanceOf(InvalidColumnReferenceException.class);
-        assertThatThrownBy(() -> longTuple.getTuple(0))
+        assertThatThrownBy(() -> longTuple.getRow(0))
                 .isInstanceOf(InvalidTypeException.class);
 
-        assertThat(fdbTuple.getTuple(3))
+        assertThat(fdbTuple.getRow(3))
                 .isEqualTo(new FDBTuple(new Tuple().add("six").add(6L).add(6.0f).add(new Tuple().add("seven").add(7L).add(7.0f))));
     }
 

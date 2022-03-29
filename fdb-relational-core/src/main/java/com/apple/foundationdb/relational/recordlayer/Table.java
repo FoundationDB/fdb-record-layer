@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.ConnectionScoped;
-import com.apple.foundationdb.relational.api.NestableTuple;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -45,7 +45,7 @@ public interface Table extends Scannable, AutoCloseable {
     // correct mutation behavior
     // and what about scans/gets? Should they go here too?
 
-    boolean deleteRecord(@Nonnull NestableTuple key) throws RelationalException;
+    boolean deleteRecord(@Nonnull Row key) throws RelationalException;
 
     //TODO(bfines) should we really use a Protobuf here? Or a KV pair instead? For now, Message will work
     boolean insertRecord(@Nonnull Message message) throws RelationalException;

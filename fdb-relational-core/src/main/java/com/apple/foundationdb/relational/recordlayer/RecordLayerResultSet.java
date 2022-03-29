@@ -21,9 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
@@ -36,8 +35,8 @@ import java.sql.SQLException;
 import java.util.List;
 
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
-    protected final NestableTuple startKey;
-    protected final NestableTuple endKey;
+    protected final Row startKey;
+    protected final Row endKey;
     protected final RecordStoreConnection sourceConnection;
 
     protected final Scannable scannable;
@@ -47,11 +46,11 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     private final String[] fieldNames;
 
-    private ResumableIterator<KeyValue> currentCursor;
+    private ResumableIterator<Row> currentCursor;
 
-    private KeyValue currentRow;
+    private Row currentRow;
 
-    public RecordLayerResultSet(Scannable scannable, NestableTuple start, NestableTuple end,
+    public RecordLayerResultSet(Scannable scannable, Row start, Row end,
                                 RecordStoreConnection sourceConnection, QueryProperties scanProperties,
                                 Continuation continuation) throws RelationalException {
         this.scannable = scannable;
@@ -99,21 +98,11 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
             if (currentRow == null) {
                 throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted");
             }
-            if (supportsMessageParsing()) {
-                Message m = ((MessageTuple) currentRow.value()).parseMessage();
-                return m.getField(m.getDescriptorForType().findFieldByNumber(position));
-            }
-            if (position < 1 || position > (currentRow.keyColumnCount() + currentRow.value().getNumFields())) {
+            if (position < 1 || position > (currentRow.getNumFields())) {
                 throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
             }
-            Object o;
             position -= 1; // Switch to 0 based index
-            if (position < currentRow.keyColumnCount()) {
-                o = currentRow.key().getObject(position);
-            } else {
-                o = currentRow.value().getObject(position - currentRow.keyColumnCount());
-            }
-            return o;
+            return currentRow.getObject(position);
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
@@ -146,7 +135,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     public boolean supportsMessageParsing() {
-        return currentRow != null && currentRow.value() instanceof MessageTuple;
+        return currentRow != null && currentRow instanceof MessageTuple;
     }
 
     @Override
@@ -155,7 +144,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         if (!supportsMessageParsing()) {
             throw new OperationUnsupportedException("This ResultSet does not support Message Parsing").toSqlException();
         }
-        return ((MessageTuple) currentRow.value()).parseMessage();
+        return ((MessageTuple) currentRow).parseMessage();
     }
 
     @Override
@@ -163,10 +152,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         if (currentRow == null) {
             throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted").toSqlException();
         }
-        if (supportsMessageParsing()) {
-            return parseMessage().getDescriptorForType().getFields().size();
-        }
-        return currentRow.key().getNumFields() + currentRow.value().getNumFields();
+        return currentRow.getNumFields();
     }
 
     @Override

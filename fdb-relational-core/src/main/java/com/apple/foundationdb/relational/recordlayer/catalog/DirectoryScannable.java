@@ -32,14 +32,11 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolvedKeyS
 import com.apple.foundationdb.record.util.TriFunction;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.ImmutableKeyValue;
-import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.EmptyTuple;
 import com.apple.foundationdb.relational.recordlayer.KeyBuilder;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
@@ -60,10 +57,10 @@ public class DirectoryScannable implements Scannable {
     private final KeySpace keySpace;
     private final URI prefix;
     private final String[] fieldNames;
-    private final Function<NestableTuple, NestableTuple> directoryTransform;
+    private final Function<Row, Row> directoryTransform;
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Internal class expects proper usage")
-    public DirectoryScannable(KeySpace keySpace, URI prefix, String[] fieldNames, Function<NestableTuple, NestableTuple> directoryTransform) {
+    public DirectoryScannable(KeySpace keySpace, URI prefix, String[] fieldNames, Function<Row, Row> directoryTransform) {
         this.keySpace = keySpace;
         this.prefix = prefix;
         this.fieldNames = fieldNames;
@@ -72,7 +69,7 @@ public class DirectoryScannable implements Scannable {
 
     @Override
     @Nonnull
-    public ResumableIterator<KeyValue> openScan(@Nonnull Transaction transaction, @Nullable NestableTuple startKey, @Nullable NestableTuple endKey, @Nullable Continuation continuation, @Nonnull QueryProperties scanOptions) throws RelationalException {
+    public ResumableIterator<Row> openScan(@Nonnull Transaction transaction, @Nullable Row startKey, @Nullable Row endKey, @Nullable Continuation continuation, @Nonnull QueryProperties scanOptions) throws RelationalException {
         FDBRecordContext ctx = transaction.unwrap(FDBRecordContext.class);
         //TODO(bfines) add continuation here
         final KeySpacePath prefixPath = KeySpaceUtils.uriToPath(prefix, keySpace);
@@ -88,7 +85,7 @@ public class DirectoryScannable implements Scannable {
             cursor = listDirectory(prefixPath, null, ctx);
         }
 
-        RecordCursor<NestableTuple> mappedCursor = cursor.map(resolvedKeySpacePath -> {
+        RecordCursor<Row> mappedCursor = cursor.map(resolvedKeySpacePath -> {
             KeySpacePath path = resolvedKeySpacePath.toPath();
             String basePath = KeySpaceUtils.toPathString(path);
             Tuple remainder = resolvedKeySpacePath.getRemainder();
@@ -101,7 +98,7 @@ public class DirectoryScannable implements Scannable {
         });
 
         try {
-            return RecordLayerIterator.create(mappedCursor, value -> new ImmutableKeyValue(new EmptyTuple(), directoryTransform.apply(value)), false);
+            return RecordLayerIterator.create(mappedCursor, directoryTransform::apply);
         } catch (UncheckedRelationalException e) {
             throw e.unwrap();
         }
@@ -148,7 +145,7 @@ public class DirectoryScannable implements Scannable {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties scanOptions) throws RelationalException {
+    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties scanOptions) throws RelationalException {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
 

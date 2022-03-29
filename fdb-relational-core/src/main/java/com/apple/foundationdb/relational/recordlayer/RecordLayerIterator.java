@@ -23,20 +23,20 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.KeyValue;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.util.function.Function;
 
 import javax.annotation.Nonnull;
 
-public final class RecordLayerIterator<T> implements ResumableIterator<KeyValue> {
+public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     private final RecordCursor<T> recordCursor;
-    private final Function<T, KeyValue> transform;
+    private final Function<T, Row> transform;
     private RecordCursorResult<T> result;
     private Continuation continuation;
 
-    private RecordLayerIterator(@Nonnull RecordCursor<T> cursor, @Nonnull Function<T, KeyValue> transform) {
+    private RecordLayerIterator(@Nonnull RecordCursor<T> cursor, @Nonnull Function<T, Row> transform) {
         this.recordCursor = cursor;
         this.transform = transform;
         // TODO(sfines,yhatem) perform this in a non-blocking manner for more efficiency.
@@ -48,8 +48,7 @@ public final class RecordLayerIterator<T> implements ResumableIterator<KeyValue>
     }
 
     public static <T> RecordLayerIterator<T> create(RecordCursor<T> cursor,
-                                                    Function<T, KeyValue> transform,
-                                                    boolean supportsMessageParsing) {
+                                                    Function<T, Row> transform) {
         return new RecordLayerIterator<>(cursor, transform);
     }
 
@@ -70,15 +69,15 @@ public final class RecordLayerIterator<T> implements ResumableIterator<KeyValue>
     }
 
     @Override
-    public KeyValue next() {
-        final KeyValue kvResult = transform.apply(result.get());
+    public Row next() {
+        final Row row = transform.apply(result.get());
         // TODO(sfines,yhatem) pass the Record-Layer Continuation object as-is to avoid copying bytes around.
         this.continuation = ContinuationImpl.fromBytes(result.getContinuation().toBytes());
         result = recordCursor.getNext();
         if (result.getContinuation().isEnd()) {
             this.continuation = Continuation.END;
         }
-        return kvResult;
+        return row;
     }
 
     @Override

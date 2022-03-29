@@ -37,10 +37,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.ImmutableKeyValue;
-import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -80,7 +78,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties queryProperties) throws RelationalException {
+    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties queryProperties) throws RelationalException {
         FDBRecordStore store = getSchema().loadStore();
         ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(queryProperties);
         scanProperties = new ScanProperties(scanProperties.getExecuteProperties().setReturnedRowLimit(1), scanProperties.isReverse());
@@ -98,7 +96,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         if (storedRecord == null) {
             return null;
         }
-        return new ImmutableKeyValue(TupleUtils.toRelationalTuple(storedRecord.getPrimaryKey()), new MessageTuple(storedRecord.getRecord()));
+        return new MessageTuple(storedRecord.getRecord());
     }
 
     @Override
@@ -176,7 +174,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    protected Function<IndexEntry, KeyValue> keyValueTransform() {
+    protected Function<IndexEntry, Row> keyValueTransform() {
         return indexEntry -> new ImmutableKeyValue(TupleUtils.toRelationalTuple(indexEntry.getKey()), TupleUtils.toRelationalTuple(indexEntry.getValue()));
     }
 

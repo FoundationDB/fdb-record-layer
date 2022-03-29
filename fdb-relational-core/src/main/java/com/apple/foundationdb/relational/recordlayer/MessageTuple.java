@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+
 import com.google.protobuf.Message;
 
-public class MessageTuple extends AbstractTuple {
+public class MessageTuple extends AbstractRow {
     private final Message message;
 
     public MessageTuple(Message m) {
@@ -35,7 +37,10 @@ public class MessageTuple extends AbstractTuple {
     }
 
     @Override
-    public Object getObject(int position) {
+    public Object getObject(int position) throws InvalidColumnReferenceException {
+        if (position < 0 || position >= getNumFields()) {
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
+        }
         return message.getField(message.getDescriptorForType().getFields().get(position));
     }
 

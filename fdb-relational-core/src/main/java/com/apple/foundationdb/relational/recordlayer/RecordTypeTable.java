@@ -29,10 +29,8 @@ import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpressio
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.ImmutableKeyValue;
-import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -73,13 +71,13 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties queryProperties) throws RelationalException {
+    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties queryProperties) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
         final FDBStoredRecord<Message> storedRecord = store.loadRecord(TupleUtils.toFDBTuple(key));
         if (storedRecord == null) {
             return null;
         }
-        return new ImmutableKeyValue(TupleUtils.toRelationalTuple(storedRecord.getPrimaryKey()), new MessageTuple(storedRecord.getRecord()));
+        return new MessageTuple(storedRecord.getRecord());
     }
 
     @Override
@@ -103,7 +101,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public boolean deleteRecord(@Nonnull NestableTuple key) throws RelationalException {
+    public boolean deleteRecord(@Nonnull Row key) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
         return store.deleteRecord(TupleUtils.toFDBTuple(key));
     }
@@ -169,8 +167,8 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    protected Function<FDBStoredRecord<Message>, KeyValue> keyValueTransform() {
-        return record -> new ImmutableKeyValue(new EmptyTuple(), new MessageTuple(record.getRecord()));
+    protected Function<FDBStoredRecord<Message>, Row> keyValueTransform() {
+        return record -> new MessageTuple(record.getRecord());
     }
 
     @Override

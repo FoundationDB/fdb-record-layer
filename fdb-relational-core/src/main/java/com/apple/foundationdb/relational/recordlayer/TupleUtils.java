@@ -21,11 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.relational.api.NestableTuple;
+import com.apple.foundationdb.relational.api.Row;
 
 public final class TupleUtils {
 
-    static Tuple toFDBTuple(NestableTuple relationalTuple) {
+    static Tuple toFDBTuple(Row relationalTuple) {
         if (!(relationalTuple instanceof FDBTuple)) {
             relationalTuple = new FDBTuple(relationalTuple);
         }
@@ -33,7 +33,7 @@ public final class TupleUtils {
         return ((FDBTuple) relationalTuple).fdbTuple();
     }
 
-    public static NestableTuple toRelationalTuple(Tuple key) {
+    public static Row toRelationalTuple(Tuple key) {
         return new FDBTuple(key);
     }
 

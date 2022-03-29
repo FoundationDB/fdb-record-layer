@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-public class ValueTuple extends AbstractTuple {
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+
+public class ValueTuple extends AbstractRow {
     private Object obj;
 
     public ValueTuple(Object obj) {
@@ -37,7 +39,11 @@ public class ValueTuple extends AbstractTuple {
     }
 
     @Override
-    public Object getObject(int position) {
+    public Object getObject(int position) throws InvalidColumnReferenceException {
+        if (position != 0) {
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
+        }
+
         return obj;
     }
 

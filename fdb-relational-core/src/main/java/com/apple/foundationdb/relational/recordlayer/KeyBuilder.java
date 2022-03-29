@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.relational.api.NestableTuple;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -54,7 +54,7 @@ public class KeyBuilder {
     }
 
     @Nonnull
-    public NestableTuple buildKey(Map<String, Object> keyFields, boolean failOnMissingColumn, boolean failOnUnknownColumn) throws RelationalException {
+    public Row buildKey(Map<String, Object> keyFields, boolean failOnMissingColumn, boolean failOnUnknownColumn) throws RelationalException {
         Object[] flattenedFields = new Object[key.getColumnSize()];
         Map<String, Object> keysNotPicked = new HashMap<>();
         keysNotPicked.putAll(keyFields);

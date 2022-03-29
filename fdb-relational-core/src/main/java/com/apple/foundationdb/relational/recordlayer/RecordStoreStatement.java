@@ -25,12 +25,11 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.KeySet;
-import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Queryable;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -126,8 +125,8 @@ public class RecordStoreStatement implements RelationalStatement {
         Scannable source = getSourceScannable(options, table);
 
         final KeyBuilder keyBuilder = source.getKeyBuilder();
-        NestableTuple start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), true, true);
-        NestableTuple end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), true, true);
+        Row start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), true, true);
+        Row end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), true, true);
 
         return new RecordLayerResultSet(source, start, end, conn, scan.getScanProperties(),
                 options.getOption(OperationOption.CONTINUATION_NAME, null));
@@ -147,11 +146,11 @@ public class RecordStoreStatement implements RelationalStatement {
 
         Scannable source = getSourceScannable(options, table);
 
-        NestableTuple tuple = source.getKeyBuilder().buildKey(key.toMap(), true, true);
+        Row tuple = source.getKeyBuilder().buildKey(key.toMap(), true, true);
 
-        final KeyValue keyValue = source.get(conn.transaction, tuple, queryProperties);
+        final Row row = source.get(conn.transaction, tuple, queryProperties);
 
-        Iterable<KeyValue> iterable = toIterable(keyValue == null ? Collections.emptyIterator() : List.of(keyValue).iterator());
+        Iterable<Row> iterable = toIterable(row == null ? Collections.emptyIterator() : List.of(row).iterator());
         Scannable scannable = new IterableScannable<>(iterable, Function.identity(), new String[]{}, table.getFieldNames());
         return new RecordLayerResultSet(
                 scannable,
@@ -163,7 +162,7 @@ public class RecordStoreStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, Options options) throws RelationalException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
         //do this check first because otherwise we might start an expensive transaction that does nothing
         if (!data.hasNext()) {
             return 0;
@@ -203,7 +202,7 @@ public class RecordStoreStatement implements RelationalStatement {
         Scannable source = getSourceScannable(options, table);
         return executeMutation(() -> {
             int count = 0;
-            NestableTuple toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
+            Row toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
             while (toDelete != null) {
                 if (table.deleteRecord(toDelete)) {
                     count++;

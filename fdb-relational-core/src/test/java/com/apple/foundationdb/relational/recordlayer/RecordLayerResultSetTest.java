@@ -22,10 +22,8 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.ImmutableKeyValue;
-import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -44,7 +42,7 @@ class RecordLayerResultSetTest {
 
     RecordLayerResultSet resultSet;
 
-    ResumableIterator<KeyValue> cursor;
+    ResumableIterator<Row> cursor;
 
     RecordLayerResultSetTest() throws RelationalException {
         Scannable scannable = Mockito.mock(Scannable.class);
@@ -52,16 +50,16 @@ class RecordLayerResultSetTest {
 
         resultSet = new RecordLayerResultSet(
                 scannable,
-                Mockito.mock(NestableTuple.class),
-                Mockito.mock(NestableTuple.class),
+                Mockito.mock(Row.class),
+                Mockito.mock(Row.class),
                 Mockito.mock(RecordStoreConnection.class),
                 Mockito.mock(QueryProperties.class),
                 Mockito.mock(Continuation.class));
     }
 
     @SuppressWarnings("unchecked")
-    private void mockNext(boolean next, KeyValue keyValue) throws RelationalException {
-        cursor = (ResumableIterator<KeyValue>) Mockito.mock(ResumableIterator.class);
+    private void mockNext(boolean next, Row keyValue) throws RelationalException {
+        cursor = (ResumableIterator<Row>) Mockito.mock(ResumableIterator.class);
         Mockito.when(cursor.hasNext()).thenReturn(next);
         if (next) {
             Mockito.when(cursor.next()).thenReturn(keyValue);
@@ -159,9 +157,7 @@ class RecordLayerResultSetTest {
 
     @Test
     void getNumFieldsMessageParsingSupported() throws RelationalException, SQLException {
-        mockNext(true, new ImmutableKeyValue(
-                new EmptyTuple(),
-                new MessageTuple(Restaurant.RestaurantRecord.newBuilder().setRestNo(42).build())));
+        mockNext(true, new MessageTuple(Restaurant.RestaurantRecord.newBuilder().setRestNo(42).build()));
         resultSet.next();
         assertThat(resultSet.getNumFields()).isEqualTo(6);
     }

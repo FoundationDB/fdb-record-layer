@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
 import org.junit.jupiter.api.Test;
@@ -36,10 +37,19 @@ class EmptyTupleTest {
     }
 
     @Test
-    void getObject() {
-        assertThat(EmptyTuple.INSTANCE.getObject(-1)).isNull();
-        assertThat(EmptyTuple.INSTANCE.getObject(0)).isNull();
-        assertThat(EmptyTuple.INSTANCE.getObject(10)).isNull();
+    void getObject() throws InvalidColumnReferenceException {
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> EmptyTuple.INSTANCE.getObject(-1),
+                ErrorCode.INVALID_COLUMN_REFERENCE
+        );
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> EmptyTuple.INSTANCE.getObject(0),
+                ErrorCode.INVALID_COLUMN_REFERENCE
+        );
+        RelationalAssertions.assertThrowsRelationalException(
+                () -> EmptyTuple.INSTANCE.getObject(10),
+                ErrorCode.INVALID_COLUMN_REFERENCE
+        );
     }
 
     @Test
@@ -53,7 +63,7 @@ class EmptyTupleTest {
         assertThatExceptionOfType(InvalidColumnReferenceException.class)
                 .isThrownBy(() -> EmptyTuple.INSTANCE.getBytes(0));
         assertThatExceptionOfType(InvalidColumnReferenceException.class)
-                .isThrownBy(() -> EmptyTuple.INSTANCE.getTuple(0));
+                .isThrownBy(() -> EmptyTuple.INSTANCE.getRow(0));
         assertThatExceptionOfType(InvalidColumnReferenceException.class)
                 .isThrownBy(() -> EmptyTuple.INSTANCE.getArray(0));
         assertThatExceptionOfType(InvalidColumnReferenceException.class)

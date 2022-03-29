@@ -18,50 +18,33 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api;
+package com.apple.foundationdb.relational.recordlayer;
 
-import java.util.Objects;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
 import javax.annotation.Nonnull;
 
-public class ImmutableKeyValue implements KeyValue {
-    private final NestableTuple key;
-    private final NestableTuple value;
+public class ImmutableKeyValue extends AbstractRow {
+    private final Row key;
+    private final Row value;
 
-    public ImmutableKeyValue(@Nonnull NestableTuple key, @Nonnull NestableTuple value) {
+    public ImmutableKeyValue(@Nonnull Row key, @Nonnull Row value) {
         this.key = key;
         this.value = value;
     }
 
     @Override
-    public NestableTuple key() {
-        return key;
+    public int getNumFields() {
+        return key.getNumFields() + value.getNumFields();
     }
 
     @Override
-    public int keyColumnCount() {
-        return key.getNumFields();
-    }
-
-    @Override
-    public NestableTuple value() {
-        return value;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
+    public Object getObject(int position) throws InvalidColumnReferenceException {
+        if (position < key.getNumFields()) {
+            return key.getObject(position);
+        } else {
+            return value.getObject(position - key.getNumFields());
         }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ImmutableKeyValue that = (ImmutableKeyValue) o;
-        return key.equals(that.key);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(key);
     }
 }

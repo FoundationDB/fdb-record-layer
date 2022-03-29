@@ -1,5 +1,5 @@
 /*
- * AbstractTuple.java
+ * AbstractRow.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.relational.api.NestableTuple;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 
@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
-public abstract class AbstractTuple implements NestableTuple {
+public abstract class AbstractRow implements Row {
 
     @Override
     public long getLong(int position) throws InvalidTypeException, InvalidColumnReferenceException {
@@ -97,14 +97,14 @@ public abstract class AbstractTuple implements NestableTuple {
     }
 
     @Override
-    public NestableTuple getTuple(int position) throws InvalidTypeException, InvalidColumnReferenceException {
+    public Row getRow(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
 
         Object o = getObject(position);
-        if (o instanceof NestableTuple) {
-            return (NestableTuple) o;
+        if (o instanceof Row) {
+            return (Row) o;
         } else if (o instanceof Tuple) {
             return new FDBTuple((Tuple) o);
         } else {
@@ -113,7 +113,7 @@ public abstract class AbstractTuple implements NestableTuple {
     }
 
     @Override
-    public Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, InvalidColumnReferenceException {
+    public Iterable<Row> getArray(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
@@ -122,8 +122,8 @@ public abstract class AbstractTuple implements NestableTuple {
 
         if (o instanceof Iterable) {
             return StreamSupport.stream(((Iterable<?>) o).spliterator(), false).map(obj -> {
-                if (obj instanceof NestableTuple) {
-                    return (NestableTuple) obj;
+                if (obj instanceof Row) {
+                    return (Row) obj;
                 } else if (obj instanceof Tuple) {
                     return new FDBTuple((Tuple) obj);
                 } else {
@@ -140,17 +140,21 @@ public abstract class AbstractTuple implements NestableTuple {
         if (other == null) {
             return false;
         }
-        if (!(other instanceof NestableTuple)) {
+        if (!(other instanceof Row)) {
             return false;
         }
-        NestableTuple otherTuple = (NestableTuple) other;
+        Row otherTuple = (Row) other;
         final int numFields = this.getNumFields();
         if (numFields != otherTuple.getNumFields()) {
             return false;
         }
         for (int i = 0; i < numFields; i++) {
-            if (!Objects.equals(this.getObject(i), otherTuple.getObject(i))) {
-                return false;
+            try {
+                if (!Objects.equals(this.getObject(i), otherTuple.getObject(i))) {
+                    return false;
+                }
+            } catch (InvalidColumnReferenceException e) {
+                throw e.toUncheckedWrappedException();
             }
         }
         return true;
@@ -161,6 +165,32 @@ public abstract class AbstractTuple implements NestableTuple {
         if (this.getNumFields() == 0) {
             return 0;
         }
-        return Objects.hash(IntStream.range(0, getNumFields()).mapToObj(this::getObject).toArray());
+        return Objects.hash(IntStream.range(0, getNumFields()).mapToObj(position -> {
+            try {
+                return getObject(position);
+            } catch (InvalidColumnReferenceException e) {
+                throw e.toUncheckedWrappedException();
+            }
+        }).toArray());
+    }
+
+    @Override
+    public boolean startsWith(Row prefix) {
+        Row thisRow = this;
+        if (prefix.getNumFields() > this.getNumFields()) {
+            return false;
+        }
+        Row truncatedThis = new AbstractRow() {
+            @Override
+            public int getNumFields() {
+                return prefix.getNumFields();
+            }
+
+            @Override
+            public Object getObject(int position) throws InvalidColumnReferenceException {
+                return thisRow.getObject(position);
+            }
+        };
+        return truncatedThis.equals(prefix);
     }
 }

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.relational.api.NestableTuple;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 
@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
-class FDBTuple extends AbstractTuple {
+class FDBTuple extends AbstractRow {
     private Tuple tuple;
 
     public FDBTuple(Tuple tuple) {
@@ -42,10 +42,15 @@ class FDBTuple extends AbstractTuple {
      *
      * @param copy the tuple to copy
      */
-    FDBTuple(@Nonnull NestableTuple copy) {
+    FDBTuple(@Nonnull Row copy) {
         Tuple t = new Tuple();
         for (int i = 0; i < copy.getNumFields(); i++) {
-            t = t.addObject(copy.getObject(i));
+            try {
+                t = t.addObject(copy.getObject(i));
+            } catch (InvalidColumnReferenceException e) {
+                // This should never happen since we checked getNumFields above
+                throw e.toUncheckedWrappedException();
+            }
         }
         this.tuple = t;
     }
@@ -60,12 +65,15 @@ class FDBTuple extends AbstractTuple {
     }
 
     @Override
-    public Object getObject(int position) {
+    public Object getObject(int position) throws InvalidColumnReferenceException {
+        if (position < 0 || position >= tuple.size()) {
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
+        }
         return tuple.get(position);
     }
 
     @Override
-    public NestableTuple getTuple(int position) throws InvalidTypeException, InvalidColumnReferenceException {
+    public Row getRow(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= tuple.size()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
@@ -77,7 +85,7 @@ class FDBTuple extends AbstractTuple {
     }
 
     @Override
-    public Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, InvalidColumnReferenceException {
+    public Iterable<Row> getArray(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= tuple.size()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }

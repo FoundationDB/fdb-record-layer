@@ -21,9 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -44,13 +43,13 @@ public interface Scannable {
      * @throws RelationalException if something goes wrong during scanning.
      */
     @Nonnull
-    ResumableIterator<KeyValue> openScan(@Nonnull Transaction transaction, @Nullable NestableTuple startKey, @Nullable NestableTuple endKey,
+    ResumableIterator<Row> openScan(@Nonnull Transaction transaction, @Nullable Row startKey, @Nullable Row endKey,
                                          @Nullable Continuation continuation, @Nonnull QueryProperties scanProperties) throws RelationalException;
 
-    KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties queryProperties) throws RelationalException;
+    Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties queryProperties) throws RelationalException;
 
     /**
-     * The index is the position in the KeyValue(key first, then value), and the value is
+     * The index is the position in the row, and the value is
      * the name of the field at that position.
      *
      * @return the field-name map

@@ -21,9 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
@@ -42,14 +41,14 @@ import javax.annotation.Nullable;
  */
 public class IterableScannable<T> implements Scannable {
     private final Iterable<T> iterable;
-    private final Function<T, KeyValue> transform;
+    private final Function<T, Row> transform;
     private final String[] keyFieldNames;
     private final String[] fieldNames;
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2",
             justification = "internal implementation class, proper usage is expected")
     public IterableScannable(@Nonnull Iterable<T> iterable,
-                             @Nonnull Function<T, KeyValue> transform,
+                             @Nonnull Function<T, Row> transform,
                              @Nonnull String[] keyFieldNames,
                              @Nonnull String[] fieldNames) {
         this.iterable = iterable;
@@ -66,22 +65,22 @@ public class IterableScannable<T> implements Scannable {
 
     @Nonnull
     @Override
-    public ResumableIterator<KeyValue> openScan(@Nonnull Transaction transaction,
-                                                @Nullable NestableTuple startKey,
-                                                @Nullable NestableTuple endKey,
-                                                @Nullable Continuation continuation,
-                                                @Nonnull QueryProperties scanOptions) throws RelationalException {
+    public ResumableIterator<Row> openScan(@Nonnull Transaction transaction,
+                                           @Nullable Row startKey,
+                                           @Nullable Row endKey,
+                                           @Nullable Continuation continuation,
+                                           @Nonnull QueryProperties scanOptions) throws RelationalException {
         return new ResumableIteratorImpl<>(Iterators.transform(iterable.iterator(), transform::apply), continuation);
     }
 
     @Override
-    public KeyValue get(@Nonnull Transaction t,
-                        @Nonnull NestableTuple key,
-                        @Nonnull QueryProperties scanOptions) throws RelationalException {
-        ResumableIterator<KeyValue> kvs = openScan(t, key, key, null, scanOptions);
+    public Row get(@Nonnull Transaction t,
+                   @Nonnull Row key,
+                   @Nonnull QueryProperties scanOptions) throws RelationalException {
+        ResumableIterator<Row> kvs = openScan(t, key, key, null, scanOptions);
         while (kvs.hasNext()) {
-            final KeyValue next = kvs.next();
-            if (next.key().equals(key)) {
+            final Row next = kvs.next();
+            if (next.startsWith(key)) {
                 return next;
             }
         }

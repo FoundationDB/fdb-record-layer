@@ -23,10 +23,9 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.relational.api.ImmutableKeyValue;
-import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
@@ -114,12 +113,12 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
             final List<String> strings = conn.frl.loadSchema(schema, Options.create()).listTables().stream().sorted().collect(Collectors.toUnmodifiableList());
             final Scannable scannable = new IterableScannable<>(
                     strings,
-                    s -> new ImmutableKeyValue(new EmptyTuple(), TupleUtils.toRelationalTuple(
+                    s -> TupleUtils.toRelationalTuple(
                             new Tuple()
                                     .add(conn.frl.getPath().getPath()) // TABLE_CAT
                                     .add(schema) // TABLE_SCHEM
                                     .add(s) // TABLE_NAME
-                    )),
+                    ),
                     new String[]{},
                     new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME"});
             return new RecordLayerResultSet(scannable, null, null, conn, QueryProperties.DEFAULT, null);
@@ -150,7 +149,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
             }
             final TableMetaData metaData = describeTable(schema, tableName);
             final Descriptors.Descriptor tableTypeDescriptor = metaData.getTableTypeDescriptor();
-            List<KeyValue> data = tableTypeDescriptor.getFields()
+            List<Row> data = tableTypeDescriptor.getFields()
                     .stream()
                     .map(fd -> new Tuple()
                             .add(conn.frl.getPath().getPath()) // TABLE_CAT
@@ -164,7 +163,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
                             .thenComparing((Tuple t) -> t.getString(1))
                             .thenComparing((Tuple t) -> t.getString(2))
                             .thenComparing((Tuple t) -> t.getLong(5)))
-                    .map(tuple -> new ImmutableKeyValue(EmptyTuple.INSTANCE, TupleUtils.toRelationalTuple(tuple)))
+                    .map(TupleUtils::toRelationalTuple)
                     .collect(Collectors.toUnmodifiableList());
 
             final String[] fieldNames = new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME", "ORDINAL_POSITION", "BL_OPTIONS"};

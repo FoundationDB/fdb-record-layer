@@ -31,17 +31,14 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.ImmutableKeyValue;
-import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.protobuf.Message;
 
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
@@ -74,11 +71,11 @@ public class QueryScannable implements Scannable {
     }
 
     @Override
-    public ResumableIterator<KeyValue> openScan(@Nonnull Transaction transaction,
-                                                @Nullable NestableTuple startKey,
-                                                @Nullable NestableTuple endKey,
-                                                @Nullable Continuation continuation,
-                                                @Nonnull QueryProperties scanOptions) throws RelationalException {
+    public ResumableIterator<Row> openScan(@Nonnull Transaction transaction,
+                                           @Nullable Row startKey,
+                                           @Nullable Row endKey,
+                                           @Nullable Continuation continuation,
+                                           @Nonnull QueryProperties scanOptions) throws RelationalException {
         if (!isExplain) {
             assert continuation == null || continuation instanceof ContinuationImpl;
             final FDBRecordStore fdbRecordStore = schema.loadStore();
@@ -86,20 +83,20 @@ public class QueryScannable implements Scannable {
                     EvaluationContext.empty(),
                     continuation == null ? null : continuation.getBytes(), ExecuteProperties.newBuilder().build());
 
-            return RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> {
-                Message record = messageFDBQueriedRecord.getRecord();
-                return new ImmutableKeyValue(new EmptyTuple(), new MessageTuple(record));
-            }, true);
+            return RecordLayerIterator.create(
+                    cursor,
+                    messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getRecord()));
         } else {
             return new ResumableIteratorImpl<>(Stream.of(plan.toString())
-                            .map((Function<String, KeyValue>) s -> new ImmutableKeyValue(EmptyTuple.INSTANCE, new ValueTuple(s)))
+                            .map(ValueTuple::new)
+                            .map(Row.class::cast)
                             .iterator(),
                     continuation);
         }
     }
 
     @Override
-    public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties scanOptions) throws RelationalException {
+    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties scanOptions) throws RelationalException {
         throw new UnsupportedOperationException("Cannot perform point gets using a QueryScannable");
     }
 
