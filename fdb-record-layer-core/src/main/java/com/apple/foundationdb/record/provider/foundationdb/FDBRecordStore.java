@@ -2846,10 +2846,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void logExceptionAsWarn(KeyValueLogMessage message, Throwable exception) {
-        if (exception instanceof LoggableException) {
-            LoggableException loggable = (LoggableException) exception;
-            LOGGER.warn(message.addKeysAndValues(loggable.getLogInfo()).toString(), loggable);
-        } else {
+        if (LOGGER.isWarnEnabled()) {
+            for (Throwable ex = exception;
+                        ex instanceof LoggableException;
+                        ex = ex.getCause()) {
+                message.addKeysAndValues(((LoggableException)ex).getLogInfo());
+            }
             LOGGER.warn(message.toString(), exception);
         }
     }
