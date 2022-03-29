@@ -24,19 +24,26 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Lucene plans should support simple comparisons on indexed fields and fielded search [(Issue #1238)](https://github.com/FoundationDB/fdb-record-layer/issues/1238)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Adjust Lucene index to use new scan bounds [(Issue #1517)](https://github.com/FoundationDB/fdb-record-layer/issues/1517)
-* **Breaking change** Lucene index entry grouping key consistency [(Issue #1528)](https://github.com/FoundationDB/fdb-record-layer/issues/1528)
-* **Breaking change** Lucene specific code should be in the lucene module [(Issue #1529)](https://github.com/FoundationDB/fdb-record-layer/issues/1529)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.1.246.0
+
+* **Feature** Lucene plans should support simple comparisons on indexed fields and fielded search [(Issue #1238)](https://github.com/FoundationDB/fdb-record-layer/issues/1238)
+* **Breaking change** Adjust Lucene index to use new scan bounds [(Issue #1517)](https://github.com/FoundationDB/fdb-record-layer/issues/1517)
+* **Breaking change** Lucene index entry grouping key consistency [(Issue #1528)](https://github.com/FoundationDB/fdb-record-layer/issues/1528)
+* **Breaking change** Lucene specific code should be in the lucene module [(Issue #1529)](https://github.com/FoundationDB/fdb-record-layer/issues/1529)
 
 ### 3.1.244.0
 
