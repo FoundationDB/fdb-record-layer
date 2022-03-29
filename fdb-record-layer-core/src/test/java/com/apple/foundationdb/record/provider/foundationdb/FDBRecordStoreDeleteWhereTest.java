@@ -20,25 +20,44 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -49,12 +68,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
 
     @Test
-    public void testDeleteWhereCountIndex() throws Exception {
+    void testDeleteWhereCountIndex() throws Exception {
         testDeleteWhere(true);
     }
 
     @Test
-    public void testDeleteWhere() throws Exception {
+    void testDeleteWhere() throws Exception {
         testDeleteWhere(false);
     }
 
@@ -106,7 +125,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereGroupedCount() throws Exception {
+    void testDeleteWhereGroupedCount() throws Exception {
         KeyExpression groupExpr = concat(
                 field("header").nest(field("rec_no")),
                 field("header").nest(field("path")));
@@ -156,7 +175,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereMissingPrimaryKey() throws Exception {
+    void testDeleteWhereMissingPrimaryKey() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeaderPrimaryKey(context, false);
             assertThrows(Query.InvalidExpressionException.class, () ->
@@ -165,7 +184,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereMissingIndex() {
+    void testDeleteWhereMissingIndex() {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
@@ -176,6 +195,147 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             createOrOpenRecordStore(context, metaData);
             assertThrows(Query.InvalidExpressionException.class, () ->
                     recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("rec_no").equalsValue(1))));
+        }
+    }
+
+    @Test
+    void testDeleteWhereWithFunctionIndexSplit() throws Exception {
+        // Index key is (header.path, first three characters of str_value)
+        // Value is remaining suffix of str_value
+        Index splitStringIndex = new Index(
+                "split_string_index",
+                keyWithValue(concat(field("header").nest("path"), function("split_string", concat(field("str_value"), value(3L)))), 2)
+        );
+        final RecordMetaDataHook hook = metaData -> {
+            RecordTypeBuilder typeBuilder = metaData.getRecordType("MyRecord");
+            typeBuilder.setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
+            metaData.addIndex(typeBuilder, splitStringIndex);
+        };
+
+        final Map<String, TestRecordsWithHeaderProto.MyRecord> recordsByPath = insertRecordsByPath(hook);
+        final String path = deleteByPath(hook, recordsByPath,
+                pathToDelete -> recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("path").equalsValue(pathToDelete))));
+        recordsByPath.remove(path);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            assertThat("index should have no entries for deleted path",
+                    recordStore.scanIndex(splitStringIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(path)), null, ScanProperties.FORWARD_SCAN).asList().get(),
+                    empty());
+            assertThat("index should have one entry for each non-deleted record",
+                    recordStore.scanIndexRecords(splitStringIndex.getName()).map(indexedRecord -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(indexedRecord.getRecord()).build()).asList().get(),
+                    containsInAnyOrder(recordsByPath.values().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+        }
+    }
+
+    @Test
+    void testDeleteWhereSingleTypeWithFunctionIndexSplit() throws Exception {
+        // Index key is (header.path, first three characters of str_value)
+        // Value is remaining suffix of str_value
+        Index splitStringIndex = new Index(
+                "split_string_index",
+                keyWithValue(concat(field("header").nest("path"), function("split_string", concat(field("str_value"), value(3L)))), 2)
+        );
+        final RecordMetaDataHook hook = metaData -> {
+            RecordTypeBuilder typeBuilder = metaData.getRecordType("MyRecord");
+            typeBuilder.setPrimaryKey(concat(recordType(), field("header").nest(concatenateFields("path", "rec_no"))));
+            metaData.addIndex(typeBuilder, splitStringIndex);
+        };
+
+        final Map<String, TestRecordsWithHeaderProto.MyRecord> recordsByPath = insertRecordsByPath(hook);
+        final String path = deleteByPath(hook, recordsByPath,
+                pathToDelete -> recordStore.deleteRecordsWhere(
+                        TestRecordsWithHeaderProto.MyRecord.getDescriptor().getName(),
+                        Query.field("header").matches(Query.field("path").equalsValue(pathToDelete))));
+        recordsByPath.remove(path);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            assertThat("index should have no entries for deleted path",
+                    recordStore.scanIndex(splitStringIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(path)), null, ScanProperties.FORWARD_SCAN).asList().get(),
+                    empty());
+            assertThat("index should have one entry for each non-deleted record",
+                    recordStore.scanIndexRecords(splitStringIndex.getName()).map(indexedRecord -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(indexedRecord.getRecord()).build()).asList().get(),
+                    containsInAnyOrder(recordsByPath.values().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+        }
+    }
+
+    @Test
+    void testDeleteWhereSingleTypeWithRecordTypePrefixedFunctionIndexSplit() throws Exception {
+        // Index key is (recordType, header.path, first three characters of str_value)
+        // Value is remaining suffix of str_value
+        Index splitStringIndex = new Index(
+                "split_string_index",
+                keyWithValue(concat(recordType(), field("header").nest("path"), function("split_string", concat(field("str_value"), value(3L)))), 3)
+        );
+        final RecordMetaDataHook hook = metaData -> {
+            RecordTypeBuilder typeBuilder = metaData.getRecordType("MyRecord");
+            typeBuilder.setPrimaryKey(concat(recordType(), field("header").nest(concatenateFields("path", "rec_no"))));
+            metaData.addUniversalIndex(splitStringIndex);
+        };
+
+        final Map<String, TestRecordsWithHeaderProto.MyRecord> recordsByPath = insertRecordsByPath(hook);
+        final String path = deleteByPath(hook, recordsByPath,
+                pathToDelete -> recordStore.deleteRecordsWhere(
+                        TestRecordsWithHeaderProto.MyRecord.getDescriptor().getName(),
+                        Query.field("header").matches(Query.field("path").equalsValue(pathToDelete))));
+        recordsByPath.remove(path);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            Object typeKey = recordStore.getRecordMetaData().getRecordType(TestRecordsWithHeaderProto.MyRecord.getDescriptor().getName())
+                    .getRecordTypeKey();
+            assertThat("index should have no entries for deleted path",
+                    recordStore.scanIndex(splitStringIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(typeKey, path)), null, ScanProperties.FORWARD_SCAN).asList().get(),
+                    empty());
+            assertThat("index should have one entry for each non-deleted record",
+                    recordStore.scanIndexRecords(splitStringIndex.getName()).map(indexedRecord -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(indexedRecord.getRecord()).build()).asList().get(),
+                    containsInAnyOrder(recordsByPath.values().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+        }
+    }
+
+    private Map<String, TestRecordsWithHeaderProto.MyRecord> insertRecordsByPath(RecordMetaDataHook metaDataHook) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, metaDataHook);
+
+            final Map<String, TestRecordsWithHeaderProto.MyRecord> recordsByPath = new HashMap<>();
+            for (String path : List.of("foo", "bar", "baz")) {
+                TestRecordsWithHeaderProto.MyRecord rec = TestRecordsWithHeaderProto.MyRecord.newBuilder()
+                        .setHeader(TestRecordsWithHeaderProto.HeaderRecord.newBuilder()
+                                .setPath(path)
+                                .setRecNo(42)
+                        )
+                        .setStrValue("abcdefg")
+                        .build();
+                recordStore.saveRecord(rec);
+                recordsByPath.put(path, rec);
+            }
+
+            commit(context);
+            return recordsByPath;
+        }
+    }
+
+    private String deleteByPath(RecordMetaDataHook metaDataHook, Map<String, TestRecordsWithHeaderProto.MyRecord> recordsByPath,
+                                Consumer<String> deleteByPathOperation) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, metaDataHook);
+            final String path = recordsByPath.keySet().iterator().next();
+            deleteByPathOperation.accept(path);
+
+            List<TestRecordsWithHeaderProto.MyRecord> readRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+                    .map(storedRecord -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(storedRecord.getRecord()).build())
+                    .asList()
+                    .get();
+            assertThat(readRecords, hasSize(recordsByPath.size() - 1));
+            assertThat(readRecords, containsInAnyOrder(recordsByPath.values().stream()
+                    .filter(myRecord -> !myRecord.getHeader().getPath().equals(path))
+                    .map(Matchers::equalTo)
+                    .collect(Collectors.toList())
+            ));
+
+            commit(context);
+            return path;
         }
     }
 
