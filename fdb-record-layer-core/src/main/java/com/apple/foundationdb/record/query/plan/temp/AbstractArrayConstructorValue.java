@@ -85,7 +85,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "array(" + children.stream().map(child -> child.explain(formatter)).collect(Collectors.joining(", ")) + ")";
+        return "[" + children.stream().map(child -> child.explain(formatter)).collect(Collectors.joining(", ")) + "]";
     }
 
     @Override
