@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 
 import javax.annotation.Nonnull;
@@ -33,7 +33,7 @@ public class ParserContext {
     @Nonnull
     private final Scopes scopes;
     @Nonnull
-    private final DynamicSchema.Builder dynamicSchemaBuilder;
+    private final TypeRepository.Builder typeRepositoryBuilder;
 
     @Nonnull
     private final RecordMetaData recordMetaData;
@@ -41,18 +41,18 @@ public class ParserContext {
     private final RecordStoreState recordStoreState;
 
     public ParserContext(@Nonnull final Scopes scopes,
-                         @Nonnull DynamicSchema.Builder dynamicSchemaBuilder,
+                         @Nonnull TypeRepository.Builder typeRepositoryBuilder,
                          @Nonnull final RecordMetaData recordMetaData,
                          @Nonnull final RecordStoreState recordStoreState) {
         this.scopes = scopes;
-        this.dynamicSchemaBuilder = dynamicSchemaBuilder;
+        this.typeRepositoryBuilder = typeRepositoryBuilder;
         this.recordMetaData = recordMetaData;
         this.recordStoreState = recordStoreState;
     }
 
     @Nonnull
-    public DynamicSchema.Builder getDynamicSchemaBuilder() {
-        return dynamicSchemaBuilder;
+    public TypeRepository.Builder getTypeRepositoryBuilder() {
+        return typeRepositoryBuilder;
     }
 
     @Nonnull
