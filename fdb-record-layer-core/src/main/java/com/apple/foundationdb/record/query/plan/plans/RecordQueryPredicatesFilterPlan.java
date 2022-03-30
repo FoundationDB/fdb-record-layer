@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.AsyncBoolean;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -94,29 +93,31 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nullable
     @Override
-    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record) {
-        if (record == null) {
+    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult datum) {
+        final var message = datum.<M>getMessage();
+        if (message == null) {
             return null;
         }
 
-        final EvaluationContext nestedContext = context.withBinding(getInner().getAlias(), record.getRecord());
-        return conjunctedPredicate.eval(store, nestedContext, record, record.getRecord());
+        final EvaluationContext nestedContext = context.withBinding(getInner().getAlias(), message);
+        return conjunctedPredicate.eval(store, nestedContext, null, message);
     }
 
     @Nullable
     @Override
-    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record) {
+    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult datum) {
         return new AsyncBoolean<>(false,
                 getPredicates(),
                 predicate -> {
-                    final M message = record == null ? null : record.getRecord();
+                    final var recordMaybe = datum.<M>getQueriedRecordMaybe();
+                    final M message = datum.<M>getMessage();
                     if (predicate instanceof QueryComponentPredicate) {
                         final QueryComponentPredicate queryComponentPredicate = (QueryComponentPredicate)predicate;
                         if (queryComponentPredicate.hasAsyncQueryComponent()) {
-                            return queryComponentPredicate.evalMessageAsync(store, context, record, message);
+                            return queryComponentPredicate.evalMessageAsync(store, context, recordMaybe.orElse(null), message);
                         }
                     }
-                    return CompletableFuture.completedFuture(predicate.eval(store, context, record, message));
+                    return CompletableFuture.completedFuture(predicate.eval(store, context, recordMaybe.orElse(null), message));
                 },
                 store).eval();
     }
@@ -166,8 +167,8 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final RecordQueryPredicatesFilterPlan otherPlan = (RecordQueryPredicatesFilterPlan)otherExpression;
-        final List<? extends QueryPredicate> otherPredicates = otherPlan.getPredicates();
+        final var otherPlan = (RecordQueryPredicatesFilterPlan)otherExpression;
+        final var otherPredicates = otherPlan.getPredicates();
         if (predicates.size() != otherPredicates.size()) {
             return false;
         }

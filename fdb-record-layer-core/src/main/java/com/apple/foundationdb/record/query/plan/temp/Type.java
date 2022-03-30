@@ -903,7 +903,7 @@ public interface Type extends Narrowable<Type> {
             for (final Field field : fields) {
                 resultFieldsBuilder.add(
                         new Field(field.getFieldType(),
-                                Optional.of(field.getFieldNameOptional().orElse(fieldName(i + 1))),
+                                Optional.of(field.getFieldNameOptional().orElse(fieldName(i))),
                                 Optional.of(field.getFieldIndexOptional().orElse(i + 1))));
                 i++;
             }

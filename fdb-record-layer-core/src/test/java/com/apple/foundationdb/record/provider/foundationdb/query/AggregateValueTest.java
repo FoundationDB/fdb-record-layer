@@ -20,14 +20,15 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
-import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.cursors.aggregate.RecordValueAccumulator;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
-import com.apple.foundationdb.record.query.predicates.AggregateValues;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.CountValue;
+import com.apple.foundationdb.record.query.predicates.NumericAggregationValue;
+import com.apple.foundationdb.record.query.predicates.NumericAggregationValue.PhysicalOperator;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,189 +36,184 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
-import java.util.List;
+import java.util.function.Consumer;
+
+import static com.apple.foundationdb.record.query.predicates.LiteralValue.ofScalar;
 
 /**
  * Test the AggregateValues implementation through mock inner Value usage.
  */
-public class AggregateValueTest {
-    private MockValue<Integer> intValue;
-    private MockValue<Integer> intValueWithNulls;
-    private MockValue<Integer> intValueOnlyNull;
-    private MockValue<Long> longValue;
-    private MockValue<Long> longValueWithNulls;
-    private MockValue<Long> longValueOnlyNull;
-    private MockValue<Float> floatValue;
-    private MockValue<Float> floatValueWithNulls;
-    private MockValue<Float> floatValueOnlyNull;
-    private MockValue<Double> doubleValue;
-    private MockValue<Double> doubleValueWithNulls;
-    private MockValue<Double> doubleValueOnlyNull;
+class AggregateValueTest {
+    private Integer[] ints;
+    private Integer[] intsWithNulls;
+    private Integer[] intsOnlyNull;
+    private Long[] longs;
+    private Long[] longsWithNulls;
+    private Long[] longsOnlyNull;
+    private Float[] floats;
+    private Float[] floatsWithNulls;
+    private Float[] floatsOnlyNull;
+    private Double[] doubles;
+    private Double[] doublesWithNulls;
+    private Double[] doublesOnlyNull;
 
     @BeforeEach
-    void setup() throws Exception {
-        intValue = new MockValue<>(new Integer[] {1, 2, 3, 4, 5, 6});
-        intValueWithNulls = new MockValue<>(new Integer[] {1, 2, null, 4, 5, 6});
-        intValueOnlyNull = new MockValue<>(new Integer[] {null});
-        longValue = new MockValue<>(new Long[] {1L, 2L, 3L, 4L, 5L, 6L});
-        longValueWithNulls = new MockValue<>(new Long[] {1L, 2L, null, 4L, 5L, 6L});
-        longValueOnlyNull = new MockValue<>(new Long[] {null});
-        floatValue = new MockValue<>(new Float[] {1.0F, 2.0F, 3.0F, 4.0F, 5.0F, 6.0F});
-        floatValueWithNulls = new MockValue<>(new Float[] {1.0F, 2.0F, null, 4.0F, 5.0F, 6.0F});
-        floatValueOnlyNull = new MockValue<>(new Float[] {null});
-        doubleValue = new MockValue<>(new Double[] {1.0D, 2.0D, 3.0D, 4.0D, 5.0D, 6.0D});
-        doubleValueWithNulls = new MockValue<>(new Double[] {1.0D, 2.0D, null, 4.0D, 5.0D, 6.0D});
-        doubleValueOnlyNull = new MockValue<>(new Double[] {null});
+    void setup() {
+        ints = new Integer[] { 1, 2, 3, 4, 5, 6 };
+        intsWithNulls = new Integer[] { 1, 2, null, 4, 5, 6 };
+        intsOnlyNull = new Integer[] { null };
+
+        longs = new Long[] { 1L, 2L, 3L, 4L, 5L, 6L };
+        longsWithNulls = new Long[] { 1L, 2L, null, 4L, 5L, 6L };
+        longsOnlyNull = new Long[] { null };
+
+        floats = new Float[] { 1.0F, 2.0F, 3.0F, 4.0F, 5.0F, 6.0F };
+        floatsWithNulls = new Float[] { 1.0F, 2.0F, null, 4.0F, 5.0F, 6.0F };
+        floatsOnlyNull = new Float[] { null };
+
+        doubles = new Double[] { 1.0D, 2.0D, 3.0D, 4.0D, 5.0D, 6.0D };
+        doublesWithNulls = new Double[] { 1.0D, 2.0D, null, 4.0D, 5.0D, 6.0D };
+        doublesOnlyNull = new Double[] { null };
     }
 
     @Test
-    void testSum() throws Exception {
-        accumulateAndAssert(AggregateValues.sumInt(intValue), 6, 21);
-        accumulateAndAssert(AggregateValues.sumLong(longValue), 6, 21L);
-        accumulateAndAssert(AggregateValues.sumFloat(floatValue), 6, 21.0F);
-        accumulateAndAssert(AggregateValues.sumDouble(doubleValue), 6, 21.0D);
+    void testSum() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_I, ofScalar(1)), ints, 21);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_L, ofScalar(1L)), longs, 21L);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_F, ofScalar(1F)), floats, 21F);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_D, ofScalar(1D)), doubles, 21D);
     }
 
     @Test
-    void testSumWithNulls() throws Exception {
-        accumulateAndAssert(AggregateValues.sumInt(intValueWithNulls), 6, 18);
-        accumulateAndAssert(AggregateValues.sumLong(longValueWithNulls), 6, 18L);
-        accumulateAndAssert(AggregateValues.sumFloat(floatValueWithNulls), 6, 18.0F);
-        accumulateAndAssert(AggregateValues.sumDouble(doubleValueWithNulls), 6, 18.0D);
+    void testSumWithNulls() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_I, ofScalar(1)), intsWithNulls, 18);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_L, ofScalar(1L)), longsWithNulls, 18L);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_F, ofScalar(1F)), floatsWithNulls, 18F);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_D, ofScalar(1D)), doublesWithNulls, 18D);
     }
 
     @Test
-    void testSumOnlyNulls() throws Exception {
-        accumulateAndAssert(AggregateValues.sumInt(intValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.sumLong(longValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.sumFloat(floatValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.sumDouble(doubleValueOnlyNull), 1, null);
+    void testSumOnlyNulls() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_I, ofScalar(1)), intsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_L, ofScalar(1L)), longsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
     }
 
     @Test
-    void testMin() throws Exception {
-        accumulateAndAssert(AggregateValues.minInt(intValue), 6, 1);
-        accumulateAndAssert(AggregateValues.minLong(longValue), 6, 1L);
-        accumulateAndAssert(AggregateValues.minFloat(floatValue), 6, 1.0F);
-        accumulateAndAssert(AggregateValues.minDouble(doubleValue), 6, 1.0D);
+    void testMin() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_I, ofScalar(1)), ints, 1);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_L, ofScalar(1L)), longs, 1L);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_F, ofScalar(1F)), floats, 1F);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_D, ofScalar(1D)), doubles, 1D);
     }
 
     @Test
-    void testMinWithNulls() throws Exception {
-        accumulateAndAssert(AggregateValues.minInt(intValueWithNulls), 6, 1);
-        accumulateAndAssert(AggregateValues.minLong(longValueWithNulls), 6, 1L);
-        accumulateAndAssert(AggregateValues.minFloat(floatValueWithNulls), 6, 1.0F);
-        accumulateAndAssert(AggregateValues.minDouble(doubleValueWithNulls), 6, 1.0D);
+    void testMinWithNulls() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_I, ofScalar(1)), intsWithNulls, 1);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_L, ofScalar(1L)), longsWithNulls, 1L);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_F, ofScalar(1F)), floatsWithNulls, 1F);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_D, ofScalar(1D)), doublesWithNulls, 1D);
     }
 
     @Test
-    void testMinOnlyNulls() throws Exception {
-        accumulateAndAssert(AggregateValues.minInt(intValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.minLong(longValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.minFloat(floatValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.minDouble(doubleValueOnlyNull), 1, null);
+    void testMinOnlyNulls() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_I, ofScalar(1)), intsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_L, ofScalar(1L)), longsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
     }
 
     @Test
-    void testMax() throws Exception {
-        accumulateAndAssert(AggregateValues.maxInt(intValue), 6, 6);
-        accumulateAndAssert(AggregateValues.maxLong(longValue), 6, 6L);
-        accumulateAndAssert(AggregateValues.maxFloat(floatValue), 6, 6.0F);
-        accumulateAndAssert(AggregateValues.maxDouble(doubleValue), 6, 6.0D);
+    void testMax() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_I, ofScalar(1)), ints, 6);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_L, ofScalar(1L)), longs, 6L);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_F, ofScalar(1F)), floats, 6F);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_D, ofScalar(1D)), doubles, 6D);
     }
 
     @Test
-    void testMaxWithNulls() throws Exception {
-        accumulateAndAssert(AggregateValues.maxInt(intValueWithNulls), 6, 6);
-        accumulateAndAssert(AggregateValues.maxLong(longValueWithNulls), 6, 6L);
-        accumulateAndAssert(AggregateValues.maxFloat(floatValueWithNulls), 6, 6.0F);
-        accumulateAndAssert(AggregateValues.maxDouble(doubleValueWithNulls), 6, 6.0D);
+    void testMaxWithNulls() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_I, ofScalar(1)), intsWithNulls, 6);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_L, ofScalar(1L)), longsWithNulls, 6L);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_F, ofScalar(1F)), floatsWithNulls, 6F);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_D, ofScalar(1D)), doublesWithNulls, 6D);
     }
 
     @Test
-    void testMaxOnlyNulls() throws Exception {
-        accumulateAndAssert(AggregateValues.maxInt(intValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.maxLong(longValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.maxFloat(floatValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.maxDouble(doubleValueOnlyNull), 1, null);
+    void testMaxOnlyNulls() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_I, ofScalar(1)), intsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_L, ofScalar(1L)), longsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
     }
 
     @Test
-    void testAvg() throws Exception {
-        accumulateAndAssert(AggregateValues.averageInt(intValue), 6, 3.5D);
-        accumulateAndAssert(AggregateValues.averageLong(longValue), 6, 3.5D);
-        accumulateAndAssert(AggregateValues.averageFloat(floatValue), 6, 3.5D);
-        accumulateAndAssert(AggregateValues.averageDouble(doubleValue), 6, 3.5D);
+    void testAvg() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(ints), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longs), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floats), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doubles), 3.5D);
     }
 
     @Test
-    void testAvgWithNulls() throws Exception {
-        accumulateAndAssert(AggregateValues.averageInt(intValueWithNulls), 6, 3.6D);
-        accumulateAndAssert(AggregateValues.averageLong(longValueWithNulls), 6, 3.6D);
-        accumulateAndAssert(AggregateValues.averageFloat(floatValueWithNulls), 6, 3.6D);
-        accumulateAndAssert(AggregateValues.averageDouble(doubleValueWithNulls), 6, 3.6D);
+    void testAvgWithNulls() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesWithNulls), 3.6D);
     }
 
     @Test
-    void testAvgOnlyNulls() throws Exception {
-        accumulateAndAssert(AggregateValues.averageInt(intValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.averageLong(longValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.averageFloat(floatValueOnlyNull), 1, null);
-        accumulateAndAssert(AggregateValues.averageDouble(doubleValueOnlyNull), 1, null);
+    void testAvgOnlyNulls() {
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesOnlyNull), (Object)null);
     }
 
-    private <S> void accumulateAndAssert(final AggregateValue<?, ?> aggregateValue, final int accumulateCount, final Object value) {
-        RecordValueAccumulator<?, ?> accumulator = aggregateValue.createAccumulator();
-        accumulate(accumulateCount, accumulator);
-        assertFinish(accumulator, value);
+    private Object[] pairsForAvg(Object[] objects) {
+        return Arrays.stream(objects)
+                .map(object -> object == null ? null : Pair.of(object, 1L)) // left for the sum, right for the count
+                .toArray();
     }
 
-    private <S> void assertFinish(final RecordValueAccumulator<?, ?> accumulator, final Object value) {
-        Assertions.assertEquals(value, accumulator.finish());
+    @Test
+    void testTupleSumCount() {
+        final var tuples =
+                Arrays.stream(ints)
+                        .map(i -> ImmutableList.of(i, 1L)) // left for the sum, right for the count
+                        .toArray();
+
+        final var recordConstructorValue =
+                RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                        new NumericAggregationValue(PhysicalOperator.SUM_I, ofScalar(1)),
+                        new CountValue(CountValue.PhysicalOperator.COUNT, ofScalar(1))
+                ));
+
+        accumulateAndAssert(recordConstructorValue, tuples, actual -> {
+            Assertions.assertTrue(actual instanceof Message);
+            final var actualMessage = (Message)actual;
+            final var descriptorForType = actualMessage.getDescriptorForType();
+            final var sum = (int)actualMessage.getField(descriptorForType.findFieldByName("_0"));
+            final var count = (long)actualMessage.getField(descriptorForType.findFieldByName("_1"));
+            Assertions.assertEquals(21, sum);
+            Assertions.assertEquals(6L, count);
+        });
     }
 
-    private <S> void accumulate(final int count, final RecordValueAccumulator<?, ?> accumulator) {
-        for (int i = 0; i < count; i++) {
-            accumulator.accumulate(null, null, null, null);
-        }
+    private void accumulateAndAssert(final AggregateValue aggregateValue, final Object[] items, @Nullable final Object expected) {
+        accumulateAndAssert(aggregateValue, items, actual -> Assertions.assertEquals(expected, actual));
     }
 
-    private static class MockValue<T> implements Value {
-        @Nonnull
-        List<T> values; // The objects to be returned by this value's eval() method
-
-        int index = 0;
-
-        public MockValue(final T[] values) {
-            this.values = Arrays.asList(values);
-        }
-
-        @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return 0;
-        }
-
-        @Override
-        public int semanticHashCode() {
-            return 0;
-        }
-
-        @Nonnull
-        @Override
-        public Iterable<? extends Value> getChildren() {
-            return null;
-        }
-
-        @Nonnull
-        @Override
-        public Value withChildren(final Iterable<? extends Value> newChildren) {
-            return null;
-        }
-
-        @Nullable
-        @Override
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-            return values.get((index++) % values.size());
-        }
+    private void accumulateAndAssert(final AggregateValue aggregateValue, final Object[] items, @Nonnull final Consumer<Object> consumer) {
+        final var typeRepository =
+                TypeRepository.newBuilder()
+                        .addAllTypes(aggregateValue.getDynamicTypes())
+                        .build();
+        final var accumulator = aggregateValue.createAccumulator(typeRepository);
+        Arrays.asList(items).forEach(accumulator::accumulate);
+        final var finish = accumulator.finish();
+        consumer.accept(finish);
     }
 }

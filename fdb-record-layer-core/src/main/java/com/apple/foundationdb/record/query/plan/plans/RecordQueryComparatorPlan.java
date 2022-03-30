@@ -172,7 +172,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
             final RecordQueryPlan childPlan) {
         return ((byte[] childContinuation) -> childPlan
                 .executePlan(store, context, childContinuation, childExecuteProperties)
-                .map(result -> result.getQueriedRecord(0)));
+                .map(QueryResult::getQueriedRecord));
     }
 
     @Nonnull

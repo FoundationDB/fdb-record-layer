@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,9 +72,9 @@ public class EvaluationContextBuilder {
     }
 
     /**
-     * Bind one name to a value. This mutation will be
+     * Bind a name to a value. This mutation will be
      * reflected in the {@link EvaluationContext} returned by
-     * calling {@link #build()}.
+     * calling {@link #build(TypeRepository)}.
      *
      * @param name the name of the binding
      * @param value the value to associate with the name
@@ -85,6 +87,19 @@ public class EvaluationContextBuilder {
     }
 
     /**
+     * Bind an alias to a value. This mutation will be
+     * reflected in the {@link EvaluationContext} returned by
+     * calling {@link #build(TypeRepository)}.
+     *
+     * @param alias the alias of the binding
+     * @param value the value to associate with the name
+     * @return this <code>EvaluationContextBuilder</code>
+     */
+    public EvaluationContextBuilder setBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+        return setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value);
+    }
+
+    /**
      * Construct an {@link EvaluationContext} with updated bindings.
      * This should include all bindings specified though the original
      * {@link EvaluationContext} included in this object's constructor
@@ -92,10 +107,11 @@ public class EvaluationContextBuilder {
      * {@link #setBinding(String, Object)}. All other state included
      * in the context should remain the same.
      *
+     * @param typeRepository a type repository to be used in the new context
      * @return an {@link EvaluationContext} with updated bindings
      */
     @Nonnull
-    public EvaluationContext build() {
-        return EvaluationContext.forBindings(bindings.build());
+    public EvaluationContext build(@Nonnull final TypeRepository typeRepository) {
+        return EvaluationContext.forBindingsAndTypeRepository(bindings.build(), typeRepository);
     }
 }

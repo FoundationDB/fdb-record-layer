@@ -105,7 +105,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
                 .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
                         ((byte[] childContinuation) -> childPlan
                                 .executePlan(store, context, childContinuation, childExecuteProperties)
-                                .map(result -> result.getQueriedRecord(0))))
+                                .map(QueryResult::getQueriedRecord)))
                 .collect(Collectors.toList());
         return createUnionCursor(store, childCursorFunctions, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
                 .map(QueryResult::of);

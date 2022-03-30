@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -65,6 +66,12 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         Verify.verify(collectionValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY);
 
         return new QueriedValue(Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType()));
+    }
+
+    @Nonnull
+    @Override
+    public Set<Type> getDynamicTypes() {
+        return ImmutableSet.of(collectionValue.getResultType());
     }
 
     @Nonnull

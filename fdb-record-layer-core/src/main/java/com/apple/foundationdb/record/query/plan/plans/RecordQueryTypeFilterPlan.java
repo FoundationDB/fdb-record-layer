@@ -98,7 +98,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
         final RecordCursor<QueryResult> results = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         return results
-                .filterInstrumented(result -> recordTypes.contains(result.getQueriedRecord(0).getRecordType().getName()), store.getTimer(),
+                .filterInstrumented(result -> recordTypes.contains(result.getQueriedRecord().getRecordType().getName()), store.getTimer(),
                         inCounts, duringEvents, successCounts, failureCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }

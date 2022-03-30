@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 
@@ -37,6 +38,34 @@ import java.util.stream.StreamSupport;
 public interface RelationalExpressionWithPredicates extends RelationalExpression {
     @Nonnull
     List<? extends QueryPredicate> getPredicates();
+
+    @Nonnull
+    @Override
+    default Set<Type> getDynamicTypes() {
+        final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
+
+        resultBuilder.addAll(RelationalExpression.super.getDynamicTypes());
+
+        for (final QueryPredicate predicate : getPredicates()) {
+            final Set<Type> typesForPredicate =
+                    predicate.fold(p -> {
+                        if (p instanceof PredicateWithValue) {
+                            return ((PredicateWithValue)p).getValue().getDynamicTypes();
+                        }
+                        return ImmutableSet.<Type>of();
+                    }, (thisTypes, childTypeSets) -> {
+                        final ImmutableSet.Builder<Type> nestedBuilder = ImmutableSet.builder();
+                        for (final Set<Type> childTypes : childTypeSets) {
+                            nestedBuilder.addAll(childTypes);
+                        }
+                        nestedBuilder.addAll(thisTypes);
+                        return nestedBuilder.build();
+                    });
+            resultBuilder.addAll(typesForPredicate);
+        }
+
+        return resultBuilder.build();
+    }
 
     @Nonnull
     default ImmutableSet<FieldValue> fieldValuesFromPredicates() {

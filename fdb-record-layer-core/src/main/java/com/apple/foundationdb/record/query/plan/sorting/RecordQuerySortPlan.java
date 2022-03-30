@@ -89,7 +89,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
         final ExecuteProperties executeInner = executeProperties.clearSkipAndLimit();
         final Function<byte[], RecordCursor<FDBQueriedRecord<M>>> innerCursor =
                 innerContinuation -> getChild().executePlan(store, context, innerContinuation, executeInner)
-                        .map(result -> result.<M>getQueriedRecord(0));
+                        .map(QueryResult::<M>getQueriedRecord);
         final int skip = executeProperties.getSkip();
         final int limit = executeProperties.getReturnedRowLimitOrMax();
         final int maxRecordsToRead = limit == Integer.MAX_VALUE ? limit : skip + limit;

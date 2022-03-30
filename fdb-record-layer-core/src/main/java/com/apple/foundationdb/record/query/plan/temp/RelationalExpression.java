@@ -164,6 +164,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     Value getResultValue();
 
+    @Nonnull
+    default Set<Type> getDynamicTypes() {
+        return getResultValue().getDynamicTypes();
+    }
+
     @SuppressWarnings({"java:S3655", "UnstableApiUsage"})
     default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
         return getResultValue().semanticEquals(otherExpression.getResultValue(), aliasMap);
@@ -277,19 +282,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                         }));
 
         return !Iterables.isEmpty(boundMatchIterable);
-    }
-
-    @Nonnull
-    default <E extends RelationalExpression> E narrow(@Nonnull Class<E> narrowedClass) {
-        return narrowedClass.cast(this);
-    }
-
-    @Nonnull
-    default <E extends RelationalExpression> Optional<E> narrowMaybe(@Nonnull Class<E> narrowedClass) {
-        if (narrowedClass.isInstance(this)) {
-            return Optional.of(narrowedClass.cast(this));
-        }
-        return Optional.empty();
     }
 
     /**

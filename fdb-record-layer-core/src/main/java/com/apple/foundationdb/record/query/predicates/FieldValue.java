@@ -102,9 +102,6 @@ public class FieldValue implements ValueWithChild {
 
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        if (message == null) {
-            return null;
-        }
         final var childResult = columnValue.eval(store, context, record, message);
         if (!(childResult instanceof Message)) {
             return null;
