@@ -31,6 +31,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +51,7 @@ import java.util.stream.Collectors;
 class DynamicSchemaTest {
 
     private static final int SEED = 42;
-    private static final int MAX_ALLOWED_DEPTH = 100;
+    private static final int MAX_ALLOWED_DEPTH = 10;
     private static final Random random = new Random(SEED);
     private static int counter = 0;
 
@@ -74,12 +75,25 @@ class DynamicSchemaTest {
         }
     }
 
+    private static int countTypes(@Nonnull final Type type) {
+        if (type.isPrimitive()) {
+            return 0;
+        }
+        if (type instanceof Type.Array) {
+            return 1 + countTypes(((Type.Array)type).getElementType());
+        }
+        if (type instanceof Type.Record) {
+            return 1 + ((Type.Record)type).getFields().stream().map(f -> countTypes(f.getFieldType())).reduce(0, Integer::sum);
+        }
+        throw new IllegalArgumentException(String.format("unexpected type %s", type.getTypeCode().toString()));
+    }
+
     private static Type generateRandomTypeInternal(int depth) {
         int booleanIndex = Type.TypeCode.valueOf("BOOLEAN").ordinal();
         int stringIndex = Type.TypeCode.valueOf("STRING").ordinal();
-        int recordIndex = Type.TypeCode.valueOf("RECORD").ordinal();
+        int arrayIndex = Type.TypeCode.valueOf("ARRAY").ordinal();
         int lowerBound = booleanIndex;
-        int upperBound = (depth >= MAX_ALLOWED_DEPTH ? stringIndex + 1 : recordIndex + 1) - lowerBound;
+        int upperBound = (depth >= MAX_ALLOWED_DEPTH ? stringIndex + 1 : arrayIndex + 1) - lowerBound;
         int pick = random.nextInt(upperBound) + lowerBound;
         Type.TypeCode randomTypeCode = Type.TypeCode.values()[pick];
         return generateType(depth, randomTypeCode);
@@ -124,44 +138,53 @@ class DynamicSchemaTest {
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof IllegalArgumentException);
-            Assertions.assertTrue(e.getMessage().contains("unexpected primitive type " + Type.TypeCode.DOUBLE));
+            Assertions.assertTrue(e.getMessage().contains("unexpected type " + Type.TypeCode.DOUBLE));
         }
     }
 
     @Test
     void createDynamicSchemaFromRecordTypeWorks() {
-        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
-        Type t = generateType(0, Type.TypeCode.RECORD);
+        final DynamicSchema.Builder builder = DynamicSchema.newBuilder();
+        final Type.Record parent = (Type.Record)generateType(0, Type.TypeCode.RECORD);
+        final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
+        final List<Type.Record.Field> fields = new ArrayList<>(parent.getFields());
+        fields.add(Type.Record.Field.of(child, Optional.of("nestedField")));
+        final Type.Record t = Type.Record.fromFields(fields);
         builder.addType(t);
-        DynamicSchema actualSchema = builder.build();
-        String typeName = actualSchema.getFileDescriptorSet().getFile(0).getMessageTypeList().get(0).getName();
-        Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
-        Assertions.assertEquals(t.buildDescriptor(typeName), actualDescriptor.toProto());
+        final DynamicSchema actualSchemaBefore = builder.build();
+        Assertions.assertEquals(countTypes(t), actualSchemaBefore.getMessageTypes().size());
+        // add record type explicitly, this should NOT cause the addition of a new descriptor.
+        builder.addType(child);
+        final DynamicSchema actualSchemaAfter = builder.build();
+        Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
 
     @Test
     void createDynamicSchemaFromArrayTypeWorks() {
-        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
-        Type t = generateType(0, Type.TypeCode.ARRAY);
-        builder.addType(t);
-        DynamicSchema actualSchema = builder.build();
-        String typeName = actualSchema.getFileDescriptorSet().getFile(0).getMessageTypeList().get(0).getName();
-        Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
-        Assertions.assertEquals(t.buildDescriptor(typeName), actualDescriptor.toProto());
+        final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
+        final Type.Array array = new Type.Array(child);
+        final DynamicSchema.Builder builder = DynamicSchema.newBuilder();
+        builder.addType(array);
+        final DynamicSchema actualSchemaBefore = builder.build();
+        Assertions.assertEquals(countTypes(array), actualSchemaBefore.getMessageTypes().size());
+        // add record type explicitly, this should NOT cause the addition of a new descriptor.
+        builder.addType(child);
+        final DynamicSchema actualSchemaAfter = builder.build();
+        Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
 
     @Test
     void addSameTypeMultipleTimesShouldNotCreateMultipleMessages() {
-        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
-        Type t = generateRandomStructuredType();
+        final DynamicSchema.Builder builder = DynamicSchema.newBuilder();
+        final Type t = generateRandomStructuredType();
         builder.addType(t);
         builder.addType(t);
         builder.addType(t);
-        DynamicSchema actualSchema = builder.build();
-        Assertions.assertEquals(1, actualSchema.getMessageTypes().size());
-        String typeName = actualSchema.getMessageTypes().stream().findFirst().get();
-        Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
-        Assertions.assertEquals(t.buildDescriptor(typeName), actualDescriptor.toProto());
+        final DynamicSchema actualSchema = builder.build();
+        Assertions.assertEquals(3, actualSchema.getMessageTypes().size());
+        final String typeName = actualSchema.getMessageTypes().stream().findFirst().get();
+        final Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
+        Assertions.assertEquals(t.buildDescriptor(builder, typeName), actualDescriptor.toProto());
     }
 
     @Test
