@@ -2848,9 +2848,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private void logExceptionAsWarn(KeyValueLogMessage message, Throwable exception) {
         if (LOGGER.isWarnEnabled()) {
             for (Throwable ex = exception;
-                        ex instanceof LoggableException;
+                        ex != null;
                         ex = ex.getCause()) {
-                message.addKeysAndValues(((LoggableException)ex).getLogInfo());
+                if (ex instanceof LoggableException) {
+                    message.addKeysAndValues(((LoggableException)ex).getLogInfo());
+                }
             }
             LOGGER.warn(message.toString(), exception);
         }
