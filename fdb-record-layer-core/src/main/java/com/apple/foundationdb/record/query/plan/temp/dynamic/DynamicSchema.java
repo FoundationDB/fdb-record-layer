@@ -427,15 +427,24 @@ public class DynamicSchema {
 
         @Nonnull
         public Builder addType(@Nonnull final Type type) {
-            if (type.isPrimitive()) {
-                throw new IllegalArgumentException("unexpected primitive type " + type.getTypeCode());
+            if (type.isPrimitive() || type instanceof Type.Any) {
+                throw new IllegalArgumentException("unexpected type " + type.getTypeCode());
             }
-            typeToNameMap.computeIfAbsent(type, t -> {
+            if (!typeToNameMap.containsKey(type)) {
                 final String protoTypeName = Type.uniqueCompliantTypeName();
-                fileDescProtoBuilder.addMessageType(type.buildDescriptor(protoTypeName));
-                return protoTypeName;
-            });
+                fileDescProtoBuilder.addMessageType(type.buildDescriptor(this, protoTypeName));
+                typeToNameMap.put(type, protoTypeName);
+            }
             return this;
+        }
+
+        @Nonnull
+        public String addTypeAndGetName(@Nonnull final Type type) {
+            if (type.isPrimitive() || type instanceof Type.Any) {
+                throw new IllegalArgumentException("unexpected type " + type.getTypeCode());
+            }
+            addType(type);
+            return typeToNameMap.get(type);
         }
 
         @Nonnull
