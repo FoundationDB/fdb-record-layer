@@ -172,7 +172,7 @@ public class EvaluationContext {
      */
     @Nonnull
     public EvaluationContext withBinding(@Nonnull String bindingName, @Nullable Object value) {
-        return childBuilder().setBinding(bindingName, value).build();
+        return childBuilder().setBinding(bindingName, value).build(typeRepository);
     }
 
     /**
@@ -186,6 +186,6 @@ public class EvaluationContext {
      * @return a new <code>EvaluationContext</code> with the new binding
      */
     public EvaluationContext withBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
-        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build();
+        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build(typeRepository);
     }
 }

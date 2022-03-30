@@ -38,6 +38,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -435,6 +436,12 @@ public class TypeRepository {
                 fileDescProtoBuilder.addMessageType(type.buildDescriptor(this, protoTypeName));
                 typeToNameMap.put(type, protoTypeName);
             }
+            return this;
+        }
+
+        @Nonnull
+        public Builder addAllTypes(@Nonnull final Collection<Type> types) {
+            types.forEach(this::addType);
             return this;
         }
 

@@ -28,19 +28,24 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
+import com.apple.foundationdb.record.query.predicates.Accumulator;
+import com.apple.foundationdb.record.query.predicates.AggregateValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -52,7 +57,7 @@ import java.util.stream.StreamSupport;
  * {@link com.apple.foundationdb.record.query.plan.temp.Type.Record} type.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
+public class RecordConstructorValue implements Value, AggregateValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Constructor-Value");
     @Nonnull
     protected final List<Column<? extends Value>> columns;
@@ -184,6 +189,68 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
                                 (newChild, column) -> Column.of(column.getField(), newChild))
                         .collect(ImmutableList.toImmutableList());
         return new RecordConstructorValue(newColumns);
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        final List<Object> listOfPartials = Lists.newArrayList();
+        for (final Value child : getChildren()) {
+            Verify.verify(child instanceof AggregateValue);
+            final Object childResultElement = ((AggregateValue)child).evalToPartial(store, context, record, message);
+            listOfPartials.add(childResultElement);
+        }
+        return Collections.unmodifiableList(listOfPartials);
+    }
+
+    @Nonnull
+    @Override
+    public Accumulator createAccumulator(final @Nonnull TypeRepository typeRepository) {
+        return new Accumulator() {
+            List<Accumulator> childAccumulators = null;
+            @Override
+            public void accumulate(@Nullable final Object currentObject) {
+                if (childAccumulators == null) {
+                    final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
+                    for (final Value child : getChildren()) {
+                        Verify.verify(child instanceof AggregateValue);
+                        childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
+                    }
+                    childAccumulators = childAccumulatorsBuilder.build();
+                }
+                Verify.verify(currentObject instanceof Collection);
+                final List<?> currentObjectAsList = (List<?>)currentObject;
+                int i = 0;
+                for (final Object o : currentObjectAsList) {
+                    childAccumulators.get(i).accumulate(o);
+                    i++;
+                }
+            }
+
+            @Nullable
+            @Override
+            public Object finish() {
+                if (childAccumulators == null) {
+                    return null;
+                }
+
+                final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(typeRepository);
+                final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
+
+                int i = 0;
+                final List<Type.Record.Field> fields = Objects.requireNonNull(getResultType().getFields());
+
+                for (final Accumulator childAccumulator : childAccumulators) {
+                    final Object finalResult = childAccumulator.finish();
+                    if (finalResult != null) {
+                        resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), finalResult);
+                    }
+                    i ++;
+                }
+
+                return resultMessageBuilder.build();
+            }
+        };
     }
 
     public static List<Value> tryUnwrapIfTuple(@Nonnull final List<Value> values) {

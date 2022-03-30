@@ -21,158 +21,108 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.Optional;
 
 /**
- * QueryResult is the general result that encapsulates the data that is flowing up from plan to consumer. The QueryResult
- * can hold several elements for each result. The elements are opaque from the result perspective, but are known at planning time
- * so that the planner can address them as needed and extract and transfer them from one cursor to another.
- * This class is immutable - all modify operations will cause a new instance to be created with the modified value, leaving
- * the original instance intact. The internal data structure is also immutable.
+ * QueryResult is the general result that encapsulates the data that is flowed up from plan to consumer. The datum
+ * flowed is opaque to some extent but does adhere to a very limited set of common API. For instance,
+ * many flowed items intrinsically carry a record, either directly fetched from disk or created as part of a query.
+ * Most of the accessors to the wrapped datum cast the datum before returning it. It is the responsibility of the planner
+ * to ensure that these casts cannot fail during the execution time of a query.
  */
 @API(API.Status.EXPERIMENTAL)
 public class QueryResult {
     @Nonnull
-    private final List<Object> elements;
+    private final Object datum;
 
-    private static final QueryResult EMPTY = new QueryResult(Collections.emptyList());
-
-    private QueryResult(@Nonnull List<Object> elements) {
-        this.elements = elements;
-    }
-
-    /**
-     * Get an empty result.
-     * @return An immutable empty result.
-     */
-    @Nonnull
-    public QueryResult empty() {
-        return EMPTY;
+    private QueryResult(@Nonnull Object datum) {
+        this.datum = datum;
     }
 
     /**
      * Create a new result with the given element.
-     * @param element the given element
-     * @return the newly created result
+     * @param result the given result
+     * @return the newly created query result
      */
     @Nonnull
-    public static QueryResult of(@Nonnull Object element) {
-        return new QueryResult(Collections.singletonList(element));
+    public static QueryResult of(@Nonnull Object result) {
+        return new QueryResult(result);
     }
 
     /**
-     * Create a new result with the given elements.
-     * @param elements the collection of elements to populate in the result
-     * @return the newly created result
+     * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @return the object narrowed to the requested class
      */
     @Nonnull
-    public static QueryResult of(@Nonnull Collection<Object> elements) {
-        return new QueryResult(Collections.unmodifiableList(new ArrayList<>(elements)));
+    @SuppressWarnings("unchecked")
+    public <M extends Message> FDBQueriedRecord<M> getQueriedRecord() {
+        return (FDBQueriedRecord<M>)get(FDBQueriedRecord.class);
     }
 
     /**
-     * Create a new result that extends the current result with an additional element.
-     * @param addedElement the element to add to the result
-     * @return the newly created result that combines the existing elements with the new one
+     * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @return an optional that potentially contains the object narrowed to the requested class
      */
     @Nonnull
-    public QueryResult with(@Nonnull Object addedElement) {
-        return new QueryResult(Stream.concat(elements.stream(), Stream.of(addedElement)).collect(Collectors.toList()));
+    public <M extends Message> Optional<FDBQueriedRecord<M>> getQueriedRecordMaybe() {
+        if (datum instanceof FDBQueriedRecord) {
+            return Optional.of(getQueriedRecord());
+        }
+        return Optional.empty();
     }
 
     /**
-     * Create a new result that extends the current result with additional elements.
-     * @param addedElements the elements to add to the result
-     * @return the newly created result that combines the existing elements with the new ones
+     * Retrieve the wrapped result.
+     * @return the wrapped result as an object
      */
     @Nonnull
-    public QueryResult with(@Nonnull Object... addedElements) {
-        return new QueryResult(Stream.concat(elements.stream(), Arrays.stream(addedElements)).collect(Collectors.toList()));
+    public Object getDatum() {
+        return datum;
     }
 
     /**
-     * return the size of the result = the number of elements.
-     * @return the size of the result = the number of elements.
+     * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @return the object narrowed to the requested class
      */
-    public int size() {
-        return elements.size();
+    @Nonnull
+    public <T> T get(@Nonnull final Class<? extends T> clazz) {
+        return clazz.cast(datum);
     }
 
     /**
-     * Retrieve the element at the ith position in the result (0 based).
-     * @param i the index of the requested element.
-     * @return the required element
-     * @throws IndexOutOfBoundsException if the index is out of range
+     * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @return an optional that potentially contains the object narrowed to the requested class
      */
+    @Nonnull
+    public <T> Optional<T> getMaybe(@Nonnull final Class<? extends T> clazz) {
+        if (clazz.isInstance(datum)) {
+            return Optional.of(get(clazz));
+        }
+        return Optional.empty();
+    }
+
+    @SuppressWarnings("unchecked")
+    public <M extends Message> M getMessage() {
+        if (datum instanceof FDBQueriedRecord) {
+            return ((FDBQueriedRecord<M>)datum).getRecord();
+        } else if (datum instanceof Message) {
+            return (M)datum;
+        }
+        throw new RecordCoreException("cannot be retrieve message from flowed object");
+    }
+
     @Nullable
-    public Object get(int i) {
-        return elements.get(i);
-    }
-
-    /**
-     * FDBQueriedRecord compatibility method. Return the element in a position, assuming that it is a {@link FDBQueriedRecord}
-     * @param i the index of the requested element.
-     * @param <M> the type of record the store is providing (for the {@link FDBQueriedRecord} compatibility)
-     * @return the element, in case it is of the right type
-     * @throws ClassCastException in case the element is of the wrong type
-     * @throws IndexOutOfBoundsException if the index is out of range
-     */
-    @Nullable
-    @SuppressWarnings("unchecked") // Intend to throw ClassCast in case the element is of teh wrong type
-    public <M extends Message> FDBQueriedRecord<M> getQueriedRecord(int i) {
-        return ((FDBQueriedRecord<M>)elements.get(i));
-    }
-
-    /**
-     * FDBQueriedRecord compatibility method. Return the stored record from the element in a position, assuming that it is a {@link FDBQueriedRecord}
-     * @param i the index of the requested element.
-     * @return the element, in case it is of the right type
-     * @throws ClassCastException in case the element is of the wrong type
-     * @throws IndexOutOfBoundsException if the index is out of range
-     */
-    @Nullable
-    public FDBStoredRecord<Message> getStoredRecord(int i) {
-        FDBQueriedRecord<Message> record = getQueriedRecord(i);
-        return (record == null) ? null : record.getStoredRecord();
-    }
-
-    /**
-     * FDBQueriedRecord compatibility method. Return the index from the element in a position, assuming that it is a {@link FDBQueriedRecord}
-     * @param i the index of the requested element.
-     * @return the element, in case it is of the right type
-     * @throws ClassCastException in case the element is of the wrong type
-     * @throws IndexOutOfBoundsException if the index is out of range
-     */
-    @Nullable
-    public Index getIndex(int i) {
-        FDBQueriedRecord<Message> record = getQueriedRecord(i);
-        return (record == null) ? null : record.getIndex();
-    }
-
-    /**
-     * FDBQueriedRecord compatibility method. Return the indexEntry from the element in a position, assuming that it is a {@link FDBQueriedRecord}
-     * @param i the index of the requested element.
-     * @return the element, in case it is of the right type
-     * @throws ClassCastException in case the element is of the wrong type
-     * @throws IndexOutOfBoundsException if the index is out of range
-     */
-    @Nullable
-    public IndexEntry getIndexEntry(int i) {
-        FDBQueriedRecord<Message> record = getQueriedRecord(i);
-        return (record == null) ? null : record.getIndexEntry();
+    @SuppressWarnings("unchecked")
+    public <M extends Message> Object getObject() {
+        if (datum instanceof FDBQueriedRecord) {
+            return ((FDBQueriedRecord<M>)datum).getRecord();
+        }
+        return datum;
     }
 }

@@ -88,7 +88,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final Set<Tuple> seen = new HashSet<>();
         return getInner().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
-                .filterInstrumented(result -> seen.add(result.getQueriedRecord(0).getPrimaryKey()), store.getTimer(),
+                .filterInstrumented(result -> seen.add(result.getQueriedRecord().getPrimaryKey()), store.getTimer(),
                         Collections.emptySet(), duringEvents, uniqueCounts, duplicateCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }

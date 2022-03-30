@@ -113,7 +113,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
                         .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
                                 ((byte[] childContinuation) -> childPlan
                                         .executePlan(store, context, childContinuation, childExecuteProperties)
-                                        .map(result -> result.getQueriedRecord(0))))
+                                        .map(QueryResult::getQueriedRecord)))
                         .collect(Collectors.toList()),
                 continuation)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())

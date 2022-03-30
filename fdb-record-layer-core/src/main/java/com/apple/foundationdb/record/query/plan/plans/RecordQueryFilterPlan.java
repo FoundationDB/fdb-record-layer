@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -90,16 +89,16 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Override
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store,
                                                      @Nonnull EvaluationContext context,
-                                                     @Nullable FDBRecord<M> record) {
-        return conjunctedFilter.eval(store, context, record);
+                                                     @Nonnull QueryResult datum) {
+        return conjunctedFilter.eval(store, context, datum.getQueriedRecord());
     }
 
     @Nullable
     @Override
     protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store,
                                                                              @Nonnull EvaluationContext context,
-                                                                             @Nullable FDBRecord<M> record) {
-        return conjunctedFilter.evalAsync(store, context, record);
+                                                                             @Nonnull QueryResult datum) {
+        return conjunctedFilter.evalAsync(store, context, datum.getQueriedRecord());
     }
 
     @Override

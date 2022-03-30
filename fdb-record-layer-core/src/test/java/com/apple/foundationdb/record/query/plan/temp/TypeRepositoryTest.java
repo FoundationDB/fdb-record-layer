@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -49,7 +50,6 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("ConstantConditions")
 class TypeRepositoryTest {
-
     private static final int SEED = 42;
     private static final int MAX_ALLOWED_DEPTH = 10;
     private static final Random random = new Random(SEED);
@@ -174,16 +174,16 @@ class TypeRepositoryTest {
     }
 
     @Test
-    void addSameTypeMultipleTimesShouldNotCreateMultipleMessages() {
+    void addSameTypeMultipleTimesShouldNotCreateMultipleMessageTypes() {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         final Type t = generateRandomStructuredType();
         builder.addType(t);
         builder.addType(t);
         builder.addType(t);
-        final TypeRepository actualSchema = builder.build();
-        Assertions.assertEquals(3, actualSchema.getMessageTypes().size());
-        final String typeName = actualSchema.getMessageTypes().stream().findFirst().get();
-        final Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
+        final TypeRepository actualRepository = builder.build();
+        Assertions.assertEquals(1, actualRepository.getMessageTypes().size());
+        final String typeName = Iterables.getOnlyElement(actualRepository.getMessageTypes());
+        final Descriptors.Descriptor actualDescriptor = actualRepository.getMessageDescriptor(typeName);
         Assertions.assertEquals(t.buildDescriptor(builder, typeName), actualDescriptor.toProto());
     }
 

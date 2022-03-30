@@ -85,7 +85,7 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
             for (BindingPlan bindingPlan : bindingPlans) {
                 builder.setBinding(bindingPlan.name, bindingPlan.evaluate(record));
             }
-            return builder.build();
+            return builder.build(context.getTypeRepository());
         }
 
         @Override
