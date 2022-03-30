@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -142,10 +142,10 @@ class TypeTest {
     @ParameterizedTest(name = "[{index}] test synthesize {0}")
     @ArgumentsSource(ProtobufRandomMessageProvider.class)
     void recordTypeIsParsable(final String paramTestTitleIgnored, final Message message) throws Exception {
-        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
+        TypeRepository.Builder builder = TypeRepository.newBuilder();
         final Type.Record recordType = Type.Record.fromDescriptor(message.getDescriptorForType());
         final DescriptorProtos.DescriptorProto descriptorProto = recordType.buildDescriptor(builder, "SyntheticDescriptor");
-        final DynamicSchema schema = builder.build();
+        final TypeRepository schema = builder.build();
         final Descriptors.FileDescriptor fileDescriptor = Descriptors.FileDescriptor.buildFrom(
                 DescriptorProtos.FileDescriptorProto.newBuilder()
                         .addMessageType(descriptorProto)

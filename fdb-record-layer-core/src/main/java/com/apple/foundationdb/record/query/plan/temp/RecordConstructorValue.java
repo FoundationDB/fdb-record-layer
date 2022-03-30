@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
@@ -98,7 +98,7 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        final var resultMessageBuilder = newMessageBuilderForType(context.getDynamicSchema());
+        final var resultMessageBuilder = newMessageBuilderForType(context.getTypeRepository());
         final var descriptorForType = resultMessageBuilder.getDescriptorForType();
 
         int i = 0;
@@ -116,8 +116,8 @@ public class RecordConstructorValue implements Value, CreatesDynamicTypesValue {
     }
 
     @Nonnull
-    private DynamicMessage.Builder newMessageBuilderForType(@Nonnull DynamicSchema dynamicSchema) {
-        return Objects.requireNonNull(dynamicSchema.newMessageBuilder(getResultType()));
+    private DynamicMessage.Builder newMessageBuilderForType(@Nonnull TypeRepository typeRepository) {
+        return Objects.requireNonNull(typeRepository.newMessageBuilder(getResultType()));
     }
 
     @Override

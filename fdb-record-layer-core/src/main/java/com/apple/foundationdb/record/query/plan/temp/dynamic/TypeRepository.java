@@ -1,5 +1,5 @@
 /*
- * DynamicSchema.java
+ * TypeRepository.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -53,9 +53,9 @@ import java.util.TreeSet;
  * The generation cost is amortized, i.e. if two {@link Type}s are equal, then only a single Protobuf message descriptor will be
  * generated.
  */
-public class DynamicSchema {
+public class TypeRepository {
     @Nonnull
-    public static final DynamicSchema EMPTY_SCHEMA = empty();
+    public static final TypeRepository EMPTY_SCHEMA = empty();
 
     @Nonnull
     private static final String DUPLICATE_NAME_ERROR_MESSAGE = "duplicate name: %s";
@@ -79,10 +79,10 @@ public class DynamicSchema {
     private final Map<Type, String> typeToNameMap;
 
     @Nonnull
-    public static DynamicSchema empty() {
+    public static TypeRepository empty() {
         FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
         try {
-            return new DynamicSchema(resultBuilder.build(), Maps.newHashMap());
+            return new TypeRepository(resultBuilder.build(), Maps.newHashMap());
         } catch (final DescriptorValidationException e) {
             throw new IllegalStateException(e);
         }
@@ -100,7 +100,7 @@ public class DynamicSchema {
 
     @SuppressWarnings("PMD.AssignmentInOperand")
     @Nonnull
-    public static DynamicSchema parseFrom(@Nonnull final InputStream schemaDescIn) throws DescriptorValidationException, IOException {
+    public static TypeRepository parseFrom(@Nonnull final InputStream schemaDescIn) throws DescriptorValidationException, IOException {
         try (schemaDescIn) {
             int len;
             byte[] buf = new byte[4096];
@@ -113,8 +113,8 @@ public class DynamicSchema {
     }
 
     @Nonnull
-    public static DynamicSchema parseFrom(@Nonnull final byte[] schemaDescBuf) throws DescriptorValidationException, IOException {
-        return new DynamicSchema(FileDescriptorSet.parseFrom(schemaDescBuf), Maps.newHashMap());
+    public static TypeRepository parseFrom(@Nonnull final byte[] schemaDescBuf) throws DescriptorValidationException, IOException {
+        return new TypeRepository(FileDescriptorSet.parseFrom(schemaDescBuf), Maps.newHashMap());
     }
 
     /**
@@ -270,8 +270,8 @@ public class DynamicSchema {
         return "types: " + msgTypes + "\nenums: " + enumTypes + "\n" + fileDescSet;
     }
 
-    private DynamicSchema(@Nonnull final FileDescriptorSet fileDescSet,
-                          @Nonnull final Map<Type, String> typeToNameMap) throws DescriptorValidationException {
+    private TypeRepository(@Nonnull final FileDescriptorSet fileDescSet,
+                           @Nonnull final Map<Type, String> typeToNameMap) throws DescriptorValidationException {
         this.fileDescSet = fileDescSet;
         Map<String,FileDescriptor> fileDescMap = init(fileDescSet);
 
@@ -388,7 +388,7 @@ public class DynamicSchema {
     }
 
     /**
-     * A builder that builds a {@link DynamicSchema} object.
+     * A builder that builds a {@link TypeRepository} object.
      */
     public static class Builder {
         private @Nonnull final FileDescriptorProto.Builder fileDescProtoBuilder;
@@ -402,12 +402,12 @@ public class DynamicSchema {
         }
 
         @Nonnull
-        public DynamicSchema build() {
+        public TypeRepository build() {
             FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
             resultBuilder.addFile(fileDescProtoBuilder.build());
             resultBuilder.mergeFrom(this.fileDescSetBuilder.build());
             try {
-                return new DynamicSchema(resultBuilder.build(), typeToNameMap);
+                return new TypeRepository(resultBuilder.build(), typeToNameMap);
             } catch (final DescriptorValidationException dve) {
                 throw new IllegalStateException("validation should not fail", dve);
             }
@@ -467,7 +467,7 @@ public class DynamicSchema {
         }
 
         @Nonnull
-        public Builder addSchema(@Nonnull final DynamicSchema schema) {
+        public Builder addSchema(@Nonnull final TypeRepository schema) {
             fileDescSetBuilder.mergeFrom(schema.fileDescSet);
             return this;
         }
