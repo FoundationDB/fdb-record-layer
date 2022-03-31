@@ -135,6 +135,13 @@ public interface Type extends Narrowable<Type> {
                        @Nonnull final String typeName,
                        @Nonnull final FieldDescriptorProto.Label label);
 
+    default String defineTypeIfComplex(@Nonnull final TypeRepository.Builder typeRepositoryBuilder) {
+        if (isPrimitive()) {
+            return "ignored";
+        } else {
+            return typeRepositoryBuilder.addTypeAndGetName(this);
+        }
+    }
 
     /**
      * Returns a map from Java {@link Class} to corresponding {@link TypeCode}.
@@ -638,21 +645,13 @@ public interface Type extends Narrowable<Type> {
             recordMsgBuilder.setName(typeName);
 
             for (final Field field : fields) {
-                final Type fieldType = field.getFieldType();
-                final String fieldName = field.getFieldName();
-                if (!fieldType.isPrimitive()) {
-                    fieldType.addProtoField(typeRepositoryBuilder, recordMsgBuilder,
-                            field.getFieldIndex(),
-                            fieldName,
-                            typeRepositoryBuilder.addTypeAndGetName(fieldType),
-                            FieldDescriptorProto.Label.LABEL_OPTIONAL);
-                } else {
-                    fieldType.addProtoField(typeRepositoryBuilder, recordMsgBuilder,
-                            field.getFieldIndex(),
-                            fieldName,
-                            "ignored", // gets the built-in PB primitive type name.
-                            FieldDescriptorProto.Label.LABEL_OPTIONAL);
-                }
+                final var fieldType = field.getFieldType();
+                final var fieldName = field.getFieldName();
+                fieldType.addProtoField(typeRepositoryBuilder, recordMsgBuilder,
+                        field.getFieldIndex(),
+                        fieldName,
+                        fieldType.defineTypeIfComplex(typeRepositoryBuilder),
+                        FieldDescriptorProto.Label.LABEL_OPTIONAL);
             }
             return recordMsgBuilder.build();
         }
@@ -1301,7 +1300,11 @@ public interface Type extends Narrowable<Type> {
             Objects.requireNonNull(elementType);
             final DescriptorProto.Builder helperDescriptorBuilder = DescriptorProto.newBuilder();
             helperDescriptorBuilder.setName(typeName);
-            elementType.addProtoField(typeRepositoryBuilder, helperDescriptorBuilder, 1, "value", typeName, FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            elementType.addProtoField(typeRepositoryBuilder,
+                    helperDescriptorBuilder,
+                    1, "value",
+                    elementType.defineTypeIfComplex(typeRepositoryBuilder),
+                    FieldDescriptorProto.Label.LABEL_OPTIONAL);
 
             return helperDescriptorBuilder.build();
         }
@@ -1317,7 +1320,6 @@ public interface Type extends Narrowable<Type> {
             // nulls.
             //
             if (definesNestedProto()) {
-                buildDescriptor(typeRepositoryBuilder, typeName);
                 descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
                         .setName(fieldName)
                         .setNumber(fieldIndex)
@@ -1325,7 +1327,7 @@ public interface Type extends Narrowable<Type> {
                         .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
                         .build());
             } else {
-                // if inner type is not nullable we can just put is straight into its parent
+                // if inner type is not nullable we can just put the repeated field straight into its parent
                 elementType.addProtoField(typeRepositoryBuilder, descriptorBuilder, fieldIndex, fieldName, typeName, FieldDescriptorProto.Label.LABEL_REPEATED);
             }
         }

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDirectoryLayer;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -177,7 +178,7 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_QUERY("plan query"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} as part of executing a query. */
         QUERY_FILTER("filter records"),
-        /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan} as part of executing a query. */
+        /** The amount of time spent in {@link RecordQueryStreamingAggregationPlan} as part of executing a query. */
         QUERY_AGGREGATE("aggregate records"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan} as part of executing a query. */
         QUERY_TYPE_FILTER("filter records by type"),
@@ -516,7 +517,7 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_COVERING_INDEX("number of covering index plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan}. */
         PLAN_FILTER("number of filter plans", false),
-        /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan}. */
+        /** The number of query plans that include a {@link RecordQueryStreamingAggregationPlan}. */
         PLAN_AGGREGATE("number of streaming aggregate plans", false),
         /** The number of query plans that include an index. */
         PLAN_INDEX("number of index plans", false),
@@ -584,9 +585,9 @@ public class FDBStoreTimer extends StoreTimer {
         QUERY_UNION_PLAN_UNIQUES("number of unique records found by RecordQueryUnorderedDistinctPlan", false),
         /** The number of records filtered out as not matching or duplicate. */
         QUERY_DISCARDED("number of records loaded but filtered out", false),
-        /** The number of aggregate groups created by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan}. */
+        /** The number of aggregate groups created by {@link RecordQueryStreamingAggregationPlan}. */
         QUERY_AGGREGATE_GROUPS("number of aggregate groups", false),
-        /** The max size of aggregate group created by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan}. */
+        /** The max size of aggregate group created by {@link RecordQueryStreamingAggregationPlan}. */
         QUERY_AGGREGATE_GROUP_MAX_SIZE("max size of aggregate group", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan}. */
         PLAN_COMPARATOR("number of comparator plans", false),

@@ -1,5 +1,5 @@
 /*
- * FDBStreamAggregateTest.java
+ * FDBStreamAggregationTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -59,7 +59,7 @@ import java.util.function.Function;
  * Tests related to planning and executing queries with string collation.
  */
 @Tag(Tags.RequiresFDB)
-class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
+class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     /*
      * The database contains:
@@ -94,7 +94,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                     .build();
 
             List<QueryResult> result = executePlan(plan);
@@ -107,7 +107,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            AggregatePlanBuilder builder = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord");
+            AggregationPlanBuilder builder = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord");
             RecordQueryPlan plan = builder
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withGroupCriterion("num_value_3_indexed")
@@ -123,7 +123,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .build();
 
@@ -137,7 +137,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                     .withGroupCriterion("num_value_3_indexed")
                     .build();
 
@@ -151,7 +151,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withGroupCriterion("num_value_3_indexed")
                     .withGroupCriterion("str_value_indexed")
@@ -167,7 +167,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                     .withGroupCriterion("num_value_3_indexed")
@@ -184,7 +184,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
@@ -203,7 +203,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
@@ -221,7 +221,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
@@ -238,7 +238,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
                     .withGroupCriterion("num_value_3_indexed")
                     .withGroupCriterion("str_value_indexed")
                     .build();
@@ -253,7 +253,7 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregatePlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
+            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
                     .build();
 
             List<QueryResult> result = executePlan(plan);
@@ -303,14 +303,14 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
         return Arrays.asList(objs);
     }
 
-    private static class AggregatePlanBuilder {
+    private static class AggregationPlanBuilder {
         private final Quantifier.Physical quantifier;
         private final List<AggregateValue> aggregateValues;
         private final List<Value> groupValues;
         private final RecordMetaData recordMetaData;
         private final String recordTypeName;
 
-        public AggregatePlanBuilder(final RecordMetaData recordMetaData, final String recordTypeName) {
+        public AggregationPlanBuilder(final RecordMetaData recordMetaData, final String recordTypeName) {
             this.recordMetaData = recordMetaData;
             this.recordTypeName = recordTypeName;
             this.quantifier = createBaseQuantifier();
@@ -318,18 +318,18 @@ class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
             groupValues = new ArrayList<>();
         }
 
-        public AggregatePlanBuilder withAggregateValue(final String fieldName, final Function<Value, AggregateValue> aggregateValueFunction) {
+        public AggregationPlanBuilder withAggregateValue(final String fieldName, final Function<Value, AggregateValue> aggregateValueFunction) {
             this.aggregateValues.add(aggregateValueFunction.apply(createFieldValue(fieldName)));
             return this;
         }
 
-        public AggregatePlanBuilder withGroupCriterion(final String fieldName) {
+        public AggregationPlanBuilder withGroupCriterion(final String fieldName) {
             this.groupValues.add(createFieldValue(fieldName));
             return this;
         }
 
         public RecordQueryPlan build() {
-            return new RecordQueryStreamingAggregatePlan(quantifier, RecordConstructorValue.ofUnnamed(groupValues), RecordConstructorValue.ofUnnamed(aggregateValues));
+            return new RecordQueryStreamingAggregationPlan(quantifier, RecordConstructorValue.ofUnnamed(groupValues), RecordConstructorValue.ofUnnamed(aggregateValues));
         }
 
         private Value createFieldValue(final String fieldName) {
