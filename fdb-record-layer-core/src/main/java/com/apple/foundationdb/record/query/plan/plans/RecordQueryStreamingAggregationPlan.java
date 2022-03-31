@@ -1,5 +1,5 @@
 /*
- * RecordQueryStreamingAggregatePlan.java
+ * RecordQueryStreamingAggregationPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -71,9 +71,9 @@ import java.util.Set;
  * </UL>
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChild {
+public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Streaming-Aggregator-Plan");
-    public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryStreamingAggregatePlan.class);
+    public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryStreamingAggregationPlan.class);
 
     @Nonnull
     private final Quantifier.Physical inner;
@@ -95,7 +95,7 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
      * @param groupingKeyValue the {@link Value} to group by
      * @param aggregateValue the {@link AggregateValue} to aggregate by grouping key
      */
-    public RecordQueryStreamingAggregatePlan(@Nonnull final Quantifier.Physical inner, @Nullable final Value groupingKeyValue, @Nonnull final AggregateValue aggregateValue) {
+    public RecordQueryStreamingAggregationPlan(@Nonnull final Quantifier.Physical inner, @Nullable final Value groupingKeyValue, @Nonnull final AggregateValue aggregateValue) {
         this.inner = inner;
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
@@ -161,15 +161,15 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
 
     @Nonnull
     @Override
-    public RecordQueryStreamingAggregatePlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                          @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryStreamingAggregatePlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), groupingKeyValue, aggregateValue);
+    public RecordQueryStreamingAggregationPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                            @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), groupingKeyValue, aggregateValue);
     }
 
     @Nonnull
     @Override
-    public RecordQueryStreamingAggregatePlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryStreamingAggregatePlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), groupingKeyValue, aggregateValue);
+    public RecordQueryStreamingAggregationPlan withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryStreamingAggregationPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), groupingKeyValue, aggregateValue);
     }
 
     @Nonnull
