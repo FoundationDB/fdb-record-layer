@@ -34,6 +34,9 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 
+import java.util.Collections;
+import java.util.Map;
+
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
@@ -401,25 +404,92 @@ class LuceneDocumentFromRecordTest {
         assertFalse(subEntry.hasSecondValue());
     }
 
+    @Test
+    void simpleWithFieldConfigs() {
+        TestRecordsTextProto.SimpleDocument message = TestRecordsTextProto.SimpleDocument.newBuilder()
+                .setDocId(1)
+                .setText("some text")
+                .build();
+        FDBRecord<Message> record = unstoredRecord(message);
+
+        // Build the index with configuring the index options for Lucene text field
+        KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT,
+                concat(field("text"), function(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS, value(LuceneFunctionNames.LuceneFieldIndexOptions.DOCS.name()))));
+
+        assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(textField("text", "some text",
+                        ImmutableMap.of(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS,
+                                LuceneFunctionNames.LuceneFieldIndexOptions.DOCS.name())))),
+                LuceneDocumentFromRecord.getRecordFields(index, record));
+    }
+
+    @Test
+    void groupWithFieldConfigs() {
+        TestRecordsTextProto.SimpleDocument message = TestRecordsTextProto.SimpleDocument.newBuilder()
+                .setDocId(2)
+                .setText("more text")
+                .setGroup(2)
+                .build();
+        FDBRecord<Message> record = unstoredRecord(message);
+
+        // Build the index with configuring the omit_norms boolean parameter for Lucene text field
+        KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, concat(field("text"), function(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_OMIT_NORMS, value(true))))
+                .groupBy(field("group"));
+
+        assertEquals(ImmutableMap.of(Tuple.from(2), ImmutableList.of(textField("text", "more text",
+                        ImmutableMap.of(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_OMIT_NORMS, true)))),
+                LuceneDocumentFromRecord.getRecordFields(index, record));
+    }
+
+    @Test
+    void mapWithFieldConfigs() {
+        TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
+                .setDocId(5)
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k1").setValue("v1"))
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k2").setValue("v2"))
+                .build();
+        FDBRecord<Message> record = unstoredRecord(message);
+
+        // Build the index with configuring the term vectors and positions boolean parameters for Lucene text field
+        KeyExpression index = function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(
+                field("entry", KeyExpression.FanType.FanOut).nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(function(LuceneFunctionNames.LUCENE_TEXT,
+                                concat(field("value"),
+                                        function(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS, value(true)),
+                                        function(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS, value(true)))),
+                        field("key")))),
+                value(null)));
+
+        Map<String, Object> expectedConfigs = ImmutableMap.of(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS, true,
+                LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS, true);
+        assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
+                        textField("k1", "v1", expectedConfigs),
+                        textField("k2", "v2", expectedConfigs))),
+                LuceneDocumentFromRecord.getRecordFields(index, record));
+    }
+
     private static FDBRecord<Message> unstoredRecord(Message message) {
         return new UnstoredRecord<>(message);
     }
 
-    private static LuceneDocumentFromRecord.DocumentField documentField(String name, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type, boolean stored) {
-        return new LuceneDocumentFromRecord.DocumentField(name, value, type, stored);
+    private static LuceneDocumentFromRecord.DocumentField documentField(String name, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
+                                                                        boolean stored, @Nullable Map<String, Object> fieldConfigs) {
+        return new LuceneDocumentFromRecord.DocumentField(name, value, type, stored, fieldConfigs);
     }
 
     private static LuceneDocumentFromRecord.DocumentField stringField(String name, String value) {
-        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.STRING, false);
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.STRING, false, null);
     }
 
     private static LuceneDocumentFromRecord.DocumentField textField(String name, String value) {
-        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.TEXT, false);
+        return textField(name, value, Collections.emptyMap());
+    }
+
+    private static LuceneDocumentFromRecord.DocumentField textField(String name, String value, Map<String, Object> fieldConfigs) {
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.TEXT, false, fieldConfigs);
     }
 
 
     private static LuceneDocumentFromRecord.DocumentField intField(String name, int value) {
-        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.INT, false);
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.INT, false, null);
     }
 
 }

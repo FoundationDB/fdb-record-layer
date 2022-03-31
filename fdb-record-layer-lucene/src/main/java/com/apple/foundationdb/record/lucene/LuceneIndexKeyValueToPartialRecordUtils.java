@@ -57,7 +57,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                                           @Nonnull String suggestion, @Nonnull Tuple groupingKey) {
         final KeyExpression expression = root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getWholeKey() : root;
         LuceneIndexExpressions.getFieldsRecursively(expression, new PartialRecordBuildSource(null, descriptor, builder),
-                (source, fieldName, value, type, stored, overriddenKeyRanges, groupingKeyIndex) -> {
+                (source, fieldName, value, type, stored, overriddenKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
                     if (groupingKeyIndex > - 1) {
                         if (groupingKeyIndex > groupingKey.size() - 1) {
                             throw new RecordCoreException("Invalid grouping value tuple given a grouping key")
