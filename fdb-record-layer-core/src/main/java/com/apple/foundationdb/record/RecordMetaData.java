@@ -169,7 +169,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     public RecordType getRecordTypeForDescriptor(@Nonnull Descriptors.Descriptor descriptor) {
         RecordType recordType = getRecordType(descriptor.getName());
-        if (recordType.getDescriptor() != descriptor) {
+        if (!recordType.getDescriptor().equals(descriptor)) {
             throw new MetaDataException("descriptor did not match record type");
         }
         return recordType;
