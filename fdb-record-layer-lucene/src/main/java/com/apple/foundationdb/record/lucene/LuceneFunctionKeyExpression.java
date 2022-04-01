@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithChildren;
+import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.google.protobuf.Descriptors;
@@ -32,7 +33,9 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Lucene function key expressions.
@@ -188,6 +191,48 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
             } else {
                 return arguments;
             }
+        }
+
+        @Nonnull
+        public Map<String, Object> getFieldConfigs() {
+            Map<String, Object> configs = new HashMap<>();
+            if (arguments instanceof ThenKeyExpression) {
+                for (KeyExpression child : ((ThenKeyExpression) arguments).getChildren()) {
+                    if (child instanceof LuceneFieldConfig) {
+                        LuceneFieldConfig fieldConfig = (LuceneFieldConfig) child;
+                        if (!(fieldConfig.arguments instanceof LiteralKeyExpression)) {
+                            throw new InvalidExpressionException("Lucene field config should have value arguments");
+                        }
+                        configs.put(fieldConfig.getName(), ((LiteralKeyExpression) fieldConfig.arguments).getValue());
+                    }
+                }
+            }
+            return configs;
+        }
+    }
+
+    /**
+     * The key function for Lucene field configuration.
+     * The value arguments to this function are applied as the configs for the corresponding Lucene text field when building the index.
+     */
+    public static class LuceneFieldConfig extends LuceneFunctionKeyExpression {
+        public LuceneFieldConfig(@Nonnull String name, @Nonnull KeyExpression arguments) {
+            super(name, arguments);
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return Integer.MAX_VALUE;
+        }
+
+        @Override
+        public int getColumnSize() {
+            return 1;
         }
     }
 

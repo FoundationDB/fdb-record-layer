@@ -91,7 +91,7 @@ public class LuceneIndexExpressions {
      * @param recordType Protobuf meta-data for record type
      */
     public static void validate(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
-        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, overriddeKeyRanges, groupingKeyIndex) -> {
+        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, overriddeKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
         }, null);
     }
 
@@ -145,7 +145,7 @@ public class LuceneIndexExpressions {
         final Map<String, DocumentFieldDerivation> fields = new HashMap<>();
         getFields(root,
                 new MetaDataSource(recordType),
-                (source, fieldName, value, type, stored, overriddenKeyRanges, groupingKeyIndex) -> {
+                (source, fieldName, value, type, stored, overriddenKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
                     List<String> path = new ArrayList<>();
                     for (MetaDataSource metaDataSource = source; metaDataSource != null; metaDataSource = metaDataSource.getParent()) {
                         if (metaDataSource.getField() != null) {
@@ -180,7 +180,7 @@ public class LuceneIndexExpressions {
      */
     public interface DocumentDestination<T extends RecordSource<T>> {
         void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable Object value, @Nonnull DocumentFieldType type,
-                      boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex);
+                      boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs);
     }
 
     /**
@@ -260,6 +260,7 @@ public class LuceneIndexExpressions {
 
         boolean fieldStored = false;
         boolean fieldText = false;
+        Map<String, Object> configs = Collections.emptyMap();
         while (true) {
             if (expression instanceof LuceneFunctionKeyExpression.LuceneStored) {
                 LuceneFunctionKeyExpression.LuceneStored storedExpression = (LuceneFunctionKeyExpression.LuceneStored)expression;
@@ -269,6 +270,7 @@ public class LuceneIndexExpressions {
                 LuceneFunctionKeyExpression.LuceneText textExpression = (LuceneFunctionKeyExpression.LuceneText)expression;
                 fieldText = true;
                 expression = textExpression.getFieldExpression();
+                configs = textExpression.getFieldConfigs();
             } else {
                 // TODO: More text options.
                 break;
@@ -320,7 +322,7 @@ public class LuceneIndexExpressions {
             }
             for (Object value : source.getValues(fieldExpression)) {
                 destination.addField(source, fieldName, value, fieldType, fieldStored,
-                        overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1);
+                        overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1, configs);
             }
             if (suffixOverride) {
                 // Remove the last 2 numbers added above

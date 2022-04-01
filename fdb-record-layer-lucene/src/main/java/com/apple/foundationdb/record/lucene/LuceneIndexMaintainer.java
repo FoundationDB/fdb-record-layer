@@ -55,12 +55,13 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
+import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
@@ -208,7 +209,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         boolean suggestionAdded = false;
         switch (field.getType()) {
             case TEXT:
-                luceneField = new TextField(fieldName, (String)value, field.isStored() ? Field.Store.YES : Field.Store.NO);
+                luceneField = new Field(fieldName, (String) value, getTextFieldType(field));
                 suggestionAdded = addTermToSuggesterIfNeeded((String) value, fieldName, suggester);
                 break;
             case STRING:
@@ -311,6 +312,33 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private AnalyzingInfixSuggester getSuggester(@Nullable Tuple groupingKey) {
         return AutoCompleteSuggesterCommitCheckAsync.getOrCreateSuggester(state, indexAnalyzer, queryAnalyzer,
                 highlightForAutoCompleteIfEnabled, executor, groupingKey == null ? TupleHelpers.EMPTY : groupingKey);
+    }
+
+    private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
+        FieldType ft = new FieldType();
+
+        try {
+            ft.setIndexOptions(getIndexOptions((String) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS),
+                            LuceneFunctionNames.LuceneFieldIndexOptions.DOCS_AND_FREQS_AND_POSITIONS.name())));
+            ft.setTokenized(true);
+            ft.setStored(field.isStored());
+            ft.setStoreTermVectors((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS), false));
+            ft.setStoreTermVectorPositions((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS), false));
+            ft.setOmitNorms((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_OMIT_NORMS), false));
+            ft.freeze();
+        } catch (ClassCastException ex) {
+            throw new RecordCoreArgumentException("Invalid value type for Lucene field config", ex);
+        }
+
+        return ft;
+    }
+
+    private static IndexOptions getIndexOptions(@Nonnull String value) {
+        try {
+            return IndexOptions.valueOf(value);
+        } catch (IllegalArgumentException ex) {
+            throw new RecordCoreArgumentException("Invalid enum value to parse for Lucene IndexOptions: " + value, ex);
+        }
     }
 
     @Nonnull

@@ -181,8 +181,8 @@ public class LuceneDocumentFromRecord {
 
         @Override
         public void addField(@Nonnull T source, @Nonnull final String fieldName, @Nullable final Object value, LuceneIndexExpressions.DocumentFieldType type,
-                             final boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex) {
-            fields.add(new DocumentField(fieldName, value, type, stored));
+                             final boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs) {
+            fields.add(new DocumentField(fieldName, value, type, stored, fieldConfigs));
         }
     }
 
@@ -193,12 +193,16 @@ public class LuceneDocumentFromRecord {
         private final Object value;
         private final LuceneIndexExpressions.DocumentFieldType type;
         private final boolean stored;
+        @Nonnull
+        private final Map<String, Object> fieldConfigs;
 
-        public DocumentField(@Nonnull String fieldName, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type, boolean stored) {
+        public DocumentField(@Nonnull String fieldName, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
+                             boolean stored, @Nonnull Map<String, Object> fieldConfigs) {
             this.fieldName = fieldName;
             this.value = value;
             this.type = type;
             this.stored = stored;
+            this.fieldConfigs = fieldConfigs;
         }
 
         @Nonnull
@@ -217,6 +221,11 @@ public class LuceneDocumentFromRecord {
 
         public boolean isStored() {
             return stored;
+        }
+
+        @Nullable
+        public Object getConfig(@Nonnull String key) {
+            return fieldConfigs.get(key);
         }
 
         @Override
@@ -238,7 +247,10 @@ public class LuceneDocumentFromRecord {
             if (!Objects.equals(value, that.value)) {
                 return false;
             }
-            return type == that.type;
+            if (type != that.type) {
+                return false;
+            }
+            return Objects.equals(fieldConfigs, that.fieldConfigs);
         }
 
         @Override
