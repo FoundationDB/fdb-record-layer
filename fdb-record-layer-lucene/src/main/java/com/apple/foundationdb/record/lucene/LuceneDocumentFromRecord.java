@@ -181,7 +181,7 @@ public class LuceneDocumentFromRecord {
 
         @Override
         public void addField(@Nonnull T source, @Nonnull final String fieldName, @Nullable final Object value, LuceneIndexExpressions.DocumentFieldType type,
-                             final boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nullable Map<String, Object> fieldConfigs) {
+                             final boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs) {
             fields.add(new DocumentField(fieldName, value, type, stored, fieldConfigs));
         }
     }
@@ -193,9 +193,11 @@ public class LuceneDocumentFromRecord {
         private final Object value;
         private final LuceneIndexExpressions.DocumentFieldType type;
         private final boolean stored;
+        @Nonnull
         private final Map<String, Object> fieldConfigs;
 
-        public DocumentField(@Nonnull String fieldName, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type, boolean stored, @Nullable Map<String, Object> fieldConfigs) {
+        public DocumentField(@Nonnull String fieldName, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
+                             boolean stored, @Nonnull Map<String, Object> fieldConfigs) {
             this.fieldName = fieldName;
             this.value = value;
             this.type = type;
@@ -223,9 +225,6 @@ public class LuceneDocumentFromRecord {
 
         @Nullable
         public Object getConfig(@Nonnull String key) {
-            if (fieldConfigs == null) {
-                return null;
-            }
             return fieldConfigs.get(key);
         }
 
@@ -251,8 +250,7 @@ public class LuceneDocumentFromRecord {
             if (type != that.type) {
                 return false;
             }
-            return fieldConfigs == null && that.fieldConfigs == null
-                   || fieldConfigs != null && fieldConfigs.equals(that.fieldConfigs);
+            return Objects.equals(fieldConfigs, that.fieldConfigs);
         }
 
         @Override

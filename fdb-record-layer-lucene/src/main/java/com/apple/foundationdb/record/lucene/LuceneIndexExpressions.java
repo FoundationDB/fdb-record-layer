@@ -180,7 +180,7 @@ public class LuceneIndexExpressions {
      */
     public interface DocumentDestination<T extends RecordSource<T>> {
         void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable Object value, @Nonnull DocumentFieldType type,
-                      boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nullable Map<String, Object> fieldConfigs);
+                      boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs);
     }
 
     /**
@@ -260,7 +260,7 @@ public class LuceneIndexExpressions {
 
         boolean fieldStored = false;
         boolean fieldText = false;
-        Map<String, Object> configs = null;
+        Map<String, Object> configs = Collections.emptyMap();
         while (true) {
             if (expression instanceof LuceneFunctionKeyExpression.LuceneStored) {
                 LuceneFunctionKeyExpression.LuceneStored storedExpression = (LuceneFunctionKeyExpression.LuceneStored)expression;

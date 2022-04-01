@@ -32,6 +32,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.util.Collections;
@@ -471,12 +472,12 @@ class LuceneDocumentFromRecordTest {
     }
 
     private static LuceneDocumentFromRecord.DocumentField documentField(String name, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
-                                                                        boolean stored, @Nullable Map<String, Object> fieldConfigs) {
+                                                                        boolean stored, @Nonnull Map<String, Object> fieldConfigs) {
         return new LuceneDocumentFromRecord.DocumentField(name, value, type, stored, fieldConfigs);
     }
 
     private static LuceneDocumentFromRecord.DocumentField stringField(String name, String value) {
-        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.STRING, false, null);
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.STRING, false, Collections.emptyMap());
     }
 
     private static LuceneDocumentFromRecord.DocumentField textField(String name, String value) {
@@ -489,7 +490,7 @@ class LuceneDocumentFromRecordTest {
 
 
     private static LuceneDocumentFromRecord.DocumentField intField(String name, int value) {
-        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.INT, false, null);
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.INT, false, Collections.emptyMap());
     }
 
 }
