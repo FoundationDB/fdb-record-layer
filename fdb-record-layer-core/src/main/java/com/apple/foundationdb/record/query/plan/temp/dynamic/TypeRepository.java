@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record.query.plan.temp.dynamic;
 
 import com.apple.foundationdb.record.query.plan.temp.Type;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.protobuf.Descriptors.Descriptor;
@@ -44,6 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -427,31 +430,47 @@ public class TypeRepository {
         }
 
         @Nonnull
-        public Builder addType(@Nonnull final Type type) {
-            if (type.isPrimitive() || type instanceof Type.Any) {
-                throw new IllegalArgumentException("unexpected type " + type.getTypeCode());
-            }
+        public Builder addTypeIfNeeded(@Nonnull final Type type) {
             if (!typeToNameMap.containsKey(type)) {
-                final String protoTypeName = Type.uniqueCompliantTypeName();
-                fileDescProtoBuilder.addMessageType(type.buildDescriptor(this, protoTypeName));
-                typeToNameMap.put(type, protoTypeName);
+                type.defineProtoType(this);
             }
+            return this;
+        }
+
+        @Nonnull
+        public Optional<String> getTypeName(@Nonnull final Type type) {
+            return Optional.ofNullable(typeToNameMap.get(type));
+        }
+
+        @Nonnull
+        public Builder addMessageType(@Nonnull final DescriptorProtos.DescriptorProto descriptorProto) {
+            fileDescProtoBuilder.addMessageType(descriptorProto);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addEnumType(@Nonnull final DescriptorProtos.EnumDescriptorProto enumDescriptorProto) {
+            fileDescProtoBuilder.addEnumType(enumDescriptorProto);
+            return this;
+        }
+
+        @Nonnull
+        public Builder registerTypeToTypeNameMapping(@Nonnull final Type type, @Nonnull final String protoTypeName) {
+            Verify.verify(!typeToNameMap.containsKey(type));
+            typeToNameMap.put(type, protoTypeName);
             return this;
         }
 
         @Nonnull
         public Builder addAllTypes(@Nonnull final Collection<Type> types) {
-            types.forEach(this::addType);
+            types.forEach(this::addTypeIfNeeded);
             return this;
         }
 
         @Nonnull
-        public String addTypeAndGetName(@Nonnull final Type type) {
-            if (type.isPrimitive() || type instanceof Type.Any) {
-                throw new IllegalArgumentException("unexpected type " + type.getTypeCode());
-            }
-            addType(type);
-            return typeToNameMap.get(type);
+        public Optional<String> defineAndResolveType(@Nonnull final Type type) {
+            addTypeIfNeeded(type);
+            return Optional.ofNullable(typeToNameMap.get(type));
         }
 
         @Nonnull

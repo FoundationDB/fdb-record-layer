@@ -24,8 +24,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.google.common.base.VerifyException;
-import com.google.common.collect.Iterables;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -134,8 +132,9 @@ class TypeRepositoryTest {
     void addPrimitiveTypeIsNotAllowed() {
         TypeRepository.Builder builder = TypeRepository.newBuilder();
         try {
-            builder.addType(generateType(0, Type.TypeCode.DOUBLE));
-            Assertions.fail("expected an exception to be thrown");
+            final var type = generateType(0, Type.TypeCode.DOUBLE);
+            builder.addTypeIfNeeded(type);
+            Assertions.assertTrue(builder.getTypeName(type).isEmpty());
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof IllegalArgumentException);
             Assertions.assertTrue(e.getMessage().contains("unexpected type " + Type.TypeCode.DOUBLE));
@@ -150,11 +149,11 @@ class TypeRepositoryTest {
         final List<Type.Record.Field> fields = new ArrayList<>(parent.getFields());
         fields.add(Type.Record.Field.of(child, Optional.of("nestedField")));
         final Type.Record t = Type.Record.fromFields(fields);
-        builder.addType(t);
+        builder.addTypeIfNeeded(t);
         final TypeRepository actualSchemaBefore = builder.build();
         Assertions.assertEquals(countTypes(t), actualSchemaBefore.getMessageTypes().size());
         // add record type explicitly, this should NOT cause the addition of a new descriptor.
-        builder.addType(child);
+        builder.addTypeIfNeeded(child);
         final TypeRepository actualSchemaAfter = builder.build();
         Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
@@ -164,11 +163,11 @@ class TypeRepositoryTest {
         final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
         final Type.Array array = new Type.Array(child);
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
-        builder.addType(array);
+        builder.addTypeIfNeeded(array);
         final TypeRepository actualSchemaBefore = builder.build();
         Assertions.assertEquals(countTypes(array), actualSchemaBefore.getMessageTypes().size());
         // add record type explicitly, this should NOT cause the addition of a new descriptor.
-        builder.addType(child);
+        builder.addTypeIfNeeded(child);
         final TypeRepository actualSchemaAfter = builder.build();
         Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
@@ -177,14 +176,12 @@ class TypeRepositoryTest {
     void addSameTypeMultipleTimesShouldNotCreateMultipleMessageTypes() {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         final Type t = generateRandomStructuredType();
-        builder.addType(t);
-        builder.addType(t);
-        builder.addType(t);
+        builder.addTypeIfNeeded(t);
+        builder.addTypeIfNeeded(t);
+        builder.addTypeIfNeeded(t);
         final TypeRepository actualRepository = builder.build();
-        Assertions.assertEquals(1, actualRepository.getMessageTypes().size());
-        final String typeName = Iterables.getOnlyElement(actualRepository.getMessageTypes());
-        final Descriptors.Descriptor actualDescriptor = actualRepository.getMessageDescriptor(typeName);
-        Assertions.assertEquals(t.buildDescriptor(builder, typeName), actualDescriptor.toProto());
+        // there should be three types in the repository, but for different nested types within the tree
+        Assertions.assertEquals(3, actualRepository.getMessageTypes().size());
     }
 
     @Test
@@ -205,7 +202,7 @@ class TypeRepositoryTest {
         final AbstractArrayConstructorValue.ArrayConstructorValue arrayConstructorValue = (AbstractArrayConstructorValue.ArrayConstructorValue)value;
         final Type resultType = arrayConstructorValue.getResultType();
         Assertions.assertEquals(new Type.Array(Type.primitiveType(Type.TypeCode.INT)), resultType);
-        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addType(arrayConstructorValue.getResultType()).build()));
+        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(arrayConstructorValue.getResultType()).build()));
         Assertions.assertTrue(result instanceof List);
         final List<?> list = (List<?>)result;
         Assertions.assertEquals(2, list.size());
@@ -229,7 +226,7 @@ class TypeRepositoryTest {
         final AbstractArrayConstructorValue.LightArrayConstructorValue arrayConstructorValue = (AbstractArrayConstructorValue.LightArrayConstructorValue)value;
         final Type resultType = arrayConstructorValue.getResultType();
         Assertions.assertEquals(new Type.Array(Type.primitiveType(Type.TypeCode.INT, false)), resultType);
-        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addType(arrayConstructorValue.getResultType()).build()));
+        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(arrayConstructorValue.getResultType()).build()));
         Assertions.assertTrue(result instanceof List);
         final List<?> list = (List<?>)result;
         Assertions.assertEquals(2, list.size());
@@ -247,7 +244,7 @@ class TypeRepositoryTest {
                 Type.Record.Field.of(INT_2.getResultType(), Optional.empty()),
                 Type.Record.Field.of(FLOAT_1.getResultType(), Optional.empty())
                 )), resultType);
-        final Object result = recordConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addType(recordConstructorValue.getResultType()).build()));
+        final Object result = recordConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(recordConstructorValue.getResultType()).build()));
         Assertions.assertTrue(result instanceof DynamicMessage);
         final DynamicMessage resultMessage = (DynamicMessage)result;
         Assertions.assertEquals(3, resultMessage.getAllFields().size());
