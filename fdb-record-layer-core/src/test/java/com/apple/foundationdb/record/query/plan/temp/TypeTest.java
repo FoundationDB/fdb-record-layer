@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -144,17 +145,15 @@ class TypeTest {
     void recordTypeIsParsable(final String paramTestTitleIgnored, final Message message) throws Exception {
         TypeRepository.Builder builder = TypeRepository.newBuilder();
         final Type.Record recordType = Type.Record.fromDescriptor(message.getDescriptorForType());
-        builder.defineAndResolveType(recordType);
+        final Optional<String> typeName = builder.defineAndResolveType(recordType);
+        Assertions.assertTrue(typeName.isPresent());
         final TypeRepository typeRepository = builder.build();
-        final Descriptors.Descriptor descriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(typeRepository.getProtoTypeName(recordType)));
         final Descriptors.FileDescriptor fileDescriptor = Descriptors.FileDescriptor.buildFrom(
                 DescriptorProtos.FileDescriptorProto.newBuilder()
-                        .addMessageType(descriptor.toProto())
-                        // add subtypes created indirectly and added to the dynamic schema.
                         .addAllMessageType(typeRepository.getMessageTypes().stream().map(typeRepository::getMessageDescriptor).filter(Objects::nonNull).map(Descriptors.Descriptor::toProto).collect(Collectors.toUnmodifiableList()))
                         .build(),
                 new Descriptors.FileDescriptor[]{});
-        final Descriptors.Descriptor messageDescriptor = fileDescriptor.findMessageTypeByName("SyntheticDescriptor");
+        final Descriptors.Descriptor messageDescriptor = fileDescriptor.findMessageTypeByName(typeName.get());
         final Message actual = DynamicMessage.parseFrom(messageDescriptor, message.toByteArray());
         areEqual(message, actual, messageDescriptor);
     }
