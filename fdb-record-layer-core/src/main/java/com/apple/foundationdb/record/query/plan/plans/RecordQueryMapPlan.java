@@ -77,7 +77,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         return getChild().executePlan(store, context, continuation, executeProperties)
                 .map(innerResult -> {
-                    final EvaluationContext nestedContext = context.withBinding(inner.getAlias(), innerResult);
+                    final EvaluationContext nestedContext = context.withBinding(inner.getAlias(), innerResult.getObject());
                     // Apply (map) each value to the incoming record
                     return resultValue.eval(store, nestedContext, null, null);
                 })

@@ -93,14 +93,15 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nullable
     @Override
+    @SuppressWarnings("unchecked")
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult datum) {
-        final var message = datum.<M>getMessage();
-        if (message == null) {
+        final var currentObject = datum.<M>getObject();
+        if (currentObject == null) {
             return null;
         }
 
-        final EvaluationContext nestedContext = context.withBinding(getInner().getAlias(), message);
-        return conjunctedPredicate.eval(store, nestedContext, null, message);
+        final var nestedContext = context.withBinding(getInner().getAlias(), currentObject);
+        return conjunctedPredicate.eval(store, nestedContext, null, datum.getMessage());
     }
 
     @Nullable
