@@ -163,7 +163,7 @@ class TypeRepositoryTest {
     }
 
     @Test
-    void createTypeRepositoryFromArrayTypeWorks() {
+    void createDynamicSchemaFromArrayTypeWorks() {
         final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
         final Type.Array array = new Type.Array(child);
         final TypeRepository.Builder builder = TypeRepository.newBuilder();

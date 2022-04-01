@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -173,6 +174,11 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Override
         public String toString() {
             return "(" + getValue() + " -> " + alias.toString() + ")";
+        }
+
+        @Nonnull
+        public String explain(@Nonnull final Formatter formatter) {
+            return formatter.formatText("(" + getValue().explain(formatter) + " -> " + formatter.getQuantifierName(alias) + ")");
         }
     }
 
@@ -319,6 +325,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Override
         public String toString() {
             return getValue() + " " + comparisonRange;
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return formatter.formatText(getValue().explain(formatter) + " " + comparisonRange.explain(formatter));
         }
     }
 }

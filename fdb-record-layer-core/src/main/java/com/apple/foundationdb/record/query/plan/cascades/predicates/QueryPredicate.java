@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -293,5 +294,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                     .map(predicateWithValue::withValue)
                     .orElse(null);
         });
+    }
+
+    @Nonnull
+    default String explain(@Nonnull final Formatter formatter) {
+        return toString();
     }
 }

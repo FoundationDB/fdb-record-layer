@@ -25,8 +25,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nonnull;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -39,10 +41,17 @@ public class Formatter {
     @Nonnull private final BiMap<CorrelationIdentifier, String> aliasToFormattingNameMap;
     @Nonnull private final Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap;
 
+    private int identationCounter;
+    @Nonnull String currentIdent;
+
+    private static final int IDENT = 2;
+
     public Formatter() {
         this.quantifierNumber = new AtomicInteger(0);
         this.aliasToFormattingNameMap = HashBiMap.create();
         this.aliasToQuantifierMap = Maps.newHashMap();
+        this.identationCounter = 0;
+        currentIdent = "";
     }
 
     public void registerForFormatting(@Nonnull final Quantifier quantifier) {
@@ -66,4 +75,30 @@ public class Formatter {
     public Quantifier getQuantifier(@Nonnull final CorrelationIdentifier alias) {
         return Objects.requireNonNull(aliasToQuantifierMap.get(alias));
     }
+
+    public String formatText(@Nonnull final String text) {
+        return currentIdent + text;
+    }
+
+    public void ident() {
+        ++identationCounter;
+        currentIdent = StringUtils.repeat(" ", identationCounter * IDENT);
+    }
+
+    public String currentIdentation() {
+        return currentIdent;
+    }
+
+    public void unident() {
+        if (identationCounter > 0) {
+            --identationCounter;
+            currentIdent = StringUtils.repeat(" ", identationCounter * IDENT);
+        }
+    }
+
+    @Nonnull
+    public String keyword(@Nonnull final String what) {
+        return what.toUpperCase(Locale.ROOT);
+    }
+
 }

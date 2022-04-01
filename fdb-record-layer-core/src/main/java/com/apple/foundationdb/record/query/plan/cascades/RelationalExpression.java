@@ -757,4 +757,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     default String show(final boolean renderSingleGroups) {
         return PlannerGraphProperty.show(renderSingleGroups, this);
     }
+
+    @Nonnull
+    default String explain(@Nonnull final Formatter formatter) {
+        return toString();
+    }
 }

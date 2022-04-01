@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -90,6 +91,12 @@ public class QueryComponentPredicate implements LeafQueryPredicate {
     @Override
     public String toString() {
         return "QueryComponent(" + getQueryComponent() + ")";
+    }
+
+    @Nullable
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return formatter.formatText("QueryComponent???(" + getQueryComponent() + ")");
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

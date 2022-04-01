@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
@@ -171,5 +172,11 @@ public class ExistsPredicate implements LeafQueryPredicate {
     @Override
     public String toString() {
         return "∃" + existentialAlias;
+    }
+
+    @Nullable
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return formatter.formatText("∃" + formatter.getQuantifierName(existentialAlias));
     }
 }

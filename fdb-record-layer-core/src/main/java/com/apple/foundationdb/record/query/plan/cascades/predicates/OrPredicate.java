@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -76,6 +77,15 @@ public class OrPredicate extends AndOrPredicate {
         return getChildren()
                 .stream()
                 .map(child -> "(" + child + ")")
+                .collect(Collectors.joining(" or "));
+    }
+
+    @Nullable
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return getChildren()
+                .stream()
+                .map(child -> "(" + child.explain(formatter) + ")")
                 .collect(Collectors.joining(" or "));
     }
 

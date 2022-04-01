@@ -422,6 +422,19 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         }
     }
 
+    @Nonnull
+    public String explain(@Nonnull final Formatter formatter) {
+        if (isEquality()) {
+            return getEqualityComparison().explain(formatter);
+        } else if (isInequality()) {
+            Objects.requireNonNull(inequalityComparisons);
+            return inequalityComparisons.stream().map(comp -> comp.explain(formatter))
+                    .collect(Collectors.joining(" and "));
+        } else {
+            return "";
+        }
+    }
+
     @Override
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

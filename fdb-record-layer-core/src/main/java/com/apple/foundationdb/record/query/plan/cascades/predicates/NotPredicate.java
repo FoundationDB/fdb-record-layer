@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -74,6 +75,12 @@ public class NotPredicate implements QueryPredicateWithChild {
     @Override
     public String toString() {
         return "Not(" + getChild() + ")";
+    }
+
+    @Nullable
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return formatter.formatText("not(" + getChild().explain(formatter) + ")");
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -538,38 +539,40 @@ public class Comparisons {
      * The type for a {@link Comparison} predicate.
      */
     public enum Type {
-        EQUALS(true),
-        NOT_EQUALS,
-        LESS_THAN,
-        LESS_THAN_OR_EQUALS,
-        GREATER_THAN,
-        GREATER_THAN_OR_EQUALS,
-        STARTS_WITH,
-        NOT_NULL(false, true),
-        IS_NULL(true, true),
-        IN,
-        TEXT_CONTAINS_ALL(true),
-        TEXT_CONTAINS_ALL_WITHIN(true),
-        TEXT_CONTAINS_ANY(true),
-        TEXT_CONTAINS_PHRASE(true),
-        TEXT_CONTAINS_PREFIX,
-        TEXT_CONTAINS_ALL_PREFIXES,
-        TEXT_CONTAINS_ANY_PREFIX,
+        EQUALS("=", true),
+        NOT_EQUALS("!="),
+        LESS_THAN("<"),
+        LESS_THAN_OR_EQUALS("<="),
+        GREATER_THAN(">"),
+        GREATER_THAN_OR_EQUALS(">="),
+        STARTS_WITH("starts_with"),
+        NOT_NULL("not null", false, true),
+        IS_NULL("is null", true, true),
+        IN("in"),
+        TEXT_CONTAINS_ALL("text_contains_all", true),
+        TEXT_CONTAINS_ALL_WITHIN("text_contains_all_within", true),
+        TEXT_CONTAINS_ANY("text_contains_any", true),
+        TEXT_CONTAINS_PHRASE("text_contains_phrase", true),
+        TEXT_CONTAINS_PREFIX("text_contains_prefix"),
+        TEXT_CONTAINS_ALL_PREFIXES("text_contains_all_prefixes"),
+        TEXT_CONTAINS_ANY_PREFIX("text_contains_any_prefix"),
         @API(API.Status.EXPERIMENTAL)
-        SORT(false);
+        SORT("sort", false);
 
         private final boolean isEquality;
         private final boolean isUnary;
+        private final String prettyPrintFormat;
 
-        Type() {
-            this(false);
+        Type(@Nonnull final String prettyPrintFormat) {
+            this(prettyPrintFormat, false);
         }
 
-        Type(boolean isEquality) {
-            this(isEquality, false);
+        Type(@Nonnull final String prettyPrintFormat, boolean isEquality) {
+            this(prettyPrintFormat, isEquality, false);
         }
 
-        Type(boolean isEquality, boolean isUnary) {
+        Type(@Nonnull final String prettyPrintFormat, boolean isEquality, boolean isUnary) {
+            this.prettyPrintFormat = prettyPrintFormat;
             this.isEquality = isEquality;
             this.isUnary = isUnary;
         }
@@ -699,6 +702,11 @@ public class Comparisons {
         String typelessString();
 
         @Nonnull
+        default String explain(@Nonnull final Formatter formatter) {
+            return toString();
+        }
+
+        @Nonnull
         default Comparison withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
             return this;
         }
@@ -821,6 +829,12 @@ public class Comparisons {
         @Override
         public String toString() {
             return type + " " + typelessString();
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return type.prettyPrintFormat + " " + typelessString();
         }
 
         @Override
@@ -1049,6 +1063,12 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return type.prettyPrintFormat + " " + typelessString();
+        }
+
+        @Nonnull
+        @Override
         public String getParameter() {
             return parameter;
         }
@@ -1250,6 +1270,12 @@ public class Comparisons {
             return type + " " + typelessString();
         }
 
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return type.prettyPrintFormat + " " + typelessString();
+        }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -1357,6 +1383,12 @@ public class Comparisons {
             return type.toString();
         }
 
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return type.prettyPrintFormat + " " + typelessString();
+        }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -1435,6 +1467,12 @@ public class Comparisons {
         @Override
         public String toString() {
             return Type.EQUALS + " " + typelessString();
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return Type.EQUALS.prettyPrintFormat + " " + typelessString();
         }
 
         @Override
@@ -1611,6 +1649,12 @@ public class Comparisons {
             return type.name() + " " + typelessString();
         }
 
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return type.prettyPrintFormat + "(" + typelessString() + ")";
+        }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -1741,6 +1785,12 @@ public class Comparisons {
         public String toString() {
             return String.format("%s(%d) %s", getType().name(), maxDistance, typelessString());
         }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return String.format("%s(%d) %s", getType().name(), maxDistance, typelessString());
+        }
     }
 
     /**
@@ -1854,6 +1904,12 @@ public class Comparisons {
         @Nonnull
         @Override
         public String toString() {
+            return String.format("%s(%s) %s", getType().name(), strict ? "strictly" : "approximately", typelessString());
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
             return String.format("%s(%s) %s", getType().name(), strict ? "strictly" : "approximately", typelessString());
         }
     }
@@ -1973,6 +2029,12 @@ public class Comparisons {
         @Override
         public String toString() {
             return inner.toString();
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return inner.explain(formatter);
         }
     }
 

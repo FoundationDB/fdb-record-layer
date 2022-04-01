@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
@@ -156,5 +157,15 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                         ImmutableList.of("WHERE record IS {{types}}"),
                         ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        String result = "type filter\n";
+        formatter.ident();
+        result += formatter.formatText("[" + String.join(", ", getRecordTypes()) + "]");
+        formatter.unident();
+        return result;
     }
 }

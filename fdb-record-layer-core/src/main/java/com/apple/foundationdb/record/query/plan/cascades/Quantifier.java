@@ -126,7 +126,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull private final ExpressionRef<? extends RelationalExpression> rangesOver;
 
         /**
-         * Builder subclass to build for-each quantifiers..
+         * Builder subclass to build for-each quantifiers.
          */
         public static class ForEachBuilder extends Builder<ForEach, ForEachBuilder> {
             @Nonnull
@@ -604,5 +604,15 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         final var resolvedTypeAcrossReference = getRangesOver().getResultType();
         Verify.verify(resolvedTypeAcrossReference.getTypeCode() == Type.TypeCode.RELATION);
         return Objects.requireNonNull(((Type.Relation)resolvedTypeAcrossReference).getInnerType());
+    }
+
+    @Nonnull
+    public String explain(@Nonnull final Formatter formatter) {
+        final var result = new StringBuilder(getShorthand()).append("\n");
+        formatter.ident();
+        result.append(formatter.formatText("")).append(getRangesOver().get().explain(formatter)).append("\n");
+        formatter.unident();
+        result.append(formatter.formatText(formatter.keyword("as") + " " + formatter.getQuantifierName(alias)));
+        return result.toString();
     }
 }

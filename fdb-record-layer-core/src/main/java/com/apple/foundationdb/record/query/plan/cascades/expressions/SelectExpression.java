@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
@@ -282,7 +283,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // Check the result values of both expressions to see if we can match and if we can, whether we need a
         // compensating computation.
         //
-        
+
         final var otherResultValue = otherSelectExpression.getResultValue();
         final Optional<Value> remainingValueComputationOptional;
         if (!resultValue.semanticEquals(otherResultValue, aliasMap)) {
@@ -542,5 +543,44 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 computeMappedQuantifiers(partialMatch),
                 computeUnmatchedForEachQuantifiers(partialMatch),
                 matchInfo.getRemainingComputationValueOptional());
+    }
+
+    @Nonnull
+    public String explain(@Nonnull final Formatter formatter) {
+        String result = formatter.formatText("select");
+        result += formatter.formatText("\n");
+        formatter.ident();
+        getQuantifiers().forEach(formatter::registerForFormatting);
+        result += resultValue.explain(formatter);
+        formatter.unident();
+        result += formatter.formatText("\n");
+        result += formatter.formatText("from");
+        result += formatter.formatText("\n");
+        formatter.ident();
+        for (int i = 0; i < children.size(); i++) {
+            result += formatter.formatText(children.get(i).explain(formatter));
+            if (i < children.size() - 1) {
+                result += formatter.formatText(",");
+            }
+            result += formatter.formatText("\n");
+        }
+        formatter.unident();
+        if (!predicates.isEmpty()) {
+            result += formatter.formatText("where");
+            result += formatter.formatText("\n");
+            formatter.ident();
+            for (int i = 0; i < predicates.size(); i++) {
+                result += formatter.formatText(predicates.get(i).explain(formatter)); // needs fixing
+                if (i < predicates.size() - 1) {
+                    result += formatter.formatText("\n");
+                    formatter.unident();
+                    result += formatter.formatText("and");
+                    formatter.ident();
+                }
+                result += formatter.formatText("\n");
+            }
+            formatter.unident();
+        }
+        return result;
     }
 }
