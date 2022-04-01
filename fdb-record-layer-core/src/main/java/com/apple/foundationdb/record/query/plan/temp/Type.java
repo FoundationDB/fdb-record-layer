@@ -318,8 +318,8 @@ public interface Type extends Narrowable<Type> {
     }
 
     /**
-     * For a given {@link com.google.protobuf.Descriptors.FieldDescriptor} descriptor, returns the message type descriptor
-     * if the field is a message, otherwise <code>null</code>.
+     * For a given {@link com.google.protobuf.Descriptors.FieldDescriptor} descriptor, returns the type-specific
+     * descriptor if the field is a message or an enum, otherwise <code>null</code>.
      *
      * @param fieldDescriptor The descriptor.
      * @return the type-specific descriptor for the field, otherwise <code>null</code>.
