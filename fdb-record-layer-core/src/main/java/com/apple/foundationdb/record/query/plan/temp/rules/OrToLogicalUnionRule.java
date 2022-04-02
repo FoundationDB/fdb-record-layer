@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
@@ -34,11 +36,17 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
@@ -98,16 +106,38 @@ public class OrToLogicalUnionRule extends PlannerRule<SelectExpression> {
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
-        final var resultValues = selectExpression.getResultValue();
+        final var resultValue = selectExpression.getResultValue();
         final var quantifiers = bindings.getAll(qunMatcher);
         final var orTermPredicates = bindings.getAll(orTermPredicateMatcher);
-        final var relationalExpressionRefs = Lists.<ExpressionRef<RelationalExpression>>newArrayListWithCapacity(orTermPredicates.size());
+
+        final var isSimpleResultValue = (resultValue instanceof QuantifiedObjectValue);
+
+        final var ownedForEachAliases =
+                quantifiers.stream()
+                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                        .map(Quantifier::getAlias)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final var resultValueCorrelatedTo = resultValue.getCorrelatedTo();
+        final CorrelationIdentifier referredAlias;
+        if (!isSimpleResultValue) {
+            final var referredOwnedForEachAliases =
+                    Sets.intersection(resultValueCorrelatedTo, ownedForEachAliases);
+            if (referredOwnedForEachAliases.size() > 1) {
+                return;
+            }
+            referredAlias = Iterables.getOnlyElement(referredOwnedForEachAliases);
+        } else {
+            referredAlias = ((QuantifiedObjectValue)resultValue).getAlias();
+        }
+
+        final var relationalExpressionReferences = Lists.<ExpressionRef<RelationalExpression>>newArrayListWithCapacity(orTermPredicates.size());
         for (final var orPredicate : orTermPredicates) {
             final var orCorrelatedTo = orPredicate.getCorrelatedTo();
 
             //
             // Subset the quantifiers to only those that are actually needed by this or term. Needed quantifiers are
-            // quantifiers that contribute (in positive or negative ways to the cardinality, i.e. all for-each quantifiers)
+            // quantifiers that contribute (in positive or negative ways) to the cardinality, i.e. all for-each quantifiers
             // and existential quantifiers that are predicated by means of an exists() predicate. As existential
             // quantifier by itself just creates a true or false but never removes a record or contributes in a meaningful
             // way to the result set.
@@ -120,8 +150,40 @@ public class OrToLogicalUnionRule extends PlannerRule<SelectExpression> {
                             .filter(quantifier -> quantifier instanceof Quantifier.ForEach ||
                                                   (quantifier instanceof Quantifier.Existential && orCorrelatedTo.contains(quantifier.getAlias())))
                             .collect(ImmutableList.toImmutableList());
-            relationalExpressionRefs.add(call.ref(new SelectExpression(resultValues, neededQuantifiers, ImmutableList.of(orPredicate))));
+
+            final Value lowerResultValue;
+            if (!isSimpleResultValue) {
+                if (neededQuantifiers.size() > 1) {
+                    // We cannot do this rewrite as it becomes impossible (for now) to reason about the duplicates
+                    // that need to be preserved without introducing additional ones
+                    return;
+                }
+                final var onlyNeededQuantifier = Iterables.getOnlyElement(neededQuantifiers);
+                lowerResultValue = onlyNeededQuantifier.getFlowedObjectValue();
+            } else {
+                lowerResultValue = resultValue;
+            }
+
+            relationalExpressionReferences.add(GroupExpressionRef.of(new SelectExpression(lowerResultValue, neededQuantifiers, ImmutableList.of(orPredicate))));
         }
-        call.yield(GroupExpressionRef.of(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionRefs))));
+
+        var resultReference = GroupExpressionRef.<RelationalExpression>of(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionReferences)));
+
+        if (!isSimpleResultValue) {
+            final var unionQuantifier = Quantifier.forEach(resultReference);
+            final var rebasedResultValue = resultValue.rebase(AliasMap.of(referredAlias, unionQuantifier.getAlias()));
+            resultReference = GroupExpressionRef.of(new SelectExpression(rebasedResultValue, ImmutableList.of(unionQuantifier), ImmutableList.of()));
+        }
+
+        call.yield(resultReference);
+    }
+
+    private boolean isComplexResultValue(@Nonnull final Value resultValue,
+                                         @Nonnull final List<? extends Quantifier> quantifiers) {
+        if (quantifiers.size() != 1) {
+            return true;
+        }
+        final var quantifier = Iterables.getOnlyElement(quantifiers);
+        return !(resultValue instanceof QuantifiedObjectValue) || !((QuantifiedObjectValue)resultValue).getAlias().equals(quantifier.getAlias());
     }
 }
