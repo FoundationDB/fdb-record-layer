@@ -42,8 +42,10 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -95,13 +97,18 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
      * @param groupingKeyValue the {@link Value} to group by
      * @param aggregateValue the {@link AggregateValue} to aggregate by grouping key
      */
-    public RecordQueryStreamingAggregationPlan(@Nonnull final Quantifier.Physical inner, @Nullable final Value groupingKeyValue, @Nonnull final AggregateValue aggregateValue) {
+    private RecordQueryStreamingAggregationPlan(@Nonnull final Quantifier.Physical inner,
+                                                @Nullable final Value groupingKeyValue,
+                                                @Nonnull final AggregateValue aggregateValue,
+                                                @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                                                @Nonnull final CorrelationIdentifier aggregateAlias,
+                                                @Nonnull final Value completeResultValue) {
         this.inner = inner;
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
-        this.groupingKeyAlias = CorrelationIdentifier.uniqueID();
-        this.aggregateAlias = CorrelationIdentifier.uniqueID();
-        this.completeResultValue = computeCompleteResultValue(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias);
+        this.groupingKeyAlias = groupingKeyAlias;
+        this.aggregateAlias = aggregateAlias;
+        this.completeResultValue = completeResultValue;
     }
 
     @Nonnull
@@ -163,13 +170,23 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Override
     public RecordQueryStreamingAggregationPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                             @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), groupingKeyValue, aggregateValue);
+        return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
+                groupingKeyValue,
+                aggregateValue,
+                groupingKeyAlias,
+                aggregateAlias,
+                completeResultValue);
     }
 
     @Nonnull
     @Override
     public RecordQueryStreamingAggregationPlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryStreamingAggregationPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), groupingKeyValue, aggregateValue);
+        return new RecordQueryStreamingAggregationPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()),
+                groupingKeyValue,
+                aggregateValue,
+                groupingKeyAlias,
+                aggregateAlias,
+                completeResultValue);
     }
 
     @Nonnull
@@ -263,10 +280,10 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     }
 
     @Nonnull
-    private static Value computeCompleteResultValue(@Nullable final Value groupingKeyValue,
-                                                    @Nonnull final AggregateValue aggregateValue,
-                                                    @Nonnull final CorrelationIdentifier groupingKeyAlias,
-                                                    @Nonnull final CorrelationIdentifier aggregateAlias) {
+    public static Value nestedResults(@Nullable final Value groupingKeyValue,
+                                      @Nonnull final AggregateValue aggregateValue,
+                                      @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                                      @Nonnull final CorrelationIdentifier aggregateAlias) {
         if (groupingKeyValue != null) {
             return RecordConstructorValue.ofUnnamed(ImmutableList.of(
                     QuantifiedObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
@@ -274,5 +291,63 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         } else {
             return QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType());
         }
+    }
+
+    @Nonnull
+    public static Value flattenedResults(@Nullable final Value groupingKeyValue,
+                                         @Nonnull final AggregateValue aggregateValue,
+                                         @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                                         @Nonnull final CorrelationIdentifier aggregateAlias) {
+        final var valuesBuilder = ImmutableList.<Value>builder();
+        if (groupingKeyValue != null) {
+            final var groupingResultType = groupingKeyValue.getResultType();
+            if (groupingResultType.getTypeCode() == Type.TypeCode.RECORD) {
+                Verify.verify(groupingResultType instanceof Type.Record);
+                final var groupingResultRecordType = (Type.Record)groupingResultType;
+                List<Type.Record.Field> fields = groupingResultRecordType.getFields();
+                for (var i = 0; i < fields.size(); i++) {
+                    valuesBuilder.add(QuantifiedColumnValue.of(groupingKeyAlias, i, groupingResultRecordType));
+                }
+            } else {
+                valuesBuilder.add(groupingKeyValue);
+            }
+        }
+
+        final var aggregateResultType = aggregateValue.getResultType();
+        if (aggregateResultType.getTypeCode() == Type.TypeCode.RECORD) {
+            Verify.verify(aggregateResultType instanceof Type.Record);
+            final var aggregateResultRecordType = (Type.Record)aggregateResultType;
+            List<Type.Record.Field> fields = aggregateResultRecordType.getFields();
+            for (var i = 0; i < fields.size(); i++) {
+                valuesBuilder.add(QuantifiedColumnValue.of(aggregateAlias, i, aggregateResultRecordType));
+            }
+        } else {
+            valuesBuilder.add(aggregateValue);
+        }
+
+        return RecordConstructorValue.ofUnnamed(valuesBuilder.build());
+    }
+
+    public static RecordQueryStreamingAggregationPlan of(@Nonnull final Quantifier.Physical inner,
+                                                         @Nullable final Value groupingKeyValue,
+                                                         @Nonnull final AggregateValue aggregateValue,
+                                                         @Nonnull final CompleteResultValueSupplier completeResultValueSupplier) {
+        final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
+        final var aggregateAlias = CorrelationIdentifier.uniqueID();
+
+        return new RecordQueryStreamingAggregationPlan(inner,
+                groupingKeyValue,
+                aggregateValue,
+                groupingKeyAlias,
+                aggregateAlias,
+                completeResultValueSupplier.supply(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
+    }
+
+    @FunctionalInterface
+    public interface CompleteResultValueSupplier {
+        Value supply(@Nullable final Value groupingKeyValue,
+                     @Nonnull final AggregateValue aggregateValue,
+                     @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                     @Nonnull final CorrelationIdentifier aggregateAlias);
     }
 }
