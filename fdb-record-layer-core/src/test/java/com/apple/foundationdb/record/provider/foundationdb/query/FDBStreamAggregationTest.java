@@ -41,7 +41,9 @@ import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.NumericAggregationValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -286,17 +288,26 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     private void assertResults(List<QueryResult> actual, final List<?>... expected) {
-//        Assertions.assertEquals(expected.length, actual.size());
-//        for (int i = 0 ; i < actual.size() ; i++) {
-//            assertResult(actual.get(i), expected[i]);
-//        }
+        Assertions.assertEquals(expected.length, actual.size());
+        for (int i = 0 ; i < actual.size() ; i++) {
+            assertResult(actual.get(i), expected[i]);
+        }
     }
 
     private void assertResult(final QueryResult actual, final List<?> expected) {
-//        Assertions.assertEquals(actual.size(), expected.size());
-//        for (int i = 0 ; i < actual.size() ; i++) {
-//            Assertions.assertEquals(expected.get(i), actual.get(i));
-//        }
+        final var message = actual.getMessage();
+        Assertions.assertNotNull(message);
+        final var descriptor = message.getDescriptorForType();
+        final var resultFieldsBuilder = ImmutableList.<Object>builder();
+        for (final Descriptors.FieldDescriptor field : descriptor.getFields()) {
+            resultFieldsBuilder.add(message.getField(field));
+        }
+        final var resultFields = resultFieldsBuilder.build();
+
+        Assertions.assertEquals(resultFields.size(), expected.size());
+        for (int i = 0 ; i < resultFields.size() ; i++) {
+            Assertions.assertEquals(expected.get(i), resultFields.get(i));
+        }
     }
 
     private List<?> resultOf(Object... objs) {
@@ -329,7 +340,10 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
 
         public RecordQueryPlan build() {
-            return new RecordQueryStreamingAggregationPlan(quantifier, RecordConstructorValue.ofUnnamed(groupValues), RecordConstructorValue.ofUnnamed(aggregateValues));
+            return RecordQueryStreamingAggregationPlan.of(quantifier,
+                    RecordConstructorValue.ofUnnamed(groupValues),
+                    RecordConstructorValue.ofUnnamed(aggregateValues),
+                    RecordQueryStreamingAggregationPlan::flattenedResults);
         }
 
         private Value createFieldValue(final String fieldName) {
