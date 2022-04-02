@@ -38,10 +38,10 @@ import java.util.Optional;
  */
 @API(API.Status.EXPERIMENTAL)
 public class QueryResult {
-    @Nonnull
+    @Nullable
     private final Object datum;
 
-    private QueryResult(@Nonnull Object datum) {
+    private QueryResult(@Nullable Object datum) {
         this.datum = datum;
     }
 
@@ -51,7 +51,7 @@ public class QueryResult {
      * @return the newly created query result
      */
     @Nonnull
-    public static QueryResult of(@Nonnull Object result) {
+    public static QueryResult of(@Nullable Object result) {
         return new QueryResult(result);
     }
 
@@ -62,7 +62,7 @@ public class QueryResult {
     @Nonnull
     @SuppressWarnings("unchecked")
     public <M extends Message> FDBQueriedRecord<M> getQueriedRecord() {
-        return (FDBQueriedRecord<M>)get(FDBQueriedRecord.class);
+        return get(FDBQueriedRecord.class);
     }
 
     /**
@@ -81,7 +81,7 @@ public class QueryResult {
      * Retrieve the wrapped result.
      * @return the wrapped result as an object
      */
-    @Nonnull
+    @Nullable
     public Object getDatum() {
         return datum;
     }

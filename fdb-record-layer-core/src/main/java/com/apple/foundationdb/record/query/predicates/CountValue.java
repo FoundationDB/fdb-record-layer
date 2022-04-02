@@ -44,12 +44,13 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.BinaryOperator;
 import java.util.function.UnaryOperator;
 
 @API(API.Status.EXPERIMENTAL)
 public class CountValue implements Value, AggregateValue {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sum-Value");
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Count-Value");
 
     @Nonnull
     private final PhysicalOperator operator;
@@ -88,9 +89,9 @@ public class CountValue implements Value, AggregateValue {
     @Override
     public String explain(@Nonnull final Formatter formatter) {
         if (child != null) {
-            return "count(" + child.explain(formatter) + ")";
+            return operator.name().toLowerCase(Locale.getDefault()) + "(" + child.explain(formatter) + ")";
         } else {
-            return "count()";
+            return operator.name().toLowerCase(Locale.getDefault()) + "()";
         }
     }
 
@@ -129,7 +130,7 @@ public class CountValue implements Value, AggregateValue {
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase() + "(" + child + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + child + ")";
     }
 
     @Override
@@ -145,6 +146,7 @@ public class CountValue implements Value, AggregateValue {
     }
 
     @AutoService(BuiltInFunction.class)
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public static class CountFn extends BuiltInFunction<AggregateValue> {
         public CountFn() {
             super("count",
@@ -161,6 +163,7 @@ public class CountValue implements Value, AggregateValue {
     }
 
     @AutoService(BuiltInFunction.class)
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public static class CountStarFn extends BuiltInFunction<AggregateValue> {
         public CountStarFn() {
             super("count",
@@ -176,8 +179,8 @@ public class CountValue implements Value, AggregateValue {
     }
 
     public enum PhysicalOperator {
-        COUNT(TypeCode.LONG, v -> v == null ? 0L : 1L, (s, v) -> Math.addExact((long)s, (long)v), s -> (long)s),
-        COUNT_STAR(TypeCode.LONG, v -> 1L, (s, v) -> Math.addExact((long)s, (long)v), s -> (long)s);
+        COUNT(TypeCode.LONG, v -> v == null ? 0L : 1L, (s, v) -> Math.addExact((long)s, (long)v), UnaryOperator.identity()),
+        COUNT_STAR(TypeCode.LONG, v -> 1L, (s, v) -> Math.addExact((long)s, (long)v), UnaryOperator.identity());
 
         @Nonnull
         private final TypeCode resultType;

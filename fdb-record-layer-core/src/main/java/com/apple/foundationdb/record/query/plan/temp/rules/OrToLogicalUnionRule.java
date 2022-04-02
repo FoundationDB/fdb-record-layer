@@ -46,7 +46,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
@@ -176,14 +175,5 @@ public class OrToLogicalUnionRule extends PlannerRule<SelectExpression> {
         }
 
         call.yield(resultReference);
-    }
-
-    private boolean isComplexResultValue(@Nonnull final Value resultValue,
-                                         @Nonnull final List<? extends Quantifier> quantifiers) {
-        if (quantifiers.size() != 1) {
-            return true;
-        }
-        final var quantifier = Iterables.getOnlyElement(quantifiers);
-        return !(resultValue instanceof QuantifiedObjectValue) || !((QuantifiedObjectValue)resultValue).getAlias().equals(quantifier.getAlias());
     }
 }

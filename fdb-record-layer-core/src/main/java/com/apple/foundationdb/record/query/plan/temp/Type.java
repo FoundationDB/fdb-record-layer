@@ -124,14 +124,14 @@ public interface Type extends Narrowable<Type> {
      * protobuf descriptor.
      * @param typeRepositoryBuilder The type repository.
      * @param descriptorBuilder The parent descriptor into which the newly created descriptor will be created.
-     * @param fieldIndex The field index of the descriptor.
+     * @param fieldNumber The field number of the descriptor.
      * @param fieldName The field name of the descriptor.
      * @param typeNameOptional The type name of the descriptor.
      * @param label The label of the descriptor.
      */
     void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                        @Nonnull final DescriptorProto.Builder descriptorBuilder,
-                       final int fieldIndex,
+                       final int fieldNumber,
                        @Nonnull final String fieldName,
                        @Nonnull final Optional<String> typeNameOptional,
                        @Nonnull final FieldDescriptorProto.Label label);
@@ -181,10 +181,9 @@ public interface Type extends Narrowable<Type> {
     @Nonnull
     static Type primitiveType(@Nonnull final TypeCode typeCode, final boolean isNullable) {
         Verify.verify(typeCode.isPrimitive());
+        final int memoizedHashCode = Objects.hash(typeCode.hashCode(), isNullable);
+
         return new Type() {
-
-            private final int memoizedHashCode = Objects.hash(getTypeCode().hashCode(), isNullable());
-
             @Override
             public TypeCode getTypeCode() {
                 return typeCode;
@@ -198,13 +197,13 @@ public interface Type extends Narrowable<Type> {
             @Override
             public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                                       @Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                      final int fieldIndex,
+                                      final int fieldNumber,
                                       @Nonnull final String fieldName,
                                       @Nonnull final Optional<String> ignored,
                                       @Nonnull final FieldDescriptorProto.Label label) {
                 final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
                 descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
-                        .setNumber(fieldIndex)
+                        .setNumber(fieldNumber)
                         .setName(fieldName)
                         .setType(protoType)
                         .setLabel(label)
@@ -527,7 +526,7 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                                   @Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                  final int fieldIndex,
+                                  final int fieldNumber,
                                   @Nonnull final String fieldName,
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
@@ -617,13 +616,13 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                                   @Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                  final int fieldIndex,
+                                  final int fieldNumber,
                                   @Nonnull final String fieldName,
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
             final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
             descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
-                    .setNumber(fieldIndex)
+                    .setNumber(fieldNumber)
                     .setName(fieldName)
                     .setType(protoType)
                     .setLabel(label)
@@ -851,14 +850,14 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                                   @Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                  final int fieldIndex,
+                                  final int fieldNumber,
                                   @Nonnull final String fieldName,
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
             final var fieldDescriptoProto = FieldDescriptorProto.newBuilder();
             fieldDescriptoProto
                     .setName(fieldName)
-                    .setNumber(fieldIndex)
+                    .setNumber(fieldNumber)
                     .setLabel(label);
             typeNameOptional.ifPresent(fieldDescriptoProto::setTypeName);
             descriptorBuilder.addField(fieldDescriptoProto.build());
@@ -1268,7 +1267,7 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                                   @Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                  final int fieldIndex,
+                                  final int fieldNumber,
                                   @Nonnull final String fieldName,
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
@@ -1438,7 +1437,7 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                                   @Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                  final int fieldIndex,
+                                  final int fieldNumber,
                                   @Nonnull final String fieldName,
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
@@ -1451,7 +1450,7 @@ public interface Type extends Narrowable<Type> {
                 final var fieldDescriptorProto = FieldDescriptorProto.newBuilder();
                 fieldDescriptorProto
                         .setName(fieldName)
-                        .setNumber(fieldIndex)
+                        .setNumber(fieldNumber)
                         .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
                 typeNameOptional.ifPresent(fieldDescriptorProto::setTypeName);
                 descriptorBuilder.addField(fieldDescriptorProto.build());
@@ -1459,7 +1458,7 @@ public interface Type extends Narrowable<Type> {
                 // if inner type is not nullable we can just put the repeated field straight into its parent
                 elementType.addProtoField(typeRepositoryBuilder,
                         descriptorBuilder,
-                        fieldIndex,
+                        fieldNumber,
                         fieldName,
                         typeRepositoryBuilder.defineAndResolveType(elementType),
                         FieldDescriptorProto.Label.LABEL_REPEATED);

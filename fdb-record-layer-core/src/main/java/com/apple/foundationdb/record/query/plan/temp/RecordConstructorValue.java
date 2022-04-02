@@ -38,7 +38,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
@@ -106,11 +105,10 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         final var resultMessageBuilder = newMessageBuilderForType(context.getTypeRepository());
         final var descriptorForType = resultMessageBuilder.getDescriptorForType();
 
-        int i = 0;
-        final List<Type.Record.Field> fields = Objects.requireNonNull(getResultType().getFields());
-
-        for (final Value child : getChildren()) {
-            final Object childResultElement = child.eval(store, context, record, message);
+        final var fields = Objects.requireNonNull(getResultType().getFields());
+        var i = 0;
+        for (final var child : getChildren()) {
+            final var childResultElement = child.eval(store, context, record, message);
             if (childResultElement != null) {
                 resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), childResultElement);
             }
@@ -195,7 +193,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     @Override
     public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         final List<Object> listOfPartials = Lists.newArrayList();
-        for (final Value child : getChildren()) {
+        for (final var child : getChildren()) {
             Verify.verify(child instanceof AggregateValue);
             final Object childResultElement = ((AggregateValue)child).evalToPartial(store, context, record, message);
             listOfPartials.add(childResultElement);
@@ -212,18 +210,22 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
             public void accumulate(@Nullable final Object currentObject) {
                 if (childAccumulators == null) {
                     final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
-                    for (final Value child : getChildren()) {
+                    for (final var child : getChildren()) {
                         Verify.verify(child instanceof AggregateValue);
                         childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
                     }
                     childAccumulators = childAccumulatorsBuilder.build();
                 }
-                Verify.verify(currentObject instanceof Collection);
-                final List<?> currentObjectAsList = (List<?>)currentObject;
-                int i = 0;
-                for (final Object o : currentObjectAsList) {
-                    childAccumulators.get(i).accumulate(o);
-                    i++;
+                if (currentObject == null) {
+                    childAccumulators.forEach(childAccumulator -> childAccumulator.accumulate(null));
+                } else {
+                    Verify.verify(currentObject instanceof Collection);
+                    final var currentObjectAsList = (List<?>)currentObject;
+                    var i = 0;
+                    for (final var o : currentObjectAsList) {
+                        childAccumulators.get(i).accumulate(o);
+                        i++;
+                    }
                 }
             }
 
@@ -234,14 +236,14 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                     return null;
                 }
 
-                final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(typeRepository);
-                final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
+                final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
+                final var descriptorForType = resultMessageBuilder.getDescriptorForType();
 
-                int i = 0;
-                final List<Type.Record.Field> fields = Objects.requireNonNull(getResultType().getFields());
+                var i = 0;
+                final var fields = Objects.requireNonNull(getResultType().getFields());
 
-                for (final Accumulator childAccumulator : childAccumulators) {
-                    final Object finalResult = childAccumulator.finish();
+                for (final var childAccumulator : childAccumulators) {
+                    final var finalResult = childAccumulator.finish();
                     if (finalResult != null) {
                         resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), finalResult);
                     }
@@ -258,21 +260,12 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
             return values;
         }
 
-        final Value onlyElement = Iterables.getOnlyElement(values);
+        final var onlyElement = Iterables.getOnlyElement(values);
         if (!(onlyElement instanceof RecordConstructorValue)) {
             return values;
         }
 
         return ImmutableList.copyOf(onlyElement.getChildren());
-    }
-
-    private static Value encapsulateInternal(@Nonnull final List<Typed> arguments) {
-        final ImmutableList<Column<? extends Value>> namedArguments =
-                arguments.stream()
-                        .map(typed -> (Value)typed)
-                        .map(Column::unnamedOf)
-                        .collect(ImmutableList.toImmutableList());
-        return new RecordConstructorValue(namedArguments);
     }
 
     public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns) {
@@ -290,6 +283,16 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         public RecordFn() {
             super("record",
                     ImmutableList.of(), new Type.Any(), (parserContext, builtInFunction, arguments) -> encapsulateInternal(arguments));
+        }
+
+        @Nonnull
+        private static Value encapsulateInternal(@Nonnull final List<Typed> arguments) {
+            final ImmutableList<Column<? extends Value>> namedArguments =
+                    arguments.stream()
+                            .map(typed -> (Value)typed)
+                            .map(Column::unnamedOf)
+                            .collect(ImmutableList.toImmutableList());
+            return new RecordConstructorValue(namedArguments);
         }
     }
 }
