@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -54,7 +53,7 @@ import java.util.Objects;
  * A query plan of any complexity will have child plans and execute by altering or combining the children's streams in some way.
  *
  * @see com.apple.foundationdb.record.query.RecordQuery
- * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan(RecordQuery) 
+ * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan(com.apple.foundationdb.record.query.RecordQuery)
  *
  */
 @API(API.Status.STABLE)

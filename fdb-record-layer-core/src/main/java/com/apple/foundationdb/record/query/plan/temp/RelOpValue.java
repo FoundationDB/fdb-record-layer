@@ -195,6 +195,7 @@ public class RelOpValue implements BooleanValue {
     }
 
     @Nonnull
+    @Override
     public String explain(@Nonnull final Formatter formatter) {
         return functionName + "(" + StreamSupport.stream(children.spliterator(), false).map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
     }

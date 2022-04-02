@@ -122,6 +122,7 @@ public class NotValue implements BooleanValue {
     }
 
     @Nonnull
+    @Override
     public String explain(@Nonnull final Formatter formatter) {
         return "not(" + child.explain(formatter) + ")";
     }

@@ -49,21 +49,29 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
+import static java.util.function.UnaryOperator.identity;
+
 @API(API.Status.EXPERIMENTAL)
 public class NumericAggregationValue implements Value, AggregateValue {
+    @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sum-Value");
+    @Nonnull
+    private static final Supplier<Map<Pair<LogicalOperator, TypeCode>, PhysicalOperator>> operatorMapSupplier =
+            Suppliers.memoize(NumericAggregationValue::computeOperatorMap);
 
     @Nonnull
     private final PhysicalOperator operator;
     @Nonnull
     private final Value child;
-
+    
     public NumericAggregationValue(@Nonnull PhysicalOperator operator,
                                    @Nonnull Value child) {
         this.operator = operator;
@@ -91,7 +99,7 @@ public class NumericAggregationValue implements Value, AggregateValue {
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "sum(" + child.explain(formatter) + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + child.explain(formatter) + ")";
     }
 
     @Nonnull
@@ -125,7 +133,7 @@ public class NumericAggregationValue implements Value, AggregateValue {
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase() + "(" + child + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + child + ")";
     }
 
     @Override
@@ -141,15 +149,12 @@ public class NumericAggregationValue implements Value, AggregateValue {
     }
 
     @Nonnull
-    private static final Supplier<Map<Pair<LogicalOperator, TypeCode>, PhysicalOperator>> operatorMapSupplier =
-            Suppliers.memoize(NumericAggregationValue::computeOperatorMap);
-
-    @Nonnull
     private static Map<Pair<LogicalOperator, TypeCode>, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private static AggregateValue encapsulate(@Nonnull ParserContext parserContext,
                                               @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
                                               @Nonnull final List<Typed> arguments) {
@@ -163,7 +168,7 @@ public class NumericAggregationValue implements Value, AggregateValue {
         final Type type0 = arg0.getResultType();
         SemanticException.check(type0.isPrimitive(), "only primitive types allowed in numeric aggregation operation");
 
-        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase()).toJavaUtil();
+        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.getDefault())).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
 
@@ -223,10 +228,10 @@ public class NumericAggregationValue implements Value, AggregateValue {
     }
 
     public enum PhysicalOperator {
-        SUM_I(LogicalOperator.SUM, TypeCode.INT, TypeCode.INT, v -> (int)v, (s, v) -> Math.addExact((int)s, (int)v), s -> (int)s),
-        SUM_L(LogicalOperator.SUM, TypeCode.LONG, TypeCode.LONG, v -> (long)v, (s, v) -> Math.addExact((long)s, (long)v), s -> (long)s),
-        SUM_F(LogicalOperator.SUM, TypeCode.FLOAT, TypeCode.FLOAT, v -> (float)v, (s, v) -> (float)s + (float)v, s -> (float)s),
-        SUM_D(LogicalOperator.SUM, TypeCode.DOUBLE, TypeCode.DOUBLE, v -> (double)v, (s, v) -> (double)s + (double)v, s -> (double)s),
+        SUM_I(LogicalOperator.SUM, TypeCode.INT, TypeCode.INT, Objects::requireNonNull, (s, v) -> Math.addExact((int)s, (int)v), identity()),
+        SUM_L(LogicalOperator.SUM, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.addExact((long)s, (long)v), identity()),
+        SUM_F(LogicalOperator.SUM, TypeCode.FLOAT, TypeCode.FLOAT, Objects::requireNonNull, (s, v) -> (float)s + (float)v, identity()),
+        SUM_D(LogicalOperator.SUM, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> (double)s + (double)v, identity()),
 
         AVG_I(LogicalOperator.AVG, TypeCode.INT, TypeCode.DOUBLE,
                 v -> Pair.of(v, 1L),
@@ -273,15 +278,15 @@ public class NumericAggregationValue implements Value, AggregateValue {
                     return (double)pair.getKey() / (long)pair.getValue();
                 }),
 
-        MIN_I(LogicalOperator.MIN, TypeCode.INT, TypeCode.INT, v -> (int)v, (s, v) -> Math.min((int)s, (int)v), s -> (int)s),
-        MIN_L(LogicalOperator.MIN, TypeCode.LONG, TypeCode.LONG, v -> (long)v, (s, v) -> Math.min((long)s, (long)v), s -> (long)s),
-        MIN_F(LogicalOperator.MIN, TypeCode.FLOAT, TypeCode.FLOAT, v -> (float)v, (s, v) -> Math.min((float)s, (float)v), s -> (float)s),
-        MIN_D(LogicalOperator.MIN, TypeCode.DOUBLE, TypeCode.DOUBLE, v -> (double)v, (s, v) -> Math.min((double)s, (double)v), s -> (double)s),
+        MIN_I(LogicalOperator.MIN, TypeCode.INT, TypeCode.INT, Objects::requireNonNull, (s, v) -> Math.min((int)s, (int)v), identity()),
+        MIN_L(LogicalOperator.MIN, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.min((long)s, (long)v), identity()),
+        MIN_F(LogicalOperator.MIN, TypeCode.FLOAT, TypeCode.FLOAT, Objects::requireNonNull, (s, v) -> Math.min((float)s, (float)v), identity()),
+        MIN_D(LogicalOperator.MIN, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.min((double)s, (double)v), identity()),
 
-        MAX_I(LogicalOperator.MAX, TypeCode.INT, TypeCode.INT, v -> (int)v, (s, v) -> Math.max((int)s, (int)v), s -> (int)s),
-        MAX_L(LogicalOperator.MAX, TypeCode.LONG, TypeCode.LONG, v -> (long)v, (s, v) -> Math.max((long)s, (long)v), s -> (long)s),
-        MAX_F(LogicalOperator.MAX, TypeCode.FLOAT, TypeCode.FLOAT, v -> (float)v, (s, v) -> Math.max((float)s, (float)v), s -> (float)s),
-        MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, v -> (double)v, (s, v) -> Math.max((double)s, (double)v), s -> (double)s);
+        MAX_I(LogicalOperator.MAX, TypeCode.INT, TypeCode.INT, Objects::requireNonNull, (s, v) -> Math.max((int)s, (int)v), identity()),
+        MAX_L(LogicalOperator.MAX, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.max((long)s, (long)v), identity()),
+        MAX_F(LogicalOperator.MAX, TypeCode.FLOAT, TypeCode.FLOAT, Objects::requireNonNull, (s, v) -> Math.max((float)s, (float)v), identity()),
+        MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity());
 
         @Nonnull
         private final LogicalOperator logicalOperator;

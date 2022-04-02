@@ -409,14 +409,16 @@ public interface Compensation {
                 return impossibleCompensation();
             }
 
-            if (getRemainingComputationValueOptional().isPresent() && otherWithSelectCompensation.getRemainingComputationValueOptional().isPresent()) {
+            final var remainingComputationValueOptional = getRemainingComputationValueOptional();
+            final var otherWithSelectCompensationRemainingComputationValueOptional = otherWithSelectCompensation.getRemainingComputationValueOptional();
+            if (remainingComputationValueOptional.isPresent() && otherWithSelectCompensationRemainingComputationValueOptional.isPresent()) {
                 return impossibleCompensation();
             }
 
-            final var remainingCompensationValueOptional =
-                    getRemainingComputationValueOptional().isPresent()
-                    ? getRemainingComputationValueOptional()
-                    : otherWithSelectCompensation.getRemainingComputationValueOptional();
+            final var resultRemainingCompensationValueOptional =
+                    remainingComputationValueOptional.isPresent()
+                    ? remainingComputationValueOptional
+                    : otherWithSelectCompensationRemainingComputationValueOptional;
 
             final var otherCompensationMap = otherWithSelectCompensation.getPredicateCompensationMap();
             final var combinedPredicateMap = Maps.<QueryPredicate, QueryPredicate>newIdentityHashMap();
@@ -446,11 +448,11 @@ public interface Compensation {
                 return Compensation.impossibleCompensation();
             }
 
-            if (!unionedChildCompensation.isNeeded() && remainingCompensationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
+            if (!unionedChildCompensation.isNeeded() && resultRemainingCompensationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
                 return Compensation.noCompensation();
             }
 
-            if (remainingCompensationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
+            if (resultRemainingCompensationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
                 return unionedChildCompensation;
             }
 
@@ -458,7 +460,7 @@ public interface Compensation {
                     combinedPredicateMap,
                     unionedMappedQuantifiers,
                     ImmutableSet.of(),
-                    remainingCompensationValueOptional);
+                    resultRemainingCompensationValueOptional);
         }
 
         /**
@@ -479,19 +481,21 @@ public interface Compensation {
             }
             final var otherWithSelectCompensation = (WithSelectCompensation)otherCompensation;
 
-            final Optional<Value> remainingComputationValueOptional;
-            if (getRemainingComputationValueOptional().isPresent() &&
-                    otherWithSelectCompensation.getRemainingComputationValueOptional().isPresent()) {
-                final var remainingComputationValue = getRemainingComputationValueOptional().get();
-                final var otherRemainingComputationValue = otherWithSelectCompensation.getRemainingComputationValueOptional().get();
+            final Optional<Value> resultRemainingComputationValueOptional;
+            final var remainingComputationValueOptional = getRemainingComputationValueOptional();
+            final var otherRemainingComputationValueOptional = otherWithSelectCompensation.getRemainingComputationValueOptional();
+            if (remainingComputationValueOptional.isPresent() &&
+                    otherRemainingComputationValueOptional.isPresent()) {
+                final var remainingComputationValue = remainingComputationValueOptional.get();
+                final var otherRemainingComputationValue = otherRemainingComputationValueOptional.get();
 
                 if (remainingComputationValue.equals(otherRemainingComputationValue)) {
-                    remainingComputationValueOptional = getRemainingComputationValueOptional();
+                    resultRemainingComputationValueOptional = remainingComputationValueOptional;
                 } else {
                     return Compensation.impossibleCompensation();
                 }
             } else {
-                remainingComputationValueOptional = Optional.empty();
+                resultRemainingComputationValueOptional = Optional.empty();
             }
 
             final var otherCompensationMap = otherWithSelectCompensation.getPredicateCompensationMap();
@@ -518,11 +522,11 @@ public interface Compensation {
                 return Compensation.impossibleCompensation();
             }
 
-            if (!intersectedChildCompensation.isNeeded() && remainingComputationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
+            if (!intersectedChildCompensation.isNeeded() && resultRemainingComputationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
                 return Compensation.noCompensation();
             }
 
-            if (remainingComputationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
+            if (resultRemainingComputationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
                 return intersectedChildCompensation;
             }
 
@@ -538,7 +542,7 @@ public interface Compensation {
                     combinedPredicateMap,
                     intersectedMappedQuantifiers,
                     intersectedUnmappedForEachQuantifiers,
-                    remainingComputationValueOptional);
+                    resultRemainingComputationValueOptional);
         }
     }
 

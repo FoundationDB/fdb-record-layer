@@ -93,7 +93,6 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nullable
     @Override
-    @SuppressWarnings("unchecked")
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult datum) {
         final var currentObject = datum.<M>getObject();
         if (currentObject == null) {
