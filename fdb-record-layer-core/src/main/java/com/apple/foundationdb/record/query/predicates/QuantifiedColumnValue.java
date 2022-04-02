@@ -94,6 +94,9 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         final var childMessage = (Message)context.getBinding(alias);
+        if (childMessage == null) {
+            return null;
+        }
         final var descriptorForType = childMessage.getDescriptorForType();
         final var fieldDescriptor = descriptorForType.findFieldByNumber(getFieldForOrdinal().getFieldIndex());
         return childMessage.getField(fieldDescriptor);

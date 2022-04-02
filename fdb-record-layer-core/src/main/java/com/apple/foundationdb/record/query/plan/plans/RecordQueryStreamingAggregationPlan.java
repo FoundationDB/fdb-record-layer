@@ -280,20 +280,6 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     }
 
     @Nonnull
-    public static Value nestedResults(@Nullable final Value groupingKeyValue,
-                                      @Nonnull final AggregateValue aggregateValue,
-                                      @Nonnull final CorrelationIdentifier groupingKeyAlias,
-                                      @Nonnull final CorrelationIdentifier aggregateAlias) {
-        if (groupingKeyValue != null) {
-            return RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                    QuantifiedObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
-                    QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
-        } else {
-            return QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType());
-        }
-    }
-
-    @Nonnull
     public static Value flattenedResults(@Nullable final Value groupingKeyValue,
                                          @Nonnull final AggregateValue aggregateValue,
                                          @Nonnull final CorrelationIdentifier groupingKeyAlias,
@@ -326,6 +312,22 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
 
         return RecordConstructorValue.ofUnnamed(valuesBuilder.build());
+    }
+
+    @Nonnull
+    public static Value nestedResults(@Nullable final Value groupingKeyValue,
+                                      @Nonnull final AggregateValue aggregateValue,
+                                      @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                                      @Nonnull final CorrelationIdentifier aggregateAlias) {
+        if (groupingKeyValue != null) {
+            return RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                    QuantifiedObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
+                    QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
+        } else {
+            return RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                    RecordConstructorValue.ofUnnamed(ImmutableList.of()),
+                    QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
+        }
     }
 
     public static RecordQueryStreamingAggregationPlan of(@Nonnull final Quantifier.Physical inner,
