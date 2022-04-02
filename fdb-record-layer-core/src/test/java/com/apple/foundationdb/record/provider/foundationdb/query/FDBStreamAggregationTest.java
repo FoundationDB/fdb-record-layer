@@ -40,21 +40,22 @@ import com.apple.foundationdb.record.query.predicates.AggregateValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.NumericAggregationValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
@@ -91,185 +92,200 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         populateDB(5);
     }
 
-    @Test
-    void noAggregateGroupByNone() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void noAggregateGroupByNone(final boolean useNestedResult) {
+        try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                    .build();
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .build(useNestedResult);
 
-            List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf());
+            final var result = executePlan(plan);
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf());
         }
     }
 
-    @Test
-    void aggregateOneGroupByOne() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void aggregateOneGroupByOne(final boolean useNestedResult) {
+        try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            AggregationPlanBuilder builder = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord");
-            RecordQueryPlan plan = builder
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withGroupCriterion("num_value_3_indexed")
-                    .build();
+                    .build(useNestedResult);
 
-            List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf(0, 1), resultOf(1, 5), resultOf(2, 9));
+            final var result = executePlan(plan);
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, 1), resultOf(1, 5), resultOf(2, 9));
         }
     }
 
-    @Test
-    void aggregateOneGroupByNone() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void aggregateOneGroupByNone(final boolean useNestedResult) {
+        try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                    .build();
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .build(useNestedResult);
 
-            List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf(15));
+            final var result = executePlan(plan);
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(15));
         }
     }
 
-    @Test
-    void noAggregateGroupByOne() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void noAggregateGroupByOne(final boolean useNestedResult) {
+        try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                    .withGroupCriterion("num_value_3_indexed")
-                    .build();
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withGroupCriterion("num_value_3_indexed")
+                            .build(useNestedResult);
 
-            List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf(0), resultOf(1), resultOf(2));
+            final var result = executePlan(plan);
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0), resultOf(1), resultOf(2));
         }
     }
 
-    @Test
-    void aggregateOneGroupByTwo() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void aggregateOneGroupByTwo(final boolean useNestedResult) {
+        try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                    .withGroupCriterion("num_value_3_indexed")
-                    .withGroupCriterion("str_value_indexed")
-                    .build();
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withGroupCriterion("num_value_3_indexed")
+                            .withGroupCriterion("str_value_indexed")
+                            .build(useNestedResult);
 
-            List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf(0, "0", 1), resultOf(1, "0", 2), resultOf(1, "1", 3), resultOf(2, "1", 9));
+            final var result = executePlan(plan);
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1), resultOf(1, "0", 2), resultOf(1, "1", 3), resultOf(2, "1", 9));
         }
     }
 
-    @Test
-    void aggregateTwoGroupByTwo() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void aggregateTwoGroupByTwo(final boolean useNestedResult) {
+        try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
-                    .withGroupCriterion("num_value_3_indexed")
-                    .withGroupCriterion("str_value_indexed")
-                    .build();
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
+                            .withGroupCriterion("num_value_3_indexed")
+                            .withGroupCriterion("str_value_indexed")
+                            .build(useNestedResult);
 
-            List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf(0, "0", 1, 0), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 9, 4));
+            final var result = executePlan(plan);
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1, 0), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 9, 4));
         }
     }
 
-    @Test
-    void aggregateThreeGroupByTwo() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void aggregateThreeGroupByTwo(final boolean useNestedResult) {
+        try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
+                            .withGroupCriterion("num_value_3_indexed")
+                            .withGroupCriterion("str_value_indexed")
+                            .build(useNestedResult);
+
+            final var result = executePlan(plan);
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1, 0, 0.5), resultOf(1, "0", 2, 2, 2.0), resultOf(1, "1", 3, 3, 3.0), resultOf(2, "1", 9, 4, 4.5));
+        }
+    }
+
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void aggregateNoRecords(final boolean useNestedResult) {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
+                            .withGroupCriterion("num_value_3_indexed")
+                            .build(useNestedResult);
+
+            final var result = executePlan(plan);
+            Assertions.assertTrue(result.isEmpty());
+        }
+    }
+
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void aggregateNoRecordsNoGroup(final boolean useNestedResult) {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
-                    .withGroupCriterion("num_value_3_indexed")
-                    .withGroupCriterion("str_value_indexed")
-                    .build();
+                    .build(useNestedResult);
 
-            List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf(0, "0", 1, 0, 0.5), resultOf(1, "0", 2, 2, 2.0), resultOf(1, "1", 3, 3, 3.0), resultOf(2, "1", 9, 4, 4.5));
-        }
-    }
-
-    @Disabled
-    @Test
-    void aggregateNoRecords() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, NO_HOOK);
-
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
-                    .withGroupCriterion("num_value_3_indexed")
-                    .withGroupCriterion("str_value_indexed")
-                    .build();
-
-            List<QueryResult> result = executePlan(plan);
+            final var result = executePlan(plan);
             Assertions.assertTrue(result.isEmpty());
         }
     }
 
-    @Test
-    void aggregateNoRecordsNoGroup() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void aggregateNoRecordsNoAggregate(final boolean useNestedResult) {
+        try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
-                    .build();
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
+                            .withGroupCriterion("num_value_3_indexed")
+                            .build(useNestedResult);
 
-            List<QueryResult> result = executePlan(plan);
+            final var result = executePlan(plan);
             Assertions.assertTrue(result.isEmpty());
         }
     }
 
-    @Disabled
-    @Test
-    void aggregateNoRecordsNoAggregate() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @BooleanSource
+    void aggregateNoRecordsNoGroupNoAggregate(final boolean useNestedResult) {
+        try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
-                    .withGroupCriterion("num_value_3_indexed")
-                    .withGroupCriterion("str_value_indexed")
-                    .build();
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
+                            .build(useNestedResult);
 
-            List<QueryResult> result = executePlan(plan);
+            final var result = executePlan(plan);
             Assertions.assertTrue(result.isEmpty());
         }
     }
-
-    @Test
-    void aggregateNoRecordsNoGroupNoAggregate() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, NO_HOOK);
-
-            RecordQueryPlan plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
-                    .build();
-
-            List<QueryResult> result = executePlan(plan);
-            Assertions.assertTrue(result.isEmpty());
-        }
-    }
-
 
     private void populateDB(final int numRecords) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            for (int i = 0; i <= numRecords; i++) {
+            final var recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+            for (var i = 0; i <= numRecords; i++) {
                 recBuilder.setRecNo(i);
                 recBuilder.setNumValue2(i);
                 recBuilder.setNumValue3Indexed(i / 2); // some field that changes every 2nd record
@@ -280,38 +296,73 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nullable
-    private List<QueryResult> executePlan(final RecordQueryPlan plan) throws InterruptedException, java.util.concurrent.ExecutionException {
+    @Nonnull
+    private List<QueryResult> executePlan(final RecordQueryPlan plan) {
         final var types = plan.getDynamicTypes();
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
-        return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), null, ExecuteProperties.SERIAL_EXECUTE).asList().get();
-    }
-
-    private void assertResults(List<QueryResult> actual, final List<?>... expected) {
-        Assertions.assertEquals(expected.length, actual.size());
-        for (int i = 0 ; i < actual.size() ; i++) {
-            assertResult(actual.get(i), expected[i]);
+        try {
+            return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), null, ExecuteProperties.SERIAL_EXECUTE).asList().get();
+        } catch (final Throwable t) {
+            throw Assertions.<RuntimeException>fail(t);
         }
     }
 
-    private void assertResult(final QueryResult actual, final List<?> expected) {
+    private void assertResults(@Nonnull final BiConsumer<QueryResult, List<?>> checkConsumer, @Nonnull final List<QueryResult> actual, @Nonnull final List<?>... expected) {
+        Assertions.assertEquals(expected.length, actual.size());
+        for (var i = 0 ; i < actual.size() ; i++) {
+            checkConsumer.accept(actual.get(i), expected[i]);
+        }
+    }
+
+    private void assertResultFlattened(final QueryResult actual, final List<?> expected) {
         final var message = actual.getMessage();
         Assertions.assertNotNull(message);
+        final var resultFieldsBuilder = ImmutableList.builder();
         final var descriptor = message.getDescriptorForType();
-        final var resultFieldsBuilder = ImmutableList.<Object>builder();
-        for (final Descriptors.FieldDescriptor field : descriptor.getFields()) {
+        for (final var field : descriptor.getFields()) {
             resultFieldsBuilder.add(message.getField(field));
         }
         final var resultFields = resultFieldsBuilder.build();
 
         Assertions.assertEquals(resultFields.size(), expected.size());
-        for (int i = 0 ; i < resultFields.size() ; i++) {
+        for (var i = 0 ; i < resultFields.size() ; i++) {
             Assertions.assertEquals(expected.get(i), resultFields.get(i));
         }
     }
 
-    private List<?> resultOf(Object... objs) {
-        return Arrays.asList(objs);
+    private void assertResultNested(final QueryResult actual, final List<?> expected) {
+        final var message = actual.getMessage();
+        Assertions.assertNotNull(message);
+        final var resultFieldsBuilder = ImmutableList.builder();
+
+        final var descriptor = message.getDescriptorForType();
+        final var topLevelFields = descriptor.getFields();
+        Assertions.assertEquals(2, topLevelFields.size());
+
+        final var groupingKeyFieldDescriptor = topLevelFields.get(0);
+        final var groupingKeyDescriptor = groupingKeyFieldDescriptor.getMessageType();
+        final var groupingKeyMessage = (Message)message.getField(groupingKeyFieldDescriptor);
+        for (final var field : groupingKeyDescriptor.getFields()) {
+            resultFieldsBuilder.add(groupingKeyMessage.getField(field));
+        }
+
+        final var aggregateFieldDescriptor = topLevelFields.get(1);
+        final var aggregateDescriptor = aggregateFieldDescriptor.getMessageType();
+        final var aggregateMessage = (Message)message.getField(aggregateFieldDescriptor);
+        for (final var field : aggregateDescriptor.getFields()) {
+            resultFieldsBuilder.add(aggregateMessage.getField(field));
+        }
+
+        final var resultFields = resultFieldsBuilder.build();
+
+        Assertions.assertEquals(resultFields.size(), expected.size());
+        for (var i = 0 ; i < resultFields.size() ; i++) {
+            Assertions.assertEquals(expected.get(i), resultFields.get(i));
+        }
+    }
+
+    private List<?> resultOf(final Object... objects) {
+        return Arrays.asList(objects);
     }
 
     private static class AggregationPlanBuilder {
@@ -325,8 +376,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             this.recordMetaData = recordMetaData;
             this.recordTypeName = recordTypeName;
             this.quantifier = createBaseQuantifier();
-            aggregateValues = new ArrayList<>();
-            groupValues = new ArrayList<>();
+            this.aggregateValues = new ArrayList<>();
+            this.groupValues = new ArrayList<>();
         }
 
         public AggregationPlanBuilder withAggregateValue(final String fieldName, final Function<Value, AggregateValue> aggregateValueFunction) {
@@ -339,11 +390,11 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             return this;
         }
 
-        public RecordQueryPlan build() {
+        public RecordQueryPlan build(final boolean useNestedResult) {
             return RecordQueryStreamingAggregationPlan.of(quantifier,
                     RecordConstructorValue.ofUnnamed(groupValues),
                     RecordConstructorValue.ofUnnamed(aggregateValues),
-                    RecordQueryStreamingAggregationPlan::flattenedResults);
+                    useNestedResult ? RecordQueryStreamingAggregationPlan::nestedResults : RecordQueryStreamingAggregationPlan::flattenedResults);
         }
 
         private Value createFieldValue(final String fieldName) {
@@ -351,10 +402,11 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
 
         private Quantifier.Physical createBaseQuantifier() {
-            RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ImmutableSet.of(recordTypeName), ScanComparisons.EMPTY, false);
-            RecordQueryTypeFilterPlan filterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(GroupExpressionRef.of(scanPlan)),
-                    Collections.singleton(recordTypeName),
-                    Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(ImmutableSet.of(recordTypeName))));
+            final var scanPlan = new RecordQueryScanPlan(ImmutableSet.of(recordTypeName), ScanComparisons.EMPTY, false);
+            final var filterPlan =
+                    new RecordQueryTypeFilterPlan(Quantifier.physical(GroupExpressionRef.of(scanPlan)),
+                            Collections.singleton(recordTypeName),
+                            Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(ImmutableSet.of(recordTypeName))));
             return Quantifier.physical(GroupExpressionRef.of(filterPlan));
         }
     }
