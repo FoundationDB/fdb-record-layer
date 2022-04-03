@@ -66,7 +66,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * A select expression.
@@ -284,7 +283,6 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // compensating computation.
         //
         
-        final var resultValue = getResultValue();
         final var otherResultValue = otherSelectExpression.getResultValue();
         final Optional<Value> remainingValueComputationOptional;
         if (!resultValue.semanticEquals(otherResultValue, aliasMap)) {
@@ -506,9 +504,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                 .flatMap(quantifier ->
                         matchInfo.getChildPartialMatch(quantifier)
-                                .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap))
-                                .map(Stream::of)
-                                .orElse(Stream.empty()))
+                                .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap)).stream())
                 .reduce(Compensation.noCompensation(), Compensation::union);
 
         //
