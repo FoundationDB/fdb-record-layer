@@ -37,5 +37,11 @@ import java.lang.annotation.Target;
 @TestTemplate
 @ExtendWith(DualPlannerExtension.class)
 public @interface DualPlannerTest {
+    Planner planner() default Planner.BOTH;
 
+    enum Planner {
+        OLD,
+        CASCADES,
+        BOTH;
+    }
 }

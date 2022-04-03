@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.RecordConstructorValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
@@ -76,5 +77,12 @@ public class ValueMatchers {
         return typedWithDownstream(FieldValue.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordConstructorValue> recordConstructorValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
+        return typedWithDownstream(RecordConstructorValue.class,
+                Extractor.of(RecordConstructorValue::getChildren, name -> "children(" + name + ")"),
+                downstreamValues);
     }
 }

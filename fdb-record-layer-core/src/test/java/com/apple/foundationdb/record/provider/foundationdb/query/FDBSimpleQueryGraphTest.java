@@ -43,21 +43,27 @@ import org.junit.jupiter.api.Tag;
 
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.mapPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.result;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.scanComparisons;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.scanPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers.recordConstructorValue;
+
 /**
  * Tests of query planning and execution for queries on records with repeated fields.
  */
 @Tag(Tags.RequiresFDB)
 public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
-    @DualPlannerTest
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testSimplePlanGraph() throws Exception {
         final CascadesPlanner cascadesPlanner;
 
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
-
-            if (!(planner instanceof CascadesPlanner)) {
-                return;
-            }
 
             cascadesPlanner = (CascadesPlanner)planner;
 
@@ -166,7 +172,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(nameValue.getResultType(), Optional.of("nameNew")), nameValue));
-                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restNoValue.getResultType(), Optional.of("restNoNew")), nameValue));
+                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restNoValue.getResultType(), Optional.of("restNoNew")), restNoValue));
                     qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(null, false, qun));
                 },
@@ -175,6 +181,12 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 IndexQueryabilityFilter.TRUE,
                 false,
                 ParameterRelationshipGraph.empty());
-        System.out.println("plan " + plan);
+
+        assertMatchesExactly(plan,
+                mapPlan(
+                        typeFilterPlan(
+                                scanPlan()
+                                        .where(scanComparisons(range("([1],>")))))
+                        .where(result(recordConstructorValue(exactly(fieldValue("name"), fieldValue("rest_no"))))));
     }
 }
