@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
@@ -55,6 +56,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -764,6 +766,21 @@ public class KeyExpressionTest {
                 concatenate("numbers", "four", "five", "six"),
                 concatenate("numbers", "seven", "eight", "nine")),
                 evaluate(splitConcat, numbers));
+    }
+
+    @Test
+    void testCanProperlyGetValueExpressionFromKeyWithValue() {
+        /*
+         * Tests for a degenerate case of KeyWithValueExpressions
+         */
+        List<KeyExpression> fields = new ArrayList<>();
+        fields.add(recordType());
+        fields.add(Key.Expressions.field("col0"));
+        fields.add(Key.Expressions.field("col1"));
+        KeyWithValueExpression kwve = new KeyWithValueExpression(Key.Expressions.concat(fields),2);
+
+        assertEquals(concat(recordType(),field("col0")),kwve.getKeyExpression(),"Incorrect key expression!");
+        assertEquals(field("col1"),kwve.getValueExpression(),"Incorrect value expression!");
     }
 
     public static Stream<Arguments> getPrefixKeyComparisons() {
