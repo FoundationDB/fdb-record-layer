@@ -24,12 +24,12 @@ import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.util.LoggableException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -43,7 +43,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
@@ -197,7 +196,8 @@ public class IndexingThrottle {
 
         AtomicInteger tries = new AtomicInteger(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
-        AtomicLong toWait = new AtomicLong(common.getRunner().getDatabase().getFactory().getInitialDelayMillis());
+        final ExponentialDelay delay = new ExponentialDelay(common.getRunner().getDatabase().getFactory().getInitialDelayMillis(),
+                common.getRunner().getDatabase().getFactory().getMaxDelayMillis());
         AsyncUtil.whileTrue(() -> {
             loadConfig();
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
@@ -223,19 +223,16 @@ public class IndexingThrottle {
                         if (handleLessenWork != null) {
                             handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
                         }
-                        long delay = (long)(Math.random() * toWait.get());
-                        toWait.set(Math.min(toWait.get() * 2,
-                                common.getRunner().getDatabase().getFactory().getMaxDelayMillis()));
                         if (LOGGER.isWarnEnabled()) {
                             final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
                                     LogMessageKeys.INDEXER_CURR_RETRY, currTries,
                                     LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
-                                    LogMessageKeys.DELAY, delay,
+                                    LogMessageKeys.DELAY, delay.getNextDelayMillis(),
                                     LogMessageKeys.LIMIT, limit);
                             message.addKeysAndValues(onlineIndexerLogMessageKeyValues);
                             LOGGER.warn(message.toString(), e);
                         }
-                        return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
+                        return delay.delay().thenApply(vignore3 -> true);
                     } else {
                         return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
                     }

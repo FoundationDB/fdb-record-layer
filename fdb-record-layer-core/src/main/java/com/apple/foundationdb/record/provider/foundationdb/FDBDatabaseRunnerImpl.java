@@ -24,11 +24,11 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
 import org.apache.commons.lang3.tuple.Pair;
@@ -43,7 +43,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -186,8 +185,8 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     private class RunRetriable<T> {
+        @Nonnull private final ExponentialDelay delay;
         private int currAttempt = 0;
-        private long currDelay = getInitialDelayMillis();
         @Nullable private FDBRecordContext context;
         @Nullable T retVal = null;
         @Nullable RuntimeException exception = null;
@@ -196,6 +195,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
         private RunRetriable(@Nullable List<Object> additionalLogMessageKeyValues) {
             this.additionalLogMessageKeyValues = additionalLogMessageKeyValues;
+            this.delay = new ExponentialDelay(getInitialDelayMillis(), getMaxDelayMillis());
         }
 
         @Nonnull
@@ -232,25 +232,22 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                 }
 
                 if (currAttempt + 1 < getMaxAttempts() && retry) {
-                    long delay = (long)(Math.random() * currDelay);
-
                     if (LOGGER.isWarnEnabled()) {
                         final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying FDB Exception",
                                                                 LogMessageKeys.MESSAGE, fdbMessage,
                                                                 LogMessageKeys.CODE, code,
                                                                 LogMessageKeys.CURR_ATTEMPT, currAttempt,
                                                                 LogMessageKeys.MAX_ATTEMPTS, getMaxAttempts(),
-                                                                LogMessageKeys.DELAY, delay);
+                                                                LogMessageKeys.DELAY, delay.getNextDelayMillis());
                         if (additionalLogMessageKeyValues != null) {
                             message.addKeysAndValues(additionalLogMessageKeyValues);
                         }
                         LOGGER.warn(message.toString(), e);
                     }
-                    CompletableFuture<Void> future = MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS);
+                    CompletableFuture<Void> future = delay.delay();
                     addFutureToCompleteExceptionally(future);
                     return future.thenApply(vignore -> {
-                        currAttempt += 1;
-                        currDelay = Math.max(Math.min(delay * 2, getMaxDelayMillis()), getMinDelayMillis());
+                        currAttempt++;
                         return true;
                     });
                 } else {
