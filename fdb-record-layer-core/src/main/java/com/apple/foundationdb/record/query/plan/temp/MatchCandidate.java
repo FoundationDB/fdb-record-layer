@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -310,11 +311,12 @@ public interface MatchCandidate {
     static Optional<MatchCandidate> fromPrimaryDefinition(@Nonnull final RecordMetaData metaData,
                                                           @Nonnull final Set<String> recordTypes,
                                                           @Nullable KeyExpression commonPrimaryKey,
-                                                          final boolean isReverse) {
+                                                          final boolean isReverse,
+                                                          @Nonnull final List<String> primaryKeyScanFields) {
         if (commonPrimaryKey != null) {
             final var availableRecordTypes = metaData.getRecordTypes().keySet();
             final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes);
-            final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
+            final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes, primaryKeyScanFields);
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, isReverse));
         }
 

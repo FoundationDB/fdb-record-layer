@@ -32,6 +32,7 @@ import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -44,10 +45,15 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
     private final Set<String> availableRecordTypes;
     @Nonnull
     private final Set<String> recordTypes;
+    @Nonnull
+    private final List<String> primaryKeyBaseRowFields;
 
-    public PrimaryAccessExpansionVisitor(@Nonnull final Set<String> availableRecordTypes, @Nonnull final Set<String> recordTypes) {
+    public PrimaryAccessExpansionVisitor(@Nonnull final Set<String> availableRecordTypes,
+                                         @Nonnull final Set<String> recordTypes,
+                                         @Nonnull final List<String> primaryKeyBaseRowFields) {
         this.availableRecordTypes = ImmutableSet.copyOf(availableRecordTypes);
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
+        this.primaryKeyBaseRowFields = primaryKeyBaseRowFields;
     }
 
     @Nonnull
@@ -68,7 +74,8 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                         baseQuantifier,
                         ImmutableList.of(),
                         -1,
-                        0))));
+                        0,
+                        primaryKeyBaseRowFields))));
 
         final var allExpansions =
                 GraphExpansion.ofOthers(GraphExpansion.ofQuantifier(baseQuantifier), graphExpansion);

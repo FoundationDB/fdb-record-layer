@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -97,7 +98,8 @@ public class MetaDataPlanContext implements PlanContext {
         this.indexesByName = indexes.inverse();
 
         recordStoreState.beginRead();
-        List<Index> indexList = new ArrayList<>();
+        var indexList = new ArrayList<Index>();
+        final var primaryKeyScanFields = new ArrayList<String>();
         try {
             if (recordTypeNamesOptional.isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
@@ -112,6 +114,7 @@ public class MetaDataPlanContext implements PlanContext {
                     final RecordType recordType = recordTypes.get(0);
                     indexList.addAll(readableOf(recordType.getIndexes()));
                     indexList.addAll(readableOf((recordType.getMultiTypeIndexes())));
+                    primaryKeyScanFields.addAll(recordType.getDescriptor().getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toUnmodifiableList()));
                     commonPrimaryKey = recordType.getPrimaryKey();
                 } else {
                     boolean first = true;
@@ -147,7 +150,7 @@ public class MetaDataPlanContext implements PlanContext {
             matchCandidatesBuilder.addAll(candidatesForIndex);
         }
 
-        MatchCandidate.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey, isSortReverse)
+        MatchCandidate.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey, isSortReverse, primaryKeyScanFields)
                 .ifPresent(matchCandidatesBuilder::add);
 
         this.matchCandidates = matchCandidatesBuilder.build();

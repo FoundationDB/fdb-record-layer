@@ -39,6 +39,7 @@ import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 
@@ -114,10 +115,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
         final Quantifier.ForEach baseQuantifier = state.getBaseQuantifier();
-        final List<String> fieldNames = ImmutableList.<String>builder()
-                .addAll(fieldNamePrefix)
-                .add(fieldName)
-                .build();
+        final List<String> qualifiedFieldName = getQualifiedName(fieldNamePrefix, fieldName);
         final Value value;
         final Placeholder predicate;
         switch (fanType) {
@@ -142,12 +140,19 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case None:
-                value = state.registerValue(new FieldValue(baseQuantifier.getFlowedObjectValue(), fieldNames));
+                value = state.registerValue(new FieldValue(baseQuantifier.getFlowedObjectValue(), qualifiedFieldName));
+                final var builder = GraphExpansion.builder();
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
-                    return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);
+                    builder.addResultColumn(Column.unnamedOf(value))
+                            .addPredicate(predicate)
+                            .addPlaceholder(predicate);
+                } else {
+                    builder.addResultColumn(Column.unnamedOf(value));
                 }
-                return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
+                state.getForPrimaryKeyScan().forEach(f -> builder.addResultColumn(
+                        Column.unnamedOf(new FieldValue(baseQuantifier.getFlowedObjectValue(), getQualifiedName(fieldNamePrefix, f)))));
+                return builder.build();
             case Concatenate: // TODO collect/concatenate function
             default:
         }
@@ -184,10 +189,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         final KeyExpression child = nestingKeyExpression.getChild();
         switch (parent.getFanType()) {
             case None:
-                List<String> newPrefix = ImmutableList.<String>builder()
-                        .addAll(fieldNamePrefix)
-                        .add(parent.getFieldName())
-                        .build();
+                List<String> newPrefix = getQualifiedName(fieldNamePrefix, parent.getFieldName());
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
             case FanOut:
                 // explode the parent field(s) also depending on the prefix
@@ -208,6 +210,13 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             default:
                 throw new RecordCoreException("unsupported fan type");
         }
+    }
+
+    private ImmutableList<String> getQualifiedName(final List<String> fieldNamePrefix, final String parent) {
+        return ImmutableList.<String>builder()
+                .addAll(fieldNamePrefix)
+                .add(parent)
+                .build();
     }
 
     @Nonnull
@@ -276,18 +285,22 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         @Nonnull
         private final List<Value> valueValues;
 
+        private final List<String> primaryKeyScanFields;
+
         private VisitorState(@Nonnull final List<Value> keyOrdinalMap,
                              @Nonnull final List<Value> valueValues,
                              @Nonnull final Quantifier.ForEach baseQuantifier,
                              @Nonnull final List<String> fieldNamePrefix,
                              final int splitPointForValues,
-                             final int currentOrdinal) {
+                             final int currentOrdinal,
+                             final List<String> primaryKeyScanFields) {
             this.keyValues = keyOrdinalMap;
             this.valueValues = valueValues;
             this.baseQuantifier = baseQuantifier;
             this.fieldNamePrefix = fieldNamePrefix;
             this.splitPointForValues = splitPointForValues;
             this.currentOrdinal = currentOrdinal;
+            this.primaryKeyScanFields = primaryKeyScanFields;
         }
 
         @Nonnull
@@ -318,6 +331,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             return currentOrdinal;
         }
 
+        public List<String> getForPrimaryKeyScan() {
+            return primaryKeyScanFields;
+        }
+
         public boolean isKey() {
             return splitPointForValues < 0 || getCurrentOrdinal() < splitPointForValues;
         }
@@ -338,7 +355,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     baseQuantifier,
                     this.fieldNamePrefix,
                     this.splitPointForValues,
-                    this.currentOrdinal);
+                    this.currentOrdinal,
+                    this.primaryKeyScanFields);
         }
 
         public VisitorState withFieldNamePrefix(@Nonnull final List<String> fieldNamePrefix) {
@@ -347,7 +365,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     this.baseQuantifier,
                     fieldNamePrefix,
                     this.splitPointForValues,
-                    this.currentOrdinal);
+                    this.currentOrdinal,
+                    this.primaryKeyScanFields);
         }
 
         public VisitorState withSplitPointForValues(final int splitPointForValues) {
@@ -356,7 +375,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     this.baseQuantifier,
                     fieldNamePrefix,
                     splitPointForValues,
-                    this.currentOrdinal);
+                    this.currentOrdinal,
+                    this.primaryKeyScanFields);
         }
 
         public VisitorState withCurrentOrdinal(final int currentOrdinal) {
@@ -365,7 +385,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     this.baseQuantifier,
                     this.fieldNamePrefix,
                     this.splitPointForValues,
-                    currentOrdinal);
+                    currentOrdinal,
+                    this.primaryKeyScanFields);
         }
 
         public static VisitorState forQueries(@Nonnull final List<Value> valueValues,
@@ -377,7 +398,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     baseQuantifier,
                     fieldNamePrefix,
                     0,
-                    0);
+                    0,
+                    Collections.emptyList());
         }
 
         public static VisitorState of(@Nonnull final List<Value> keyValues,
@@ -385,14 +407,33 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                                       @Nonnull final Quantifier.ForEach baseQuantifier,
                                       @Nonnull final List<String> fieldNamePrefix,
                                       final int splitPointForValues,
-                                      final int currentOrdinal) {
+                                      @Nonnull final int currentOrdinal) {
             return new VisitorState(
                     keyValues,
                     valueValues,
                     baseQuantifier,
                     fieldNamePrefix,
                     splitPointForValues,
-                    currentOrdinal);
+                    currentOrdinal,
+                    Collections.emptyList());
         }
+
+        public static VisitorState of(@Nonnull final List<Value> keyValues,
+                                      @Nonnull final List<Value> valueValues,
+                                      @Nonnull final Quantifier.ForEach baseQuantifier,
+                                      @Nonnull final List<String> fieldNamePrefix,
+                                      final int splitPointForValues,
+                                      final int currentOrdinal,
+                                      @Nonnull final List<String> forPrimaryKeyScan) {
+            return new VisitorState(
+                    keyValues,
+                    valueValues,
+                    baseQuantifier,
+                    fieldNamePrefix,
+                    splitPointForValues,
+                    currentOrdinal,
+                    forPrimaryKeyScan);
+        }
+
     }
 }
