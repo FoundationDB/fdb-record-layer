@@ -71,11 +71,13 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTup
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scoreForRank;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasToString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -557,6 +559,51 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             assertThat("index should have one entry for each non-deleted record",
                     recordStore.scanIndexRecords(splitStringIndex.getName()).map(indexedRecord -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(indexedRecord.getRecord()).build()).asList().get(),
                     containsInAnyOrder(recordsByPath.values().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+        }
+    }
+
+    @Test
+    void testDeleteWhereSingleTypeEmptyPredicate() throws Exception {
+        // Index on a single type that puts only the first 3 characters of str_value into the key of the index,
+        // the rest of the suffix going into the value.
+        Index splitStringIndex = new Index(
+                "split_string_index",
+                keyWithValue(function("split_string", concat(field("str_value"), value(3L))), 1)
+        );
+        final RecordMetaDataHook hook = metaData -> {
+            RecordTypeBuilder typeBuilder = metaData.getRecordType("MyRecord");
+            typeBuilder.setPrimaryKey(concat(recordType(), field("header").nest(field("rec_no"))));
+            metaData.addIndex(typeBuilder, splitStringIndex);
+        };
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+
+            TestRecordsWithHeaderProto.MyRecord rec1 = saveHeaderRecord(1066L, "unused_path", 42, "string");
+            TestRecordsWithHeaderProto.MyRecord rec2 = saveHeaderRecord(1623L, "unused_path", 42, "stripe");
+            TestRecordsWithHeaderProto.MyRecord rec3 = saveHeaderRecord(1412L, "unused_path", 42, "stale");
+            List<TestRecordsWithHeaderProto.MyRecord> results = recordStore.scanIndexRecords(splitStringIndex.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from("str")), null, ScanProperties.FORWARD_SCAN)
+                    .map(FDBIndexedRecord::getRecord)
+                    .map(this::parseMyRecord)
+                    .asList()
+                    .get();
+            assertThat(results, containsInAnyOrder(rec1, rec2));
+            assertThat(results, not(contains(rec3)));
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+
+            // Predicate on rec_no should not be matched
+            Query.InvalidExpressionException err = assertThrows(Query.InvalidExpressionException.class,
+                    () -> recordStore.deleteRecordsWhere("MyRecord", Query.field("header").matches(Query.field("rec_no").equalsValue(1066L))));
+            assertThat(err.getMessage(), containsString(String.format("deleteRecordsWhere not supported by index %s", splitStringIndex.getName())));
+            assertNotNull(recordStore.loadRecord(Tuple.from(recordStore.getRecordMetaData().getRecordType("MyRecord").getRecordTypeKey(), 1066L)));
+
+            // Single type delete should be satisfied by clearing out the index
+            recordStore.deleteRecordsWhere("MyRecord", null);
+            assertThat(recordStore.scanIndexRecords(splitStringIndex.getName()).asList().get(), empty());
+            assertThat(recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get(), empty());
         }
     }
 
