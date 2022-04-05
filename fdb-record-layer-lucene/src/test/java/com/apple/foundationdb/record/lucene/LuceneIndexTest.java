@@ -1077,7 +1077,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static void assertEntriesAndSegmentInfoStoredInCompoundFile(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment, boolean cleanFiles) {
         try (final FDBDirectory directory = new FDBDirectory(subspace, context)) {
-            final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segment).join();
+            final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segment);
             Assertions.assertNotNull(reference);
             Assertions.assertTrue(reference.getEntries().length > 0);
             Assertions.assertTrue(reference.getSegmentInfo().length > 0);

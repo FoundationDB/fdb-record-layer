@@ -25,15 +25,14 @@ import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.test.Tags;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.NoSuchFileException;
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -58,7 +57,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     public void testGetIncrement() {
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
-        directory.getContext().ensureActive().commit().join();
+        directory.getContext().commit();
         FDBRecordContext context = fdb.openContext();
         directory = new FDBDirectory(subspace, context);
         assertEquals(3, directory.getIncrement());
@@ -69,13 +68,12 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testWriteGetLuceneFileReference() throws Exception {
-        CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference("NonExist");
-        assertNull(luceneFileReference.get(5, TimeUnit.SECONDS));
+        FDBLuceneFileReference luceneFileReference = directory.getFDBLuceneFileReference("NonExist");
+        assertNull(luceneFileReference);
         String luceneReference1 = "luceneReference1";
         FDBLuceneFileReference fileReference = new FDBLuceneFileReference(1, 10, 10, 10);
         directory.writeFDBLuceneFileReference(luceneReference1, fileReference);
-        luceneFileReference = directory.getFDBLuceneFileReference(luceneReference1);
-        FDBLuceneFileReference actual = luceneFileReference.get(5, TimeUnit.SECONDS);
+        FDBLuceneFileReference actual = directory.getFDBLuceneFileReference(luceneReference1);
         assertNotNull(actual, "file reference should exist");
         assertEquals(actual, fileReference);
 
@@ -89,8 +87,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.writeFDBLuceneFileReference("test1", reference1);
         FDBLuceneFileReference reference2 = new FDBLuceneFileReference(3, 1, 1, 1);
         directory.writeFDBLuceneFileReference("test1", reference2);
-        CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference("test1");
-        assertNotNull(luceneFileReference.get(5, TimeUnit.SECONDS), "fileReference should exist");
+        FDBLuceneFileReference luceneFileReference = directory.getFDBLuceneFileReference("test1");
+        assertNotNull(luceneFileReference, "fileReference should exist");
 
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE,
                 LuceneSerializer.encode(reference1.getBytes(), true, false).length + LuceneSerializer.encode(reference2.getBytes(), true, false).length);
@@ -99,18 +97,25 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testMissingSeek() {
-        assertThrows(RecordCoreArgumentException.class, () -> directory.readBlock("testDescription", directory.getFDBLuceneFileReference("testReference"), 1));
+        final CompletableFuture<byte[]> seekFuture = directory.readBlock(
+                "testDescription",
+                directory.getFDBLuceneFileReferenceAsync("testReference"),
+                1
+        );
+        final FDBRecordContext context = directory.getContext();
+        assertThrows(RecordCoreArgumentException.class,
+                () -> context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, seekFuture));
     }
 
     @Test
     public void testWriteSeekData() throws Exception {
         directory.writeFDBLuceneFileReference("testReference1", new FDBLuceneFileReference(1, 1, 1, 1));
-        assertNull(directory.readBlock("testReference1", directory.getFDBLuceneFileReference("testReference1"), 1).get());
+        assertNull(directory.readBlock("testReference1", directory.getFDBLuceneFileReferenceAsync("testReference1"), 1).get());
         directory.writeFDBLuceneFileReference("testReference2", new FDBLuceneFileReference(2, 1, 1, 200));
         byte[] data = "test string for write".getBytes();
         directory.writeData(2, 1, data);
         assertNotNull(directory.readBlock("testReference2",
-                directory.getFDBLuceneFileReference("testReference2"), 1).get(), "seek data should exist");
+                directory.getFDBLuceneFileReferenceAsync("testReference2"), 1).get(), "seek data should exist");
 
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_SIZE, LuceneSerializer.encode(data, true, false).length);
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_CALL, 1);
@@ -139,7 +144,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.deleteFile("test1");
         assertEquals(directory.listAll().length, 0);
 
-        assertCorrectMetricCount(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE,2);
+        // WAIT only gets called if there's a future to wait on, and so this value can be less than 2 if
+        // the futures complete quickly
+        assertMetricCountAtMost(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, 2);
     }
 
     @Test
@@ -163,10 +170,12 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
 
     private void assertCorrectMetricCount(StoreTimer.Event metric, int expectedValue) {
-        //check that metrics were collected
-        final Collection<StoreTimer.Event> events = timer.getEvents();
-        Assertions.assertTrue(events.contains(metric),"Did not count get increment calls!");
-        Assertions.assertEquals(expectedValue,timer.getCounter(metric).getCount(),"Incorrect call count ");
+        assertEquals(expectedValue, timer.getCount(metric),
+                () -> String.format("Incorrect call count for metric %s", metric));
     }
 
+    private void assertMetricCountAtMost(StoreTimer.Event metric, int maximumValue) {
+        assertThat(String.format("Metric %s should be called at most %d times", metric, maximumValue),
+                timer.getCount(metric), lessThanOrEqualTo(maximumValue));
+    }
 }

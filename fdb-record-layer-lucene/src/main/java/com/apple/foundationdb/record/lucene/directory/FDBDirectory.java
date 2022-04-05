@@ -24,7 +24,6 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -33,7 +32,6 @@ import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -63,7 +61,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -152,32 +149,30 @@ public class FDBDirectory extends Directory {
      * @return current increment value
      */
     public synchronized long getIncrement() {
-        increment(LuceneEvents .Counts.LUCENE_GET_INCREMENT_CALLS);
-        return context.ensureActive().get(sequenceSubspaceKey).thenApply(
-            (value) -> {
-                if (value == null) {
-                    context.ensureActive().set(sequenceSubspaceKey, Tuple.from(1L).pack());
-                    return 1L;
-                } else {
-                    long sequence = Tuple.fromBytes(value).getLong(0) + 1;
-                    context.ensureActive().set(sequenceSubspaceKey, Tuple.from(sequence).pack());
-                    return sequence;
-                }
-            }).join();
+        increment(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS);
+        CompletableFuture<Long> future = context.ensureActive().get(sequenceSubspaceKey).thenApply(value -> {
+            if (value == null) {
+                context.ensureActive().set(sequenceSubspaceKey, Tuple.from(1L).pack());
+                return 1L;
+            } else {
+                long sequence = Tuple.fromBytes(value).getLong(0) + 1;
+                context.ensureActive().set(sequenceSubspaceKey, Tuple.from(sequence).pack());
+                return sequence;
+            }
+        });
+        return Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT, future));
     }
 
     private void increment(StoreTimer.Count counter) {
-        final FDBStoreTimer timer = context.getTimer();
-        if (timer != null) {
-            timer.increment(counter);
-        }
+        context.increment(counter);
     }
 
     private void increment(StoreTimer.Count counter, int amount) {
-        final FDBStoreTimer timer = context.getTimer();
-        if (timer != null) {
-            timer.increment(counter, amount);
-        }
+        context.increment(counter, amount);
+    }
+
+    private void record(StoreTimer.Event event, long durationNanos) {
+        context.record(event, durationNanos);
     }
 
     /**
@@ -190,10 +185,11 @@ public class FDBDirectory extends Directory {
      * @param name name for the file reference
      * @return FDBLuceneFileReference
      */
+    @API(API.Status.INTERNAL)
     @Nonnull
-    public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReference(@Nonnull final String name) {
+    public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReferenceAsync(@Nonnull final String name) {
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("getFDBLuceneFileReference",
+            LOGGER.trace(getLogMessage("getFDBLuceneFileReferenceAsync",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
@@ -209,6 +205,12 @@ public class FDBDirectory extends Directory {
         } else {
             return CompletableFuture.completedFuture(fileReference);
         }
+    }
+
+    @API(API.Status.INTERNAL)
+    @Nullable
+    public FDBLuceneFileReference getFDBLuceneFileReference(@Nonnull final String name) {
+        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, getFDBLuceneFileReferenceAsync(name));
     }
 
     public static boolean isSegmentInfo(String name) {
@@ -247,20 +249,20 @@ public class FDBDirectory extends Directory {
     public void writeFDBLuceneFileReference(@Nonnull String name, @Nonnull FDBLuceneFileReference reference) {
         if (isEntriesFile(name)) {
             name = convertToDataFile(name);
-            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name).join();
+            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
             if (storedRef != null) {
                 storedRef.setEntries(reference.getEntries());
                 reference = storedRef;
             }
         } else if (isSegmentInfo(name)) {
             name = convertToDataFile(name);
-            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name).join();
+            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
             if (storedRef != null) {
                 storedRef.setSegmentInfo(reference.getSegmentInfo());
                 reference = storedRef;
             }
         } else if (isCompoundFile(name)) {
-            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name).join();
+            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
             if (storedRef != null) {
                 reference.setSegmentInfo(storedRef.getSegmentInfo());
                 reference.setEntries(storedRef.getEntries());
@@ -314,30 +316,32 @@ public class FDBDirectory extends Directory {
      * @throws RecordCoreException if blockCache fails to get the data from the block
      * @throws RecordCoreArgumentException if a reference with that id hasn't been written yet.
      */
-    @SuppressWarnings("PMD.UnusedNullCheckInEquals") // checks and throws more relevant exception
+    @API(API.Status.INTERNAL)
     @Nonnull
-    public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws RecordCoreException {
-        try {
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace(getLogMessage("readBlock",
-                        LuceneLogMessageKeys.FILE_NAME, resourceDescription,
-                        LuceneLogMessageKeys.BLOCK_NUMBER, block));
-            }
-            final FDBLuceneFileReference reference = referenceFuture.join(); // Tried to fully pipeline this but the reality is that this is mostly cached after listAll, delete, etc.
-            if (reference == null) {
-                throw new RecordCoreArgumentException(String.format("No reference with name %s was found", resourceDescription));
-            }
-            Long id = reference.getId();
+    public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) {
+        return referenceFuture.thenCompose(reference -> readBlock(resourceDescription, reference, block));
+    }
 
-            long start = System.nanoTime();
-            return context.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
-                    () -> context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
-                            context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
-                                    .thenApplyAsync(data -> LuceneSerializer.decode(data)))
-            ), start);
-        } catch (ExecutionException e) {
-            throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
+    @Nonnull
+    private CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nullable FDBLuceneFileReference reference, int block) {
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("readBlock",
+                    LuceneLogMessageKeys.FILE_NAME, resourceDescription,
+                    LuceneLogMessageKeys.BLOCK_NUMBER, block));
         }
+        if (reference == null) {
+            CompletableFuture<byte[]> exceptionalFuture = new CompletableFuture<>();
+            exceptionalFuture.completeExceptionally(new RecordCoreArgumentException(String.format("No reference with name %s was found", resourceDescription)));
+            return exceptionalFuture;
+        }
+        Long id = reference.getId();
+
+        long start = System.nanoTime();
+        return context.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(Pair.of(id, block),
+                ignore -> context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
+                        context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
+                                .thenApply(LuceneSerializer::decode))
+        ), start);
     }
 
     /**
@@ -361,13 +365,6 @@ public class FDBDirectory extends Directory {
         return outList.toArray(new String[outList.size()]);
     }
 
-    private void record(StoreTimer.Event event, long durationNanos) {
-        final FDBStoreTimer timer = context.getTimer();
-        if (timer != null) {
-            timer.record(event, durationNanos);
-        }
-    }
-
     private List<String> listAllInternal() {
         //A private form of the method to allow easier instrumentation
         List<String> outList = new ArrayList<>();
@@ -378,11 +375,11 @@ public class FDBDirectory extends Directory {
         for (KeyValue kv : context.ensureActive().getRange(metaSubspace.range())) {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             outList.add(name);
-            final FDBLuceneFileReference fileReference = FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue()));
+            final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
             // Only composite files are prefetched.
             if (name.endsWith(".cfs")) {
                 try {
-                    readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
+                    readBlock(name, fileReference, 0);
                 } catch (RecordCoreException e) {
                     LOGGER.warn(getLogMessage("Exception thrown during prefetch",
                             LuceneLogMessageKeys.FILE_NAME, name));
@@ -425,7 +422,7 @@ public class FDBDirectory extends Directory {
         if (isEntriesFile(name) || isSegmentInfo(name)) {
             return;
         }
-        boolean deleted = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReference(name).thenApplyAsync(
+        boolean deleted = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReferenceAsync(name).thenApply(
                 (value) -> {
                     if (value == null) {
                         return false;
@@ -455,7 +452,7 @@ public class FDBDirectory extends Directory {
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
         name = convertToDataFile(name);
-        FDBLuceneFileReference reference = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReference(name));
+        FDBLuceneFileReference reference = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReferenceAsync(name));
         if (isEntriesFile(name)) {
             return reference.getEntries().length;
         }
