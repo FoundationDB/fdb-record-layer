@@ -212,7 +212,8 @@ public class QueryToKeyMatcher {
     private Match matches(@Nonnull QueryComponent query, @Nonnull KeyExpression key,
                           @Nonnull MatchingMode matchingMode, @Nullable FilterSatisfiedMask filterMask) {
         if (key instanceof GroupingKeyExpression) {
-            return matches(query, ((GroupingKeyExpression) key).getWholeKey(), matchingMode, filterMask);
+            KeyExpression group = extractGroupingKey((GroupingKeyExpression) key, matchingMode);
+            return group == null ? Match.none() : matches(query, group, matchingMode, filterMask);
         }
         if (key instanceof KeyWithValueExpression) {
             KeyExpression onlyKey = extractKeyFromKeyWithValue((KeyWithValueExpression)key, matchingMode);
@@ -486,6 +487,17 @@ public class QueryToKeyMatcher {
         throw new KeyExpression.InvalidExpressionException("Unexpected Key Expression type " + key.getClass());
     }
 
+    private KeyExpression extractGroupingKey(GroupingKeyExpression grouping, MatchingMode matchingMode) {
+        try {
+            return grouping.getGroupingSubKey();
+        } catch (BaseKeyExpression.UnsplittableKeyExpressionException err) {
+            if (matchingMode == MatchingMode.SATISFY_QUERY) {
+                return extractPrefixUntilSplittable(grouping.getWholeKey(), grouping.getGroupingCount());
+            }
+        }
+        return null;
+    }
+
     @Nullable
     private KeyExpression extractKeyFromKeyWithValue(KeyWithValueExpression keyWithValue, MatchingMode matchingMode) {
         try {
@@ -496,14 +508,20 @@ public class QueryToKeyMatcher {
             // cover the entire query, so keep trying a more and more selective prefix of the key until
             // we no longer hit the unsplittable exception
             if (matchingMode == MatchingMode.SATISFY_QUERY) {
-                int adjustedSplitPoint = keyWithValue.getSplitPoint() - 1;
-                while (adjustedSplitPoint >= 0) {
-                    try {
-                        return keyWithValue.getInnerKey().getSubKey(0, adjustedSplitPoint);
-                    } catch (BaseKeyExpression.UnsplittableKeyExpressionException innerErr) {
-                        adjustedSplitPoint--;
-                    }
-                }
+                return extractPrefixUntilSplittable(keyWithValue.getInnerKey(), keyWithValue.getSplitPoint());
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private KeyExpression extractPrefixUntilSplittable(KeyExpression wholeKeyExpression, int originalSplitPoint) {
+        int adjustedSplitPoint = originalSplitPoint - 1;
+        while (adjustedSplitPoint >= 0) {
+            try {
+                return wholeKeyExpression.getSubKey(0, adjustedSplitPoint);
+            } catch (BaseKeyExpression.UnsplittableKeyExpressionException innerErr) {
+                adjustedSplitPoint--;
             }
         }
         return null;
