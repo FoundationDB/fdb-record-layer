@@ -24,12 +24,17 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.NoSuchFileException;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
@@ -67,7 +72,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
 
     @Test
-    public void testWriteGetLuceneFileReference() throws Exception {
+    public void testWriteGetLuceneFileReference() {
         FDBLuceneFileReference luceneFileReference = directory.getFDBLuceneFileReference("NonExist");
         assertNull(luceneFileReference);
         String luceneReference1 = "luceneReference1";
@@ -76,12 +81,10 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         FDBLuceneFileReference actual = directory.getFDBLuceneFileReference(luceneReference1);
         assertNotNull(actual, "file reference should exist");
         assertEquals(actual, fileReference);
-
-        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_GET_FILE_REFERENCE,1);
     }
 
     @Test
-    public void testWriteLuceneFileReference() throws Exception {
+    public void testWriteLuceneFileReference() {
         // write already created file reference
         FDBLuceneFileReference reference1 = new FDBLuceneFileReference(2, 1, 1, 1);
         directory.writeFDBLuceneFileReference("test1", reference1);
@@ -128,12 +131,18 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.writeFDBLuceneFileReference("test2", new FDBLuceneFileReference(2, 1, 1, 1));
         directory.writeFDBLuceneFileReference("test3", new FDBLuceneFileReference(3, 1, 1, 1));
         assertArrayEquals(new String[]{"test1", "test2", "test3"}, directory.listAll());
+        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LIST_ALL, 2);
+        // Assert that the cache is loaded only once even though directory::listAll is called twice
+        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, 1);
         directory.getContext().ensureActive().cancel();
-        FDBRecordContext context = fdb.openContext();
-        directory = new FDBDirectory(subspace, context);
-        assertArrayEquals(new String[0], directory.listAll());
 
-        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LIST_ALL,2);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            directory = new FDBDirectory(subspace, context);
+            assertArrayEquals(new String[0], directory.listAll());
+            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_LIST_ALL));
+            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE));
+        }
     }
 
     @Test
@@ -151,14 +160,34 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testFileLength() throws Exception {
-        assertThrows(NoSuchFileException.class, () -> directory.fileLength("nonExist"));
-        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 20, 20, 1024);
+        long expectedSize = 20;
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, expectedSize, expectedSize, 1024);
         directory.writeFDBLuceneFileReference("test1", reference1);
         long fileSize = directory.fileLength("test1");
-        assertEquals(20, fileSize);
+        assertEquals(expectedSize, fileSize);
+        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_GET_FILE_LENGTH, 1);
+        directory.getContext().commit();
 
-        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_GET_FILE_REFERENCE,1);
-        assertCorrectMetricCount(LuceneEvents.Waits.WAIT_LUCENE_FILE_LENGTH,1);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            directory = new FDBDirectory(subspace, context);
+            long fileSize2 = directory.fileLength("test1");
+            assertEquals(expectedSize, fileSize2);
+            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_GET_FILE_LENGTH));
+            assertEquals(1, timer.getCount(LuceneEvents.Waits.WAIT_LUCENE_FILE_LENGTH));
+        }
+    }
+
+    @SuppressWarnings("unused") // used to provide arguments for parameterized test
+    static Stream<Arguments> testFileLengthNonExistent() {
+        return Stream.of("nonExist", "nonExistentEntries.cfe", "nonExistentSegmentInfo.si")
+                .map(Arguments::of);
+    }
+
+    @ParameterizedTest(name = "testFileLengthNonExistent[fileName={0}]")
+    @MethodSource
+    public void testFileLengthNonExistent(String fileName) {
+        assertThrows(NoSuchFileException.class, () -> directory.fileLength(fileName));
     }
 
     @Test

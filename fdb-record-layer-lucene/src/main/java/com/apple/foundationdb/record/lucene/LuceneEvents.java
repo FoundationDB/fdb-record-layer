@@ -38,20 +38,22 @@ public class LuceneEvents {
      * Main events.
      */
     public enum Events implements StoreTimer.Event {
-        /** Time to read a block from Lucene's FDBDirectory.*/
+        /** Time to read a block from Lucene's FDBDirectory. */
         LUCENE_READ_BLOCK("lucene block reads"),
         /** Time to read a lucene block from FBB loader. */
         LUCENE_FDB_READ_BLOCK("lucene read from fdb"),
-        /** Time to list all files from Lucene's FDBDirectory.*/
+        /** Time to list all files from Lucene's FDBDirectory. */
         LUCENE_LIST_ALL("lucene list all"),
-        /** Number of getFileReference calls in the FDBDirectory.*/
-        LUCENE_GET_FILE_REFERENCE("lucene get file references"),
+        /** Time to load the file cache for Lucene's FDBDirectory. */
+        LUCENE_LOAD_FILE_CACHE("lucene load file cache"),
+        /** Number of file length calls in the FDBDirectory. */
+        LUCENE_GET_FILE_LENGTH("lucene get file length"),
         /** Number of documents returned from a single Lucene Index Scan. */
         LUCENE_INDEX_SCAN("lucene search returned documents"),
         /** Number of suggestions returned from a single Lucene Auto Complete Scan. */
         LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN("lucene search returned auto complete suggestions"),
         /** Number of documents returned from a single Lucene spellcheck scan. */
-        LUCENE_SPELLCHECK_SCAN("lucene search returned spellcheck suggestions")
+        LUCENE_SPELLCHECK_SCAN("lucene search returned spellcheck suggestions"),
         ;
 
         private final String title;
@@ -128,6 +130,8 @@ public class LuceneEvents {
         WAIT_LUCENE_GET_FILE_REFERENCE("lucene get file reference"),
         /** Wait to read a data block. */
         WAIT_LUCENE_GET_DATA_BLOCK("lucene get data block"),
+        /** Wait for lucene to load the file cache. */
+        WAIT_LUCENE_LOAD_FILE_CACHE("lucene load file cache"),
         ;
 
         private final String title;
