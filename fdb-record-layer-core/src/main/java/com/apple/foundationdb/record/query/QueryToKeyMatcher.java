@@ -514,7 +514,7 @@ public class QueryToKeyMatcher {
         return null;
     }
 
-    @Nullable
+    @Nonnull
     private KeyExpression extractPrefixUntilSplittable(KeyExpression wholeKeyExpression, int originalSplitPoint) {
         int adjustedSplitPoint = originalSplitPoint - 1;
         while (adjustedSplitPoint >= 0) {
@@ -524,7 +524,10 @@ public class QueryToKeyMatcher {
                 adjustedSplitPoint--;
             }
         }
-        return null;
+        // We should always be able to extract 0 columns, so this should be unreachable code
+        throw new RecordCoreException("unable to extract splittable prefix from key expression")
+                .addLogInfo(LogMessageKeys.KEY_EXPRESSION, wholeKeyExpression)
+                .addLogInfo(LogMessageKeys.COLUMN_SIZE, originalSplitPoint);
     }
 
     /**
