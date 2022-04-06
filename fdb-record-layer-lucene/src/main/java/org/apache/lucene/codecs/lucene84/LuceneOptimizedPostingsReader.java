@@ -87,18 +87,22 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
         String docName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.DOC_EXTENSION);
         try {
             docIn = state.directory.openInput(docName, state.context);
-            version = CodecUtil.checkIndexHeader(docIn, DOC_CODEC, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix);
             if (state.fieldInfos.hasProx()) {
                 String proxName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.POS_EXTENSION);
                 posIn = state.directory.openInput(proxName, state.context);
-                CodecUtil.checkIndexHeader(posIn, POS_CODEC, version, version, state.segmentInfo.getId(), state.segmentSuffix);
                 if (state.fieldInfos.hasPayloads() || state.fieldInfos.hasOffsets()) {
                     String payName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.PAY_EXTENSION);
                     payIn = state.directory.openInput(payName, state.context);
-                    CodecUtil.checkIndexHeader(payIn, PAY_CODEC, version, version, state.segmentInfo.getId(), state.segmentSuffix);
                 }
             }
-
+            // The headers are checked last so all 3 openInput calls can begin their fetch of the data concurrently
+            version = CodecUtil.checkIndexHeader(docIn, DOC_CODEC, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix);
+            if (posIn != null) {
+                CodecUtil.checkIndexHeader(posIn, POS_CODEC, version, version, state.segmentInfo.getId(), state.segmentSuffix);
+            }
+            if (payIn != null) {
+                CodecUtil.checkIndexHeader(payIn, PAY_CODEC, version, version, state.segmentInfo.getId(), state.segmentSuffix);
+            }
             this.docIn = docIn;
             this.posIn = posIn;
             this.payIn = payIn;
