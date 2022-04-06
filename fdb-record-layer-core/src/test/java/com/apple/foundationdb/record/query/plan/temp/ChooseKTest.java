@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
@@ -151,5 +152,29 @@ public class ChooseKTest {
                         .add(ImmutableSet.of("a", "b", "c", "d", "e"))
                         .build(),
                 combinations);
+    }
+
+    @Test
+    void testChooseK3() {
+        final Set<String> elements = ImmutableSet.of("a", "b", "c", "d", "e");
+
+        final EnumeratingIterable<String> combinationsIterable = ChooseK.chooseK(elements, 4);
+        final EnumeratingIterator<String> iterator = combinationsIterable.iterator();
+
+        final var actualSetBuilder = ImmutableSet.builder();
+
+        actualSetBuilder.add(ImmutableSet.copyOf(iterator.next())); // a,b,c,d
+        iterator.skip(1);                                     // skip subtree a,[b,...] combinations.
+        actualSetBuilder.add(ImmutableSet.copyOf(iterator.next())); // a,c,d,e
+        actualSetBuilder.add(ImmutableSet.copyOf(iterator.next())); // b,c,d,e
+
+        assertEquals(ImmutableSet.<Set<String>>builder()
+                        .add(ImmutableSet.of("a", "b", "c", "d"))
+                        // .add(ImmutableSet.of("a", "b", "c", "e")) // skipped
+                        // .add(ImmutableSet.of("a", "b", "d", "e")) // skipped
+                        .add(ImmutableSet.of("a", "c", "d", "e"))
+                        .add(ImmutableSet.of("b", "c", "d", "e"))
+                        .build(),
+                actualSetBuilder.build());
     }
 }
