@@ -1736,10 +1736,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @see RecordQueryPlan#execute
      */
     @Nonnull
-    default RecordCursor<QueryResult> executePlan(@Nonnull RecordQueryPlan plan,
-                                                  @Nullable byte[] continuation,
-                                                  @Nonnull EvaluationContext evaluationContext,
-                                                  @Nonnull ExecuteProperties executeProperties) {
+    default RecordCursor<QueryResult> executeQuery(@Nonnull RecordQueryPlan plan,
+                                                   @Nullable byte[] continuation,
+                                                   @Nonnull EvaluationContext evaluationContext,
+                                                   @Nonnull ExecuteProperties executeProperties) {
         return plan.executePlan(this, evaluationContext, continuation, executeProperties);
     }
 

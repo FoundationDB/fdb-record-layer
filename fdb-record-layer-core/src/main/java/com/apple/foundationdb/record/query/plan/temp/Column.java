@@ -26,7 +26,7 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
- * A case class to hold a values computing a column together with information about the field of a record it supplies
+ * A class to hold a value computing a column together with information about the field of a record it supplies
  * the result for.
  * @param <V> type parameter for the {@link Value}
  */

@@ -42,7 +42,7 @@ import java.util.concurrent.Executor;
  * @param <M> the record type that holds the actual data
  */
 @API(API.Status.EXPERIMENTAL)
-public class AggregateCursor<M extends Message> implements RecordCursor<Object> {
+public class AggregateCursor<M extends Message> implements RecordCursor<QueryResult> {
     // Inner cursor to provide record inflow
     @Nonnull
     private final RecordCursor<QueryResult> inner;
@@ -63,9 +63,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<Object> 
 
     @Nonnull
     @Override
-    public CompletableFuture<RecordCursorResult<Object>> onNext() {
+    public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
         if (previousResult != null && !previousResult.hasNext()) {
-            // post-done termination condition: Keep returning terminal element after inner is exhausted.
+            // we are done
             return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
         }
 
@@ -84,14 +84,14 @@ public class AggregateCursor<M extends Message> implements RecordCursor<Object> 
             if ((previousValidResult == null) && (!previousResult.hasNext())) {
                 // Edge case where there are no records at all
                 if (streamGrouping.isResultOnEmpty()) {
-                    return RecordCursorResult.withNextValue(streamGrouping.getCompletedGroupResult(), RecordCursorStartContinuation.START);
+                    return RecordCursorResult.withNextValue(QueryResult.of(streamGrouping.getCompletedGroupResult()), RecordCursorStartContinuation.START);
                 } else {
                     return RecordCursorResult.exhausted();
                 }
             }
             // Use the last valid result for the continuation as we need non-terminal one here.
             RecordCursorContinuation continuation = previousValidResult.getContinuation();
-            return RecordCursorResult.withNextValue(streamGrouping.getCompletedGroupResult(), continuation);
+            return RecordCursorResult.withNextValue(QueryResult.of(streamGrouping.getCompletedGroupResult()), continuation);
         });
     }
 

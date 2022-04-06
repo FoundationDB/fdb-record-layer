@@ -129,7 +129,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                         (FDBRecordStoreBase<Message>)store,
                         context,
                         inner.getAlias());
-        return new AggregateCursor<>(innerCursor, streamGrouping).map(QueryResult::of);
+        return new AggregateCursor<>(innerCursor, streamGrouping);
     }
 
     @Override

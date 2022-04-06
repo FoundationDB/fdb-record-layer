@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
@@ -44,7 +43,8 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierM
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.selectExpression;
 
 /**
- * A rule that implements a logical filter around a {@link RecordQueryPlan} as a {@link RecordQueryFilterPlan}.
+ * A rule that implements a select expression without predicates over a single {@link RecordQueryPlan} as a
+ * {@link RecordQueryMapPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementMapRule extends PlannerRule<SelectExpression> {
