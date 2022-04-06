@@ -71,8 +71,8 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
         this.segmentName = si.name;
         String dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
         String entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
-        this.entries = readEntries(si.getId(), directory, entriesFileName);
-        handle = directory.openInput(dataFileName, context);
+        handle = directory.openInput(dataFileName, context); // async
+        this.entries = readEntries(si.getId(), directory, entriesFileName); // synchronous
     }
 
     /** Helper method that reads CFS entries from an input stream. */
