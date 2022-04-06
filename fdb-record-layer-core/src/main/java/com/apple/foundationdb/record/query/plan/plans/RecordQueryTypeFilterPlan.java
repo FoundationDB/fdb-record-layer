@@ -33,12 +33,13 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,7 +54,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
@@ -69,7 +69,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Nonnull
     private final Collection<String> recordTypes;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Type resultType;
     @Nonnull
     private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_TYPE_FILTER_PLAN_GIVEN);
     @Nonnull
@@ -80,13 +80,13 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
     public RecordQueryTypeFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull Collection<String> recordTypes) {
-        this(Quantifier.physical(GroupExpressionRef.of(inner)), recordTypes);
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), recordTypes, new Type.Any());
     }
 
-    public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes) {
+    public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes, @Nonnull Type resultType) {
         this.inner = inner;
         this.recordTypes = recordTypes;
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
+        this.resultType = resultType;
     }
 
     @Nonnull
@@ -98,7 +98,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
         final RecordCursor<QueryResult> results = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         return results
-                .filterInstrumented(result -> recordTypes.contains(result.getQueriedRecord(0).getRecordType().getName()), store.getTimer(),
+                .filterInstrumented(result -> recordTypes.contains(result.getQueriedRecord().getRecordType().getName()), store.getTimer(),
                         inCounts, duringEvents, successCounts, failureCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
@@ -132,7 +132,8 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
                                                                   @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryTypeFilterPlan(
                 Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                getRecordTypes());
+                getRecordTypes(),
+                resultType);
     }
 
     @Nonnull
@@ -143,8 +144,8 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return QuantifiedObjectValue.of(inner.getAlias(), resultType);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 
 import javax.annotation.Nonnull;
@@ -32,5 +31,5 @@ import java.util.Optional;
 public interface ScanWithFetchMatchCandidate extends MatchCandidate {
     @Nonnull
     Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                          @Nonnull QuantifiedColumnValue indexRecordColumnValue);
+                                          @Nonnull CorrelationIdentifier targetAlias);
 }

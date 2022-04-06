@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -40,7 +41,10 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -139,12 +143,17 @@ class TypeTest {
     @ParameterizedTest(name = "[{index}] test synthesize {0}")
     @ArgumentsSource(ProtobufRandomMessageProvider.class)
     void recordTypeIsParsable(final String paramTestTitleIgnored, final Message message) throws Exception {
+        TypeRepository.Builder builder = TypeRepository.newBuilder();
         final Type.Record recordType = Type.Record.fromDescriptor(message.getDescriptorForType());
-        final DescriptorProtos.DescriptorProto descriptorProto = recordType.buildDescriptor("SyntheticDescriptor");
+        final Optional<String> typeName = builder.defineAndResolveType(recordType);
+        Assertions.assertTrue(typeName.isPresent());
+        final TypeRepository typeRepository = builder.build();
         final Descriptors.FileDescriptor fileDescriptor = Descriptors.FileDescriptor.buildFrom(
-                DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(descriptorProto).build(),
+                DescriptorProtos.FileDescriptorProto.newBuilder()
+                        .addAllMessageType(typeRepository.getMessageTypes().stream().map(typeRepository::getMessageDescriptor).filter(Objects::nonNull).map(Descriptors.Descriptor::toProto).collect(Collectors.toUnmodifiableList()))
+                        .build(),
                 new Descriptors.FileDescriptor[]{});
-        final Descriptors.Descriptor messageDescriptor = fileDescriptor.getMessageTypes().get(0);
+        final Descriptors.Descriptor messageDescriptor = fileDescriptor.findMessageTypeByName(typeName.get());
         final Message actual = DynamicMessage.parseFrom(messageDescriptor, message.toByteArray());
         areEqual(message, actual, messageDescriptor);
     }

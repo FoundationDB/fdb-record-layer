@@ -24,10 +24,10 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords7Proto;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +45,7 @@ import java.util.stream.Stream;
  * Tests evaluation of {@link ArithmeticValue}.
  */
 class ArithmeticValueTest {
-    private static final FieldValue F = new FieldValue(QuantifiedColumnValue.of(CorrelationIdentifier.of("ident"), 0), ImmutableList.of("rec_no"), Type.primitiveType(Type.TypeCode.LONG));
+    private static final FieldValue F = new FieldValue(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident"), new Type.Any()), ImmutableList.of("rec_no"), Type.primitiveType(Type.TypeCode.LONG));
     private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
     private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
     private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);
@@ -57,9 +57,9 @@ class ArithmeticValueTest {
     private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 2.0);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
-    private static final DynamicSchema.Builder dynamicSchemaBuilder = DynamicSchema.newBuilder().setName("foo").setPackage("a.b.c");
+    private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
-    private static final ParserContext parserContext = new ParserContext(null, dynamicSchemaBuilder, null, null);
+    private static final ParserContext parserContext = new ParserContext(null, typeRepositoryBuilder, null, null);
     private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.Internal.CORRELATION.bindingName("ident"), TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build());
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -67,12 +66,12 @@ abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
     @Nullable
     protected abstract <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store,
                                                               @Nonnull EvaluationContext context,
-                                                              @Nullable FDBRecord<M> record);
+                                                              @Nonnull QueryResult datum);
 
     @Nullable
     protected abstract <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store,
                                                                                       @Nonnull EvaluationContext context,
-                                                                                      @Nullable FDBRecord<M> record);
+                                                                                      @Nonnull QueryResult datum);
 
     @Nonnull
     @Override
@@ -84,13 +83,13 @@ abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
 
         if (hasAsyncFilter()) {
             return results
-                    .filterAsyncInstrumented(result -> evalFilterAsync(store, context, result.getQueriedRecord(0)),
+                    .filterAsyncInstrumented(result -> evalFilterAsync(store, context, result),
                             store.getPipelineSize(PipelineOperation.RECORD_ASYNC_FILTER),
                             store.getTimer(), inCounts, duringEvents, successCounts, failureCounts)
                     .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         } else {
             return results
-                    .filterInstrumented(result -> evalFilter(store, context, result.getQueriedRecord(0)), store.getTimer(),
+                    .filterInstrumented(result -> evalFilter(store, context, result), store.getTimer(),
                             inCounts, duringEvents, successCounts, failureCounts)
                     .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         }

@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
-import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -44,7 +43,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -96,35 +94,40 @@ import java.util.stream.StreamSupport;
  * implementations of each.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RelationalExpression extends Correlated<RelationalExpression> {
+public interface RelationalExpression extends Correlated<RelationalExpression>, Typed, Narrowable<RelationalExpression> {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
                                                 @Nonnull RecordQuery query) {
-        query.validate(context.getMetaData());
+        final var recordMetaData = context.getMetaData();
+        query.validate(recordMetaData);
+        final var recordTypes = context.getRecordTypes();
 
         final GroupExpressionRef<? extends RelationalExpression> baseRef;
         Quantifier.ForEach quantifier;
-        if (context.getRecordTypes().isEmpty()) {
+        if (recordTypes.isEmpty()) {
             baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
             final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet()));
-            baseRef = GroupExpressionRef.of(new LogicalTypeFilterExpression(new HashSet<>(context.getRecordTypes()), Quantifier.forEach(fuseRef)));
+            baseRef = GroupExpressionRef.of(
+                    new LogicalTypeFilterExpression(
+                            new HashSet<>(recordTypes),
+                            Quantifier.forEach(fuseRef),
+                            Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(recordTypes))));
             quantifier = Quantifier.forEach(baseRef);
         }
 
         final SelectExpression selectExpression;
         if (query.getFilter() != null) {
             selectExpression =
-                    query.getFilter()
-                            .expand(quantifier.getAlias(), () -> Quantifier.forEach(baseRef))
-                            .withBase(quantifier)
-                            .buildSelect();
+                    GraphExpansion.ofOthers(GraphExpansion.builder().addQuantifier(quantifier).build(),
+                                    query.getFilter()
+                                            .expand(quantifier, () -> Quantifier.forEach(baseRef)))
+                            .buildSimpleSelectOverQuantifier(quantifier);
         } else {
             selectExpression =
-                    GraphExpansion.empty()
-                            .withBase(quantifier)
-                            .buildSelect();
+                    GraphExpansion.builder().addQuantifier(quantifier).build()
+                            .buildSimpleSelectOverQuantifier(quantifier);
         }
         quantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
 
@@ -145,7 +148,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
                                     .stream()
                                     .flatMap(keyExpression -> keyExpression.normalizeKeyForPositions().stream())
                                     .collect(ImmutableList.toImmutableList()),
-                            quantifier.getAlias());
+                            quantifier);
             quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalProjectionExpression(projectedValues, quantifier)));
         }
 
@@ -153,32 +156,22 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
     }
 
     @Nonnull
-    List<? extends Value> getResultValues();
+    @Override
+    default Type.Relation getResultType() {
+        return new Type.Relation(getResultValue().getResultType());
+    }
 
-    /**
-     * Return all {@link FieldValue}s contained in the result values of this expression.
-     * @return a set of {@link FieldValue}s
-     */
-    default ImmutableSet<FieldValue> getFieldValuesFromResultValues() {
-        return getResultValues()
-                .stream()
-                .flatMap(resultValue ->
-                        StreamSupport.stream(resultValue
-                                .filter(v -> v instanceof FieldValue).spliterator(), false))
-                .map(value -> (FieldValue)value)
-                .collect(ImmutableSet.toImmutableSet());
+    @Nonnull
+    Value getResultValue();
+
+    @Nonnull
+    default Set<Type> getDynamicTypes() {
+        return getResultValue().getDynamicTypes();
     }
 
     @SuppressWarnings({"java:S3655", "UnstableApiUsage"})
     default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
-        final List<? extends Value> resultValues = getResultValues();
-        final List<? extends Value> otherResultValues = otherExpression.getResultValues();
-        if (resultValues.size() != otherResultValues.size()) {
-            return false;
-        }
-        return Streams.zip(resultValues.stream(), otherResultValues.stream(),
-                (resultValue, otherResultValue) -> resultValue.semanticEquals(otherResultValue, aliasMap))
-                .allMatch(isEquals -> isEquals);
+        return getResultValue().semanticEquals(otherExpression.getResultValue(), aliasMap);
     }
 
     /**
@@ -289,19 +282,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
                         }));
 
         return !Iterables.isEmpty(boundMatchIterable);
-    }
-
-    @Nonnull
-    default <E extends RelationalExpression> E narrow(@Nonnull Class<E> narrowedClass) {
-        return narrowedClass.cast(this);
-    }
-
-    @Nonnull
-    default <E extends RelationalExpression> Optional<E> narrowMaybe(@Nonnull Class<E> narrowedClass) {
-        if (narrowedClass.isInstance(this)) {
-            return Optional.of(narrowedClass.cast(this));
-        }
-        return Optional.empty();
     }
 
     /**

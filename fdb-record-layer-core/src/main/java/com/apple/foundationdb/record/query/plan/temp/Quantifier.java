@@ -22,15 +22,14 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Preconditions;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -82,6 +81,12 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * As a quantifier is immutable, the columns that flow along the quantifier can be lazily computed.
+     */
+    @Nonnull
+    private final Supplier<List<Column<? extends QuantifiedColumnValue>>> flowedColumnsSupplier;
+
+    /**
+     * As a quantifier is immutable, the values that flow along the quantifier can be lazily computed.
      */
     @Nonnull
     private final Supplier<List<? extends QuantifiedColumnValue>> flowedValuesSupplier;
@@ -166,8 +171,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public List<? extends QuantifiedColumnValue> computeFlowedValues() {
-            return pullUpResultValues();
+        public List<Column<? extends QuantifiedColumnValue>> computeFlowedColumns() {
+            return pullUpResultColumns(getFlowedObjectType(), getAlias());
         }
     }
 
@@ -264,8 +269,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public List<? extends QuantifiedColumnValue> computeFlowedValues() {
-            return ImmutableList.of(QuantifiedColumnValue.of(getAlias(), 0));
+        public List<Column<? extends QuantifiedColumnValue>> computeFlowedColumns() {
+            throw new IllegalStateException("should not be called");
         }
     }
 
@@ -404,8 +409,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public List<? extends QuantifiedColumnValue> computeFlowedValues() {
-            return pullUpResultValues();
+        public List<Column<? extends QuantifiedColumnValue>> computeFlowedColumns() {
+            return pullUpResultColumns(getFlowedObjectType(), getAlias());
         }
     }
 
@@ -433,6 +438,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     protected Quantifier(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
         this.correlatedToSupplier = Suppliers.memoize(() -> getRangesOver().getCorrelatedTo());
+        this.flowedColumnsSupplier = Suppliers.memoize(this::computeFlowedColumns);
         this.flowedValuesSupplier = Suppliers.memoize(this::computeFlowedValues);
         // Call debugger hook for this new quantifier.
         Debugger.registerQuantifier(this);
@@ -550,36 +556,52 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     @Nonnull
+    public List<Column<? extends QuantifiedColumnValue>> getFlowedColumns() {
+        return flowedColumnsSupplier.get();
+    }
+
+    @Nonnull
+    protected abstract List<Column<? extends QuantifiedColumnValue>> computeFlowedColumns();
+
+    @Nonnull
+    protected static List<Column<? extends QuantifiedColumnValue>> pullUpResultColumns(@Nonnull final Type type, @Nonnull CorrelationIdentifier alias) {
+        final List<Field> fields;
+        if (type instanceof Type.Record) {
+            fields = Objects.requireNonNull(((Type.Record)type).getFields());
+        } else {
+            throw new IllegalStateException("quantifier does not flow records");
+        }
+
+        final var recordType = (Type.Record)type;
+        final var resultBuilder = ImmutableList.<Column<? extends QuantifiedColumnValue>>builder();
+        for (var i = 0; i < fields.size(); i++) {
+            final var field = fields.get(i);
+            resultBuilder.add(Column.of(field, QuantifiedColumnValue.of(alias, Math.toIntExact(i), recordType)));
+        }
+        return resultBuilder.build();
+    }
+
+    @Nonnull
     public List<? extends QuantifiedColumnValue> getFlowedValues() {
         return flowedValuesSupplier.get();
     }
 
     @Nonnull
-    protected abstract List<? extends QuantifiedColumnValue> computeFlowedValues();
-
-    @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
-    protected List<? extends QuantifiedColumnValue> pullUpResultValues() {
-        return Streams.mapWithIndex(resolveValuesRangedOver().stream(),
-                (columnValue, index) -> QuantifiedColumnValue.of(getAlias(), Math.toIntExact(index)))
+    private List<? extends QuantifiedColumnValue> computeFlowedValues() {
+        return getFlowedColumns()
+                .stream()
+                .map(Column::getValue)
                 .collect(ImmutableList.toImmutableList());
     }
 
+    public QuantifiedObjectValue getFlowedObjectValue() {
+        return QuantifiedObjectValue.of(getAlias(), getFlowedObjectType());
+    }
+
     @Nonnull
-    protected List<? extends Value> resolveValuesRangedOver() {
-        final ExpressionRef<? extends RelationalExpression> rangesOver = getRangesOver();
-
-        return rangesOver.getMembers()
-                .stream()
-                .map(RelationalExpression::getResultValues)
-                .reduce((left, right) -> {
-                    Preconditions.checkArgument(!left.isEmpty() && !right.isEmpty());
-
-                    // TODO type check -- for now just return the prefix common in both
-                    final int commonPrefixLength = Math.min(left.size(), right.size());
-
-                    return ImmutableList.copyOf(left.subList(0, commonPrefixLength));
-                })
-                .orElseThrow(() -> new RecordCoreException("unable to resolve result values"));
+    public Type getFlowedObjectType() {
+        final var resolvedTypeAcrossReference = getRangesOver().getResultType();
+        Verify.verify(resolvedTypeAcrossReference.getTypeCode() == Type.TypeCode.RELATION);
+        return Objects.requireNonNull(((Type.Relation)resolvedTypeAcrossReference).getInnerType());
     }
 }

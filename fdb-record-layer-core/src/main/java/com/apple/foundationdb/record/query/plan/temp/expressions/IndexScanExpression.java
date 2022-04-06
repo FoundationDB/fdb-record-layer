@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
-import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.IndexedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -126,8 +126,8 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new IndexedValue();
     }
 
     @Override
@@ -188,6 +188,7 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
         dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA,
+                getResultType(),
                 ImmutableList.of("index name: {{indexName}}"),
                 ImmutableMap.of("indexName", Attribute.gml(getIndexName())));
 

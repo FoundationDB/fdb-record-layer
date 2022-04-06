@@ -41,23 +41,20 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
- * A relational planner expression that represents an unimplemented filter on the records produced by its inner
- * relational planner expression.
- * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
+ * A relational planner expression that projects its input values.
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalProjectionExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
     @Nonnull
-    private final List<Value> requiredValues;
+    private final List<? extends Value> projectedValues;
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalProjectionExpression(@Nonnull final Iterable<? extends Value> requiredValues,
+    public LogicalProjectionExpression(@Nonnull final List<? extends Value> projectedValues,
                                        @Nonnull final Quantifier inner) {
-        this.requiredValues = ImmutableList.copyOf(requiredValues);
+        this.projectedValues = ImmutableList.copyOf(projectedValues);
         this.inner = inner;
     }
 
@@ -81,8 +78,8 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return requiredValues.stream()
-                .flatMap(value -> value.getCorrelatedTo().stream())
+        return projectedValues.stream()
+                .flatMap(projectedValue -> projectedValue.getCorrelatedTo().stream())
                 .collect(ImmutableSet.toImmutableSet());
     }
 
@@ -97,19 +94,24 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
     @Override
     public LogicalProjectionExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                     @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        final ImmutableList<? extends Value> rebasedQueryPredicates =
-                requiredValues.stream()
-                        .map(queryPredicate -> queryPredicate.rebase(translationMap))
+        final List<? extends Value> rebasedValue =
+                getProjectedValues().stream()
+                        .map(projectedValue -> projectedValue.rebase(translationMap))
                         .collect(ImmutableList.toImmutableList());
 
-        return new LogicalProjectionExpression(rebasedQueryPredicates,
+        return new LogicalProjectionExpression(rebasedValue,
                 Iterables.getOnlyElement(rebasedQuantifiers));
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return requiredValues;
+    public Value getResultValue() {
+        return inner.getFlowedObjectValue();
+    }
+
+    @Nonnull
+    public List<? extends Value> getProjectedValues() {
+        return projectedValues;
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -123,12 +125,12 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
             return false;
         }
         final LogicalProjectionExpression otherLogicalProjectionExpression = (LogicalProjectionExpression)otherExpression;
-        final List<? extends Value> otherValues = otherLogicalProjectionExpression.getResultValues();
-        if (requiredValues.size() != otherValues.size()) {
+        final List<? extends Value> otherProjectedValues = otherLogicalProjectionExpression.getProjectedValues();
+        if (projectedValues.size() != otherProjectedValues.size()) {
             return false;
         }
-        return Streams.zip(requiredValues.stream(), otherValues.stream(),
-                (value, otherValue) -> value.semanticEquals(otherValue, equivalencesMap))
+        return Streams.zip(projectedValues.stream(), otherProjectedValues.stream(),
+                        (value, otherValue) -> value.semanticEquals(otherValue, equivalencesMap))
                 .allMatch(isSame -> isSame);
     }
 
@@ -145,7 +147,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValues());
+        return Objects.hash(getResultValue());
     }
 
     @Override
@@ -157,7 +159,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
                         ImmutableList.of("COMPUTE {{values}}"),
                         ImmutableMap.of("values",
-                                Attribute.gml(getResultValues().stream().map(Object::toString).collect(Collectors.joining(", "))))),
+                                Attribute.gml(getProjectedValues().toString()))),
                 childGraphs);
     }
 }

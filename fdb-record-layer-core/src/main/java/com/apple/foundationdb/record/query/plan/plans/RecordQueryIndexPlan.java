@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.ScanWithFetchMatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -79,6 +80,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     protected final boolean strictlySorted;
     @Nonnull
     private final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional;
+    @Nonnull
+    private final Type resultType;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, scanParameters, reverse, false);
@@ -88,27 +91,30 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                 @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
-        this(indexName, scanParameters, reverse, strictlySorted, Optional.empty());
+        this(indexName, scanParameters, reverse, strictlySorted, Optional.empty(), new Type.Any());
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted,
-                                @Nonnull final ScanWithFetchMatchCandidate matchCandidate) {
-        this(indexName, scanParameters, reverse, strictlySorted, Optional.of(matchCandidate));
+                                @Nonnull final ScanWithFetchMatchCandidate matchCandidate,
+                                @Nonnull final Type.Record resultType) {
+        this(indexName, scanParameters, reverse, strictlySorted, Optional.of(matchCandidate), resultType);
     }
 
     private RecordQueryIndexPlan(@Nonnull final String indexName,
                                  @Nonnull final IndexScanParameters scanParameters,
                                  final boolean reverse,
                                  final boolean strictlySorted,
-                                 @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional) {
+                                 @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional,
+                                 @Nonnull final Type resultType) {
         this.indexName = indexName;
         this.scanParameters = scanParameters;
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
+        this.resultType = resultType;
     }
 
     @Nonnull
@@ -208,7 +214,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 getScanParameters(),
                 isReverse(),
                 isStrictlySorted(),
-                matchCandidateOptional);
+                matchCandidateOptional,
+                resultType);
     }
 
     @Nonnull
@@ -219,8 +226,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue(resultType);
     }
 
     @Override
@@ -351,7 +358,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                         attributeMapBuilder.build()),
                 ImmutableList.of(
                         PlannerGraph.fromNodeAndChildGraphs(
-                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.copyOf(getUsedIndexes())),
+                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, getResultType(), ImmutableList.copyOf(getUsedIndexes())),
                                 ImmutableList.of())));
     }
 }

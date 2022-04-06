@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -194,6 +194,12 @@ public class RelOpValue implements BooleanValue {
         return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisonType, StreamSupport.stream(children.spliterator(), false).toArray(Value[]::new));
     }
 
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return functionName + "(" + StreamSupport.stream(children.spliterator(), false).map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
+    }
+
     @Override
     public String toString() {
         return functionName + "(" + StreamSupport.stream(children.spliterator(), false).map(Value::toString).collect(Collectors.joining(",")) + ")";
@@ -230,7 +236,7 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
-    private static Value encapsulate(@Nonnull DynamicSchema dynamicSchema, @Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Typed> arguments) {
+    private static Value encapsulate(@Nonnull TypeRepository typeRepository, @Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Typed> arguments) {
         Verify.verify(arguments.size() == 1 || arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
         final Type res0 = arg0.getResultType();
@@ -244,7 +250,7 @@ public class RelOpValue implements BooleanValue {
             return new RelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    value -> value.compileTimeEval(EvaluationContext.forDynamicSchema(dynamicSchema)),
+                    value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)),
                     objects -> {
                         Verify.verify(Iterables.size(objects) == 1);
                         return physicalOperator.eval(objects.iterator().next());
@@ -262,7 +268,7 @@ public class RelOpValue implements BooleanValue {
             return new RelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    value -> value.compileTimeEval(EvaluationContext.forDynamicSchema(dynamicSchema)),
+                    value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)),
                     objects -> {
                         Verify.verify(Iterables.size(objects) == 2);
                         Iterator<Object> it = objects.iterator();
@@ -307,7 +313,7 @@ public class RelOpValue implements BooleanValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
+            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
         }
     }
 
@@ -319,7 +325,7 @@ public class RelOpValue implements BooleanValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
+            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
         }
     }
 
@@ -331,7 +337,7 @@ public class RelOpValue implements BooleanValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
+            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
         }
     }
 
@@ -343,7 +349,7 @@ public class RelOpValue implements BooleanValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
+            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
         }
     }
 
@@ -355,7 +361,7 @@ public class RelOpValue implements BooleanValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
+            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
         }
     }
 
@@ -367,7 +373,7 @@ public class RelOpValue implements BooleanValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
+            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
         }
     }
 
@@ -379,7 +385,7 @@ public class RelOpValue implements BooleanValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.IS_NULL, arguments);
+            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.IS_NULL, arguments);
         }
     }
 
@@ -391,7 +397,7 @@ public class RelOpValue implements BooleanValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_NULL, arguments);
+            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_NULL, arguments);
         }
     }
 

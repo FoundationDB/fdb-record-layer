@@ -47,7 +47,8 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -55,7 +56,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -128,11 +128,9 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         }
         final var innerQuantifier = innerQuantifierOptional.get();
 
-        final List<? extends Value> resultValues = selectExpression.getResultValues();
-        if (resultValues.stream()
-                .anyMatch(resultValue ->
-                        !(resultValue instanceof QuantifiedColumnValue) ||
-                        !((QuantifiedColumnValue)resultValue).getAlias().equals(innerQuantifier.getAlias()))) {
+        final var resultValue = selectExpression.getResultValue();
+        if (!(resultValue instanceof QuantifiedValue) ||
+                !((QuantifiedValue)resultValue).getAlias().equals(innerQuantifier.getAlias())) {
             return;
         }
 
@@ -144,26 +142,22 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
 
         for (final var explodeExpression : explodeExpressions) {
             final var explodeQuantifier = Objects.requireNonNull(explodeToQuantifierBiMap.getUnwrapped(explodeExpression));
-            final List<? extends Value> explodeResultValues = explodeExpression.getResultValues();
-            if (explodeResultValues.size() != 1) {
-                return;
-            }
-            final Value explodeValue = Iterables.getOnlyElement(explodeResultValues);
+            final Value explodeCollectionValue = explodeExpression.getCollectionValue();
 
             //
             // Create the source for the in-union plan
             //
             final InSource inSource;
-            if (explodeValue instanceof LiteralValue<?>) {
-                final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
+            if (explodeCollectionValue instanceof LiteralValue<?>) {
+                final Object literalValue = ((LiteralValue<?>)explodeCollectionValue).getLiteralValue();
                 if (literalValue instanceof List<?>) {
                     inSource = new InValuesSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()), (List<Object>)literalValue);
                 } else {
                     return;
                 }
-            } else if (explodeValue instanceof QuantifiedColumnValue) {
+            } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
                 inSource = new InParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                        ((QuantifiedColumnValue)explodeValue).getAlias().getId());
+                        ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId());
             } else {
                 return;
             }
@@ -261,7 +255,6 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
     private static Optional<Ordering> orderingForInUnion(@Nonnull Ordering providedOrdering,
                                                          @Nonnull RequestedOrdering requestedOrdering,
                                                          @Nonnull Set<KeyExpression> innerBoundExpressions) {
-        final var availableInnerBoundExpressions = Sets.newHashSet(innerBoundExpressions);
         final var providedKeyPartIterator = Iterators.peekingIterator(providedOrdering.getOrderingKeyParts().iterator());
         final ImmutableList.Builder<KeyPart> resultingOrderingKeyPartBuilder = ImmutableList.builder();
 
@@ -280,7 +273,6 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                 final var requestedKeyExpression = requestedKeyPart.getNormalizedKeyExpression();
                 if (innerBoundExpressions.contains(requestedKeyExpression)) {
                     toBeAdded = requestedKeyPart;
-                    availableInnerBoundExpressions.remove(requestedKeyExpression);
                 }
             }
 

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -37,6 +38,23 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class IndexedValue implements LeafValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Indexed-Value");
+
+    @Nonnull
+    private final Type resultType;
+
+    public IndexedValue() {
+        this(Type.primitiveType(Type.TypeCode.UNKNOWN));
+    }
+
+    public IndexedValue(@Nonnull final Type resultType) {
+        this.resultType = resultType;
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return resultType;
+    }
 
     @Nonnull
     @Override

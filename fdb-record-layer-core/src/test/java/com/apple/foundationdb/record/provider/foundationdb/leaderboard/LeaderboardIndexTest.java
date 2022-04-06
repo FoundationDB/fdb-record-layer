@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.primitives.Longs;
@@ -661,14 +662,14 @@ public class LeaderboardIndexTest extends FDBTestBase {
             final EvaluationContext evaluationContext1 = EvaluationContext.newBuilder()
                     .setBinding("l1", FIVE_UNITS)
                     .setBinding("l2", 10103)
-                    .build();
+                    .build(TypeRepository.empty());
             assertEquals(Arrays.asList("hector", "achilles"),
                     leaderboards.executeQuery(plan2, evaluationContext1).map(leaderboards::getName).asList().join());
 
             final EvaluationContext evaluationContext2 = EvaluationContext.newBuilder()
                     .setBinding("l1", FIVE_UNITS)
                     .setBinding("l2", 10105)
-                    .build();
+                    .build(TypeRepository.empty());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(plan2, evaluationContext2).map(leaderboards::getName).asList().join());
         }

@@ -30,18 +30,22 @@ import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -50,16 +54,29 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression implements RelationalExpression, InternalPlannerGraphRewritable {
     @Nonnull
-    private final Value resultValue;
+    private final Value collectionValue;
 
-    public ExplodeExpression(@Nonnull final Value resultValue) {
-        this.resultValue = resultValue;
+    public ExplodeExpression(@Nonnull final Value collectionValue) {
+        this.collectionValue = collectionValue;
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(resultValue);
+    public Value getResultValue() {
+        Verify.verify(collectionValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY);
+
+        return new QueriedValue(Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType()));
+    }
+
+    @Nonnull
+    @Override
+    public Set<Type> getDynamicTypes() {
+        return ImmutableSet.of(collectionValue.getResultType());
+    }
+
+    @Nonnull
+    public Value getCollectionValue() {
+        return collectionValue;
     }
 
     @Nonnull
@@ -71,7 +88,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return resultValue.getCorrelatedTo();
+        return collectionValue.getCorrelatedTo();
     }
 
     @Override
@@ -80,20 +97,26 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         if (this == otherExpression) {
             return true;
         }
-        return getClass() == otherExpression.getClass() &&
+        if (!(otherExpression instanceof ExplodeExpression)) {
+            return false;
+        }
+
+        final var otherExplodeExpression = (ExplodeExpression)otherExpression;
+
+        return collectionValue.semanticEquals(otherExplodeExpression.getCollectionValue(), equivalencesMap) &&
                semanticEqualsForResults(otherExpression, equivalencesMap);
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return 17;
+        return Objects.hash();
     }
 
     @Nonnull
     @Override
     public ExplodeExpression rebase(@Nonnull final AliasMap translationMap) {
-        final Value rebasedResultValue = resultValue.rebase(translationMap);
-        if (rebasedResultValue == this.resultValue) {
+        final Value rebasedResultValue = collectionValue.rebase(translationMap);
+        if (rebasedResultValue == this.collectionValue) {
             return this;
         } else {
             return new ExplodeExpression(rebasedResultValue);
@@ -126,12 +149,11 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Override
     public String toString() {
-        return resultValue.toString();
+        return collectionValue.toString();
     }
 
-    public static ExplodeExpression explodeField(@Nonnull final CorrelationIdentifier correlationIdentifier,
-                                                 final int index,
+    public static ExplodeExpression explodeField(@Nonnull final Quantifier.ForEach baseQuantifier,
                                                  @Nonnull final List<String> fieldNames) {
-        return new ExplodeExpression(new FieldValue(QuantifiedColumnValue.of(correlationIdentifier, index), fieldNames));
+        return new ExplodeExpression(new FieldValue(baseQuantifier.getFlowedObjectValue(), fieldNames));
     }
 }

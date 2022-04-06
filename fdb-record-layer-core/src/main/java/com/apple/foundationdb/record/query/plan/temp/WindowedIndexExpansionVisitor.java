@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.RankValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
@@ -106,7 +105,6 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var baseQuantifier = baseQuantifierSupplier.get();
 
         // add the value for the flow of records
-        final var recordValue = QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0);
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
         final var baseAlias = baseQuantifier.getAlias();
@@ -154,7 +152,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 final var initialStateForKeyPart =
                         VisitorState.of(primaryKeyValues,
                                 Lists.newArrayList(),
-                                baseQuantifier.getAlias(),
+                                baseQuantifier,
                                 ImmutableList.of(),
                                 -1,
                                 0);
@@ -177,11 +175,11 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 index,
                 recordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
+                baseAlias,
                 groupingAliases,
                 scoreAlias,
                 rankAlias,
                 primaryKeyAliases,
-                recordValue,
                 indexKeyValues,
                 ValueIndexExpansionVisitor.fullKey(index, primaryKey));
     }
@@ -247,7 +245,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
             }
 
             final var rebasedPlaceholder = (Placeholder)placeholder.rebase(AliasMap.of(innerBaseAlias, baseAlias));
-            expansions.add(GraphExpansion.ofResultValueAndPlaceholder(rebasedPlaceholder.getValue(), rebasedPlaceholder));
+            expansions.add(GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(rebasedPlaceholder.getValue()), rebasedPlaceholder));
         }
 
         return GraphExpansion.ofOthers(expansions);
@@ -263,7 +261,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
 
         // join predicate
         final var selfJoinPredicate =
-                QuantifiedObjectValue.of(rankQuantifier.getAlias())
+                rankQuantifier.getFlowedObjectValue()
                         .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
                                 Bindings.Internal.CORRELATION.bindingName(baseAlias.toString()), Bindings.Internal.CORRELATION));
         final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
@@ -280,7 +278,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final VisitorState initialState =
                 VisitorState.of(groupingAndArgumentValues,
                         Lists.newArrayList(),
-                        innerBaseQuantifier.getAlias(),
+                        innerBaseQuantifier,
                         ImmutableList.of(),
                         -1,
                         0);
@@ -296,7 +294,10 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var partitioningExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
         final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
         final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
-        return GraphExpansion.ofOthers(partitioningAndArgumentExpansion,
-                        GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier));
+        return partitioningAndArgumentExpansion
+                .toBuilder()
+                .addQuantifier(innerBaseQuantifier)
+                .addResultValue(rankValue)
+                .build();
     }
 }

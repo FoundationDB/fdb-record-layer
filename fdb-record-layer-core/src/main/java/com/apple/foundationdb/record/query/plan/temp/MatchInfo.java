@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
@@ -40,13 +41,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * This class represents the result of matching one expression against a candidate.
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class MatchInfo {
     /**
      * Parameter bindings for this match.
@@ -67,12 +68,16 @@ public class MatchInfo {
     private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
 
     @Nonnull
-    private final List<BoundKeyPart> boundKeyParts;
+    private final List<BoundKeyPart> orderingKeyParts;
+
+    @Nonnull
+    private final Optional<Value> remainingComputationValueOptional;
 
     private MatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                       @Nonnull final PredicateMap predicateMap,
-                      @Nonnull final List<BoundKeyPart> boundKeyParts) {
+                      @Nonnull final List<BoundKeyPart> orderingKeyParts,
+                      @Nonnull final Optional<Value> remainingComputationValueOptional) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
         this.aliasToPartialMatchMapSupplier = Suppliers.memoize(() -> {
@@ -87,7 +92,8 @@ public class MatchInfo {
             return targetBuilder.build();
         });
 
-        this.boundKeyParts = ImmutableList.copyOf(boundKeyParts);
+        this.orderingKeyParts = ImmutableList.copyOf(orderingKeyParts);
+        this.remainingComputationValueOptional = remainingComputationValueOptional;
     }
 
     @Nonnull
@@ -151,7 +157,12 @@ public class MatchInfo {
 
     @Nonnull
     public List<BoundKeyPart> getOrderingKeyParts() {
-        return boundKeyParts;
+        return orderingKeyParts;
+    }
+
+    @Nonnull
+    public Optional<Value> getRemainingComputationValueOptional() {
+        return remainingComputationValueOptional;
     }
 
     @Nullable
@@ -193,7 +204,7 @@ public class MatchInfo {
     @Nonnull
     public Optional<Boolean> deriveReverseScanOrder() {
         var numReverse  = 0;
-        for (var boundKeyPart : boundKeyParts) {
+        for (var boundKeyPart : orderingKeyParts) {
             if (boundKeyPart.isReverse()) {
                 numReverse ++;
             }
@@ -201,7 +212,7 @@ public class MatchInfo {
 
         if (numReverse == 0) {
             return Optional.of(false); // forward
-        } else if (numReverse == boundKeyParts.size()) {
+        } else if (numReverse == orderingKeyParts.size()) {
             return Optional.of(true); // reverse
         } else {
             return Optional.empty();
@@ -212,26 +223,27 @@ public class MatchInfo {
         return new MatchInfo(parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
-                boundKeyParts);
+                boundKeyParts,
+                remainingComputationValueOptional);
     }
 
     @Nonnull
     public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
-        return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty());
+        return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty());
     }
 
     @Nonnull
     public static Optional<MatchInfo> tryMerge(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
-                                               @Nonnull final PredicateMap predicateMap) {
-        final ImmutableList.Builder<Map<CorrelationIdentifier, ComparisonRange>> parameterMapsBuilder = ImmutableList.builder();
-
-        final Collection<MatchInfo> matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
+                                               @Nonnull final PredicateMap predicateMap,
+                                               @Nonnull Optional<Value> remainingComputationValueOptional) {
+        final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
+        final var matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
 
         matchInfos.forEach(matchInfo -> parameterMapsBuilder.add(matchInfo.getParameterBindingMap()));
         parameterMapsBuilder.add(parameterBindingMap);
 
-        final Set<Quantifier> regularQuantifiers = partialMatchMap.keySet()
+        final var regularQuantifiers = partialMatchMap.keySet()
                 .stream()
                 .map(Equivalence.Wrapper::get)
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
@@ -239,8 +251,8 @@ public class MatchInfo {
 
         final List<BoundKeyPart> orderingKeyParts;
         if (regularQuantifiers.size() == 1) {
-            final Quantifier regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
-            final PartialMatch partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
+            final var regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
+            final var partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
             orderingKeyParts = partialMatch.getMatchInfo().getOrderingKeyParts();
         } else {
             orderingKeyParts = ImmutableList.of();
@@ -248,11 +260,24 @@ public class MatchInfo {
 
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
                 tryMergeParameterBindings(parameterMapsBuilder.build());
+
+        final var remainingComputations = regularQuantifiers.stream()
+                .map(key -> Objects.requireNonNull(partialMatchMap.getUnwrapped(key))) // always guaranteed
+                .map(partialMatch -> partialMatch.getMatchInfo().getRemainingComputationValueOptional())
+                .filter(Optional::isPresent)
+                .collect(ImmutableList.toImmutableList());
+
+        if (!remainingComputations.isEmpty()) {
+            // We found a remaining computation among the child matches -> we cannot merge!
+            return Optional.empty();
+        }
+
         return mergedParameterBindingsOptional
                 .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
                         partialMatchMap,
                         predicateMap,
-                        orderingKeyParts));
+                        orderingKeyParts,
+                        remainingComputationValueOptional));
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {

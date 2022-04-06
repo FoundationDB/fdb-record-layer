@@ -1,5 +1,5 @@
 /*
- * DynamicSchemaTest.java
+ * TypeRepositoryTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,16 +21,16 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.google.common.base.VerifyException;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,17 +40,16 @@ import java.util.stream.Collectors;
 /**
  * Tests for:
  *  <ul>
- *      <li>{@link com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema}.</li>
+ *      <li>{@link TypeRepository}.</li>
  *      <li>{@link AbstractArrayConstructorValue} type hierarchy.</li>
  *      <li>{@link RecordConstructorValue}.</li>
  *  </ul>
  * Tests mainly target aspects of dynamic schema generation in these classes.
  */
 @SuppressWarnings("ConstantConditions")
-class DynamicSchemaTest {
-
+class TypeRepositoryTest {
     private static final int SEED = 42;
-    private static final int MAX_ALLOWED_DEPTH = 100;
+    private static final int MAX_ALLOWED_DEPTH = 10;
     private static final Random random = new Random(SEED);
     private static int counter = 0;
 
@@ -74,12 +73,25 @@ class DynamicSchemaTest {
         }
     }
 
+    private static int countTypes(@Nonnull final Type type) {
+        if (type.isPrimitive()) {
+            return 0;
+        }
+        if (type instanceof Type.Array) {
+            return 1 + countTypes(((Type.Array)type).getElementType());
+        }
+        if (type instanceof Type.Record) {
+            return 1 + ((Type.Record)type).getFields().stream().map(f -> countTypes(f.getFieldType())).reduce(0, Integer::sum);
+        }
+        throw new IllegalArgumentException(String.format("unexpected type %s", type.getTypeCode().toString()));
+    }
+
     private static Type generateRandomTypeInternal(int depth) {
         int booleanIndex = Type.TypeCode.valueOf("BOOLEAN").ordinal();
         int stringIndex = Type.TypeCode.valueOf("STRING").ordinal();
-        int recordIndex = Type.TypeCode.valueOf("RECORD").ordinal();
+        int arrayIndex = Type.TypeCode.valueOf("ARRAY").ordinal();
         int lowerBound = booleanIndex;
-        int upperBound = (depth >= MAX_ALLOWED_DEPTH ? stringIndex + 1 : recordIndex + 1) - lowerBound;
+        int upperBound = (depth >= MAX_ALLOWED_DEPTH ? stringIndex + 1 : arrayIndex + 1) - lowerBound;
         int pick = random.nextInt(upperBound) + lowerBound;
         Type.TypeCode randomTypeCode = Type.TypeCode.values()[pick];
         return generateType(depth, randomTypeCode);
@@ -118,50 +130,58 @@ class DynamicSchemaTest {
 
     @Test
     void addPrimitiveTypeIsNotAllowed() {
-        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
+        TypeRepository.Builder builder = TypeRepository.newBuilder();
         try {
-            builder.addType(generateType(0, Type.TypeCode.DOUBLE));
-            Assertions.fail("expected an exception to be thrown");
+            final var type = generateType(0, Type.TypeCode.DOUBLE);
+            builder.addTypeIfNeeded(type);
+            Assertions.assertTrue(builder.getTypeName(type).isEmpty());
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof IllegalArgumentException);
-            Assertions.assertTrue(e.getMessage().contains("unexpected primitive type " + Type.TypeCode.DOUBLE));
+            Assertions.assertTrue(e.getMessage().contains("unexpected type " + Type.TypeCode.DOUBLE));
         }
     }
 
     @Test
-    void createDynamicSchemaFromRecordTypeWorks() {
-        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
-        Type t = generateType(0, Type.TypeCode.RECORD);
-        builder.addType(t);
-        DynamicSchema actualSchema = builder.build();
-        String typeName = actualSchema.getFileDescriptorSet().getFile(0).getMessageTypeList().get(0).getName();
-        Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
-        Assertions.assertEquals(t.buildDescriptor(typeName), actualDescriptor.toProto());
+    void createTypeRepositoryFromRecordTypeWorks() {
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+        final Type.Record parent = (Type.Record)generateType(0, Type.TypeCode.RECORD);
+        final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
+        final List<Type.Record.Field> fields = new ArrayList<>(parent.getFields());
+        fields.add(Type.Record.Field.of(child, Optional.of("nestedField")));
+        final Type.Record t = Type.Record.fromFields(fields);
+        builder.addTypeIfNeeded(t);
+        final TypeRepository actualSchemaBefore = builder.build();
+        Assertions.assertEquals(countTypes(t), actualSchemaBefore.getMessageTypes().size());
+        // add record type explicitly, this should NOT cause the addition of a new descriptor.
+        builder.addTypeIfNeeded(child);
+        final TypeRepository actualSchemaAfter = builder.build();
+        Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
 
     @Test
-    void createDynamicSchemaFromArrayTypeWorks() {
-        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
-        Type t = generateType(0, Type.TypeCode.ARRAY);
-        builder.addType(t);
-        DynamicSchema actualSchema = builder.build();
-        String typeName = actualSchema.getFileDescriptorSet().getFile(0).getMessageTypeList().get(0).getName();
-        Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
-        Assertions.assertEquals(t.buildDescriptor(typeName), actualDescriptor.toProto());
+    void createTypeRepositoryFromArrayTypeWorks() {
+        final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
+        final Type.Array array = new Type.Array(child);
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+        builder.addTypeIfNeeded(array);
+        final TypeRepository actualSchemaBefore = builder.build();
+        Assertions.assertEquals(countTypes(array), actualSchemaBefore.getMessageTypes().size());
+        // add record type explicitly, this should NOT cause the addition of a new descriptor.
+        builder.addTypeIfNeeded(child);
+        final TypeRepository actualSchemaAfter = builder.build();
+        Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
 
     @Test
-    void addSameTypeMultipleTimesShouldNotCreateMultipleMessages() {
-        DynamicSchema.Builder builder = DynamicSchema.newBuilder();
-        Type t = generateRandomStructuredType();
-        builder.addType(t);
-        builder.addType(t);
-        builder.addType(t);
-        DynamicSchema actualSchema = builder.build();
-        Assertions.assertEquals(1, actualSchema.getMessageTypes().size());
-        String typeName = actualSchema.getMessageTypes().stream().findFirst().get();
-        Descriptors.Descriptor actualDescriptor = actualSchema.getMessageDescriptor(typeName);
-        Assertions.assertEquals(t.buildDescriptor(typeName), actualDescriptor.toProto());
+    void addSameTypeMultipleTimesShouldNotCreateMultipleMessageTypes() {
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+        final Type t = generateRandomStructuredType();
+        builder.addTypeIfNeeded(t);
+        builder.addTypeIfNeeded(t);
+        builder.addTypeIfNeeded(t);
+        final TypeRepository actualRepository = builder.build();
+        // there should be three types in the repository, but for different nested types within the tree
+        Assertions.assertEquals(3, actualRepository.getMessageTypes().size());
     }
 
     @Test
@@ -182,7 +202,7 @@ class DynamicSchemaTest {
         final AbstractArrayConstructorValue.ArrayConstructorValue arrayConstructorValue = (AbstractArrayConstructorValue.ArrayConstructorValue)value;
         final Type resultType = arrayConstructorValue.getResultType();
         Assertions.assertEquals(new Type.Array(Type.primitiveType(Type.TypeCode.INT)), resultType);
-        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forDynamicSchema(DynamicSchema.newBuilder().addType(arrayConstructorValue.getResultType()).build()));
+        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(arrayConstructorValue.getResultType()).build()));
         Assertions.assertTrue(result instanceof List);
         final List<?> list = (List<?>)result;
         Assertions.assertEquals(2, list.size());
@@ -206,7 +226,7 @@ class DynamicSchemaTest {
         final AbstractArrayConstructorValue.LightArrayConstructorValue arrayConstructorValue = (AbstractArrayConstructorValue.LightArrayConstructorValue)value;
         final Type resultType = arrayConstructorValue.getResultType();
         Assertions.assertEquals(new Type.Array(Type.primitiveType(Type.TypeCode.INT, false)), resultType);
-        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forDynamicSchema(DynamicSchema.newBuilder().addType(arrayConstructorValue.getResultType()).build()));
+        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(arrayConstructorValue.getResultType()).build()));
         Assertions.assertTrue(result instanceof List);
         final List<?> list = (List<?>)result;
         Assertions.assertEquals(2, list.size());
@@ -224,7 +244,7 @@ class DynamicSchemaTest {
                 Type.Record.Field.of(INT_2.getResultType(), Optional.empty()),
                 Type.Record.Field.of(FLOAT_1.getResultType(), Optional.empty())
                 )), resultType);
-        final Object result = recordConstructorValue.compileTimeEval(EvaluationContext.forDynamicSchema(DynamicSchema.newBuilder().addType(recordConstructorValue.getResultType()).build()));
+        final Object result = recordConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(recordConstructorValue.getResultType()).build()));
         Assertions.assertTrue(result instanceof DynamicMessage);
         final DynamicMessage resultMessage = (DynamicMessage)result;
         Assertions.assertEquals(3, resultMessage.getAllFields().size());

@@ -53,7 +53,7 @@ import java.util.Objects;
  * A query plan of any complexity will have child plans and execute by altering or combining the children's streams in some way.
  *
  * @see com.apple.foundationdb.record.query.RecordQuery
- * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan
+ * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan(com.apple.foundationdb.record.query.RecordQuery)
  *
  */
 @API(API.Status.STABLE)
@@ -74,7 +74,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ExecuteProperties executeProperties) {
         return executePlan(store, context, continuation, executeProperties)
-                .map(result -> result.getQueriedRecord(0));
+                .map(QueryResult::getQueriedRecord);
     }
 
     @Nonnull

@@ -25,14 +25,11 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -103,18 +100,20 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
 
     @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
-                                 @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
+        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
         final SelectExpression selectExpression =
-                GraphExpansion.ofPredicate(QuantifiedObjectValue.of(childBase.getAlias()).withComparison(comparison))
-                        .withBase(childBase)
-                        .buildSelect();
+                GraphExpansion.builder()
+                        .addQuantifier(childBase)
+                        .addPredicate(childBase.getFlowedObjectValue().withComparison(comparison))
+                        .build()
+                        .buildSimpleSelectOverQuantifier(childBase);
         final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
 
         // create a query component that creates a path to this prefix and then applies this to it
@@ -126,7 +125,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
             withPrefix = Query.field(fieldName).matches(withPrefix);
         }
 
-        return GraphExpansion.ofPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias(), withPrefix), childQuantifier);
+        return GraphExpansion.ofExists(childQuantifier, withPrefix);
     }
 
     @Override

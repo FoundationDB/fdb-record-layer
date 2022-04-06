@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -104,7 +105,7 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
         final List<? extends QueryPredicate> predicates = bindings.getAll(predMatcher);
         final Collection<String> recordTypes = bindings.get(root).getRecordTypes();
 
-        final RecordQueryTypeFilterPlan newTypeFilterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(inner), recordTypes);
+        final RecordQueryTypeFilterPlan newTypeFilterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(inner), recordTypes, new Type.Any());
         final Quantifier.Physical newQun = Quantifier.physical(call.ref(newTypeFilterPlan));
         final List<QueryPredicate> rebasedPredicates =
                 predicates.stream()

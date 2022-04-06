@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -29,6 +30,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors;
@@ -54,7 +56,8 @@ import java.util.stream.Collectors;
  * Finally, {@link Type}s are non-referential, so two structural types are considered equal iff their structures
  * are equal.
  */
-public interface Type {
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+public interface Type extends Narrowable<Type> {
     /**
      * A map from Java {@link Class} to corresponding {@link TypeCode}.
      */
@@ -101,47 +104,37 @@ public interface Type {
         return getTypeCode().isNumeric();
     }
 
-    /**
-     * Safe-casts the {@link Type} instance to another type.
-     *
-     * @param clazz marker object.
-     * @param <T> The type to cast to.
-     * @return if cast is successful, an {@link Optional} containing the instance cast to {@link T}, otherwise an
-     * empty {@link Optional}.
-     */
-    default <T extends Type> Optional<T> narrow(@Nonnull final Class<T> clazz) {
-        if (clazz.isInstance(this)) {
-            return Optional.of(clazz.cast(this));
-        } else {
-            return Optional.empty();
-        }
+    @Nonnull
+    default String describe(@Nonnull final Formatter formatter) {
+        // TODO make better
+        return toString();
     }
 
     /**
      * Creates a synthetic protobuf descriptor that is equivalent to <code>this</code> {@link Type}.
      *
-     * @param typeName The name of the descriptor.
-     * @return a syncthetic protobuf descriptor that is equivalent to <code>this</code> {@link Type}.
+     * @param typeRepositoryBuilder The type repository builder.
      */
-    @Nullable
-    DescriptorProto buildDescriptor(@Nonnull final String typeName);
+    default void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
+        // by default we don't build anything here
+    }
 
     /**
      * Creates a synthetic protobuf descriptor that is equivalent to the <code>this</code> {@link Type} within a given
      * protobuf descriptor.
-     *
+     * @param typeRepositoryBuilder The type repository.
      * @param descriptorBuilder The parent descriptor into which the newly created descriptor will be created.
-     * @param fieldIndex The field index of the descriptor.
+     * @param fieldNumber The field number of the descriptor.
      * @param fieldName The field name of the descriptor.
-     * @param typeName The type name of the descriptor.
+     * @param typeNameOptional The type name of the descriptor.
      * @param label The label of the descriptor.
      */
-    void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
-                       final int fieldIndex,
+    void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                       @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                       final int fieldNumber,
                        @Nonnull final String fieldName,
-                       @Nonnull final String typeName,
+                       @Nonnull final Optional<String> typeNameOptional,
                        @Nonnull final FieldDescriptorProto.Label label);
-
 
     /**
      * Returns a map from Java {@link Class} to corresponding {@link TypeCode}.
@@ -153,23 +146,14 @@ public interface Type {
     }
 
     /**
-     * Constructs a type name for a given field suffix.
-     *
-     * @param fieldSuffix The field suffix.
-     * @return a type name generated using the field suffix.
-     */
-    static String typeName(final Object fieldSuffix) {
-        return "__type__" + fieldSuffix;
-    }
-
-    /**
      * Constructs a field name for a given field suffix.
      *
      * @param fieldSuffix The field suffix.
      * @return a field name generated using the field suffix.
      */
     static String fieldName(final Object fieldSuffix) {
-        return "__field__" + fieldSuffix;
+        // do this in the style of Scala
+        return "_" + fieldSuffix;
     }
 
     /**
@@ -197,6 +181,8 @@ public interface Type {
     @Nonnull
     static Type primitiveType(@Nonnull final TypeCode typeCode, final boolean isNullable) {
         Verify.verify(typeCode.isPrimitive());
+        final int memoizedHashCode = Objects.hash(typeCode.hashCode(), isNullable);
+
         return new Type() {
             @Override
             public TypeCode getTypeCode() {
@@ -208,21 +194,16 @@ public interface Type {
                 return isNullable;
             }
 
-            @Nullable
             @Override
-            public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
-                return null;
-            }
-
-            @Override
-            public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                      final int fieldIndex,
+            public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                      @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                      final int fieldNumber,
                                       @Nonnull final String fieldName,
-                                      @Nonnull final String typeName,
+                                      @Nonnull final Optional<String> ignored,
                                       @Nonnull final FieldDescriptorProto.Label label) {
-                final FieldDescriptorProto.Type protoType = Objects.requireNonNull(getTypeCode().getProtoType());
+                final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
                 descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
-                        .setNumber(fieldIndex)
+                        .setNumber(fieldNumber)
                         .setName(fieldName)
                         .setType(protoType)
                         .setLabel(label)
@@ -231,7 +212,7 @@ public interface Type {
 
             @Override
             public int hashCode() {
-                return Objects.hash(getTypeCode().hashCode(), isNullable());
+                return memoizedHashCode;
             }
 
             @Override
@@ -240,12 +221,15 @@ public interface Type {
                     return false;
                 }
 
+                if (obj == this) {
+                    return true;
+                }
+
                 if (getClass() != obj.getClass()) {
                     return false;
                 }
 
-                final Type otherType = (Type)obj;
-
+                final var otherType = (Type)obj;
                 return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
             }
 
@@ -257,7 +241,7 @@ public interface Type {
     }
 
     /**
-     * Maps a {@link List} of {@link Typed} instance to a {@link List} of their {@link Type}s.
+     * Maps a {@link List} of {@link Typed} instances to a {@link List} of their {@link Type}s.
      * @param typedList The list of {@link Typed} objects.
      * @return The list of {@link Type}s.
      */
@@ -273,8 +257,82 @@ public interface Type {
      * @return a unique type name.
      */
     static String uniqueCompliantTypeName() {
-        final String safeUuid = UUID.randomUUID().toString().replace('-', '_');
+        final var safeUuid = UUID.randomUUID().toString().replace('-', '_');
         return "__type__" + safeUuid;
+    }
+
+    /**
+     * translates a protobuf {@link com.google.protobuf.Descriptors.Descriptor} to a {@link Type}.
+     *
+     * @param descriptor The protobuf descriptor.
+     * @param protoType The protobuf descriptor type.
+     * @param protoLabel The protobuf descriptor label.
+     * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise <code>false</code>.
+     * @return A {@link Type} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
+     */
+    @Nonnull
+    private static Type fromProtoType(@Nullable Descriptors.GenericDescriptor descriptor,
+                                      @Nonnull Descriptors.FieldDescriptor.Type protoType,
+                                      @Nonnull FieldDescriptorProto.Label protoLabel,
+                                      boolean isNullable) {
+        final var typeCode = TypeCode.fromProtobufType(protoType);
+        if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
+            // collection type
+            // case 1: primitive types -- assumed to be non-nullable array of that type
+            if (typeCode.isPrimitive()) {
+                final var primitiveType = primitiveType(typeCode, false);
+                return new Array(primitiveType);
+            } else if (typeCode == TypeCode.ENUM) {
+                final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
+                final var enumType = new Enum(false, Enum.enumValuesFromProto(enumDescriptor.getValues()));
+                return new Array(enumType);
+            } else {
+                Objects.requireNonNull(descriptor);
+                final var messageDescriptor = (Descriptors.Descriptor)descriptor;
+                // case 2: helper type to model null-ed out array elements
+                final Optional<Descriptors.FieldDescriptor> elementFieldDescriptorMaybe =
+                        Record.arrayElementFieldDescriptorMaybe(messageDescriptor);
+                if (elementFieldDescriptorMaybe.isPresent()) {
+                    final var elementFieldDescriptor = elementFieldDescriptorMaybe.get();
+                    return new Array(fromProtoType(getTypeSpecificDescriptor(elementFieldDescriptor), elementFieldDescriptor.getType(), FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
+                } else {
+                    // case 3: any arbitrary sub message we don't understand
+                    return new Array(fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
+                }
+            }
+        } else {
+            if (typeCode.isPrimitive()) {
+                return primitiveType(typeCode, isNullable);
+            } else if (typeCode == TypeCode.ENUM) {
+                final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
+                return new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()));
+            } else if (typeCode == TypeCode.RECORD) {
+                Objects.requireNonNull(descriptor);
+                final var messageDescriptor = (Descriptors.Descriptor)descriptor;
+                return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
+            }
+        }
+
+        throw new IllegalStateException("unable to translate protobuf descriptor to type");
+    }
+
+    /**
+     * For a given {@link com.google.protobuf.Descriptors.FieldDescriptor} descriptor, returns the type-specific
+     * descriptor if the field is a message or an enum, otherwise <code>null</code>.
+     *
+     * @param fieldDescriptor The descriptor.
+     * @return the type-specific descriptor for the field, otherwise <code>null</code>.
+     */
+    @Nullable
+    private static Descriptors.GenericDescriptor getTypeSpecificDescriptor(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
+        switch (fieldDescriptor.getType()) {
+            case MESSAGE:
+                return fieldDescriptor.getMessageType();
+            case ENUM:
+                return fieldDescriptor.getEnumType();
+            default:
+                return null;
+        }
     }
 
     /**
@@ -290,6 +348,7 @@ public interface Type {
         INT(Integer.class, FieldDescriptorProto.Type.TYPE_INT32, true, true),
         LONG(Long.class, FieldDescriptorProto.Type.TYPE_INT64, true, true),
         STRING(String.class, FieldDescriptorProto.Type.TYPE_STRING, true, false),
+        ENUM(Enum.class, FieldDescriptorProto.Type.TYPE_ENUM, false, false),
         RECORD(Message.class, null, false, false),
         ARRAY(Array.class, null, false, false),
         RELATION(null, null, false, false);
@@ -380,7 +439,7 @@ public interface Type {
          */
         @Nonnull
         private static BiMap<Class<?>, TypeCode> computeClassToTypeCodeMap() {
-            ImmutableBiMap.Builder<Class<?>, TypeCode> builder = ImmutableBiMap.builder();
+            final var builder = ImmutableBiMap.<Class<?>, TypeCode>builder();
             for (final TypeCode typeCode : TypeCode.values()) {
                 if (typeCode.getJavaClass() != null) {
                     builder.put(typeCode.getJavaClass(), typeCode);
@@ -420,7 +479,7 @@ public interface Type {
                     return TypeCode.STRING;
                 case GROUP:
                 case ENUM:
-                    throw new IllegalArgumentException("protobuf type " + protobufType + " is not supported");
+                    return TypeCode.ENUM;
                 case MESSAGE:
                     return TypeCode.RECORD;
                 case BYTES:
@@ -435,6 +494,16 @@ public interface Type {
      * Special {@link Type} that is undefined.
      */
     class Any implements Type {
+        /**
+         * Memoized hash function.
+         */
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+        private int computeHashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable());
+        }
+
         /**
          * {@inheritDoc}
          */
@@ -454,27 +523,19 @@ public interface Type {
         /**
          * {@inheritDoc}
          */
-        @Nullable
         @Override
-        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
-            throw new UnsupportedOperationException("type any cannot be represented in protobuf");
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                  final int fieldIndex,
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                  @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldNumber,
                                   @Nonnull final String fieldName,
-                                  @Nonnull final String typeName,
+                                  @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
             throw new UnsupportedOperationException("type any cannot be represented in protobuf");
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable());
+            return hashCodeSupplier.get();
         }
 
         @Override
@@ -483,18 +544,157 @@ public interface Type {
                 return false;
             }
 
+            if (this == obj) {
+                return true;
+            }
+
             if (getClass() != obj.getClass()) {
                 return false;
             }
 
-            final Type otherType = (Type)obj;
-
+            final var otherType = (Type)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
         }
 
         @Override
         public String toString() {
             return getTypeCode().toString();
+        }
+    }
+
+    class Enum implements Type {
+        final boolean isNullable;
+        @Nullable
+        final List<EnumValue> enumValues;
+
+        public Enum(final boolean isNullable,
+                    @Nullable final List<EnumValue> enumValues) {
+            this.isNullable = isNullable;
+            this.enumValues = enumValues;
+        }
+
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.ENUM;
+        }
+
+        /**
+         * Checks whether the {@link Record} type instance is erased or not.
+         * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
+         */
+        boolean isErased() {
+            return enumValues == null;
+        }
+
+        @Nonnull
+        public List<EnumValue> getEnumValues() {
+            return Objects.requireNonNull(enumValues);
+        }
+
+        @Override
+        public boolean isNullable() {
+            return isNullable;
+        }
+
+        @Override
+        public void defineProtoType(@Nonnull final TypeRepository.Builder typeRepositoryBuilder) {
+            Verify.verify(!isErased());
+            final var typeName = uniqueCompliantTypeName();
+            final var enumDescriptorProtoBuilder = DescriptorProtos.EnumDescriptorProto.newBuilder();
+            enumDescriptorProtoBuilder.setName(typeName);
+
+            for (final var enumValue : Objects.requireNonNull(enumValues)) {
+                enumDescriptorProtoBuilder.addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder()
+                        .setName(enumValue.getName())
+                        .setNumber(enumValue.getNumber()));
+            }
+
+            typeRepositoryBuilder.addEnumType(enumDescriptorProtoBuilder.build());
+            typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                  @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldNumber,
+                                  @Nonnull final String fieldName,
+                                  @Nonnull final Optional<String> typeNameOptional,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
+            final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
+            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                    .setNumber(fieldNumber)
+                    .setName(fieldName)
+                    .setType(protoType)
+                    .setLabel(label)
+                    .build());
+        }
+
+        @Nonnull
+        @Override
+        public String describe(@Nonnull final Formatter formatter) {
+            return toString();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), enumValues);
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (this == obj) {
+                return true;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final var otherType = (Type)obj;
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
+        }
+
+        @Override
+        public String toString() {
+            if (isErased()) {
+                return getTypeCode().toString();
+            }
+            return getTypeCode() + "<" +
+                   Objects.requireNonNull(enumValues)
+                           .stream()
+                           .map(Object::toString)
+                           .collect(Collectors.joining(", ")) + ">";
+        }
+
+        public static List<EnumValue> enumValuesFromProto(@Nonnull final List<Descriptors.EnumValueDescriptor> enumValueDescriptors) {
+            return enumValueDescriptors
+                    .stream()
+                    .map(enumValueDescriptor -> new EnumValue(enumValueDescriptor.getName(), enumValueDescriptor.getNumber()))
+                    .collect(ImmutableList.toImmutableList());
+        }
+
+        public static class EnumValue {
+            @Nonnull
+            final String name;
+            final int number;
+
+            public EnumValue(@Nonnull final String name, final int number) {
+                this.name = name;
+                this.number = number;
+            }
+
+            @Nonnull
+            public String getName() {
+                return name;
+            }
+
+            public int getNumber() {
+                return number;
+            }
         }
     }
 
@@ -524,6 +724,16 @@ public interface Type {
          */
         @Nonnull
         private final Supplier<List<Type>> elementTypesSupplier;
+
+        /**
+         * Memoized hash function.
+         */
+        @Nonnull
+        private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashCode);
+
+        private int computeHashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), fields);
+        }
 
         /**
          * Constructs a new {@link Record} using a list of {@link Field}s.
@@ -558,9 +768,9 @@ public interface Type {
          * Returns the list of {@link Record} {@link Field}s.
          * @return the list of {@link Record} {@link Field}s.
          */
-        @Nullable
+        @Nonnull
         public List<Field> getFields() {
-            return fields;
+            return Objects.requireNonNull(fields);
         }
 
         /**
@@ -614,43 +824,48 @@ public interface Type {
         /**
          * {@inheritDoc}
          */
-        @Nullable
         @Override
-        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+        public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
             Objects.requireNonNull(fields);
-            final DescriptorProto.Builder recordMsgBuilder = DescriptorProto.newBuilder();
+            final var typeName = uniqueCompliantTypeName();
+            final var recordMsgBuilder = DescriptorProto.newBuilder();
             recordMsgBuilder.setName(typeName);
 
-            for (final Field field : fields) {
-                final Type fieldType = field.getFieldType();
-                final String fieldName = field.getFieldName();
-                fieldType.addProtoField(recordMsgBuilder,
+            for (final var field : fields) {
+                final var fieldType = field.getFieldType();
+                final var fieldName = field.getFieldName();
+                fieldType.addProtoField(typeRepositoryBuilder, recordMsgBuilder,
                         field.getFieldIndex(),
                         fieldName,
-                        typeName(fieldName),
+                        typeRepositoryBuilder.defineAndResolveType(fieldType),
                         FieldDescriptorProto.Label.LABEL_OPTIONAL);
             }
-
-            return recordMsgBuilder.build();
+            typeRepositoryBuilder.addMessageType(recordMsgBuilder.build());
+            typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
         }
 
         /**
          * {@inheritDoc}
          */
         @Override
-        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
-            descriptorBuilder.addNestedType(buildDescriptor(typeName));
-            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                  @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldNumber,
+                                  @Nonnull final String fieldName,
+                                  @Nonnull final Optional<String> typeNameOptional,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
+            final var fieldDescriptoProto = FieldDescriptorProto.newBuilder();
+            fieldDescriptoProto
                     .setName(fieldName)
-                    .setNumber(fieldIndex)
-                    .setTypeName(typeName)
-                    .setLabel(label)
-                    .build());
+                    .setNumber(fieldNumber)
+                    .setLabel(label);
+            typeNameOptional.ifPresent(fieldDescriptoProto::setTypeName);
+            descriptorBuilder.addField(fieldDescriptoProto.build());
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), fields);
+            return hashFunctionSupplier.get();
         }
 
         @Override
@@ -667,8 +882,7 @@ public interface Type {
                 return false;
             }
 
-            final Record otherType = (Record)obj;
-
+            final var otherType = (Record)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                    ((isErased() && otherType.isErased()) ||
                     (Objects.requireNonNull(fields).equals(otherType.fields)));
@@ -743,11 +957,11 @@ public interface Type {
          */
         @Nonnull
         public static Record fromFieldDescriptorsMap(final boolean isNullable, @Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
-            final ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
-            for (final Map.Entry<String, Descriptors.FieldDescriptor> entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
-                final Descriptors.FieldDescriptor fieldDescriptor = entry.getValue();
+            final var fieldsBuilder = ImmutableList.<Field>builder();
+            for (final var entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
+                final var fieldDescriptor = entry.getValue();
                 fieldsBuilder.add(
-                        new Field(fromProtoType(getMessageTypeIfMessage(fieldDescriptor),
+                        new Field(fromProtoType(getTypeSpecificDescriptor(fieldDescriptor),
                                 fieldDescriptor.getType(),
                                 fieldDescriptor.toProto().getLabel(),
                                 true),
@@ -756,65 +970,6 @@ public interface Type {
             }
 
             return fromFields(isNullable, fieldsBuilder.build());
-        }
-
-        /**
-         * For a given {@link com.google.protobuf.Descriptors.FieldDescriptor} descriptor, returns the message type descriptor
-         * if the field is a message, otherwise <code>null</code>.
-         *
-         * @param fieldDescriptor The descriptor.
-         * @return the message type descriptor if the field is a message, otherwise <code>null</code>.
-         */
-        @Nullable
-        private static Descriptors.Descriptor getMessageTypeIfMessage(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
-            return fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE ? fieldDescriptor.getMessageType() : null;
-        }
-
-        /**
-         * translates a protobuf {@link com.google.protobuf.Descriptors.Descriptor} to a {@link Type}.
-         *
-         * @param descriptor The protobuf descriptor.
-         * @param protoType The protobuf descriptor type.
-         * @param protoLabel The protobuf descriptor label.
-         * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise <code>false</code>.
-         * @return A {@link Type} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
-         */
-        @Nonnull
-        private static Type fromProtoType(@Nullable Descriptors.Descriptor descriptor,
-                                          @Nonnull Descriptors.FieldDescriptor.Type protoType,
-                                          @Nonnull FieldDescriptorProto.Label protoLabel,
-                                          boolean isNullable) {
-            final TypeCode typeCode = TypeCode.fromProtobufType(protoType);
-            if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
-                // collection type
-                // case 1: primitive types -- assumed to be non-nullable array of that type
-                if (typeCode.isPrimitive()) {
-                    final Type primitiveType = primitiveType(typeCode, false);
-                    return new Array(primitiveType);
-                } else {
-                    Objects.requireNonNull(descriptor);
-                    // case 2: helper type to model null-ed out array elements
-                    final Optional<Descriptors.FieldDescriptor> elementFieldDescriptorMaybe =
-                            arrayElementFieldDescriptorMaybe(descriptor);
-
-                    if (elementFieldDescriptorMaybe.isPresent()) {
-                        final Descriptors.FieldDescriptor elementFieldDescriptor = elementFieldDescriptorMaybe.get();
-                        return new Array(fromProtoType(getMessageTypeIfMessage(elementFieldDescriptor), elementFieldDescriptor.getType(), FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
-                    } else {
-                        // case 3: any arbitrary sub message we don't understand
-                        return new Array(fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
-                    }
-                }
-            } else {
-                if (typeCode.isPrimitive()) {
-                    return primitiveType(typeCode, isNullable);
-                } else if (typeCode == TypeCode.RECORD) {
-                    Objects.requireNonNull(descriptor);
-                    return fromFieldDescriptorsMap(isNullable, toFieldDescriptorMap(descriptor.getFields()));
-                }
-            }
-
-            throw new IllegalStateException("unable to translate protobuf descriptor to type");
         }
 
         /**
@@ -837,9 +992,9 @@ public interface Type {
          */
         @Nonnull
         private static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(@Nonnull final Descriptors.Descriptor descriptor) {
-            final List<Descriptors.FieldDescriptor> fields = descriptor.getFields();
+            final var fields = descriptor.getFields();
             if (fields.size() == 1) {
-                final Descriptors.FieldDescriptor field0 = fields.get(0);
+                final var field0 = fields.get(0);
                 if (field0.isOptional() && !field0.isRepeated() && field0.getNumber() == 1 && "values".equals(field0.getName())) {
                     return Optional.of(field0);
                 }
@@ -862,27 +1017,6 @@ public interface Type {
         }
 
         /**
-         * transpose the result type of {@link Value} expression, which is a tuple, into a list {@link Value}s with
-         * corresponding types of the tuple elements.
-         *
-         * @param recordValue The {@link Value} whose result set we want to transpose.
-         * @return A list {@link Value}s with corresponding types of the tuple elements.
-         */
-        @Nonnull
-        public static List<Value> deconstructRecord(@Nonnull Value recordValue) {
-            Verify.verify(recordValue.getResultType().getTypeCode() == TypeCode.RECORD);
-            Verify.verify(recordValue.getResultType() instanceof Record);
-            final Record resultType = (Record)recordValue.getResultType();
-
-            final List<Field> fields = Objects.requireNonNull(resultType.getFields());
-            final ImmutableList.Builder<Value> resultBuilder = ImmutableList.builder();
-            for (int i = 0; i < fields.size(); i++) {
-                resultBuilder.add(OrdinalFieldValue.of(recordValue, i));
-            }
-            return resultBuilder.build();
-        }
-
-        /**
          * Normalizes a list of {@link Field}s such that their names and indices are consistent.
          *
          * @param fields The list of {@link Field}s to normalize.
@@ -893,11 +1027,11 @@ public interface Type {
             Objects.requireNonNull(fields);
             final ImmutableList.Builder<Field> resultFieldsBuilder = ImmutableList.builder();
 
-            int i = 0;
-            for (final Field field : fields) {
+            var i = 0;
+            for (final var field : fields) {
                 resultFieldsBuilder.add(
                         new Field(field.getFieldType(),
-                                Optional.of(field.getFieldNameOptional().orElse(fieldName(i + 1))),
+                                Optional.of(field.getFieldNameOptional().orElse(fieldName(i))),
                                 Optional.of(field.getFieldIndexOptional().orElse(i + 1))));
                 i++;
             }
@@ -910,7 +1044,6 @@ public interface Type {
          */
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
         public static class Field {
-
             /**
              * The field {@link Type}.
              */
@@ -928,6 +1061,16 @@ public interface Type {
              */
             @Nonnull
             private final Optional<Integer> fieldIndexOptional;
+
+            /**
+             * Memoized hash function.
+             */
+            @Nonnull
+            private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashFunction);
+
+            private int computeHashFunction() {
+                return Objects.hash(getFieldType(), getFieldNameOptional(), getFieldIndexOptional());
+            }
 
             /**
              * Constructs a new field.
@@ -982,20 +1125,22 @@ public interface Type {
              * Returns the field index.
              * @return The field index.
              */
-            @Nonnull
             public int getFieldIndex() {
                 return getFieldIndexOptional().orElseThrow(() -> new RecordCoreException("field index should have been set"));
             }
 
             @Override
             public boolean equals(final Object o) {
+                if (o == null) {
+                    return false;
+                }
                 if (this == o) {
                     return true;
                 }
                 if (!(o instanceof Field)) {
                     return false;
                 }
-                final Field field = (Field)o;
+                final var field = (Field)o;
                 return getFieldType().equals(field.getFieldType()) &&
                        getFieldNameOptional().equals(field.getFieldNameOptional()) &&
                        getFieldIndexOptional().equals(field.getFieldIndexOptional());
@@ -1003,7 +1148,7 @@ public interface Type {
 
             @Override
             public int hashCode() {
-                return Objects.hash(getFieldType(), getFieldNameOptional(), getFieldIndexOptional());
+                return hashFunctionSupplier.get();
             }
 
             /**
@@ -1026,13 +1171,22 @@ public interface Type {
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional) {
                 return new Field(fieldType, fieldNameOptional, Optional.empty());
             }
+
+            /**
+             * Constructs a new field that has no name and no protobuf field index.
+             *
+             * @param fieldType The field {@link Type}.
+             */
+            public static Field unnamedOf(@Nonnull final Type fieldType) {
+                return new Field(fieldType, Optional.empty(), Optional.empty());
+            }
         }
     }
 
     /**
-     * Represents a stream of values.
+     * Represents a relational type.
      */
-    class Stream implements Type {
+    class Relation implements Type {
         /**
          * The type of the stream values.
          */
@@ -1040,18 +1194,28 @@ public interface Type {
         private final Type innerType;
 
         /**
-         * Constructs a new {@link Stream} object without an value type.
+         * Memoized hash function.
          */
-        public Stream() {
+        @Nonnull
+        private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashFunction);
+
+        private int computeHashFunction() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), innerType);
+        }
+
+        /**
+         * Constructs a new {@link Relation} object without a value type.
+         */
+        public Relation() {
             this(null);
         }
 
         /**
-         * Constructs a new {@link Stream} object.
+         * Constructs a new {@link Relation} object.
          *
          * @param innerType The {@code Type} of the stream values.
          */
-        public Stream(@Nullable final Type innerType) {
+        public Relation(@Nullable final Type innerType) {
             this.innerType = innerType;
         }
 
@@ -1100,23 +1264,19 @@ public interface Type {
         /**
          * {@inheritDoc}
          */
-        @Nullable
         @Override
-        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
-            throw new IllegalStateException("this should not have been called");
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                  @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldNumber,
+                                  @Nonnull final String fieldName,
+                                  @Nonnull final Optional<String> typeNameOptional,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
             throw new IllegalStateException("this should not have been called");
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), innerType);
+            return hashFunctionSupplier.get();
         }
 
         @Override
@@ -1125,12 +1285,15 @@ public interface Type {
                 return false;
             }
 
+            if (obj == this) {
+                return true;
+            }
+
             if (getClass() != obj.getClass()) {
                 return false;
             }
 
-            final Stream otherType = (Stream)obj;
-
+            final var otherType = (Relation)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));
         }
@@ -1140,6 +1303,11 @@ public interface Type {
             return isErased()
                    ? getTypeCode().toString()
                    : getTypeCode() + "(" + Objects.requireNonNull(getInnerType()) + ")";
+        }
+
+        public static Type scalarOf(@Nonnull final Type relationType) {
+            Verify.verify(relationType.getTypeCode() == TypeCode.RELATION && relationType instanceof Relation);
+            return ((Relation)relationType).getInnerType();
         }
     }
 
@@ -1157,6 +1325,16 @@ public interface Type {
          */
         @Nullable
         private final Type elementType;
+
+        /**
+         * Memoized hash function.
+         */
+        @Nonnull
+        private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashFunction);
+
+        private int computeHashFunction() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), elementType);
+        }
 
         /**
          * Constructs a new <i>nullable</i> array type instance without a value {@link Type}.
@@ -1238,46 +1416,58 @@ public interface Type {
         /**
          * {@inheritDoc}
          */
-        @Nullable
         @Override
-        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+        public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
             Objects.requireNonNull(elementType);
-            final DescriptorProto.Builder helperDescriptorBuilder = DescriptorProto.newBuilder();
+            final var typeName = uniqueCompliantTypeName();
+            final var helperDescriptorBuilder = DescriptorProto.newBuilder();
             helperDescriptorBuilder.setName(typeName);
-            elementType.addProtoField(helperDescriptorBuilder, 1, "value", typeName, FieldDescriptorProto.Label.LABEL_OPTIONAL);
-
-            return helperDescriptorBuilder.build();
+            elementType.addProtoField(typeRepositoryBuilder,
+                    helperDescriptorBuilder,
+                    1, "value",
+                    typeRepositoryBuilder.defineAndResolveType(elementType),
+                    FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            typeRepositoryBuilder.addMessageType(helperDescriptorBuilder.build());
+            typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
         }
 
         /**
          * {@inheritDoc}
          */
         @Override
-        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                  @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldNumber,
+                                  @Nonnull final String fieldName,
+                                  @Nonnull final Optional<String> typeNameOptional,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
             Objects.requireNonNull(elementType);
             //
             // If the inner type is nullable, we need to create a nested helper message to keep track of
             // nulls.
             //
             if (definesNestedProto()) {
-                final DescriptorProto helperDescriptor = buildDescriptor(typeName);
-
-                descriptorBuilder.addNestedType(helperDescriptor);
-                descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                final var fieldDescriptorProto = FieldDescriptorProto.newBuilder();
+                fieldDescriptorProto
                         .setName(fieldName)
-                        .setNumber(fieldIndex)
-                        .setTypeName(typeName)
-                        .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
-                        .build());
+                        .setNumber(fieldNumber)
+                        .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
+                typeNameOptional.ifPresent(fieldDescriptorProto::setTypeName);
+                descriptorBuilder.addField(fieldDescriptorProto.build());
             } else {
-                // if inner type is not nullable we can just put is straight into its parent
-                elementType.addProtoField(descriptorBuilder, fieldIndex, fieldName, typeName, FieldDescriptorProto.Label.LABEL_REPEATED);
+                // if inner type is not nullable we can just put the repeated field straight into its parent
+                elementType.addProtoField(typeRepositoryBuilder,
+                        descriptorBuilder,
+                        fieldNumber,
+                        fieldName,
+                        typeRepositoryBuilder.defineAndResolveType(elementType),
+                        FieldDescriptorProto.Label.LABEL_REPEATED);
             }
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), elementType);
+            return hashFunctionSupplier.get();
         }
 
         @Override
@@ -1286,12 +1476,15 @@ public interface Type {
                 return false;
             }
 
+            if (obj == this) {
+                return true;
+            }
+
             if (getClass() != obj.getClass()) {
                 return false;
             }
 
-            final Array otherType = (Array)obj;
-
+            final var otherType = (Array)obj;
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementType).equals(otherType.elementType));
         }

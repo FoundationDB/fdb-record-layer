@@ -29,13 +29,14 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.base.Verify;
@@ -150,9 +151,11 @@ public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
                 Verify.verify(comparison.getType() == Comparisons.Type.IN);
                 final ExplodeExpression explodeExpression;
                 if (comparison instanceof Comparisons.ListComparison) {
-                    explodeExpression = new ExplodeExpression(new LiteralValue<>(comparison.getComparand()));
+                    final var listComparison = (Comparisons.ListComparison)comparison;
+                    explodeExpression = new ExplodeExpression(LiteralValue.ofList((List<?>)listComparison.getComparand(null, null)));
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
-                    explodeExpression = new ExplodeExpression(QuantifiedColumnValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), 0));
+                    // TODO this needs to resolve the proper type
+                    explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), new Type.Array(new Type.Any())));
                 } else {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
                 }
@@ -169,7 +172,7 @@ public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
 
         transformedQuantifiers.addAll(bindings.getAll(innerQuantifierMatcher));
 
-        call.yield(call.ref(new SelectExpression(selectExpression.getResultValues(),
+        call.yield(call.ref(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
                 transformedPredicates.build())));
     }

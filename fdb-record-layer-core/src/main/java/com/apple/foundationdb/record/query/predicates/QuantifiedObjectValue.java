@@ -66,7 +66,7 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     @Override
     public QuantifiedObjectValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(alias)) {
-            return QuantifiedObjectValue.of(translationMap.getTargetOrThrow(alias));
+            return QuantifiedObjectValue.of(translationMap.getTargetOrThrow(alias), resultType);
         }
         return this;
     }
@@ -85,7 +85,7 @@ public class QuantifiedObjectValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public String describe(@Nonnull final Formatter formatter) {
+    public String explain(@Nonnull final Formatter formatter) {
         return formatter.getQuantifierName(alias);
     }
 

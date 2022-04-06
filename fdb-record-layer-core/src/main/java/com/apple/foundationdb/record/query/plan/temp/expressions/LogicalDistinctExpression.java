@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGrap
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,7 +39,6 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A relational planner expression representing a stream of unique records. This expression has a single child which
@@ -53,8 +51,6 @@ import java.util.function.Supplier;
 public class LogicalDistinctExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
     @Nonnull
     private final Quantifier inner;
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public LogicalDistinctExpression(@Nonnull RelationalExpression inner) {
         this(GroupExpressionRef.of(inner));
@@ -66,7 +62,6 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     public LogicalDistinctExpression(@Nonnull Quantifier inner) {
         this.inner = inner;
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Override
@@ -102,8 +97,8 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedObjectValue();
     }
 
     @Override

@@ -170,11 +170,13 @@ public interface MatchCandidate {
 
     /**
      * Creates a logical expression that represents a scan over the materialized candidate data.
+     * @param recordMetaData the metadata used by the planner
      * @param partialMatch the match to be used
-         * @return a new {@link RelationalExpression}
-         */
+     * @return a new {@link RelationalExpression}
+     */
     @SuppressWarnings("java:S135")
-    default RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch) {
+    default RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
+                                                        @Nonnull final PartialMatch partialMatch) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
@@ -192,18 +194,21 @@ public interface MatchCandidate {
             comparisonRangesForScanBuilder.add(prefixMap.get(parameterAlias));
         }
 
-        return toEquivalentExpression(partialMatch, comparisonRangesForScanBuilder.build());
+        return toEquivalentExpression(recordMetaData, partialMatch, comparisonRangesForScanBuilder.build());
     }
 
     /**
      * Creates a logical expression that represents a scan over the materialized candidate data. This method is expected
      * to be implemented by specific implementations of {@link MatchCandidate}.
+     * @param recordMetaData the metadata available to the planner
      * @param partialMatch the {@link PartialMatch} that matched th query and the candidate
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
      * @return a new {@link RelationalExpression}
      */
     @Nonnull
-    RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch, @Nonnull final List<ComparisonRange> comparisonRanges);
+    RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
+                                                @Nonnull PartialMatch partialMatch,
+                                                @Nonnull final List<ComparisonRange> comparisonRanges);
 
     @Nonnull
     default SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references) {
@@ -243,26 +248,29 @@ public interface MatchCandidate {
         final var type = index.getType();
 
         if (type.equals(IndexTypes.VALUE)) {
-            expandMatchCandidate(index,
+            expandIndexMatchCandidate(
+                    metaData,
+                    index,
                     recordTypeNamesForIndex,
                     availableRecordTypes,
                     isReverse,
                     commonPrimaryKeyForIndex,
-                    new ValueIndexExpansionVisitor(index, recordTypesForIndex))
-                    .ifPresent(resultBuilder::add);
+                    new ValueIndexExpansionVisitor(index, recordTypesForIndex)).ifPresent(resultBuilder::add);
         }
 
         if (type.equals(IndexTypes.RANK)) {
             // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
-            expandMatchCandidate(index,
+            expandIndexMatchCandidate(
+                    metaData,
+                    index,
                     recordTypeNamesForIndex,
                     availableRecordTypes,
                     isReverse,
                     commonPrimaryKeyForIndex,
-                    new ValueIndexExpansionVisitor(index, recordTypesForIndex))
-                    .ifPresent(resultBuilder::add);
+                    new ValueIndexExpansionVisitor(index, recordTypesForIndex)).ifPresent(resultBuilder::add);
 
-            expandMatchCandidate(index,
+            expandIndexMatchCandidate(metaData,
+                    index,
                     recordTypeNamesForIndex,
                     availableRecordTypes,
                     isReverse,
@@ -275,13 +283,14 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    private static Optional<MatchCandidate> expandMatchCandidate(@Nonnull final Index index,
-                                                                 @Nonnull final ImmutableSet<String> recordTypeNamesForIndex,
-                                                                 @Nonnull final Set<String> availableRecordTypes,
-                                                                 final boolean isReverse,
-                                                                 @Nullable final KeyExpression commonPrimaryKeyForIndex,
-                                                                 @Nonnull final ExpansionVisitor<?> expansionVisitor) {
-        final var baseRef = createBaseRef(availableRecordTypes, recordTypeNamesForIndex);
+    private static Optional<MatchCandidate> expandIndexMatchCandidate(@Nonnull RecordMetaData recordMetaData,
+                                                                      @Nonnull final Index index,
+                                                                      @Nonnull final ImmutableSet<String> recordTypeNamesForIndex,
+                                                                      @Nonnull final Set<String> availableRecordTypes,
+                                                                      final boolean isReverse,
+                                                                      @Nullable final KeyExpression commonPrimaryKeyForIndex,
+                                                                      @Nonnull final ExpansionVisitor<?> expansionVisitor) {
+        final var baseRef = createBaseRef(recordMetaData, availableRecordTypes, recordTypeNamesForIndex);
         try {
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
         } catch (final UnsupportedOperationException uOE) {
@@ -304,7 +313,7 @@ public interface MatchCandidate {
                                                           final boolean isReverse) {
         if (commonPrimaryKey != null) {
             final var availableRecordTypes = metaData.getRecordTypes().keySet();
-            final var baseRef = createBaseRef(availableRecordTypes, recordTypes);
+            final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes);
             final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, isReverse));
         }
@@ -313,9 +322,12 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
+    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
         final var quantifier =
                 Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
-        return GroupExpressionRef.of(new LogicalTypeFilterExpression(recordTypesForIndex, quantifier));
+        return GroupExpressionRef.of(
+                new LogicalTypeFilterExpression(recordTypesForIndex,
+                        quantifier,
+                        Type.Record.fromFieldDescriptorsMap(metaData.getFieldDescriptorMapFromNames(recordTypesForIndex))));
     }
 }

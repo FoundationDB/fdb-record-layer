@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
@@ -57,8 +58,9 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalE
  *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
  * </ul>
  *
- * The logic that this rules delegates to to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(PartialMatch)}.
+ * The logic that this rules delegates to actually create the expressions can be found in
+ * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch)}
+ *
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

@@ -108,8 +108,8 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue();
     }
 
     @Override
@@ -166,6 +166,7 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
         dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                getResultType(),
                 ImmutableList.of("record types: {{recordTypes}}"),
                 ImmutableMap.of("recordTypes", Attribute.gml(String.join(", ", recordTypes))));
 

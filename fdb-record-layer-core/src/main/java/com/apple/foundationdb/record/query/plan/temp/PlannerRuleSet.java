@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.ImplementInJoinRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementInUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIntersectionRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementMapRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
@@ -131,7 +132,8 @@ public class PlannerRuleSet {
             new PushInterestingOrderingThroughUnionRule(),
             new PushInterestingOrderingThroughInLikeSelectRule(),
             new ImplementInJoinRule(),
-            new ImplementInUnionRule()
+            new ImplementInUnionRule(),
+            new ImplementMapRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =
             ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()

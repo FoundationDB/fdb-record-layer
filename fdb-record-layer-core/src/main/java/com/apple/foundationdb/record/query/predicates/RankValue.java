@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 
 import javax.annotation.Nonnull;
 
@@ -48,6 +49,13 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         return basePlanHash(hashKind, BASE_HASH);
+    }
+
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return Type.primitiveType(Type.TypeCode.LONG);
     }
 
     @Nonnull

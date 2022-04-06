@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -59,7 +58,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -77,8 +75,6 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     private final KeyExpression comparisonKey;
     private final boolean reverse;
     private final int maxNumberOfValuesAllowed;
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public RecordQueryInUnionPlan(@Nonnull final Quantifier.Physical inner,
                                   @Nonnull final List<? extends InSource> valuesSources,
@@ -89,7 +85,6 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
         this.comparisonKey = comparisonKey;
         this.reverse = reverse;
         this.maxNumberOfValuesAllowed = maxNumberOfValuesAllowed;
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     public RecordQueryInUnionPlan(@Nonnull final RecordQueryPlan inner,
@@ -183,8 +178,8 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedObjectValue();
     }
 
     @Nonnull
@@ -198,6 +193,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
         final PlannerGraph.DataNodeWithInfo valuesNode =
                 new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
+                        getResultType(),
                         ImmutableList.of("VALUES({{values}}"),
                         ImmutableMap.of("values",
                                 Attribute.gml(Objects.requireNonNull(valuesSources).stream()

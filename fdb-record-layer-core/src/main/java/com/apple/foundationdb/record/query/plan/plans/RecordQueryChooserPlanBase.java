@@ -27,15 +27,12 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValuePickerValue;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -48,12 +45,11 @@ import java.util.stream.Stream;
  * Selecting one plan over the other will not have an impact on the client receiving the results.
  */
 public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithChildren {
-
     @Nonnull
     protected final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Value resultValue;
 
     protected RecordQueryChooserPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers) {
         Verify.verify(!quantifiers.isEmpty());
@@ -64,7 +60,7 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
         }
         this.reverse = firstReverse;
         // Create a list of values that capture all the given sub-plans
-        this.resultValuesSupplier = Suppliers.memoize(this::calculateChildrenValues);
+        this.resultValue = calculateChildrenValues(quantifiers);
     }
 
     @Override
@@ -86,8 +82,8 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValue;
     }
 
     @Nonnull
@@ -142,27 +138,11 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
      * that, in all, when the same "selected index" is chosen for all picker value, one would get back a consistent set
      * of values, representing one of the child plans for this plan.
      *
-     * @return list of {@link ValuePickerValue} representing all the values from all the sub plans
+     * @return a {@link ValuePickerValue} representing the values from all the sub plans
      */
-    private List<? extends Value> calculateChildrenValues() {
-        // Store all values in a multimap, indexed by the ordinal of the value in the returned list
-        // Each list represents all the i'th Value from each of the sub plans
-        ImmutableListMultimap.Builder<Integer, Value> mapBuilder = ImmutableListMultimap.builder();
-        quantifiers.forEach(quantifier -> {
-            List<? extends Value> values = quantifier.getFlowedValues();
-            for (int i = 0 ; i < values.size() ; i++) {
-                mapBuilder.put(i, values.get(i));
-            }
-        });
-        ImmutableListMultimap<Integer, ? extends Value> valuesMap = mapBuilder.build();
-
-        ImmutableList.Builder<ValuePickerValue> resultBuilder = ImmutableList.builder();
-        for (int i = 0 ; i < valuesMap.keySet().size() ; i++) {
-            ImmutableList<? extends Value> subValues = valuesMap.get(i);
-            // For now, fix all the picker values to return the first sub value
-            resultBuilder.add(new ValuePickerValue(0, subValues));
-        }
-
-        return resultBuilder.build();
+    private static Value calculateChildrenValues(@Nonnull final List<? extends Quantifier> quantifiers) {
+        return new ValuePickerValue(0, quantifiers.stream()
+                .map(Quantifier::getFlowedObjectValue)
+                .collect(ImmutableList.toImmutableList()));
     }
 }

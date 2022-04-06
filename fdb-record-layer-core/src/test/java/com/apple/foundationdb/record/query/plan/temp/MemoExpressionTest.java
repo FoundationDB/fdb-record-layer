@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -245,8 +246,8 @@ public class MemoExpressionTest {
 
         @Nonnull
         @Override
-        public List<? extends Value> getResultValues() {
-            return ImmutableList.of();
+        public Value getResultValue() {
+            return new QueriedValue();
         }
     }
 }

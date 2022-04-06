@@ -22,20 +22,16 @@ package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.predicates.Accumulator;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Objects;
 
 /**
  * StreamGrouping breaks streams of records into groups, based on grouping criteria.
@@ -63,6 +59,10 @@ import java.util.stream.Collectors;
  * @param <M> the type of content (message) that is in the store
  */
 public class StreamGrouping<M extends Message> {
+    @Nullable
+    private final Value groupingKeyValue;
+    @Nonnull
+    private final AggregateValue aggregateValue;
     @Nonnull
     private final FDBRecordStoreBase<M> store;
     @Nonnull
@@ -70,37 +70,46 @@ public class StreamGrouping<M extends Message> {
     @Nonnull
     private final CorrelationIdentifier alias;
     @Nonnull
-    private final List<Value> groupingKeys;
-    @Nonnull
-    private final List<AggregateValue<?, ?>> aggregateValues;
-    @Nonnull
-    private AccumulatorList accumulator;
+    private Accumulator accumulator;
     // The current group (evaluated). This will be used to decide if the next record is a group break
     @Nullable
-    private List<Object> currentGroup;
+    private Object currentGroup;
     // The previous completed group result - with both grouping criteria and accumulated values
     @Nullable
-    private List<Object> previousGroupResult;
+    private Object previousCompleteResult;
+    @Nonnull
+    private final CorrelationIdentifier groupingKeyAlias;
+    @Nonnull
+    private final CorrelationIdentifier aggregateAlias;
+    @Nonnull
+    private final Value completeResultValue;
 
     /**
      * Create a new group aggregator.
      *
-     * @param groupCriteria the list of grouping criteria. The list is ordered, so that the first criteria is the
-     * "coarse" group and the last criteria is the "fine" group.
-     * @param aggregateValues the list of aggregate values that will accumulate the fields. The list is ordered such
-     * that the result will have the aggregates in the same order as specified by the list
+     * @param groupingKeyValue the grouping key
+     * @param aggregateValue the aggregate values that will accumulate the fields
      * @param store record store from which to fetch records
      * @param context evaluation context containing parameter bindings
      * @param alias the quantifier alias for the value evaluation
      */
-    public StreamGrouping(@Nonnull final List<Value> groupCriteria, @Nonnull List<AggregateValue<?, ?>> aggregateValues,
-                          @Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull CorrelationIdentifier alias) {
-        this.groupingKeys = groupCriteria;
-        this.aggregateValues = aggregateValues;
-        this.accumulator = createAccumulator(aggregateValues);
+    public StreamGrouping(@Nullable final Value groupingKeyValue,
+                          @Nonnull final AggregateValue aggregateValue,
+                          @Nonnull final Value completeResultValue,
+                          @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                          @Nonnull final CorrelationIdentifier aggregateAlias,
+                          @Nonnull final FDBRecordStoreBase<M> store,
+                          @Nonnull final EvaluationContext context,
+                          @Nonnull final CorrelationIdentifier alias) {
+        this.groupingKeyValue = groupingKeyValue;
+        this.aggregateValue = aggregateValue;
+        this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
         this.store = store;
         this.context = context;
         this.alias = alias;
+        this.groupingKeyAlias = groupingKeyAlias;
+        this.aggregateAlias = aggregateAlias;
+        this.completeResultValue = completeResultValue;
     }
 
     /**
@@ -113,20 +122,26 @@ public class StreamGrouping<M extends Message> {
      * <LI>When of a record's grouping criteria changes from the previous record, this is a group break</LI>
      * </UL>
      *
-     * @param record the next record to process
+     * @param currentObject the next object to process
      *
-     * @return true IFF the next record provided constitutes a group break
+     * @return true if and only if the next object provided constitutes a group break
      */
-    public boolean apply(@Nonnull FDBQueriedRecord<M> record) {
-        List<Object> nextGroup = eval(record, groupingKeys);
-        boolean groupBreak = isGroupBreak(currentGroup, nextGroup);
-        if (groupBreak) {
-            finalizeGroup(nextGroup);
+    public boolean apply(@Nullable Object currentObject) {
+        final boolean groupBreak;
+        if (groupingKeyValue != null) {
+            Object nextGroup = evalGroupingKey(currentObject);
+            groupBreak = isGroupBreak(currentGroup, nextGroup);
+            if (groupBreak) {
+                finalizeGroup(nextGroup);
+            } else {
+                // for the case where we have no current group. In most cases, this changes nothing
+                currentGroup = nextGroup;
+            }
         } else {
-            // for the case where we have no current group. In most cases, this changes nothing
-            currentGroup = nextGroup;
+            groupBreak = false;
+            currentGroup = null;
         }
-        accumulate(record);
+        accumulate(currentObject);
         return groupBreak;
     }
 
@@ -137,12 +152,12 @@ public class StreamGrouping<M extends Message> {
      * @return the last result aggregated. Null if no group was completed by this aggregator.
      */
     @Nullable
-    public List<Object> getCompletedGroupResult() {
-        return previousGroupResult;
+    public Object getCompletedGroupResult() {
+        return previousCompleteResult;
     }
 
-    private boolean isGroupBreak(final List<Object> currentGroup, final List<Object> nextGroup) {
-        if ((currentGroup == null) || (currentGroup.isEmpty())) {
+    private boolean isGroupBreak(final Object currentGroup, final Object nextGroup) {
+        if (currentGroup == null) {
             return false;
         } else {
             return (!currentGroup.equals(nextGroup));
@@ -153,36 +168,30 @@ public class StreamGrouping<M extends Message> {
         finalizeGroup(null);
     }
 
-    private void finalizeGroup(List<Object> nextGroup) {
-        // Cannot use ImmutableList since it does not support null elements.
-        List<Object> result = new ArrayList<>();
-        if (currentGroup != null) {
-            result.addAll(currentGroup);
-        }
-        result.addAll(accumulator.finish());
-        previousGroupResult = Collections.unmodifiableList(result);
+    private void finalizeGroup(Object nextGroup) {
+        final EvaluationContext nestedContext = context.childBuilder()
+                .setBinding(groupingKeyAlias, currentGroup)
+                .setBinding(aggregateAlias, accumulator.finish())
+                .build(context.getTypeRepository());
+        previousCompleteResult = completeResultValue.eval(store, nestedContext, null, null);
 
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
-        accumulator = createAccumulator(aggregateValues);
+        accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
     }
 
-    @SuppressWarnings("unchecked")
-    private void accumulate(final @Nonnull FDBQueriedRecord<M> record) {
-        EvaluationContext nestedContext = context.withBinding(alias, record.getRecord());
-        accumulator.accumulate(store, nestedContext, record, record.getRecord());
+    private void accumulate(@Nullable Object currentObject) {
+        EvaluationContext nestedContext = context.withBinding(alias, currentObject);
+        final Object partial = aggregateValue.evalToPartial(store, nestedContext, null, null);
+        accumulator.accumulate(partial);
     }
 
-    @SuppressWarnings("unchecked")
-    private List<Object> eval(final FDBQueriedRecord<M> record, List<Value> values) {
-        final EvaluationContext nestedContext = context.withBinding(alias, record.getRecord());
-        return values.stream()
-                .map(value -> value.eval(store, nestedContext, record, record.getRecord()))
-                .collect(Collectors.toList());
+    private Object evalGroupingKey(@Nullable final Object currentObject) {
+        final EvaluationContext nestedContext = context.withBinding(alias, currentObject);
+        return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext, null, null);
     }
 
-    @Nonnull
-    private AccumulatorList createAccumulator(final @Nonnull List<AggregateValue<?, ?>> aggregateValues) {
-        return new AccumulatorList(aggregateValues.stream().map(AggregateValue::createAccumulator).collect(ImmutableList.toImmutableList()));
+    public boolean isResultOnEmpty() {
+        return groupingKeyValue == null;
     }
 }

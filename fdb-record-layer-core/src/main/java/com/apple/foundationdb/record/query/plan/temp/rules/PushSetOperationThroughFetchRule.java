@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -173,7 +174,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         Verify.verify(quantifiersOverFetches.size() == fetchPlans.size());
         Verify.verify(fetchPlans.size() == dependentFunctions.size());
 
-        final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(CorrelationIdentifier.uniqueID());
+        final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(CorrelationIdentifier.uniqueID(), new Type.Any());
         final Set<CorrelationIdentifier> pushableAliases = setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues);
 
         // if set operation is dynamic all aliases must be pushable
@@ -225,7 +226,8 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         final RecordQuerySetPlan newSetOperationPlan = setOperationPlan.withChildrenReferences(newPushedInnerPlans);
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
                 new RecordQueryFetchFromPartialRecordPlan(newSetOperationPlan,
-                        combinedTranslateValueFunction);
+                        combinedTranslateValueFunction,
+                        Type.Relation.scalarOf(setOperationPlan.getResultType()));
 
         if (nonPushableQuantifiers.isEmpty()) {
             call.yield(GroupExpressionRef.of(newFetchPlan));

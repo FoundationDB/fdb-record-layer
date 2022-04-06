@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
@@ -64,14 +65,14 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final LogicalTypeFilterExpression typeFilter = call.get(root);
-        final Collection<? extends RecordQueryPlan> innerPlans = call.get(innerPlansMatcher);
-        final ImmutableList.Builder<RecordQueryPlan> noTypeFilterNeededBuilder = ImmutableList.builder();
-        final ImmutableMultimap.Builder<Set<String>, RecordQueryPlan> unsatisfiedMapBuilder = ImmutableMultimap.builder();
+        final var logicalTypeFilterExpression = call.get(root);
+        final var innerPlans = call.get(innerPlansMatcher);
+        final var noTypeFilterNeededBuilder = ImmutableList.<RecordQueryPlan>builder();
+        final var unsatisfiedMapBuilder = ImmutableMultimap.<Set<String>, RecordQueryPlan>builder();
 
-        for (final RecordQueryPlan innerPlan : innerPlans) {
-            final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), innerPlan);
-            final Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
+        for (final var innerPlan : innerPlans) {
+            final var childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), innerPlan);
+            final var filterRecordTypes = Sets.newHashSet(logicalTypeFilterExpression.getRecordTypes());
 
             if (filterRecordTypes.containsAll(childRecordTypes)) {
                 noTypeFilterNeededBuilder.add(innerPlan);
@@ -80,8 +81,8 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
             }
         }
 
-        final ImmutableList<RecordQueryPlan> noTypeFilterNeeded = noTypeFilterNeededBuilder.build();
-        final ImmutableMultimap<Set<String>, RecordQueryPlan> unsatisfiedMap = unsatisfiedMapBuilder.build();
+        final var noTypeFilterNeeded = noTypeFilterNeededBuilder.build();
+        final var unsatisfiedMap = unsatisfiedMapBuilder.build();
 
         if (!noTypeFilterNeeded.isEmpty()) {
             call.yield(GroupExpressionRef.from(noTypeFilterNeeded));
@@ -91,7 +92,8 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
             call.yield(call.ref(
                     new RecordQueryTypeFilterPlan(
                             Quantifier.physical(GroupExpressionRef.from(unsatisfiedEntry.getValue())),
-                            unsatisfiedEntry.getKey())));
+                            unsatisfiedEntry.getKey(),
+                            Type.Relation.scalarOf(logicalTypeFilterExpression.getResultType()))));
         }
     }
 }

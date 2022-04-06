@@ -20,9 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
@@ -30,14 +31,14 @@ import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredic
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -52,14 +53,14 @@ import java.util.stream.IntStream;
  * merge other {@code GraphExpansion}s in a additive manner.
  *
  * This class also hides some data cleansing process, in particular related to potential duplicity on place holders,
- * which must be corrected (de-duplicated) before the place holders are used in the predicates of e.g. a match candidate.
+ * which must be corrected (de-duplicated) before the placeholders are used in the predicates of e.g. a match candidate.
  */
 public class GraphExpansion implements KeyExpressionVisitor.Result {
     /**
-     * A list of values representing the result of this expansion, if sealed and built.
+     * A list of columns, i.e., fields and values representing the result of this expansion, if sealed and built.
      */
     @Nonnull
-    private final ImmutableList<Value> resultValues;
+    private final ImmutableList<Column<? extends Value>> resultColumns;
 
     /**
      * A list of predicates that need to be applied when this expansion is built and sealed. The resulting filter
@@ -80,19 +81,19 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     @Nonnull
     private final ImmutableList<Placeholder> placeholders;
 
-    private GraphExpansion(@Nonnull final ImmutableList<Value> resultValues,
-                           @Nonnull final ImmutableList<QueryPredicate> predicates,
-                           @Nonnull final ImmutableList<Quantifier> quantifiers,
-                           @Nonnull final ImmutableList<Placeholder> placeholders) {
-        this.resultValues = resultValues;
-        this.predicates = predicates;
-        this.quantifiers = quantifiers;
-        this.placeholders = placeholders;
+    private GraphExpansion(@Nonnull final List<Column<? extends Value>> resultColumns,
+                           @Nonnull final List<QueryPredicate> predicates,
+                           @Nonnull final List<Quantifier> quantifiers,
+                           @Nonnull final List<Placeholder> placeholders) {
+        this.resultColumns = ImmutableList.copyOf(resultColumns);
+        this.predicates = ImmutableList.copyOf(predicates);
+        this.quantifiers = ImmutableList.copyOf(quantifiers);
+        this.placeholders = ImmutableList.copyOf(placeholders);
     }
 
     @Nonnull
-    public List<Value> getResultValues() {
-        return resultValues;
+    public List<Column<? extends Value>> getResultColumns() {
+        return resultColumns;
     }
 
     @Nonnull
@@ -125,12 +126,22 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
 
     @Nonnull
     public GraphExpansion withPredicate(@Nonnull final QueryPredicate predicate) {
-        return new GraphExpansion(this.resultValues, ImmutableList.of(predicate), this.quantifiers, this.placeholders);
+        return new GraphExpansion(this.resultColumns, ImmutableList.of(predicate), this.quantifiers, this.placeholders);
     }
 
     @Nonnull
     public GraphExpansion withBase(@Nonnull final Quantifier.ForEach quantifier) {
         return GraphExpansion.ofOthers(ofQuantifier(quantifier), this);
+    }
+
+    @Nonnull
+    public Builder toBuilder() {
+        final var builder = builder();
+        builder.addAllResultColumns(resultColumns);
+        builder.addAllPredicates(predicates);
+        builder.addAllQuantifiers(quantifiers);
+        builder.addAllPlaceholders(placeholders);
+        return builder;
     }
 
     /**
@@ -145,24 +156,45 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
      */
     @Nonnull
     public Sealed seal() {
-        final ImmutableList.Builder<Value> allResultValuesBuilder = ImmutableList.builder();
-        final ImmutableList<? extends QuantifiedColumnValue> pulledUpResultValues =
-                quantifiers
-                        .stream()
-                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                        .flatMap(quantifier -> quantifier.getFlowedValues().stream())
-                        .collect(ImmutableList.toImmutableList());
-        allResultValuesBuilder.addAll(pulledUpResultValues);
-        allResultValuesBuilder.addAll(resultValues);
-        final ImmutableList<Value> allResultValues = allResultValuesBuilder.build();
-
         final GraphExpansion graphExpansion;
+
+        final var seenFieldNames = Sets.<String>newHashSet();
+        final var duplicateFieldNamesBuilder = ImmutableSet.<String>builder();
+        for (final Column<? extends Value> resultColumn : resultColumns) {
+            final var fieldNameOptional = resultColumn.getField().getFieldNameOptional();
+            fieldNameOptional.ifPresent(fieldName -> {
+                if (!seenFieldNames.add(fieldName)) {
+                    duplicateFieldNamesBuilder.add(fieldName);
+                }
+            });
+        }
+
+        final var duplicateFieldNames = duplicateFieldNamesBuilder.build();
+
+        final var normalizedResultColumns =
+                resultColumns.stream()
+                        .map(resultColumn -> {
+                            final var fieldNameOptional = resultColumn.getField().getFieldNameOptional();
+                            // no name, all good
+                            if (fieldNameOptional.isEmpty()) {
+                                return resultColumn;
+                            }
+                            final var fieldName = fieldNameOptional.get();
+                            if (!duplicateFieldNames.contains(fieldName)) {
+                                return resultColumn;
+                            }
+
+                            // create an anonymous column
+                            return Column.unnamedOf(resultColumn.getValue());
+                        })
+                        .collect(ImmutableList.toImmutableList());
+
         if (!placeholders.isEmpty()) {
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
             // don't know that yet.
-            final ImmutableSet<QueryPredicate> localPredicates = ImmutableSet.copyOf(getPredicates());
-            final List<Placeholder> resultPlaceHolders = Lists.newArrayList(placeholders);
-            final List<Pair<Placeholder, Integer>> localPlaceHolderPairs =
+            final var localPredicates = ImmutableSet.copyOf(getPredicates());
+            final var resultPlaceHolders = Lists.newArrayList(placeholders);
+            final var localPlaceHolderPairs =
                     IntStream.range(0, placeholders.size())
                             .mapToObj(i -> Pair.of(placeholders.get(i), i))
                             .filter(p -> localPredicates.contains(p.getKey()))
@@ -171,13 +203,13 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
             final ImmutableList.Builder<QueryPredicate> resultPredicates = new ImmutableList.Builder<>();
             for (final QueryPredicate queryPredicate : getPredicates()) {
                 if (queryPredicate instanceof Placeholder) {
-                    final Placeholder localPlaceHolder = (Placeholder)queryPredicate;
-                    final AliasMap identities = AliasMap.identitiesFor(localPlaceHolder.getCorrelatedTo());
-                    final Iterator<Pair<Placeholder, Integer>> iterator = localPlaceHolderPairs.iterator();
+                    final var localPlaceHolder = (Placeholder)queryPredicate;
+                    final var identities = AliasMap.identitiesFor(localPlaceHolder.getCorrelatedTo());
+                    final var iterator = localPlaceHolderPairs.iterator();
                     int foundAtOrdinal = -1;
                     while (iterator.hasNext()) {
-                        final Pair<Placeholder, Integer> currentPlaceholderPair = iterator.next();
-                        final Placeholder currentPlaceHolder = currentPlaceholderPair.getKey();
+                        final var currentPlaceholderPair = iterator.next();
+                        final var currentPlaceHolder = currentPlaceholderPair.getKey();
                         if (localPlaceHolder.semanticEqualsWithoutParameterAlias(currentPlaceHolder, identities)) {
                             if (foundAtOrdinal < 0) {
                                 foundAtOrdinal = currentPlaceholderPair.getRight();
@@ -193,9 +225,9 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                 }
             }
 
-            graphExpansion = new GraphExpansion(allResultValues, resultPredicates.build(), quantifiers, ImmutableList.copyOf(resultPlaceHolders));
+            graphExpansion = new GraphExpansion(normalizedResultColumns, resultPredicates.build(), quantifiers, ImmutableList.copyOf(resultPlaceHolders));
         } else {
-            graphExpansion = new GraphExpansion(allResultValues, predicates, quantifiers, ImmutableList.of());
+            graphExpansion = new GraphExpansion(normalizedResultColumns, predicates, quantifiers, ImmutableList.of());
         }
         return graphExpansion.new Sealed();
     }
@@ -206,39 +238,41 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     }
 
     @Nonnull
+    public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier) {
+        return seal().buildSimpleSelectOverQuantifier(overQuantifier);
+    }
+
+    @Nonnull
     public static GraphExpansion empty() {
-        return of(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+        return builder().build();
     }
 
     @Nonnull
     public static GraphExpansion ofQuantifier(@Nonnull final Quantifier quantifier) {
-        return of(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(quantifier), ImmutableList.of());
+        return builder().addQuantifier(quantifier).build();
     }
 
     @Nonnull
     public static GraphExpansion ofPredicate(@Nonnull final QueryPredicate predicate) {
-        return of(ImmutableList.of(), ImmutableList.of(predicate), ImmutableList.of(), ImmutableList.of());
+        return builder().addPredicate(predicate).build();
     }
 
     @Nonnull
-    public static GraphExpansion ofResultValue(@Nonnull final Value resultValue) {
-        return of(ImmutableList.of(resultValue), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+    public static GraphExpansion ofResultColumn(@Nonnull final Column<? extends Value> resultColumn) {
+        return builder().addResultColumn(resultColumn).build();
     }
 
     @Nonnull
-    public static GraphExpansion ofResultValueAndQuantifier(@Nonnull final Value resultValue, @Nonnull final Quantifier quantifier) {
-        return of(ImmutableList.of(resultValue), ImmutableList.of(), ImmutableList.of(quantifier), ImmutableList.of());
+    public static GraphExpansion ofResultColumnAndPlaceholder(@Nonnull final Column<? extends Value> resultColumn,
+                                                              @Nonnull final Placeholder placeholder) {
+        return builder().addResultColumn(resultColumn).addPredicate(placeholder).addPlaceholder(placeholder).build();
     }
 
     @Nonnull
-    public static GraphExpansion ofResultValueAndPlaceholder(@Nonnull final Value resultValue,
-                                                             @Nonnull final Placeholder placeholder) {
-        return of(ImmutableList.of(resultValue), ImmutableList.of(placeholder), ImmutableList.of(), ImmutableList.of(placeholder));
-    }
-
-    @Nonnull
-    public static GraphExpansion ofPredicateAndQuantifier(@Nonnull final QueryPredicate predicate, @Nonnull final Quantifier quantifier) {
-        return of(ImmutableList.of(), ImmutableList.of(predicate), ImmutableList.of(quantifier), ImmutableList.of());
+    public static GraphExpansion ofExists(@Nonnull final Quantifier.Existential existentialQuantifier,
+                                          @Nonnull final QueryComponent alternativeComponent) {
+        final var existsPredicate = new ExistsPredicate(existentialQuantifier.getAlias(), alternativeComponent);
+        return of(ImmutableList.of(), ImmutableList.of(existsPredicate), ImmutableList.of(existentialQuantifier), ImmutableList.of());
     }
 
     @Nonnull
@@ -247,11 +281,11 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     }
 
     @Nonnull
-    public static GraphExpansion of(@Nonnull final ImmutableList<Value> resultValues,
-                                    @Nonnull final ImmutableList<QueryPredicate> predicates,
-                                    @Nonnull final ImmutableList<Quantifier> quantifiers,
-                                    @Nonnull final ImmutableList<Placeholder> placeholders) {
-        return new GraphExpansion(resultValues, predicates, quantifiers, placeholders);
+    public static GraphExpansion of(@Nonnull final List<Column<? extends Value>> resultColumns,
+                                    @Nonnull final List<QueryPredicate> predicates,
+                                    @Nonnull final List<Quantifier> quantifiers,
+                                    @Nonnull final List<Placeholder> placeholders) {
+        return new GraphExpansion(resultColumns, predicates, quantifiers, placeholders);
     }
 
     @Nonnull
@@ -264,20 +298,25 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
 
     @Nonnull
     public static GraphExpansion ofOthers(@Nonnull List<GraphExpansion> graphExpansions) {
-        final ImmutableList.Builder<Value> resultValuesBuilder = ImmutableList.builder();
-        final ImmutableList.Builder<QueryPredicate> predicatesBuilder = ImmutableList.builder();
-        final ImmutableList.Builder<Quantifier> quantifiersBuilder = ImmutableList.builder();
-        final ImmutableList.Builder<Placeholder> placeholdersBuilder = ImmutableList.builder();
+        final var resultColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
+        final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
+        final var quantifiersBuilder = ImmutableList.<Quantifier>builder();
+        final var placeholdersBuilder = ImmutableList.<Placeholder>builder();
         for (final GraphExpansion expandedPredicate : graphExpansions) {
-            resultValuesBuilder.addAll(expandedPredicate.getResultValues());
+            resultColumnsBuilder.addAll(expandedPredicate.getResultColumns());
             predicatesBuilder.addAll(expandedPredicate.getPredicates());
             quantifiersBuilder.addAll(expandedPredicate.getQuantifiers());
             placeholdersBuilder.addAll(expandedPredicate.getPlaceholders());
         }
-        return new GraphExpansion(resultValuesBuilder.build(),
+        return new GraphExpansion(resultColumnsBuilder.build(),
                 predicatesBuilder.build(),
                 quantifiersBuilder.build(),
                 placeholdersBuilder.build());
+    }
+
+    @Nonnull
+    public static Builder builder() {
+        return new Builder();
     }
 
     /**
@@ -286,12 +325,27 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     public class Sealed {
         @Nonnull
         public SelectExpression buildSelect() {
-            return new SelectExpression(resultValues, quantifiers, getPredicates());
+            return new SelectExpression(RecordConstructorValue.ofColumns(resultColumns), quantifiers, getPredicates());
+        }
+
+        @Nonnull
+        public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier) {
+            final var forEachQuantifiers = quantifiers.stream()
+                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                    .collect(ImmutableList.toImmutableList());
+            Verify.verify(forEachQuantifiers.size() == 1);
+            Verify.verify(Iterables.getOnlyElement(forEachQuantifiers) == overQuantifier);
+            return new SelectExpression(overQuantifier.getFlowedObjectValue(), quantifiers, getPredicates());
+        }
+
+        @Nonnull
+        public List<Column<? extends Value>> getResultColumns() {
+            return resultColumns;
         }
 
         @Nonnull
         public List<Value> getResultValues() {
-            return resultValues;
+            return resultColumns.stream().map(Column::getValue).collect(ImmutableList.toImmutableList());
         }
 
         @Nonnull
@@ -315,21 +369,17 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
-        public GraphExpansion derivedWithQuantifier(@Nonnull final Quantifier quantifier) {
-            Verify.verify(quantifier instanceof Quantifier.ForEach);
-            return new GraphExpansion(ImmutableList.of(),
-                    ImmutableList.of(),
-                    ImmutableList.of(quantifier),
-                    placeholders);
+        public Builder builderWithInheritedPlaceholders() {
+            return builder().addAllPlaceholders(placeholders);
         }
     }
 
     public static class Builder {
         /**
-         * A list of values representing the result of this expansion, if sealed and built.
+         * A list of columns representing the result of this expansion, if sealed and built.
          */
         @Nonnull
-        private final ImmutableList.Builder<Value> resultValues;
+        private final ImmutableList.Builder<Column<? extends Value>> resultColumns;
 
         /**
          * A list of predicates that need to be applied when this expansion is built and sealed. The resulting filter
@@ -350,25 +400,35 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         @Nonnull
         private final ImmutableList.Builder<Placeholder> placeholders;
 
-        public Builder() {
-            resultValues = new ImmutableList.Builder<>();
+        private Builder() {
+            resultColumns = new ImmutableList.Builder<>();
             predicates = new ImmutableList.Builder<>();
             quantifiers = new ImmutableList.Builder<>();
             placeholders = new ImmutableList.Builder<>();
         }
 
         @Nonnull
-        public Builder addAtom(@Nonnull final Value atom) {
-            Objects.requireNonNull(atom);
-            resultValues.add(atom);
+        public Builder addResultValue(@Nonnull final Value resultValue) {
+            addResultColumn(Column.unnamedOf(resultValue));
             return this;
         }
 
         @Nonnull
-        public Builder addAllValues(@Nonnull final List<? extends Value> atoms) {
-            atoms.forEach(Objects::requireNonNull);
-            resultValues.addAll(atoms);
+        public Builder addAllResultValues(@Nonnull final List<? extends Value> addResultValues) {
+            addResultValues.forEach(this::addResultValue);
             return this;
+        }
+
+        @Nonnull
+        public Builder addResultColumn(@Nonnull final Column<? extends Value> resultColumn) {
+            resultColumns.add(resultColumn);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addAllResultColumns(@Nonnull final List<Column<? extends Value>> addResultColumns) {
+            addResultColumns.forEach(this::addResultColumn);
+            return builder();
         }
 
         @Nonnull
@@ -391,7 +451,26 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
 
         @Nonnull
         public Builder addAllQuantifiers(@Nonnull final List<? extends Quantifier> addQuantifiers) {
-            quantifiers.addAll(addQuantifiers);
+            addQuantifiers.forEach(this::addQuantifier);
+            return this;
+        }
+
+        @Nonnull
+        public Builder pullUpQuantifier(@Nonnull final Quantifier quantifier) {
+            quantifiers.add(quantifier);
+            resultColumns.addAll(quantifier.getFlowedColumns());
+            return this;
+        }
+
+        @Nonnull
+        public Builder pullUpAllQuantifiers(@Nonnull final List<? extends Quantifier> addQuantifiers) {
+            addQuantifiers.forEach(this::pullUpQuantifier);
+            return this;
+        }
+
+        @Nonnull
+        public Builder pullUpAllExistingQuantifiers() {
+            quantifiers.build().stream().filter(qun -> qun instanceof Quantifier.ForEach).forEach(qun -> resultColumns.addAll(qun.getFlowedColumns()));
             return this;
         }
 
@@ -409,7 +488,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
 
         @Nonnull
         public GraphExpansion build() {
-            return new GraphExpansion(resultValues.build(), predicates.build(), quantifiers.build(), placeholders.build());
+            return new GraphExpansion(resultColumns.build(), predicates.build(), quantifiers.build(), placeholders.build());
         }
     }
 }

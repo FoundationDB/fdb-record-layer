@@ -23,12 +23,11 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
-import com.google.common.collect.ImmutableList;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -74,12 +73,12 @@ public class OrComponent extends AndOrComponent {
 
     @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
-                                 @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
         final GraphExpansion childrenGraphExpansion =
                 GraphExpansion.ofOthers(getChildren().stream()
-                        .map(child -> child.expand(baseAlias, baseQuantifierSupplier, fieldNamePrefix))
+                        .map(child -> child.expand(baseQuantifier, outerQuantifierSupplier, fieldNamePrefix))
                         .map(expanded -> expanded.withPredicate(expanded.asAndPredicate()))
                         .collect(ImmutableList.toImmutableList()));
 

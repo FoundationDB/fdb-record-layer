@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.predicates.EmptyValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -121,12 +121,11 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         final ScalarVisitorState state = getCurrentState();
         final String fieldName = fieldKeyExpression.getFieldName();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
-        final CorrelationIdentifier baseAlias = state.getBaseAlias();
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
                 .build();
-        return new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames);
+        return new FieldValue(QuantifiedObjectValue.of(state.baseAlias, state.inputType), fieldNames);
     }
 
     @Nonnull
@@ -158,6 +157,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
                 .addAll(fieldNamePrefix)
                 .add(parent.getFieldName())
                 .build();
+        // TODO resolve type
         return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
     }
 
@@ -175,8 +175,8 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     }
 
     @Nonnull
-    public Value toResultValue(@Nonnull final CorrelationIdentifier alias) {
-        return pop(keyExpression.expand(push(ScalarVisitorState.of(alias, ImmutableList.of()))));
+    public Value toResultValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
+        return pop(keyExpression.expand(push(ScalarVisitorState.of(alias, inputType, ImmutableList.of()))));
     }
 
     /**
@@ -191,14 +191,22 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         private final CorrelationIdentifier baseAlias;
 
         /**
+         * Input type as the base of expansion.
+         */
+        @Nonnull
+        private final Type inputType;
+
+        /**
          * List of field names that form a nesting chain of non-repeated fields.
          */
         @Nonnull
         private final List<String> fieldNamePrefix;
 
         private ScalarVisitorState(@Nonnull final CorrelationIdentifier baseAlias,
+                                   @Nonnull final Type inputType,
                                    @Nonnull final List<String> fieldNamePrefix) {
             this.baseAlias = baseAlias;
+            this.inputType = inputType;
             this.fieldNamePrefix = fieldNamePrefix;
         }
 
@@ -213,16 +221,18 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         }
 
         public ScalarVisitorState withBaseAlias(@Nonnull final CorrelationIdentifier baseAlias) {
-            return of(baseAlias, this.fieldNamePrefix);
+            return of(baseAlias, this.inputType, this.fieldNamePrefix);
         }
 
         public ScalarVisitorState withFieldNamePrefix(@Nonnull final List<String> fieldNamePrefix) {
-            return of(this.baseAlias, fieldNamePrefix);
+            return of(this.baseAlias, this.inputType, fieldNamePrefix);
         }
 
         public static ScalarVisitorState of(@Nonnull final CorrelationIdentifier baseAlias,
+                                            @Nonnull final Type inputType,
                                             @Nonnull final List<String> fieldNamePrefix) {
             return new ScalarVisitorState(baseAlias,
+                    inputType,
                     fieldNamePrefix);
         }
     }

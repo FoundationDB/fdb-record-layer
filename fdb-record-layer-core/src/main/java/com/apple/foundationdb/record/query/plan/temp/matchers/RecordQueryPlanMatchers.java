@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
@@ -50,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -493,4 +495,30 @@ public class RecordQueryPlanMatchers {
                 downstream);
     }
 
+    @Nonnull
+    public static BindingMatcher<RecordQueryMapPlan> map(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryMapPlan.class, any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryMapPlan> map(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryMapPlan.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryMapPlan> mapPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryMapPlan.class, all(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryMapPlan> mapPlan(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryMapPlan.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryMapPlan> result(@Nonnull BindingMatcher<? extends Value> downstream) {
+        return typedWithDownstream(RecordQueryMapPlan.class,
+                Extractor.of(RecordQueryMapPlan::getResultValue, name -> "result(" + name + ")"),
+                downstream);
+    }
 }

@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
@@ -55,19 +55,19 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @return a list of values where each value is required to be evaluable by the set base operation
      */
     @Nonnull
-    default List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier baseAlias) {
-        return Value.fromKeyExpressions(getRequiredFields(), baseAlias);
+    default List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull Type inputType) {
+        return Value.fromKeyExpressions(getRequiredFields(), baseAlias, inputType);
     }
 
     @Nonnull
     default TranslateValueFunction pushValueFunction(final List<TranslateValueFunction> dependentFunctions) {
         Verify.verify(!dependentFunctions.isEmpty());
-        return (value, newBaseColumnValue) -> {
+        return (value, newBaseQuantifiedValue) -> {
             @Nullable Value previousPushedValue = null;
             @Nullable AliasMap equivalencesMap = null;
             for (final TranslateValueFunction dependentFunction : dependentFunctions) {
-                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseColumnValue);
-                if (!pushedValueOptional.isPresent()) {
+                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseQuantifiedValue);
+                if (pushedValueOptional.isEmpty()) {
                     return Optional.empty();
                 }
                 if (previousPushedValue == null) {
@@ -97,7 +97,6 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                         .collect(Collectors.toSet());
 
         final CorrelationIdentifier newBaseAlias = CorrelationIdentifier.uniqueID();
-        final QuantifiedColumnValue newBaseColumnValue = QuantifiedColumnValue.of(newBaseAlias, 0);
 
         for (final Value value : values) {
             final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(newBaseAlias));
@@ -111,7 +110,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                     continue;
                 }
 
-                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseColumnValue);
+                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseAlias);
 
                 if (!pushedValueOptional.isPresent()) {
                     candidatesAliases.remove(quantifier.getAlias());

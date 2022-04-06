@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -64,7 +65,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nullable
     private final Set<String> recordTypes;
-
     @Nonnull
     private final ScanComparisons comparisons;
     private final boolean reverse;
@@ -210,8 +210,8 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue(new Type.Any());
     }
 
     @Override
@@ -302,9 +302,11 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         if (getRecordTypes() == null) {
             dataNodeWithInfo =
                     new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                            getResultType(),
                             ImmutableList.of("ALL"));
         } else {
             dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                    getResultType(),
                     ImmutableList.of("record types: {{types}}"),
                     ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList()))));
         }

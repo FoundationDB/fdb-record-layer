@@ -47,7 +47,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -61,7 +60,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -89,7 +87,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     private final boolean reverse;
 
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Value resultValue;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
@@ -99,8 +97,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKey = comparisonKey;
         this.reverse = reverse;
-
-        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValue = MergeValue.pivotAndMergeValues(quantifiers);
     }
 
     @Nonnull
@@ -116,7 +113,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
                         .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
                                 ((byte[] childContinuation) -> childPlan
                                         .executePlan(store, context, childContinuation, childExecuteProperties)
-                                        .map(result -> result.getQueriedRecord(0))))
+                                        .map(QueryResult::getQueriedRecord)))
                         .collect(Collectors.toList()),
                 continuation)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
@@ -175,8 +172,8 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValue;
     }
 
     @Override

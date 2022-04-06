@@ -113,7 +113,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                 }
                 builder.setBinding(rank.bindingName, binding);
             }
-            return builder.build();
+            return builder.build(context.getTypeRepository());
         });
     }
 
@@ -147,8 +147,8 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue();
     }
 
     @Nonnull
@@ -248,6 +248,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
         final PlannerGraph.DataNodeWithInfo valuesNode =
                 new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
+                        getResultType(),
                         ImmutableList.of("VALUES({{values}}"),
                         ImmutableMap.of("values",
                                 Attribute.gml(Objects.requireNonNull(getRanks()).stream()

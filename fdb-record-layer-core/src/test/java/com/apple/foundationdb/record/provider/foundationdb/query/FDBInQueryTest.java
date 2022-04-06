@@ -311,11 +311,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(2045945193, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertMatchesExactly(plan,
-                    fetchFromPartialRecordPlan(inUnionPlan(
-                            coveringIndexPlan().where(indexPlanOf(indexPlan()
-                                    .where(indexName("multi_index"))
-                                    .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison()))))))
-                    ).where(RecordQueryPlanMatchers.inUnionValuesSources(exactly(inUnionInParameter(equalsObject("valueThrees")))))));
+                    fetchFromPartialRecordPlan(
+                            inUnionPlan(
+                                    coveringIndexPlan().where(indexPlanOf(indexPlan()
+                                            .where(indexName("multi_index"))
+                                            .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison()))))))
+                            ).where(RecordQueryPlanMatchers.inUnionValuesSources(exactly(inUnionInParameter(equalsObject("valueThrees")))))));
             assertEquals(1947663752, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -1336,11 +1337,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(417180157, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             // Cascades planner avoids IN-JOIN causing a primary scan and a UNION-ALL
-            unionPlan(
-                    indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([null],[910])"))),
-                    predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
-                            .where(predicates(valuePredicate(fieldValue("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(0, 2))))))
-                    .where(comparisonKey(concat(field("num_value_unique"), primaryKey("MySimpleRecord"))));
+            assertMatchesExactly(plan,
+                    unionPlan(
+                            indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([null],[910])"))),
+                            predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
+                                    .where(predicates(valuePredicate(fieldValue("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(2, 0))))))
+                            .where(comparisonKey(concat(field("num_value_unique"), primaryKey("MySimpleRecord")))));
             assertEquals(-1933328656, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1747054907, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-1932097284, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));

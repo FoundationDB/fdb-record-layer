@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpressi
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -145,7 +144,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         // Create a new SelectExpression with just the non-eligible quantifiers.
         //
         final var lowerSelectExpression =
-                new SelectExpression(selectExpression.getResultValues(), partitionedQuantifiers.get(false), selectExpression.getPredicates());
+                new SelectExpression(selectExpression.getResultValue(), partitionedQuantifiers.get(false), selectExpression.getPredicates());
         final var lowerQuantifier = Quantifier.forEach(GroupExpressionRef.of(lowerSelectExpression));
 
         //
@@ -153,7 +152,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         // the newly created lower SelectExpression.
         //
         final var upperSelectExpression =
-                new SelectExpression(lowerQuantifier.getFlowedValues(),
+                new SelectExpression(lowerQuantifier.getFlowedObjectValue(),
                         ImmutableList.<Quantifier>builder()
                                 .addAll(partitionedQuantifiers.get(true))
                                 .add(lowerQuantifier)
@@ -172,9 +171,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         return selectExpression
                 .getResultValues()
                 .stream()
-                .noneMatch(value ->
-                        value.narrowMaybe(QuantifiedValue.class)
-                                .filter(quantifiedValue -> !explodeAliases.contains(quantifiedValue.getAlias()))
-                                .isEmpty());
+                .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())
+                .noneMatch(explodeAliases::contains);
     }
 }

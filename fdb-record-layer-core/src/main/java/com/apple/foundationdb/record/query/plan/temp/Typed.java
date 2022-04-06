@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
 
 /**
  * Provides {@link Type} information about result set. Implementations of this interface allow the caller to inspect
@@ -37,27 +36,13 @@ public interface Typed {
     Type getResultType();
 
     /**
-     * Safe-casts the {@link Typed} instance to another type.
-     *
-     * @param clazz marker object.
-     * @param <T> The type to cast to.
-     * @return if cast is successful, an {@link Optional} containing the instance cast to {@link T}, otherwise an
-     * empty {@link Optional}.
-     */
-    default <T extends Typed> Optional<T> narrowMaybe(@Nonnull final Class<T> clazz) {
-        if (clazz.isInstance(this)) {
-            return Optional.of(clazz.cast(this));
-        } else {
-            return Optional.empty();
-        }
-    }
-
-    /**
      * Returns a human-friendly textual representation of both the type-producing instance and its result set {@link Type}.
      *
      * @param formatter The formatter used to format the textual representation.
      * @return a human-friendly textual representation of both the type-producing instance and its result set {@link Type}.
      */
     @Nonnull
-    String describe(@Nonnull final Formatter formatter);
+    default String describe(@Nonnull final Formatter formatter) {
+        return getResultType().describe(formatter);
+    }
 }

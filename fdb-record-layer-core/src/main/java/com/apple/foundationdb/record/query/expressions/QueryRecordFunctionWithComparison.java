@@ -30,15 +30,12 @@ import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.RankValue;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -121,20 +118,19 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias,
-                                 @Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
-
         // TODO for now we only do this for rank but we can do this for more than that
         if (function instanceof IndexRecordFunction && function.getName().equals(FunctionNames.RANK)) {
             final var groupingKeyExpression = ((IndexRecordFunction<?>)function).getOperand();
             final var wholeKeyExpression = groupingKeyExpression.getWholeKey();
             final var expansionVisitor = new KeyExpressionExpansionVisitor();
-            final var innerBaseQuantifier = baseQuantifierSupplier.get();
+            final var innerBaseQuantifier = outerQuantifierSupplier.get();
             final var partitioningAndArgumentExpansion =
                     wholeKeyExpression.expand(
                             expansionVisitor.push(VisitorState.forQueries(Lists.newArrayList(),
-                                    innerBaseQuantifier.getAlias(),
+                                    innerBaseQuantifier,
                                     fieldNamePrefix)));
             final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal();
 
@@ -144,8 +140,11 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
             final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
             final var rankExpansion =
-                    GraphExpansion.ofOthers(partitioningAndArgumentExpansion,
-                            GraphExpansion.ofResultValueAndQuantifier(rankValue, innerBaseQuantifier));
+                    partitioningAndArgumentExpansion
+                            .toBuilder()
+                            .addQuantifier(innerBaseQuantifier)
+                            .addResultValue(rankValue)
+                            .build();
             final var rankSelectExpression = rankExpansion.buildSelect();
             final var rankQuantifier = Quantifier.forEach(GroupExpressionRef.of(rankSelectExpression));
 
@@ -157,14 +156,16 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             // predicate on rank
             final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValues().size() - 1);
             final var rankComparisonExpansion =
-                    GraphExpansion.ofPredicateAndQuantifier(new ValuePredicate(rankColumnValue, comparison),
-                            rankQuantifier);
+                    GraphExpansion.builder()
+                            .addQuantifier(rankQuantifier)
+                            .addPredicate(new ValuePredicate(rankColumnValue, comparison))
+                            .build();
 
             // join predicate
             final var selfJoinPredicate =
-                    QuantifiedObjectValue.of(rankQuantifier.getAlias())
+                    rankQuantifier.getFlowedObjectValue()
                             .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
-                                    Bindings.Internal.CORRELATION.bindingName(baseAlias.toString()), Bindings.Internal.CORRELATION));
+                                    Bindings.Internal.CORRELATION.bindingName(baseQuantifier.getAlias().toString()), Bindings.Internal.CORRELATION));
             final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
 
             final var rankAndJoiningPredicateSelectExpression =
@@ -181,7 +182,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                 withPrefix = Query.field(fieldName).matches(withPrefix);
             }
 
-            return GraphExpansion.ofPredicateAndQuantifier(new ExistsPredicate(rankComparisonQuantifier.getAlias(), withPrefix), rankComparisonQuantifier);
+            return GraphExpansion.ofExists(rankComparisonQuantifier, withPrefix);
         }
 
         throw new UnsupportedOperationException();

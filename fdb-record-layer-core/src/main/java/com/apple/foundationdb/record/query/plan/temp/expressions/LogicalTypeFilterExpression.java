@@ -32,10 +32,12 @@ import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.Type;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
@@ -61,22 +62,22 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Nonnull
     private final Quantifier inner;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Type resultType;
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalExpression inner) {
-        this(recordTypes, Quantifier.forEach(GroupExpressionRef.of(inner)));
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalExpression inner, @Nonnull Type resultType) {
+        this(recordTypes, Quantifier.forEach(GroupExpressionRef.of(inner)), resultType);
     }
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner) {
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner, @Nonnull Type resultType) {
         this.recordTypes = recordTypes;
         this.inner = inner;
-        this.resultValuesSupplier = inner::getFlowedValues;
+        this.resultType = resultType;
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return QuantifiedObjectValue.of(inner.getAlias(), resultType);
     }
 
     @Override
@@ -119,7 +120,8 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     public LogicalTypeFilterExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                     @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new LogicalTypeFilterExpression(getRecordTypes(),
-                Iterables.getOnlyElement(rebasedQuantifiers));
+                Iterables.getOnlyElement(rebasedQuantifiers),
+                resultType);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

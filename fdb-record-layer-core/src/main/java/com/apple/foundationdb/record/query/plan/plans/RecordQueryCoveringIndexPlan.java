@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.temp.ScanWithFetchMatchCandidate
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.IndexedValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -174,8 +173,12 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new IndexedValue());
+    public Value getResultValue() {
+        // TODO This should generate a value whose result type are the parts of what the index returns flattened out
+        //      in the way that it is stored on disk. As we currently massage the index keys (and values) into a partial
+        //      record we cannot do that just yet. In essence, we currently have to create a type that is the base record
+        //      type with the assumption that columns not contained in the index are omitted from that record.
+        return new IndexedValue(Objects.requireNonNull(indexPlan.getResultType().getInnerType()));
     }
 
     @Nonnull
@@ -198,10 +201,10 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                                 @Nonnull QuantifiedColumnValue newQuantifiedColumnValue) {
+                                                 @Nonnull CorrelationIdentifier baseAlias) {
         return indexPlan.getMatchCandidateOptional()
                 .flatMap(matchCandidate -> matchCandidate instanceof ScanWithFetchMatchCandidate ? Optional.of((ScanWithFetchMatchCandidate)matchCandidate) : Optional.empty())
-                .flatMap(scanWithFetchMatchCandidate -> scanWithFetchMatchCandidate.pushValueThroughFetch(value, newQuantifiedColumnValue));
+                .flatMap(scanWithFetchMatchCandidate -> scanWithFetchMatchCandidate.pushValueThroughFetch(value, baseAlias));
     }
 
     @Override

@@ -22,19 +22,18 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.DynamicSchema;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 public class ParserContext {
     @Nonnull
     private final Scopes scopes;
     @Nonnull
-    private DynamicSchema.Builder dynamicSchemaBuilder;
+    private final TypeRepository.Builder typeRepositoryBuilder;
 
     @Nonnull
     private final RecordMetaData recordMetaData;
@@ -42,18 +41,18 @@ public class ParserContext {
     private final RecordStoreState recordStoreState;
 
     public ParserContext(@Nonnull final Scopes scopes,
-                         @Nonnull DynamicSchema.Builder dynamicSchemaBuilder,
+                         @Nonnull TypeRepository.Builder typeRepositoryBuilder,
                          @Nonnull final RecordMetaData recordMetaData,
                          @Nonnull final RecordStoreState recordStoreState) {
         this.scopes = scopes;
-        this.dynamicSchemaBuilder = dynamicSchemaBuilder;
+        this.typeRepositoryBuilder = typeRepositoryBuilder;
         this.recordMetaData = recordMetaData;
         this.recordStoreState = recordStoreState;
     }
 
     @Nonnull
-    public DynamicSchema.Builder getDynamicSchemaBuilder() {
-        return dynamicSchemaBuilder;
+    public TypeRepository.Builder getTypeRepositoryBuilder() {
+        return typeRepositoryBuilder;
     }
 
     @Nonnull
@@ -71,9 +70,8 @@ public class ParserContext {
         return Objects.requireNonNull(scopes.getCurrentScope());
     }
 
-    public void pushScope(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
-                          @Nonnull final Map<String, Value> boundIdentifiers) {
-        scopes.push(visibleAliases, boundIdentifiers);
+    public void pushScope(@Nonnull final Map<CorrelationIdentifier, QuantifiedValue> boundIdentifiers) {
+        scopes.push(boundIdentifiers);
     }
 
     @Nonnull
@@ -82,7 +80,7 @@ public class ParserContext {
     }
 
     @Nonnull
-    public Value resolveIdentifier(@Nonnull final String identifier) {
+    public QuantifiedValue resolveIdentifier(@Nonnull final String identifier) {
         return scopes.resolveIdentifier(identifier);
     }
 }
