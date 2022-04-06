@@ -23,7 +23,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** The Lucene directory implementation now caches the complete list of files in a directory [(Issue #1575)](https://github.com/FoundationDB/fdb-record-layer/issues/1575)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improve performance of chooseK algorithm by using integer counters for state management instead of Iterator heap objects [(Issue #1590)](https://github.com/FoundationDB/fdb-record-layer/issues/1590)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

@@ -25,15 +25,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import com.google.common.collect.PeekingIterator;
+import org.apache.commons.lang3.tuple.MutablePair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.IntStream;
 
 /**
  * Utility class to provide helpers related to enumeration of cross products.
@@ -59,14 +57,14 @@ public class ChooseK {
         private class ComplexIterator extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
             // state
             private int bound;
-            private final List<PeekingIterator<Integer>> state;
+            private final List<MutablePair<Integer, Integer>> state;
             int currentOffset;
 
             private ComplexIterator() {
                 this.bound = 0;
                 this.state = Lists.newArrayListWithCapacity(numberOfElementsToChoose);
                 for (int i = 0; i < numberOfElementsToChoose; i ++) {
-                    this.state.add(null);
+                    this.state.add(MutablePair.of(-1, -1));
                 }
                 this.currentOffset = 0;
             }
@@ -103,16 +101,15 @@ public class ChooseK {
                     // Set the currentIterator. That is the iterator at level currentLevel. If it is null,
                     // we create a new iterator over the set.
                     //
-                    final PeekingIterator<Integer> currentIterator;
-                    if (state.get(currentLevel) == null) {
-                        currentIterator = Iterators.peekingIterator(IntStream.range(1, elements.size() - currentOffset + 1).iterator());
-                        state.set(currentLevel, currentIterator);
+                    MutablePair<Integer, Integer> currentPair = state.get(currentLevel);
+                    if (currentPair.left == -1) {
+                        currentPair.left = 1;
+                        currentPair.right = elements.size() - currentOffset + 1;
                         lastOffset = 0;
                     } else {
-                        currentIterator = state.get(currentLevel);
                         unbind(currentLevel);
-                        lastOffset = currentIterator.peek();
-                        currentIterator.next();
+                        lastOffset = currentPair.left;
+                        currentPair.left++;
                     }
 
                     //
@@ -124,14 +121,15 @@ public class ChooseK {
                     // If we do find an element not violating any constraints on the current level we conceptually
                     // bind the element we found and continue on downward.
                     //
-                    final boolean isDown = currentIterator.hasNext();
+                    final boolean isDown = currentPair.left < currentPair.right;
                     if (isDown) {
                         bound += 1;
                         currentOffset += 1;
                         currentLevel += 1;
                     } else {
                         // back tracking -- need to clear out the current iterator
-                        state.set(currentLevel, null);
+                        currentPair.left = -1;
+                        currentPair.right = -1;
                         currentOffset -= lastOffset;
                         currentLevel -= 1;
                     }
@@ -144,8 +142,8 @@ public class ChooseK {
                 final ImmutableList.Builder<T> resultBuilder = ImmutableList.builder();
 
                 int resultOffset = 0;
-                for (final PeekingIterator<Integer> iterator : state) {
-                    resultOffset += iterator.peek();
+                for (final MutablePair<Integer, Integer> element : state) {
+                    resultOffset += element.left;
                     resultBuilder.add(elements.get(resultOffset - 1));
                 }
 
@@ -156,11 +154,12 @@ public class ChooseK {
                 // reset all the following ones
                 for (int i = level; i < numberOfElementsToChoose; i ++ ) {
                     // either iterator is on a valid item or iterator is null
-                    final PeekingIterator<Integer> currentIterator = state.get(i);
-                    if (currentIterator != null) {
+                    MutablePair<Integer, Integer> currentPair = state.get(i);
+                    if (currentPair.left != -1) {
                         bound -= 1;
                         if (i > level) {
-                            state.set(level, null);
+                            currentPair.left = -1;
+                            currentPair.right = -1;
                         }
                     } else {
                         break;
@@ -178,18 +177,19 @@ public class ChooseK {
                     throw new IndexOutOfBoundsException();
                 }
 
-                if (state.get(level) == null) {
+                if (state.get(level).left == -1) {
                     throw new UnsupportedOperationException("cannot skip/unbind as level is not bound at all");
                 }
 
                 // reset all the following ones
                 for (int i = level + 1; i < numberOfElementsToChoose; i ++ ) {
                     // either iterator is on a valid item or iterator is null
-                    final PeekingIterator<Integer> currentIterator = state.get(i);
-                    if (currentIterator != null) {
+                    final MutablePair<Integer, Integer> pair = state.get(i);
+                    if (pair != null) {
                         bound -= 1;
-                        currentOffset -= currentIterator.peek();
-                        state.set(i, null);
+                        currentOffset -= pair.left;
+                        pair.left = -1;
+                        pair.right = -1;
                     } else {
                         break;
                     }
