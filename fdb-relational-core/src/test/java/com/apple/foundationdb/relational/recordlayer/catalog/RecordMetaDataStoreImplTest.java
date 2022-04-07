@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
+
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

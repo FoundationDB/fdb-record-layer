@@ -30,19 +30,26 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class RecordLayerStoreCatalogImplTest {
     private FDBDatabase fdb;
@@ -55,13 +62,28 @@ public class RecordLayerStoreCatalogImplTest {
         // create a FDBRecordStore
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
-            builder.getRecordType("Schema").setPrimaryKey(Key.Expressions.concatenateFields("database_id", "schema_name"));
+            builder.getRecordType("Schema").setRecordTypeKey("Schema").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields("database_id", "schema_name")));
 
             FDBRecordStore.newBuilder()
                     .setKeySpacePath(new KeySpace(new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL)).path("catalog"))
                     .setMetaDataProvider(builder)
                     .setContext(txn.unwrap(FDBRecordContext.class))
                     .createOrOpen();
+            txn.commit();
+        }
+    }
+
+    @AfterEach
+    void deleteAllRecords() throws RelationalException {
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
+            builder.getRecordType("Schema").setPrimaryKey(Key.Expressions.concatenateFields("database_id", "schema_name"));
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder()
+                    .setKeySpacePath(new KeySpace(new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL)).path("catalog"))
+                    .setMetaDataProvider(builder)
+                    .setContext(txn.unwrap(FDBRecordContext.class))
+                    .open();
+            recordStore.deleteAllRecords();
             txn.commit();
         }
     }
@@ -91,7 +113,7 @@ public class RecordLayerStoreCatalogImplTest {
             RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
                 storeCatalog.loadSchema(loadTxn2, URI.create("test_wrong_database_id"), "test_schema_name");
             });
-            Assertions.assertEquals("Primary key (\"test_wrong_database_id\", \"test_schema_name\") not existed in Catalog!", exception.getMessage());
+            Assertions.assertEquals("Primary key (\"Schema\", \"test_wrong_database_id\", \"test_schema_name\") not existed in Catalog!", exception.getMessage());
             Assertions.assertEquals(ErrorCode.SCHEMA_NOT_FOUND, exception.getErrorCode());
         }
 
@@ -100,7 +122,7 @@ public class RecordLayerStoreCatalogImplTest {
             RelationalException exception2 = Assertions.assertThrows(RelationalException.class, () -> {
                 storeCatalog.loadSchema(loadTxn3, URI.create("test_database_id"), "test_wrong_schema_name");
             });
-            Assertions.assertEquals("Primary key (\"test_database_id\", \"test_wrong_schema_name\") not existed in Catalog!", exception2.getMessage());
+            Assertions.assertEquals("Primary key (\"Schema\", \"test_database_id\", \"test_wrong_schema_name\") not existed in Catalog!", exception2.getMessage());
             Assertions.assertEquals(ErrorCode.SCHEMA_NOT_FOUND, exception2.getErrorCode());
         }
     }
@@ -256,6 +278,74 @@ public class RecordLayerStoreCatalogImplTest {
             Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
             Assertions.assertEquals("Field schema_version in Schema must be set, and must not be 0!", exception.getMessage());
         }
+    }
+
+    @Test
+    void testListSchemas() throws RelationalException, SQLException {
+        int n = 24;
+        // save schemas
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            for (int i = 0; i < n; i++) {
+                CatalogData.Schema schema = generateTestSchema("test_schema_name" + i, "test_database_id" + i / 2, "test_template_name", 1, Arrays.asList("test_table" + i));
+                storeCatalog.updateSchema(txn, schema);
+            }
+            txn.commit();
+        }
+        // list all schemas
+        Set<String> fullSchemaNames = new HashSet<>();
+        try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
+            Continuation continuation = Continuation.BEGIN;
+            do {
+                try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
+                    // to test continuation, only read 1 result at once
+                    if (result.next()) {
+                        CatalogData.Schema schema = result.parseMessage();
+                        fullSchemaNames.add(schema.getDatabaseId() + "/" + schema.getSchemaName());
+                    }
+                    continuation = result.getContinuation();
+                }
+            } while (!continuation.atEnd());
+        }
+        Assertions.assertEquals(n, fullSchemaNames.size());
+        for (int i = 0; i < n; i++) {
+            Assertions.assertTrue(fullSchemaNames.contains("test_database_id" + i / 2 + "/test_schema_name" + i));
+        }
+        // list schemas of 1 database
+        Set<String> resultSet = new HashSet<>();
+        try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
+            Continuation continuation = Continuation.BEGIN;
+            do {
+                try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, URI.create("test_database_id1"), continuation)) {
+                    if (result.next()) {
+                        CatalogData.Schema schema = result.parseMessage();
+                        resultSet.add(schema.getDatabaseId() + "/" + schema.getSchemaName());
+                    }
+                    continuation = result.getContinuation();
+                }
+            } while (continuation.getBytes() != null);
+        }
+        Assertions.assertEquals(2, resultSet.size());
+        Assertions.assertTrue(resultSet.contains("test_database_id1/test_schema_name2"));
+        Assertions.assertTrue(resultSet.contains("test_database_id1/test_schema_name3"));
+    }
+
+    @Test
+    void testListSchemasEmptyResult() throws RelationalException, SQLException {
+        // list all schemas
+        Set<String> fullSchemaNames = new HashSet<>();
+        try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
+            Continuation continuation = Continuation.BEGIN;
+            do {
+                RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation);
+                while (result.next()) {
+                    CatalogData.Schema schema = result.parseMessage();
+                    fullSchemaNames.add(schema.getDatabaseId() + "/" + schema.getSchemaName());
+                }
+                continuation = result.getContinuation();
+                result.close();
+            } while (continuation.getBytes() != null);
+        }
+        Assertions.assertEquals(0, fullSchemaNames.size());
     }
 
     private CatalogData.Schema generateTestSchema(String schemaName, String databaseId, String schemaTemplateName, int schemaVersion, List<String> tableNames) {

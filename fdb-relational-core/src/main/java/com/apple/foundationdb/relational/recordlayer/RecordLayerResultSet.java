@@ -37,7 +37,7 @@ import java.util.List;
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     protected final Row startKey;
     protected final Row endKey;
-    protected final RecordStoreConnection sourceConnection;
+    protected final RecordContextTransaction transaction;
 
     protected final Scannable scannable;
     protected Continuation continuation;
@@ -56,7 +56,19 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         this.scannable = scannable;
         this.startKey = start;
         this.endKey = end;
-        this.sourceConnection = sourceConnection;
+        this.transaction = sourceConnection.transaction;
+        this.fieldNames = scannable.getFieldNames();
+        this.scanProperties = scanProperties;
+        this.continuation = continuation;
+    }
+
+    public RecordLayerResultSet(Scannable scannable, Row start, Row end,
+                                RecordContextTransaction transaction, QueryProperties scanProperties,
+                                Continuation continuation) throws RelationalException {
+        this.scannable = scannable;
+        this.startKey = start;
+        this.endKey = end;
+        this.transaction = transaction;
         this.fieldNames = scannable.getFieldNames();
         this.scanProperties = scanProperties;
         this.continuation = continuation;
@@ -67,7 +79,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         currentRow = null;
         if (currentCursor == null) {
             try {
-                currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, continuation, scanProperties);
+                currentCursor = scannable.openScan(transaction, startKey, endKey, continuation, scanProperties);
             } catch (RelationalException e) {
                 throw e.toSqlException();
             }
@@ -163,7 +175,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Override
     public Continuation getContinuation() throws RelationalException {
         if (currentCursor == null) {
-            currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, continuation, scanProperties);
+            currentCursor = scannable.openScan(transaction, startKey, endKey, continuation, scanProperties);
         }
         return currentCursor.getContinuation();
     }

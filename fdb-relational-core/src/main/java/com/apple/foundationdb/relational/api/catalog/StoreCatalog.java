@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
+
+import javax.annotation.Nonnull;
 
 public interface StoreCatalog {
 
@@ -45,9 +48,9 @@ public interface StoreCatalog {
      * @param databaseId id of the database
      * @param schemaName schema name
      * @return the schema
-     * @throws RelationalException SchemaNotFoundException if the combination of databaseId and schemaName is not found
-     *                           InternalErrorException if txn is incompatible type
-     *                           TransactionInactiveException if txn is no longer active
+     * @throws RelationalException SchemaNotFound if the combination of databaseId and schemaName is not found
+     *                           InternalError if txn is incompatible type
+     *                           TransactionInactive if txn is no longer active
      */
     CatalogData.Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
 
@@ -58,7 +61,32 @@ public interface StoreCatalog {
      * @param txn         a Transaction
      * @param dataToWrite CatalogData.Schema object that will be stored in FDB
      * @return true if the update succeeds
-     * @throws RelationalException InternalErrorException if txn is compatible type
+     * @throws RelationalException InternalError if txn is compatible type
+     *                           TransactionInactive if txn is no longer active
      */
     boolean updateSchema(@Nonnull Transaction txn, @Nonnull CatalogData.Schema dataToWrite) throws RelationalException;
+
+    /**
+     * list schemas in entire Catalog.
+     *
+     * @param txn          a Transaction
+     * @param continuation continuation from a previous execution
+     * @return a RelationalResultSet object
+     * @throws RelationalException InternalError if txn is compatible type
+     *                           TransactionInactive if txn is no longer active
+     */
+    RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException;
+
+    /**
+     * list schemas in a database.
+     *
+     * @param txn          a Transaction
+     * @param databaseId   database id
+     * @param continuation continuation from a previous execution
+     * @return a RelationalResultSet object
+     * @throws RelationalException InternalError if txn is compatible type
+     *                           TransactionInactive if txn is no longer active
+     */
+    RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException;
+
 }

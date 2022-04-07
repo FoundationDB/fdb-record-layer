@@ -20,9 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -30,17 +34,30 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.MessageTuple;
+import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
+import com.apple.foundationdb.relational.recordlayer.Scannable;
+import com.apple.foundationdb.relational.recordlayer.SuppliedScannable;
+
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
+
+import javax.annotation.Nonnull;
 
 public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     private final KeySpacePath keySpacePath;
@@ -49,7 +66,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     public RecordLayerStoreCatalogImpl(KeySpace keySpace) {
         this.keySpacePath = keySpace.path("catalog");
         this.metaDataBuilder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
-        this.metaDataBuilder.getRecordType("Schema").setPrimaryKey(Key.Expressions.concatenateFields("database_id", "schema_name"));
+        this.metaDataBuilder.getRecordType("Schema").setRecordTypeKey("Schema").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields("database_id", "schema_name")));
     }
 
     @Override
@@ -57,7 +74,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         // open FDBRecordStore
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         // arbitrarily define primary key as a combination of databaseId and schemaName here
-        Tuple primaryKey = Tuple.from(databaseId.toString(), schemaName);
+        Tuple primaryKey = Tuple.from("Schema", databaseId.toString(), schemaName);
         FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
         if (record == null) {
             throw new RelationalException(String.format("Primary key %s not existed in Catalog!", primaryKey), ErrorCode.SCHEMA_NOT_FOUND);
@@ -79,6 +96,29 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         }
     }
 
+    @Override
+    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
+        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        Tuple key = Tuple.from("Schema");
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
+        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transform), new String[]{"a"}, getFieldNames(CatalogData.Schema.getDescriptor()));
+        return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
+    }
+
+    @Override
+    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException {
+        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        Tuple key = Tuple.from("Schema", databaseId.getPath());
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
+        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transform), new String[]{"a"}, getFieldNames(CatalogData.Schema.getDescriptor()));
+        return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
+    }
+
+    private Row transform(FDBStoredRecord<Message> result) {
+        CatalogData.Schema schema = CatalogData.Schema.newBuilder().mergeFrom(result.getRecord()).build();
+        return new MessageTuple(schema);
+    }
+
     private FDBRecordStore openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
         try {
             return FDBRecordStore.newBuilder().setKeySpacePath(keySpacePath).setContext(txn.unwrap(FDBRecordContext.class)).setMetaDataProvider(metaDataBuilder).open();
@@ -86,6 +126,10 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
             // there maybe other types of RecordCoreStorageException?
             throw new RelationalException(ErrorCode.TRANSACTION_INACTIVE, ex);
         }
+    }
+
+    private String[] getFieldNames(Descriptors.Descriptor descriptor) {
+        return descriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
     }
 
 }

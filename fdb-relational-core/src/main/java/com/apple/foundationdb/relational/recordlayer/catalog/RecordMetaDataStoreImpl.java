@@ -30,11 +30,12 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
+
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 // potentially implements interface RecordMetaDataStore
-public class RecordMetaDataStoreImpl {
+public final class RecordMetaDataStoreImpl {
     public static RecordMetaDataProvider buildRecordMetaData(CatalogData.Schema schema) throws InvalidProtocolBufferException, RelationalException {
         // set up ExtensionRegistry for de-serialize bytes
         com.google.protobuf.ExtensionRegistry registry =
@@ -61,5 +62,8 @@ public class RecordMetaDataStoreImpl {
         } catch (RecordCoreException ex) {
             throw new RelationalException(ErrorCode.INVALID_PARAMETER, ex);
         }
+    }
+
+    private RecordMetaDataStoreImpl() {
     }
 }
