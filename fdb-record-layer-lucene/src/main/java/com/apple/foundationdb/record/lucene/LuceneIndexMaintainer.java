@@ -50,8 +50,11 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import com.google.protobuf.Message;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.Field;
@@ -72,6 +75,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
@@ -234,13 +239,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return suggestionAdded;
     }
 
-    private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
-                               byte[] primaryKey) throws IOException {
+    private <M extends Message> void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
+                               @Nonnull FDBIndexableRecord<M> record) throws IOException {
+        byte[] primaryKey = record.getPrimaryKey().pack();
         final IndexWriter newWriter = getOrCreateIndexWriter(state, indexAnalyzer, executor, groupingKey);
         BytesRef ref = new BytesRef(primaryKey);
         Document document = new Document();
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
-        document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+        if (record.getRecordType().getPrimaryKey().isFixedWidth(record.getRecordType().getDescriptor())) {
+            document.add(new BinaryPoint(PRIMARY_KEY_SEARCH_NAME, retrievePoints(record.getPrimaryKey())));
+        } else {
+            document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+        }
         final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey) : null;
         boolean suggestionAdded = false;
         for (LuceneDocumentFromRecord.DocumentField field : fields) {
@@ -252,10 +262,38 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
+    private byte[][] retrievePoints(@Nonnull Tuple primaryKey) throws IOException {
+        byte[][] lookup = new byte[primaryKey.size()][];
+        for (int i = 0; i < lookup.length; i++) {
+            Object value = primaryKey.get(i);
+            if (value == null) {
+                throw new UnsupportedEncodingException("Null Primary Keys Not Supported in Lucene");
+            }
+            if (value instanceof Long) {
+                lookup[i] = Longs.toByteArray(((Long)value));
+            } else if (value instanceof Integer) {
+                lookup[i] = Ints.toByteArray(((Integer)value));
+            } else if (value instanceof Double) {
+                lookup[i] = ByteBuffer.allocate(8).putDouble((Double) value).array();
+            } else if (value instanceof Boolean) {
+                lookup[i] = ByteBuffer.allocate(1).put( ((Boolean)value) ? (byte)1 : (byte)0).array();
+            } else {
+                throw new UnsupportedEncodingException("Primary Key of Type X Not Supported in Lucene");
+            }
+        }
+        return lookup;
+    }
+
+    private <M extends Message> void deleteDocument(Tuple groupingKey, @Nonnull FDBIndexableRecord<M> oldRecord) throws IOException {
+        Tuple primaryKey = oldRecord.getPrimaryKey();
         final IndexWriter oldWriter = getOrCreateIndexWriter(state, indexAnalyzer, executor, groupingKey);
-        Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
-        oldWriter.deleteDocuments(query);
+        if (oldRecord.getRecordType().getPrimaryKey().isFixedWidth(oldRecord.getRecordType().getDescriptor())) {
+            byte[][] points = retrievePoints(primaryKey);
+            oldWriter.deleteDocuments(BinaryPoint.newRangeQuery(PRIMARY_KEY_SEARCH_NAME, points, points));
+        } else {
+            oldWriter.deleteDocuments(
+                    SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey.pack())));
+        }
     }
 
     @Nonnull
@@ -263,7 +301,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
         LOG.trace("update oldRecord={}, newRecord={}", oldRecord, newRecord);
-
         // Extract information for grouping from old and new records
         final KeyExpression root = state.index.getRootExpression();
         final Map<Tuple, List<LuceneDocumentFromRecord.DocumentField>> oldRecordFields = LuceneDocumentFromRecord.getRecordFields(root, oldRecord);
@@ -285,7 +322,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // delete old
         try {
             for (Tuple t : oldRecordFields.keySet()) {
-                deleteDocument(t, oldRecord.getPrimaryKey().pack());
+                deleteDocument(t, oldRecord);
             }
         } catch (IOException e) {
             throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
@@ -299,7 +336,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // update new
         try {
             for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : newRecordFields.entrySet()) {
-                writeDocument(entry.getValue(), entry.getKey(), newRecord.getPrimaryKey().pack());
+                writeDocument(entry.getValue(), entry.getKey(), newRecord);
             }
         } catch (IOException e) {
             throw new RecordCoreException("Issue updating new index keys", e)

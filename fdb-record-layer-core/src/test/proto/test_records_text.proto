@@ -32,6 +32,12 @@ message SimpleDocument {
     optional int64 group = 3;
 }
 
+message SimpleDocumentWithTextPrimaryKey {
+    optional string doc_id = 1 [(field).primary_key = true];
+    optional string text = 2 [(field).index = { type: "text" }];
+    optional int64 group = 3;
+}
+
 // The primary key is set in the test.
 message ComplexDocument {
     message Header {
@@ -69,6 +75,7 @@ message RecordTypeUnion {
     optional ComplexDocument _ComplexDocument = 2;
     optional MapDocument _MapDocument = 3;
     optional MultiDocument _MultiDocument = 4;
+    optional SimpleDocumentWithTextPrimaryKey _SimpleDocumentWithTextPrimaryKey = 5;
 }
 
 message NestedMapDocument {

@@ -208,6 +208,18 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     }
 
     /**
+     * Method that indicates whether the keys can be stored in a fixed width.  For example, an integer or long can be
+     * stored as a fixed width byte[].
+     *
+     * This is utilized by Lucene to see if we can optimize the key lookup in the case of deletes.
+     *
+     */
+    @API(API.Status.INTERNAL)
+    default boolean isFixedWidth(Descriptors.Descriptor descriptor) {
+        return false;
+    }
+
+    /**
      * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
      * of the key expression as composition of relational expressions and operators
      * ({@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}s). Note that implementors should

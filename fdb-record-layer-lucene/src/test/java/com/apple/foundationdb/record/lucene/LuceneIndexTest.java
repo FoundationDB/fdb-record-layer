@@ -91,6 +91,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOCUMENT_WITH_TEXT_PRIMARY_KEY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
@@ -214,6 +215,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, String text, int group) {
         return TestRecordsTextProto.SimpleDocument.newBuilder()
+                .setDocId(docId)
+                .setText(text)
+                .setGroup(group)
+                .build();
+    }
+
+    private TestRecordsTextProto.SimpleDocumentWithTextPrimaryKey createSimpleDocumentWithTextPrimaryKey(String docId, String text, int group) {
+        return TestRecordsTextProto.SimpleDocumentWithTextPrimaryKey.newBuilder()
                 .setDocId(docId)
                 .setText(text)
                 .setGroup(group)
@@ -545,6 +554,22 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
         }
     }
+
+    @Test
+    void simpleInsertDeleteAndSearchOnTextPrimaryKey() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOCUMENT_WITH_TEXT_PRIMARY_KEY, SIMPLE_TEXT_SUFFIXES);
+            recordStore.saveRecord(createSimpleDocumentWithTextPrimaryKey("1623", ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocumentWithTextPrimaryKey("1624", ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocumentWithTextPrimaryKey("1547", WAYLON, 2));
+            assertEquals(2, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
+            assertTrue(recordStore.deleteRecord(Tuple.from("1624")));
+            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
+        }
+    }
+
 
     @Test
     void testCommit() {

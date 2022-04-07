@@ -315,6 +315,29 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return field.getMessageType();
     }
 
+    /**
+     * Only supporting DOUBLE, INT64, INT32, and BOOL currently.
+     *
+     * @param descriptor Record Descriptor
+     * @return boolean
+     */
+    @Override
+    public boolean isFixedWidth(Descriptors.Descriptor descriptor) {
+        Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(fieldName);
+        if (fieldDescriptor.isRepeated() || (nullStandin != null && nullStandin.toProto().equals(RecordMetaDataProto.Field.NullInterpretation.UNIQUE))) {
+            return false;
+        }
+        switch (fieldDescriptor.getJavaType()) {
+            case DOUBLE:
+            case INT:
+            case LONG:
+            case BOOLEAN:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     @Nonnull
     public FanType getFanType() {
         return fanType;

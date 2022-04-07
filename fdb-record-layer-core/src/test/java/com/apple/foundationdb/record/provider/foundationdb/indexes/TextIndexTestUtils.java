@@ -43,7 +43,8 @@ public class TextIndexTestUtils {
     public static final String COMPLEX_DOC = "ComplexDocument";
     public static final String MAP_DOC = "MapDocument";
     public static final String MULTI_DOC = "MultiDocument";
-    public static final List<String> ALL_DOC_TYPES = List.of(SIMPLE_DOC, COMPLEX_DOC, MAP_DOC, MULTI_DOC);
+    public static final String SIMPLE_DOCUMENT_WITH_TEXT_PRIMARY_KEY = "SimpleDocumentWithTextPrimaryKey";
+    public static final List<String> ALL_DOC_TYPES = List.of(SIMPLE_DOC, COMPLEX_DOC, MAP_DOC, MULTI_DOC, SIMPLE_DOCUMENT_WITH_TEXT_PRIMARY_KEY);
     public static final TransformedRecordSerializer<Message> COMPRESSING_SERIALIZER =
             TransformedRecordSerializer.newDefaultBuilder().setCompressWhenSerializing(true).build();
     public static final String SIMPLE_DEFAULT_NAME = "SimpleDocument$text";
