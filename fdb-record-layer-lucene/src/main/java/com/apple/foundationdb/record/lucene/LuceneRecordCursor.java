@@ -30,13 +30,14 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.search.IndexSearcher;
@@ -57,9 +58,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-
-import static com.apple.foundationdb.record.lucene.DirectoryCommitCheckAsync.getOrCreateDirectoryCommitCheckAsync;
-import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getIndexWriterCommitCheckAsync;
 
 /**
  * This class is a Record Cursor implementation for Lucene queries.
@@ -136,6 +134,11 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (topDocs == null) {
             try {
                 performScan();
+            } catch (IndexNotFoundException e) {
+                // The index has not been initialized and is therefore empty. Can immediately return
+                // with "source exhausted"
+                nextResult = RecordCursorResult.exhausted();
+                return CompletableFuture.completedFuture(nextResult);
             } catch (IOException ioException) {
                 throw new RuntimeException(ioException);
             }
@@ -249,8 +252,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {
-        IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey);
-        return writerCheck == null ? DirectoryReader.open(getOrCreateDirectoryCommitCheckAsync(state, groupingKey).getDirectory()) : DirectoryReader.open(writerCheck.indexWriter);
+        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey);
     }
 
     private void performScan() throws IOException {
