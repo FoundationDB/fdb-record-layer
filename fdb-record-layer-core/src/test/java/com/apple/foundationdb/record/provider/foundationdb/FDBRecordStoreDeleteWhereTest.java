@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -44,6 +46,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
+import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -77,6 +80,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasToString;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -201,6 +205,82 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
         return getGroupedSum(sumIndex, Key.Evaluated.scalar(path));
     }
 
+    @ParameterizedTest(name = "testDeleteWhereUngroupedSum[recordTypePrefix={0}]")
+    @BooleanSource
+    void testDeleteWhereUngroupedSum(boolean recordTypePrefix) throws Exception {
+        final Random random = new Random();
+        final Index sumIndex = new Index("MyRecord$sum_num",
+                field("header").nest(field("num")).ungrouped(),
+                IndexTypes.SUM);
+        RecordMetaDataHook hook = metaData -> {
+            final RecordTypeBuilder recordType = metaData.getRecordType("MyRecord");
+            final KeyExpression basePrimaryKey = field("header").nest(concatenateFields("num", "rec_no"));
+            if (recordTypePrefix) {
+                recordType.setPrimaryKey(concat(recordType(), basePrimaryKey));
+            } else {
+                recordType.setPrimaryKey(basePrimaryKey);
+            }
+            metaData.addIndex(recordType, sumIndex);
+        };
+        int sum = 0;
+        List<Integer> nums = new ArrayList<>();
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            for (long recNo = 0; recNo < 20; recNo++) {
+                int num = random.nextInt(10);
+                saveHeaderRecord(recNo, "path", num, "unused");
+                sum += num;
+                nums.add(num);
+            }
+            assertEquals(sum, getGroupedSum(sumIndex, Key.Evaluated.EMPTY));
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            int numToDelete = nums.get(random.nextInt(nums.size()));
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MyRecord")
+                    .setFilter(Query.field("header").matches(Query.field("num").equalsValue(numToDelete)))
+                    .build();
+            List<TestRecordsWithHeaderProto.MyRecord> existingRecords = queryMyRecords(query);
+            assertThat(existingRecords, not(empty()));
+
+            // Try deleting without restricting the record type
+            QueryComponent predicate = Query.field("header").matches(Query.field("num").equalsValue(numToDelete));
+            Query.InvalidExpressionException err1 = assertThrows(Query.InvalidExpressionException.class, () -> recordStore.deleteRecordsWhere(predicate));
+            if (recordTypePrefix) {
+                assertThat(err1.getMessage(), containsString("deleteRecordsWhere not matching primary key MyRecord"));
+            } else {
+                assertThat(err1.getMessage(), indexDoesNotSupportDeleteWhere(sumIndex));
+            }
+            // Try deleting while restricting to just the one record type
+            Exception err2 = assertThrows(Exception.class, () -> recordStore.deleteRecordsWhere("MyRecord", predicate));
+            if (recordTypePrefix) {
+                assertThat(err2, instanceOf(Query.InvalidExpressionException.class));
+                assertThat(err2.getMessage(), indexDoesNotSupportDeleteWhere(sumIndex));
+            } else {
+                assertThat(err2, instanceOf(RecordCoreException.class));
+                assertThat(err2.getMessage(), containsString("record type version of deleteRecordsWhere can only be used when all record types have a type prefix"));
+            }
+
+            // Assert that the sum and records where not affected by the failed deletes
+            assertEquals(sum, getGroupedSum(sumIndex, Key.Evaluated.EMPTY));
+            assertEquals(existingRecords, queryMyRecords(query));
+
+            if (recordTypePrefix) {
+                recordStore.deleteRecordsWhere("MyRecord", null);
+                assertEquals(0, getGroupedSum(sumIndex, Key.Evaluated.EMPTY));
+                assertThat(queryMyRecords(RecordQuery.newBuilder().setRecordType("MyRecord").build()), empty());
+            } else {
+                // In theory, because there's only one record type in the meta-data, this should work. If this is changed in
+                // the future, then the assertions from the recordTypePrefix case can be collapsed with this case
+                RecordCoreException err3 = assertThrows(RecordCoreException.class, () -> recordStore.deleteRecordsWhere("MyRecord", null));
+                assertThat(err3.getMessage(), containsString("record type version of deleteRecordsWhere can only be used when all record types have a type prefix"));
+            }
+        }
+    }
+
     @Test
     void testDeleteWhereGroupedSum() throws Exception {
         final Random random = new Random();
@@ -241,11 +321,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
 
             final String pathToDelete = paths.get(random.nextInt(paths.size()));
             recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("path").equalsValue(pathToDelete)));
-            List<TestRecordsWithHeaderProto.MyRecord> remaining = recordStore.executeQuery(RecordQuery.newBuilder().setRecordType("MyRecord").build())
-                    .map(FDBRecord::getRecord)
-                    .map(this::parseMyRecord)
-                    .asList()
-                    .get();
+            List<TestRecordsWithHeaderProto.MyRecord> remaining = queryMyRecords(RecordQuery.newBuilder().setRecordType("MyRecord").build());
             remaining.forEach(remainingRecord -> assertNotEquals(pathToDelete, remainingRecord.getHeader().getPath(),
                     () -> String.format("record with path %s should have been deleted: %s", pathToDelete, remainingRecord)));
             assertThat(remaining, containsInAnyOrder(saved.stream()
@@ -277,7 +353,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
                     () -> recordStore.deleteRecordsWhere(Query.field("header").matches(Query.and(
                             Query.field("path").equalsValue(pathToDelete),
                             Query.field("num").equalsValue(myRecord.getHeader().getNum())))));
-            assertThat(err.getMessage(), containsString(String.format("deleteRecordsWhere not supported by index %s", sumIndex.getName())));
+            assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(sumIndex));
             assertNotNull(recordStore.loadRecord(primaryKey), "record should not have been deleted by unsuccessful delete where");
         }
     }
@@ -366,7 +442,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
                             Query.field("path").equalsValue(pathToDelete),
                             Query.field("rec_no").equalsValue(3L)))));
 
-            assertThat(err.getMessage(), containsString(String.format("deleteRecordsWhere not supported by index %s", sumIndex.getName())));
+            assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(sumIndex));
         }
     }
 
@@ -434,11 +510,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
                         .filter(myRecord -> numsInRankRange.contains(myRecord.getHeader().getNum()))
                         .collect(Collectors.toList());
 
-                assertEquals(expectedResults, plan.execute(recordStore, EvaluationContext.forBinding("path_value", path))
-                        .map(FDBQueriedRecord::getRecord)
-                        .map(this::parseMyRecord)
-                        .asList()
-                        .join());
+                assertEquals(expectedResults, queryMyRecords(plan, EvaluationContext.forBinding("path_value", path)));
                 queryResultsByPath.put(path, expectedResults);
             }
 
@@ -453,11 +525,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("path").equalsValue(pathToDelete)));
 
             for (String path : paths) {
-                final List<TestRecordsWithHeaderProto.MyRecord> recordsAfterDelete = plan.execute(recordStore, EvaluationContext.forBinding("path_value", path))
-                        .map(FDBQueriedRecord::getRecord)
-                        .map(this::parseMyRecord)
-                        .asList()
-                        .join();
+                final List<TestRecordsWithHeaderProto.MyRecord> recordsAfterDelete = queryMyRecords(plan, EvaluationContext.forBinding("path_value", path));
                 assertEquals(path.equals(pathToDelete) ? Collections.emptyList() : queryResultsByPath.get(path), recordsAfterDelete);
             }
 
@@ -472,7 +540,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
                     () -> recordStore.deleteRecordsWhere(Query.field("header").matches(Query.and(
                             Query.field("path").equalsValue(pathToDelete),
                             Query.field("num").equalsValue(4)))));
-            assertThat(err.getMessage(), containsString(String.format("deleteRecordsWhere not supported by index %s", rankIndex.getName())));
+            assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(rankIndex));
         }
     }
 
@@ -497,6 +565,18 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             createOrOpenRecordStore(context, metaData);
             assertThrows(Query.InvalidExpressionException.class, () ->
                     recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("rec_no").equalsValue(1))));
+        }
+    }
+
+    @Test
+    void testDeleteWhereNullPredicate() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeaderPrimaryKey(context, false);
+            // Ensure that the null predicate doesn't match records. In theory, we could choose to interpret this
+            // as the same thing as recordStore.deleteAllData. If we do, we should change this test the new behavior,
+            // but for now, this tests what the current behavior is so that we can notice if it changes
+            assertThrows(Query.InvalidExpressionException.class,
+                    () -> recordStore.deleteRecordsWhere(null));
         }
     }
 
@@ -581,11 +661,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             TestRecordsWithHeaderProto.MyRecord rec1 = saveHeaderRecord(1066L, "unused_path", 42, "string");
             TestRecordsWithHeaderProto.MyRecord rec2 = saveHeaderRecord(1623L, "unused_path", 42, "stripe");
             TestRecordsWithHeaderProto.MyRecord rec3 = saveHeaderRecord(1412L, "unused_path", 42, "stale");
-            List<TestRecordsWithHeaderProto.MyRecord> results = recordStore.scanIndexRecords(splitStringIndex.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from("str")), null, ScanProperties.FORWARD_SCAN)
-                    .map(FDBIndexedRecord::getRecord)
-                    .map(this::parseMyRecord)
-                    .asList()
-                    .get();
+            List<TestRecordsWithHeaderProto.MyRecord> results = asMyRecordList(recordStore.scanIndexRecords(splitStringIndex.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from("str")), null, ScanProperties.FORWARD_SCAN));
             assertThat(results, containsInAnyOrder(rec1, rec2));
             assertThat(results, not(contains(rec3)));
 
@@ -597,7 +673,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             // Predicate on rec_no should not be matched
             Query.InvalidExpressionException err = assertThrows(Query.InvalidExpressionException.class,
                     () -> recordStore.deleteRecordsWhere("MyRecord", Query.field("header").matches(Query.field("rec_no").equalsValue(1066L))));
-            assertThat(err.getMessage(), containsString(String.format("deleteRecordsWhere not supported by index %s", splitStringIndex.getName())));
+            assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(splitStringIndex));
             assertNotNull(recordStore.loadRecord(Tuple.from(recordStore.getRecordMetaData().getRecordType("MyRecord").getRecordTypeKey(), 1066L)));
 
             // Single type delete should be satisfied by clearing out the index
@@ -702,4 +778,23 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
         return groupExpr;
     }
 
+    private List<TestRecordsWithHeaderProto.MyRecord> queryMyRecords(RecordQuery query) {
+        RecordQueryPlan plan = recordStore.planQuery(query);
+        return queryMyRecords(plan, EvaluationContext.EMPTY);
+    }
+
+    private List<TestRecordsWithHeaderProto.MyRecord> queryMyRecords(RecordQueryPlan plan, EvaluationContext evaluationContext) {
+        return asMyRecordList(plan.execute(recordStore, evaluationContext));
+    }
+
+    private List<TestRecordsWithHeaderProto.MyRecord> asMyRecordList(RecordCursor<? extends FDBRecord<?>> cursor) {
+        return cursor.map(FDBRecord::getRecord)
+                .map(this::parseMyRecord)
+                .asList()
+                .join();
+    }
+
+    private static Matcher<String> indexDoesNotSupportDeleteWhere(Index index) {
+        return containsString(String.format("deleteRecordsWhere not supported by index %s", index.getName()));
+    }
 }

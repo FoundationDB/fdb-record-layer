@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.UnknownKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
@@ -68,32 +69,36 @@ public class QueryToKeyMatcherTest {
 
     @SuppressWarnings("unused") // used as arguments for parameterized test
     static Stream<Arguments> testEqualityMatches() {
-        return Stream.of(
-                Arguments.of(
-                        queryField("a").equalsValue(7),
-                        keyField("a"),
-                        scalar(7)
-                ),
-                Arguments.of(
-                        queryField("a").equalsValue(7),
-                        concatenateFields("a", "b"),
-                        scalar(7)
-                ),
-                Arguments.of(
-                        queryField("a").matches(queryField("ax").equalsValue(10)),
-                        keyField("a").nest("ax"),
-                        scalar(10)
-                ),
-                Arguments.of(
-                        queryField("a").matches(queryField("ax").equalsValue(10)),
-                        concat(keyField("a").nest("ax"), keyField("b")),
-                        scalar(10)
-                ),
-                Arguments.of(
-                        queryField("a").matches(queryField("ax").equalsValue(10)),
-                        keyField("a").nest(concat(keyField("ax"), keyField("b"))),
-                        scalar(10)
-                ),
+        Stream<Arguments> singleFieldArgs = Stream.of(
+                keyField("a"),
+                concatenateFields("a", "b"),
+                keyWithValue(concatenateFields("a", "b"), 1),
+                keyWithValue(concatenateFields("a", "b", "c"), 1),
+                keyWithValue(concatenateFields("a", "b", "c"), 2),
+                keyField("b").groupBy(keyField("a")),
+                keyField("c").groupBy(keyField("a"), keyField("b")),
+                concatenateFields("b", "c").groupBy(keyField("a")),
+                concatenateFields("c", "d").groupBy(keyField("a"), keyField("b")),
+                keyWithValue(concat(keyField("a"), function("nada", concatenateFields("b", "c"))), 2),
+                keyWithValue(concat(keyField("a"), function("nada", concatenateFields("b", "c"))), 3)
+        ).map(key -> Arguments.of(
+                queryField("a").equalsValue(7),
+                key,
+                scalar(7)
+        ));
+        Stream<Arguments> singleNestedFieldArgs = Stream.of(
+                keyField("a").nest("ax"),
+                concat(keyField("a").nest("ax"), keyField("b")),
+                keyField("a").nest(keyField("ax"), keyField("b")),
+                keyField("b").groupBy(keyField("a").nest("ax")),
+                new GroupingKeyExpression(keyField("a").nest(keyField("ax"), keyField("b")), 1),
+                new GroupingKeyExpression(keyField("a").nest(keyField("ax"), keyField("b")), 0)
+        ).map(key -> Arguments.of(
+                queryField("a").matches(queryField("ax").equalsValue(10)),
+                key,
+                scalar(10)
+        ));
+        return Stream.of(singleFieldArgs, singleNestedFieldArgs, Stream.of(
                 Arguments.of(
                         queryField("a").oneOfThem().equalsValue(7),
                         keyField("a", FanType.FanOut),
@@ -128,7 +133,7 @@ public class QueryToKeyMatcherTest {
                         function("nada", concatenateFields("f1", "f2", "f3")),
                         scalar("hello!")
                 )
-        );
+        )).flatMap(Function.identity());
     }
 
     @ParameterizedTest(name = "testEqualityMatches[query = {0}, key = {1}")
@@ -148,7 +153,10 @@ public class QueryToKeyMatcherTest {
                 keyField("a", FanType.Concatenate),
                 keyField("b").nest("a"),
                 keyField("a").nest("b"),
-                concatenateFields("b", "a")
+                concatenateFields("b", "a"),
+                keyField("a").ungrouped(),
+                keyField("a").groupBy(keyField("b")),
+                concatenateFields("a", "b").ungrouped()
         ).map(key ->
                 Arguments.of(queryField("a").equalsValue(7), key)
         );
@@ -343,6 +351,55 @@ public class QueryToKeyMatcherTest {
                         concatenateFields("a", "b"),
                         MatchType.EQUALITY,
                         MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        keyField("b").groupBy(keyField("a")),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        concatenateFields("b", "c").groupBy(keyField("a")),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        new GroupingKeyExpression(concat(keyField("a"), keyField("b"), function("nada", concatenateFields("c", "d"))), 1),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        keyWithValue(concatenateFields("a", "b"), 1),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2),
+                                queryField("c").equalsValue(3)),
+                        keyWithValue(concatenateFields("a", "b", "c"), 2),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        keyWithValue(concat(keyField("a"), keyField("b"), function("nada", concatenateFields("c", "d"))), 3),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
                 ),
                 Arguments.of(
                         Query.and(

@@ -71,6 +71,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -99,6 +100,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -113,8 +115,10 @@ import javax.annotation.Nullable;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -165,12 +169,12 @@ import static org.hamcrest.Matchers.any;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
@@ -1075,27 +1079,36 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private List<ComplexDocument> queryComplexByGroup(RecordQueryPlan plan, int group) {
+        return plan.execute(recordStore, EvaluationContext.forBinding("group_value", group))
+                .map(FDBRecord::getRecord)
+                .map(message -> ComplexDocument.newBuilder().mergeFrom(message).build())
+                .asList()
+                .join();
+    }
+
     @Test
     void deleteWhereComplexByGroup() {
-        final ComplexDocument zeroGroupDocument = ComplexDocument.newBuilder()
-                .setGroup(0)
-                .setDocId(1623L)
-                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
-                .build();
-        final ComplexDocument oneGroupDocument = ComplexDocument.newBuilder()
-                .setGroup(1)
-                .setDocId(1623L)
-                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
-                .build();
+        final Map<Integer, Collection<ComplexDocument>> docsByGroup = new HashMap<>();
         final RecordMetaDataHook hook = metaDataBuilder -> {
             TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
             metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_TEXT_BY_GROUP);
         };
-
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            recordStore.saveRecord(zeroGroupDocument);
-            recordStore.saveRecord(oneGroupDocument);
+            for (int group = 0; group < 10; group++) {
+                Collection<ComplexDocument> docs = new HashSet<>();
+                for (long docId = 0L; docId < 10L; docId++) {
+                    ComplexDocument document = ComplexDocument.newBuilder()
+                            .setGroup(group)
+                            .setDocId(docId)
+                            .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                            .build();
+                    recordStore.saveRecord(document);
+                    docs.add(document);
+                }
+                docsByGroup.put(group, docs);
+            }
             context.commit();
         }
 
@@ -1111,47 +1124,70 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .build();
             RecordQueryPlan plan = recordStore.planQuery(query);
 
-            // Both groups should have a single element before delete where
-            assertThat(plan.execute(recordStore, EvaluationContext.forBinding("group_value", 0)).asList().join(), hasSize(1));
-            assertThat(plan.execute(recordStore, EvaluationContext.forBinding("group_value", 1)).asList().join(), hasSize(1));
+            // Make sure all groups have elements prior to range delete
+            Map<Integer, List<ComplexDocument>> queryResults = new HashMap<>();
+            for (Map.Entry<Integer, Collection<ComplexDocument>> groupAndDocs : docsByGroup.entrySet()) {
+                List<ComplexDocument> queried = queryComplexByGroup(plan, groupAndDocs.getKey());
+                assertThat(queried, containsInAnyOrder(groupAndDocs.getValue().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+                queryResults.put(groupAndDocs.getKey(), queried);
+            }
 
-            recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("group").equalsValue(0));
+            final int groupToRemove = 4;
+            recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("group").equalsValue(groupToRemove));
 
-            // Group zero should be gone but group 1 should still have an element remaining
-            assertThat(plan.execute(recordStore, EvaluationContext.forBinding("group_value", 0)).asList().join(), empty());
-            assertThat(plan.execute(recordStore, EvaluationContext.forBinding("group_value", 1)).asList().join(), hasSize(1));
+            // Range delete should only affect deleted group
+            for (Integer group : docsByGroup.keySet()) {
+                List<ComplexDocument> queried = queryComplexByGroup(plan, group);
+                if (group == groupToRemove) {
+                    assertThat(queried, empty());
+                } else {
+                    assertEquals(queryResults.get(group), queried);
+                }
+            }
         }
+    }
+
+    private List<MapDocument> queryMapDocumentByGroupAndKey(RecordQueryPlan plan, int group, String mapKey) {
+        EvaluationContext evaluationContext = EvaluationContext.newBuilder()
+                .setBinding("group_value", group)
+                .setBinding("key_value", mapKey)
+                .build();
+        return plan.execute(recordStore, evaluationContext)
+                .map(FDBRecord::getRecord)
+                .map(message -> MapDocument.newBuilder().mergeFrom(message).build())
+                .asList()
+                .join();
     }
 
     @Test
     void deleteWhereGroupedMap() {
-        MapDocument doc1 = MapDocument.newBuilder()
-                .setDocId(42)
-                .setGroup(1066L)
-                .addEntry(MapDocument.Entry.newBuilder()
-                        .setKey("foo")
-                        .setValue(TextSamples.ANGSTROM)
-                        .build())
-                .build();
-        MapDocument doc2 = MapDocument.newBuilder()
-                .setDocId(42)
-                .setGroup(1623L)
-                .addEntry(MapDocument.Entry.newBuilder()
-                        .setKey("foo")
-                        .setValue(TextSamples.ANGSTROM)
-                        .build())
-                .build();
-
         final RecordMetaDataHook hook = metaDataBuilder -> {
             TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
             final RecordTypeBuilder mapDoc = metaDataBuilder.getRecordType(MAP_DOC);
             mapDoc.setPrimaryKey(concat(recordType(), field("group"), field("doc_id")));
             metaDataBuilder.addIndex(mapDoc, MAP_ON_VALUE_GROUPED_INDEX);
         };
+        final List<String> keys = List.of("skeleton", "tubular", "smart");
+        final Map<Integer, Collection<MapDocument>> docsByGroup = new HashMap<>();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            recordStore.saveRecord(doc1);
-            recordStore.saveRecord(doc2);
+            for (int group = 0; group < 10; group++) {
+                Collection<MapDocument> documents = new ArrayList<>();
+                for (long docId = 0L; docId < 10L; docId++) {
+                    MapDocument.Builder builder = MapDocument.newBuilder()
+                            .setGroup(group)
+                            .setDocId(docId + 1);
+                    for (String key : keys) {
+                        builder.addEntry(MapDocument.Entry.newBuilder()
+                                .setKey(key)
+                                .setValue(TextSamples.AETHELRED));
+                    }
+                    MapDocument document = builder.build();
+                    recordStore.saveRecord(document);
+                    documents.add(document);
+                }
+                docsByGroup.put(group, documents);
+            }
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
@@ -1162,8 +1198,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(Query.and(
                             Query.field("group").equalsParameter("group_value"),
                             Query.field("entry").oneOfThem().matches(Query.and(
-                                    Query.field("key").equalsValue("foo"),
-                                    Query.field("value").text().containsAll("unit named", 4)
+                                    Query.field("key").equalsParameter("key_value"),
+                                    Query.field("value").text().containsAll("king")
                             ))
                     ))
                     .setRemoveDuplicates(false)
@@ -1171,34 +1207,35 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             RecordQueryPlan plan = recordStore.planQuery(query);
             assertThat(plan, textIndexScan(indexName(MAP_ON_VALUE_GROUPED_INDEX.getName())));
 
-            assertEquals(Collections.singletonList(doc1),
-                    plan.execute(recordStore, EvaluationContext.forBinding("group_value", doc1.getGroup()))
-                            .map(FDBQueriedRecord::getRecord)
-                            .map(rec -> MapDocument.newBuilder().mergeFrom(rec).build())
-                            .asList()
-                            .join());
-            assertEquals(Collections.singletonList(doc2),
-                    plan.execute(recordStore, EvaluationContext.forBinding("group_value", doc2.getGroup()))
-                            .map(FDBQueriedRecord::getRecord)
-                            .map(rec -> MapDocument.newBuilder().mergeFrom(rec).build())
-                            .asList()
-                            .join());
+            for (Map.Entry<Integer, Collection<MapDocument>> groupAndDocs : docsByGroup.entrySet()) {
+                for (String key : keys) {
+                    List<MapDocument> queried = queryMapDocumentByGroupAndKey(plan, groupAndDocs.getKey(), key);
+                    assertThat(queried, containsInAnyOrder(groupAndDocs.getValue().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+                }
+            }
 
-            // Delete where for one of the two groups
-            recordStore.deleteRecordsWhere(MAP_DOC, Query.field("group").equalsValue(doc1.getGroup()));
+            // Attempt to delete by group and map key. This shouldn't work because the primary key doesn't align
+            Query.InvalidExpressionException err = assertThrows(Query.InvalidExpressionException.class,
+                    () -> recordStore.deleteRecordsWhere(MAP_DOC, Query.and(
+                            Query.field("group").equalsValue(2),
+                            Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue(keys.get(0))))));
+            assertThat(err.getMessage(), containsString("deleteRecordsWhere not matching primary key " + MAP_DOC));
 
-            assertEquals(Collections.emptyList(),
-                    plan.execute(recordStore, EvaluationContext.forBinding("group_value", doc1.getGroup()))
-                            .map(FDBQueriedRecord::getRecord)
-                            .map(rec -> MapDocument.newBuilder().mergeFrom(rec).build())
-                            .asList()
-                            .join());
-            assertEquals(Collections.singletonList(doc2),
-                    plan.execute(recordStore, EvaluationContext.forBinding("group_value", doc2.getGroup()))
-                            .map(FDBQueriedRecord::getRecord)
-                            .map(rec -> MapDocument.newBuilder().mergeFrom(rec).build())
-                            .asList()
-                            .join());
+            // Now delete everything with a certain group (which should succeed)
+            final int groupToDelete = 8;
+            recordStore.deleteRecordsWhere(MAP_DOC, Query.field("group").equalsValue(groupToDelete));
+
+            // Validate that all keys are empty in the deleted group, but that the data are the same in the other groups
+            for (Map.Entry<Integer, Collection<MapDocument>> groupAndDocs : docsByGroup.entrySet()) {
+                for (String key : keys) {
+                    List<MapDocument> queried = queryMapDocumentByGroupAndKey(plan, groupAndDocs.getKey(), key);
+                    if (groupAndDocs.getKey() == groupToDelete) {
+                        assertThat(queried, empty());
+                    } else {
+                        assertThat(queried, containsInAnyOrder(groupAndDocs.getValue().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+                    }
+                }
+            }
         }
     }
 
