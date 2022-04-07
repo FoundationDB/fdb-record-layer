@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.UnknownKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
@@ -38,13 +39,18 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.metadata.Key.Evaluated.scalar;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
@@ -61,597 +67,678 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class QueryToKeyMatcherTest {
 
-    @Test
-    public void testSingleFieldEquality() {
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("a").equalsValue(7));
-        Match match = matcher.matchesSatisfyingQuery(keyField("a"));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.scalar(7), match.getEquality());
-
-
-        match = matcher.matchesSatisfyingQuery(concatenateFields("a", "b"));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.scalar(7), match.getEquality());
-
-
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("b")));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.FanOut)));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.Concatenate)));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("b").nest("a")));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest("b")));
-
-        assertNoMatch(matcher.matchesSatisfyingQuery(concatenateFields("b", "a")));
-    }
-
-    @Test
-    public void testMatchKeyWithValue() {
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(
-                Query.and(
-                        queryField("f1").equalsValue(7),
-                        queryField("f2").equalsValue(11)));
-
-        Match match = matcher.matchesSatisfyingQuery(keyWithValue(concatenateFields("f1", "f2", "f3", "f4"), 2));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.concatenate(7, 11), match.getEquality());
-    }
-
-    @Test
-    public void testMatchWithFunctionExpression() {
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("f1").equalsValue("hello!"));
-        Match match = matcher.matchesSatisfyingQuery(keyWithValue(function("nada", concatenateFields("f1", "f2", "f3")), 1));
-        assertEquals(MatchType.NO_MATCH, match.getType());
-    }
-
-    @Test
-    public void testMatchWithValueExpression() {
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("f1").equalsValue("hello!"));
-        Match match = matcher.matchesSatisfyingQuery(value(4));
-        assertEquals(MatchType.NO_MATCH, match.getType());
-    }
-
-    @Test
-    public void testSingleNestedFieldEquality() {
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("a").matches(queryField("ax").equalsValue(10)));
-        Match match = matcher.matchesSatisfyingQuery(keyField("a").nest("ax"));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.scalar(10), match.getEquality());
-
-        match = matcher.matchesSatisfyingQuery(concat(keyField("a").nest("ax"), keyField("b")));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.scalar(10), match.getEquality());
-
-        match = matcher.matchesCoveringKey(concat(keyField("a").nest(keyField("ax")), keyField("b")));
-        assertEquals(MatchType.NO_MATCH, match.getType());
-
-        match = matcher.matchesSatisfyingQuery(keyField("a").nest(concat(keyField("ax"), keyField("b"))));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.scalar(10), match.getEquality());
-
-        match = matcher.matchesCoveringKey(keyField("a").nest(concat(keyField("ax"), keyField("b"))));
-        assertEquals(MatchType.NO_MATCH, match.getType());
-
-        final Match match2 = matcher.matchesSatisfyingQuery(keyField("a"));
-        assertNoMatch(match2);
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.FanOut)));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.Concatenate)));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.FanOut).nest("ax")));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest("ax", FanType.FanOut)));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest("ax", FanType.Concatenate)));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("b").nest("ax")));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest("bx")));
-
-        assertNoMatch(matcher.matchesSatisfyingQuery(concat(keyField("b").nest("ax"), keyField("a").nest("ax"))));
-        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest(concat(keyField("bx"), keyField("ax")))));
-    }
-
-    @Test
-    public void testThen() {
-        assertEquality(MatchType.EQUALITY,
-                queryField("a").equalsValue(1),
-                concatenateFields("a", "b"));
-
-        assertEquality(MatchType.NO_MATCH,
-                queryField("a").equalsValue(1),
-                concatenateFields("b", "a"));
-
-        assertEqualityCoveringKey(MatchType.NO_MATCH,
-                queryField("a").equalsValue(1),
-                concatenateFields("a", "b"));
-
-        assertEquality(MatchType.EQUALITY,
-                queryField("a").oneOfThem().equalsValue(1),
-                concat(keyField("a", FanType.FanOut), keyField("b")));
-
-        assertEquality(MatchType.NO_MATCH,
-                queryField("a").oneOfThem().equalsValue(1),
-                concat(keyField("b"), keyField("a", FanType.FanOut)));
-
-        assertEqualityCoveringKey(MatchType.NO_MATCH,
-                queryField("a").oneOfThem().equalsValue(1),
-                concat(keyField("a", FanType.FanOut), keyField("b")));
-
-        assertEquality(MatchType.EQUALITY,
-                new RecordTypeKeyComparison("ErsatzRecordType"),
-                concat(recordType(), keyField("a")));
-
-        assertEquality(MatchType.NO_MATCH,
-                new RecordTypeKeyComparison("ErsatzRecordType"),
-                concat(keyField("a"), recordType()));
-
-        assertEqualityCoveringKey(MatchType.NO_MATCH,
-                new RecordTypeKeyComparison("ErsatzRecordType"),
-                concat(recordType(), keyField("a")));
-    }
-
-    @Test
-    public void testQueryAndPatterns() {
-        assertEquality(MatchType.NO_MATCH,
-                queryField("p").matches(
-                        Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2))),
-                keyField("p").nest(concatenateFields("a", "c", "b")));
-
-        assertEquality(MatchType.NO_MATCH,
-                queryField("p").matches(
-                        Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2))),
-                keyField("p").nest(keyField("a"), keyField("q").nest(keyField("c"), keyField("d")), keyField("b")));
-
-        assertEquality(MatchType.EQUALITY,
-                queryField("p").matches(
-                        Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2))),
-                keyField("p").nest(keyField("a"), keyField("b"), keyField("q").nest(keyField("c"), keyField("d"))));
-
-        assertEqualityCoveringKey(MatchType.NO_MATCH,
-                queryField("p").matches(
-                        Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2))),
-                keyField("p").nest(keyField("a"), keyField("b"), keyField("q").nest(keyField("c"), keyField("d"))));
-
-        assertEquality(MatchType.EQUALITY,
-                queryField("p").matches(
-                        Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2),
-                                queryField("c").equalsValue(3))),
-                keyField("p").nest(concatenateFields("c", "b", "a", "extra")));
-
-        assertEqualityCoveringKey(MatchType.NO_MATCH,
-                queryField("p").matches(
-                        Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2),
-                                queryField("c").equalsValue(3))),
-                keyField("p").nest(concatenateFields("c", "b", "a", "extra")));
-
-        assertEqualityCoveringKey(MatchType.EQUALITY,
-                queryField("p").matches(
-                        Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2),
-                                queryField("c").equalsValue(3))),
-                keyField("p").nest(concatenateFields("c", "b")));
-
-        assertEquality(MatchType.INEQUALITY,
-                Query.and(
-                        queryField("a").lessThanOrEquals(1),
-                        queryField("b").equalsValue(2),
-                        queryField("c").equalsValue(3)),
-                concatenateFields("c", "b", "a"));
-
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("a").lessThanOrEquals(1),
-                        queryField("b").equalsValue(2)),
-                concatenateFields("a", "b", "c", "d"));
-
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("a").equalsValue(1),
-                        queryField("b").equalsValue(2),
-                        queryField("c").equalsValue(3),
-                        queryField("DoesNotExist").lessThan(4)),
-                concatenateFields("c", "b", "a"));
-
-        assertEqualityCoveringKey(MatchType.EQUALITY,
-                Query.and(
-                        queryField("a").equalsValue(1),
-                        queryField("b").equalsValue(2),
-                        queryField("c").equalsValue(3),
-                        queryField("DoesNotExist").lessThan(4)),
-                concatenateFields("c", "b", "a"));
-
-        assertEquality(MatchType.EQUALITY,
-                Query.and(
-                        queryField("a").isNull(),
-                        queryField("b").equalsValue(2)),
-                concatenateFields("a", "b"));
-
-        assertEquality(MatchType.EQUALITY,
-                Query.and(
-                        queryField("p").matches(queryField("c").equalsValue(1)),
-                        queryField("b").equalsValue(2)),
-                concat(
-                        keyField("p").nest(keyField("c")),
-                        keyField("b")));
-
-        assertEqualityCoveringKey(MatchType.EQUALITY,
-                Query.and(
-                        queryField("p").matches(queryField("c").equalsValue(1)),
-                        queryField("b").equalsValue(2),
-                        queryField("a").equalsValue(1)),
-                concat(
-                        keyField("p").nest(keyField("c")),
-                        keyField("b")));
-
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("p").matches(queryField("d").equalsValue(1)),
-                        queryField("b").equalsValue(2)),
-                concat(
-                        keyField("p").nest(keyField("c")),
-                        keyField("b")));
-
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("q").matches(queryField("c").equalsValue(1)),
-                        queryField("b").equalsValue(2)),
-                concat(
-                        keyField("p").nest(keyField("c")),
-                        keyField("b")));
-
-        assertEquality(MatchType.INEQUALITY,
-                Query.and(
-                        queryField("p").matches(queryField("c").equalsValue(1)),
-                        queryField("b").lessThanOrEquals(2)),
-                concat(
-                        keyField("p").nest(keyField("c")),
-                        keyField("b")));
-
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("p").matches(queryField("c").lessThanOrEquals(1)),
-                        queryField("b").equalsValue(2)),
-                concat(
-                        keyField("p").nest(keyField("c")),
-                        keyField("b")));
-
-        assertEquality(MatchType.EQUALITY,
-                Query.and(
-                        queryField("p").matches(queryField("c1").equalsValue(1)),
-                        queryField("p").matches(queryField("c2").equalsValue(2))),
-                concat(
-                        keyField("p").nest(keyField("c1")),
-                        keyField("p").nest(keyField("c2"))));
-
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("a").equalsValue(1),
-                        queryField("b").equalsValue(2)
-                ),
-                keyField("a"));
-
-        assertEqualityCoveringKey(MatchType.EQUALITY,
-                Query.and(
-                        queryField("a").equalsValue(1),
-                        queryField("b").equalsValue(2)
-                ),
-                keyField("a"));
-
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("a").equalsValue(1),
-                        queryField("b").equalsValue(2)
-                ),
-                keyField("b"));
-
-        assertEqualityCoveringKey(MatchType.EQUALITY,
-                Query.and(
-                        queryField("a").equalsValue(1),
-                        queryField("b").equalsValue(2)
-                ),
-                keyField("b"));
-
-        assertEquality(MatchType.EQUALITY,
-                Query.and(
-                        queryField("a").equalsValue(1),
-                        new RecordTypeKeyComparison("ErsatzRecordType")
-                ),
-                concat(recordType(), keyField("a")));
-
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("a").equalsValue(1),
-                        new RecordTypeKeyComparison("ErsatzRecordType")
-                ),
-                recordType());
-
-        assertEqualityCoveringKey(MatchType.EQUALITY,
-                Query.and(
-                        queryField("a").equalsValue(1),
-                        new RecordTypeKeyComparison("ErsatzRecordType")
-                ),
-                recordType());
-    }
-
-    @Test
-    public void testNestedAnd() {
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2)
-                        )),
-                        queryField("c").equalsValue(3)
-                ),
-                keyField("p").nest(concatenateFields("a", "b")));
-
-        assertEqualityCoveringKey(MatchType.EQUALITY,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2)
-                        )),
-                        queryField("c").equalsValue(3)
-                ),
-                keyField("p").nest(concatenateFields("a", "b")));
-
-        assertEqualityCoveringKey(MatchType.INEQUALITY,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").greaterThan(2)
-                        )),
-                        queryField("c").equalsValue(3)
-                ),
-                keyField("p").nest(concatenateFields("a", "b")));
-
-        assertEquality(MatchType.EQUALITY,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2)
-                        )),
-                        queryField("c").equalsValue(3)
-                ),
-                concat(keyField("p").nest(concatenateFields("a", "b")), keyField("c")));
-
-        assertEquality(MatchType.EQUALITY,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").equalsValue(2)
-                        )),
-                        queryField("c").equalsValue(3)
-                ),
-                concat(keyField("c"), keyField("p").nest(concatenateFields("a", "b")), keyField("c")));
-
-        assertEquality(MatchType.NO_MATCH,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").matches(Query.and(
-                                        queryField("c").equalsValue(2),
-                                        queryField("d").equalsValue(3)
-                                ))
-                        )),
-                        queryField("e").equalsValue(4)
-                ),
-                concat(keyField("e"), keyField("p").nest("a")));
-
-        assertEqualityCoveringKey(MatchType.EQUALITY,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").matches(Query.and(
-                                        queryField("c").equalsValue(2),
-                                        queryField("d").equalsValue(3)
-                                ))
-                        )),
-                        queryField("e").equalsValue(4)
-                ),
-                concat(keyField("e"), keyField("p").nest("a")));
-
-        assertEquality(MatchType.EQUALITY,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").matches(Query.and(
-                                        queryField("c").equalsValue(2),
-                                        queryField("d").equalsValue(3)
-                                ))
-                        )),
-                        queryField("e").equalsValue(4)
-                ),
-                concat(keyField("e"), keyField("p").nest(concat(keyField("b").nest(concatenateFields("c", "d")), keyField("a")))));
-
-        assertEquality(MatchType.INEQUALITY,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").lessThan(1),
-                                queryField("b").matches(Query.and(
-                                        queryField("c").equalsValue(2),
-                                        queryField("d").equalsValue(3)
-                                ))
-                        )),
-                        queryField("e").equalsValue(4)
-                ),
-                concat(keyField("e"), keyField("p").nest(concat(keyField("b").nest(concatenateFields("c", "d")), keyField("a")))));
-
-        assertEqualityCoveringKey(MatchType.EQUALITY,
-                Query.and(
-                        queryField("p").matches(Query.and(
-                                queryField("a").equalsValue(1),
-                                queryField("b").matches(Query.and(
-                                        queryField("c").equalsValue(2),
-                                        queryField("d").equalsValue(3)
-                                ))
-                        )),
-                        queryField("e").equalsValue(4)
-                ),
-                concat(keyField("e"), keyField("p").nest(concat(keyField("b").nest(concatenateFields("c", "d")), keyField("a")))));
-    }
-
-
-    @Test
-    public void testOneOfThem() {
-        QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("a").oneOfThem().equalsValue(7));
-        Match match = matcher.matchesSatisfyingQuery(keyField("a", FanType.FanOut));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.scalar(7), match.getEquality());
-
-        matcher = new QueryToKeyMatcher(queryField("p").matches(queryField("a").oneOfThem().equalsValue(7)));
-        match = matcher.matchesSatisfyingQuery(keyField("p").nest(keyField("a", FanType.FanOut)));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.scalar(7), match.getEquality());
-
-        matcher = new QueryToKeyMatcher(queryField("g").matches(queryField("p").oneOfThem().matches(queryField("a").equalsValue(7))));
-        match = matcher.matchesSatisfyingQuery(keyField("g").nest(keyField("p", FanType.FanOut).nest(keyField("a"))));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.scalar(7), match.getEquality());
-
-        matcher = new QueryToKeyMatcher(Query.and(
-                queryField("a").equalsValue(10),
-                queryField("g").matches(queryField("p").oneOfThem().matches(queryField("a").equalsValue(7)))));
-        match = matcher.matchesSatisfyingQuery(concat(
+    @SuppressWarnings("unused") // used as arguments for parameterized test
+    static Stream<Arguments> testEqualityMatches() {
+        Stream<Arguments> singleFieldArgs = Stream.of(
                 keyField("a"),
-                keyField("g").nest(keyField("p", FanType.FanOut).nest(keyField("a"))),
-                keyField("b")));
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.concatenate(10, 7), match.getEquality());
-
-        assertNoMatch(queryField("a").oneOfThem().matches(queryField("ax").greaterThan(8)),
-                keyField("a", FanType.FanOut));
-
-        assertNoMatch(queryField("p").matches(queryField("a").oneOfThem().matches(queryField("ax").greaterThan(8))),
-                keyField("p").nest(keyField("a", FanType.FanOut)));
+                concatenateFields("a", "b"),
+                keyWithValue(concatenateFields("a", "b"), 1),
+                keyWithValue(concatenateFields("a", "b", "c"), 1),
+                keyWithValue(concatenateFields("a", "b", "c"), 2),
+                keyField("b").groupBy(keyField("a")),
+                keyField("c").groupBy(keyField("a"), keyField("b")),
+                concatenateFields("b", "c").groupBy(keyField("a")),
+                concatenateFields("c", "d").groupBy(keyField("a"), keyField("b")),
+                keyWithValue(concat(keyField("a"), function("nada", concatenateFields("b", "c"))), 2),
+                keyWithValue(concat(keyField("a"), function("nada", concatenateFields("b", "c"))), 3)
+        ).map(key -> Arguments.of(
+                queryField("a").equalsValue(7),
+                key,
+                scalar(7)
+        ));
+        Stream<Arguments> singleNestedFieldArgs = Stream.of(
+                keyField("a").nest("ax"),
+                concat(keyField("a").nest("ax"), keyField("b")),
+                keyField("a").nest(keyField("ax"), keyField("b")),
+                keyField("b").groupBy(keyField("a").nest("ax")),
+                new GroupingKeyExpression(keyField("a").nest(keyField("ax"), keyField("b")), 1),
+                new GroupingKeyExpression(keyField("a").nest(keyField("ax"), keyField("b")), 0)
+        ).map(key -> Arguments.of(
+                queryField("a").matches(queryField("ax").equalsValue(10)),
+                key,
+                scalar(10)
+        ));
+        return Stream.of(singleFieldArgs, singleNestedFieldArgs, Stream.of(
+                Arguments.of(
+                        queryField("a").oneOfThem().equalsValue(7),
+                        keyField("a", FanType.FanOut),
+                        scalar(7)
+                ),
+                Arguments.of(
+                        queryField("p").matches(queryField("a").oneOfThem().equalsValue(7)),
+                        keyField("p").nest(keyField("a", FanType.FanOut)),
+                        scalar(7)
+                ),
+                Arguments.of(
+                        queryField("g").matches(queryField("p").matches(queryField("a").oneOfThem().equalsValue(7))),
+                        keyField("g").nest(keyField("p").nest(keyField("a", FanType.FanOut))),
+                        scalar(7)
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(10),
+                                queryField("g").matches(queryField("p").matches(queryField("a").oneOfThem().equalsValue(7)))),
+                        concat(keyField("a"), keyField("g").nest(keyField("p").nest(keyField("a", FanType.FanOut)))),
+                        Key.Evaluated.concatenate(10, 7)
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("f1").equalsValue(7),
+                                queryField("f2").equalsValue(11)),
+                        keyWithValue(concatenateFields("f1", "f2", "f3", "f4"), 2),
+                        Key.Evaluated.concatenate(7, 11)
+                ),
+                Arguments.of(
+                        Query.keyExpression(function("nada", concatenateFields("f1", "f2", "f3"))).equalsValue("hello!"),
+                        function("nada", concatenateFields("f1", "f2", "f3")),
+                        scalar("hello!")
+                )
+        )).flatMap(Function.identity());
     }
 
-    @Test
-    public void testMatchWithQueryableExpression() {
-        final QueryableKeyExpression key = (QueryableKeyExpression)function("nada", concatenateFields("f1", "f2", "f3"));
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(Query.keyExpression(key).equalsValue("hello!"));
+    @ParameterizedTest(name = "testEqualityMatches[query = {0}, key = {1}")
+    @MethodSource
+    void testEqualityMatches(QueryComponent query, KeyExpression key, Key.Evaluated evaluated) {
+        QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
         Match match = matcher.matchesSatisfyingQuery(key);
         assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(Key.Evaluated.scalar("hello!"), match.getEquality());
+        assertEquals(evaluated, match.getEquality());
     }
 
-    @Test
-    public void testTemporarilyNoMatch() {
-        // This is a holder test to make sure we don't forget to test things when we add support for them, and
-        // to make sure they return no match for now
-        // Ideally these match correctly once implemented
-        assertNoMatch(Query.and(queryField("a").equalsValue(3), queryField("b").isEmpty()), concatenateFields("a", "b"));
-        assertNoMatch(
-                Query.and(
-                        queryField("a").lessThan(3),
-                        queryField("a").greaterThan(0)
+    @SuppressWarnings("unused") // used as arguments for parameterized test
+    static Stream<Arguments> testNoMatch() {
+        Stream<Arguments> singleFieldQueryArgs = Stream.of(
+                keyField("b"),
+                keyField("a", FanType.FanOut),
+                keyField("a", FanType.Concatenate),
+                keyField("b").nest("a"),
+                keyField("a").nest("b"),
+                concatenateFields("b", "a"),
+                keyField("a").ungrouped(),
+                keyField("a").groupBy(keyField("b")),
+                concatenateFields("a", "b").ungrouped()
+        ).map(key ->
+                Arguments.of(queryField("a").equalsValue(7), key)
+        );
+        Stream<Arguments> singleNestedQueryArgs = Stream.of(
+                keyField("a"),
+                keyField("a", FanType.FanOut),
+                keyField("a", FanType.Concatenate),
+                keyField("a", FanType.FanOut).nest("ax"),
+                keyField("a").nest("ax", FanType.FanOut),
+                keyField("a").nest("ax", FanType.Concatenate),
+                keyField("b").nest("ax"),
+                keyField("a").nest("bx"),
+
+                concat(keyField("b").nest("ax"), keyField("a").nest("ax")),
+                keyField("a").nest(concat(keyField("bx"), keyField("ax")))
+        ).map(key ->
+                Arguments.of(queryField("a").matches(queryField("ax").equalsValue(10)), key)
+        );
+        return Stream.of(singleFieldQueryArgs, singleNestedQueryArgs, Stream.of(
+                Arguments.of(
+                        queryField("a").oneOfThem().matches(queryField("ax").greaterThan(8)),
+                        keyField("a", FanType.FanOut)
                 ),
-                concatenateFields("a", "b"));
-
-        assertNoMatch(Query.not(queryField("a").equalsValue(3)), keyField("a"));
-        assertNoMatch(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4)), concatenateFields("a", "b"));
-        assertNoMatch(Query.rank("a").equalsValue(5), keyField("a"));
-
-        assertNoMatch(
-                queryField("p").matches(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4))),
-                keyField("p").nest(concatenateFields("a", "b")));
-        assertNoMatch(
-                queryField("p").matches(Query.rank("a").equalsValue(5)),
-                keyField("p").nest(keyField("a")));
-        assertNoMatch(
-                queryField("p").matches(Query.not(queryField("a").equalsValue(3))),
-                keyField("p").nest(keyField("a")));
-        assertNoMatch(
-                queryField("p").matches(Query.and(queryField("a").greaterThan(3),
-                        Query.or(queryField("b").lessThan(4), queryField("b").greaterThan(5)))),
-                keyField("p").nest(concatenateFields("a", "b")));
-        assertNoMatch(
-                queryField("p").matches(Query.and(
-                        queryField("c1").equalsValue(1),
-                        queryField("c2").equalsValue(2))),
-                concat(
-                        keyField("p").nest(keyField("c1")),
-                        keyField("p").nest(keyField("c2"))));
-        assertNoMatch(
-                Query.and(
-                        queryField("p").matches(queryField("c1").equalsValue(1)),
-                        queryField("p").matches(queryField("c2").equalsValue(2))),
-                keyField("p").nest(concatenateFields("c1", "c2")));
+                Arguments.of(
+                        queryField("p").matches(queryField("a").oneOfThem().matches(queryField("ax").greaterThan(8))),
+                        keyField("p").nest(keyField("a", FanType.FanOut))
+                ),
+                Arguments.of(
+                        queryField("f1").equalsValue("hello!"),
+                        keyWithValue(function("nada", concatenateFields("f1", "f2", "f3")), 1)
+                ),
+                Arguments.of(
+                        queryField("f1").equalsValue("hello!"),
+                        value(4)
+                ),
+                Arguments.of(
+                        // Note the different arguments in the query and key expression
+                        Query.keyExpression(function("nada", concatenateFields("f1", "f2", "f3"))).equalsValue("hello!"),
+                        function("nada", concatenateFields("f1", "f2", "f3", "f4"))
+                )
+        )).flatMap(Function.identity());
     }
 
-    @Test
-    public void testUnexpected() {
+    @ParameterizedTest(name = "testNoMatch[query = {0}, key = {1}")
+    @MethodSource
+    void testNoMatch(QueryComponent query, KeyExpression key) {
+        assertNoMatch(query, key);
+        assertEqualityCoveringKey(MatchType.NO_MATCH, query, key);
+    }
+
+    @SuppressWarnings("unused") // used as arguments for parameterized test
+    static Stream<Arguments> testQueryAndPatterns() {
+        return Stream.of(
+                Arguments.of(
+                        queryField("a").matches(queryField("ax").equalsValue(10)),
+                        keyField("a").nest(concat(keyField("ax"), keyField("b"))),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        queryField("a").equalsValue(1),
+                        concatenateFields("a", "b"),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        queryField("a").equalsValue(1),
+                        concatenateFields("b", "a"),
+                        MatchType.NO_MATCH,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        queryField("a").oneOfThem().equalsValue(1),
+                        concat(keyField("a", FanType.FanOut), keyField("b")),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        queryField("a").oneOfThem().equalsValue(1),
+                        concat(keyField("b"), keyField("a", FanType.FanOut)),
+                        MatchType.NO_MATCH,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        new RecordTypeKeyComparison("ErsatzRecordType"),
+                        concat(recordType(), keyField("a")),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        new RecordTypeKeyComparison("ErsatzRecordType"),
+                        concat(keyField("a"), recordType()),
+                        MatchType.NO_MATCH,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        queryField("p").matches(
+                                Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").equalsValue(2))),
+                        keyField("p").nest(concatenateFields("a", "c", "b")),
+                        MatchType.NO_MATCH,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        queryField("p").matches(
+                                Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").equalsValue(2))),
+                        keyField("p").nest(
+                                keyField("a"),
+                                keyField("q").nest(
+                                        keyField("c"),
+                                        keyField("d")),
+                                keyField("b")),
+                        MatchType.NO_MATCH,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        queryField("p").matches(
+                                Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").equalsValue(2))),
+                        keyField("p").nest(
+                                keyField("a"),
+                                keyField("b"),
+                                keyField("q").nest(keyField("c"), keyField("d"))),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        queryField("p").matches(
+                                Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").equalsValue(2),
+                                        queryField("c").equalsValue(3))),
+                        keyField("p").nest(concatenateFields("c", "b", "a", "extra")),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        queryField("p").matches(
+                                Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").equalsValue(2),
+                                        queryField("c").equalsValue(3))),
+                        keyField("p").nest(concatenateFields("c", "b")),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        queryField("p").matches(
+                                Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").equalsValue(2),
+                                        queryField("c").equalsValue(3))),
+                        keyField("p").nest(concatenateFields("c", "b", "a")),
+                        MatchType.EQUALITY,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").lessThanOrEquals(1),
+                                queryField("b").equalsValue(2),
+                                queryField("c").equalsValue(3)),
+                        concatenateFields("c", "b", "a"),
+                        MatchType.INEQUALITY,
+                        MatchType.INEQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").lessThanOrEquals(1),
+                                queryField("b").equalsValue(2)),
+                        concatenateFields("a", "b", "c", "d"),
+                        MatchType.NO_MATCH,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2),
+                                queryField("c").equalsValue(3),
+                                queryField("DoesNotExist").lessThan(4)),
+                        concatenateFields("c", "b", "a"),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").isNull(),
+                                queryField("b").equalsValue(2)),
+                        concatenateFields("a", "b"),
+                        MatchType.EQUALITY,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        keyField("b").groupBy(keyField("a")),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        concatenateFields("b", "c").groupBy(keyField("a")),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        new GroupingKeyExpression(concat(keyField("a"), keyField("b"), function("nada", concatenateFields("c", "d"))), 1),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        keyWithValue(concatenateFields("a", "b"), 1),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2),
+                                queryField("c").equalsValue(3)),
+                        keyWithValue(concatenateFields("a", "b", "c"), 2),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)),
+                        keyWithValue(concat(keyField("a"), keyField("b"), function("nada", concatenateFields("c", "d"))), 3),
+                        MatchType.EQUALITY,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(queryField("c").equalsValue(1)),
+                                queryField("b").equalsValue(2)),
+                        concat(
+                                keyField("p").nest(keyField("c")),
+                                keyField("b")),
+                        MatchType.EQUALITY,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(queryField("c").equalsValue(1)),
+                                queryField("b").equalsValue(2),
+                                queryField("a").equalsValue(1)),
+                        concat(
+                                keyField("p").nest(keyField("c")),
+                                keyField("b")),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(queryField("d").equalsValue(1)),
+                                queryField("b").equalsValue(2)),
+                        concat(
+                                keyField("p").nest(keyField("c")),
+                                keyField("b")),
+                        MatchType.NO_MATCH,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("q").matches(queryField("c").equalsValue(1)),
+                                queryField("b").equalsValue(2)),
+                        concat(
+                                keyField("p").nest(keyField("c")),
+                                keyField("b")),
+                        MatchType.NO_MATCH,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(queryField("c").equalsValue(1)),
+                                queryField("b").lessThanOrEquals(2)),
+                        concat(
+                                keyField("p").nest(keyField("c")),
+                                keyField("b")),
+                        MatchType.INEQUALITY,
+                        MatchType.INEQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(queryField("c").lessThanOrEquals(1)),
+                                queryField("b").equalsValue(2)),
+                        concat(
+                                keyField("p").nest(keyField("c")),
+                                keyField("b")),
+                        MatchType.NO_MATCH,
+                        MatchType.NO_MATCH
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(queryField("c1").equalsValue(1)),
+                                queryField("p").matches(queryField("c2").equalsValue(2))),
+                        concat(
+                                keyField("p").nest(keyField("c1")),
+                                keyField("p").nest(keyField("c2"))),
+                        MatchType.EQUALITY,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)
+                        ),
+                        keyField("a"),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").equalsValue(2)
+                        ),
+                        keyField("b"),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                new RecordTypeKeyComparison("ErsatzRecordType")
+                        ),
+                        concat(recordType(), keyField("a")),
+                        MatchType.EQUALITY,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(1),
+                                new RecordTypeKeyComparison("ErsatzRecordType")
+                        ),
+                        recordType(),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").equalsValue(2)
+                                )),
+                                queryField("c").equalsValue(3)
+                        ),
+                        keyField("p").nest(concatenateFields("a", "b")),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").greaterThan(2)
+                                )),
+                                queryField("c").equalsValue(3)
+                        ),
+                        keyField("p").nest(concatenateFields("a", "b")),
+                        MatchType.NO_MATCH,
+                        MatchType.INEQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").equalsValue(2)
+                                )),
+                                queryField("c").equalsValue(3)
+                        ),
+                        concat(
+                                keyField("p").nest(
+                                        concatenateFields("a", "b")),
+                                keyField("c")),
+                        MatchType.EQUALITY,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").matches(Query.and(
+                                                queryField("c").equalsValue(2),
+                                                queryField("d").equalsValue(3)
+                                        ))
+                                )),
+                                queryField("e").equalsValue(4)),
+                        concat(
+                                keyField("e"),
+                                keyField("p").nest("a")),
+                        MatchType.NO_MATCH,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(Query.and(
+                                        queryField("a").equalsValue(1),
+                                        queryField("b").matches(Query.and(
+                                                queryField("c").equalsValue(2),
+                                                queryField("d").equalsValue(3)
+                                        ))
+                                )),
+                                queryField("e").equalsValue(4)
+                        ),
+                        concat(
+                                keyField("e"),
+                                keyField("p").nest(concat(
+                                        keyField("b").nest(concatenateFields(
+                                                "c", "d")),
+                                        keyField("a")))),
+                        MatchType.EQUALITY,
+                        MatchType.EQUALITY
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(Query.and(
+                                        queryField("a").lessThan(1),
+                                        queryField("b").matches(Query.and(
+                                                queryField("c").equalsValue(2),
+                                                queryField("d").equalsValue(3)
+                                        ))
+                                )),
+                                queryField("e").equalsValue(4)
+                        ),
+                        concat(
+                                keyField("e"),
+                                keyField("p").nest(concat(
+                                        keyField("b").nest(concatenateFields(
+                                                "c", "d")),
+                                        keyField("a")))),
+                        MatchType.INEQUALITY,
+                        MatchType.INEQUALITY
+                )
+        );
+    }
+
+    @ParameterizedTest(name = "testQueryAndPatterns[query = {0}, key = {1}]")
+    @MethodSource
+    void testQueryAndPatterns(QueryComponent query, KeyExpression key, MatchType matchTypeSatisfiesQuery, MatchType matchTypeCoveringKey) {
+        assertEquality(matchTypeSatisfiesQuery, query, key);
+        assertEqualityCoveringKey(matchTypeCoveringKey, query, key);
+    }
+
+    @SuppressWarnings("unused") // used as arguments for parameterized test
+    static Stream<Arguments> testTemporarilyNoMatch() {
+        return Stream.of(
+                Arguments.of(
+                        Query.and(queryField("a").equalsValue(3), queryField("b").isEmpty()),
+                        concatenateFields("a", "b")),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").lessThan(3),
+                                queryField("a").greaterThan(0)
+                        ),
+                        concatenateFields("a", "b")),
+                Arguments.of(
+                        Query.not(queryField("a").equalsValue(3)),
+                        keyField("a")),
+                Arguments.of(
+                        Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4)),
+                        concatenateFields("a", "b")),
+                Arguments.of(
+                        Query.rank("a").equalsValue(5),
+                        keyField("a")),
+                Arguments.of(
+                        queryField("p").matches(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4))),
+                        keyField("p").nest(concatenateFields("a", "b"))),
+                Arguments.of(
+                        queryField("p").matches(Query.rank("a").equalsValue(5)),
+                        keyField("p").nest(keyField("a"))),
+                Arguments.of(
+                        queryField("p").matches(Query.not(queryField("a").equalsValue(3))),
+                        keyField("p").nest(keyField("a"))),
+                Arguments.of(
+                        queryField("p").matches(Query.and(queryField("a").greaterThan(3),
+                                Query.or(queryField("b").lessThan(4), queryField("b").greaterThan(5)))),
+                        keyField("p").nest(concatenateFields("a", "b"))),
+                Arguments.of(
+                        queryField("p").matches(Query.and(
+                                queryField("c1").equalsValue(1),
+                                queryField("c2").equalsValue(2))),
+                        concat(
+                                keyField("p").nest(keyField("c1")),
+                                keyField("p").nest(keyField("c2")))),
+                Arguments.of(
+                        Query.and(
+                                queryField("p").matches(queryField("c1").equalsValue(1)),
+                                queryField("p").matches(queryField("c2").equalsValue(2))),
+                        keyField("p").nest(concatenateFields("c1", "c2")))
+        );
+    }
+
+    /**
+     * This is a holder test to make sure we don't forget to test things when we add support for them, and
+     * to make sure they return no match for now. Ideally these match correctly once implemented.
+     *
+     * @param query the query to match to match with
+     * @param key the key expression to match with
+     */
+    @ParameterizedTest(name = "testTemporarilyNoMatch[query = {0}, key = {1}")
+    @MethodSource
+    void testTemporarilyNoMatch(@Nonnull QueryComponent query, @Nonnull KeyExpression key) {
+        assertNoMatch(query, key);
+    }
+
+    @SuppressWarnings("unused") // used as arguments for parameterized test
+    static Stream<Arguments> testUnexpected() {
+        return Stream.of(
+                Arguments.of(queryField("a").equalsValue(1), UnknownKeyExpression.UNKNOWN),
+                Arguments.of(queryField("a").oneOfThem().equalsValue(1), UnknownKeyExpression.UNKNOWN),
+                Arguments.of(
+                        queryField("p").matches(queryField("b").equalsValue(1)),
+                        UnknownKeyExpression.UNKNOWN),
+                Arguments.of(
+                        queryField("p").oneOfThem().matches(queryField("b").equalsValue(1)),
+                        UnknownKeyExpression.UNKNOWN),
+                Arguments.of(
+                        queryField("p").matches(queryField("b").equalsValue(1)),
+                        keyField("p").nest(UnknownKeyExpression.UNKNOWN)),
+                Arguments.of(
+                        queryField("p").oneOfThem().matches(queryField("b").equalsValue(1)),
+                        keyField("p", FanType.FanOut).nest(UnknownKeyExpression.UNKNOWN)),
+                Arguments.of(
+                        Query.and(queryField("a").equalsValue(1), queryField("b").equalsValue(2)),
+                        concat(keyField("a"), UnknownKeyExpression.UNKNOWN)),
+                Arguments.of(
+                        new RecordTypeKeyComparison("DummyRecordType"),
+                        UnknownKeyExpression.UNKNOWN)
+        );
+    }
+
+    @ParameterizedTest(name = "testUnexpected[query = {0}, key = {1}]")
+    @MethodSource
+    void testUnexpected(QueryComponent query, KeyExpression key) {
         // Make sure the places that throw an error when given an unknown expression all do so.
-        assertUnexpected(queryField("a").equalsValue(1), UnknownKeyExpression.UNKNOWN);
-        assertUnexpected(queryField("a").oneOfThem().equalsValue(1), UnknownKeyExpression.UNKNOWN);
-        assertUnexpected(
-                queryField("p").matches(queryField("b").equalsValue(1)),
-                UnknownKeyExpression.UNKNOWN);
-        assertUnexpected(
-                queryField("p").oneOfThem().matches(queryField("b").equalsValue(1)),
-                UnknownKeyExpression.UNKNOWN);
-        assertUnexpected(
-                queryField("p").matches(queryField("b").equalsValue(1)),
-                keyField("p").nest(UnknownKeyExpression.UNKNOWN));
-        assertUnexpected(
-                queryField("p").oneOfThem().matches(queryField("b").equalsValue(1)),
-                keyField("p", FanType.FanOut).nest(UnknownKeyExpression.UNKNOWN));
-        assertUnexpected(
-                Query.and(Query.field("a").equalsValue(1), Query.field("b").equalsValue(2)),
-                concat(keyField("a"), UnknownKeyExpression.UNKNOWN));
-        assertUnexpected(
-                new RecordTypeKeyComparison("DummyRecordType"),
-                UnknownKeyExpression.UNKNOWN);
-    }
-
-    private void assertEquality(MatchType type, QueryComponent query, KeyExpression key) {
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
-        assertEquals(type, matcher.matchesSatisfyingQuery(key).getType());
-    }
-
-    private void assertEqualityCoveringKey(MatchType type, QueryComponent query, KeyExpression key) {
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
-        assertEquals(type, matcher.matchesCoveringKey(key).getType());
-    }
-
-    private void assertInvalid(QueryComponent query, KeyExpression key) {
-        assertThrows(Query.InvalidExpressionException.class, () -> {
-            final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
-            matcher.matchesSatisfyingQuery(key);
-        });
-    }
-
-    private void assertUnexpected(QueryComponent query, KeyExpression key) {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
             matcher.matchesSatisfyingQuery(key);
         });
     }
 
-    private void assertNoMatch(QueryComponent query, KeyExpression key) {
+    private static void assertEquality(MatchType type, QueryComponent query, KeyExpression key) {
+        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
+        assertEquals(type, matcher.matchesSatisfyingQuery(key).getType());
+    }
+
+    private static void assertEqualityCoveringKey(MatchType type, QueryComponent query, KeyExpression key) {
+        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
+        assertEquals(type, matcher.matchesCoveringKey(key).getType());
+    }
+
+    private static void assertNoMatch(QueryComponent query, KeyExpression key) {
         final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
         assertNoMatch(matcher.matchesSatisfyingQuery(key));
     }
 
-    private void assertNoMatch(Match match) {
+    private static void assertNoMatch(Match match) {
         assertEquals(MatchType.NO_MATCH, match.getType());
     }
 
-    private FieldKeyExpression keyField(String name) {
+    private static FieldKeyExpression keyField(String name) {
         return Key.Expressions.field(name);
     }
 
-    private FieldKeyExpression keyField(String name, FanType fanType) {
+    private static FieldKeyExpression keyField(String name, FanType fanType) {
         return Key.Expressions.field(name, fanType);
     }
 
-    private Field queryField(String name) {
+    private static Field queryField(String name) {
         return Query.field(name);
     }
 

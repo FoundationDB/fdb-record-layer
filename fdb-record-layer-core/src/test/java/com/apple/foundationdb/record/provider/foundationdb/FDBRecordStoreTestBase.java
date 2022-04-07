@@ -319,14 +319,16 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
                 .build());
     }
 
-    protected void saveHeaderRecord(long rec_no, String path, int num, String str) {
-        TestRecordsWithHeaderProto.MyRecord.Builder recBuilder = TestRecordsWithHeaderProto.MyRecord.newBuilder();
-        TestRecordsWithHeaderProto.HeaderRecord.Builder headerBuilder = recBuilder.getHeaderBuilder();
-        headerBuilder.setRecNo(rec_no);
-        headerBuilder.setPath(path);
-        headerBuilder.setNum(num);
-        recBuilder.setStrValue(str);
-        recordStore.saveRecord(recBuilder.build());
+    protected TestRecordsWithHeaderProto.MyRecord saveHeaderRecord(long rec_no, String path, int num, String str) {
+        TestRecordsWithHeaderProto.MyRecord.Builder recBuilder = TestRecordsWithHeaderProto.MyRecord.newBuilder()
+                .setStrValue(str);
+        recBuilder.getHeaderBuilder()
+                .setRecNo(rec_no)
+                .setPath(path)
+                .setNum(num);
+        TestRecordsWithHeaderProto.MyRecord rec = recBuilder.build();
+        recordStore.saveRecord(rec);
+        return rec;
     }
 
     protected TestRecordsWithHeaderProto.MyRecord parseMyRecord(Message message) {

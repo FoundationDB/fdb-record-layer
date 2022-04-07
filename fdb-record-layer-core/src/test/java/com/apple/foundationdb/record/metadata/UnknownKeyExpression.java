@@ -100,4 +100,9 @@ public class UnknownKeyExpression extends BaseKeyExpression {
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
         return HashUtils.queryHash(hashKind, BASE_HASH);
     }
+
+    @Override
+    public String toString() {
+        return "UNKNOWN";
+    }
 }
