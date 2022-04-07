@@ -43,6 +43,13 @@ public class IndexOptions {
     public static final Map<String, String> EMPTY_OPTIONS = Collections.emptyMap();
 
     /**
+     * No field options.
+     *
+     * The default for a new {@link Index}.
+     */
+    public static final Map<Integer, Map<String, String>> EMPTY_FIELD_OPTIONS = Collections.emptyMap();
+
+    /**
      * If {@code "true"}, index throws {@link com.apple.foundationdb.record.RecordIndexUniquenessViolation} on attempts to store duplicate values.
      */
     public static final String UNIQUE_OPTION = "unique";

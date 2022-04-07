@@ -64,6 +64,12 @@ message Index {
     required string value = 2;
   };
   optional int32 added_version = 10;
+  repeated FieldOption fieldOptions = 11;
+  message FieldOption {
+    required int32 fieldId = 1;
+    required string key = 2;
+    required string value = 3;
+  }
   extensions 1000 to 2000;
 }
 

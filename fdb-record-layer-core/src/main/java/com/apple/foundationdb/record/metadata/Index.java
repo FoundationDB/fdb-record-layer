@@ -65,6 +65,8 @@ public class Index {
     @Nonnull
     private final Map<String, String> options;
     @Nonnull
+    private final Map<Integer, Map<String, String>> fieldOptions;
+    @Nonnull
     private final KeyExpression rootExpression;
     @Nullable
     private int[] primaryKeyComponentPositions;
@@ -104,13 +106,22 @@ public class Index {
     public Index(@Nonnull String name,
                  @Nonnull KeyExpression rootExpression,
                  @Nonnull String type,
-                 @Nonnull Map<String, String> options) {
+                 @Nonnull Map<String, String> options,
+                 @Nonnull Map<Integer, Map<String, String>> fieldOptions) {
         this.name = name;
         this.rootExpression = rootExpression;
         this.type = type;
         this.options = options;
+        this.fieldOptions = fieldOptions;
         this.subspaceKey = normalizeSubspaceKey(name, name);
         this.lastModifiedVersion = 0;
+    }
+
+    public Index(@Nonnull String name,
+                 @Nonnull KeyExpression rootExpression,
+                 @Nonnull String type,
+                 @Nonnull Map<String, String> options) {
+        this(name, rootExpression, type, options, IndexOptions.EMPTY_FIELD_OPTIONS);
     }
 
     public Index(@Nonnull String name,
@@ -147,7 +158,7 @@ public class Index {
      * @param orig original index to copy
      */
     public Index(@Nonnull Index orig) {
-        this(orig.name, orig.rootExpression, orig.type, new HashMap<>(orig.options));
+        this(orig.name, orig.rootExpression, orig.type, new HashMap<>(orig.options), new HashMap<>(orig.fieldOptions));
         if (orig.primaryKeyComponentPositions != null) {
             this.primaryKeyComponentPositions = Arrays.copyOf(orig.primaryKeyComponentPositions, orig.primaryKeyComponentPositions.length);
         } else {
@@ -168,9 +179,11 @@ public class Index {
         if (proto.hasIndexType()) {
             type = indexTypeToType(proto.getIndexType());
             options = indexTypeToOptions(proto.getIndexType());
+            fieldOptions = IndexOptions.EMPTY_FIELD_OPTIONS;
         } else {
             type = proto.hasType() ? proto.getType() : IndexTypes.VALUE;
             options = buildOptions(proto.getOptionsList(), false);
+            fieldOptions = buildFieldOptions(proto.getFieldOptionsList());
         }
         KeyExpression expr = KeyExpression.fromProto(proto.getRootExpression());
         if (!(expr instanceof GroupingKeyExpression) &&
@@ -229,6 +242,15 @@ public class Index {
         }
     }
 
+    public static Map<Integer, Map<String, String>> buildFieldOptions(List<RecordMetaDataProto.Index.FieldOption> fieldOptionList) {
+        Map<Integer, Map<String, String>> fieldOptions = new TreeMap<>();
+        for (RecordMetaDataProto.Index.FieldOption fieldOption : fieldOptionList) {
+            fieldOptions.putIfAbsent(fieldOption.getFieldId(), new TreeMap<>());
+            fieldOptions.get(fieldOption.getFieldId()).put(fieldOption.getKey(), fieldOption.getValue());
+        }
+        return fieldOptions;
+    }
+
     public static String indexTypeToType(RecordMetaDataProto.Index.Type indexType) {
         switch (indexType) {
             case RANK:
@@ -271,6 +293,24 @@ public class Index {
     @Nullable
     public String getOption(@Nonnull String key) {
         return options.get(key);
+    }
+
+    @Nonnull
+    public Map<Integer, Map<String, String>> getAllFieldOptions() {
+        return fieldOptions;
+    }
+
+    @Nullable
+    public Map<String, String> getFieldOptions(int fieldId) {
+        return fieldOptions.get(fieldId);
+    }
+
+    @Nullable
+    public String getFieldOption(int fieldId, @Nonnull String key) {
+        if (!fieldOptions.containsKey(fieldId)) {
+            return null;
+        }
+        return fieldOptions.get(fieldId).get(key);
     }
 
     public boolean getBooleanOption(@Nonnull String key, boolean defaultValue) {
@@ -561,6 +601,14 @@ public class Index {
         for (Map.Entry<String, String> entry : options.entrySet()) {
             builder.addOptionsBuilder().setKey(entry.getKey()).setValue(entry.getValue());
         }
+        for (Map.Entry<Integer, Map<String, String>> entry : fieldOptions.entrySet()) {
+            for (Map.Entry<String, String> subEntry : entry.getValue().entrySet()) {
+                builder.addFieldOptionsBuilder()
+                        .setFieldId(entry.getKey())
+                        .setKey(subEntry.getKey())
+                        .setValue(subEntry.getValue());
+            }
+        }
         builder.setSubspaceKey(ByteString.copyFrom(Tuple.from(subspaceKey).pack()));
         if (addedVersion > 0) {
             builder.setAddedVersion(addedVersion);
@@ -594,13 +642,14 @@ public class Index {
         }
         Index that = (Index) o;
         return this.name.equals(that.name)
-                && this.type.equals(that.type)
-                && this.rootExpression.equals(that.rootExpression)
-                && this.subspaceKey.equals(that.subspaceKey)
-                && this.addedVersion == that.addedVersion
-                && this.lastModifiedVersion == that.lastModifiedVersion
-                && Arrays.equals(this.primaryKeyComponentPositions, that.primaryKeyComponentPositions)
-                && this.options.equals(that.options);
+               && this.type.equals(that.type)
+               && this.rootExpression.equals(that.rootExpression)
+               && this.subspaceKey.equals(that.subspaceKey)
+               && this.addedVersion == that.addedVersion
+               && this.lastModifiedVersion == that.lastModifiedVersion
+               && Arrays.equals(this.primaryKeyComponentPositions, that.primaryKeyComponentPositions)
+               && this.options.equals(that.options)
+               && this.fieldOptions.equals(that.fieldOptions);
     }
 
     @Override
