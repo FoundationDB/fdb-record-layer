@@ -67,6 +67,139 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class QueryToKeyMatcherTest {
 
     @SuppressWarnings("unused") // used as arguments for parameterized test
+    static Stream<Arguments> testEqualityMatches() {
+        return Stream.of(
+                Arguments.of(
+                        queryField("a").equalsValue(7),
+                        keyField("a"),
+                        scalar(7)
+                ),
+                Arguments.of(
+                        queryField("a").equalsValue(7),
+                        concatenateFields("a", "b"),
+                        scalar(7)
+                ),
+                Arguments.of(
+                        queryField("a").matches(queryField("ax").equalsValue(10)),
+                        keyField("a").nest("ax"),
+                        scalar(10)
+                ),
+                Arguments.of(
+                        queryField("a").matches(queryField("ax").equalsValue(10)),
+                        concat(keyField("a").nest("ax"), keyField("b")),
+                        scalar(10)
+                ),
+                Arguments.of(
+                        queryField("a").matches(queryField("ax").equalsValue(10)),
+                        keyField("a").nest(concat(keyField("ax"), keyField("b"))),
+                        scalar(10)
+                ),
+                Arguments.of(
+                        queryField("a").oneOfThem().equalsValue(7),
+                        keyField("a", FanType.FanOut),
+                        scalar(7)
+                ),
+                Arguments.of(
+                        queryField("p").matches(queryField("a").oneOfThem().equalsValue(7)),
+                        keyField("p").nest(keyField("a", FanType.FanOut)),
+                        scalar(7)
+                ),
+                Arguments.of(
+                        queryField("g").matches(queryField("p").matches(queryField("a").oneOfThem().equalsValue(7))),
+                        keyField("g").nest(keyField("p").nest(keyField("a", FanType.FanOut))),
+                        scalar(7)
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("a").equalsValue(10),
+                                queryField("g").matches(queryField("p").matches(queryField("a").oneOfThem().equalsValue(7)))),
+                        concat(keyField("a"), keyField("g").nest(keyField("p").nest(keyField("a", FanType.FanOut)))),
+                        Key.Evaluated.concatenate(10, 7)
+                ),
+                Arguments.of(
+                        Query.and(
+                                queryField("f1").equalsValue(7),
+                                queryField("f2").equalsValue(11)),
+                        keyWithValue(concatenateFields("f1", "f2", "f3", "f4"), 2),
+                        Key.Evaluated.concatenate(7, 11)
+                ),
+                Arguments.of(
+                        Query.keyExpression(function("nada", concatenateFields("f1", "f2", "f3"))).equalsValue("hello!"),
+                        function("nada", concatenateFields("f1", "f2", "f3")),
+                        scalar("hello!")
+                )
+        );
+    }
+
+    @ParameterizedTest(name = "testEqualityMatches[query = {0}, key = {1}")
+    @MethodSource
+    void testEqualityMatches(QueryComponent query, KeyExpression key, Key.Evaluated evaluated) {
+        QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
+        Match match = matcher.matchesSatisfyingQuery(key);
+        assertEquals(MatchType.EQUALITY, match.getType());
+        assertEquals(evaluated, match.getEquality());
+    }
+
+    @SuppressWarnings("unused") // used as arguments for parameterized test
+    static Stream<Arguments> testNoMatch() {
+        Stream<Arguments> singleFieldQueryArgs = Stream.of(
+                keyField("b"),
+                keyField("a", FanType.FanOut),
+                keyField("a", FanType.Concatenate),
+                keyField("b").nest("a"),
+                keyField("a").nest("b"),
+                concatenateFields("b", "a")
+        ).map(key ->
+                Arguments.of(queryField("a").equalsValue(7), key)
+        );
+        Stream<Arguments> singleNestedQueryArgs = Stream.of(
+                keyField("a"),
+                keyField("a", FanType.FanOut),
+                keyField("a", FanType.Concatenate),
+                keyField("a", FanType.FanOut).nest("ax"),
+                keyField("a").nest("ax", FanType.FanOut),
+                keyField("a").nest("ax", FanType.Concatenate),
+                keyField("b").nest("ax"),
+                keyField("a").nest("bx"),
+
+                concat(keyField("b").nest("ax"), keyField("a").nest("ax")),
+                keyField("a").nest(concat(keyField("bx"), keyField("ax")))
+        ).map(key ->
+                Arguments.of(queryField("a").matches(queryField("ax").equalsValue(10)), key)
+        );
+        return Stream.of(singleFieldQueryArgs, singleNestedQueryArgs, Stream.of(
+                Arguments.of(
+                        queryField("a").oneOfThem().matches(queryField("ax").greaterThan(8)),
+                        keyField("a", FanType.FanOut)
+                ),
+                Arguments.of(
+                        queryField("p").matches(queryField("a").oneOfThem().matches(queryField("ax").greaterThan(8))),
+                        keyField("p").nest(keyField("a", FanType.FanOut))
+                ),
+                Arguments.of(
+                        queryField("f1").equalsValue("hello!"),
+                        keyWithValue(function("nada", concatenateFields("f1", "f2", "f3")), 1)
+                ),
+                Arguments.of(
+                        queryField("f1").equalsValue("hello!"),
+                        value(4)
+                ),
+                Arguments.of(
+                        // Note the different arguments in the query and key expression
+                        Query.keyExpression(function("nada", concatenateFields("f1", "f2", "f3"))).equalsValue("hello!"),
+                        function("nada", concatenateFields("f1", "f2", "f3", "f4"))
+                )
+        )).flatMap(Function.identity());
+    }
+
+    @ParameterizedTest(name = "testNoMatch[query = {0}, key = {1}")
+    @MethodSource
+    void testNoMatch(QueryComponent query, KeyExpression key) {
+        assertNoMatch(query, key);
+        assertEqualityCoveringKey(MatchType.NO_MATCH, query, key);
+    }
+
+    @SuppressWarnings("unused") // used as arguments for parameterized test
     static Stream<Arguments> testQueryAndPatterns() {
         return Stream.of(
                 Arguments.of(
@@ -421,139 +554,6 @@ public class QueryToKeyMatcherTest {
     void testQueryAndPatterns(QueryComponent query, KeyExpression key, MatchType matchTypeSatisfiesQuery, MatchType matchTypeCoveringKey) {
         assertEquality(matchTypeSatisfiesQuery, query, key);
         assertEqualityCoveringKey(matchTypeCoveringKey, query, key);
-    }
-
-    @SuppressWarnings("unused") // used as arguments for parameterized test
-    static Stream<Arguments> testEqualityMatches() {
-        return Stream.of(
-                Arguments.of(
-                        queryField("a").equalsValue(7),
-                        keyField("a"),
-                        scalar(7)
-                ),
-                Arguments.of(
-                        queryField("a").equalsValue(7),
-                        concatenateFields("a", "b"),
-                        scalar(7)
-                ),
-                Arguments.of(
-                        queryField("a").matches(queryField("ax").equalsValue(10)),
-                        keyField("a").nest("ax"),
-                        scalar(10)
-                ),
-                Arguments.of(
-                        queryField("a").matches(queryField("ax").equalsValue(10)),
-                        concat(keyField("a").nest("ax"), keyField("b")),
-                        scalar(10)
-                ),
-                Arguments.of(
-                        queryField("a").matches(queryField("ax").equalsValue(10)),
-                        keyField("a").nest(concat(keyField("ax"), keyField("b"))),
-                        scalar(10)
-                ),
-                Arguments.of(
-                        queryField("a").oneOfThem().equalsValue(7),
-                        keyField("a", FanType.FanOut),
-                        scalar(7)
-                ),
-                Arguments.of(
-                        queryField("p").matches(queryField("a").oneOfThem().equalsValue(7)),
-                        keyField("p").nest(keyField("a", FanType.FanOut)),
-                        scalar(7)
-                ),
-                Arguments.of(
-                        queryField("g").matches(queryField("p").matches(queryField("a").oneOfThem().equalsValue(7))),
-                        keyField("g").nest(keyField("p").nest(keyField("a", FanType.FanOut))),
-                        scalar(7)
-                ),
-                Arguments.of(
-                        Query.and(
-                                queryField("a").equalsValue(10),
-                                queryField("g").matches(queryField("p").matches(queryField("a").oneOfThem().equalsValue(7)))),
-                        concat(keyField("a"), keyField("g").nest(keyField("p").nest(keyField("a", FanType.FanOut)))),
-                        Key.Evaluated.concatenate(10, 7)
-                ),
-                Arguments.of(
-                        Query.and(
-                                queryField("f1").equalsValue(7),
-                                queryField("f2").equalsValue(11)),
-                        keyWithValue(concatenateFields("f1", "f2", "f3", "f4"), 2),
-                        Key.Evaluated.concatenate(7, 11)
-                ),
-                Arguments.of(
-                        Query.keyExpression(function("nada", concatenateFields("f1", "f2", "f3"))).equalsValue("hello!"),
-                        function("nada", concatenateFields("f1", "f2", "f3")),
-                        scalar("hello!")
-                )
-        );
-    }
-
-    @ParameterizedTest(name = "testEqualityMatches[query = {0}, key = {1}")
-    @MethodSource
-    void testEqualityMatches(QueryComponent query, KeyExpression key, Key.Evaluated evaluated) {
-        QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
-        Match match = matcher.matchesSatisfyingQuery(key);
-        assertEquals(MatchType.EQUALITY, match.getType());
-        assertEquals(evaluated, match.getEquality());
-    }
-
-    @SuppressWarnings("unused") // used as arguments for parameterized test
-    static Stream<Arguments> testNoMatch() {
-        Stream<Arguments> singleFieldQueryArgs = Stream.of(
-                keyField("b"),
-                keyField("a", FanType.FanOut),
-                keyField("a", FanType.Concatenate),
-                keyField("b").nest("a"),
-                keyField("a").nest("b"),
-                concatenateFields("b", "a")
-        ).map(key ->
-                Arguments.of(queryField("a").equalsValue(7), key)
-        );
-        Stream<Arguments> singleNestedQueryArgs = Stream.of(
-                keyField("a"),
-                keyField("a", FanType.FanOut),
-                keyField("a", FanType.Concatenate),
-                keyField("a", FanType.FanOut).nest("ax"),
-                keyField("a").nest("ax", FanType.FanOut),
-                keyField("a").nest("ax", FanType.Concatenate),
-                keyField("b").nest("ax"),
-                keyField("a").nest("bx"),
-
-                concat(keyField("b").nest("ax"), keyField("a").nest("ax")),
-                keyField("a").nest(concat(keyField("bx"), keyField("ax")))
-        ).map(key ->
-                Arguments.of(queryField("a").matches(queryField("ax").equalsValue(10)), key)
-        );
-        return Stream.of(singleFieldQueryArgs, singleNestedQueryArgs, Stream.of(
-                Arguments.of(
-                        queryField("a").oneOfThem().matches(queryField("ax").greaterThan(8)),
-                        keyField("a", FanType.FanOut)
-                ),
-                Arguments.of(
-                        queryField("p").matches(queryField("a").oneOfThem().matches(queryField("ax").greaterThan(8))),
-                        keyField("p").nest(keyField("a", FanType.FanOut))
-                ),
-                Arguments.of(
-                        queryField("f1").equalsValue("hello!"),
-                        keyWithValue(function("nada", concatenateFields("f1", "f2", "f3")), 1)
-                ),
-                Arguments.of(
-                        queryField("f1").equalsValue("hello!"),
-                        value(4)
-                ),
-                Arguments.of(
-                        // Note the different arguments in the query and key expression
-                        Query.keyExpression(function("nada", concatenateFields("f1", "f2", "f3"))).equalsValue("hello!"),
-                        function("nada", concatenateFields("f1", "f2", "f3", "f4"))
-                )
-        )).flatMap(Function.identity());
-    }
-
-    @ParameterizedTest(name = "testNoMatch[query = {0}, key = {1}")
-    @MethodSource
-    void testNoMatch(QueryComponent query, KeyExpression key) {
-        assertNoMatch(query, key);
-        assertEqualityCoveringKey(MatchType.NO_MATCH, query, key);
     }
 
     @SuppressWarnings("unused") // used as arguments for parameterized test
