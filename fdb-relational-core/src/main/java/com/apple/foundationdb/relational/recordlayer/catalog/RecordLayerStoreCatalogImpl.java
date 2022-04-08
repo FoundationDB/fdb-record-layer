@@ -69,13 +69,13 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         this.keySpacePath = keySpace.path("catalog");
         this.metaDataBuilder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
         this.metaDataBuilder.getRecordType("Schema").setRecordTypeKey("Schema").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields("database_id", "schema_name")));
+        this.metaDataBuilder.getRecordType("DatabaseInfo").setRecordTypeKey("DatabaseInfo").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("database_id")));
     }
 
     @Override
     public CatalogData.Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
         // open FDBRecordStore
         FDBRecordStore recordStore = openFDBRecordStore(txn);
-        // arbitrarily define primary key as a combination of databaseId and schemaName here
         Tuple primaryKey = Tuple.from("Schema", databaseId.toString(), schemaName);
         try {
             FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
@@ -94,6 +94,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         try {
             // open FDBRecordStore
             FDBRecordStore recordStore = openFDBRecordStore(txn);
+            updateDatabaseInfo(dataToWrite, recordStore);
             recordStore.saveRecord(dataToWrite);
             return true;
         } catch (InternalErrorException ex) {
@@ -105,11 +106,21 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
+    public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
+        // RecordQuery query = RecordQuery.newBuilder().setRecordType("DatabaseInfo").build();
+        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        Tuple key = Tuple.from("DatabaseInfo");
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
+        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformDatabaseInfo), new String[]{"a"}, getFieldNames(CatalogData.DatabaseInfo.getDescriptor()));
+        return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
+    }
+
+    @Override
     public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from("Schema");
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transform), new String[]{"a"}, getFieldNames(CatalogData.Schema.getDescriptor()));
+        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformSchema), new String[]{"a"}, getFieldNames(CatalogData.Schema.getDescriptor()));
         return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
     }
 
@@ -118,13 +129,18 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from("Schema", databaseId.getPath());
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transform), new String[]{"a"}, getFieldNames(CatalogData.Schema.getDescriptor()));
+        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformSchema), new String[]{"a"}, getFieldNames(CatalogData.Schema.getDescriptor()));
         return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
     }
 
-    private Row transform(FDBStoredRecord<Message> result) {
-        CatalogData.Schema schema = CatalogData.Schema.newBuilder().mergeFrom(result.getRecord()).build();
+    private Row transformSchema(FDBStoredRecord<Message> record) {
+        CatalogData.Schema schema = CatalogData.Schema.newBuilder().mergeFrom(record.getRecord()).build();
         return new MessageTuple(schema);
+    }
+
+    private Row transformDatabaseInfo(FDBStoredRecord<Message> record) {
+        CatalogData.DatabaseInfo databaseInfo = CatalogData.DatabaseInfo.newBuilder().mergeFrom(record.getRecord()).build();
+        return new MessageTuple(databaseInfo);
     }
 
     private FDBRecordStore openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
@@ -136,6 +152,11 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
+    }
+
+    private void updateDatabaseInfo(CatalogData.Schema schema, FDBRecordStore recordStore) {
+        CatalogData.DatabaseInfo databaseInfo = CatalogData.DatabaseInfo.newBuilder().setDatabaseId(schema.getDatabaseId()).build();
+        recordStore.saveRecord(databaseInfo);
     }
 
     private String[] getFieldNames(Descriptors.Descriptor descriptor) {

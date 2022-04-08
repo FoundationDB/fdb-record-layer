@@ -44,7 +44,13 @@ message Table {
   // repeated Index indexes = 3;
 }
 
+message DatabaseInfo {
+  string database_id = 1;
+  string other = 2;
+}
+
 message UnionDescriptor {
   option (com.apple.foundationdb.record.record).usage = UNION;
   Schema _Schema = 1;
+  DatabaseInfo _DatabaseInfo = 2;
 }

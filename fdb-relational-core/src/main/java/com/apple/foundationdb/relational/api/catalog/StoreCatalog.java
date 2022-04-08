@@ -31,16 +31,6 @@ import java.net.URI;
 import javax.annotation.Nonnull;
 
 public interface StoreCatalog {
-
-    /*
-    RelationalResultSet listDatabases(@Nonnull Transaction transaction, @Nonnull Continuation continuation);
-
-    RelationalResultSet listSchemas(@Nonnull Transaction transaction, @Nonnull Continuation continuation);
-
-    RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation);
-
-     */
-
     /**
      * Returns a RecordLayerSchemaData object of a table.
      *
@@ -65,6 +55,17 @@ public interface StoreCatalog {
      *                           TransactionInactive if txn is no longer active
      */
     boolean updateSchema(@Nonnull Transaction txn, @Nonnull CatalogData.Schema dataToWrite) throws RelationalException;
+
+    /**
+     * list databases in the entire Catalog.
+     *
+     * @param txn          a Transaction
+     * @param continuation continuation from a previous execution
+     * @return a RelationalResultSet object
+     * @throws RelationalException InternalError if txn is compatible type
+     *                           TransactionInactive if txn is no longer active
+     */
+    RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException;
 
     /**
      * list schemas in entire Catalog.

@@ -63,6 +63,7 @@ public class RecordLayerStoreCatalogImplTest {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
             builder.getRecordType("Schema").setRecordTypeKey("Schema").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields("database_id", "schema_name")));
+            builder.getRecordType("DatabaseInfo").setRecordTypeKey("DatabaseInfo").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("database_id")));
 
             FDBRecordStore.newBuilder()
                     .setKeySpacePath(new KeySpace(new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL)).path("catalog"))
@@ -78,6 +79,8 @@ public class RecordLayerStoreCatalogImplTest {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
             builder.getRecordType("Schema").setPrimaryKey(Key.Expressions.concatenateFields("database_id", "schema_name"));
+            builder.getRecordType("DatabaseInfo").setPrimaryKey(Key.Expressions.field("database_id"));
+
             FDBRecordStore recordStore = FDBRecordStore.newBuilder()
                     .setKeySpacePath(new KeySpace(new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL)).path("catalog"))
                     .setMetaDataProvider(builder)
@@ -225,13 +228,13 @@ public class RecordLayerStoreCatalogImplTest {
             Assertions.assertEquals("test_table1", result1.getTables(0).getName());
             Assertions.assertEquals("test_table2", result1.getTables(1).getName());
         }
-
         // update with schema2 (version = 2)
         boolean updateSuccess2;
         try (Transaction txn2 = new RecordContextTransaction(fdb.openContext())) {
             updateSuccess2 = storeCatalog.updateSchema(txn2, schema2);
             txn2.commit();
         }
+
         // read after 2nd transaction
         try (Transaction readTransaction2 = new RecordContextTransaction(fdb.openContext())) {
             CatalogData.Schema result2 = storeCatalog.loadSchema(readTransaction2, URI.create("test_database_id"), "test_schema_name");
@@ -279,6 +282,34 @@ public class RecordLayerStoreCatalogImplTest {
     }
 
     @Test
+    void testListDatabases() throws RelationalException, SQLException {
+        // save 2 schemas
+        final CatalogData.Schema schema1 = generateTestSchema("test_schema_name1", "test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        final CatalogData.Schema schema2 = generateTestSchema("test_schema_name2", "test_database_id2", "test_template_name", 1, Arrays.asList("test_table3", "test_table4"));
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.updateSchema(txn, schema1);
+            storeCatalog.updateSchema(txn, schema2);
+            txn.commit();
+        }
+        // list databases
+        Set<String> databases = new HashSet<>();
+        try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
+            Continuation continuation = Continuation.BEGIN;
+            do {
+                RelationalResultSet result = storeCatalog.listDatabases(listTxn, continuation);
+                while (result.next()) {
+                    CatalogData.DatabaseInfo databaseInfo = result.parseMessage();
+                    databases.add(databaseInfo.getDatabaseId());
+                }
+                continuation = result.getContinuation();
+            } while (!continuation.atEnd());
+        }
+        Assertions.assertEquals(2, databases.size());
+        Assertions.assertTrue(databases.contains("test_database_id1"));
+        Assertions.assertTrue(databases.contains("test_database_id2"));
+    }
+
+    @Test
     void testListSchemas() throws RelationalException, SQLException {
         int n = 24;
         // save schemas
@@ -320,7 +351,7 @@ public class RecordLayerStoreCatalogImplTest {
                     }
                     continuation = result.getContinuation();
                 }
-            } while (continuation.getBytes() != null);
+            } while (!continuation.atEnd());
         }
         Assertions.assertEquals(2, resultSet.size());
         Assertions.assertTrue(resultSet.contains("test_database_id1/test_schema_name2"));
@@ -334,15 +365,16 @@ public class RecordLayerStoreCatalogImplTest {
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
             Continuation continuation = Continuation.BEGIN;
             do {
-                RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation);
-                while (result.next()) {
-                    CatalogData.Schema schema = result.parseMessage();
-                    fullSchemaNames.add(schema.getDatabaseId() + "/" + schema.getSchemaName());
+                try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
+                    if (result.next()) {
+                        CatalogData.Schema schema = result.parseMessage();
+                        fullSchemaNames.add(schema.getDatabaseId() + "/" + schema.getSchemaName());
+                    }
+                    continuation = result.getContinuation();
                 }
-                continuation = result.getContinuation();
-                result.close();
-            } while (continuation.getBytes() != null);
+            } while (!continuation.atEnd());
         }
+        // assert
         Assertions.assertEquals(0, fullSchemaNames.size());
     }
 

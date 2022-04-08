@@ -38,6 +38,7 @@ import java.util.List;
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     protected final Row startKey;
     protected final Row endKey;
+
     protected final RecordContextTransaction transaction;
 
     protected final Scannable scannable;
