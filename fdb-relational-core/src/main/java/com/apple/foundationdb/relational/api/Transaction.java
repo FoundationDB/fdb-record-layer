@@ -27,9 +27,9 @@ import javax.annotation.Nonnull;
 
 public interface Transaction extends AutoCloseable {
 
-    void commit();
+    void commit() throws RelationalException;
 
-    void abort();
+    void abort() throws RelationalException;
 
     @Override
     void close() throws RelationalException;

@@ -53,9 +53,7 @@ public class CreateDatabaseTest {
                 DatabaseTemplate.newBuilder()
                         .withSchema("test", "Restaurant")
                         .build());
-        try {
-
-            final RelationalDatabase database = catalog.getDatabase(URI.create("/create_database_test"));
+        try (final RelationalDatabase database = catalog.getDatabase(URI.create("/create_database_test"))) {
             Assertions.assertNotNull(database, "No database returned!");
         } finally {
             catalog.deleteDatabase(URI.create("/create_database_test"));

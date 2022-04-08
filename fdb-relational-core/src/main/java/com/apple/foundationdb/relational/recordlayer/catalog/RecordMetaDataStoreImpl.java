@@ -48,15 +48,14 @@ public final class RecordMetaDataStoreImpl {
         RecordMetaDataBuilder recordMetaDataBuilder = RecordMetaData.newBuilder().setRecords(metaData);
         // set primary key
         for (CatalogData.Table table : schema.getTablesList()) {
-            recordMetaDataBuilder = setPrimaryKey(table, recordMetaDataBuilder);
+            setPrimaryKey(table, recordMetaDataBuilder);
         }
         return recordMetaDataBuilder.build();
     }
 
-    private static RecordMetaDataBuilder setPrimaryKey(CatalogData.Table table, RecordMetaDataBuilder recordMetaDataBuilder) throws RelationalException {
+    private static void setPrimaryKey(CatalogData.Table table, RecordMetaDataBuilder recordMetaDataBuilder) throws RelationalException {
         try {
             recordMetaDataBuilder.getRecordType(table.getName()).setPrimaryKey(KeyExpression.fromProto(table.getPrimaryKey()));
-            return recordMetaDataBuilder;
         } catch (MetaDataException ex) {
             throw new RelationalException(ErrorCode.UNDEFINED_TABLE, ex);
         } catch (RecordCoreException ex) {

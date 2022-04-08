@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
@@ -41,6 +42,7 @@ import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -82,21 +84,25 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         FDBRecordStore store = getSchema().loadStore();
         ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(queryProperties);
         scanProperties = new ScanProperties(scanProperties.getExecuteProperties().setReturnedRowLimit(1), scanProperties.isReverse());
-        final RecordCursorIterator<IndexEntry> indexEntryRecordCursor = store.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator();
-        IndexEntry entry;
-        if (!indexEntryRecordCursor.hasNext()) {
-            return null;
-        }
-        entry = indexEntryRecordCursor.next();
+        try {
+            final RecordCursorIterator<IndexEntry> indexEntryRecordCursor = store.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator();
+            IndexEntry entry;
+            if (!indexEntryRecordCursor.hasNext()) {
+                return null;
+            }
+            entry = indexEntryRecordCursor.next();
 
-        //TODO(bfines) pull the orphan behavior from the options
-        final CompletableFuture<FDBIndexedRecord<Message>> indexRecord = store.loadIndexEntryRecord(entry, IndexOrphanBehavior.ERROR);
-        //TODO(bfines): add in store timing
-        final FDBIndexedRecord<Message> storedRecord = t.unwrap(FDBRecordContext.class).asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, indexRecord);
-        if (storedRecord == null) {
-            return null;
+            //TODO(bfines) pull the orphan behavior from the options
+            final CompletableFuture<FDBIndexedRecord<Message>> indexRecord = store.loadIndexEntryRecord(entry, IndexOrphanBehavior.ERROR);
+            //TODO(bfines): add in store timing
+            final FDBIndexedRecord<Message> storedRecord = t.unwrap(FDBRecordContext.class).asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, indexRecord);
+            if (storedRecord == null) {
+                return null;
+            }
+            return new MessageTuple(storedRecord.getRecord());
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
         }
-        return new MessageTuple(storedRecord.getRecord());
     }
 
     @Override
@@ -166,11 +172,15 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
 
     @Override
     protected RecordCursor<IndexEntry> openScan(FDBRecordStore store, TupleRange range,
-                                                @Nullable Continuation continuation, ScanProperties props) {
+                                                @Nullable Continuation continuation, ScanProperties props) throws RelationalException {
         //TODO(bfines) get scan type from Options and/or ScanProperties
         assert continuation == null || continuation instanceof ContinuationImpl;
-        return store.scanIndex(index, IndexScanType.BY_VALUE, range,
-                continuation == null ? null : continuation.getBytes(), props);
+        try {
+            return store.scanIndex(index, IndexScanType.BY_VALUE, range,
+                    continuation == null ? null : continuation.getBytes(), props);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     @Override

@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.RelationalQuery;
 import com.apple.foundationdb.relational.recordlayer.query.ValueComparisonClause;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -117,7 +118,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
                         com.apple.foundationdb.relational.api.Options.create());
             }
         } catch (SQLException e) {
-            throw RelationalException.convert(e).toUncheckedWrappedException();
+            throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }

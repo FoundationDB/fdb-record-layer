@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.net.URI;
 
@@ -47,7 +49,11 @@ public class DropSchemaConstantAction implements ConstantAction {
         KeySpacePath schemaPath = KeySpaceUtils.getSchemaPath(schemaUrl, keySpace);
         FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
 
-        FDBRecordStore.deleteStore(ctx, schemaPath);
+        try {
+            FDBRecordStore.deleteStore(ctx, schemaPath);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
         metaDataStore.removeSchemaMapping(schemaUrl);
     }
 }

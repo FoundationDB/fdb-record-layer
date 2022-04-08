@@ -41,6 +41,15 @@ public final class RelationalAssertions {
                 String.format("Invalid Error Code. Expected: %s but was: %s", prettySqlState(expectedErrorCode.getErrorCode()), prettySqlState(exception.getErrorCode().name())));
     }
 
+    public static <T extends Throwable> void assertThrowsRelationalException(Executable executable, ErrorCode expectedErrorCode, String expectedMessage) {
+        RelationalException exception = Assertions.assertThrows(RelationalException.class, executable);
+        Assertions.assertEquals(expectedErrorCode, exception.getErrorCode(),
+                String.format("Invalid Error Code. Expected: %s but was: %s", prettySqlState(expectedErrorCode.getErrorCode()), prettySqlState(exception.getErrorCode().name())));
+        if (expectedMessage != null) {
+            Assertions.assertEquals(expectedMessage, exception.getMessage());
+        }
+    }
+
     private static String prettySqlState(String state) {
         ErrorCode errorCode = ErrorCode.get(state);
         if (errorCode == null) {

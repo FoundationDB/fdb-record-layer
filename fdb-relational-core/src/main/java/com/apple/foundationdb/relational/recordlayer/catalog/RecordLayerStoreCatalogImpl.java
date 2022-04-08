@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -51,6 +52,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.Scannable;
 import com.apple.foundationdb.relational.recordlayer.SuppliedScannable;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -75,11 +77,15 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         // arbitrarily define primary key as a combination of databaseId and schemaName here
         Tuple primaryKey = Tuple.from("Schema", databaseId.toString(), schemaName);
-        FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
-        if (record == null) {
-            throw new RelationalException(String.format("Primary key %s not existed in Catalog!", primaryKey), ErrorCode.SCHEMA_NOT_FOUND);
+        try {
+            FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
+            if (record == null) {
+                throw new RelationalException(String.format("Primary key %s not existed in Catalog!", primaryKey), ErrorCode.SCHEMA_NOT_FOUND);
+            }
+            return CatalogData.Schema.newBuilder().mergeFrom(record.getRecord()).build();
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
         }
-        return CatalogData.Schema.newBuilder().mergeFrom(record.getRecord()).build();
     }
 
     @Override
@@ -93,6 +99,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         } catch (InternalErrorException ex) {
             // log error here?
             return false;
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
         }
     }
 
@@ -125,6 +133,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         } catch (RecordCoreStorageException ex) {
             // there maybe other types of RecordCoreStorageException?
             throw new RelationalException(ErrorCode.TRANSACTION_INACTIVE, ex);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
         }
     }
 

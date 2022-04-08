@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -78,13 +79,18 @@ public class IterableScannable<T> implements Scannable {
                    @Nonnull Row key,
                    @Nonnull QueryProperties scanOptions) throws RelationalException {
         ResumableIterator<Row> kvs = openScan(t, key, key, null, scanOptions);
-        while (kvs.hasNext()) {
-            final Row next = kvs.next();
-            if (next.startsWith(key)) {
-                return next;
+        try {
+            while (kvs.hasNext()) {
+                final Row next = kvs.next();
+                if (next.startsWith(key)) {
+                    return next;
+                }
             }
+            return null;
+        } catch (UncheckedRelationalException ex) {
+            // thrown by next()
+            throw ex.unwrap();
         }
-        return null;
     }
 
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")

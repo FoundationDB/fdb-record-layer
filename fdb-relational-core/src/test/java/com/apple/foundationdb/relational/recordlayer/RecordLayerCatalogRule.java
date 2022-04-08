@@ -55,7 +55,7 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
     private RecordLayerEngine engine;
 
-    private final List<RecordLayerDatabase> databases = new LinkedList<>();
+    private final List<RelationalDatabase> databases = new LinkedList<>();
 
     private final Map<String, Object> metrics = new HashMap<>();
 
@@ -68,10 +68,11 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     }
 
     @Override
-    public void afterEach(ExtensionContext context) {
+    public void afterEach(ExtensionContext context) throws RelationalException {
         try (FDBRecordContext ctx = fdbDatabase.openContext()) {
-            for (RecordLayerDatabase db :databases) {
-                db.clearDatabase(ctx);
+            for (RelationalDatabase db : databases) {
+                db.close();
+                ((RecordLayerDatabase) db).clearDatabase(ctx);
             }
         }
 
@@ -123,6 +124,7 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
             engine.getConstantActionFactory().getCreateDatabaseConstantAction(dbUri, dbTemplate, Options.create()).execute(txn);
             txn.commit();
         }
+        databases.add(getDatabase(dbUri));
     }
 
     public void createSchemaTemplate(RecordLayerTemplate template) throws RelationalException {

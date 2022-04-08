@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -30,6 +31,7 @@ import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.sql.SQLException;
 
@@ -76,16 +78,16 @@ public class RecordStoreConnection implements RelationalConnection {
         if (transaction != null) {
             try {
                 transaction.commit();
-            } catch (RuntimeException re) {
-                err = RelationalException.convert(re);
+            } catch (RuntimeException | RelationalException re) {
+                err = ExceptionUtil.toRelationalException(re);
             }
             try {
                 transaction.close();
             } catch (RuntimeException | RelationalException re) {
                 if (err != null) {
-                    err.addSuppressed(RelationalException.convert(re));
+                    err.addSuppressed(ExceptionUtil.toRelationalException(re));
                 } else {
-                    err = RelationalException.convert(re);
+                    err = ExceptionUtil.toRelationalException(re);
                 }
             }
             transaction = null;
@@ -105,7 +107,7 @@ public class RecordStoreConnection implements RelationalConnection {
             try {
                 transaction.close();
             } catch (RuntimeException | RelationalException re) {
-                err = RelationalException.convert(re);
+                err = ExceptionUtil.toRelationalException(re);
             }
             transaction = null;
             usingAnExistingTransaction = false;
@@ -130,6 +132,11 @@ public class RecordStoreConnection implements RelationalConnection {
     @Override
     public void close() throws SQLException {
         rollback();
+        try {
+            frl.close();
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
@@ -140,8 +147,14 @@ public class RecordStoreConnection implements RelationalConnection {
 
     @Override
     public void beginTransaction(@Nullable TransactionConfig config) throws RelationalException {
-        if (!inActiveTransaction()) {
-            transaction = new RecordContextTransaction(fdbDb.openContext(getFDBRecordContextConfig(config == null ? this.transactionConfig : config, frl.getStoreTimer())));
+        try {
+            if (!inActiveTransaction()) {
+                transaction = new RecordContextTransaction(
+                        fdbDb.openContext(getFDBRecordContextConfig(
+                                config == null ? this.transactionConfig : config, frl.getStoreTimer())));
+            }
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
         }
     }
 

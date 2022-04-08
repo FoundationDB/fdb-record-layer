@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
@@ -38,6 +37,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
+import com.apple.foundationdb.relational.recordlayer.RelationalAssertions;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -260,10 +260,8 @@ public class RecordLayerStoreCatalogImplTest {
             // commit the first write transaction
             txn3.commit();
             // assert that the second transaction couldn't be committed
-            FDBExceptions.FDBStoreTransactionConflictException exception = Assertions.assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> {
-                txn4.commit();
-            });
-            Assertions.assertEquals("Transaction not committed due to conflict with another transaction", exception.getMessage());
+            RelationalAssertions.assertThrowsRelationalException(txn4::commit,
+                    ErrorCode.SERIALIZATION_FAILURE, "Transaction not committed due to conflict with another transaction");
         }
     }
 

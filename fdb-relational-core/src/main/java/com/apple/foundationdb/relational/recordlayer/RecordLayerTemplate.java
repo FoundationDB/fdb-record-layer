@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import javax.annotation.Nonnull;
 
@@ -49,14 +51,18 @@ public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataProvid
 
     @Override
     public boolean isValid(@Nonnull DatabaseSchema schema) throws RelationalException {
-        int version = getRecordMetaData().getVersion();
-        //TODO(bfines) validate that all the tables and indexes match what is expected
-        return schema.getSchemaVersion() >= version;
+        try {
+            int version = getRecordMetaData().getVersion();
+            //TODO(bfines) validate that all the tables and indexes match what is expected
+            return schema.getSchemaVersion() >= version;
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     @Nonnull
     @Override
-    public RecordMetaData getRecordMetaData() {
+    public RecordMetaData getRecordMetaData() throws RecordCoreException {
         return metaDataProvider.getRecordMetaData();
     }
 }

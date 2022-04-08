@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Descriptors;
@@ -89,7 +90,11 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
             return false;
         }
 
-        currentRow = currentCursor.next();
+        try {
+            currentRow = currentCursor.next();
+        } catch (UncheckedRelationalException e) {
+            throw e.unwrap().toSqlException();
+        }
         return true;
     }
 

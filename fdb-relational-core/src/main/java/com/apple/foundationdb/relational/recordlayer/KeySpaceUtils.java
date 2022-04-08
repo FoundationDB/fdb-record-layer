@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirect
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.net.URI;
 import java.util.Arrays;
@@ -104,7 +106,11 @@ public final class KeySpaceUtils {
         URI dbUrl = URI.create(schemaPath.substring(0, indexOfLastSlash));
         KeySpacePath dbPath = uriToPath(dbUrl, keySpace);
         extendKeySpaceForSchema(keySpace, dbPath, schemaId);
-        return dbPath.add(schemaId);
+        try {
+            return dbPath.add(schemaId);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     public static String getPath(@Nonnull URI url) {

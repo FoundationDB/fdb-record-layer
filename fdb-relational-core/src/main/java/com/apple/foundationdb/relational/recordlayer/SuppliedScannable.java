@@ -26,8 +26,7 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
-import java.util.function.Supplier;
+import com.apple.foundationdb.relational.util.Supplier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -81,8 +83,12 @@ public class RecordLayerSchema implements DatabaseSchema {
     public Set<String> listTables() throws RelationalException {
         FDBRecordStore store = loadStore();
 
-        final Map<String, RecordType> recordTypes = store.getRecordMetaData().getRecordTypes();
-        return recordTypes.values().stream().map(RecordType::getName).collect(Collectors.toSet());
+        try {
+            final Map<String, RecordType> recordTypes = store.getRecordMetaData().getRecordTypes();
+            return recordTypes.values().stream().map(RecordType::getName).collect(Collectors.toSet());
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     @Nonnull public Table loadTable(@Nonnull String tableName, @Nonnull Options options) throws RelationalException {

@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.util.function.Function;
 
@@ -36,11 +38,15 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     private RecordCursorResult<T> result;
     private Continuation continuation;
 
-    private RecordLayerIterator(@Nonnull RecordCursor<T> cursor, @Nonnull Function<T, Row> transform) {
+    private RecordLayerIterator(@Nonnull RecordCursor<T> cursor, @Nonnull Function<T, Row> transform) throws RelationalException {
         this.recordCursor = cursor;
         this.transform = transform;
         // TODO(sfines,yhatem) perform this in a non-blocking manner for more efficiency.
-        this.result = recordCursor.getNext();
+        try {
+            this.result = recordCursor.getNext();
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
         this.continuation = Continuation.BEGIN;
         if (result.getContinuation().isEnd()) {
             this.continuation = Continuation.EMPTY_SET;
@@ -48,13 +54,17 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     }
 
     public static <T> RecordLayerIterator<T> create(RecordCursor<T> cursor,
-                                                    Function<T, Row> transform) {
+                                                    Function<T, Row> transform) throws RelationalException {
         return new RecordLayerIterator<>(cursor, transform);
     }
 
     @Override
-    public void close() {
-        recordCursor.close();
+    public void close() throws RelationalException {
+        try {
+            recordCursor.close();
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     @Override
@@ -70,14 +80,18 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
 
     @Override
     public Row next() {
-        final Row row = transform.apply(result.get());
-        // TODO(sfines,yhatem) pass the Record-Layer Continuation object as-is to avoid copying bytes around.
-        this.continuation = ContinuationImpl.fromBytes(result.getContinuation().toBytes());
-        result = recordCursor.getNext();
-        if (result.getContinuation().isEnd()) {
-            this.continuation = Continuation.END;
+        try {
+            final Row row = transform.apply(result.get());
+            // TODO(sfines,yhatem) pass the Record-Layer Continuation object as-is to avoid copying bytes around.
+            this.continuation = ContinuationImpl.fromBytes(result.getContinuation().toBytes());
+            result = recordCursor.getNext();
+            if (result.getContinuation().isEnd()) {
+                this.continuation = Continuation.END;
+            }
+            return row;
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex).toUncheckedWrappedException();
         }
-        return row;
     }
 
     @Override

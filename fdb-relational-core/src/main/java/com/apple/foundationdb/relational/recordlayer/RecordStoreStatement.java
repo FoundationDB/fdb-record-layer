@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.common.base.Preconditions;
@@ -229,7 +230,7 @@ public class RecordStoreStatement implements RelationalStatement {
                 conn.commit();
             }
         } catch (RuntimeException | RelationalException | SQLException re) {
-            err = RelationalException.convert(re);
+            err = ExceptionUtil.toRelationalException(re);
             if (conn.getAutoCommit()) {
                 try {
                     conn.rollback();

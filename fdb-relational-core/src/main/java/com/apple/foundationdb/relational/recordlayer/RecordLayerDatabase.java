@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.base.Throwables;
 
@@ -115,7 +116,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
                 }
             }
         } catch (SQLException e) {
-            throw RelationalException.convert(e);
+            throw ExceptionUtil.toRelationalException(e);
         }
 
         if (putBack) {
@@ -136,7 +137,16 @@ public class RecordLayerDatabase implements RelationalDatabase {
     FDBRecordStore loadStore(@Nonnull FDBRecordContext txn, @Nonnull String storeName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
 
-        final KeySpacePath storePath = ksPath.add(storeName);
+        KeySpacePath storePath;
+        try {
+            storePath = ksPath.add(storeName);
+        } catch (NoSuchDirectoryException nsde) {
+            throw new RelationalException("Unknown schema <" + storeName + ">", ErrorCode.UNKNOWN_SCHEMA, nsde);
+        } catch (MetaDataException mde) {
+            throw new RelationalException(mde.getMessage(), ErrorCode.UNKNOWN_SCHEMA, mde);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
 
         try {
             return FDBRecordStore.newBuilder()
@@ -170,17 +180,15 @@ public class RecordLayerDatabase implements RelationalDatabase {
     /* private helper methods */
 
     FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
-        try {
-            return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId, existenceCheck);
-        } catch (NoSuchDirectoryException nsde) {
-            throw new RelationalException("Unknown schema <" + schemaId + ">", ErrorCode.UNKNOWN_SCHEMA, nsde);
-        } catch (MetaDataException mde) {
-            throw new RelationalException(mde.getMessage(), ErrorCode.UNKNOWN_SCHEMA, mde);
-        }
+        return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId, existenceCheck);
     }
 
-    void clearDatabase(@Nonnull FDBRecordContext context) {
-        FDBRecordStore.deleteStore(context, ksPath);
+    void clearDatabase(@Nonnull FDBRecordContext context) throws RelationalException {
+        try {
+            FDBRecordStore.deleteStore(context, ksPath);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     public URI getPath() {

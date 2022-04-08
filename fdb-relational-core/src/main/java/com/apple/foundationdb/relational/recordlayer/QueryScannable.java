@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.protobuf.Message;
@@ -64,10 +66,14 @@ public class QueryScannable implements Scannable {
         this.expectedFieldNames = expectedFieldNames;
         this.isExplain = isExplain;
         final FDBRecordStore fdbRecordStore = schema.loadStore();
-        QueryPlanner planner = new CascadesPlanner(fdbRecordStore.getRecordMetaData(), fdbRecordStore.getRecordStoreState());
-        // QueryPlanner planner = new RecordQueryPlanner(fdbRecordStore.getRecordMetaData(),fdbRecordStore.getRecordStoreState());
-        final QueryPlanResult qpr = planner.planQuery(recordQuery);
-        this.plan = qpr.getPlan();
+        try {
+            QueryPlanner planner = new CascadesPlanner(fdbRecordStore.getRecordMetaData(), fdbRecordStore.getRecordStoreState());
+            // QueryPlanner planner = new RecordQueryPlanner(fdbRecordStore.getRecordMetaData(),fdbRecordStore.getRecordStoreState());
+            final QueryPlanResult qpr = planner.planQuery(recordQuery);
+            this.plan = qpr.getPlan();
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     @Override

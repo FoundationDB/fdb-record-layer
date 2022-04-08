@@ -1,5 +1,5 @@
 /*
- * RecordLayerTransactionUtils.java
+ * Supplier.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,17 +18,18 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.util;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
-import javax.annotation.Nonnull;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-public final class RecordLayerTransactionUtils {
-    public static RecordContextTransaction wrapRecordContext(@Nonnull FDBRecordContext recordContext) {
-        return new RecordContextTransaction(recordContext);
-    }
+@FunctionalInterface
+public interface Supplier<T> {
 
-    private RecordLayerTransactionUtils() {
-    }
+    /**
+     * Gets a result.
+     *
+     * @return a result
+     */
+    T get() throws RelationalException;
 }

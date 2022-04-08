@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.ConcatCursor;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.Scannable;
 import com.apple.foundationdb.relational.recordlayer.TupleUtils;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -104,19 +106,23 @@ public class DirectoryScannable implements Scannable {
         }
     }
 
-    private RecordCursor<ResolvedKeySpacePath> listDirectory(KeySpacePath path, @Nullable String subdirName, FDBRecordContext ctx) {
-        if (subdirName == null) {
-            final KeySpaceDirectory directory = path.getDirectory();
-            final List<KeySpaceDirectory> subdirectories = directory.getSubdirectories();
-            if (subdirectories.isEmpty()) {
-                return new EmptyCursor<>(ctx.getExecutor());
-            } else if (subdirectories.size() > 1) {
-                return new ListingGenerator(0, path, subdirectories).apply(ctx, ScanProperties.FORWARD_SCAN, null);
-            } else {
-                subdirName = subdirectories.get(0).getName();
+    private RecordCursor<ResolvedKeySpacePath> listDirectory(KeySpacePath path, @Nullable String subdirName, FDBRecordContext ctx) throws RelationalException {
+        try {
+            if (subdirName == null) {
+                final KeySpaceDirectory directory = path.getDirectory();
+                final List<KeySpaceDirectory> subdirectories = directory.getSubdirectories();
+                if (subdirectories.isEmpty()) {
+                    return new EmptyCursor<>(ctx.getExecutor());
+                } else if (subdirectories.size() > 1) {
+                    return new ListingGenerator(0, path, subdirectories).apply(ctx, ScanProperties.FORWARD_SCAN, null);
+                } else {
+                    subdirName = subdirectories.get(0).getName();
+                }
             }
+            return path.listSubdirectoryAsync(ctx, subdirName, null, ScanProperties.FORWARD_SCAN);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
         }
-        return path.listSubdirectoryAsync(ctx, subdirName, null, ScanProperties.FORWARD_SCAN);
     }
 
     private static final class ListingGenerator implements TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<ResolvedKeySpacePath>> {

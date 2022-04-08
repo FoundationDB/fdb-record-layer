@@ -20,11 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -53,16 +57,26 @@ public class RecordContextTransaction implements Transaction {
     }
 
     @Override
-    public void commit() {
-        context.commit();
+    public void commit() throws RelationalException {
+        try {
+            context.commit();
+        } catch (FDBExceptions.FDBStoreTransactionConflictException ex) {
+            throw new RelationalException(ex.getMessage(), ErrorCode.SERIALIZATION_FAILURE, ex);
+        } catch (RecordCoreException e) {
+            throw ExceptionUtil.toRelationalException(e);
+        }
         notifyTerminated();
     }
 
     @Override
-    public void abort() {
+    public void abort() throws RelationalException {
         isClosed = true;
         notifyTerminated();
-        context.close();
+        try {
+            context.close();
+        } catch (RecordCoreException e) {
+            throw ExceptionUtil.toRelationalException(e);
+        }
     }
 
     @Override

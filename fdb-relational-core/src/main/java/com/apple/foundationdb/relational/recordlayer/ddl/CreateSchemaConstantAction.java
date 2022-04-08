@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -30,6 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.net.URI;
 
@@ -61,20 +63,23 @@ public class CreateSchemaConstantAction implements ConstantAction {
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        //TODO(bfines) error handling
-        KeySpacePath schemaPath = KeySpaceUtils.getSchemaPath(schemaUrl, keySpace);
-        FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
+        try {
+            KeySpacePath schemaPath = KeySpaceUtils.getSchemaPath(schemaUrl, keySpace);
+            FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
 
-        //create the metadata
-        metaDataStore.assignSchemaToTemplate(schemaUrl, templateId);
+            //create the metadata
+            metaDataStore.assignSchemaToTemplate(schemaUrl, templateId);
 
-        FDBRecordStore.newBuilder()
-                .setKeySpacePath(schemaPath)
-                .setSerializer(serializerRegistry.loadSerializer(schemaPath))
-                .setMetaDataProvider(metaDataStore.loadMetaData(schemaUrl))
-                .setUserVersionChecker(userVersionChecker)
-                .setFormatVersion(formatVersion)
-                .setContext(ctx)
-                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS);
+            FDBRecordStore.newBuilder()
+                    .setKeySpacePath(schemaPath)
+                    .setSerializer(serializerRegistry.loadSerializer(schemaPath))
+                    .setMetaDataProvider(metaDataStore.loadMetaData(schemaUrl))
+                    .setUserVersionChecker(userVersionChecker)
+                    .setFormatVersion(formatVersion)
+                    .setContext(ctx)
+                    .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 }

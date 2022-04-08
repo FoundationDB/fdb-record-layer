@@ -1,5 +1,5 @@
 /*
- * SchemaLoader.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,14 +18,4 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
-
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
-public interface SchemaLoader {
-
-    FDBRecordStore loadSchema(String schema, FDBRecordContext txn) throws RelationalException;
-
-}
+package com.apple.foundationdb.relational.recordlayer.util;

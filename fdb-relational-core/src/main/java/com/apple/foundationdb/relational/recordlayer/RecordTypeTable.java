@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -73,11 +75,15 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties queryProperties) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
-        final FDBStoredRecord<Message> storedRecord = store.loadRecord(TupleUtils.toFDBTuple(key));
-        if (storedRecord == null) {
-            return null;
+        try {
+            final FDBStoredRecord<Message> storedRecord = store.loadRecord(TupleUtils.toFDBTuple(key));
+            if (storedRecord == null) {
+                return null;
+            }
+            return new MessageTuple(storedRecord.getRecord());
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
         }
-        return new MessageTuple(storedRecord.getRecord());
     }
 
     @Override
@@ -89,9 +95,13 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     @Override
     public String[] getKeyFieldNames() throws RelationalException {
-        RecordType type = loadRecordType();
-        final Descriptors.Descriptor descriptor = type.getDescriptor();
-        return type.getPrimaryKey().validate(descriptor).stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
+        try {
+            RecordType type = loadRecordType();
+            final Descriptors.Descriptor descriptor = type.getDescriptor();
+            return type.getPrimaryKey().validate(descriptor).stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     @Override
@@ -103,20 +113,26 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     public boolean deleteRecord(@Nonnull Row key) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
-        return store.deleteRecord(TupleUtils.toFDBTuple(key));
+        try {
+            return store.deleteRecord(TupleUtils.toFDBTuple(key));
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     @Override
     public boolean insertRecord(@Nonnull Message message) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
-        if (!store.getRecordMetaData().getRecordType(this.tableName).getDescriptor().equals(message.getDescriptorForType())) {
-            throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", ErrorCode.INVALID_PARAMETER);
-        }
-        //TODO(bfines) maybe this should return something other than boolean?
         try {
+            if (!store.getRecordMetaData().getRecordType(this.tableName).getDescriptor().equals(message.getDescriptorForType())) {
+                throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", ErrorCode.INVALID_PARAMETER);
+            }
+            //TODO(bfines) maybe this should return something other than boolean?
             store.insertRecord(message);
         } catch (MetaDataException mde) {
             throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", ErrorCode.INVALID_PARAMETER, mde);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
         }
         return true;
     }
@@ -144,7 +160,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                 loadRecordType();
             }
         } catch (SQLException e) {
-            throw RelationalException.convert(e);
+            throw ExceptionUtil.toRelationalException(e);
         }
     }
 
@@ -163,7 +179,12 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     protected RecordCursor<FDBStoredRecord<Message>> openScan(FDBRecordStore store, TupleRange range, @Nullable Continuation continuation, ScanProperties props) throws RelationalException {
         RecordType type = loadRecordType();
-        return store.scanRecords(range, continuation == null ? null : continuation.getBytes(), props).filter(record -> type.equals(record.getRecordType()));
+        try {
+            return store.scanRecords(range, continuation == null ? null : continuation.getBytes(), props)
+                    .filter(record -> type.equals(record.getRecordType()));
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     @Override

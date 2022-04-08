@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.exceptions;
 
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
@@ -33,14 +35,14 @@ class RelationalExceptionTest {
 
     @Test
     void convert() {
-        assertThat(RelationalException.convert(relationalException)).isSameAs(relationalException);
+        assertThat(ExceptionUtil.toRelationalException(relationalException)).isSameAs(relationalException);
 
-        assertThat(RelationalException.convert(sqlException))
+        assertThat(ExceptionUtil.toRelationalException(sqlException))
                 .isInstanceOf(RelationalException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INTERNAL_ERROR);
 
-        assertThat(RelationalException.convert(exception))
+        assertThat(ExceptionUtil.toRelationalException(exception))
                 .isInstanceOf(RelationalException.class)
                 .hasCause(exception)
                 .extracting("errorCode")
@@ -49,7 +51,7 @@ class RelationalExceptionTest {
 
     @Test
     void toSqlException() {
-        assertThat((Throwable) RelationalException.convert(sqlException).toSqlException())
+        assertThat((Throwable) ExceptionUtil.toRelationalException(sqlException).toSqlException())
                 .isSameAs(sqlException);
 
         assertThat((Throwable) relationalException.toSqlException())

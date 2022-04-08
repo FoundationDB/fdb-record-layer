@@ -50,13 +50,18 @@ public class RecordLayerDriver implements RelationalDriver {
          * 1. Go to Catalog and verify that the given Database exists
          */
         RelationalDatabase frl = engine.getCatalog().getDatabase(url);
-        assert frl instanceof RecordLayerDatabase : "Catalog does not produce RecordLayer Databases, use a different driver for type <" + frl.getClass() + ">";
-        if (existingTransaction != null && !(existingTransaction instanceof RecordContextTransaction)) {
-            throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
+        try {
+            assert frl instanceof RecordLayerDatabase : "Catalog does not produce RecordLayer Databases, use a different driver for type <" + frl.getClass() + ">";
+            if (existingTransaction != null && !(existingTransaction instanceof RecordContextTransaction)) {
+                throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
+            }
+            RecordStoreConnection conn = new RecordStoreConnection((RecordLayerDatabase) frl, transactionConfig, (RecordContextTransaction) existingTransaction);
+            ((RecordLayerDatabase) frl).setConnection(conn);
+            return conn;
+        } catch (Exception e) {
+            frl.close();
+            throw e;
         }
-        RecordStoreConnection conn = new RecordStoreConnection((RecordLayerDatabase) frl, transactionConfig, (RecordContextTransaction) existingTransaction);
-        ((RecordLayerDatabase) frl).setConnection(conn);
-        return conn;
     }
 
     @Override

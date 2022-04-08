@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -32,6 +33,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.base.Joiner;
 
@@ -56,8 +58,7 @@ public class KeyBuilder {
     @Nonnull
     public Row buildKey(Map<String, Object> keyFields, boolean failOnMissingColumn, boolean failOnUnknownColumn) throws RelationalException {
         Object[] flattenedFields = new Object[key.getColumnSize()];
-        Map<String, Object> keysNotPicked = new HashMap<>();
-        keysNotPicked.putAll(keyFields);
+        Map<String, Object> keysNotPicked = new HashMap<>(keyFields);
         buildKeyRecursive(key, keyFields, flattenedFields, keysNotPicked, 0);
 
         if (failOnMissingColumn) {
@@ -125,8 +126,12 @@ public class KeyBuilder {
             }
             return position + 1;
         } else if (expression instanceof RecordTypeKeyExpression) {
-            dest[position] = typeForKey.getRecordTypeKey();
-            return position + 1;
+            try {
+                dest[position] = typeForKey.getRecordTypeKey();
+                return position + 1;
+            } catch (RecordCoreException ex) {
+                throw ExceptionUtil.toRelationalException(ex);
+            }
         } else {
             throw new RelationalException("Unknown Key type: <" + expression.getClass() + ">", ErrorCode.UNKNOWN);
         }
