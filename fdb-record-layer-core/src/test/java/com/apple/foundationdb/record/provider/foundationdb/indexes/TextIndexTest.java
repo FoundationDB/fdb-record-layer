@@ -181,6 +181,7 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -190,7 +191,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@code TEXT} type indexes.
  */
 @Tag(Tags.RequiresFDB)
-@SuppressWarnings({"squid:S1192", "squid:S00112"}) // constant definition, throwing "Exception"
+@SuppressWarnings({"squid:S1192", "squid:S00112", "squid:S5961"}) // constant definition, throwing "Exception", too many assertions
 public class TextIndexTest extends FDBRecordStoreTestBase {
     private static final TextTokenizerFactory FILTERING_TOKENIZER = FilteringTextTokenizer.create(
             "filter_by_length$" + TextIndexTest.class.getCanonicalName(),
@@ -541,8 +542,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> metaDataBuilder.setSplitLongRecords(true));
-            recordStore.deleteRecord(Tuple.from(bigDocument.getDocId()));
-            recordStore.saveRecord(bigDocument);
+            assertDoesNotThrow(() -> {
+                recordStore.deleteRecord(Tuple.from(bigDocument.getDocId()));
+                recordStore.saveRecord(bigDocument);
+            });
             // do not commit
         } catch (RuntimeException e) {
             Throwable err = e;
@@ -3138,6 +3141,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @SuppressWarnings({"squid:S2699"}) // Performance test does not have assertions
     @Tag(Tags.Performance)
     @Test
     void textIndexPerf1000SerialInsert() throws Exception {
@@ -3162,6 +3166,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         printUsage();
     }
 
+    @SuppressWarnings({"squid:S2699"}) // Performance test does not have assertions
     @Tag(Tags.Performance)
     @Test
     void textIndexPerf100InsertOneBatch() throws Exception {
@@ -3184,6 +3189,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         printUsage();
     }
 
+    @SuppressWarnings({"squid:S2699"}) // Performance test does not have assertions
     @Tag(Tags.Performance)
     @Test
     void textIndexPerf1000SerialInsertNoBatching() throws Exception {
@@ -3206,6 +3212,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         printUsage();
     }
 
+    @SuppressWarnings({"squid:S2699"}) // Performance test does not have assertions
     @Tag(Tags.Performance)
     @Test
     void textIndexPerf1000ParallelInsert() throws Exception {

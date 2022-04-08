@@ -93,6 +93,7 @@ public class StreamGrouping<M extends Message> {
      * @param context evaluation context containing parameter bindings
      * @param alias the quantifier alias for the value evaluation
      */
+    @SuppressWarnings({"squid:S107"}) // too many constructor parameters
     public StreamGrouping(@Nullable final Value groupingKeyValue,
                           @Nonnull final AggregateValue aggregateValue,
                           @Nonnull final Value completeResultValue,
