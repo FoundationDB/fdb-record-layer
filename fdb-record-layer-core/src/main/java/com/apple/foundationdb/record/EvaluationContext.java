@@ -71,12 +71,13 @@ public class EvaluationContext {
     }
 
     /**
-     * Create a new {@link EvaluationContext} around a given set of {@link Bindings} and a {@link TypeRepository}.
-     * from parameter names to values.
+     * Create a new {@link EvaluationContext} around a given set of {@link Bindings}
+     * from parameter names to values and the given {@link TypeRepository}.
      * @param bindings a mapping from parameter name to values
      * @param typeRepository a type repository
      * @return a new evaluation context with the bindings and the schema.
      */
+    @API(API.Status.INTERNAL)
     @Nonnull
     public static EvaluationContext forBindingsAndTypeRepository(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
         return new EvaluationContext(bindings, typeRepository);
@@ -132,6 +133,12 @@ public class EvaluationContext {
         return bindings.get(Bindings.Internal.CORRELATION.bindingName(alias.getId()));
     }
 
+    /**
+     * Get the type repository for this query evaluation. This is an internal method used during
+     * query execution.
+     * @return the {@link TypeRepository} evaluating a query
+     */
+    @API(API.Status.INTERNAL)
     @Nonnull
     public TypeRepository getTypeRepository() {
         return typeRepository;
@@ -172,7 +179,7 @@ public class EvaluationContext {
      */
     @Nonnull
     public EvaluationContext withBinding(@Nonnull String bindingName, @Nullable Object value) {
-        return childBuilder().setBinding(bindingName, value).build(typeRepository);
+        return childBuilder().setBinding(bindingName, value).build();
     }
 
     /**
@@ -186,6 +193,6 @@ public class EvaluationContext {
      * @return a new <code>EvaluationContext</code> with the new binding
      */
     public EvaluationContext withBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
-        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build(typeRepository);
+        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build();
     }
 }

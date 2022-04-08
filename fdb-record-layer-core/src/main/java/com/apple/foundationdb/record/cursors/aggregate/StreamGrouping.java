@@ -172,7 +172,7 @@ public class StreamGrouping<M extends Message> {
         final EvaluationContext nestedContext = context.childBuilder()
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
-                .build(context.getTypeRepository());
+                .build();
         previousCompleteResult = completeResultValue.eval(store, nestedContext, null, null);
 
         currentGroup = nextGroup;

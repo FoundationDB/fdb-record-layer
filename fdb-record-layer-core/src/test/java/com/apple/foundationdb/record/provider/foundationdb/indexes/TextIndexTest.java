@@ -89,7 +89,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -1152,7 +1151,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         EvaluationContext evaluationContext = EvaluationContext.newBuilder()
                 .setBinding("group_value", group)
                 .setBinding("key_value", mapKey)
-                .build(TypeRepository.empty());
+                .build();
         return plan.execute(recordStore, evaluationContext)
                 .map(FDBRecord::getRecord)
                 .map(message -> MapDocument.newBuilder().mergeFrom(message).build())

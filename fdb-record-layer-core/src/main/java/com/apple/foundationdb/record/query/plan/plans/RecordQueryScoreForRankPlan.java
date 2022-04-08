@@ -113,7 +113,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                 }
                 builder.setBinding(rank.bindingName, binding);
             }
-            return builder.build(context.getTypeRepository());
+            return builder.build();
         });
     }
 

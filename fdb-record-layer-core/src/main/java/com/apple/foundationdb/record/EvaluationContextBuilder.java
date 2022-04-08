@@ -37,12 +37,15 @@ import javax.annotation.Nullable;
 public class EvaluationContextBuilder {
     @Nonnull
     protected final Bindings.Builder bindings;
+    @Nonnull
+    private TypeRepository typeRepository;
 
     /**
      * Create an empty builder.
      */
     protected EvaluationContextBuilder() {
         this.bindings = Bindings.newBuilder();
+        this.typeRepository = TypeRepository.EMPTY_SCHEMA;
     }
 
     /**
@@ -54,6 +57,7 @@ public class EvaluationContextBuilder {
      */
     protected EvaluationContextBuilder(@Nonnull EvaluationContext original) {
         this.bindings = original.getBindings().childBuilder();
+        this.typeRepository = original.getTypeRepository();
     }
 
     /**
@@ -74,11 +78,11 @@ public class EvaluationContextBuilder {
     /**
      * Bind a name to a value. This mutation will be
      * reflected in the {@link EvaluationContext} returned by
-     * calling {@link #build(TypeRepository)}.
+     * calling {@link #build()}.
      *
      * @param name the name of the binding
      * @param value the value to associate with the name
-     * @return this <code>EvaluationContextBuilder</code>
+     * @return this {@code EvaluationContextBuilder}
      */
     @Nonnull
     public EvaluationContextBuilder setBinding(@Nonnull String name, @Nullable Object value) {
@@ -89,14 +93,27 @@ public class EvaluationContextBuilder {
     /**
      * Bind an alias to a value. This mutation will be
      * reflected in the {@link EvaluationContext} returned by
-     * calling {@link #build(TypeRepository)}.
+     * calling {@link #build()}.
      *
      * @param alias the alias of the binding
      * @param value the value to associate with the name
-     * @return this <code>EvaluationContextBuilder</code>
+     * @return this {@code EvaluationContextBuilder}
      */
     public EvaluationContextBuilder setBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
         return setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value);
+    }
+
+    /**
+     * Set the {@link TypeRepository} for this evaluation context. This is an internal method that
+     * should only be used to supply types during query execution.
+     * @param typeRepository the {@link TypeRepository} to associate with the built evaluation context
+     * @return this {@code EvaluationContextBuilder}
+     */
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public EvaluationContextBuilder setTypeRepository(TypeRepository typeRepository) {
+        this.typeRepository = typeRepository;
+        return this;
     }
 
     /**
@@ -107,11 +124,10 @@ public class EvaluationContextBuilder {
      * {@link #setBinding(String, Object)}. All other state included
      * in the context should remain the same.
      *
-     * @param typeRepository a type repository to be used in the new context
      * @return an {@link EvaluationContext} with updated bindings
      */
     @Nonnull
-    public EvaluationContext build(@Nonnull final TypeRepository typeRepository) {
+    public EvaluationContext build() {
         return EvaluationContext.forBindingsAndTypeRepository(bindings.build(), typeRepository);
     }
 }

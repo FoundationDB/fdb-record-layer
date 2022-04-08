@@ -18,7 +18,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Delete records where limits indexes on grouping key expressions to predicates that can be satisfied by only the grouping columns [(Issue #1583)](https://github.com/FoundationDB/fdb-record-layer/issues/1583)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Backwards incompatible API changes on `EvaluationContext.Builder` have been reverted to 3.1.247.0 state, and a new parameter on `EvaluationContext` has been exposed as a builder method [(Issue #1601)](https://github.com/FoundationDB/fdb-record-layer/issues/1601)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
