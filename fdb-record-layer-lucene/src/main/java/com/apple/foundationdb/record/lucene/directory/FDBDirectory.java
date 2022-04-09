@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
@@ -124,6 +125,7 @@ public class FDBDirectory extends Directory {
      */
     private final AtomicReference<ConcurrentSkipListMap<String, FDBLuceneFileReference>> fileReferenceCache;
 
+    private final AtomicLong fileSequenceCounter;
     private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
 
     private final boolean compressionEnabled;
@@ -157,9 +159,34 @@ public class FDBDirectory extends Directory {
                 .maximumSize(maximumSize)
                 .recordStats()
                 .build();
+        this.fileSequenceCounter = new AtomicLong(-1);
         this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
         this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
+    }
+
+    private long deserializeFileSequenceCounter(@Nullable byte[] value) {
+        return value == null ? 0L : Tuple.fromBytes(value).getLong(0);
+    }
+
+    @Nonnull
+    private byte[] serializeFileSequenceCounter(long value) {
+        return Tuple.from(value).pack();
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> loadFileSequenceCounter() {
+        long originalValue = fileSequenceCounter.get();
+        if (originalValue >= 0) {
+            // Already loaded
+            return AsyncUtil.DONE;
+        }
+        return context.ensureActive().get(sequenceSubspaceKey).thenAccept(serializedValue -> {
+            // Replace the counter value in the counter unless something else has already
+            // updated it, in which case we want to keep the cached value
+            long loadedValue = deserializeFileSequenceCounter(serializedValue);
+            fileSequenceCounter.compareAndSet(originalValue, loadedValue);
+        });
     }
 
     /**
@@ -167,19 +194,21 @@ public class FDBDirectory extends Directory {
      * Returns and increments the increment if its already set.
      * @return current increment value
      */
-    public synchronized long getIncrement() {
+    public long getIncrement() {
         context.increment(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS);
-        CompletableFuture<Long> future = context.ensureActive().get(sequenceSubspaceKey).thenApply(value -> {
-            if (value == null) {
-                context.ensureActive().set(sequenceSubspaceKey, Tuple.from(1L).pack());
-                return 1L;
-            } else {
-                long sequence = Tuple.fromBytes(value).getLong(0) + 1;
-                context.ensureActive().set(sequenceSubspaceKey, Tuple.from(sequence).pack());
-                return sequence;
-            }
-        });
-        return Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT, future));
+
+        // Make sure the file counter is loaded from the database into the fileSequenceCounter, then
+        // use the cached value
+        context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT, loadFileSequenceCounter());
+        long incrementedValue = fileSequenceCounter.incrementAndGet();
+
+        // Use BYTE_MAX here so that if there are concurrent calls (which will get different increments because they
+        // are serialized around the fileSequenceCounter AtomicLong), the largest one always gets
+        // committed into the database
+        byte[] serializedValue = serializeFileSequenceCounter(incrementedValue);
+        context.ensureActive().mutate(MutationType.BYTE_MAX, sequenceSubspaceKey, serializedValue);
+
+        return incrementedValue;
     }
 
     /**

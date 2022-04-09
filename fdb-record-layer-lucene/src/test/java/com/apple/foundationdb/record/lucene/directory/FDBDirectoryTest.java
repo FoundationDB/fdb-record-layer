@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.test.Tags;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -33,10 +35,15 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.NoSuchFileException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -57,19 +64,37 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertEquals(subspace, directory.getSubspace());
     }
 
-
     @Test
     public void testGetIncrement() {
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
-        directory.getContext().commit();
-        FDBRecordContext context = fdb.openContext();
-        directory = new FDBDirectory(subspace, context);
-        assertEquals(3, directory.getIncrement());
-
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS,2);
+        directory.getContext().commit();
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            directory = new FDBDirectory(subspace, context);
+            assertEquals(3, directory.getIncrement());
+        }
     }
 
+    @Test
+    public void testConcurrentGetIncrement() {
+        final int threads = 50;
+        List<CompletableFuture<Long>> futures = new ArrayList<>(threads);
+        for (int i = 0; i < threads; i++) {
+            futures.add(CompletableFuture.supplyAsync(directory::getIncrement, directory.getContext().getExecutor()));
+        }
+        List<Long> values = AsyncUtil.getAll(futures).join();
+        assertThat(values, containsInAnyOrder(LongStream.range(1, threads + 1).mapToObj(Matchers::equalTo).collect(Collectors.toList())));
+        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, threads);
+        assertMetricCountAtMost(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT, threads);
+        directory.getContext().commit();
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            directory = new FDBDirectory(subspace, context);
+            assertEquals(threads + 1, directory.getIncrement());
+        }
+    }
 
     @Test
     public void testWriteGetLuceneFileReference() {
