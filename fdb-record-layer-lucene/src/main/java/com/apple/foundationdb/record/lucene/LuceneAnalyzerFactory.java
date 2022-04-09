@@ -25,6 +25,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 /**
  * Each implementation of {@link Analyzer} should have its own implementation
@@ -53,21 +54,21 @@ public interface LuceneAnalyzerFactory {
      * @return an instance of the analyzer for indexing that this factory creates
      */
     @Nonnull
-    Analyzer getIndexAnalyzer(@Nonnull Index index);
+    Map<TextLanguage, Analyzer> getIndexAnalyzerMap(@Nonnull Index index);
 
     /**
      * Get an instance of the text analyzer for query given the {@link Index}. For a given factory, each query analyzer
      * should be of the same type, and it should match the result of {@link #getName()}.
      * Not need to override this method if {@link StandardAnalyzer} is to be used for query time.
-     * Call {@link #getIndexAnalyzer(Index)} before calling this method, and use its return for the argument {@code indexAnalyzer}.
+     * Call {@link #getIndexAnalyzerMap(Index)} before calling this method, and use its return for the argument {@code indexAnalyzer}.
      * Override this method to customize the analyzer for query time, or directly return the {@code indexAnalyzer} instance, if it is used for both indexing and query time.
      *
      * @param index the index this analyzer is used for
-     * @param indexAnalyzer the instance of analyzer for indexing used by this factory, that can be returned by this method in case it is also used for query
+     * @param indexAnalyzerMap the instance of analyzer for indexing used by this factory, that can be returned by this method in case it is also used for query
      * @return an instance of the analyzer for query that this factory creates, the default one is {@link StandardAnalyzer}
      */
     @Nonnull
-    default Analyzer getQueryAnalyzer(@Nonnull Index index, @Nonnull Analyzer indexAnalyzer) {
-        return new StandardAnalyzer();
+    default Map<TextLanguage, Analyzer> getQueryAnalyzerMap(@Nonnull Index index, @Nonnull Map<TextLanguage, Analyzer> indexAnalyzerMap) {
+        return LuceneAnalyzerRegistryImpl.standardAnalyzerMappingInstance();
     }
 }

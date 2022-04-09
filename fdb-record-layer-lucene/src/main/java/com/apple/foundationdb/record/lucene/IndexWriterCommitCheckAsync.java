@@ -112,26 +112,30 @@ public class IndexWriterCommitCheckAsync implements FDBRecordContext.CommitCheck
     }
 
     @Nullable
-    protected static IndexWriterCommitCheckAsync getIndexWriterCommitCheckAsync(@Nonnull final IndexMaintainerState state, @Nullable final Tuple groupingKey) {
-        return state.context.getInSession(getWriterSubspace(state, groupingKey), IndexWriterCommitCheckAsync.class);
+    protected static IndexWriterCommitCheckAsync getIndexWriterCommitCheckAsync(@Nonnull final IndexMaintainerState state,
+                                                                                @Nonnull final Tuple groupingKey, @Nonnull TextLanguage language) {
+        return state.context.getInSession(getWriterSubspace(state, groupingKey, language), IndexWriterCommitCheckAsync.class);
     }
 
     @Nonnull
-    protected static IndexWriter getOrCreateIndexWriter(@Nonnull final IndexMaintainerState state, @Nonnull Analyzer analyzer, @Nonnull Executor executor, @Nullable final Tuple groupingKey) throws IOException {
+    protected static IndexWriter getOrCreateIndexWriter(@Nonnull final IndexMaintainerState state, @Nonnull Analyzer analyzer, @Nonnull Executor executor,
+                                                        @Nonnull final Tuple groupingKey, @Nonnull TextLanguage language) throws IOException {
         synchronized (state.context) {
-            IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey);
+            IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey, language);
             if (writerCheck == null) {
                 writerCheck = new IndexWriterCommitCheckAsync(state, analyzer, getOrCreateDirectoryCommitCheckAsync(state, groupingKey), executor);
                 state.context.addCommitCheck(writerCheck);
-                state.context.putInSessionIfAbsent(getWriterSubspace(state, groupingKey), writerCheck);
+                state.context.putInSessionIfAbsent(getWriterSubspace(state, groupingKey, language), writerCheck);
             }
             return writerCheck.indexWriter;
         }
     }
 
     @Nonnull
-    private static Subspace getWriterSubspace(@Nonnull final IndexMaintainerState state, @Nullable final Tuple groupingKey) {
-        return state.indexSubspace.subspace(groupingKey).subspace(Tuple.from("w"));
+    private static Subspace getWriterSubspace(@Nonnull final IndexMaintainerState state, @Nonnull final Tuple groupingKey, @Nonnull TextLanguage language) {
+        return state.indexSubspace.subspace(groupingKey)
+                .subspace(Tuple.from("w"))
+                .subspace(Tuple.from(language.uniqueIdentifier()));
     }
 
 }

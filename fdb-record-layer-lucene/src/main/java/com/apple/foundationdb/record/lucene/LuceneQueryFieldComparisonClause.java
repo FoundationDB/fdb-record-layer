@@ -49,6 +49,7 @@ import org.apache.lucene.search.TermRangeQuery;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Query clause using a {@link Comparisons.Comparison} against a document field.
@@ -240,8 +241,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                 case TEXT_CONTAINS_PHRASE:
                     // PhraseQuery will require tokenizing, so may as well just use parser.
                     try {
-                        final Pair<Analyzer, Analyzer> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(index);
-                        final QueryParser parser = new QueryParser(field, analyzerPair.getRight());
+                        final Pair<Map<TextLanguage, Analyzer>, Map<TextLanguage, Analyzer>> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(index);
+                        final QueryParser parser = new QueryParser(field, analyzerPair.getRight().get(TextLanguage.getLanguageForText((String) comparand)));
                         return parser.parse("\"" + comparand + "\"");
                     } catch (Exception ex) {
                         throw new RecordCoreArgumentException("Unable to parse phrase for query", ex);

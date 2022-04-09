@@ -91,7 +91,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private Sort sort = null;
     private ScoreDoc searchAfter = null;
     private boolean exhausted = false;
-    @Nullable
+    @Nonnull
     private final Tuple groupingKey;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
@@ -101,7 +101,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state, Query query,
                        byte[] continuation,
-                       @Nullable Tuple groupingKey) {
+                       @Nonnull Tuple groupingKey) {
         this.state = state;
         this.executor = executor;
         this.executorService = executorService;
@@ -249,7 +249,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {
-        IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey);
+        IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey, TextLanguage.defaultLanguage());
         return writerCheck == null ? DirectoryReader.open(getOrCreateDirectoryCommitCheckAsync(state, groupingKey).getDirectory()) : DirectoryReader.open(writerCheck.indexWriter);
     }
 

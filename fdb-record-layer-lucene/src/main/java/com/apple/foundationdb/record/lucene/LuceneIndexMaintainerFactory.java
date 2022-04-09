@@ -33,6 +33,7 @@ import org.apache.lucene.analysis.Analyzer;
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Index Maintainer Factory for Lucene Indexes.  This adds the Lucene index to supported indexes.
@@ -59,7 +60,7 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
-        final Pair<Analyzer, Analyzer> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(state.index);
+        final Pair<Map<TextLanguage, Analyzer>, Map<TextLanguage, Analyzer>> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(state.index);
         return new LuceneIndexMaintainer(state, state.context.getExecutor(), analyzerPair.getLeft(), analyzerPair.getRight());
     }
 }

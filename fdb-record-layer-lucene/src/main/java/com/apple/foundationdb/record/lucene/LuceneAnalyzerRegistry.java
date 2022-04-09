@@ -25,6 +25,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.Analyzer;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 /**
  * Registry for {@link Analyzer}s. This registry allows for full-text indexes to specify
@@ -40,5 +41,5 @@ import javax.annotation.Nonnull;
 @SuppressWarnings("unused")
 public interface LuceneAnalyzerRegistry {
     @Nonnull
-    Pair<Analyzer, Analyzer> getLuceneAnalyzerPair(@Nonnull Index index);
+    Pair<Map<TextLanguage, Analyzer>, Map<TextLanguage, Analyzer>> getLuceneAnalyzerPair(@Nonnull Index index);
 }

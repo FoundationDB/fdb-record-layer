@@ -151,7 +151,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {
-        IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey);
+        IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey, TextLanguage.defaultLanguage());
         return writerCheck == null ? DirectoryReader.open(getOrCreateDirectoryCommitCheckAsync(state, groupingKey).getDirectory()) : DirectoryReader.open(writerCheck.indexWriter);
     }
 

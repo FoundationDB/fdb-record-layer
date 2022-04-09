@@ -36,6 +36,7 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 /**
  * Query clause from string using Lucene search syntax.
@@ -63,11 +64,11 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
 
     @Override
     public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-        final Pair<Analyzer, Analyzer> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(index);
+        final Pair<Map<TextLanguage, Analyzer>, Map<TextLanguage, Analyzer>> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(index);
         final String[] fieldNames = LuceneScanParameters.indexTextFields(index, store.getRecordMetaData()).toArray(new String[0]);
-        final QueryParser parser = new MultiFieldQueryParser(fieldNames, analyzerPair.getRight());
-        parser.setDefaultOperator(QueryParser.Operator.OR);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
+        final QueryParser parser = new MultiFieldQueryParser(fieldNames, analyzerPair.getRight().get(TextLanguage.getLanguageForText(searchString)));
+        parser.setDefaultOperator(QueryParser.Operator.OR);
         try {
             return parser.parse(searchString);
         } catch (Exception ioe) {

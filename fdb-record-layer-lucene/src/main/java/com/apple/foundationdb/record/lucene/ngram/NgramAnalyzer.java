@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.ngram;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
+import com.apple.foundationdb.record.lucene.TextLanguage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.google.auto.service.AutoService;
@@ -39,6 +40,8 @@ import org.apache.lucene.analysis.standard.StandardTokenizer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -87,12 +90,18 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
         @SuppressWarnings("deprecation")
         @Nonnull
         @Override
-        public Analyzer getIndexAnalyzer(@Nonnull Index index) {
+        public Map<TextLanguage, Analyzer> getIndexAnalyzerMap(@Nonnull Index index) {
             try {
                 final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH);
                 final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH);
                 final String edgesOnly = Optional.ofNullable(index.getOption(LuceneIndexOptions.NGRAM_TOKEN_EDGES_ONLY)).orElse(DEFAULT_NGRAM_WITH_EDGES_ONLY);
-                return new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, Integer.parseInt(minLengthString), Integer.parseInt(maxLengthString), Boolean.parseBoolean(edgesOnly));
+                final Analyzer analyzer = new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, Integer.parseInt(minLengthString), Integer.parseInt(maxLengthString), Boolean.parseBoolean(edgesOnly));
+
+                Map<TextLanguage, Analyzer> map = new HashMap<>();
+                for (TextLanguage language : TextLanguage.values()) {
+                    map.put(language, analyzer);
+                }
+                return map;
             } catch (NumberFormatException ex) {
                 throw new RecordCoreArgumentException("Invalid index option for token size", ex);
             }

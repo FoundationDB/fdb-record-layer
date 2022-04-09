@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.synonym;
 
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
+import com.apple.foundationdb.record.lucene.TextLanguage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.google.auto.service.AutoService;
 import org.apache.lucene.analysis.Analyzer;
@@ -38,6 +39,8 @@ import org.apache.lucene.analysis.synonym.SynonymMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * The analyzer for index with synonym enabled.
@@ -96,19 +99,29 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         @SuppressWarnings("deprecation")
         @Nonnull
         @Override
-        public Analyzer getIndexAnalyzer(@Nonnull Index index) {
-            return new StandardAnalyzer();
+        public Map<TextLanguage, Analyzer> getIndexAnalyzerMap(@Nonnull Index index) {
+            Map<TextLanguage, Analyzer> map = new HashMap<>();
+            for (TextLanguage language : TextLanguage.values()) {
+                map.put(language, new StandardAnalyzer());
+            }
+            return map;
         }
 
         @SuppressWarnings("deprecation")
         @Nonnull
         @Override
-        public Analyzer getQueryAnalyzer(@Nonnull Index index, @Nonnull Analyzer indexAnalyzer) {
+        public Map<TextLanguage, Analyzer> getQueryAnalyzerMap(@Nonnull Index index, @Nonnull Map<TextLanguage, Analyzer> indexAnalyzerMap) {
             String name = index.getOption(LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION);
             if (name == null) {
                 name = EnglishSynonymMapConfig.CONFIG_NAME;
             }
-            return new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, name);
+            final Analyzer analyzer = new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, name);
+
+            Map<TextLanguage, Analyzer> map = new HashMap<>();
+            for (TextLanguage language : TextLanguage.values()) {
+                map.put(language, analyzer);
+            }
+            return map;
         }
     }
 }

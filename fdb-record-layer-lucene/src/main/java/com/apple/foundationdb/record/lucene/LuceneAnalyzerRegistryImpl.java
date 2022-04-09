@@ -48,6 +48,9 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     private static final LuceneAnalyzerRegistryImpl INSTANCE = new LuceneAnalyzerRegistryImpl();
 
     @Nonnull
+    private static final Map<TextLanguage, Analyzer> STANDARD_ANALYZER_MAPPING_INSTANCE = getMappingForStandardAnalyzer();
+
+    @Nonnull
     private final Map<String, LuceneAnalyzerFactory> registry;
 
     @Nonnull
@@ -74,25 +77,37 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
         return INSTANCE;
     }
 
+    @Nonnull
+    public static Map<TextLanguage, Analyzer> standardAnalyzerMappingInstance() {
+        return STANDARD_ANALYZER_MAPPING_INSTANCE;
+    }
+
     private LuceneAnalyzerRegistryImpl() {
         registry = initRegistry();
     }
 
     @Nonnull
     @Override
-    public Pair<Analyzer, Analyzer> getLuceneAnalyzerPair(@Nonnull Index index) {
+    public Pair<Map<TextLanguage, Analyzer>, Map<TextLanguage, Analyzer>> getLuceneAnalyzerPair(@Nonnull Index index) {
         final String name = index.getOption(LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION);
         // TODO: Get rid of the condition after OR operator, after having all analyzers registered with this registry
         if (name == null || !registry.containsKey(name)) {
-            final Analyzer standardAnalyzer = new StandardAnalyzer();
-            return Pair.of(standardAnalyzer, standardAnalyzer);
+            return Pair.of(STANDARD_ANALYZER_MAPPING_INSTANCE, STANDARD_ANALYZER_MAPPING_INSTANCE);
         } else {
             LuceneAnalyzerFactory analyzerFactory = registry.get(name);
             if (analyzerFactory == null) {
                 throw new MetaDataException("unrecognized lucene analyzer for tokenizer", LuceneLogMessageKeys.ANALYZER_NAME, name);
             }
-            final Analyzer indexAnalyzer = analyzerFactory.getIndexAnalyzer(index);
-            return Pair.of(indexAnalyzer, analyzerFactory.getQueryAnalyzer(index, indexAnalyzer));
+            final Map<TextLanguage, Analyzer> indexAnalyzerMap = analyzerFactory.getIndexAnalyzerMap(index);
+            return Pair.of(indexAnalyzerMap, analyzerFactory.getQueryAnalyzerMap(index, indexAnalyzerMap));
         }
+    }
+
+    private static Map<TextLanguage, Analyzer> getMappingForStandardAnalyzer() {
+        Map<TextLanguage, Analyzer> map = new HashMap<>();
+        for (TextLanguage language : TextLanguage.values()) {
+            map.put(language, new StandardAnalyzer());
+        }
+        return map;
     }
 }
