@@ -20,18 +20,18 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
-import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Event;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.EventWithState;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Location;
-import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Event;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.EventWithState;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
+import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
 import com.google.common.cache.Cache;

@@ -20,18 +20,18 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
-import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.AdjustMatchEvent;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.ExecutingTaskEvent;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.ExploreExpressionEvent;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.ExploreGroupEvent;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeGroupEvent;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeInputsEvent;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.TransformEvent;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.TransformRuleCallEvent;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.AdjustMatchEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExecutingTaskEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExploreExpressionEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExploreGroupEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.OptimizeGroupEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.OptimizeInputsEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.TransformEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.TransformRuleCallEvent;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableListMultimap;
 import org.jline.reader.ParsedLine;

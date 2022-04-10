@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
-import com.apple.foundationdb.record.query.plan.temp.MessageValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageValue;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.MessageOrBuilder;

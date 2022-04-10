@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.test.Tags;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Assertions;

@@ -30,9 +30,9 @@ import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.predicates.Value;
-import com.apple.foundationdb.record.query.predicates.ValuePickerValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValuePickerValue;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;

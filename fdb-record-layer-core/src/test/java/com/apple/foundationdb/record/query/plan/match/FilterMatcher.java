@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.match;
 
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 

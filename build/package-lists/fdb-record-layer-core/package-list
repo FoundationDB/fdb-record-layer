@@ -16,8 +16,10 @@ com.apple.foundationdb.record.query.expressions
 com.apple.foundationdb.record.query.plan
 com.apple.foundationdb.record.query.plan.planning
 com.apple.foundationdb.record.query.plan.plans
-com.apple.foundationdb.record.query.plan.temp
-com.apple.foundationdb.record.query.plan.temp.expressions
-com.apple.foundationdb.record.query.plan.temp.matchers
-com.apple.foundationdb.record.query.plan.temp.properties
-com.apple.foundationdb.record.query.plan.temp.rules
+com.apple.foundationdb.record.query.plan.cascades
+com.apple.foundationdb.record.query.plan.cascades.expressions
+com.apple.foundationdb.record.query.plan.cascades.matching.structure
+com.apple.foundationdb.record.query.plan.cascades.predicates
+com.apple.foundationdb.record.query.plan.cascades.properties
+com.apple.foundationdb.record.query.plan.cascades.rules
+com.apple.foundationdb.record.query.plan.cascades.values

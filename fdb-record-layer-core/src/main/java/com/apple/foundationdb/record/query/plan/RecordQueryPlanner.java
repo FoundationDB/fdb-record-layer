@@ -82,8 +82,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimar
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.UnorderedPrimaryKeyDistinctVisitor;

@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
-import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
-import com.apple.foundationdb.record.query.plan.temp.PlannerRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
