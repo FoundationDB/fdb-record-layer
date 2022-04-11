@@ -49,6 +49,9 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Tests for {@link RecordQueryComparatorPlan}.
+ */
 @Tag(Tags.RequiresFDB)
 public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 

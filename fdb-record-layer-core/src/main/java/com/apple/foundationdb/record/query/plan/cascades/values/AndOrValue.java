@@ -220,6 +220,9 @@ public class AndOrValue implements BooleanValue {
     }
 
 
+    /**
+     * The {@code and} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class AndFn extends BuiltInFunction<Value> {
         public AndFn() {
@@ -235,6 +238,9 @@ public class AndOrValue implements BooleanValue {
     }
 
 
+    /**
+     * The {@code or} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class OrFn extends BuiltInFunction<Value> {
         public OrFn() {

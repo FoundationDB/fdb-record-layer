@@ -27,6 +27,9 @@ import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import javax.annotation.Nonnull;
 import java.io.InputStream;
 
+/**
+ * Configuration of the synonym map, which is built from a file.
+ */
 @API(API.Status.EXPERIMENTAL)
 public interface SynonymMapConfig {
     /**

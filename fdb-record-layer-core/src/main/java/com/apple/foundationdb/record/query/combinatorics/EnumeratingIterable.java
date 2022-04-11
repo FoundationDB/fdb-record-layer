@@ -98,6 +98,10 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
         }
     }
 
+    /**
+     * A single element iterator.
+     * @param <T> type of the element
+     */
     class SingleIterator<T> extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
         @Nonnull
         private final T singleElement;

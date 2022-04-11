@@ -83,6 +83,9 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         return SynonymMapRegistryImpl.instance().getSynonymMap(name);
     }
 
+    /**
+     * An analyzer factory including synonyms.
+     */
     @AutoService(LuceneAnalyzerFactory.class)
     public static class SynonymAnalyzerFactory implements LuceneAnalyzerFactory {
         public static final String ANALYZER_NAME = "SYNONYM";

@@ -48,6 +48,10 @@ import java.util.function.Supplier;
 public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Query");
 
+    /**
+     * The type of component.
+     * Includes special types for auto-complete and spell-check.
+     */
     public enum Type {
         QUERY,
         QUERY_HIGHLIGHT,

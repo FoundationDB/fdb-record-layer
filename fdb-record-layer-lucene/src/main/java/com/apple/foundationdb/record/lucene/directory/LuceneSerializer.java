@@ -37,6 +37,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 
+/**
+ * Serialize a Lucene directory block to/from an FDB key-value byte array.
+ * Supports compression and encryption.
+ */
 public class LuceneSerializer {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSerializer.class);
     private static final int ENCODING_ENCRYPTED = 1;

@@ -189,6 +189,9 @@ public class ArithmeticValue implements Value {
         return mapBuilder.build();
     }
 
+    /**
+     * The {@code add} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class AddFn extends BuiltInFunction<Value> {
         public AddFn() {
@@ -197,6 +200,9 @@ public class ArithmeticValue implements Value {
         }
     }
 
+    /**
+     * The {@code sub} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class SubFn extends BuiltInFunction<Value> {
         public SubFn() {
@@ -205,6 +211,9 @@ public class ArithmeticValue implements Value {
         }
     }
 
+    /**
+     * The {@code mul} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class MulFn extends BuiltInFunction<Value> {
         public MulFn() {
@@ -213,6 +222,9 @@ public class ArithmeticValue implements Value {
         }
     }
 
+    /**
+     * The {@code div} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class DivFn extends BuiltInFunction<Value> {
         public DivFn() {
@@ -221,6 +233,9 @@ public class ArithmeticValue implements Value {
         }
     }
 
+    /**
+     * The {@code mod} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class ModFn extends BuiltInFunction<Value> {
         public ModFn() {

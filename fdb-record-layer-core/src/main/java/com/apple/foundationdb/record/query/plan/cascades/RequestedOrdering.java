@@ -122,6 +122,9 @@ public class RequestedOrdering {
         return new RequestedOrdering(ImmutableList.of(), Distinctness.PRESERVE_DISTINCTNESS);
     }
 
+    /**
+     * Whether the ordered records are distinct.
+     */
     public enum Distinctness {
         DISTINCT,
         NOT_DISTINCT,

@@ -563,6 +563,9 @@ public interface Type extends Narrowable<Type> {
         }
     }
 
+    /**
+     * An enumeration type.
+     */
     class Enum implements Type {
         final boolean isNullable;
         @Nullable
@@ -678,6 +681,9 @@ public interface Type extends Narrowable<Type> {
                     .collect(ImmutableList.toImmutableList());
         }
 
+        /**
+         * A member value of an enumeration.
+         */
         public static class EnumValue {
             @Nonnull
             final String name;

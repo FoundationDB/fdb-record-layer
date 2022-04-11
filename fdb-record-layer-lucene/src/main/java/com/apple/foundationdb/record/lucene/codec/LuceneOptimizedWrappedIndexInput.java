@@ -29,6 +29,9 @@ import java.io.IOException;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 
+/**
+ * An {@code IndexInput} optimized for FDB storage.
+ */
 public class LuceneOptimizedWrappedIndexInput extends IndexInput {
     private final FDBDirectory directory;
     FDBLuceneFileReference reference;

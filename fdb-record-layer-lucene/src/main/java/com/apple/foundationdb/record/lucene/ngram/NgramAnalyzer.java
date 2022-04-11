@@ -42,6 +42,9 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * An NGRAM analyzer.
+ */
 public class NgramAnalyzer extends StopwordAnalyzerBase {
     private static final String DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH = "3";
     private static final String DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH = "30";
@@ -74,6 +77,9 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
         return new LowerCaseFilter(in);
     }
 
+    /**
+     * Factory for {@code NgramAnalyzer}.
+     */
     @AutoService(LuceneAnalyzerFactory.class)
     public static class NgramAnalyzerFactory implements LuceneAnalyzerFactory {
         public static final String ANALYZER_NAME = "NGRAM";

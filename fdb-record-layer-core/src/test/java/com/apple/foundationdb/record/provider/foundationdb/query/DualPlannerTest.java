@@ -39,6 +39,9 @@ import java.lang.annotation.Target;
 public @interface DualPlannerTest {
     Planner planner() default Planner.BOTH;
 
+    /**
+     * The planner(s) to test.
+     */
     enum Planner {
         OLD,
         CASCADES,

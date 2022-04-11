@@ -33,6 +33,9 @@ import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+/**
+ * Test with {@code abortOnComparisonFailure} on.
+ */
 public class FDBComparatorPlanAbortEnabledTest extends FDBComparatorPlanTest {
     @BeforeEach
     void setup() {

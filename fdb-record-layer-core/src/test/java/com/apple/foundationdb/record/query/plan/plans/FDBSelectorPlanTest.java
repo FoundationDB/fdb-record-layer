@@ -52,6 +52,9 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Tests for {@link RecordQuerySelectorPlan}.
+ */
 @Tag(Tags.RequiresFDB)
 public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
     int mockSelectionCount;

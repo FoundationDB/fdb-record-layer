@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
@@ -30,6 +31,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Formatting for {@link Value#explain}.
+ */
 public class Formatter {
     @Nonnull private final AtomicInteger quantifierNumber;
     @Nonnull private final BiMap<CorrelationIdentifier, String> aliasToFormattingNameMap;

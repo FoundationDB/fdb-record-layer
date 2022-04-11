@@ -649,6 +649,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    /**
+     * Test config with a combined set of synonyms.
+     */
     @AutoService(SynonymMapConfig.class)
     public static class CombinedSynonymSetsConfig implements SynonymMapConfig {
         @Override

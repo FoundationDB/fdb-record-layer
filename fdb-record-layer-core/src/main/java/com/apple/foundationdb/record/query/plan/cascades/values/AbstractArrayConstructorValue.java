@@ -159,6 +159,9 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
                 });
     }
 
+    /**
+     * An array that does not need any nested proto constructed.
+     */
     @SuppressWarnings("java:S2160")
     public static class LightArrayConstructorValue extends AbstractArrayConstructorValue {
         public LightArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
@@ -183,6 +186,9 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
         }
     }
 
+    /**
+     * Full array with general child proto construction.
+     */
     @SuppressWarnings("java:S2160")
     public static class ArrayConstructorValue extends AbstractArrayConstructorValue {
 
@@ -223,6 +229,9 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
         }
     }
 
+    /**
+     * The {@code array} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class ArrayFn extends BuiltInFunction<Value> {
         public ArrayFn() {

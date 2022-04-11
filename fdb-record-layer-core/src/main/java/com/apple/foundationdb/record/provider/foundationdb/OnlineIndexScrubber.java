@@ -44,6 +44,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+/**
+ * Scan indexes for problems and optionally report or repair.
+ */
 @API(API.Status.UNSTABLE)
 public class OnlineIndexScrubber implements AutoCloseable {
 
@@ -51,6 +54,9 @@ public class OnlineIndexScrubber implements AutoCloseable {
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final ScrubbingPolicy scrubbingPolicy;
 
+    /**
+     * The type of problem to scan for.
+     */
     public enum ScrubbingType {
         DANGLING,
         MISSING

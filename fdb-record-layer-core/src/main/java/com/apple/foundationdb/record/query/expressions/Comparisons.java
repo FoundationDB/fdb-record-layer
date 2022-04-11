@@ -891,6 +891,9 @@ public class Comparisons {
         }
     };
 
+    /**
+     * A comparison against a parameter.
+     */
     public interface ComparisonWithParameter extends Comparison {
         @Nonnull
         String getParameter();

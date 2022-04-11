@@ -281,6 +281,9 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                         .collect(ImmutableList.toImmutableList()));
     }
 
+    /**
+     * The {@code record} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class RecordFn extends BuiltInFunction<Value> {
         public RecordFn() {

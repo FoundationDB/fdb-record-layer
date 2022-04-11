@@ -104,6 +104,9 @@ public abstract class PlannerRule<T> {
         return getClass().getSimpleName();
     }
 
+    /**
+     * Marker interface for rules that run in pre-order.
+     */
     public interface PreOrderRule {
     }
 }

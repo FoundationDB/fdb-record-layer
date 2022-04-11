@@ -147,6 +147,9 @@ public class NotValue implements BooleanValue {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    /**
+     * The {@code not} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class NotFn extends BuiltInFunction<Value> {
         public NotFn() {

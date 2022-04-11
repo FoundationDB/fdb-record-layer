@@ -48,6 +48,9 @@ import java.util.Locale;
 import java.util.function.BinaryOperator;
 import java.util.function.UnaryOperator;
 
+/**
+ * A counting aggregate value.
+ */
 @API(API.Status.EXPERIMENTAL)
 public class CountValue implements Value, AggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Count-Value");
@@ -145,6 +148,9 @@ public class CountValue implements Value, AggregateValue {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    /**
+     * The {@code count(x)} function.
+     */
     @AutoService(BuiltInFunction.class)
     @SuppressWarnings("PMD.UnusedFormalParameter")
     public static class CountFn extends BuiltInFunction<AggregateValue> {
@@ -162,6 +168,9 @@ public class CountValue implements Value, AggregateValue {
         }
     }
 
+    /**
+     * The {@code count(*)} function.
+     */
     @AutoService(BuiltInFunction.class)
     @SuppressWarnings("PMD.UnusedFormalParameter")
     public static class CountStarFn extends BuiltInFunction<AggregateValue> {
@@ -178,6 +187,9 @@ public class CountValue implements Value, AggregateValue {
         }
     }
 
+    /**
+     * The counting argument type.
+     */
     public enum PhysicalOperator {
         COUNT(TypeCode.LONG, v -> v == null ? 0L : 1L, (s, v) -> Math.addExact((long)s, (long)v), UnaryOperator.identity()),
         COUNT_STAR(TypeCode.LONG, v -> 1L, (s, v) -> Math.addExact((long)s, (long)v), UnaryOperator.identity());
@@ -243,6 +255,9 @@ public class CountValue implements Value, AggregateValue {
         }
     }
 
+    /**
+     * Sum partial counts in the appropriate mode.
+     */
     public static class SumAccumulator implements Accumulator {
         private final PhysicalOperator physicalOperator;
         Object state = null;

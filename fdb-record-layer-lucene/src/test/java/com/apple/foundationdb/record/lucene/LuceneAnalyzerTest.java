@@ -39,6 +39,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 
+/**
+ * Tests of Lucene analyzers.
+ */
 public class LuceneAnalyzerTest {
     @Test
     void testNgramAnalyzer() throws Exception {

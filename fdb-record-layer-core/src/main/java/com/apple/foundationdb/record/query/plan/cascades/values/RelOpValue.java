@@ -312,6 +312,9 @@ public class RelOpValue implements BooleanValue {
         return binaryOperatorMapSupplier.get();
     }
 
+    /**
+     * The {@code equals} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class EqualsFn extends BuiltInFunction<Value> {
         public EqualsFn() {
@@ -324,6 +327,9 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
+    /**
+     * The {@code notequals} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class NotEqualsFn extends BuiltInFunction<Value> {
         public NotEqualsFn() {
@@ -336,6 +342,9 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
+    /**
+     * The {@code lt} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class LtFn extends BuiltInFunction<Value> {
         public LtFn() {
@@ -348,6 +357,9 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
+    /**
+     * The {@code lte} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class LteFn extends BuiltInFunction<Value> {
         public LteFn() {
@@ -360,6 +372,9 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
+    /**
+     * The {@code gt} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class GtFn extends BuiltInFunction<Value> {
         public GtFn() {
@@ -372,6 +387,9 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
+    /**
+     * The {@code gte} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class GteFn extends BuiltInFunction<Value> {
         public GteFn() {
@@ -384,6 +402,9 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
+    /**
+     * The {@code isNull} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class IsNullFn extends BuiltInFunction<Value> {
         public IsNullFn() {
@@ -396,6 +417,9 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
+    /**
+     * The {@code notNull} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class NotNullFn extends BuiltInFunction<Value> {
         public NotNullFn() {
