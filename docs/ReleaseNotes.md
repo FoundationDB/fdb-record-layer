@@ -17,7 +17,6 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Delete records where limits indexes on grouping key expressions to predicates that can be satisfied by only the grouping columns [(Issue #1583)](https://github.com/FoundationDB/fdb-record-layer/issues/1583)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +37,10 @@ This version of the Record Layer changes the Java source and target compatibilit
 
 // end next release
 -->
+
+### 3.1.249.0
+
+* **Bug fix** Delete records where limits indexes on grouping key expressions to predicates that can be satisfied by only the grouping columns [(Issue #1583)](https://github.com/FoundationDB/fdb-record-layer/issues/1583)
 
 ### 3.1.248.0
 
