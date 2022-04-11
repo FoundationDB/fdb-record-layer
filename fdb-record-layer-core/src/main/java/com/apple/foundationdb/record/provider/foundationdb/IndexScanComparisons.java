@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 

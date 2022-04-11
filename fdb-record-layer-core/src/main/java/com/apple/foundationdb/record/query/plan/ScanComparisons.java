@@ -30,13 +30,13 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.Extractor;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Extractor;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -52,8 +52,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher.typed;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
 /**
  * A set of {@link Comparisons.Comparison} for scanning an index.

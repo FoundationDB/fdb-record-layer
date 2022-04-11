@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.cursors.aggregate;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -31,8 +31,7 @@ import javax.annotation.Nullable;
 
 /**
  * An {@link AggregateAccumulator} for a single {@link Value}. This accumulator can evaluate a record (e.g. {@link
- * com.apple.foundationdb.record.query.predicates.FieldValue}
- * and accumulate the results.
+ * com.apple.foundationdb.record.query.plan.cascades.values.FieldValue}) and accumulate the results.
  *
  * @param <T> the type of value the state accumulates holds
  * @param <R> the type of the result that gets returned once the aggregator's {@link #finish} is called.

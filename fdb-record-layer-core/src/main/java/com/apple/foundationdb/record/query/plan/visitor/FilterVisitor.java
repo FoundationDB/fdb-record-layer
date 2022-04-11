@@ -41,7 +41,7 @@ import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 

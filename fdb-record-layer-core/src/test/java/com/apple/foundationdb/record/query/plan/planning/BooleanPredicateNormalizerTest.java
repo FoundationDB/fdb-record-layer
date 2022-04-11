@@ -22,13 +22,13 @@ package com.apple.foundationdb.record.query.plan.planning;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.Type;
-import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
@@ -41,9 +41,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer.Mode.DNF;
-import static com.apple.foundationdb.record.query.predicates.AndPredicate.and;
-import static com.apple.foundationdb.record.query.predicates.NotPredicate.not;
-import static com.apple.foundationdb.record.query.predicates.OrPredicate.or;
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate.and;
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate.not;
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate.or;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

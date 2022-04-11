@@ -46,7 +46,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;

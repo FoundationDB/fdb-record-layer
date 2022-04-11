@@ -23,10 +23,10 @@ package com.apple.foundationdb.record.cursors.aggregate;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.predicates.Accumulator;
-import com.apple.foundationdb.record.query.predicates.AggregateValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;

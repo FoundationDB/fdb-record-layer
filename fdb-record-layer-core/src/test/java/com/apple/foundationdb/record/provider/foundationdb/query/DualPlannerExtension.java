@@ -40,7 +40,7 @@ import java.util.stream.Stream;
 /**
  * A JUnit 5 extension that runs the test (which must inherit from {@link FDBRecordStoreQueryTestBase}) with both the
  * old {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} and the new, experimental
- * {@link com.apple.foundationdb.record.query.plan.temp.CascadesPlanner}.
+ * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
  */
 public class DualPlannerExtension implements TestTemplateInvocationContextProvider {
 

@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -210,7 +210,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     /**
      * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
      * of the key expression as composition of relational expressions and operators
-     * ({@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}s). Note that implementors should
+     * ({@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}s). Note that implementors should
      * defer to the visitation methods in the supplied visitor rather than encoding actual logic in an overriding
      * method.
      * @param <S> a type that represents the state that {@code visitor} uses

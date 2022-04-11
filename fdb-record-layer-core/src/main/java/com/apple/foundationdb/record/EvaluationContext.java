@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

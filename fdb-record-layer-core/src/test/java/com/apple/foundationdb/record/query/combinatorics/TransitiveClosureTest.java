@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.record.query.combinatorics;
 
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import org.junit.jupiter.api.Test;
 
-import static com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier.of;
+import static com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier.of;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

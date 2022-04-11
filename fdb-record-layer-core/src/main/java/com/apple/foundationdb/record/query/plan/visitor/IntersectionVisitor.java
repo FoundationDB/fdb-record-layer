@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

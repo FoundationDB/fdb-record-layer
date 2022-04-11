@@ -23,10 +23,10 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.predicates.Value;
-import com.apple.foundationdb.record.query.predicates.ValuePickerValue;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValuePickerValue;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 

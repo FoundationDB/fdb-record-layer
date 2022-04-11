@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
-import com.apple.foundationdb.record.query.plan.temp.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.temp.dynamic.TypeRepository;
-import com.apple.foundationdb.record.query.predicates.AggregateValue;
-import com.apple.foundationdb.record.query.predicates.CountValue;
-import com.apple.foundationdb.record.query.predicates.NumericAggregationValue;
-import com.apple.foundationdb.record.query.predicates.NumericAggregationValue.PhysicalOperator;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue.PhysicalOperator;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.function.Consumer;
 
-import static com.apple.foundationdb.record.query.predicates.LiteralValue.ofScalar;
+import static com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue.ofScalar;
 
 /**
  * Test the AggregateValues implementation through mock inner Value usage.

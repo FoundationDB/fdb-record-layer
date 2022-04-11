@@ -24,14 +24,14 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
-import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.Iterables;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -45,7 +45,7 @@ import java.util.Set;
  * This is designed to support the current {@link com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest}
  * infrastructure where we run exactly the same unit tests using both the
  * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} (which produces {@link RecordQueryFilterPlan}s)
- * and the {@link com.apple.foundationdb.record.query.plan.temp.CascadesPlanner} (which produces
+ * and the {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} (which produces
  * {@link RecordQueryPredicatesFilterPlan}).
  */
 public class FilterMatcherWithComponent extends PlanMatcherWithChild {
