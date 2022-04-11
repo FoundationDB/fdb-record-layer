@@ -157,25 +157,11 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public <M extends Message> M parseMessage() throws SQLException {
         if (!supportsMessageParsing()) {
             throw new OperationUnsupportedException("This ResultSet does not support Message Parsing").toSqlException();
         }
         return ((MessageTuple) currentRow).parseMessage();
-    }
-
-    @Override
-    public int getNumFields() throws SQLException {
-        if (currentRow == null) {
-            throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted").toSqlException();
-        }
-        return currentRow.getNumFields();
-    }
-
-    @Override
-    public boolean terminatedEarly() {
-        return currentCursor.terminatedEarly();
     }
 
     @Override

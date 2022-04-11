@@ -131,7 +131,7 @@ public class CursorTest {
                         }
                         actual.add(r);
                     }
-                    if (resultSet.terminatedEarly()) {
+                    if (!resultSet.getContinuation().atEnd()) {
                         resultSet.close();
                         resultSet = s.executeScan(scan,
                                 Options.create().withOption(OperationOption.continuation(resultSet.getContinuation())));

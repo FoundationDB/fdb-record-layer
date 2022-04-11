@@ -57,14 +57,6 @@ public class OperationOption<T> {
          * Retry the query from the beginning. This may also create a new transaction
          */
         RETRY,
-        /**
-         * When scanning, it may be possible to retry the scan from a last known "continuation point".
-         * When that happens, if a new transaction is created, the scan's isolation level will decrease
-         * to no better than READ_COMMITTED. If that happens,
-         * {@link RelationalResultSet#getActualIsolationLevel()} will return {@link IsolationLevel#READ_COMMITTED},
-         * even if the scan was initiated with a higher level.
-         */
-        DOWNGRADE_ISOLATION,
     }
 
     public enum SchemaExistenceCheck {

@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
@@ -34,10 +33,8 @@ import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Descriptors;
@@ -189,7 +186,7 @@ public class RecordStoreStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, Options options) throws RelationalException {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
         if (!keys.hasNext()) {
             return 0;
         }
@@ -243,12 +240,6 @@ public class RecordStoreStatement implements RelationalStatement {
             throw err;
         }
         return count;
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Continuation getContinuation() throws RelationalException {
-        throw new OperationUnsupportedException("Not Implemented in the Relational layer");
     }
 
     @Override

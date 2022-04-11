@@ -39,6 +39,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class RecordStoreConnection implements RelationalConnection {
+    private boolean isClosed;
     private final FDBDatabase fdbDb;
     final RecordLayerDatabase frl;
 
@@ -137,6 +138,12 @@ public class RecordStoreConnection implements RelationalConnection {
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
+        isClosed = true;
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+        return isClosed;
     }
 
     @Override

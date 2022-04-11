@@ -147,7 +147,7 @@ public class QueryTest {
 
             //now check the specific fields
             Assertions.assertEquals(insertedRecord.getRestNo(), resultSet.getLong("rest_no"), "Incorrect rest_no");
-            Assertions.assertEquals(insertedRecord.getLocation(), resultSet.getMessage("location"), "Incorrect location");
+            Assertions.assertEquals(insertedRecord.getLocation(), resultSet.getObject("location"), "Incorrect location");
         }
     }
 

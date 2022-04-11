@@ -102,6 +102,11 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
         connection.close();
     }
 
+    @Override
+    public boolean isClosed() throws SQLException {
+        return connection.isClosed();
+    }
+
     @Nonnull
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {

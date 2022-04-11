@@ -72,9 +72,6 @@ class AbstractRecordLayerResultSetTest {
             Pair.of(null, "getString"),
             Pair.of(String.class, "getString"),
 
-            Pair.of(null, "getMessage"),
-            Pair.of(Restaurant.RestaurantRecord.class, "getMessage"),
-
             Pair.of(null, "getRepeated"),
             Pair.of(ArrayList.class, "getRepeated"),
 
@@ -108,7 +105,6 @@ class AbstractRecordLayerResultSetTest {
                 "getFloat",
                 "getDouble",
                 "getString",
-                "getMessage",
                 "getRepeated",
                 "getObject"
         );
@@ -146,9 +142,6 @@ class AbstractRecordLayerResultSetTest {
 
                 TestCaseWithResult.of("getString", "abc", "abc"),
                 TestCaseWithResult.of("getString", null, null),
-
-                TestCaseWithResult.of("getMessage", Restaurant.RestaurantRecord.newBuilder().setRestNo(42).build(), Restaurant.RestaurantRecord.newBuilder().setRestNo(42).build()),
-                TestCaseWithResult.of("getMessage", null, null),
 
                 TestCaseWithResult.of("getRepeated", List.of(1, 2, 3, 4), List.of(1, 2, 3, 4)),
                 TestCaseWithResult.of("getRepeated", null, null),

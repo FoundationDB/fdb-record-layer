@@ -29,11 +29,42 @@ import com.google.protobuf.Message;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.util.Iterator;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Extension of {@link java.sql.Statement} to allow support for non-query database access.
+ * <p>
+ *     There are two ways that the database can be accessed:
+ * </p>
+ * <dl>
+ *     <dt><span class="strong"> Query Language</span></dt>
+ *     <dd>
+ *         The Query language used by Relational is a subset of the <a href="https://partiql.org">PartiQL Spec</a>.
+ *     </dd>
+ *     <dt><span class="strong"> Direct Access</span></dt>
+ *     <dd>
+ *          The Direct Access API allows a user to access simplified database-like functions without requiring
+ *          the writing of a SQL query. Its primary purpose for existing is historical, to allow for easier
+ *          integration support with existing system users, and is not (generally) recommended for new use cases.
+ *     </dd>
+ * </dl>
+ *
+ * <h2>Direct Access API Details</h2>
+ * <p>
+ *     The Direct Access API allows simplified execution of the following functionality:
+ *     <ul>
+ *         <li>Get By Key</li>
+ *         <li>Scan By Key range</li>
+ *         <li>Insert one or more records</li>
+ *         <li>Delete one or more records</li>
+ *     </ul>
+ *     Each of these functions are typically _not_ optimized, although some options exist which can be used by
+ *     the caller to provide their own optimizations (such as index selection and so forth).
+ */
 public interface RelationalStatement extends java.sql.Statement {
 
     /**
@@ -57,35 +88,121 @@ public interface RelationalStatement extends java.sql.Statement {
     @Nonnull
     RelationalResultSet executeQuery(@Nonnull Queryable query, @Nonnull Options options) throws RelationalException;
 
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default ResultSet executeQuery(String sql) throws SQLException {
-        throw new SQLException("Query language not yet supported", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
+    /**
+     * Execute a multi-row scan against the database, returning a {@link RelationalResultSet} containing
+     * the results of the scan.
+     *
+     * <p>
+     *     The caller can specify some execution-level options, which can be used to control the execution path
+     *    that the execution. Specifically, the following options are honored:
+     *    <ul>
+     *        <li>use.index: the name of a specific index to use during scan</li>
+     *        <li>continuation: The value of the continuation to use for the scan</li>
+     *    </ul>
+     *
+     * @param scan the definition of the can to be executed.
+     * @param options options that can be used to configure the scan.
+     * @return a ResultSet containing the entire record in the underlying scan.
+     * @throws RelationalException if something goes wrong. Use the Error code to determine exactly what.
+     */
     @Nonnull
     RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException;
 
+    /**
+     * Get a single record from the system by key.
+     * <p>
+     *     Equivalent to {@link #executeGet(String, KeySet, Options, QueryProperties)} with default Query properties (i.e.
+     *     {@link QueryProperties#DEFAULT}.
+     * </p>
+     * @param tableName the name of the table to get data from
+     * @param key The constructor for the key to fetch by
+     * @param options  the options for the GET operation.
+     * @return a ResultSet containing the entire record from the resulting GET, either 1 row or 0. If the row does
+     * not exist the ResultSet will be empty
+     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     */
+    @Nonnull
     default RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
         return executeGet(tableName, key, options, QueryProperties.DEFAULT);
     }
 
+    /**
+     * Get a single record from the system by key.
+     * <p>
+     *     This constructs a primary key from the specified KeySet according to the table definition, and then performs
+     *     a single-row lookup. This is equivalent to executing a scan on the range bounds, but can potentially be
+     *     more efficiently executed.
+     * @param tableName the name of the table to get data from
+     * @param key The constructor for the key to fetch by
+     * @param options  the options for the GET operation.
+     * @param queryProperties properties for the query itself.
+     * @return a ResultSet containing the entire record from the resulting GET, either 1 row or 0. If the row does
+     * not exist the ResultSet will be empty
+     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     */
     @Nonnull
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException;
 
-    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException;
-
+    /**
+     * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
+     * <p>
+     *     Equivalent to {@link #executeInsert(String, Iterator, Options)}, but avoids the extra {@code .iterator()} call
+     *     for a slightly nicer user experience.
+     *
+     * @param tableName the name of the table to insert into.
+     * @param data the data to insert.
+     * @param options Insertion options
+     * @return the number of records inserted.
+     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     */
     default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<? extends Message> data, @Nonnull Options options) throws RelationalException {
         return executeInsert(tableName, data.iterator(), options);
     }
 
-    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException;
+    /**
+     * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
+     *
+     * @param tableName the name of the table to insert into.
+     * @param data the data to insert.
+     * @param options Insertion options
+     * @return the number of records inserted.
+     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     */
+    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException;
 
+    /**
+     * Delete one or more records from the specified table, specified by key, if such records exist.
+     * <p>
+     *     equivalent to {@link #executeDelete(String, Iterator, Options)}, but with a marginally nicer user experience
+     *     of not needing to call {@code .iterator()}
+     * </p>
+     *
+     * @param tableName the name of the table to delete from
+     * @param keys the keys to delete
+     * @param options options to control the execution of the delete.
+     * @return the number of records inserted
+     * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
+     */
     default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys, @Nonnull Options options) throws RelationalException {
         return executeDelete(tableName, keys.iterator(), options);
     }
 
-    Continuation getContinuation() throws RelationalException;
+    /**
+     * Delete one or more records from the specified table, specified by key, if such records exist.
+     *
+     * @param tableName the name of the table to delete from
+     * @param keys the keys to delete
+     * @param options options to control the execution of the delete.
+     * @return the number of records inserted
+     * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
+     */
+    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException;
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    default ResultSet executeQuery(String sql) throws SQLException {
+        throw new SQLFeatureNotSupportedException("Query language not yet supported", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
 
     @Override
     @ExcludeFromJacocoGeneratedReport

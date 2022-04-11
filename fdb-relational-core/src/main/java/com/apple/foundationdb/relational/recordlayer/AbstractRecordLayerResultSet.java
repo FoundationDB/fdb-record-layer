@@ -20,12 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.IsolationLevel;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.protobuf.Message;
 
@@ -33,17 +31,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public IsolationLevel getActualIsolationLevel() throws SQLException {
-        throw new OperationUnsupportedException("Not Implemented in the Relational layer").toSqlException();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public IsolationLevel getRequestedIsolationLevel() throws SQLException {
-        throw new OperationUnsupportedException("Not Implemented in the Relational layer").toSqlException();
-    }
 
     @Override
     public boolean getBoolean(int oneBasedPosition) throws SQLException {
@@ -159,28 +146,6 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     public String getString(String columnLabel) throws SQLException {
         try {
             return getString(getOneBasedPosition(columnLabel));
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
-        }
-    }
-
-    @Override
-    public Message getMessage(int oneBasedPosition) throws SQLException {
-        Object o = getObject(oneBasedPosition);
-        if (o == null) {
-            return null;
-        }
-        if (!(o instanceof Message)) {
-            throw new SQLException("Message", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
-        }
-
-        return (Message) o;
-    }
-
-    @Override
-    public Message getMessage(String columnLabel) throws SQLException {
-        try {
-            return getMessage(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }

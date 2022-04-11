@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
@@ -85,11 +84,6 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     @Override
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
         return statement.executeDelete(tableName, keys, options);
-    }
-
-    @Override
-    public Continuation getContinuation() throws RelationalException {
-        return statement.getContinuation();
     }
 
     @Override

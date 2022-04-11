@@ -30,6 +30,7 @@ public interface Supplier<T> {
      * Gets a result.
      *
      * @return a result
+     * @throws RelationalException if something goes wrong
      */
     T get() throws RelationalException;
 }

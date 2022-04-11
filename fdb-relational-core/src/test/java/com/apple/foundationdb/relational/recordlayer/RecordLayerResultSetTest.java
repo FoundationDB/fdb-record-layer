@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
@@ -34,9 +33,6 @@ import org.mockito.Mockito;
 import java.sql.SQLException;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RecordLayerResultSetTest {
 
@@ -75,14 +71,14 @@ class RecordLayerResultSetTest {
     @Test
     void nextTrue() throws RelationalException, SQLException {
         mockNext(true);
-        assertTrue(resultSet.next());
-        assertTrue(resultSet.next());
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertTrue(resultSet.next());
     }
 
     @Test
     void nextFalse() throws RelationalException, SQLException {
         mockNext(false);
-        assertFalse(resultSet.next());
+        Assertions.assertFalse(resultSet.next());
     }
 
     @Test
@@ -94,7 +90,7 @@ class RecordLayerResultSetTest {
 
     @Test
     void closeBeforeDoingAnything() {
-        assertDoesNotThrow(() -> resultSet.close());
+        Assertions.assertDoesNotThrow(() -> resultSet.close());
     }
 
     @Test
@@ -143,22 +139,4 @@ class RecordLayerResultSetTest {
         RelationalAssertions.assertThrowsSqlException(() -> resultSet.parseMessage(), ErrorCode.UNSUPPORTED_OPERATION);
     }
 
-    @Test
-    void getNumFieldsFail() {
-        RelationalAssertions.assertThrowsSqlException(() -> resultSet.getNumFields(), ErrorCode.INVALID_CURSOR_STATE);
-    }
-
-    @Test
-    void getNumFieldsMessageParsingNotSupported() throws RelationalException, SQLException {
-        mockNext(true);
-        resultSet.next();
-        assertThat(resultSet.getNumFields()).isEqualTo(2);
-    }
-
-    @Test
-    void getNumFieldsMessageParsingSupported() throws RelationalException, SQLException {
-        mockNext(true, new MessageTuple(Restaurant.RestaurantRecord.newBuilder().setRestNo(42).build()));
-        resultSet.next();
-        assertThat(resultSet.getNumFields()).isEqualTo(6);
-    }
 }
