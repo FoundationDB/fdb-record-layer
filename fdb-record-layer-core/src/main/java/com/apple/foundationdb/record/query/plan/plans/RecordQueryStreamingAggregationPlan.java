@@ -345,6 +345,9 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 completeResultValueSupplier.supply(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
     }
 
+    /**
+     * Lambda for assembling the complete result from the grouping key(s) and aggregate value(s).
+     */
     @FunctionalInterface
     public interface CompleteResultValueSupplier {
         Value supply(@Nullable final Value groupingKeyValue,

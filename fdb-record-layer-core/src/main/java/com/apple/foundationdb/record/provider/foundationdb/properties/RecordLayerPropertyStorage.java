@@ -81,6 +81,9 @@ public class RecordLayerPropertyStorage {
         return EMPTY_PROPERTY_STORAGE;
     }
 
+    /**
+     * Builder for {@code RecordLayerPropertyStorage}.
+     */
     public static class Builder {
         private final Map<RecordLayerPropertyKey<?>, RecordLayerPropertyValue<?>> propertyMap;
 

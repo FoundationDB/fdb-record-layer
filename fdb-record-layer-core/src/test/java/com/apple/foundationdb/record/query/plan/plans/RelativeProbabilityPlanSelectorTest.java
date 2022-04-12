@@ -28,6 +28,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Random;
 
+/**
+ * Tests for {@link RelativeProbabilityPlanSelector}.
+ */
 public class RelativeProbabilityPlanSelectorTest {
     @Test
     void testSelectRandom() {

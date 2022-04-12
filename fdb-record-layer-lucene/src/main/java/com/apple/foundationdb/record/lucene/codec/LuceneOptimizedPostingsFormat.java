@@ -33,6 +33,9 @@ import org.apache.lucene.util.IOUtils;
 
 import java.io.IOException;
 
+/**
+ * {@code PostingsFormat} optimized for FDB storage.
+ */
 public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     PostingsFormat postingsFormat;
 

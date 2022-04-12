@@ -28,6 +28,9 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * A stack of {@link Scope}s.
+ */
 public class Scopes {
     @Nullable
     private Scope currentScope;
@@ -72,6 +75,9 @@ public class Scopes {
         throw new SemanticException("unresolved identifier " + identifier);
     }
 
+    /**
+     * A frame of the scopes stack, binding names to quantifiers.
+     */
     public static class Scope {
         @Nullable
         private final Scope parentScope;

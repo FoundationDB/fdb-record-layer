@@ -28,7 +28,15 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Helper class for dealing with {@link Value}s.
+ */
 public class Values {
+    /**
+     * Expand a record value into its field values.
+     * @param recordValue the record value
+     * @return a list of field values
+     */
     @Nonnull
     public static List<? extends Value> deconstructRecord(@Nonnull Value recordValue) {
         Verify.verify(recordValue.getResultType().getTypeCode() == Type.TypeCode.RECORD);

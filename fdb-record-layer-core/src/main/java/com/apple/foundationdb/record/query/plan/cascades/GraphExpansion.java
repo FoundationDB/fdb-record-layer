@@ -375,6 +375,9 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
     }
 
+    /**
+     * Builder for {@code GraphExpansion}.
+     */
     public static class Builder {
         /**
          * A list of columns representing the result of this expansion, if sealed and built.

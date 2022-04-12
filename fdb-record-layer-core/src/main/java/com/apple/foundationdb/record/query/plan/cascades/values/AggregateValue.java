@@ -41,8 +41,8 @@ public interface AggregateValue extends Value {
      * Create a new accumulator from the Value. This accumulator will perform state management and accumulate evaluated
      * values representing this value.
      *
-     * @return a new {@link Accumulator} for aggregating values for this Value.
      * @param typeRepository dynamic schema
+     * @return a new {@link Accumulator} for aggregating values for this Value.
      */
     @Nonnull
     Accumulator createAccumulator(@Nonnull final TypeRepository typeRepository);

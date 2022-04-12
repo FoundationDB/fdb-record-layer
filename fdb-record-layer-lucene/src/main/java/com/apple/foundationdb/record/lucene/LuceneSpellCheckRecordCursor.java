@@ -56,6 +56,9 @@ import static com.apple.foundationdb.record.lucene.DirectoryCommitCheckAsync.get
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getIndexWriterCommitCheckAsync;
 import static java.util.Comparator.comparing;
 
+/**
+ * Cursor over Lucene spell-check query results.
+ */
 public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellCheckRecordCursor.class);

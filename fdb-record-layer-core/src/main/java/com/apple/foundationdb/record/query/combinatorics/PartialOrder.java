@@ -274,6 +274,10 @@ public class PartialOrder<T> {
         return new Builder<>();
     }
 
+    /**
+     * Builder for {@code PartialOrder}.
+     * @param <T> the type of elements
+     */
     public static class Builder<T> {
         @Nonnull
         private final ImmutableSet.Builder<T> setBuilder;

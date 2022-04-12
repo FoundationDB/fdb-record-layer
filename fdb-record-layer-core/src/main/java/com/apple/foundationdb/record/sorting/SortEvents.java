@@ -34,6 +34,9 @@ public class SortEvents {
     private SortEvents() {
     }
 
+    /**
+     * Events related to sorting.
+     */
     public enum Events implements StoreTimer.Event {
         MEMORY_SORT_STORE_RECORD("memory sort store record"),
         MEMORY_SORT_LOAD_RECORD("memory sort load record"),
@@ -68,6 +71,9 @@ public class SortEvents {
         }
     }
 
+    /**
+     * Instrumentation counts related to sorting.
+     */
     public enum Counts implements StoreTimer.Count {
         FILE_SORT_FILE_BYTES("file sort file bytes", true);
 

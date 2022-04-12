@@ -26,6 +26,9 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * An attribute giving a set of sort orderings.
+ */
 public class OrderingAttribute implements PlannerAttribute<Set<RequestedOrdering>> {
     public static final PlannerAttribute<Set<RequestedOrdering>> ORDERING = new OrderingAttribute();
 

@@ -173,6 +173,9 @@
         </module>
         <module name="NonEmptyAtclauseDescription"/>
 
+        <module name="MissingJavadocPackage"/>
+        <module name="MissingJavadocType"/>
+
         <module name="JavadocType">
             <property name="scope" value="public"/>
         </module>

@@ -38,6 +38,9 @@ public class LuceneFunctionNames {
     private LuceneFunctionNames() {
     }
 
+    /**
+     * Option keys for {@link #LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS}.
+     */
     public enum LuceneFieldIndexOptions {
         DOCS,
         DOCS_AND_FREQS,

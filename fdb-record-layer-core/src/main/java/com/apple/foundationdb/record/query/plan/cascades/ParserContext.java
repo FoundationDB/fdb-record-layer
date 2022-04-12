@@ -29,6 +29,9 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Context for query parsing, including meta-data, generated types, and the state of available indexes.
+ */
 public class ParserContext {
     @Nonnull
     private final Scopes scopes;

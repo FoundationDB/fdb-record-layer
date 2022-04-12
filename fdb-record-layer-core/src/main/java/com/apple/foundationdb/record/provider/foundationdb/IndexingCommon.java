@@ -71,6 +71,10 @@ public class IndexingCommon {
      */
     public static final int UNLIMITED = Integer.MAX_VALUE;
 
+    /**
+     * Index and record types for indexing.
+     */
+    // TODO: Make a Java record when available.
     public static class IndexContext {
         @Nonnull public final Index index;
         @Nonnull public final Collection<RecordType> recordTypes;

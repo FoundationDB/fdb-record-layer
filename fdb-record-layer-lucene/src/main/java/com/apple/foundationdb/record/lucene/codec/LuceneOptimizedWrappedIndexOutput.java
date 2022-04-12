@@ -30,6 +30,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.zip.CRC32;
 
+/**
+ * {@code IndexOutput} optimized for FDB storage.
+ */
 public class LuceneOptimizedWrappedIndexOutput extends IndexOutput {
     private final String name;
     private final FDBDirectory directory;

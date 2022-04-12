@@ -88,6 +88,9 @@ public class IndexKeyValueToPartialRecord {
         KEY, VALUE
     }
 
+    /**
+     * Copy from an index entry into part of a record.
+     */
     public interface Copier {
         void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
                   @Nonnull IndexEntry kv);

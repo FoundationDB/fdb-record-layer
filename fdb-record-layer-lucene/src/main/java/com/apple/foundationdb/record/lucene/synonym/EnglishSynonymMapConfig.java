@@ -24,6 +24,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.InputStream;
 
+/**
+ * Default synonym map config for English.
+ * Looks for a file named {@code wn_s.txt}.
+ */
 @AutoService(SynonymMapConfig.class)
 public class EnglishSynonymMapConfig implements SynonymMapConfig {
     public static final String CONFIG_NAME = "US_EN";

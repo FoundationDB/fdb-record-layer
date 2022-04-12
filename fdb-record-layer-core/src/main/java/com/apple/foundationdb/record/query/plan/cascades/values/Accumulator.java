@@ -22,6 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import javax.annotation.Nullable;
 
+/**
+ * An aggregate accumulator.
+ */
 public interface Accumulator {
     void accumulate(@Nullable final Object currentObject);
 

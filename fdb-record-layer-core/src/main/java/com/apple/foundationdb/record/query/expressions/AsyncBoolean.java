@@ -33,6 +33,11 @@ import java.util.function.Function;
 
 import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
 
+/**
+ * An asynchronous Boolean {@code and} / {@code or} over a sequence of operands.
+ * @param <M> type of the records in the store
+ * @param <Q> type of the operands
+ */
 public class AsyncBoolean<M extends Message, Q> {
     private final boolean isOr;
     @Nonnull

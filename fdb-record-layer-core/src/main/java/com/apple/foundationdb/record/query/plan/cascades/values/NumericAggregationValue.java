@@ -59,6 +59,9 @@ import java.util.function.UnaryOperator;
 
 import static java.util.function.UnaryOperator.identity;
 
+/**
+ * Aggregation over numeric values.
+ */
 @API(API.Status.EXPERIMENTAL)
 public class NumericAggregationValue implements Value, AggregateValue {
     @Nonnull
@@ -188,6 +191,9 @@ public class NumericAggregationValue implements Value, AggregateValue {
         return mapBuilder.build();
     }
 
+    /**
+     * The {@code sum} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class SumFn extends BuiltInFunction<AggregateValue> {
         public SumFn() {
@@ -196,6 +202,9 @@ public class NumericAggregationValue implements Value, AggregateValue {
         }
     }
 
+    /**
+     * The {@code avg} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class AvgFn extends BuiltInFunction<AggregateValue> {
         public AvgFn() {
@@ -204,6 +213,9 @@ public class NumericAggregationValue implements Value, AggregateValue {
         }
     }
 
+    /**
+     * The {@code min} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class MinFn extends BuiltInFunction<AggregateValue> {
         public MinFn() {
@@ -212,6 +224,9 @@ public class NumericAggregationValue implements Value, AggregateValue {
         }
     }
 
+    /**
+     * The {@code max} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class MaxFn extends BuiltInFunction<AggregateValue> {
         public MaxFn() {
@@ -227,6 +242,9 @@ public class NumericAggregationValue implements Value, AggregateValue {
         MAX
     }
 
+    /**
+     * The function- x type-specific numeric aggregator.
+     */
     public enum PhysicalOperator {
         SUM_I(LogicalOperator.SUM, TypeCode.INT, TypeCode.INT, Objects::requireNonNull, (s, v) -> Math.addExact((int)s, (int)v), identity()),
         SUM_L(LogicalOperator.SUM, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.addExact((long)s, (long)v), identity()),
@@ -380,6 +398,9 @@ public class NumericAggregationValue implements Value, AggregateValue {
         }
     }
 
+    /**
+     * Accumulator for aggregation using a type- and function-specific operator.
+     */
     public static class NumericAccumulator implements Accumulator {
         private final PhysicalOperator physicalOperator;
         Object state = null;

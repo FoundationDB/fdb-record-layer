@@ -29,6 +29,9 @@ import org.hamcrest.TypeSafeMatcher;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Test plan matchers for Lucene plan elements.
+ */
 public class LucenePlanMatchers {
 
     public static Matcher<RecordQueryIndexPlan> scanParams(@Nonnull Matcher<IndexScanParameters> scanMatcher) {
@@ -43,6 +46,9 @@ public class LucenePlanMatchers {
         return new GroupBoundsMatcher(boundsMatcher);
     }
 
+    /**
+     * Match {@link IndexScanParameters}.
+     */
     public static class ScanParamsMatcher extends TypeSafeMatcher<RecordQueryIndexPlan> {
         @Nonnull
         private final Matcher<IndexScanParameters> scanMatcher;
@@ -63,7 +69,10 @@ public class LucenePlanMatchers {
             description.appendText(")");
         }
     }
-    
+
+    /**
+     * Match {@link LuceneQueryClause}.
+     */
     public static class QueryMatcher extends TypeSafeMatcher<IndexScanParameters> {
         @Nonnull
         private final Matcher<LuceneQueryClause> queryMatcher;
@@ -85,6 +94,10 @@ public class LucenePlanMatchers {
         }
     }
 
+    /**
+     * Match group bounds of the Lucene scan.
+     * Each group is a separate Lucene index.
+     */
     public static class GroupBoundsMatcher extends TypeSafeMatcher<IndexScanParameters> {
         @Nonnull
         private final Matcher<ScanComparisons> boundsMatcher;

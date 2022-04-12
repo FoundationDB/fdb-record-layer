@@ -27,9 +27,15 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * An attribute giving a set of referenced field value.
+ */
 public class ReferencedFieldsAttribute implements PlannerAttribute<ReferencedFieldsAttribute.ReferencedFields> {
     public static final PlannerAttribute<ReferencedFields> REFERENCED_FIELDS = new ReferencedFieldsAttribute();
 
+    /**
+     * A set of referenced field values.
+     */
     public static class ReferencedFields {
         @Nonnull
         private final Set<FieldValue> referencedFieldValues;

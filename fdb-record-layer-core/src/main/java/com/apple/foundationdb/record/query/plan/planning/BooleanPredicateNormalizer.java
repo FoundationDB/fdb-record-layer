@@ -67,6 +67,9 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.INTERNAL)
 public class BooleanPredicateNormalizer {
+    /**
+     * The target normal form.
+     */
     @SpotBugsSuppressWarnings(justification = "https://github.com/spotbugs/spotbugs/issues/740", value = "SE_BAD_FIELD")
     public enum Mode {
         DNF(OrPredicate.class, OrPredicate::or, AndPredicate.class, AndPredicate::and),
