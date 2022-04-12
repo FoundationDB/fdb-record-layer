@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.runners;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
@@ -67,6 +68,7 @@ public class ExponentialDelay {
     }
 
     @Nonnull
+    @VisibleForTesting
     protected CompletableFuture<Void> delayedFuture(final long nextDelayMillis) {
         return MoreAsyncUtil.delayedFuture(nextDelayMillis, TimeUnit.MILLISECONDS);
     }
