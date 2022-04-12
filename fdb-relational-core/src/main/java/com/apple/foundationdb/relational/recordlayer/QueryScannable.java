@@ -114,14 +114,6 @@ public class QueryScannable implements Scannable {
     }
 
     @Override
-    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP",
-            justification = "class is internal implementation, this shouldn't escape proper usage")
-    public String[] getKeyFieldNames() {
-        //Query results are never returned in the key
-        return new String[]{};
-    }
-
-    @Override
     public KeyBuilder getKeyBuilder() {
         throw new UnsupportedOperationException();
     }

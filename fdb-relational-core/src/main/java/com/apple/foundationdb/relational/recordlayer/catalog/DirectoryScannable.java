@@ -162,11 +162,6 @@ public class DirectoryScannable implements Scannable {
     }
 
     @Override
-    public String[] getKeyFieldNames() {
-        return new String[]{};
-    }
-
-    @Override
     public KeyBuilder getKeyBuilder() {
         throw new UnsupportedOperationException("Key Builder is not supported for directory scannables");
     }

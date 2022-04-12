@@ -33,14 +33,12 @@ import javax.annotation.Nullable;
 
 public class SuppliedScannable implements Scannable {
     private final Supplier<ResumableIterator<Row>> iteratorSupplier;
-    private final String[] keyFieldNames;
     private final String[] fieldNames;
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2",
             justification = "internal implementation class, proper usage is expected")
-    public SuppliedScannable(@Nonnull Supplier<ResumableIterator<Row>> iteratorSupplier, @Nonnull String[] keyFieldNames, @Nonnull String[] fieldNames) {
+    public SuppliedScannable(@Nonnull Supplier<ResumableIterator<Row>> iteratorSupplier, @Nonnull String[] fieldNames) {
         this.iteratorSupplier = iteratorSupplier;
-        this.keyFieldNames = keyFieldNames;
         this.fieldNames = fieldNames;
     }
 
@@ -59,12 +57,6 @@ public class SuppliedScannable implements Scannable {
     @Override
     public String[] getFieldNames() throws RelationalException {
         return fieldNames;
-    }
-
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    @Override
-    public String[] getKeyFieldNames() {
-        return keyFieldNames;
     }
 
     @Override

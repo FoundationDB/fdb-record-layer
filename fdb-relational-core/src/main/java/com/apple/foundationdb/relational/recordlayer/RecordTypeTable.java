@@ -94,17 +94,6 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public String[] getKeyFieldNames() throws RelationalException {
-        try {
-            RecordType type = loadRecordType();
-            final Descriptors.Descriptor descriptor = type.getDescriptor();
-            return type.getPrimaryKey().validate(descriptor).stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
-    }
-
-    @Override
     public KeyBuilder getKeyBuilder() throws RelationalException {
         final RecordType typeForKey = loadRecordType();
         return new KeyBuilder(typeForKey, typeForKey.getPrimaryKey(), "primary key of <" + tableName + ">");

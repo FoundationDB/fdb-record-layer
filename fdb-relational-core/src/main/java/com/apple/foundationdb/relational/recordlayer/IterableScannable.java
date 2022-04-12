@@ -43,18 +43,15 @@ import javax.annotation.Nullable;
 public class IterableScannable<T> implements Scannable {
     private final Iterable<T> iterable;
     private final Function<T, Row> transform;
-    private final String[] keyFieldNames;
     private final String[] fieldNames;
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2",
             justification = "internal implementation class, proper usage is expected")
     public IterableScannable(@Nonnull Iterable<T> iterable,
                              @Nonnull Function<T, Row> transform,
-                             @Nonnull String[] keyFieldNames,
                              @Nonnull String[] fieldNames) {
         this.iterable = iterable;
         this.transform = transform;
-        this.keyFieldNames = keyFieldNames;
         this.fieldNames = fieldNames;
     }
 
@@ -97,12 +94,6 @@ public class IterableScannable<T> implements Scannable {
     @Override
     public String[] getFieldNames() {
         return fieldNames;
-    }
-
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    @Override
-    public String[] getKeyFieldNames() {
-        return keyFieldNames;
     }
 
     @Override

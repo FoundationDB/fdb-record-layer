@@ -130,7 +130,6 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         }
     }
 
-    @Override
     public String[] getKeyFieldNames() throws RelationalException {
         KeyExpression rootExpression = index.getRootExpression();
         return getFields(rootExpression);

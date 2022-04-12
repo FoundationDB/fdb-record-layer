@@ -149,7 +149,7 @@ public class RecordStoreStatement implements RelationalStatement {
         final Row row = source.get(conn.transaction, tuple, queryProperties);
 
         Iterable<Row> iterable = toIterable(row == null ? Collections.emptyIterator() : List.of(row).iterator());
-        Scannable scannable = new IterableScannable<>(iterable, Function.identity(), new String[]{}, table.getFieldNames());
+        Scannable scannable = new IterableScannable<>(iterable, Function.identity(), table.getFieldNames());
         return new RecordLayerResultSet(
                 scannable,
                 new EmptyTuple(),

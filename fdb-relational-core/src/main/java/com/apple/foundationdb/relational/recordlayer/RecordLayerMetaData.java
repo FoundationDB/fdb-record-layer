@@ -119,7 +119,6 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
                                     .add(schema) // TABLE_SCHEM
                                     .add(s) // TABLE_NAME
                     ),
-                    new String[]{},
                     new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME"});
             return new RecordLayerResultSet(scannable, null, null, conn, QueryProperties.DEFAULT, null);
         } catch (RelationalException e) {
@@ -168,7 +167,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
 
             final String[] fieldNames = new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME", "ORDINAL_POSITION", "BL_OPTIONS"};
 
-            return new RecordLayerResultSet(new IterableScannable<>(data, keyValue -> keyValue, new String[]{}, fieldNames), null, null, conn, QueryProperties.DEFAULT, null);
+            return new RecordLayerResultSet(new IterableScannable<>(data, keyValue -> keyValue, fieldNames), null, null, conn, QueryProperties.DEFAULT, null);
         } catch (RelationalException e) {
             throw e.toSqlException();
         }

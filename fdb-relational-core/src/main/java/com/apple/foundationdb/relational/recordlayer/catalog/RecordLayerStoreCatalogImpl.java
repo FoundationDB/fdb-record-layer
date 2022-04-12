@@ -111,7 +111,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from("DatabaseInfo");
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformDatabaseInfo), new String[]{"a"}, getFieldNames(CatalogData.DatabaseInfo.getDescriptor()));
+        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformDatabaseInfo), getFieldNames(CatalogData.DatabaseInfo.getDescriptor()));
         return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
     }
 
@@ -120,7 +120,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from("Schema");
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformSchema), new String[]{"a"}, getFieldNames(CatalogData.Schema.getDescriptor()));
+        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformSchema), getFieldNames(CatalogData.Schema.getDescriptor()));
         return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
     }
 
@@ -129,7 +129,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from("Schema", databaseId.getPath());
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformSchema), new String[]{"a"}, getFieldNames(CatalogData.Schema.getDescriptor()));
+        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformSchema), getFieldNames(CatalogData.Schema.getDescriptor()));
         return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
     }
 

@@ -44,7 +44,7 @@ public interface Scannable {
      */
     @Nonnull
     ResumableIterator<Row> openScan(@Nonnull Transaction transaction, @Nullable Row startKey, @Nullable Row endKey,
-                                         @Nullable Continuation continuation, @Nonnull QueryProperties scanProperties) throws RelationalException;
+                                    @Nullable Continuation continuation, @Nonnull QueryProperties scanProperties) throws RelationalException;
 
     Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties queryProperties) throws RelationalException;
 
@@ -56,14 +56,6 @@ public interface Scannable {
      * @throws RelationalException if the field-name map cannot be retrieved.
      */
     String[] getFieldNames() throws RelationalException;
-
-    /**
-     * The index is the position in the Key, the value is the name of the field in that position.
-     *
-     * @return the field-name map that contains <em>only</em> keys.
-     * @throws RelationalException if the map cannot be retrieved.
-     */
-    String[] getKeyFieldNames() throws RelationalException;
 
     KeyBuilder getKeyBuilder() throws RelationalException;
 
