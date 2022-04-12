@@ -97,4 +97,11 @@ public final class LuceneRecordContextProperties {
      * Maximum number of segments to be merged at a time for auto-complete search with Lucene, during forceMerge for forceMergeDeletes.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_MERGE_MAX_NUMBER = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteMergeMaxNum", 2);
+
+    /**
+     * This controls the suggester's base class to use for Lucene auto-complete search.
+     * True to use a {@link org.apache.lucene.search.suggest.analyzing.BlendedInfixSuggester},
+     * False to use a {@link org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester} for Lucene auto-complete search.
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_WITH_BLENDED_INFIX_SUGGESTER = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoComplete.withBlendedInfixSuggester", true);
 }
