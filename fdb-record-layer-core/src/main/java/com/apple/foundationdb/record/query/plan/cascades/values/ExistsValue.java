@@ -124,7 +124,7 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Relation()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(parserContext, arguments));
         }
 
-        private static Value encapsulateInternal(@Nonnull ParserContext parserContext, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull ParserContext parserContext, @Nonnull final List<Value> arguments) {
             // the call is already validated against the resolved function
             Verify.verify(arguments.size() == 1);
             final Typed in = arguments.get(0);

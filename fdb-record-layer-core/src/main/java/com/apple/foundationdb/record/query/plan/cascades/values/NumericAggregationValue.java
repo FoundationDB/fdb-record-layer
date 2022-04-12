@@ -157,12 +157,12 @@ public class NumericAggregationValue implements Value, AggregateValue {
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private static AggregateValue encapsulate(@Nonnull ParserContext parserContext,
                                               @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                              @Nonnull final List<Typed> arguments) {
+                                              @Nonnull final List<Value> arguments) {
         return encapsulate(builtInFunction.getFunctionName(), arguments);
     }
 
     @Nonnull
-    private static AggregateValue encapsulate(@Nonnull final String functionName, @Nonnull final List<Typed> arguments) {
+    private static AggregateValue encapsulate(@Nonnull final String functionName, @Nonnull final List<Value> arguments) {
         Verify.verify(arguments.size() == 1);
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();

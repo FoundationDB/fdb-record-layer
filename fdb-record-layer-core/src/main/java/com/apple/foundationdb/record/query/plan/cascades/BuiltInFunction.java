@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
@@ -41,7 +42,7 @@ import java.util.stream.Collectors;
  * @param <T> The resulting type of the function.
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
-public abstract class BuiltInFunction<T extends Typed> {
+public abstract class BuiltInFunction<T extends Value> {
     @Nonnull
     final String functionName;
 
@@ -74,7 +75,10 @@ public abstract class BuiltInFunction<T extends Typed> {
      * @param variadicSuffixType The type of the function's vararg.
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
-    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
+    protected BuiltInFunction(@Nonnull final String functionName,
+                              @Nonnull final List<Type> parameterTypes,
+                              @Nullable final Type variadicSuffixType,
+                              @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
         this.variadicSuffixType = variadicSuffixType;
@@ -169,7 +173,7 @@ public abstract class BuiltInFunction<T extends Typed> {
     }
 
     @Nonnull
-    public Typed encapsulate(@Nonnull final ParserContext parserContext, @Nonnull final List<Typed> arguments) {
+    public Value encapsulate(@Nonnull final ParserContext parserContext, @Nonnull final List<Value> arguments) {
         return encapsulationFunction.encapsulate(parserContext, this, arguments);
     }
 

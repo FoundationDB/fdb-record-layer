@@ -289,10 +289,9 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         }
 
         @Nonnull
-        private static Value encapsulateInternal(@Nonnull final List<Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull final List<Value> arguments) {
             final ImmutableList<Column<? extends Value>> namedArguments =
                     arguments.stream()
-                            .map(typed -> (Value)typed)
                             .map(Column::unnamedOf)
                             .collect(ImmutableList.toImmutableList());
             return new RecordConstructorValue(namedArguments);

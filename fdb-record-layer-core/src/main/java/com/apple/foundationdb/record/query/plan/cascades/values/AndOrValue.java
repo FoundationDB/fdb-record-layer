@@ -228,9 +228,9 @@ public class AndOrValue implements BooleanValue {
                     (parserContext, builtInFunction, arguments) -> encapsulate(builtInFunction, arguments));
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Value> arguments) {
             Verify.verify(Iterables.size(arguments) == 2);
-            return new AndOrValue(builtInFunction.getFunctionName(), Operator.AND, (Value)arguments.get(0), (Value)arguments.get(1));
+            return new AndOrValue(builtInFunction.getFunctionName(), Operator.AND, arguments.get(0), arguments.get(1));
         }
     }
 
@@ -243,9 +243,9 @@ public class AndOrValue implements BooleanValue {
                     (parserContext, builtInFunction, arguments) -> encapsulate(builtInFunction, arguments));
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Value> arguments) {
             Verify.verify(Iterables.size(arguments) == 2);
-            return new AndOrValue(builtInFunction.getFunctionName(), Operator.OR, (Value)arguments.get(0), (Value)arguments.get(1));
+            return new AndOrValue(builtInFunction.getFunctionName(), Operator.OR, arguments.get(0), arguments.get(1));
         }
     }
 }

@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -155,8 +154,8 @@ public class NotValue implements BooleanValue {
                     (parserContext, builtInFunction, arguments) -> encapsulate(arguments));
         }
 
-        private static Value encapsulate(@Nonnull final List<Typed> arguments) {
-            return new NotValue((Value)arguments.get(0));
+        private static Value encapsulate(@Nonnull final List<Value> arguments) {
+            return new NotValue(arguments.get(0));
         }
     }
 }

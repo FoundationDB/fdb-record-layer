@@ -156,7 +156,7 @@ public class CountValue implements Value, AggregateValue {
         @Nonnull
         private static AggregateValue encapsulate(@Nonnull ParserContext parserContext,
                                                   @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
+                                                  @Nonnull final List<Value> arguments) {
             final Typed arg0 = arguments.get(0);
             return new CountValue(PhysicalOperator.COUNT, (Value)arg0);
         }
@@ -173,7 +173,7 @@ public class CountValue implements Value, AggregateValue {
         @Nonnull
         private static AggregateValue encapsulate(@Nonnull ParserContext parserContext,
                                                   @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
+                                                  @Nonnull final List<Value> arguments) {
             return new CountValue(PhysicalOperator.COUNT_STAR, null);
         }
     }

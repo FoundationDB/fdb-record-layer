@@ -154,13 +154,13 @@ public class ArithmeticValue implements Value {
 
     @Nonnull
     private static Value encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
-                                     @Nonnull final List<Typed> arguments) {
+                                     @Nonnull final List<Value> arguments) {
         return encapsulate(builtInFunction.getFunctionName(), arguments);
     }
 
     @Nonnull
     @SuppressWarnings("OptionalGetWithoutIsPresent")
-    private static Value encapsulate(@Nonnull final String functionName, @Nonnull final List<Typed> arguments) {
+    private static Value encapsulate(@Nonnull final String functionName, @Nonnull final List<Value> arguments) {
         Verify.verify(arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
