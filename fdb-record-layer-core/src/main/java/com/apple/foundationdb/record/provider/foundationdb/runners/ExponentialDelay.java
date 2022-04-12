@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -62,7 +63,7 @@ public class ExponentialDelay {
 
     @SuppressWarnings("java:S2245") // this source of randomness is not for cryptography/security
     private long calculateNextDelayMillis() {
-        return (long)(Math.random() * currentDelayMillis);
+        return (long)(ThreadLocalRandom.current().nextDouble() * currentDelayMillis);
     }
 
     @Nonnull
