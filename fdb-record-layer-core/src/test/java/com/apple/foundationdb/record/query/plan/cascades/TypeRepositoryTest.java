@@ -181,11 +181,12 @@ class TypeRepositoryTest {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         final Type t = generateRandomStructuredType();
         builder.addTypeIfNeeded(t);
+        int numActualTypes = builder.build().getMessageTypes().size();
+        // attempting to add the _same_ type again should not result in additional message types.
         builder.addTypeIfNeeded(t);
         builder.addTypeIfNeeded(t);
         final TypeRepository actualRepository = builder.build();
-        // there should be three types in the repository, but for different nested types within the tree
-        Assertions.assertEquals(3, actualRepository.getMessageTypes().size());
+        Assertions.assertEquals(numActualTypes, actualRepository.getMessageTypes().size());
     }
 
     @Test
