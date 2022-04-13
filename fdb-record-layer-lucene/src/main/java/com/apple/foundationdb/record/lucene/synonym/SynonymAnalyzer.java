@@ -107,6 +107,10 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
             return map;
         }
 
+        /**
+         * The default implementation for synonym analyzer.
+         * Override this with a new implementation of {@link LuceneAnalyzerFactory} with different {@link #getName()} to have different analyzers for different languages.
+         */
         @SuppressWarnings("deprecation")
         @Nonnull
         @Override

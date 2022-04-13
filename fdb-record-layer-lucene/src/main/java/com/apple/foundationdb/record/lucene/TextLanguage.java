@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+/**
+ * Languages supported for Lucene search.
+ */
 public enum TextLanguage {
     ENGLISH("e"),
     SIMPLIFIED_CHINESE("c"),
@@ -38,6 +41,9 @@ public enum TextLanguage {
         this.uniqueIdentifier = uniqueIdentifier;
     }
 
+    /**
+     * Different languages must have different identifiers.
+     */
     @Nonnull
     public String uniqueIdentifier() {
         return uniqueIdentifier;

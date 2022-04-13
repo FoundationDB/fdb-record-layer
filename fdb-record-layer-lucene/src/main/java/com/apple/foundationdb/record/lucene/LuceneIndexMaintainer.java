@@ -258,7 +258,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
                                byte[] primaryKey) throws IOException {
-        final TextLanguage language = TextLanguage.getLanguageForTexts(fields.stream().map(this::getStringValue).collect(Collectors.toList()));
+        final TextLanguage language = TextLanguage.getLanguageForTexts(fields.stream()
+                .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
+                .map(this::getStringValue).collect(Collectors.toList()));
         final IndexWriter newWriter = getOrCreateIndexWriter(state, indexAnalyzerMap.get(language), executor, groupingKey, language);
         BytesRef ref = new BytesRef(primaryKey);
         Document document = new Document();
