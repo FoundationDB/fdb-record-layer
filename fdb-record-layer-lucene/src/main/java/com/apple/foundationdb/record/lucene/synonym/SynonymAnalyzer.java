@@ -39,7 +39,7 @@ import org.apache.lucene.analysis.synonym.SynonymMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
 
 /**
@@ -100,7 +100,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         @Nonnull
         @Override
         public Map<TextLanguage, Analyzer> getIndexAnalyzerMap(@Nonnull Index index) {
-            Map<TextLanguage, Analyzer> map = new HashMap<>();
+            Map<TextLanguage, Analyzer> map = new EnumMap<>(TextLanguage.class);
             for (TextLanguage language : TextLanguage.values()) {
                 map.put(language, new StandardAnalyzer());
             }
@@ -121,7 +121,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
             }
             final Analyzer analyzer = new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, name);
 
-            Map<TextLanguage, Analyzer> map = new HashMap<>();
+            Map<TextLanguage, Analyzer> map = new EnumMap<>(TextLanguage.class);
             for (TextLanguage language : TextLanguage.values()) {
                 map.put(language, analyzer);
             }

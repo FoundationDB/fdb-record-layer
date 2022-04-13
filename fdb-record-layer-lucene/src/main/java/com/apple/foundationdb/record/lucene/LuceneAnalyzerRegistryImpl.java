@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
@@ -104,7 +105,7 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     }
 
     private static Map<TextLanguage, Analyzer> getMappingForStandardAnalyzer() {
-        Map<TextLanguage, Analyzer> map = new HashMap<>();
+        Map<TextLanguage, Analyzer> map = new EnumMap<>(TextLanguage.class);
         for (TextLanguage language : TextLanguage.values()) {
             map.put(language, new StandardAnalyzer());
         }

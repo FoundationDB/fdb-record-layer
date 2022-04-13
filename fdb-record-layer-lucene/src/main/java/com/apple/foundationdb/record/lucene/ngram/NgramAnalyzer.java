@@ -40,7 +40,7 @@ import org.apache.lucene.analysis.standard.StandardTokenizer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -97,7 +97,7 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
                 final String edgesOnly = Optional.ofNullable(index.getOption(LuceneIndexOptions.NGRAM_TOKEN_EDGES_ONLY)).orElse(DEFAULT_NGRAM_WITH_EDGES_ONLY);
                 final Analyzer analyzer = new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, Integer.parseInt(minLengthString), Integer.parseInt(maxLengthString), Boolean.parseBoolean(edgesOnly));
 
-                Map<TextLanguage, Analyzer> map = new HashMap<>();
+                Map<TextLanguage, Analyzer> map = new EnumMap<>(TextLanguage.class);
                 for (TextLanguage language : TextLanguage.values()) {
                     map.put(language, analyzer);
                 }

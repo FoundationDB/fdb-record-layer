@@ -73,7 +73,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -182,7 +182,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
 
         final TextLanguage language = TextLanguage.getLanguageForText(value);
-        final AnalyzingInfixSuggester suggester = suggesters.computeIfAbsent(language, (l) -> getSuggester(groupingKey, l));
+        final AnalyzingInfixSuggester suggester = suggesters.computeIfAbsent(language, l -> getSuggester(groupingKey, l));
 
         try {
             suggester.add(new BytesRef(valueBytes),
@@ -267,7 +267,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
 
-        final Map<TextLanguage, AnalyzingInfixSuggester> suggesters = new HashMap<>();
+        final Map<TextLanguage, AnalyzingInfixSuggester> suggesters = new EnumMap<>(TextLanguage.class);
         for (LuceneDocumentFromRecord.DocumentField field : fields) {
             insertField(field, document, groupingKey, suggesters);
         }
