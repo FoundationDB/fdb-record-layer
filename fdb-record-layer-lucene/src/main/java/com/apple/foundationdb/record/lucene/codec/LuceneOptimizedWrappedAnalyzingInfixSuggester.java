@@ -20,9 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -32,31 +29,25 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
-import org.apache.lucene.search.suggest.analyzing.BlendedInfixSuggester;
 import org.apache.lucene.store.Directory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 
 /**
- * Optimized suggester to override the codec for index writer.
+ * Optimized suggester based on {@link AnalyzingInfixSuggester} to override the {@link IndexWriterConfig} for index writer.
  */
-public class LuceneOptimizedWrappedAnalyzingInfixSuggester extends BlendedInfixSuggester {
+public class LuceneOptimizedWrappedAnalyzingInfixSuggester extends AnalyzingInfixSuggester {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneOptimizedWrappedAnalyzingInfixSuggester.class);
-
-    private static final BlenderType DEFAULT_BLENDER_TYPE = BlenderType.POSITION_LINEAR;
 
     @Nonnull
     private final IndexMaintainerState state;
 
-    @SuppressWarnings("squid:S107")
-    private LuceneOptimizedWrappedAnalyzingInfixSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir, @Nonnull Analyzer indexAnalyzer,
-                                                          @Nonnull Analyzer queryAnalyzer, int minPrefixChars, BlenderType blenderType, int numFactor,
-                                                          @Nullable Double exponent, boolean highlight) throws IOException {
-        super(dir, indexAnalyzer, queryAnalyzer, minPrefixChars, blenderType, numFactor, exponent, false, true, highlight);
+    LuceneOptimizedWrappedAnalyzingInfixSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir, @Nonnull Analyzer indexAnalyzer,
+                                                  @Nonnull Analyzer queryAnalyzer, int minPrefixChars, boolean highlight) throws IOException {
+        super(dir, indexAnalyzer, queryAnalyzer, minPrefixChars, false, true, highlight);
         this.state = state;
     }
 
@@ -79,28 +70,5 @@ public class LuceneOptimizedWrappedAnalyzingInfixSuggester extends BlendedInfixS
         iwc.setCodec(new LuceneOptimizedCodec());
         iwc.setInfoStream(new LuceneLoggerInfoStream(LOGGER));
         return iwc;
-    }
-
-    @Nonnull
-    public static AnalyzingInfixSuggester getSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir, @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer, boolean highlight) {
-        String autoCompleteBlenderType = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_TYPE);
-        String autoCompleteBlenderNumFactor = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_NUM_FACTOR);
-        String autoCompleteMinPrefixSize = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE);
-        String autoCompleteBlenderExponent = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_EXPONENT);
-
-        try {
-            return new LuceneOptimizedWrappedAnalyzingInfixSuggester(state, dir, indexAnalyzer, queryAnalyzer,
-                    autoCompleteMinPrefixSize == null ? DEFAULT_MIN_PREFIX_CHARS : Integer.parseInt(autoCompleteMinPrefixSize),
-                    autoCompleteBlenderType == null ? DEFAULT_BLENDER_TYPE : BlenderType.valueOf(autoCompleteBlenderType),
-                    autoCompleteBlenderNumFactor == null ? DEFAULT_NUM_FACTOR : Integer.parseInt(autoCompleteBlenderNumFactor),
-                    autoCompleteBlenderExponent == null ? null : Double.valueOf(autoCompleteBlenderExponent),
-                    highlight);
-        } catch (IllegalArgumentException iae) {
-            throw new RecordCoreArgumentException("Invalid parameter for auto complete suggester", iae)
-                    .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-        } catch (IOException ioe) {
-            throw new RecordCoreArgumentException("Failure with underlying lucene index opening for auto complete suggester", ioe)
-                    .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-        }
     }
 }

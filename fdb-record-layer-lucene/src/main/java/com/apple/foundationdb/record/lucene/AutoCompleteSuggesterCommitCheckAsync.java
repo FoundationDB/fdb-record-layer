@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
-import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedAnalyzingInfixSuggester;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedBlendedInfixSuggester;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
@@ -62,7 +62,7 @@ public class AutoCompleteSuggesterCommitCheckAsync implements FDBRecordContext.C
     private AutoCompleteSuggesterCommitCheckAsync(@Nonnull IndexMaintainerState state, @Nonnull DirectoryCommitCheckAsync directoryCommitCheckAsync,
                                                   @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer,
                                                   boolean highlight, @Nonnull Executor executor) {
-        this.suggester = LuceneOptimizedWrappedAnalyzingInfixSuggester.getSuggester(state, directoryCommitCheckAsync.getDirectory(), indexAnalyzer, queryAnalyzer, highlight);
+        this.suggester = LuceneOptimizedWrappedBlendedInfixSuggester.getSuggester(state, directoryCommitCheckAsync.getDirectory(), indexAnalyzer, queryAnalyzer, highlight);
         this.executor = executor;
     }
 
