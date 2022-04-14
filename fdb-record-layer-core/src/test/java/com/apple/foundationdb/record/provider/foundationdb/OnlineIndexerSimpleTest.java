@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.FunctionNames;
@@ -989,8 +988,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
         ).collect(Collectors.toList());
         Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
-        IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
-        List<String> indexTypes = Collections.singletonList("MySimpleRecord");
         FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         openSimpleMetaData();
@@ -1009,11 +1006,11 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             // Verify rangeSet is cleared when index is marked readable
+            assertTrue(recordStore.isIndexReadable(index));
+
             final RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(index));
-            AsyncIterator<Range> ranges = rangeSet.missingRanges(recordStore.ensureContextActive()).iterator();
-            final Range range = ranges.next();
-            final boolean range1IsEmpty = RangeSet.isFirstKey(range.begin) && RangeSet.isFinalKey(range.end);
-            assertTrue(range1IsEmpty);
+            Boolean isEmpty = rangeSet.isEmpty(context.ensureActive()).join();
+            assertTrue(isEmpty);
             context.commit(); // fake commit, happy compiler
         }
     }
@@ -1023,10 +1020,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 200).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
         ).collect(Collectors.toList());
-        Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
-        IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
-        List<String> indexTypes = Collections.singletonList("MySimpleRecord");
-        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
@@ -1034,6 +1027,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             context.commit();
         }
 
+        Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
         openSimpleMetaData(hook);
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)

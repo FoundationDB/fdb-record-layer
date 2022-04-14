@@ -265,6 +265,10 @@ public abstract class IndexingBase {
                         LogMessageKeys.INDEX_STATE, indexState
                         );
             }
+            if (desiredAction == OnlineIndexer.IndexingPolicy.DesiredAction.MARK_READABLE) {
+                return markIndexReadable(markReadable)
+                        .thenCompose(ignore -> AsyncUtil.READY_FALSE);
+            }
             boolean shouldClear = desiredAction == OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD;
             boolean shouldBuild = shouldClear || indexState != IndexState.READABLE;
             message.addKeyAndValue(LogMessageKeys.INITIAL_INDEX_STATE, indexState);
@@ -350,17 +354,43 @@ public abstract class IndexingBase {
         if (!markReadablePlease) {
             return AsyncUtil.READY_FALSE; // they didn't say please..
         }
-        AtomicBoolean allReadable = new AtomicBoolean(true);
-        return getRunner().runAsync(context -> openRecordStore(context)
-                .thenCompose(store -> forEachTargetIndex(index ->
-                        store.markIndexReadable(index).thenApply(built -> {
-                            if (!built) {
-                                allReadable.set(false);
-                            }
-                            return null;
-                        }))
-                        .thenApply(ignore -> allReadable.get())
-                ), common.indexLogMessageKeyValues("IndexingBase::markReadable"));
+
+        AtomicReference<RuntimeException> runtimeExceptionAtomicReference = new AtomicReference<>();
+        AtomicBoolean anythingChanged = new AtomicBoolean(false);
+
+        // Mark each index readable in its own (retriable, parallel) transaction. If one target fails to become
+        // readable, it should not affect the others.
+        return forEachTargetIndex(index ->
+                markIndexReadableSingleTarget(index, anythingChanged, runtimeExceptionAtomicReference)
+        ).thenApply(ignore -> {
+            RuntimeException ex = runtimeExceptionAtomicReference.get();
+            if (ex != null) {
+                throw ex;
+            }
+            return anythingChanged.get();
+        });
+    }
+
+    private CompletableFuture<Boolean> markIndexReadableSingleTarget(Index index, AtomicBoolean anythingChanged,
+                                                                     AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
+        // An extension function to reduce markIndexReadable's complexity
+        return common.getRunner().runAsync(context ->
+                common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
+                        .thenCompose(store ->
+                                policy.shouldAllowUniquePendingState(store) ?
+                                store.markIndexReadableOrUniquePending(index) :
+                                store.markIndexReadable(index))
+        ).handle((changed, ex) -> {
+            if (ex == null) {
+                if (Boolean.TRUE.equals(changed)) {
+                    anythingChanged.set(true);
+                }
+                return changed; // ignored
+            }
+            // Note: in case of multiple violations, an arbitrary one is thrown.
+            runtimeExceptionAtomicReference.set((RuntimeException)ex);
+            return false;
+        });
     }
 
     public void enforceStampOverwrite() {

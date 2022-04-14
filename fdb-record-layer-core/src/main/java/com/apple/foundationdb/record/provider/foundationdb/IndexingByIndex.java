@@ -159,7 +159,7 @@ public class IndexingByIndex extends IndexingBase {
         validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         Index srcIndex = getSourceIndex(store.getRecordMetaData());
-        validateOrThrowEx(store.isIndexReadable(srcIndex), "source index is not readable");
+        validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
 
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
         AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
@@ -234,7 +234,7 @@ public class IndexingByIndex extends IndexingBase {
 
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         final Index srcIndex = getSourceIndex(store.getRecordMetaData());
-        validateOrThrowEx(store.isIndexReadable(srcIndex), "source index is not readable");
+        validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT);
