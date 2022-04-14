@@ -35,7 +35,7 @@ import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public abstract class RecordTypeScannable<CursorT> implements Scannable {
+public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
 
     @Override
     public final ResumableIterator<Row> openScan(@Nonnull Transaction transaction,

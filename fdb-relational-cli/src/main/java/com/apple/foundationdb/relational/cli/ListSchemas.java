@@ -43,11 +43,11 @@ public class ListSchemas extends CommandWithConnection {
     @Override
     public void callInternal() throws Exception {
         try (RelationalResultSet schemas = dbState.getConnection().getMetaData().getSchemas()) {
-            List<String> results = new ArrayList<>();
+            List<List<String>> results = new ArrayList<>();
             while (schemas.next()) {
-                results.add(schemas.getString("TABLE_SCHEM"));
+                results.add(List.of(schemas.getString("TABLE_SCHEM")));
             }
-            Utils.tabulate(spec.commandLine().getOut(), dbState.isPrettyPrint(), dbState.getDelimiter(), results);
+            Utils.tabulate(spec.commandLine().getOut(), dbState.isPrettyPrint(), dbState.getDelimiter(), dbState.isDisplayHeaders(), results, new String[]{"schemas"});
         }
     }
 }

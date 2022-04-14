@@ -55,7 +55,7 @@ import java.util.function.Supplier;
  * around with it.
  */
 @SuppressWarnings({"PMD.AvoidCatchingThrowable", "PMD.AvoidPrintStackTrace", "PMD.EmptyCatchBlock"}) // justification: interactive shell.
-public class RelationalCli {
+public final class RelationalCli {
 
     //excluded because it's almost entirely configuring jline and running it
     @ExcludeFromJacocoGeneratedReport
@@ -98,7 +98,12 @@ public class RelationalCli {
                         try {
                             systemRegistry.cleanUp();
                             line = reader.readLine(prompt, rightPrompt, (MaskingCallback) null, null);
-                            systemRegistry.execute(line);
+                            if (line.isEmpty() || systemRegistry.hasCommand(parser.parse(line, 0).word())) { // todo: improve checks
+                                systemRegistry.execute(line);
+                            } else {
+                                // parse SQL statement
+                                new QueryCommand(cliManager.getDbState(), line, reader.getTerminal().writer()).callInternal();
+                            }
                         } catch (UserInterruptException e) {
                             // Ignore
                         } catch (EndOfFileException e) {
@@ -120,6 +125,9 @@ public class RelationalCli {
         public RelationalCommands(CommandLine cmd) {
             super(cmd);
         }
+    }
+
+    private RelationalCli() {
     }
 
 }

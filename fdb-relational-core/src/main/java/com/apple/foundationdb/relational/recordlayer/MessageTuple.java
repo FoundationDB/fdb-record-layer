@@ -41,7 +41,7 @@ public class MessageTuple extends AbstractRow {
         if (position < 0 || position >= getNumFields()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
-        return message.getField(message.getDescriptorForType().getFields().get(position));
+        return message.getField(message.getDescriptorForType().findFieldByNumber(position + 1));
     }
 
     @SuppressWarnings("unchecked")

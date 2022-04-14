@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.protobuf.Message;
@@ -29,7 +30,6 @@ import com.google.protobuf.Message;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.util.Iterator;
 
@@ -87,6 +87,8 @@ public interface RelationalStatement extends java.sql.Statement {
      */
     @Nonnull
     RelationalResultSet executeQuery(@Nonnull Queryable query, @Nonnull Options options) throws RelationalException;
+
+    RelationalResultSet executeQuery(@Nonnull String query, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException, SQLException;
 
     /**
      * Execute a multi-row scan against the database, returning a {@link RelationalResultSet} containing
@@ -201,7 +203,12 @@ public interface RelationalStatement extends java.sql.Statement {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default ResultSet executeQuery(String sql) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Query language not yet supported", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        try {
+            Assert.notNull(sql);
+            return executeQuery(sql, Options.create(), QueryProperties.DEFAULT);
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
     }
 
     @Override

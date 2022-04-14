@@ -38,11 +38,11 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.DirectScannable;
 import com.apple.foundationdb.relational.recordlayer.KeyBuilder;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
-import com.apple.foundationdb.relational.recordlayer.Scannable;
 import com.apple.foundationdb.relational.recordlayer.TupleUtils;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
@@ -55,7 +55,7 @@ import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class DirectoryScannable implements Scannable {
+public class DirectoryScannable implements DirectScannable {
     private final KeySpace keySpace;
     private final URI prefix;
     private final String[] fieldNames;

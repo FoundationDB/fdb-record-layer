@@ -58,6 +58,10 @@ public class CliRule implements BeforeEachCallback, AfterEachCallback {
         return output.toString();
     }
 
+    public PrintWriter getOutputWriter() {
+        return new PrintWriter(output);
+    }
+
     public String getError() {
         return error.toString();
     }

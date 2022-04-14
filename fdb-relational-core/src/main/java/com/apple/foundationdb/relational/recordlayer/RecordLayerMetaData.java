@@ -66,7 +66,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
                 conn.beginTransaction();
             }
             URI dbPath = conn.frl.getPath();
-            final Scannable scannable = new DirectoryScannable(keySpace, dbPath, new String[]{"TABLE_SCHEM", "TABLE_CATALOG"}, nestableTuple -> {
+            final DirectScannable scannable = new DirectoryScannable(keySpace, dbPath, new String[]{"TABLE_SCHEM", "TABLE_CATALOG"}, nestableTuple -> {
                 // the data looks like (<dbPath>/schema,0), so split this into (schema, <dbPath>)
                 final String fullSchemaPath;
                 try {
@@ -82,7 +82,9 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
                 return TupleUtils.toRelationalTuple(new Tuple().add(schema).add(db));
             });
             //TODO: This should return the elements sorted by TABLE_CATALOG,TABLE_SCHEM as per JDBC recommendations
-            return new RecordLayerResultSet(scannable, null, null, conn, QueryProperties.DEFAULT, null);
+            return new RecordLayerResultSet(scannable.getFieldNames(),
+                    scannable.openScan(conn.transaction, null, null, null, QueryProperties.DEFAULT),
+                    conn);
         } catch (UncheckedRelationalException e) {
             throw e.unwrap().toSqlException();
         } catch (RelationalException e) {
@@ -110,8 +112,11 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
             if (types != null) {
                 throw new OperationUnsupportedException("getTables: non null types parameter not supported");
             }
+            if (!conn.inActiveTransaction()) {
+                conn.beginTransaction();
+            }
             final List<String> strings = conn.frl.loadSchema(schema, Options.create()).listTables().stream().sorted().collect(Collectors.toUnmodifiableList());
-            final Scannable scannable = new IterableScannable<>(
+            final DirectScannable scannable = new IterableScannable<>(
                     strings,
                     s -> TupleUtils.toRelationalTuple(
                             new Tuple()
@@ -120,7 +125,9 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
                                     .add(s) // TABLE_NAME
                     ),
                     new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME"});
-            return new RecordLayerResultSet(scannable, null, null, conn, QueryProperties.DEFAULT, null);
+            return new RecordLayerResultSet(scannable.getFieldNames(),
+                    scannable.openScan(conn.transaction, null, null, null, QueryProperties.DEFAULT),
+                    conn);
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
@@ -167,7 +174,10 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
 
             final String[] fieldNames = new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME", "ORDINAL_POSITION", "BL_OPTIONS"};
 
-            return new RecordLayerResultSet(new IterableScannable<>(data, keyValue -> keyValue, fieldNames), null, null, conn, QueryProperties.DEFAULT, null);
+            DirectScannable scannable = new IterableScannable<>(data, keyValue -> keyValue, fieldNames);
+            return new RecordLayerResultSet(scannable.getFieldNames(),
+                    scannable.openScan(conn.transaction, null, null, null, QueryProperties.DEFAULT),
+                    conn);
         } catch (RelationalException e) {
             throw e.toSqlException();
         }

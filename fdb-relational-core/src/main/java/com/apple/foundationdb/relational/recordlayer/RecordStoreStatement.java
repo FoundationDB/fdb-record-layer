@@ -20,9 +20,16 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
@@ -34,7 +41,9 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Descriptors;
@@ -43,8 +52,10 @@ import com.google.protobuf.Message;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -53,10 +64,34 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class RecordStoreStatement implements RelationalStatement {
+
+    @Nonnull
     private final RecordStoreConnection conn;
 
-    public RecordStoreStatement(RecordStoreConnection conn) {
+    public RecordStoreStatement(@Nonnull final RecordStoreConnection conn) {
         this.conn = conn;
+    }
+
+    @Override
+    public RelationalResultSet executeQuery(@Nonnull String query, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException, SQLException {
+        ensureTransactionActive();
+        final String schemaName = conn.getSchema();
+        final RecordLayerSchema schema = conn.frl.loadSchema(schemaName, options);
+        final FDBRecordStore store = conn.frl.loadSchema(schemaName, options).loadStore();
+        final RelationalExpression relationalExpression = PlanGenerator.generateLogicalPlan(query, store.getRecordMetaData(), store.getRecordStoreState(), ignore -> {
+        });
+        final Type innerType = relationalExpression.getResultType().getInnerType();
+        Assert.notNull(innerType);
+        Assert.that(innerType instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", innerType.getTypeCode()));
+        final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+        usedTypes.forEach(builder::addTypeIfNeeded);
+        final RecordQueryPlan recordQueryPlan = PlanGenerator.generatePlan(query, store.getRecordMetaData(), store.getRecordStoreState());
+        final String[] fieldNames = Objects.requireNonNull(((Type.Record) innerType).getFields()).stream().sorted(Comparator.comparingInt(Type.Record.Field::getFieldIndex)).map(Type.Record.Field::getFieldName).collect(Collectors.toUnmodifiableList()).toArray(String[]::new);
+        final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan, fieldNames, EvaluationContext.forTypeRepository(builder.build()), schema, false /* get this information from the query plan */);
+        return new RecordLayerResultSet(queryExecutor.getFieldNames(),
+                queryExecutor.execute(options.getOption(OperationOption.CONTINUATION_NAME, null)),
+                conn);
     }
 
     @Override
@@ -106,8 +141,14 @@ public class RecordStoreStatement implements RelationalStatement {
             recQueryBuilder.setFilter(WhereClauseUtils.convertClause(query.getWhereClause()));
         }
 
-        final QueryScannable scannable = new QueryScannable(conn.frl.loadSchema(schemaAndTable[0], options), recQueryBuilder.build(), queryColumns.toArray(new String[0]), query.isExplain());
-        return new RecordLayerResultSet(scannable, null, null, conn, query.getQueryOptions(), options.getOption(OperationOption.CONTINUATION_NAME, null));
+        final QueryExecutor queryExecutor = new QueryExecutor(conn.frl.loadSchema(schemaAndTable[0], options),
+                recQueryBuilder.build(),
+                queryColumns.toArray(new String[0]),
+                EvaluationContext.empty(),
+                query.isExplain());
+        return new RecordLayerResultSet(queryExecutor.getFieldNames(),
+                queryExecutor.execute(options.getOption(OperationOption.CONTINUATION_NAME, null)),
+                conn);
     }
 
     @Override
@@ -120,14 +161,15 @@ public class RecordStoreStatement implements RelationalStatement {
 
         Table table = schema.loadTable(schemaAndTable[1], options);
 
-        Scannable source = getSourceScannable(options, table);
+        DirectScannable source = getSourceScannable(options, table);
 
         final KeyBuilder keyBuilder = source.getKeyBuilder();
         Row start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), true, true);
         Row end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), true, true);
 
-        return new RecordLayerResultSet(source, start, end, conn, scan.getScanProperties(),
-                options.getOption(OperationOption.CONTINUATION_NAME, null));
+        return new RecordLayerResultSet(source.getFieldNames(),
+                source.openScan(conn.transaction, start, end, options.getOption(OperationOption.CONTINUATION_NAME, null), scan.getScanProperties()),
+                conn);
     }
 
     @Override
@@ -142,21 +184,17 @@ public class RecordStoreStatement implements RelationalStatement {
 
         Table table = schema.loadTable(schemaAndTable[1], options);
 
-        Scannable source = getSourceScannable(options, table);
+        DirectScannable source = getSourceScannable(options, table);
 
         Row tuple = source.getKeyBuilder().buildKey(key.toMap(), true, true);
 
         final Row row = source.get(conn.transaction, tuple, queryProperties);
 
         Iterable<Row> iterable = toIterable(row == null ? Collections.emptyIterator() : List.of(row).iterator());
-        Scannable scannable = new IterableScannable<>(iterable, Function.identity(), table.getFieldNames());
-        return new RecordLayerResultSet(
-                scannable,
-                new EmptyTuple(),
-                new EmptyTuple(),
-                conn,
-                queryProperties,
-                options.getOption(OperationOption.CONTINUATION_NAME, null));
+        DirectScannable scannable = new IterableScannable<>(iterable, Function.identity(), table.getFieldNames());
+        return new RecordLayerResultSet(source.getFieldNames(),
+                scannable.openScan(conn.transaction, new EmptyTuple(), new EmptyTuple(), options.getOption(OperationOption.CONTINUATION_NAME, null), queryProperties),
+                conn);
     }
 
     @Override
@@ -197,7 +235,7 @@ public class RecordStoreStatement implements RelationalStatement {
 
         Table table = schema.loadTable(schemaAndTable[1], options);
 
-        Scannable source = getSourceScannable(options, table);
+        DirectScannable source = getSourceScannable(options, table);
         return executeMutation(() -> {
             int count = 0;
             Row toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
@@ -275,8 +313,8 @@ public class RecordStoreStatement implements RelationalStatement {
         return new String[]{schema, tableN};
     }
 
-    private @Nonnull Scannable getSourceScannable(@Nonnull Options options, @Nonnull Table table) throws RelationalException {
-        Scannable source;
+    private @Nonnull DirectScannable getSourceScannable(@Nonnull Options options, @Nonnull Table table) throws RelationalException {
+        DirectScannable source;
         String indexName = options.getOption(OperationOption.INDEX_HINT_NAME, null);
         if (indexName != null) {
             Index index = null;

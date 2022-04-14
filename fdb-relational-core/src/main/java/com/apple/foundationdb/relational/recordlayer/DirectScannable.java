@@ -1,5 +1,5 @@
 /*
- * Scannable.java
+ * DirectScannable.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public interface Scannable {
+public interface DirectScannable {
 
     /**
      * Open a scan against this entity.

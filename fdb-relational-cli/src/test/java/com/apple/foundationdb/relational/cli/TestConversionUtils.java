@@ -1,5 +1,5 @@
 /*
- * Index.java
+ * TestConversionUtils.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,17 +18,18 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.cli;
 
-import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-@ConnectionScoped
-public interface Index extends DirectScannable, AutoCloseable {
+import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    Table getTable();
+public class TestConversionUtils {
 
-    @Override
-    void close() throws RelationalException;
-
+    @Test
+    void parseInvalidJsonMessageThrows() {
+        Assertions.assertThrows(RelationalException.class, () -> Utils.jsonToProto("[bla", Message.class), "could not parse json");
+    }
 }

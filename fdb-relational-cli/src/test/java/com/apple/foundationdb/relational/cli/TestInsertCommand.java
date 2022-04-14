@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.cli;
 
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -31,15 +29,16 @@ class TestInsertCommand {
     CliRule cli = new CliRule();
 
     @Test
-    void testInsert() throws RelationalException {
+    void testInsert() throws Exception {
         try {
             TestUtils.runCommand("createdb --path /test_insert_db --schema test_insert_schema --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.runCommand("connect jdbc:embed:/test_insert_db", cli);
             TestUtils.runCommand("config --no-pretty-print", cli);
+            TestUtils.runCommand("config --no-headers", cli);
             TestUtils.runCommand("setschema test_insert_schema", cli);
-            String insertRecord = "{\"rest_no\":\"42\",\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}";
+            String insertRecord = "{\"rest_no\":42,\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}";
             TestUtils.runCommand("insertinto com.apple.foundationdb.record.Restaurant$RestaurantRecord " + insertRecord, cli);
-            String actualRecord = TestUtils.runCommandGetOutput("select com.apple.foundationdb.record.Restaurant$RestaurantRecord", cli);
+            String actualRecord = TestUtils.runQueryGetOutput("select * from RestaurantRecord", cli);
             TestUtils.assertJsonObjects(insertRecord, actualRecord);
         } finally {
             TestUtils.deleteDb("test_insert_db", cli);

@@ -21,13 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -35,57 +35,35 @@ import com.google.protobuf.Message;
 import java.sql.SQLException;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
-    protected final Row startKey;
-    protected final Row endKey;
 
-    protected final RecordContextTransaction transaction;
+    @Nonnull
+    private final ResumableIterator<Row> currentCursor;
 
-    protected final Scannable scannable;
-    protected Continuation continuation;
+    // needed until TODO is fixed
+    @Nullable
+    private final RecordStoreConnection connection;
 
-    protected final QueryProperties scanProperties;
-
+    @Nonnull
     private final String[] fieldNames;
-
-    private ResumableIterator<Row> currentCursor;
 
     private Row currentRow;
 
-    public RecordLayerResultSet(Scannable scannable, Row start, Row end,
-                                RecordStoreConnection sourceConnection, QueryProperties scanProperties,
-                                Continuation continuation) throws RelationalException {
-        this.scannable = scannable;
-        this.startKey = start;
-        this.endKey = end;
-        this.transaction = sourceConnection.transaction;
-        this.fieldNames = scannable.getFieldNames();
-        this.scanProperties = scanProperties;
-        this.continuation = continuation;
-    }
-
-    public RecordLayerResultSet(Scannable scannable, Row start, Row end,
-                                RecordContextTransaction transaction, QueryProperties scanProperties,
-                                Continuation continuation) throws RelationalException {
-        this.scannable = scannable;
-        this.startKey = start;
-        this.endKey = end;
-        this.transaction = transaction;
-        this.fieldNames = scannable.getFieldNames();
-        this.scanProperties = scanProperties;
-        this.continuation = continuation;
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "internal implementation should have proper usage")
+    public RecordLayerResultSet(@Nonnull String[] fieldNames,
+                                @Nonnull final ResumableIterator<Row> iterator,
+                                @Nullable final RecordStoreConnection connection) throws RelationalException {
+        this.fieldNames = fieldNames;
+        this.currentCursor = iterator;
+        this.connection = connection;
     }
 
     @Override
     public boolean next() throws SQLException {
         currentRow = null;
-        if (currentCursor == null) {
-            try {
-                currentCursor = scannable.openScan(transaction, startKey, endKey, continuation, scanProperties);
-            } catch (RelationalException e) {
-                throw e.toSqlException();
-            }
-        }
 
         if (!currentCursor.hasNext()) {
             return false;
@@ -101,12 +79,19 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     public void close() throws SQLException {
-        if (currentCursor != null) {
-            try {
-                currentCursor.close();
-            } catch (RelationalException e) {
-                throw e.toSqlException();
+        try {
+            currentCursor.close();
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
+        try {
+            if (connection != null && connection.getAutoCommit() && connection.transaction != null) {
+                connection.transaction.commit();
+                connection.transaction.close();
+                connection.transaction = null;
             }
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
         }
     }
 
@@ -166,9 +151,6 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     public Continuation getContinuation() throws RelationalException {
-        if (currentCursor == null) {
-            currentCursor = scannable.openScan(transaction, startKey, endKey, continuation, scanProperties);
-        }
         return currentCursor.getContinuation();
     }
 }

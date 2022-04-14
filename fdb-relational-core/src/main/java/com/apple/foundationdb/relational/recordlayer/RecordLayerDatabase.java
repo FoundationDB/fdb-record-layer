@@ -121,6 +121,16 @@ public class RecordLayerDatabase implements RelationalDatabase {
 
         if (putBack) {
             schemas.put(schemaId, schema);
+            this.connection.transaction.addTerminationListener(() -> {
+                RecordLayerSchema rlSchema = schemas.remove(schemaId);
+                try {
+                    if (rlSchema != null) {
+                        rlSchema.close();
+                    }
+                } catch (RelationalException e) {
+                    throw new RuntimeException(e);
+                }
+            });
         }
         return schema;
     }

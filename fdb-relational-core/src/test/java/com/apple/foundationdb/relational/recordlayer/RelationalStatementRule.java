@@ -60,6 +60,12 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
 
     @Nonnull
     @Override
+    public RelationalResultSet executeQuery(@Nonnull String query, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException, SQLException {
+        return statement.executeQuery(query, options, queryProperties);
+    }
+
+    @Nonnull
+    @Override
     public RelationalResultSet executeQuery(@Nonnull Queryable query, @Nonnull Options options) throws RelationalException {
         return statement.executeQuery(query, options);
     }

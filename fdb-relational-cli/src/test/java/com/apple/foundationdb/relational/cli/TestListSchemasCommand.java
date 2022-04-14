@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Set;
@@ -34,18 +35,19 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 class TestListSchemasCommand {
-    private static final Pattern ASCII_TABLE_PATTERN = Pattern.compile("([─└┘│┌┐\\s]+)");
+    private static final Pattern ASCII_TABLE_PATTERN = Pattern.compile("([─└┘│┌┐┤├\\s]+)");
 
     @RegisterExtension
     CliRule cli = new CliRule();
 
     @Test
-    void testListSchemas() throws RelationalException, SQLException {
+    void testListSchemasWithPrettyPrinting() throws RelationalException, SQLException {
         try {
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaA --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaB --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaC --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.databaseHasSchemas("test_list_schemas_db", "testSchemaA", "testSchemaB", "testSchemaC");
+            TestUtils.runCommand("config --no-headers", cli);
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaA", "RestaurantRecord", "RestaurantReviewer");
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaB", "RestaurantRecord", "RestaurantReviewer");
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaC", "RestaurantRecord", "RestaurantReviewer");
@@ -58,20 +60,39 @@ class TestListSchemasCommand {
                     .filter(str -> !str.isBlank())
                     .collect(Collectors.toSet());
             Assertions.assertEquals(Set.of("testSchemaA", "testSchemaB", "testSchemaC"), possibleOutputs);
+        } finally {
+            TestUtils.deleteDb("test_list_schemas_db", cli);
+        }
+    }
+
+    @Test
+    void testListSchemasWithoutPrettyPrinting() throws RelationalException, SQLException {
+        try {
+            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaA --schema-template com.apple.foundationdb.record.Restaurant", cli);
+            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaB --schema-template com.apple.foundationdb.record.Restaurant", cli);
+            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaC --schema-template com.apple.foundationdb.record.Restaurant", cli);
+            TestUtils.databaseHasSchemas("test_list_schemas_db", "testSchemaA", "testSchemaB", "testSchemaC");
+            TestUtils.runCommand("config --no-headers", cli);
+            TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaA", "RestaurantRecord", "RestaurantReviewer");
+            TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaB", "RestaurantRecord", "RestaurantReviewer");
+            TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaC", "RestaurantRecord", "RestaurantReviewer");
+            TestUtils.runCommand("connect jdbc:embed:/test_list_schemas_db", cli);
+
+            //test with both pretty print and not pretty print, just to make sure that the printer works in both cases
 
             //now run again without it
             TestUtils.runCommand("config --no-pretty-print", cli);
-            possibleOutputs = ASCII_TABLE_PATTERN.splitAsStream(TestUtils.runCommandGetOutput("listschemas", cli))
+            Set<String> possibleOutputs = ASCII_TABLE_PATTERN.splitAsStream(TestUtils.runCommandGetOutput("listschemas", cli))
                     .filter(str -> !str.isBlank())
                     .collect(Collectors.toSet());
-            Assertions.assertEquals(Set.of("testSchemaA", "testSchemaB", "testSchemaC"), possibleOutputs);
+            Assertions.assertEquals(Set.of("{\"schemas\":testSchemaB}", "{\"schemas\":testSchemaC}", "{\"schemas\":testSchemaA}"), possibleOutputs);
         } finally {
             TestUtils.deleteDb("test_list_schemas_db", cli);
         }
     }
 
     @Disabled("this test documents current behavior: if we create a database _after_ connecting, we don't see it when calling listSchemas.")
-    void testListSchemasAfterCreateDb() throws RelationalException {
+    void testListSchemasAfterCreateDb() throws RelationalException, IOException {
         try {
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaC --schema-template com.apple.foundationdb.record.Restaurant", cli);
             TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaD --schema-template com.apple.foundationdb.record.Restaurant", cli);

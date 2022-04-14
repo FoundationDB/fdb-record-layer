@@ -32,7 +32,7 @@ import java.io.PrintWriter;
 @CommandLine.Command(name = "",
         subcommands = {
                 CreateDbCommand.class, ConnectCommand.class, DisconnectCommand.class, SetSchemaCommand.class,
-                InsertInto.class, SelectCommand.class, ConfCommand.class, PicocliCommands.ClearScreen.class,
+                InsertInto.class, ConfCommand.class, PicocliCommands.ClearScreen.class,
                 ListSchemas.class, CommandLine.HelpCommand.class})
 class CliCommands implements Runnable {
     PrintWriter out;

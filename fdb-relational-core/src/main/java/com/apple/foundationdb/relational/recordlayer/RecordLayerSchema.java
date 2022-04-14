@@ -120,6 +120,7 @@ public class RecordLayerSchema implements DatabaseSchema {
 
     /* ****************************************************************************************************************/
     /*package-private helper methods*/
+    @Nonnull
     FDBRecordStore loadStore() throws RelationalException {
         if (!this.conn.inActiveTransaction()) {
             if (this.conn.getAutoCommit()) {

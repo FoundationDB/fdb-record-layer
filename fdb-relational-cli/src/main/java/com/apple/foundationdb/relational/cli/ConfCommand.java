@@ -49,6 +49,8 @@ public class ConfCommand extends Command {
             } else {
                 dbState.setDelimiter(args.delimiter);
             }
+        } else if (args.headers != null) {
+            dbState.setDisplayHeaders(args.headers);
         }
     }
 
@@ -61,5 +63,8 @@ public class ConfCommand extends Command {
 
         @CommandLine.Option(names = "--delimiter", description = "record delimiter to output (required --no-pretty-print)")
         private String delimiter;
+
+        @CommandLine.Option(names = "--headers", description = "show / hide result set column headers", negatable = true)
+        private Boolean headers;
     }
 }

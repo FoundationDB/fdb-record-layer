@@ -1,5 +1,5 @@
 /*
- * TestSelectCommand.java
+ * TestQueryCommand.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,6 +22,9 @@ package com.apple.foundationdb.relational.cli;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,12 +35,16 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-class TestSelectCommand {
+/**
+ * This tests {@link QueryCommand}.
+ */
+class TestQueryCommand {
     private static final List<String> insertRecords = Arrays.asList(
-            "{\"rest_no\":\"42\",\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}",
-            "{\"rest_no\":\"43\",\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}",
-            "{\"rest_no\":\"44\",\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}");
+            "{\"rest_no\":42,\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}",
+            "{\"rest_no\":43,\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}",
+            "{\"rest_no\":44,\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}");
 
     @RegisterExtension
     CliRule cli = new CliRule();
@@ -48,6 +55,7 @@ class TestSelectCommand {
         TestUtils.runCommand("connect jdbc:embed:/test_select_command_db", cli);
         TestUtils.runCommand("config --no-pretty-print", cli);
         TestUtils.runCommand("config --delimiter ####", cli);
+        TestUtils.runCommand("config --headers", cli);
         TestUtils.runCommand("setschema test_select_schema", cli);
         TestUtils.insertIntoTable("test_select_command_db", "test_select_schema", "RestaurantRecord", "com.apple.foundationdb.record.Restaurant$RestaurantRecord", insertRecords);
     }
@@ -58,39 +66,35 @@ class TestSelectCommand {
     }
 
     @Test
-    void testSelect() {
-        String actualRecord = TestUtils.runCommandGetOutput("select com.apple.foundationdb.record.Restaurant$RestaurantRecord", cli);
+    void testSelect() throws Exception {
+        TestUtils.runCommand("config --no-headers", cli);
+        String actualRecord = TestUtils.runQueryGetOutput("select * from RestaurantRecord", cli);
         List<String> actualRecords = Arrays.stream(actualRecord.split("####")).filter(s -> !"\n".equals(s)).collect(Collectors.toList()); // poor man's way of getting array of records.
         TestUtils.assertJsonObjects(insertRecords, actualRecords);
+    }
+
+    @Test
+    void testSelectWithHeaders() throws Exception {
+        String actualRecord = TestUtils.runQueryGetOutput("select * from RestaurantRecord", cli);
+        List<String> actualRecords = Arrays.stream(actualRecord.split("####")).filter(s -> !"\n".equals(s)).collect(Collectors.toList()); // poor man's way of getting array of records.
+        Assertions.assertEquals(4, actualRecords.size());
+        JsonElement element = JsonParser.parseString(actualRecords.get(0));
+        Assertions.assertTrue(element.isJsonObject());
+        JsonObject object = (JsonObject) element;
+        Stream.of("rest_no", "name", "location", "reviews", "customer", "tags").forEach(e -> Assertions.assertTrue(object.has(e)));
+        TestUtils.assertJsonObjects(insertRecords, actualRecords.stream().skip(1).collect(Collectors.toUnmodifiableList()));
     }
 
     @Test
     void selectFailsWithNoSchemaSet() {
         TestUtils.runCommand("disconnect", cli);
         TestUtils.runCommand("connect jdbc:embed:/test_select_command_db", cli);
-        final String command = "select com.apple.foundationdb.record.Restaurant$RestaurantRecord";
-        int exitCode = cli.getCmd().execute(command.split("\\s+"));
-        Assertions.assertEquals(1, exitCode, "Exited with an unusual error code!");
-        String output = cli.getOutput();
-        Assertions.assertEquals("", output, "Incorrect output text");
-        String expectedError = "schema is not set";
-        Assertions.assertTrue(cli.getError().contains(expectedError),
-                "Missing expected error text. Actual text : <" + cli.getError() + ">. Does not include phrase <" + expectedError + ">");
+        Assertions.assertThrows(IllegalStateException.class, () -> TestUtils.runQueryGetOutput("select * from RestaurantRecord", cli), "schema is not set");
     }
 
     @Test
-    void selectFailsWithNoConnection() {
+    void selectFailsWithNoConnection() throws Exception {
         TestUtils.runCommand("disconnect", cli);
-        TestUtils.runCommand("config --bt", cli);
-        final String command = "select com.apple.foundationdb.record.Restaurant$RestaurantRecord";
-        int exitCode = cli.getCmd().execute(command.split("\\s+"));
-        Assertions.assertEquals(1, exitCode, "Exited with an unusual error code!");
-        String output = cli.getOutput();
-        Assertions.assertEquals("", output, "Incorrect output text");
-        String expectedError = "no open connection";
-        Assertions.assertTrue(cli.getError().contains(expectedError),
-                "Missing expected error text. Actual text : <" + cli.getError() + ">. Does not include phrase <" + expectedError + ">");
-        //look for the exception string--should be IllegalStateException
-        Assertions.assertTrue(cli.getError().contains("IllegalStateException"), "Missing Exception from error message--probably missing stack trace too");
+        Assertions.assertThrows(IllegalStateException.class, () -> TestUtils.runQueryGetOutput("select * from RestaurantRecord", cli), "no open connection");
     }
 }

@@ -36,16 +36,25 @@ import com.apple.foundationdb.relational.recordlayer.query.OrClause;
 import com.apple.foundationdb.relational.recordlayer.query.RelationalQuery;
 import com.apple.foundationdb.relational.recordlayer.query.ValueComparisonClause;
 
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+
+import javax.annotation.Nonnull;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -86,7 +95,7 @@ public class QueryTest {
     void canExecuteABasicQuery() throws RelationalException, SQLException {
         Queryable query = new RelationalQuery("RestaurantRecord", "test", null, null, false, QueryProperties.DEFAULT);
         try (final RelationalResultSet resultSet = statement.executeQuery(query, Options.create())) {
-            assertMatches(resultSet, insertedRecord);
+            assertMatches(resultSet, insertedRecord, false);
         }
     }
 
@@ -94,7 +103,7 @@ public class QueryTest {
     void basicQueryNoSchema() throws RelationalException, SQLException {
         Queryable query = new RelationalQuery("RestaurantRecord", null, null, null, false, QueryProperties.DEFAULT);
         try (final RelationalResultSet resultSet = statement.executeQuery(query, Options.create())) {
-            assertMatches(resultSet, insertedRecord);
+            assertMatches(resultSet, insertedRecord, false);
         }
     }
 
@@ -103,7 +112,7 @@ public class QueryTest {
         connection.setSchema(null);
         Queryable query = new RelationalQuery("test.RestaurantRecord", null, null, null, false, QueryProperties.DEFAULT);
         try (final RelationalResultSet resultSet = statement.executeQuery(query, Options.create())) {
-            assertMatches(resultSet, insertedRecord);
+            assertMatches(resultSet, insertedRecord, false);
         }
     }
 
@@ -156,7 +165,7 @@ public class QueryTest {
         WhereClause clause = new ValueComparisonClause("name", ValueComparisonClause.ComparisonType.EQUALS, insertedRecord.getName());
         Queryable query = new RelationalQuery("RestaurantRecord", "test", Arrays.asList("name", "name"), clause, false, QueryProperties.DEFAULT);
         try (final RelationalResultSet resultSet = statement.executeQuery(query, Options.create())) {
-            assertMatches(resultSet, insertedRecord);
+            assertMatches(resultSet, insertedRecord, true);
         }
     }
 
@@ -167,7 +176,7 @@ public class QueryTest {
         WhereClause clause = new OrClause(c1, c2);
         Queryable query = new RelationalQuery("RestaurantRecord", "test", Arrays.asList("name", "name"), clause, false, QueryProperties.DEFAULT);
         try (final RelationalResultSet resultSet = statement.executeQuery(query, Options.create())) {
-            assertMatches(resultSet, insertedRecord);
+            assertMatches(resultSet, insertedRecord, true);
         }
     }
 
@@ -180,22 +189,196 @@ public class QueryTest {
         Queryable query = new RelationalQuery("RestaurantRecord", "test",
                 Collections.singletonList("rest_no"), andClause, false, QueryProperties.DEFAULT);
         try (final RelationalResultSet resultSet = statement.executeQuery(query, Options.create())) {
-            assertMatches(resultSet, insertedRecord);
+            assertMatches(resultSet, insertedRecord, false);
+        }
+    }
+
+    @Test
+    void simpleSelect() throws RelationalException, SQLException {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, insertedRecord, false);
+        }
+    }
+
+    @Test
+    void selectWithPredicateVariants() throws RelationalException, SQLException {
+        Restaurant.RestaurantRecord r11 = insertRestaurantRecord(statement, 11);
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE rest_no > 10", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, r11, false);
+        }
+
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE rest_no >= 11", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, r11, false);
+        }
+
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE 10 < rest_no", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, r11, false);
+        }
+
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE 11 <= rest_no", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, r11, false);
+        }
+    }
+
+    @Test
+    void selectWithPredicateCompositionVariants() throws RelationalException, SQLException {
+        Restaurant.RestaurantRecord l42 = insertRestaurantRecord(statement, 42, "rest1");
+        Restaurant.RestaurantRecord l43 = insertRestaurantRecord(statement, 43, "rest1");
+        Restaurant.RestaurantRecord l44 = insertRestaurantRecord(statement, 44, "rest1");
+        Restaurant.RestaurantRecord l45 = insertRestaurantRecord(statement, 45, "rest2");
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE rest_no > 42 AND name = 'rest1'", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, List.of(l43, l44), this::convert);
+        }
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE name = 'rest2' OR name = 'rest1'", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, List.of(l42, l43, l44, l45), this::convert);
+        }
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE rest_no = (40+2)", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, List.of(l42), this::convert);
+        }
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE (40+2) = rest_no", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, List.of(l42), this::convert);
+        }
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE (44-2) = rest_no", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, List.of(l42), this::convert);
+        }
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE 0X2A = rest_no", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, List.of(l42), this::convert);
+        }
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE rest_no < -1", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, List.of(), this::convert);
+        }
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE 10 < -3.9", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, List.of(), this::convert);
+        }
+    }
+
+    @Test
+    void selectWithFalsePredicate() throws RelationalException, SQLException {
+        insertRestaurantRecord(statement, 11);
+        try (final RelationalResultSet resultSet = statement.executeQuery("select * from RestaurantRecord where 42 is null AND 11 = rest_no", Options.create(), QueryProperties.DEFAULT)) {
+            Assertions.assertFalse(resultSet.next());
+        }
+    }
+
+    @Test
+    void selectWithFalsePredicate2() throws RelationalException, SQLException {
+        insertRestaurantRecord(statement, 11);
+        try (final RelationalResultSet resultSet = statement.executeQuery("select * from RestaurantRecord where true = false", Options.create(), QueryProperties.DEFAULT)) {
+            Assertions.assertFalse(resultSet.next());
+        }
+    }
+
+    @Test
+    void projectIndividualColumns() throws RelationalException, SQLException {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantRecord WHERE 11 <= rest_no", Options.create(), QueryProperties.DEFAULT)) {
+
+            while (resultSet.next()) {
+                Assertions.assertEquals("testName", resultSet.getString(1));
+            }
+        }
+    }
+
+    @Test
+    void projectIndividualQualifiedColumns() throws RelationalException, SQLException {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT RestaurantRecord.name FROM RestaurantRecord WHERE 11 <= rest_no", Options.create(), QueryProperties.DEFAULT)) {
+
+            while (resultSet.next()) {
+                Assertions.assertEquals("testName", resultSet.getString(1));
+            }
+        }
+    }
+
+    @Test
+    void projectIndividualQualifiedColumnsOverAlias() throws RelationalException, SQLException {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantRecord AS X WHERE 11 <= rest_no", Options.create(), QueryProperties.DEFAULT)) {
+
+            while (resultSet.next()) {
+                Assertions.assertEquals("testName", resultSet.getString(1));
+            }
+        }
+    }
+
+    @Test
+    void projectIndividualQualifiedColumnsOverAlias2() throws RelationalException, SQLException {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT X.name FROM RestaurantRecord AS X WHERE 11 <= rest_no", Options.create(), QueryProperties.DEFAULT)) {
+
+            while (resultSet.next()) {
+                Assertions.assertEquals("testName", resultSet.getString(1));
+            }
+        }
+    }
+
+    @Disabled // until we fix the implicit fetch operator in record layer.
+    void projectIndividualPredicateColumns() throws RelationalException, SQLException {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT rest_no FROM RestaurantRecord WHERE 11 <= rest_no", Options.create(), QueryProperties.DEFAULT)) {
+            while (resultSet.next()) {
+                Assertions.assertEquals(11L, resultSet.getLong(1));
+            }
+        }
+    }
+
+    @Disabled // until we implement operators for type promotion and casts in record layer.
+    void predicateWithImplicitCast() throws RelationalException, SQLException {
+        Restaurant.RestaurantRecord l42 = insertRestaurantRecord(statement, 42, "rest1");
+        Restaurant.RestaurantRecord l43 = insertRestaurantRecord(statement, 43, "rest1");
+        Restaurant.RestaurantRecord l44 = insertRestaurantRecord(statement, 44, "rest1");
+        Restaurant.RestaurantRecord l45 = insertRestaurantRecord(statement, 45, "rest2");
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE rest_no > 40.5", Options.create(), QueryProperties.DEFAULT)) {
+            assertMatches(resultSet, List.of(l42, l43, l44, l45), this::convert);
         }
     }
 
     private Restaurant.RestaurantRecord insertRestaurantRecord(RelationalStatement s) throws RelationalException {
-        Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(System.currentTimeMillis()).setName("testName").build();
+        return insertRestaurantRecord(s, 10);
+    }
+
+    private Restaurant.RestaurantRecord insertRestaurantRecord(RelationalStatement s, int recordNumber) throws RelationalException {
+        return insertRestaurantRecord(s, recordNumber, "testName");
+    }
+
+    private Restaurant.RestaurantRecord insertRestaurantRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName) throws RelationalException {
+        Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(recordNumber).setName(recordName).setLocation(Restaurant.Location.newBuilder().setAddress("address").build()).build();
         int cnt = s.executeInsert("RestaurantRecord", Collections.singleton(rec), Options.create());
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return rec;
     }
 
-    private void assertMatches(RelationalResultSet resultSet, Restaurant.RestaurantRecord rec) throws SQLException {
+    private void assertMatches(RelationalResultSet resultSet, Restaurant.RestaurantRecord rec, boolean ignoreNested) throws SQLException {
         Assertions.assertNotNull(resultSet, "Did not return a result set!");
         Assertions.assertTrue(resultSet.next(), "Did not return a record!");
         Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
-        Assertions.assertEquals(rec, resultSet.parseMessage(), "Incorrect returned record!");
-        Assertions.assertFalse(resultSet.next(), "Has more than one row!");
+        try {
+            Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
+            Restaurant.RestaurantRecord actual = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
+            if (ignoreNested) {
+                Assertions.assertEquals(rec.getName(), actual.getName());
+                Assertions.assertEquals(rec.getRestNo(), actual.getRestNo());
+            } else {
+                Assertions.assertEquals(rec, actual, "Incorrect returned record!");
+                Assertions.assertFalse(resultSet.next(), "Has more than one row!");
+            }
+        } catch (InvalidProtocolBufferException e) {
+            Assertions.fail();
+        }
+    }
+
+    private <M extends Message> void assertMatches(RelationalResultSet resultSet, Collection<M> rec, Function<M, M> adapter) throws SQLException {
+        Assertions.assertNotNull(resultSet, "Did not return a result set!");
+        Set<M> expected = new HashSet<>(rec);
+        Set<M> actual = new HashSet<>();
+        while (resultSet.next()) {
+            Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
+            actual.add(adapter.apply(resultSet.parseMessage()));
+        }
+        Assertions.assertEquals(expected, actual);
+    }
+
+    private Message convert(Message message) {
+        try {
+            return Restaurant.RestaurantRecord.parseFrom(message.toByteArray());
+        } catch (InvalidProtocolBufferException e) {
+            Assertions.fail("message conversion failed!");
+            return null;
+        }
     }
 }

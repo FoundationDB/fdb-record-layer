@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
 
 
 @ConnectionScoped
-public interface Table extends Scannable, AutoCloseable {
+public interface Table extends DirectScannable, AutoCloseable {
 
     @Nonnull
     DatabaseSchema getSchema();

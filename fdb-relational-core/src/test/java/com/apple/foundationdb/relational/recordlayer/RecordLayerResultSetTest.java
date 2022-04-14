@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -40,28 +38,20 @@ class RecordLayerResultSetTest {
 
     ResumableIterator<Row> cursor;
 
+    @SuppressWarnings("unchecked")
     RecordLayerResultSetTest() throws RelationalException {
-        Scannable scannable = Mockito.mock(Scannable.class);
-        Mockito.when(scannable.getFieldNames()).thenReturn(new String[]{"a", "b"});
-
+        cursor = (ResumableIterator<Row>) Mockito.mock(ResumableIterator.class);
         resultSet = new RecordLayerResultSet(
-                scannable,
-                Mockito.mock(Row.class),
-                Mockito.mock(Row.class),
-                Mockito.mock(RecordStoreConnection.class),
-                Mockito.mock(QueryProperties.class),
-                Mockito.mock(Continuation.class));
+                new String[]{"a", "b"},
+                cursor,
+                Mockito.mock(RecordStoreConnection.class));
     }
 
-    @SuppressWarnings("unchecked")
     private void mockNext(boolean next, Row keyValue) throws RelationalException {
-        cursor = (ResumableIterator<Row>) Mockito.mock(ResumableIterator.class);
         Mockito.when(cursor.hasNext()).thenReturn(next);
         if (next) {
             Mockito.when(cursor.next()).thenReturn(keyValue);
         }
-        Mockito.when(resultSet.scannable.openScan(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
-                .thenReturn(cursor);
     }
 
     private void mockNext(boolean next) throws RelationalException {
@@ -79,13 +69,6 @@ class RecordLayerResultSetTest {
     void nextFalse() throws RelationalException, SQLException {
         mockNext(false);
         Assertions.assertFalse(resultSet.next());
-    }
-
-    @Test
-    void nextThrow() throws RelationalException {
-        Mockito.when(resultSet.scannable.openScan(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
-                .thenThrow(new RelationalException("fake exception", ErrorCode.UNKNOWN_SCHEMA));
-        RelationalAssertions.assertThrowsSqlException(() -> resultSet.next(), ErrorCode.UNKNOWN_SCHEMA);
     }
 
     @Test

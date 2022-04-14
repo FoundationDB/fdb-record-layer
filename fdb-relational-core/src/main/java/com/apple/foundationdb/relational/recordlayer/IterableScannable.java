@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
  *
  * @param <T> the type of the iterator which is iterated over
  */
-public class IterableScannable<T> implements Scannable {
+public class IterableScannable<T> implements DirectScannable {
     private final Iterable<T> iterable;
     private final Function<T, Row> transform;
     private final String[] fieldNames;

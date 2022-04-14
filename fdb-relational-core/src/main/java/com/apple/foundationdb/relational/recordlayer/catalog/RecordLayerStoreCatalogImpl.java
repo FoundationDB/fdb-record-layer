@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -47,11 +46,8 @@ import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
-import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
-import com.apple.foundationdb.relational.recordlayer.Scannable;
-import com.apple.foundationdb.relational.recordlayer.SuppliedScannable;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Descriptors;
@@ -111,8 +107,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from("DatabaseInfo");
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformDatabaseInfo), getFieldNames(CatalogData.DatabaseInfo.getDescriptor()));
-        return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
+        return new RecordLayerResultSet(getFieldNames(CatalogData.DatabaseInfo.getDescriptor()), RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null /* caller is responsible for managing tx state */);
     }
 
     @Override
@@ -120,8 +115,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from("Schema");
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformSchema), getFieldNames(CatalogData.Schema.getDescriptor()));
-        return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
+        return new RecordLayerResultSet(getFieldNames(CatalogData.Schema.getDescriptor()), RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
     }
 
     @Override
@@ -129,8 +123,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from("Schema", databaseId.getPath());
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Scannable scannable = new SuppliedScannable(() -> RecordLayerIterator.create(cursor, this::transformSchema), getFieldNames(CatalogData.Schema.getDescriptor()));
-        return new RecordLayerResultSet(scannable, null, null, new RecordContextTransaction(txn.unwrap(FDBRecordContext.class)), QueryProperties.DEFAULT, continuation);
+        return new RecordLayerResultSet(getFieldNames(CatalogData.Schema.getDescriptor()), RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
     }
 
     private Row transformSchema(FDBStoredRecord<Message> record) {
