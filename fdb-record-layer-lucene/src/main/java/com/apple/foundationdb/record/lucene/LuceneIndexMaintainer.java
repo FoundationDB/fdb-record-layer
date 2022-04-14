@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
@@ -49,7 +50,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndex
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Message;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
@@ -81,8 +81,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getOrCreateIndexWriter;
-
 /**
  * Index maintainer for Lucene Indexes backed by FDB.  The insert, update, and delete functionality
  * coupled with the scan functionality is implemented here.
@@ -91,6 +89,7 @@ import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.g
 @API(API.Status.EXPERIMENTAL)
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
+    private final FDBDirectoryManager directoryManager;
     private final Analyzer indexAnalyzer;
     private final Analyzer queryAnalyzer;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
@@ -102,6 +101,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer) {
         super(state);
         this.executor = executor;
+        this.directoryManager = FDBDirectoryManager.getManager(state);
         this.indexAnalyzer = indexAnalyzer;
         this.queryAnalyzer = queryAnalyzer;
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
@@ -236,7 +236,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
                                byte[] primaryKey) throws IOException {
-        final IndexWriter newWriter = getOrCreateIndexWriter(state, indexAnalyzer, executor, groupingKey);
+        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzer);
         BytesRef ref = new BytesRef(primaryKey);
         Document document = new Document();
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
@@ -253,7 +253,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
-        final IndexWriter oldWriter = getOrCreateIndexWriter(state, indexAnalyzer, executor, groupingKey);
+        final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzer);
         Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
         oldWriter.deleteDocuments(query);
     }
@@ -310,8 +310,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private AnalyzingInfixSuggester getSuggester(@Nullable Tuple groupingKey) {
-        return AutoCompleteSuggesterCommitCheckAsync.getOrCreateSuggester(state, indexAnalyzer, queryAnalyzer,
-                highlightForAutoCompleteIfEnabled, executor, groupingKey == null ? TupleHelpers.EMPTY : groupingKey);
+        return directoryManager.getAutocompleteSuggester(groupingKey, indexAnalyzer, queryAnalyzer, highlightForAutoCompleteIfEnabled);
     }
 
     private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
@@ -401,14 +400,15 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
         LOG.trace("canDeleteWhere matcher={}", matcher);
-        return false;
+        return canDeleteGroup(matcher, evaluated);
     }
 
     @Override
     @Nonnull
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
         LOG.trace("deleteWhere transaction={}, prefix={}", tr, prefix);
-        return AsyncUtil.DONE;
+        directoryManager.invalidatePrefix(prefix);
+        return super.deleteWhere(tr, prefix);
     }
 
     @Override
@@ -418,6 +418,4 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return CompletableFuture.completedFuture(new IndexOperationResult() {
         });
     }
-
-
 }
