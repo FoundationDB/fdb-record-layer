@@ -40,6 +40,12 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 
+/**
+ * Wrapper containing an {@link FDBDirectory} and cached accessor objects (like {@link IndexWriter}s). This object
+ * is designed to be held by the {@link FDBDirectoryManager}, with one object cached per open directory. Because the
+ * {@link FDBDirectory} contains cached information from FDB, it is important for cache coherency that all writers
+ * (etc.) accessing that directory go through the same wrapper object so that they share a common cache.
+ */
 class FDBDirectoryWrapper implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryWrapper.class);
 
