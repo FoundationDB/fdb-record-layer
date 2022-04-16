@@ -51,7 +51,6 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.Field;
@@ -73,6 +72,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -80,6 +80,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 /**
  * Index maintainer for Lucene Indexes backed by FDB.  The insert, update, and delete functionality
@@ -90,20 +91,21 @@ import java.util.concurrent.Executor;
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
     private final FDBDirectoryManager directoryManager;
-    private final Analyzer indexAnalyzer;
-    private final Analyzer queryAnalyzer;
+    private final AnalyzerChooser indexAnalyzerChooser;
+    private final AnalyzerChooser queryAnalyzerChooser;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
     private final boolean autoCompleteEnabled;
     private final boolean highlightForAutoCompleteIfEnabled;
 
-    public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer) {
+    public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor,
+                                 @Nonnull AnalyzerChooser indexAnalyzerChooser, @Nonnull AnalyzerChooser queryAnalyzerChooser) {
         super(state);
         this.executor = executor;
         this.directoryManager = FDBDirectoryManager.getManager(state);
-        this.indexAnalyzer = indexAnalyzer;
-        this.queryAnalyzer = queryAnalyzer;
+        this.indexAnalyzerChooser = indexAnalyzerChooser;
+        this.queryAnalyzerChooser = queryAnalyzerChooser;
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
         this.highlightForAutoCompleteIfEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_HIGHLIGHT, false);
     }
@@ -144,8 +146,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
             }
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
-            return new LuceneAutoCompleteResultCursor(getSuggester(scanAutoComplete.getGroupKey()), scanAutoComplete.getKeyToComplete(),
-                    executor, scanProperties, state, scanAutoComplete.getGroupKey(), highlightForAutoCompleteIfEnabled);
+            try {
+                return new LuceneAutoCompleteResultCursor(getSuggester(scanAutoComplete.getGroupKey(),
+                        Collections.singletonList(scanAutoComplete.getKeyToComplete())), scanAutoComplete.getKeyToComplete(),
+                        executor, scanProperties, state, scanAutoComplete.getGroupKey(), highlightForAutoCompleteIfEnabled);
+            } catch (IOException ex) {
+                throw new RecordCoreException("Exception to get suggester for auto-complete search", ex)
+                        .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
+            }
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
@@ -236,12 +244,16 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
                                byte[] primaryKey) throws IOException {
-        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzer);
+        final List<String> texts = fields.stream()
+                .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
+                .map(f -> (String) f.getValue()).collect(Collectors.toList());
+        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey,
+                indexAnalyzerChooser.chooseAnalyzer(texts));
         BytesRef ref = new BytesRef(primaryKey);
         Document document = new Document();
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-        final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey) : null;
+        final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey, texts) : null;
         boolean suggestionAdded = false;
         for (LuceneDocumentFromRecord.DocumentField field : fields) {
             suggestionAdded = insertField(field, document, suggester) || suggestionAdded;
@@ -253,7 +265,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
-        final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzer);
+        final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerChooser.chooseAnalyzer(""));
         Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
         oldWriter.deleteDocuments(query);
     }
@@ -309,8 +321,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return AsyncUtil.DONE;
     }
 
-    private AnalyzingInfixSuggester getSuggester(@Nullable Tuple groupingKey) {
-        return directoryManager.getAutocompleteSuggester(groupingKey, indexAnalyzer, queryAnalyzer, highlightForAutoCompleteIfEnabled);
+    private AnalyzingInfixSuggester getSuggester(@Nullable Tuple groupingKey, @Nonnull List<String> texts) throws IOException {
+        return directoryManager.getAutocompleteSuggester(groupingKey, indexAnalyzerChooser.chooseAnalyzer(texts),
+                queryAnalyzerChooser.chooseAnalyzer(texts), highlightForAutoCompleteIfEnabled);
     }
 
     private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {

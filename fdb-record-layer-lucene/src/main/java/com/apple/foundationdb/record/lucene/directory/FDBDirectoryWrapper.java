@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedBlendedInfixSuggester;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -55,6 +55,12 @@ class FDBDirectoryWrapper implements AutoCloseable {
     private volatile IndexWriter writer;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile AnalyzingInfixSuggester suggester;
+    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
+    private volatile String writerAnalyzerId;
+    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
+    private volatile String suggesterIndexAnalyzerId;
+    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
+    private volatile String suggesterQueryAnalyzerId;
 
     FDBDirectoryWrapper(IndexMaintainerState state, FDBDirectory directory) {
         this.state = state;
@@ -75,14 +81,14 @@ class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @Nonnull
-    public IndexWriter getWriter(Analyzer analyzer) throws IOException {
-        if (writer == null) {
+    public IndexWriter getWriter(LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
+        if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
             synchronized (this) {
-                if (writer == null) {
+                if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
                     TieredMergePolicy tieredMergePolicy = new TieredMergePolicy()
                             .setMaxMergedSegmentMB(Math.max(0.0, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE)));
                     tieredMergePolicy.setNoCFSRatio(1.00);
-                    IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzer)
+                    IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzerWrapper.getAnalyzer())
                             .setUseCompoundFile(true)
                             .setMergePolicy(tieredMergePolicy)
                             .setMergeScheduler(new ConcurrentMergeScheduler() {
@@ -94,7 +100,13 @@ class FDBDirectoryWrapper implements AutoCloseable {
                             })
                             .setCodec(new LuceneOptimizedCodec())
                             .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
+
+                    IndexWriter oldWriter = writer;
+                    if (oldWriter != null) {
+                        oldWriter.close();
+                    }
                     writer = new IndexWriter(directory, indexWriterConfig);
+                    writerAnalyzerId = analyzerWrapper.getUniqueIdentifier();
                 }
             }
         }
@@ -102,13 +114,25 @@ class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @Nonnull
-    public AnalyzingInfixSuggester getAutocompleteSuggester(@Nonnull Analyzer indexAnalyzer,
-                                                            @Nonnull Analyzer queryAnalyzer,
-                                                            boolean highlight) {
-        if (suggester == null) {
+    public AnalyzingInfixSuggester getAutocompleteSuggester(@Nonnull LuceneAnalyzerWrapper indexAnalyzerWrapper,
+                                                            @Nonnull LuceneAnalyzerWrapper queryAnalyzerWrapper,
+                                                            boolean highlight) throws IOException {
+        if (suggester == null
+                || !suggesterIndexAnalyzerId.equals(indexAnalyzerWrapper.getUniqueIdentifier())
+                || !suggesterQueryAnalyzerId.equals(queryAnalyzerWrapper.getUniqueIdentifier())) {
             synchronized (this) {
-                if (suggester == null) {
-                    suggester = LuceneOptimizedWrappedBlendedInfixSuggester.getSuggester(state, directory, indexAnalyzer, queryAnalyzer, highlight);
+                if (suggester == null
+                        || !suggesterIndexAnalyzerId.equals(indexAnalyzerWrapper.getUniqueIdentifier())
+                        || !suggesterQueryAnalyzerId.equals(queryAnalyzerWrapper.getUniqueIdentifier())) {
+                    AnalyzingInfixSuggester oldSuggester = suggester;
+                    if (oldSuggester != null) {
+                        oldSuggester.close();
+                    }
+
+                    suggester = LuceneOptimizedWrappedBlendedInfixSuggester.getSuggester(state, directory,
+                            indexAnalyzerWrapper.getAnalyzer(), queryAnalyzerWrapper.getAnalyzer(), highlight);
+                    suggesterIndexAnalyzerId = indexAnalyzerWrapper.getUniqueIdentifier();
+                    suggesterQueryAnalyzerId = queryAnalyzerWrapper.getUniqueIdentifier();
                 }
             }
         }
@@ -121,10 +145,13 @@ class FDBDirectoryWrapper implements AutoCloseable {
         if (indexWriter != null) {
             indexWriter.close();
             writer = null;
+            writerAnalyzerId = null;
         }
         if (suggester != null) {
             suggester.close();
             suggester = null;
+            suggesterIndexAnalyzerId = null;
+            suggesterQueryAnalyzerId = null;
         }
         directory.close();
     }

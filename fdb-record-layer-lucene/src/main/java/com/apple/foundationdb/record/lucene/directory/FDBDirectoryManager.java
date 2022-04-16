@@ -23,13 +23,13 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
@@ -109,22 +109,22 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @Nonnull
-    public IndexWriter getIndexWriter(@Nullable Tuple groupingKey, @Nonnull Analyzer analyzer) throws IOException {
-        return getDirectoryWrapper(groupingKey).getWriter(analyzer);
+    public IndexWriter getIndexWriter(@Nullable Tuple groupingKey, @Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
+        return getDirectoryWrapper(groupingKey).getWriter(analyzerWrapper);
     }
 
     @Nonnull
     public AnalyzingInfixSuggester getAutocompleteSuggester(@Nullable Tuple groupingKey,
-                                                            @Nonnull Analyzer analyzer,
-                                                            @Nonnull Analyzer queryAnalyzer,
-                                                            boolean highlight) {
+                                                            @Nonnull LuceneAnalyzerWrapper indexAnalyzerWrapper,
+                                                            @Nonnull LuceneAnalyzerWrapper queryAnalyzerWrapper,
+                                                            boolean highlight) throws IOException {
         // The auto complete suggester reads and writes from a separate directory from the main
         // directory used for Lucene indexes, so add a suffix to the groupingKey to separate it
         // from the other Lucene index data but so that the data are still prefixed by the grouping key,
         // which is necessary for range deletes
         Tuple autoCompleteKey = groupingKey == null ? AUTO_COMPLETE_SUFFIX : groupingKey.addAll(AUTO_COMPLETE_SUFFIX);
         return getDirectoryWrapper(autoCompleteKey)
-                .getAutocompleteSuggester(analyzer, queryAnalyzer, highlight);
+                .getAutocompleteSuggester(indexAnalyzerWrapper, queryAnalyzerWrapper, highlight);
     }
 
     @Nonnull

@@ -73,6 +73,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.index.IndexFileNames;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -164,20 +165,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
 
     private static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_NAME,
+            ImmutableMap.of(LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
                     IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
 
     private static final Index SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
-                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME,
+                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.CONFIG_NAME));
 
     private static final String COMBINED_SYNONYM_SETS = "COMBINED_SYNONYM_SETS";
 
     private static final Index SYNONYM_LUCENE_COMBINED_SETS_INDEX = new Index("synonym_combined_sets_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
-                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME,
+                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, COMBINED_SYNONYM_SETS));
 
     private static final Index SPELLCHECK_INDEX = new Index(
@@ -204,6 +205,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true"));
+
+    private static final Index ANALYZER_CHOOSER_TEST_LUCENE_INDEX = new Index("analyzer_chooser_test_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(
+                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, TestAnalyzerFactory.ANALYZER_FACTORY_NAME));
 
     private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
                                                 "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
@@ -1273,6 +1278,27 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void analyzerChooserTest() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, ANALYZER_CHOOSER_TEST_LUCENE_INDEX);
+
+            // Synonym analyzer is chosen due to the keyword "synonym" from the text
+            recordStore.saveRecord(createSimpleDocument(1623L, "synonym food", 1));
+            assertEquals(1, recordStore.scanIndex(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, fullTextSearch(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, "nutrient"), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            assertEquals(0, recordStore.scanIndex(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, fullTextSearch(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, "foo"), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+
+            // Ngram analyzer is chosen due to no keyword "synonym" from the text
+            recordStore.saveRecord(createSimpleDocument(1624L, "ngram motivation", 1));
+            assertEquals(0, recordStore.scanIndex(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, fullTextSearch(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, "need"), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            assertEquals(1, recordStore.scanIndex(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, fullTextSearch(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, "motivatio"), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+        }
+    }
+
     public static String[] generateRandomWords(int numberOfWords) {
         assert numberOfWords > 0 : "Number of words have to be greater than 0";
         StringBuilder builder = new StringBuilder();
@@ -1442,5 +1468,39 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(document, index);
         });
+    }
+
+    /**
+     * A testing analyzer factory to verify the logic for {@link AnalyzerChooser}.
+     */
+    @AutoService(LuceneAnalyzerFactory.class)
+    public static class TestAnalyzerFactory implements LuceneAnalyzerFactory {
+        private static final String ANALYZER_FACTORY_NAME = "TEST_ANALYZER";
+
+        @Override
+        @Nonnull
+        public String getName() {
+            return ANALYZER_FACTORY_NAME;
+        }
+
+        @Override
+        @Nonnull
+        public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
+            return new TestAnalyzerChooser();
+        }
+    }
+
+    private static class TestAnalyzerChooser implements AnalyzerChooser {
+        @Override
+        @Nonnull
+        public LuceneAnalyzerWrapper chooseAnalyzer(@Nonnull List<String> texts) {
+            if (texts.stream().filter(t -> t.contains("synonym")).findAny().isPresent()) {
+                return new LuceneAnalyzerWrapper("TEST_SYNONYM",
+                        new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, EnglishSynonymMapConfig.CONFIG_NAME));
+            } else {
+                return new LuceneAnalyzerWrapper("TEST_NGRAM",
+                        new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, 3, 30, false));
+            }
+        }
     }
 }
