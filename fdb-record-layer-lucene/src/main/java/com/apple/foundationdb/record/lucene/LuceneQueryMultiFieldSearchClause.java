@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
@@ -63,11 +62,11 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
 
     @Override
     public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-        final Pair<Analyzer, Analyzer> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(index);
+        final Pair<AnalyzerChooser, AnalyzerChooser> analyzerChooserPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index);
         final String[] fieldNames = LuceneScanParameters.indexTextFields(index, store.getRecordMetaData()).toArray(new String[0]);
-        final QueryParser parser = new MultiFieldQueryParser(fieldNames, analyzerPair.getRight());
-        parser.setDefaultOperator(QueryParser.Operator.OR);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
+        final QueryParser parser = new MultiFieldQueryParser(fieldNames, analyzerChooserPair.getRight().chooseAnalyzer(searchString).getAnalyzer());
+        parser.setDefaultOperator(QueryParser.Operator.OR);
         try {
             return parser.parse(searchString);
         } catch (Exception ioe) {

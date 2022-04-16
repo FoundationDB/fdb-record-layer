@@ -183,7 +183,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     protected void openRecordStoreWithNgramIndex(FDBRecordContext context, boolean edgesOnly, int minSize, int maxSize) {
         final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
-                ImmutableMap.of(LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_NAME,
+                ImmutableMap.of(LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME,
                         IndexOptions.TEXT_TOKEN_MIN_SIZE, String.valueOf(minSize),
                         IndexOptions.TEXT_TOKEN_MAX_SIZE, String.valueOf(maxSize),
                         LuceneIndexOptions.NGRAM_TOKEN_EDGES_ONLY, String.valueOf(edgesOnly)));
@@ -193,7 +193,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     protected void openRecordStoreWithSynonymIndex(FDBRecordContext context) {
         final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
                 ImmutableMap.of(
-                        LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME,
+                        LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                         LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.CONFIG_NAME));
         openRecordStore(context, store -> { }, ngramIndex);
     }

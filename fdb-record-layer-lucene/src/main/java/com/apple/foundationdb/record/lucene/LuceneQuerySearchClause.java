@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
 
@@ -74,9 +73,9 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
 
     @Override
     public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-        final Pair<Analyzer, Analyzer> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(index);
-        final QueryParser parser = new QueryParser(defaultField, analyzerPair.getRight());
+        final Pair<AnalyzerChooser, AnalyzerChooser> analyzerChooserPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
+        final QueryParser parser = new QueryParser(defaultField, analyzerChooserPair.getRight().chooseAnalyzer(searchString).getAnalyzer());
         try {
             return parser.parse(searchString);
         } catch (Exception ioe) {
