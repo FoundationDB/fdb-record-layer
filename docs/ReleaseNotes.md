@@ -38,6 +38,9 @@ This version of the Record Layer changes the Java source and target compatibilit
 // end next release
 -->
 
+### 3.1.252.0
+
+
 ### 3.1.251.0
 
 * **Bug fix** Scans of empty Lucene index now return an empty cursor instead of throwing and error [(Issue #1597)](https://github.com/FoundationDB/fdb-record-layer/issues/1597)
