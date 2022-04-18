@@ -29,24 +29,30 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -151,7 +157,7 @@ class TransactionalRunnerTest extends FDBTestBase {
 
             // Commit something and cache just the read version
             long firstReadVersion;
-            final Function<FDBRecordContext, CompletableFuture<Long>> getReadVersionWithWriteConflict = context -> {
+            final Function<FDBRecordContext, CompletableFuture<? extends Long>> getReadVersionWithWriteConflict = context -> {
                 context.ensureActive().addWriteConflictKey(key);
                 return context.getReadVersionAsync();
             };
@@ -256,8 +262,7 @@ class TransactionalRunnerTest extends FDBTestBase {
             final byte[] key = Tuple.from(UUID.randomUUID()).pack(); // not actually modified, so value doesn't matter
 
             // Commit something and cache just the read version
-            long firstReadVersion;
-            final Function<FDBRecordContext, CompletableFuture<Long>> getReadVersionWithWriteConflict = context -> {
+            final Function<FDBRecordContext, CompletableFuture<? extends Long>> getReadVersionWithWriteConflict = context -> {
                 context.ensureActive().addWriteConflictKey(key);
                 return context.getReadVersionAsync();
             };
@@ -278,11 +283,70 @@ class TransactionalRunnerTest extends FDBTestBase {
                 assertEquals(weakReadSemantics, contextConfigBuilder.getWeakReadSemantics());
                 assertNotEquals(readVersion, runner.runAsync(true, getReadVersionWithWriteConflict)
                         .join());
-                // clearing the weak read semantics should not clear it on the config bulider passed in
+                // clearing the weak read semantics should not clear it on the config builder passed in
                 assertEquals(weakReadSemantics, contextConfigBuilder.getWeakReadSemantics());
             } finally {
                 database.setTrackLastSeenVersionOnRead(tracksReadVersions);
                 database.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
+            }
+        }
+    }
+
+    @Test
+    void runSynchronously() {
+        final Random random = new Random();
+        final byte[] key = randomBytes(100, random);
+        key[0] = 0x10; // to make sure it doesn't end up in unwritable space
+        final byte[] value = randomBytes(200, random);
+        Set<Thread> threads = Collections.synchronizedSet(new HashSet<>());
+        try (TransactionalRunner runner = defaultTransactionalRunner()) {
+            final String result = runner.run(false, context -> {
+                threads.add(Thread.currentThread());
+                context.ensureActive().set(key, value);
+                return "boo";
+            });
+            assertEquals("boo", result);
+
+            assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
+            assertEquals(Set.of(Thread.currentThread()), threads);
+        }
+    }
+
+    @ParameterizedTest(name = "closesAfterCompletion({argumentsWithNames})")
+    @BooleanSource
+    void closesAfterCompletion(boolean success) {
+        final Random random = new Random();
+        final byte[] key = randomBytes(100, random);
+        key[0] = 0x10; // to make sure it doesn't end up in unwritable space
+        final byte[] value = randomBytes(200, random);
+        AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
+        try (TransactionalRunner runner = defaultTransactionalRunner()) {
+            final Exception cause = new Exception("ABORT");
+            final CompletableFuture<String> runResult = runner.runAsync(false, context -> {
+                context.ensureActive().set(key, value);
+                contextRef.set(context);
+                CompletableFuture<String> future = new CompletableFuture<>();
+                if (success) {
+                    future.complete("boo");
+                } else {
+                    future.completeExceptionally(cause);
+                }
+                return future;
+            });
+            final CompletionException exception;
+            if (success) {
+                assertEquals("boo", runResult.join());
+                exception = null;
+            } else {
+                exception = assertThrows(CompletionException.class, runResult::join);
+            }
+            assertTrue(contextRef.get().isClosed());
+
+            if (success) {
+                assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
+            } else {
+                assertEquals(cause, exception.getCause());
+                assertArrayEquals(null, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
             }
         }
     }

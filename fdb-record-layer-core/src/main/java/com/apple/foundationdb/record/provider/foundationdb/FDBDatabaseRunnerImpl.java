@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
+import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
 import org.apache.commons.lang3.tuple.Pair;
@@ -55,6 +56,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
 
     @Nonnull
     private final FDBDatabase database;
+    private final TransactionalRunner transactionalRunner;
     @Nonnull
     private FDBRecordContextConfig.Builder contextConfigBuilder;
     @Nonnull
@@ -66,8 +68,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
 
     private boolean closed;
     @Nonnull
-    private final List<FDBRecordContext> contextsToClose;
-    @Nonnull
     private final List<CompletableFuture<?>> futuresToCompleteExceptionally;
 
     @API(API.Status.INTERNAL)
@@ -75,13 +75,13 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         this.database = database;
         this.contextConfigBuilder = contextConfigBuilder;
         this.executor = database.newContextExecutor(contextConfigBuilder.getMdcContext());
+        this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
 
         final FDBDatabaseFactory factory = database.getFactory();
         this.maxAttempts = factory.getMaxAttempts();
         this.maxDelayMillis = factory.getMaxDelayMillis();
         this.initialDelayMillis = factory.getInitialDelayMillis();
 
-        contextsToClose = new ArrayList<>();
         futuresToCompleteExceptionally = new ArrayList<>();
     }
 
@@ -164,30 +164,12 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Override
     @Nonnull
     public FDBRecordContext openContext() {
-        return openContext(true);
-    }
-
-    @Nonnull
-    private FDBRecordContext openContext(boolean initialAttempt) {
-        if (closed) {
-            throw new RunnerClosed();
-        }
-        FDBRecordContextConfig contextConfig;
-        if (initialAttempt || contextConfigBuilder.getWeakReadSemantics() == null) {
-            contextConfig = contextConfigBuilder.build();
-        } else {
-            // Clear any weak semantics after first attempt.
-            contextConfig = contextConfigBuilder.copyBuilder().setWeakReadSemantics(null).build();
-        }
-        FDBRecordContext context = database.openContext(contextConfig);
-        addContextToClose(context);
-        return context;
+        return transactionalRunner.openContext();
     }
 
     private class RunRetriable<T> {
         @Nonnull private final ExponentialDelay delay;
         private int currAttempt = 0;
-        @Nullable private FDBRecordContext context;
         @Nullable T retVal = null;
         @Nullable RuntimeException exception = null;
         @Nullable private final List<Object> additionalLogMessageKeyValues;
@@ -200,11 +182,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
 
         @Nonnull
         private CompletableFuture<Boolean> handle(@Nullable T val, @Nullable Throwable e) {
-            if (context != null) {
-                context.close();
-                context = null;
-            }
-
             if (closed) {
                 // Outermost future should be cancelled, but be sure that this doesn't appear to be successful.
                 this.exception = new RunnerClosed();
@@ -264,13 +241,11 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             addFutureToCompleteExceptionally(future);
             AsyncUtil.whileTrue(() -> {
                 try {
-                    context = openContext(currAttempt == 0);
-                    return retriable.apply(context).thenCompose(val ->
-                        context.commitAsync().thenApply( vignore -> val)
-                    ).handle((result, ex) -> {
-                        Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
-                        return handle(newResult.getLeft(), newResult.getRight());
-                    }).thenCompose(Function.identity());
+                    return transactionalRunner.runAsync(currAttempt != 0, retriable)
+                            .handle((result, ex) -> {
+                                Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
+                                return handle(newResult.getLeft(), newResult.getRight());
+                            }).thenCompose(Function.identity());
                 } catch (Exception e) {
                     return handle(null, e);
                 }
@@ -294,17 +269,10 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             boolean again = true;
             while (again) {
                 try {
-                    context = openContext(currAttempt == 0);
-                    T ret = retriable.apply(context);
-                    context.commit();
+                    T ret = transactionalRunner.run(currAttempt != 0, retriable);
                     again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));
                 } catch (Exception e) {
                     again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(null, e));
-                } finally {
-                    if (context != null) {
-                        context.close();
-                        context = null;
-                    }
                 }
             }
             if (exception == null) {
@@ -349,7 +317,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                 future.completeExceptionally(exception);
             }
         }
-        contextsToClose.forEach(FDBRecordContext::close);
+        transactionalRunner.close();
     }
 
     @Override
@@ -365,15 +333,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Override
     public SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {
         return SynchronizedSessionRunner.joinSession(lockSubspace, sessionId, leaseLengthMillis, this);
-    }
-
-    private synchronized void addContextToClose(@Nonnull FDBRecordContext context) {
-        if (closed) {
-            context.close();
-            throw new RunnerClosed();
-        }
-        contextsToClose.removeIf(FDBRecordContext::isClosed);
-        contextsToClose.add(context);
     }
 
     private synchronized void addFutureToCompleteExceptionally(@Nonnull CompletableFuture<?> future) {

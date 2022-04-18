@@ -96,12 +96,47 @@ public class TransactionalRunner implements AutoCloseable {
      */
     @Nonnull
     public <T> CompletableFuture<T> runAsync(final boolean clearWeakReadSemantics,
-                                             @Nonnull Function<FDBRecordContext, CompletableFuture<T>> runnable) {
+                                             @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
         FDBRecordContext context = openContext(clearWeakReadSemantics);
-        return runnable.apply(context).thenCompose(val ->
-                context.commitAsync().thenApply(vignore -> val)
-                        .whenComplete((result, exception) -> context.close())
-        );
+        return runnable.apply(context)
+                .thenCompose((T val) -> context.commitAsync().thenApply(vignore -> val))
+                .whenComplete((result, exception) -> context.close());
+    }
+
+    /**
+     * Run a function against a context synchronously.
+     * <p>
+     *     Note: since committing the transaction is an inherently async function, this calls join, so if calling async
+     *     methods from within {@code runnable}, it is probably better to use {@link #runAsync(boolean, Function)}.
+     * </p>
+     * @param clearWeakReadSemantics whether to clear the {@link FDBRecordContextConfig#getWeakReadSemantics()} before
+     * creating the transaction. These should be cleared if retrying a transaction, particularly in response to a
+     * conflict, because reusing the old read version would just cause it to re-conflict.
+     * @param runnable some code to run synchronously that uses an {@link FDBRecordContext}
+     * @param <T>  the type of the value returned by the runnable
+     * @return the value returned by {@code runnable}.
+     */
+    public <T> T run(final boolean clearWeakReadSemantics,
+                     @Nonnull Function<? super FDBRecordContext, ? extends T> runnable) {
+        final T result;
+        try (FDBRecordContext context = openContext(clearWeakReadSemantics)) {
+            result = runnable.apply(context);
+            context.commit();
+        }
+        return result;
+    }
+
+    /**
+     * Open a new context with the config attached to this runner, that will be closed when this runner is closed.
+     * <p>
+     *     It is probably preferable to use {@link #run(boolean, Function)} or {@link #runAsync(boolean, Function)}
+     *     over opening transactions directly, but this is exposed because {@link FDBDatabaseRunner} exposes it.
+     * </p>
+     * @return a new context
+     */
+    @Nonnull
+    public FDBRecordContext openContext() {
+        return openContext(true);
     }
 
     @Nonnull
