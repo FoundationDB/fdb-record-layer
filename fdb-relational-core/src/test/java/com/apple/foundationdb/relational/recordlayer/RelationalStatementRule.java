@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
@@ -80,6 +81,11 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     @Override
     public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException {
         return statement.executeGet(tableName, key, options, queryProperties);
+    }
+
+    @Override
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException {
+        return statement.getDataBuilder(typeName);
     }
 
     @Override

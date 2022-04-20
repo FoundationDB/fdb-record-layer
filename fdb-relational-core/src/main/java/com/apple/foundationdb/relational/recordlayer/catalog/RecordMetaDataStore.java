@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.net.URI;
@@ -31,9 +32,11 @@ public interface RecordMetaDataStore {
     /**
      * Load the metadata provider given a schema url.
      *
-     * @param schemaUrl the URI for the schema to get metadata for.
+     * @param txn the transaction
+     * @param dbUri the URI for the database to get metadata for.
+     * @param schemaName the name of the schema.
      * @return the metadata for the schema.
      * @throws RelationalException if the metadata cannot be loaded.
      */
-    RecordMetaDataProvider loadMetaData(@Nonnull URI schemaUrl) throws RelationalException;
+    RecordMetaDataProvider loadMetaData(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException;
 }

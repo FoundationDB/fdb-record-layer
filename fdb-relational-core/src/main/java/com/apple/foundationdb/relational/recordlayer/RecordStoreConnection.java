@@ -21,14 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionConfig;
+import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -40,22 +39,23 @@ import javax.annotation.Nullable;
 
 public class RecordStoreConnection implements RelationalConnection {
     private boolean isClosed;
-    private final FDBDatabase fdbDb;
     final RecordLayerDatabase frl;
+    final StoreCatalog backingCatalog;
 
-    RecordContextTransaction transaction;
+    Transaction transaction;
     private String currentSchemaLabel;
     private boolean autoCommit = true;
     private boolean usingAnExistingTransaction;
-    private TransactionConfig transactionConfig;
+    private final TransactionManager txnManager;
 
-    public RecordStoreConnection(@Nonnull RecordLayerDatabase frl, @Nonnull TransactionConfig transactionConfig,
+    public RecordStoreConnection(@Nonnull RecordLayerDatabase frl,
+                                 @Nonnull StoreCatalog backingCatalog,
                                  @Nullable RecordContextTransaction existingTransaction) {
-        this.fdbDb = frl.getFDBDatabase();
         this.frl = frl;
+        this.txnManager = frl.getFDBDatabase().getTransactionManager();
         this.transaction = existingTransaction;
-        this.transactionConfig = transactionConfig;
         this.usingAnExistingTransaction = existingTransaction != null;
+        this.backingCatalog = backingCatalog;
     }
 
     @Override
@@ -132,11 +132,23 @@ public class RecordStoreConnection implements RelationalConnection {
 
     @Override
     public void close() throws SQLException {
-        rollback();
+        SQLException se = null;
+        try {
+            rollback();
+        } catch (SQLException e) {
+            se = e;
+        }
         try {
             frl.close();
         } catch (RelationalException e) {
-            throw e.toSqlException();
+            if (se != null) {
+                se.addSuppressed(e.toSqlException());
+            } else {
+                se = e.toSqlException();
+            }
+        }
+        if (se != null) {
+            throw se;
         }
         isClosed = true;
     }
@@ -149,16 +161,14 @@ public class RecordStoreConnection implements RelationalConnection {
     @Override
     @Nonnull
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
-        return new RecordLayerMetaData(this, frl.getKeySpace());
+        return new CatalogMetaData(this, backingCatalog);
     }
 
     @Override
     public void beginTransaction(@Nullable TransactionConfig config) throws RelationalException {
         try {
             if (!inActiveTransaction()) {
-                transaction = new RecordContextTransaction(
-                        fdbDb.openContext(getFDBRecordContextConfig(
-                                config == null ? this.transactionConfig : config, frl.getStoreTimer())));
+                transaction = txnManager.createTransaction(config);
             }
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
@@ -169,42 +179,7 @@ public class RecordStoreConnection implements RelationalConnection {
         return transaction != null;
     }
 
-    private FDBRecordContextConfig getFDBRecordContextConfig(@Nullable TransactionConfig config, FDBStoreTimer storeTimer) throws RelationalException {
-        if (config != null) {
-            TransactionConfig.WeakReadSemantics weakReadSemantics = config.getWeakReadSemantics();
-            return FDBRecordContextConfig.newBuilder()
-                    .setTransactionId(config.getTransactionId())
-                    .setMdcContext(config.getLoggingContext())
-                    .setPriority(getPriorityForFDB(config.getTransactionPriority()))
-                    .setWeakReadSemantics(weakReadSemantics == null ? null :
-                            new FDBDatabase.WeakReadSemantics(weakReadSemantics.getMinVersion(),
-                                    weakReadSemantics.getStalenessBoundMillis(), weakReadSemantics.isCausalReadRisky()))
-                    .setTransactionTimeoutMillis(config.getTransactionTimeoutMillis())
-                    .setEnableAssertions(config.isEnableAssertions())
-                    .setLogTransaction(config.isLogTransaction())
-                    .setTrackOpen(config.isTrackOpen())
-                    .setSaveOpenStackTrace(config.isSaveOpenStackTrace())
-                    .setTimer(storeTimer)
-                    .build();
-        } else {
-            return FDBRecordContextConfig.newBuilder()
-                    .setTimer(storeTimer)
-                    .setPriority(FDBTransactionPriority.DEFAULT)
-                    .build();
-        }
-    }
-
-    private FDBTransactionPriority getPriorityForFDB(TransactionConfig.Priority priority) throws RelationalException {
-        switch (priority) {
-            case DEFAULT:
-                return FDBTransactionPriority.DEFAULT;
-            case BATCH:
-                return FDBTransactionPriority.BATCH;
-            case SYSTEM_IMMEDIATE:
-                return FDBTransactionPriority.SYSTEM_IMMEDIATE;
-            default:
-                throw new RelationalException("Invalid transaction priority in the config: <" + priority.name() + ">",
-                        ErrorCode.INVALID_PARAMETER);
-        }
+    void addCloseListener(@Nonnull Runnable closeListener) throws RelationalException {
+        this.transaction.unwrap(RecordContextTransaction.class).addTerminationListener(closeListener);
     }
 }

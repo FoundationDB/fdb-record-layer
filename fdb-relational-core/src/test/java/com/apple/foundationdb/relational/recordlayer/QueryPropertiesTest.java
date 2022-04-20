@@ -28,8 +28,6 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.TableScan;
@@ -38,15 +36,15 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.apple.foundationdb.relational.utils.TestSchemas;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,19 +53,11 @@ import javax.annotation.Nonnull;
 
 public class QueryPropertiesTest {
     @RegisterExtension
+    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
+
+    @RegisterExtension
     @Order(0)
-    public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
-
-    @RegisterExtension
-    @Order(1)
-    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("RestaurantRecord", catalog)
-            .setRecordFile(Restaurant.getDescriptor())
-            .configureTable("RestaurantRecord", table -> table.setPrimaryKey(Key.Expressions.field("rest_no")));
-
-    @RegisterExtension
-    @Order(2)
-    public final DatabaseRule database = new DatabaseRule("record_layer_query_properties_test", catalog)
-            .withSchema("test", template);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(), QueryPropertiesTest.class, TestSchemas.restaurant());
 
     @Test
     void verifyExecuteAndScanPropertiesGivenQueryProperties() {
@@ -151,18 +141,17 @@ public class QueryPropertiesTest {
     }
 
     List<Long> testScan(QueryProperties queryProperties, long firstRestNo) throws RelationalException, SQLException {
-        final URI dbUrl = URI.create("jdbc:embed:/record_layer_query_properties_test");
-        try (RelationalConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.create())) {
             conn.beginTransaction();
-            conn.setSchema("test");
+            conn.setSchema("testSchema");
             try (RelationalStatement s = conn.createStatement()) {
                 long id1 = firstRestNo;
                 Restaurant.RestaurantRecord r1 = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id1).setRestNo(id1).build();
-                s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r1), Options.create());
+                s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(r1), Options.create());
 
                 long id2 = id1 + 1;
                 Restaurant.RestaurantRecord r2 = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id2).setRestNo(id2).build();
-                s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r2), Options.create());
+                s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(r2), Options.create());
 
                 TableScan scan = TableScan.newBuilder()
                         .withTableName("RestaurantRecord")

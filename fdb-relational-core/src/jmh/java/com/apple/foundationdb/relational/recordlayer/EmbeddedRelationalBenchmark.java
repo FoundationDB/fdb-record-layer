@@ -20,20 +20,21 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.Restaurant;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.ddl.DdlConnection;
+import com.apple.foundationdb.relational.api.ddl.DdlStatement;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
@@ -43,6 +44,7 @@ import org.openjdk.jmh.annotations.TearDown;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,35 +54,51 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 public abstract class EmbeddedRelationalBenchmark {
+    private static final String restaurantSchema =
+            "CREATE TYPE Location (address string, latitude string, longitude string);" +
+                    "CREATE TYPE RestaurantReview (reviewer int64, rating int64);" +
+                    "CREATE TYPE RestaurantTag (tag string, weight int64);" +
+                    "CREATE TYPE ReviewerStats (start_date int64, school_name string, hometown string);" +
+                    "CREATE TABLE RestaurantRecord (rest_no int64, name string, location Location, reviews repeated RestaurantReview, tags repeated RestaurantTag, customer repeated string PRIMARY KEY(rest_no));" +
+                    "CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats PRIMARY KEY(id));" +
+                    "CREATE VALUE INDEX record_type_covering on RestaurantRecord(rest_no) INCLUDE (name);" +
+                    "CREATE VALUE INDEX record_name_idx on RestaurantRecord(name);" +
+                    "CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name) ";
+
     static final String restaurantRecord = "RestaurantRecord";
 
     @State(Scope.Benchmark)
     public static class Driver {
-        RecordLayerEngine engine;
+        EmbeddedRelationalEngine engine;
         KeySpace keySpace;
-        FDBDatabase fdbDatabase;
+        FdbConnection fdbDatabase;
 
         @Setup(Level.Trial)
         public void up() throws RelationalException {
             KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
             keySpace = new KeySpace(dbDirectory);
-            fdbDatabase = FDBDatabaseFactory.instance().getDatabase();
-            engine = new RecordLayerEngine(dbPath -> fdbDatabase,
-                    new MapRecordMetaDataStore(),
+            final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
+            fdbDatabase = new DirectFdbConnection(fdbDb, new TestStoreTimer(new HashMap<>()));
+            RecordLayerConfig rlConfig = new RecordLayerConfig(
                     (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                     storePath -> DynamicMessageRecordSerializer.instance(),
-                    keySpace, new TestStoreTimer(new HashMap<>()));
+                    1
+            );
+            RecordLayerStoreCatalogImpl catalog = new RecordLayerStoreCatalogImpl(keySpace);
+            try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction()) {
+                catalog.initialize(txn);
+                txn.commit();
+            }
+            engine = RecordLayerEngine.makeEngine(rlConfig, Collections.singletonList(fdbDb), keySpace, InMemorySchemaTemplateCatalog::new);
             engine.registerDriver();
 
-            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
-            builder.getRecordType(restaurantRecord).setPrimaryKey(Key.Expressions.field("rest_no"));
-            createSchemaTemplate(new RecordLayerTemplate(restaurantRecord, builder.build()));
+            createSchemaTemplate();
         }
 
-        private void createSchemaTemplate(RecordLayerTemplate template) throws RelationalException {
-            try (final Transaction txn = new RecordContextTransaction(fdbDatabase.openContext())) {
-                engine.getConstantActionFactory().getCreateSchemaTemplateConstantAction(template, com.apple.foundationdb.relational.api.Options.create()).execute(txn);
-                txn.commit();
+        private void createSchemaTemplate() throws RelationalException {
+            try (DdlConnection conn = engine.getDdlConnection(); DdlStatement statement = conn.createStatement()) {
+                statement.execute("CREATE SCHEMA TEMPLATE restaurant_template AS { " + restaurantSchema + "}");
+                conn.commit();
             }
         }
 
@@ -162,16 +180,20 @@ public abstract class EmbeddedRelationalBenchmark {
     }
 
     private static void createDatabase(Driver driver, DatabaseTemplate dbTemplate, URI dbUri) throws RelationalException {
-        try (final Transaction txn = new RecordContextTransaction(driver.fdbDatabase.openContext())) {
-            driver.engine.getConstantActionFactory().getCreateDatabaseConstantAction(dbUri, dbTemplate, com.apple.foundationdb.relational.api.Options.create()).execute(txn);
-            txn.commit();
+        try (DdlConnection conn = driver.engine.getDdlConnection(); DdlStatement statement = conn.createStatement()) {
+            statement.execute("CREATE DATABASE " + dbUri.getPath() + ";");
+            conn.setDatabase(dbUri);
+            for (Map.Entry<String, String> schemaTemplateEntry : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
+                statement.execute("CREATE SCHEMA " + schemaTemplateEntry.getKey() + " WITH TEMPLATE " + schemaTemplateEntry.getValue());
+            }
+            conn.commit();
         }
     }
 
     private static void deleteDatabase(URI dbUri, Driver driver) throws RelationalException {
-        try (final Transaction txn = new RecordContextTransaction(driver.fdbDatabase.openContext())) {
-            driver.engine.getConstantActionFactory().getDeleteDatabaseContantAction(dbUri, com.apple.foundationdb.relational.api.Options.create()).execute(txn);
-            txn.commit();
+        try (DdlConnection conn = driver.engine.getDdlConnection(); DdlStatement statement = conn.createStatement()) {
+            statement.execute("DROP DATABASE " + dbUri.getPath());
+            conn.commit();
         }
     }
 

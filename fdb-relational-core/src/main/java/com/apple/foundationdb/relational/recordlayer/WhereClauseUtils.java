@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.AndClause;
 import com.apple.foundationdb.relational.recordlayer.query.OrClause;
 import com.apple.foundationdb.relational.recordlayer.query.ValueComparisonClause;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +42,8 @@ import javax.annotation.Nonnull;
  * Package-private class to support conversions between Relational API Where clause expressions and RecordLayer
  * QueryComponent expressions.
  */
+@ExcludeFromJacocoGeneratedReport
+//the basic test is disabled due to a RL bug, but also because it's all going to be removed soon
 final class WhereClauseUtils {
 
     static QueryComponent convertClause(WhereClause clause) throws RelationalException {

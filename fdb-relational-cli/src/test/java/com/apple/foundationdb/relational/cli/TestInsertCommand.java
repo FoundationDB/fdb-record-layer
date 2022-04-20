@@ -20,6 +20,10 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -28,18 +32,58 @@ class TestInsertCommand {
     @RegisterExtension
     CliRule cli = new CliRule();
 
+    @BeforeEach
+    void setUp() {
+        TestUtils.createRestaurantSchemaTemplate(cli);
+        TestUtils.executeDdl("CREATE DATABASE /test_insert_db; CREATE SCHEMA /test_insert_db/test_insert_schema WITH TEMPLATE restaurant_template", cli);
+
+        TestUtils.runCommand("connect jdbc:embed:/test_insert_db", cli);
+        TestUtils.runCommand("config --no-pretty-print", cli);
+        TestUtils.runCommand("config --no-headers", cli);
+        TestUtils.runCommand("setschema test_insert_schema", cli);
+    }
+
     @Test
     void testInsert() throws Exception {
         try {
-            TestUtils.runCommand("createdb --path /test_insert_db --schema test_insert_schema --schema-template com.apple.foundationdb.record.Restaurant", cli);
-            TestUtils.runCommand("connect jdbc:embed:/test_insert_db", cli);
-            TestUtils.runCommand("config --no-pretty-print", cli);
-            TestUtils.runCommand("config --no-headers", cli);
-            TestUtils.runCommand("setschema test_insert_schema", cli);
             String insertRecord = "{\"rest_no\":42,\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[],\"customer\":[\"customer1\"]}";
-            TestUtils.runCommand("insertinto com.apple.foundationdb.record.Restaurant$RestaurantRecord " + insertRecord, cli);
+            TestUtils.runCommand("insertinto RestaurantRecord " + insertRecord, cli);
             String actualRecord = TestUtils.runQueryGetOutput("select * from RestaurantRecord", cli);
             TestUtils.assertJsonObjects(insertRecord, actualRecord);
+        } finally {
+            TestUtils.deleteDb("test_insert_db", cli);
+        }
+    }
+
+    @Test
+    void testInsertArray() throws Exception {
+        try {
+            String insertRecord = "{\"rest_no\":51,\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[{\"tag\":\"aTag\",\"weight\":\"12\"}],\"customer\":[\"customer1\"]}";
+            TestUtils.runCommand("insertinto RestaurantRecord [" + insertRecord + "]", cli);
+            String actualRecord = TestUtils.runQueryGetOutput("select * from RestaurantRecord", cli);
+            TestUtils.assertJsonObjects(insertRecord, actualRecord);
+        } finally {
+            TestUtils.deleteDb("test_insert_db", cli);
+        }
+    }
+
+    @Test
+    void cannotInsertBadType() throws RelationalException {
+        try {
+            String insertRecord = "{\"no_such_field\": false}";
+            int exitCode = cli.getCmd().execute(("insertinto RestaurantRecord " + insertRecord).split("\\s+"));
+            Assertions.assertNotEquals(0, exitCode, "Did not report an error!");
+        } finally {
+            TestUtils.deleteDb("test_insert_db", cli);
+        }
+    }
+
+    @Test
+    void invalidArrayColumn() throws RelationalException {
+        try {
+            String insertRecord = "{\"rest_no\":51,\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[{\"bad_column\":\"aTag\",\"weight\":\"12\"}],\"customer\":[\"customer1\"]}";
+            int exitCode = cli.getCmd().execute(("insertinto RestaurantRecord " + insertRecord).split("\\s+"));
+            Assertions.assertNotEquals(0, exitCode, "Did not report an error!");
         } finally {
             TestUtils.deleteDb("test_insert_db", cli);
         }

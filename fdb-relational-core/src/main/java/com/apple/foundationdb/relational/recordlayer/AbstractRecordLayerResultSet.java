@@ -27,8 +27,10 @@ import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedExce
 
 import com.google.protobuf.Message;
 
+import java.net.URI;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Collection;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
 
@@ -133,13 +135,18 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     public String getString(int oneBasedPosition) throws SQLException {
         Object o = getObject(oneBasedPosition);
         if (o == null) {
-            return null;
+            return null; //TODO(bfines) default column value here
         }
-        if (!(o instanceof String)) {
+        if (o instanceof String) {
+            return (String) o;
+        } else if (o instanceof Number) {
+            return o.toString();
+        } else if (o instanceof URI) {
+            //special case for database URI fields
+            return o.toString();
+        } else {
             throw new SQLException("String", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
-
-        return (String) o;
     }
 
     @Override
@@ -152,20 +159,20 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public Iterable<?> getRepeated(int oneBasedPosition) throws SQLException {
+    public Collection<?> getRepeated(int oneBasedPosition) throws SQLException {
         Object o = getObject(oneBasedPosition);
         if (o == null) {
             return null;
         }
-        if (!(o instanceof Iterable)) {
+        if (!(o instanceof Collection)) {
             throw new SQLException("Iterable", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
-        return (Iterable<?>) o;
+        return (Collection<?>) o;
     }
 
     @Override
-    public Iterable<?> getRepeated(String columnLabel) throws SQLException {
+    public Collection<?> getRepeated(String columnLabel) throws SQLException {
         try {
             return getRepeated(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {

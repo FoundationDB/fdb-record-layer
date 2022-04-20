@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
@@ -63,26 +64,26 @@ public class KeySpacePathParsingTest {
 
     @Test
     void cannotParseEmptyUri() {
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> KeySpaceUtils.uriToPath(URI.create(""), testSpace),
-                ErrorCode.INVALID_PATH);
+        RelationalAssertions.assertThrows(
+                () -> KeySpaceUtils.uriToPath(URI.create(""), testSpace))
+                .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
     @Test
     void testUrlNotValidForKeySpace() {
         //throws the right exception when we can't parse an entry
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> KeySpaceUtils.uriToPath(URI.create("/prod/testApp/notAUser"), testSpace),
-                ErrorCode.INVALID_PATH);
+        RelationalAssertions.assertThrows(
+                () -> KeySpaceUtils.uriToPath(URI.create("/prod/testApp/notAUser"), testSpace))
+                .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
     @Test
     void testUrlWithEmptyForStringType() {
         // Default keySpace doesn't have directory with null type
         final URI expected = URI.create("//testApp/12345");
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> KeySpaceUtils.uriToPath(expected, testSpace),
-                ErrorCode.INVALID_PATH);
+        RelationalAssertions.assertThrows(
+                () -> KeySpaceUtils.uriToPath(expected, testSpace))
+                .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
     @Test
@@ -208,9 +209,9 @@ public class KeySpacePathParsingTest {
         URI uri = URI.create("/prod/" + typeAndDefault.getRight());
         Assertions.assertEquals(uri, KeySpaceUtils.pathToUri(KeySpaceUtils.uriToPath(uri, keySpace)));
         URI wrongUri = URI.create("/prod/3");
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> KeySpaceUtils.uriToPath(wrongUri, keySpace),
-                ErrorCode.INVALID_PATH);
+        RelationalAssertions.assertThrows(
+                () -> KeySpaceUtils.uriToPath(wrongUri, keySpace))
+                .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
     @Test
@@ -222,18 +223,18 @@ public class KeySpacePathParsingTest {
         URI uri = URI.create("/prod/S");
         Assertions.assertEquals(uri, KeySpaceUtils.pathToUri(KeySpaceUtils.uriToPath(uri, keySpace)));
         URI wrongUri = URI.create("/prod/3");
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> KeySpaceUtils.uriToPath(wrongUri, keySpace),
-                ErrorCode.INVALID_PATH);
+        RelationalAssertions.assertThrows(
+                () -> KeySpaceUtils.uriToPath(wrongUri, keySpace))
+                .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
     @Test
     void unsupportedType() {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("testRoot", BYTES));
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> KeySpaceUtils.uriToPath(URI.create("/foo"), keySpace),
-                ErrorCode.UNSUPPORTED_OPERATION);
+        RelationalAssertions.assertThrows(
+                () -> KeySpaceUtils.uriToPath(URI.create("/foo"), keySpace))
+                .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
     }
 
     private KeySpace getKeySpaceForTesting() {

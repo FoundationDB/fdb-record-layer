@@ -22,13 +22,13 @@ package com.apple.foundationdb.relational.cli;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 
+import com.google.protobuf.Message;
 import picocli.CommandLine;
 
-import java.util.Collections;
-
 /**
- * A command that inserts a single record into a table.
+ * A command that inserts a records into a table.
  */
 @CommandLine.Command(name = "insertinto", description = "Inserts a new record into a table")
 public class InsertInto extends CommandWithConnectionAndSchema {
@@ -46,8 +46,11 @@ public class InsertInto extends CommandWithConnectionAndSchema {
     @Override
     public void callInternal() throws Exception {
         try (RelationalStatement s = dbState.getConnection().createStatement()) {
-            s.executeInsert(table.substring(Math.max(table.lastIndexOf('.'), table.lastIndexOf('$')) + 1),
-                    Collections.singleton(com.apple.foundationdb.relational.cli.Utils.jsonToProto(json, Class.forName(table))), Options.create());
+            Iterable<Message> data = Utils.jsonToDynamicMessage(json, s.getDataBuilder(table));
+
+            s.executeInsert(table.substring(Math.max(table.lastIndexOf('.'), table.lastIndexOf('$')) + 1), data, Options.create());
+        } catch (UncheckedRelationalException uve) {
+            throw uve.unwrap();
         }
     }
 }

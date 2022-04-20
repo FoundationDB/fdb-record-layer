@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.junit.jupiter.api.Test;
 
@@ -38,18 +39,15 @@ class EmptyTupleTest {
 
     @Test
     void getObject() throws InvalidColumnReferenceException {
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> EmptyTuple.INSTANCE.getObject(-1),
-                ErrorCode.INVALID_COLUMN_REFERENCE
-        );
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> EmptyTuple.INSTANCE.getObject(0),
-                ErrorCode.INVALID_COLUMN_REFERENCE
-        );
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> EmptyTuple.INSTANCE.getObject(10),
-                ErrorCode.INVALID_COLUMN_REFERENCE
-        );
+        RelationalAssertions.assertThrows(
+                () -> EmptyTuple.INSTANCE.getObject(-1))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
+        RelationalAssertions.assertThrows(
+                () -> EmptyTuple.INSTANCE.getObject(0))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
+        RelationalAssertions.assertThrows(
+                () -> EmptyTuple.INSTANCE.getObject(10))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Test

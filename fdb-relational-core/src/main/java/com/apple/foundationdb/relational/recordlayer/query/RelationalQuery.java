@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Queryable;
 import com.apple.foundationdb.relational.api.WhereClause;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.util.Collections;
 import java.util.List;
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
 /**
  * A simple Query structure for building custom queries inside the Query engine.
  */
+@ExcludeFromJacocoGeneratedReport //the basic test is disabled due to a RL bug, but also because it's all going to be removed soon
 public class RelationalQuery implements Queryable {
     private final String table;
     private final String schema;

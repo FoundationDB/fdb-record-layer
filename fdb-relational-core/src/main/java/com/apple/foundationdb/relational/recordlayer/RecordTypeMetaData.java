@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.catalog.IndexMetaData;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.recordlayer.ddl.ColumnDescriptor;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.protobuf.Descriptors;
 
@@ -32,6 +33,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+@ExcludeFromJacocoGeneratedReport //probably will be removed with the Queryable stuff
 public class RecordTypeMetaData implements TableMetaData {
     private final RecordType recordType;
 

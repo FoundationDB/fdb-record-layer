@@ -21,6 +21,11 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.generated.CatalogData;
+
+import com.google.protobuf.DescriptorProtos;
+
+import java.util.Set;
 
 import javax.annotation.Nonnull;
 
@@ -37,6 +42,15 @@ public interface SchemaTemplate {
     String getUniqueId();
 
     /**
+     * Get a new SchemaData instance for this template. This is useful as a starting point
+     * for creating new schemas and/or for comparing existing ones.
+     * @return a new SchemaData instance representing the structure of this template
+     * @param databaseId the unique database identifier
+     * @param schemaName the name of the schema to generate for
+     */
+    CatalogData.Schema generateSchema(String databaseId, String schemaName);
+
+    /**
      * Determine if the specified DatabaseSchema instance is valid.
      *
      * @param schema the schema to validate
@@ -46,4 +60,10 @@ public interface SchemaTemplate {
      * @throws RelationalException if something went wrong.
      */
     boolean isValid(@Nonnull DatabaseSchema schema) throws RelationalException;
+
+    DescriptorProtos.FileDescriptorProto toProtobufDescriptor();
+
+    Set<TableInfo> getTables();
+
+    Set<TypeInfo> getTypes();
 }

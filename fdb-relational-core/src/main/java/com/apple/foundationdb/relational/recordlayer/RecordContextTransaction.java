@@ -99,7 +99,7 @@ public class RecordContextTransaction implements Transaction {
         }
     }
 
-    void addTerminationListener(@Nonnull Runnable onTerminateListener) {
+    public void addTerminationListener(@Nonnull Runnable onTerminateListener) {
         assert !isClosed : "Cannot add a termination listener to a closed transaction!";
         txnTerminateListeners.add(onTerminateListener);
     }

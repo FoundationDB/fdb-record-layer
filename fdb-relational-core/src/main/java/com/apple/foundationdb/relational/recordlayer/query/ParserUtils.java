@@ -126,11 +126,14 @@ public final class ParserUtils {
             if (makeNegative) {
                 result *= -1;
             }
-            if (Integer.MIN_VALUE <= result && result <= Integer.MAX_VALUE) {
-                return new LiteralValue<>((int) result);
-            } else {
-                return new LiteralValue<>(result);
-            }
+            //TODO(bfines) I'm temporarily commenting this out to address TODO , but it almost
+            //certainly isn't right to remove, so I'm leaving the commented code here so it can be easily restored
+            //when someone who knows the planner type system can resolve the issue.
+//            if (Integer.MIN_VALUE <= result && result <= Integer.MAX_VALUE) {
+//                return new LiteralValue<>((int) result);
+//            } else {
+            return new LiteralValue<>(result);
+            //            }
         }
     }
 

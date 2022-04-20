@@ -43,8 +43,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.relational.recordlayer.query.antlr.RelationalParser;
-import com.apple.foundationdb.relational.recordlayer.query.antlr.RelationalParserBaseVisitor;
+import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 

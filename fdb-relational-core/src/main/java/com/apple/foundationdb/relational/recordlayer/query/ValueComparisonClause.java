@@ -21,12 +21,16 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.WhereClause;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 /**
  * Representing a Comparison against a literal value.
  */
+@ExcludeFromJacocoGeneratedReport
+//the basic test is disabled due to a RL bug, but also because it's all going to be removed soon
 public class ValueComparisonClause implements WhereClause {
 
+    @ExcludeFromJacocoGeneratedReport
     public enum ComparisonType {
         EQUALS("="),
         NOT_EQUALS("!="),

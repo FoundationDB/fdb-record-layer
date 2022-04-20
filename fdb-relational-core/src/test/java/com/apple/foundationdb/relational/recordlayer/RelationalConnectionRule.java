@@ -32,19 +32,21 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import java.net.URI;
 import java.sql.SQLException;
+import java.util.function.Supplier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCallback, RelationalConnection {
-    DatabaseRule databaseRule;
+    Supplier<URI> connFactory;
     Options options;
     String schema;
     RelationalConnection connection;
 
-    public RelationalConnectionRule(DatabaseRule databaseRule) {
-        this.databaseRule = databaseRule;
+    public RelationalConnectionRule(Supplier<URI> dbPathSupplier) {
+        this.connFactory = dbPathSupplier;
     }
 
     public RelationalConnectionRule withOptions(Options options) {
@@ -65,7 +67,7 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     @Override
     public void beforeEach(ExtensionContext context) throws RelationalException, SQLException {
         Options opt = options == null ? Options.create() : options;
-        connection = Relational.connect(databaseRule.getConnectionUri(), opt);
+        connection = Relational.connect(connFactory.get(), opt);
         connection.beginTransaction();
         if (schema != null) {
             connection.setSchema(schema);

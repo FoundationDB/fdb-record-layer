@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.cli;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -35,12 +36,18 @@ class TestCreateDbCommand {
     @Test
     void testCreateDb() throws RelationalException, SQLException {
         try {
-            TestUtils.runCommand("createdb --path /test_create_db --schema test_create_db_schema --schema-template com.apple.foundationdb.record.Restaurant", cli);
+            TestUtils.createRestaurantSchemaTemplate(cli);
+
+            String createDb = "CREATE DATABASE /test_create_db; CREATE SCHEMA /test_create_db/test_create_db_schema WITH TEMPLATE restaurant_template";
+            int exitCode = cli.getCmd().execute("ddl", "-c", createDb);
+            System.out.println(cli.getOutput());
+            System.out.println(cli.getError());
+            Assertions.assertEquals(0, exitCode);
+
             TestUtils.databaseHasSchemas("test_create_db", "test_create_db_schema");
             TestUtils.schemaHasTables("test_create_db", "test_create_db_schema", "RestaurantRecord", "RestaurantReviewer");
         } finally {
             TestUtils.deleteDb("test_create_db", cli);
         }
     }
-
 }

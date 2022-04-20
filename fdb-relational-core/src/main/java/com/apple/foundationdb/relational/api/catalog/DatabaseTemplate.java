@@ -20,10 +20,14 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+@ExcludeFromJacocoGeneratedReport //this is going to be removed soon
+@Deprecated //we don't want to do things this way any more
 public class DatabaseTemplate {
     private final Map<String, String> schemaToTemplateNameMap;
 

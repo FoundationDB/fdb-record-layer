@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -32,6 +33,10 @@ public final class ExceptionUtil {
             return (RelationalException) re;
         } else if (re instanceof SQLException) {
             return new RelationalException(re.getMessage(), ErrorCode.get(((SQLException) re).getSQLState()), re);
+        } else if (re instanceof RecordCoreStorageException) {
+            if (re.getMessage().contains("Transaction is no longer active")) {
+                return new RelationalException(re.getMessage(), ErrorCode.TRANSACTION_INACTIVE);
+            }
         } else if (re instanceof RecordCoreException) {
             return recordCoreToRelationalException((RecordCoreException) re);
         }

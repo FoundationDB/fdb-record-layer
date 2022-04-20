@@ -43,9 +43,12 @@ class TestListSchemasCommand {
     @Test
     void testListSchemasWithPrettyPrinting() throws RelationalException, SQLException {
         try {
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaA --schema-template com.apple.foundationdb.record.Restaurant", cli);
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaB --schema-template com.apple.foundationdb.record.Restaurant", cli);
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaC --schema-template com.apple.foundationdb.record.Restaurant", cli);
+            TestUtils.createRestaurantSchemaTemplate(cli);
+            TestUtils.executeDdl("CREATE DATABASE /test_list_schemas_db; " +
+                    "CREATE SCHEMA /test_list_schemas_db/testSchemaA WITH TEMPLATE restaurant_template;" +
+                    "CREATE SCHEMA /test_list_schemas_db/testSchemaB WITH TEMPLATE restaurant_template;" +
+                    "CREATE SCHEMA /test_list_schemas_db/testSchemaC WITH TEMPLATE restaurant_template;", cli);
+
             TestUtils.databaseHasSchemas("test_list_schemas_db", "testSchemaA", "testSchemaB", "testSchemaC");
             TestUtils.runCommand("config --no-headers", cli);
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaA", "RestaurantRecord", "RestaurantReviewer");
@@ -68,9 +71,11 @@ class TestListSchemasCommand {
     @Test
     void testListSchemasWithoutPrettyPrinting() throws RelationalException, SQLException {
         try {
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaA --schema-template com.apple.foundationdb.record.Restaurant", cli);
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaB --schema-template com.apple.foundationdb.record.Restaurant", cli);
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaC --schema-template com.apple.foundationdb.record.Restaurant", cli);
+            TestUtils.createRestaurantSchemaTemplate(cli);
+            TestUtils.executeDdl("CREATE DATABASE /test_list_schemas_db; " +
+                    "CREATE SCHEMA /test_list_schemas_db/testSchemaA WITH TEMPLATE restaurant_template;" +
+                    "CREATE SCHEMA /test_list_schemas_db/testSchemaB WITH TEMPLATE restaurant_template;" +
+                    "CREATE SCHEMA /test_list_schemas_db/testSchemaC WITH TEMPLATE restaurant_template;", cli);
             TestUtils.databaseHasSchemas("test_list_schemas_db", "testSchemaA", "testSchemaB", "testSchemaC");
             TestUtils.runCommand("config --no-headers", cli);
             TestUtils.schemaHasTables("test_list_schemas_db", "testSchemaA", "RestaurantRecord", "RestaurantReviewer");
@@ -91,18 +96,22 @@ class TestListSchemasCommand {
         }
     }
 
+    @Test
     @Disabled("this test documents current behavior: if we create a database _after_ connecting, we don't see it when calling listSchemas.")
     void testListSchemasAfterCreateDb() throws RelationalException, IOException {
         try {
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaC --schema-template com.apple.foundationdb.record.Restaurant", cli);
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaD --schema-template com.apple.foundationdb.record.Restaurant", cli);
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaE --schema-template com.apple.foundationdb.record.Restaurant", cli);
+            TestUtils.createRestaurantSchemaTemplate(cli);
+            TestUtils.executeDdl("CREATE DATABASE /test_list_schemas_db; " +
+                    "CREATE SCHEMA /test_list_schemas_db/testSchemaC WITH TEMPLATE restaurant_template;" +
+                    "CREATE SCHEMA /test_list_schemas_db/testSchemaD WITH TEMPLATE restaurant_template;" +
+                    "CREATE SCHEMA /test_list_schemas_db/testSchemaE WITH TEMPLATE restaurant_template;", cli);
             TestUtils.runCommand("connect jdbc:embed:/test_list_schemas_db", cli);
             TestUtils.runCommand("config --no-pretty-print", cli);
             Assertions.assertEquals(Set.of("testSchemaC", "testSchemaD", "testSchemaE"),
                     Arrays.stream(TestUtils.runCommandGetOutput("listschemas", cli).split("\\s+")).collect(Collectors.toSet()));
             // test fails if we create a database _after_ connecting, we don't see it when calling listSchemas.
-            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaF --schema-template com.apple.foundationdb.record.Restaurant", cli);
+            TestUtils.executeDdl("CREATE SCHEMA /test_list_schemas_db/testSchemaF WITH TEMPLATE restaurant_template", cli);
+            //            TestUtils.runCommand("createdb --path /test_list_schemas_db --schema testSchemaF --schema-template com.apple.foundationdb.record.Restaurant", cli);
             Assertions.assertEquals(Set.of("testSchemaC", "testSchemaD", "testSchemaE", "testSchemaF"),
                     Arrays.stream(TestUtils.runCommandGetOutput("listschemas", cli).split("\\s+")).collect(Collectors.toSet()));
         } finally {

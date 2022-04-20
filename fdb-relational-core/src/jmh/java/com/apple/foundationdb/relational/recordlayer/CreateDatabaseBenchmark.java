@@ -37,6 +37,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 
 @Fork(1)
@@ -58,7 +59,7 @@ public class CreateDatabaseBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     @Benchmark
-    public void createDatabase(Driver driver, ThreadScopedDatabases databases, DbNameGenerator dbNameGenerator) throws RelationalException {
+    public void createDatabase(Driver driver, ThreadScopedDatabases databases, DbNameGenerator dbNameGenerator) throws RelationalException, SQLException {
         databases.createDatabase(driver,
                 DatabaseTemplate.newBuilder()
                         .withSchema(schema, restaurantRecord)

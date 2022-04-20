@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -89,14 +90,14 @@ class RecordLayerResultSetTest {
         mockNext(true);
         resultSet.next();
         Mockito.doThrow(new RelationalException("fake exception", ErrorCode.INTERNAL_ERROR)).when(cursor).close();
-        RelationalAssertions.assertThrowsSqlException(() -> resultSet.close(), ErrorCode.INTERNAL_ERROR);
+        RelationalAssertions.assertThrowsSqlException(() -> resultSet.close()).hasErrorCode(ErrorCode.INTERNAL_ERROR);
     }
 
     @Test
     void getObjectBeforeNextCall() {
         RelationalAssertions.assertThrowsSqlException(
-                () -> resultSet.getObject(1),
-                ErrorCode.INVALID_CURSOR_STATE);
+                () -> resultSet.getObject(1))
+                .hasErrorCode(ErrorCode.INVALID_CURSOR_STATE);
     }
 
     @Test
@@ -104,12 +105,12 @@ class RecordLayerResultSetTest {
         mockNext(true);
         Assertions.assertTrue(resultSet.next());
         RelationalAssertions.assertThrowsSqlException(
-                () -> resultSet.getObject(0),
-                ErrorCode.INVALID_COLUMN_REFERENCE);
+                () -> resultSet.getObject(0))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
 
         RelationalAssertions.assertThrowsSqlException(
-                () -> resultSet.getObject(1000),
-                ErrorCode.INVALID_COLUMN_REFERENCE);
+                () -> resultSet.getObject(1000))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Test
@@ -119,7 +120,6 @@ class RecordLayerResultSetTest {
 
     @Test
     void parseMessageFail() {
-        RelationalAssertions.assertThrowsSqlException(() -> resultSet.parseMessage(), ErrorCode.UNSUPPORTED_OPERATION);
+        RelationalAssertions.assertThrowsSqlException(() -> resultSet.parseMessage()).hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
     }
-
 }

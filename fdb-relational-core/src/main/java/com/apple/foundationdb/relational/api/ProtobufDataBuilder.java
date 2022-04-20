@@ -1,0 +1,213 @@
+/*
+ * ProtobufDataBuilder.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.api;
+
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.Message;
+
+
+public class ProtobufDataBuilder implements DynamicMessageBuilder {
+    private final Descriptors.Descriptor typeDescriptor;
+
+    private DynamicMessage.Builder data;
+
+    public ProtobufDataBuilder(Descriptors.Descriptor typeDescriptor) {
+        this.typeDescriptor = typeDescriptor;
+        this.data = DynamicMessage.newBuilder(typeDescriptor);
+    }
+
+    @Override
+    public DynamicMessageBuilder setField(String fieldName, Object value) throws RelationalException {
+        final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByName(fieldName);
+        if (field == null) {
+            throw new RelationalException(String.format("Field <%s> does not exist", fieldName), ErrorCode.INVALID_PARAMETER);
+        }
+        data.setField(field, coerceObject(value, field.getJavaType()));
+        return this;
+    }
+
+    @Override
+    public DynamicMessageBuilder addRepeatedField(String fieldName, Object value) throws RelationalException {
+        final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByName(fieldName);
+        if (field == null) {
+            throw new RelationalException("Field <" + fieldName + "> does not exist", ErrorCode.INVALID_PARAMETER);
+        }
+        if (!field.isRepeated()) {
+            throw new RelationalException("Field <" + fieldName + "> is not repeated", ErrorCode.INVALID_PARAMETER);
+        }
+
+        data.addRepeatedField(field, coerceObject(value, field.getJavaType()));
+        return this;
+    }
+
+    @Override
+    public Message build() {
+        return data.build();
+    }
+
+    @Override
+    public <T extends Message> Message convertMessage(T m) throws RelationalException {
+        //dynamically attempt to convert the message type to this type, if it is necessary
+        return convert(m, typeDescriptor);
+    }
+
+    @Override
+    public DynamicMessageBuilder getNestedMessageBuilder(String fieldName) throws RelationalException {
+        for (Descriptors.FieldDescriptor fd : typeDescriptor.getFields()) {
+            if (fd.getName().equalsIgnoreCase(fieldName)) {
+                if (fd.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+                    throw new RelationalException("Cannot get Nested data builder for field " + fieldName + " as it is not a nested structure", ErrorCode.INVALID_PARAMETER);
+                }
+                return new ProtobufDataBuilder(fd.getMessageType());
+            }
+        }
+        throw new RelationalException("Field <" + fieldName + "> does not exist in this Type", ErrorCode.INVALID_PARAMETER);
+    }
+
+    private Message convert(Message m, Descriptors.Descriptor destinationDescriptor) throws RelationalException {
+        /*
+         * Annoying RecordLayer-ism, but they don't check for semantic equality, they check for
+         * reference equality, which means that even if the message has the semantically identical
+         * descriptor, we still have to convert it. However, if we somehow magically have identical references,
+         * then we can shortcut out
+         */
+
+        if (m.getDescriptorForType() == destinationDescriptor) {
+            return m;
+        }
+        DynamicMessage.Builder newMessage = DynamicMessage.newBuilder(destinationDescriptor);
+        for (Descriptors.FieldDescriptor field : destinationDescriptor.getFields()) {
+            Descriptors.FieldDescriptor messageField = m.getDescriptorForType().findFieldByName(field.getName());
+            if (messageField == null) {
+                throw new RelationalException("Field <" + field.getName() + "> is missing from passed object", ErrorCode.INVALID_PARAMETER);
+            }
+
+            if (!canCoerce(messageField.getJavaType(), field.getJavaType())) {
+                throw new RelationalException("Field <" + field.getName() + "> is of incorrect type", ErrorCode.INVALID_PARAMETER);
+            }
+            if (field.isRepeated() && !messageField.isRepeated()) {
+                throw new RelationalException("Field <" + field.getName() + "> should be repeated", ErrorCode.INVALID_PARAMETER);
+            } else if (!field.isRepeated() && messageField.isRepeated()) {
+                throw new RelationalException("Field <" + field.getName() + "> should not be repeated", ErrorCode.INVALID_PARAMETER);
+            }
+
+            if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+                final Descriptors.Descriptor messageDesc = field.getMessageType();
+
+                if (field.isRepeated()) {
+                    for (int i = 0; i < m.getRepeatedFieldCount(messageField); i++) {
+                        Message converted = convert((Message) m.getRepeatedField(messageField, i), messageDesc);
+                        newMessage.addRepeatedField(field, converted);
+                    }
+                } else {
+                    Message converted = convert((Message) m.getField(messageField), messageDesc);
+                    newMessage.setField(field, converted);
+                }
+            } else {
+                if (field.isRepeated()) {
+                    for (int i = 0; i < m.getRepeatedFieldCount(messageField); i++) {
+                        final Object coerced = coerceObject(m.getRepeatedField(messageField, i), field.getJavaType());
+                        newMessage.addRepeatedField(field, coerced);
+                    }
+                } else {
+                    Object coerced = coerceObject(m.getField(messageField), field.getJavaType());
+                    newMessage.setField(field, coerced);
+                }
+            }
+        }
+
+        return newMessage.build();
+    }
+
+    private Object coerceObject(Object value, Descriptors.FieldDescriptor.JavaType destType) {
+        if (value instanceof Number) {
+            Number n = (Number) value;
+            switch (destType) {
+                case INT:
+                    value = n.intValue();
+                    break;
+                case LONG:
+                    value = n.longValue();
+                    break;
+                case FLOAT:
+                    value = n.floatValue();
+                    break;
+                case DOUBLE:
+                    value = n.doubleValue();
+                    break;
+                case STRING:
+                    value = n.toString();
+                    break;
+                default:
+                //don't coerce, this shouldn't happen
+            }
+        } else if (value instanceof String) {
+            String str = (String) value;
+            switch (destType) {
+                case INT:
+                    value = Integer.parseInt(str);
+                    break;
+                case LONG:
+                    value = Long.parseLong(str);
+                    break;
+                case FLOAT:
+                    value = Float.parseFloat(str);
+                    break;
+                case DOUBLE:
+                    value = Double.parseDouble(str);
+                    break;
+                default:
+                //don't coerce -- this is pointless, but it's here to make checkstyle happy
+            }
+        }
+        return value;
+    }
+
+    private boolean canCoerce(Descriptors.FieldDescriptor.JavaType srcType, Descriptors.FieldDescriptor.JavaType destType) {
+        // returns true if you can convert objects of srcType into objects of destType (i.e. int into long)
+        if (srcType == Descriptors.FieldDescriptor.JavaType.INT) {
+            switch (destType) {
+                case INT:
+                case LONG:
+                case FLOAT:
+                case DOUBLE:
+                    return true;
+                default:
+                    return false;
+            }
+        } else if (srcType == Descriptors.FieldDescriptor.JavaType.FLOAT) {
+            switch (destType) {
+                case FLOAT:
+                case DOUBLE:
+                    return true;
+                default:
+                    return false;
+            }
+        } else {
+            return srcType == destType;
+        }
+
+    }
+}

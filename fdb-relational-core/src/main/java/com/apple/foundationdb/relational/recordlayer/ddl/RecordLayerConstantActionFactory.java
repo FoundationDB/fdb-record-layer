@@ -20,13 +20,16 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
-import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAction;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 
 import java.net.URI;
 
@@ -35,79 +38,80 @@ import javax.annotation.Nonnull;
 public class RecordLayerConstantActionFactory implements ConstantActionFactory {
     public static final int DEFAULT_FORMAT_VERSION = 8;
 
-    private final MutableRecordMetaDataStore metaDataStore;
-    private final SerializerRegistry serializerRegistry;
-    private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
-    private final int formatVersion;
+    private final RecordLayerConfig rlConfig;
+    private final StoreCatalog catalog;
+    private final SchemaTemplateCatalog templateCatalog;
     private final KeySpace baseKeySpace;
 
-    public RecordLayerConstantActionFactory(MutableRecordMetaDataStore metaDataStore,
-                                            SerializerRegistry serializerRegistry,
-                                            FDBRecordStoreBase.UserVersionChecker userVersionChecker,
-                                            int formatVersion,
-                                            KeySpace baseKeySpace) {
-        this.metaDataStore = metaDataStore;
-        this.serializerRegistry = serializerRegistry;
-        this.userVersionChecker = userVersionChecker;
-        this.formatVersion = formatVersion;
+    public RecordLayerConstantActionFactory(RecordLayerConfig rlConfig, StoreCatalog catalog, SchemaTemplateCatalog templateCatalog, KeySpace baseKeySpace) {
+        this.rlConfig = rlConfig;
+        this.catalog = catalog;
+        this.templateCatalog = templateCatalog;
         this.baseKeySpace = baseKeySpace;
     }
 
     @Nonnull
     @Override
+    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
+        return txn -> {
+            templateCatalog.deleteTemplate(txn, templateId);
+        };
+    }
+
+    @Nonnull
+    @Override
     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return new CreateSchemaTemplateConstantAction(template, metaDataStore);
+        return new CreateSchemaTemplateConstantAction(template, templateCatalog);
     }
 
     @Nonnull
     @Override
     public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
-        return new CreateDatabaseConstantAction(dbPath, template, constantActionOptions, this);
+        return new CreateDatabaseConstantAction(dbPath, template, constantActionOptions, catalog, this);
     }
 
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions) {
-        return new CreateSchemaConstantAction(schemaUrl, templateId, baseKeySpace,
-                metaDataStore, serializerRegistry, userVersionChecker, formatVersion);
+    public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
+        return new CreateDatabaseConstantAction(dbPath, null, constantActionOptions, catalog, this);
     }
 
     @Nonnull
     @Override
-    public ConstantAction getDeleteDatabaseContantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
-        return new DropDatabaseConstantAction(dbUrl, baseKeySpace, options, this);
+    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
+        return new RecordLayerCreateSchemaConstantAction(dbUri, schemaName, templateId, rlConfig, baseKeySpace, catalog, templateCatalog);
     }
 
     @Nonnull
     @Override
-    public ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull Options options) {
-        return new DropSchemaConstantAction(schemaUrl, baseKeySpace, metaDataStore);
+    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+        return new DropDatabaseConstantAction(dbUrl, catalog, this, options);
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schema, @Nonnull Options options) {
+        return new DropSchemaConstantAction(dbPath, schema, baseKeySpace, catalog);
     }
 
     public static class Builder {
-        private MutableRecordMetaDataStore metaDataStore;
-        private SerializerRegistry serializerRegistry;
-        private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
-        private int formatVersion = DEFAULT_FORMAT_VERSION;
+        private StoreCatalog storeCatalog;
+        private SchemaTemplateCatalog templateCatalog;
+        private RecordLayerConfig rlConfig;
         private KeySpace baseKeySpace;
 
-        public Builder setMetaDataStore(MutableRecordMetaDataStore metaDataStore) {
-            this.metaDataStore = metaDataStore;
+        public Builder setStoreCatalog(StoreCatalog storeCatalog) {
+            this.storeCatalog = storeCatalog;
             return this;
         }
 
-        public Builder setSerializerRegistry(SerializerRegistry serializerRegistry) {
-            this.serializerRegistry = serializerRegistry;
+        public Builder setTemplateCatalog(SchemaTemplateCatalog templateCatalog) {
+            this.templateCatalog = templateCatalog;
             return this;
         }
 
-        public Builder setUserVersionChecker(FDBRecordStoreBase.UserVersionChecker userVersionChecker) {
-            this.userVersionChecker = userVersionChecker;
-            return this;
-        }
-
-        public Builder setFormatVersion(int formatVersion) {
-            this.formatVersion = formatVersion;
+        public Builder setRlConfig(RecordLayerConfig rlConfig) {
+            this.rlConfig = rlConfig;
             return this;
         }
 
@@ -117,7 +121,7 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
         }
 
         public RecordLayerConstantActionFactory build() {
-            return new RecordLayerConstantActionFactory(metaDataStore, serializerRegistry, userVersionChecker, formatVersion, baseKeySpace);
+            return new RecordLayerConstantActionFactory(rlConfig, storeCatalog, templateCatalog, baseKeySpace);
         }
     }
 }

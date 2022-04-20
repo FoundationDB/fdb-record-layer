@@ -29,10 +29,13 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Message;
 
 import java.io.PrintWriter;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * Command that executes a SQL statement against the database.
@@ -55,24 +58,18 @@ public class QueryCommand extends CommandWithConnectionAndSchema {
                 List<List<String>> results = new ArrayList<>();
                 int colCount = resultSet.getMetaData().getColumnCount();
                 String[] colsMetadata = new String[colCount];
+                final ResultSetMetaData metaData = resultSet.getMetaData();
                 for (int i = 0; i < colCount; i++) {
-                    colsMetadata[i] = resultSet.getMetaData().getColumnName(i);
+                    colsMetadata[i] = metaData.getColumnName(i);
                 }
+                Function<Object, String> columnStringifier = getStringifier();
                 Function<RelationalResultSet, List<String>> converters = rrs -> {
                     List<String> cols = new ArrayList<>();
                     for (int i = 1; i <= colsMetadata.length; i++) {
-                        Object col = null;
+                        Object col;
                         try {
                             col = rrs.getObject(i);
-                            if (col instanceof Message) {
-                                try {
-                                    cols.add(Utils.protoToJson((Message) col));
-                                } catch (RelationalException e) {
-                                    cols.add(col.toString()); // todo improve this
-                                }
-                            } else {
-                                cols.add(col.toString());
-                            }
+                            cols.add(columnStringifier.apply(col));
                         } catch (SQLException e) {
                             throw new RuntimeException(e);
                         }
@@ -85,6 +82,37 @@ public class QueryCommand extends CommandWithConnectionAndSchema {
                 Utils.tabulate(out, dbState.isPrettyPrint(), dbState.getDelimiter(), dbState.isDisplayHeaders(), results, colsMetadata);
             }
         }
+    }
+
+    private Function<Object, String> getStringifier() {
+        return new Function<>() {
+            @Override
+            public String apply(Object o) {
+                if (o == null) {
+                    return "NULL";
+                }
+                if (o instanceof Message) {
+                    try {
+                        return Utils.protoToJson((Message) o);
+                    } catch (RelationalException e) {
+                        throw e.toUncheckedWrappedException();
+                    }
+                } else if (o instanceof Number) {
+                    if (o instanceof Long || o instanceof Integer) {
+                        return Long.toString(((Number) o).longValue());
+                    } else {
+                        return Double.toString(((Number) o).doubleValue());
+                    }
+                } else if (o instanceof Iterable) {
+                    //recursively map the underlying elements
+                    return "[" + StreamSupport.stream(((Iterable<?>) o).spliterator(), false).map(this).collect(Collectors.joining(",")) + "]";
+                } else if (o instanceof String) {
+                    return "\"" + o + "\"";
+                } else {
+                    return o.toString();
+                }
+            }
+        };
     }
 
 }

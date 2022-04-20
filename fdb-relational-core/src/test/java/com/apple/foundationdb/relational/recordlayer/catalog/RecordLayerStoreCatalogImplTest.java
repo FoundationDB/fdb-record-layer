@@ -116,7 +116,6 @@ public class RecordLayerStoreCatalogImplTest {
             RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
                 storeCatalog.loadSchema(loadTxn2, URI.create("test_wrong_database_id"), "test_schema_name");
             });
-            Assertions.assertEquals("Primary key (\"Schema\", \"test_wrong_database_id\", \"test_schema_name\") not existed in Catalog!", exception.getMessage());
             Assertions.assertEquals(ErrorCode.SCHEMA_NOT_FOUND, exception.getErrorCode());
         }
 
@@ -125,8 +124,17 @@ public class RecordLayerStoreCatalogImplTest {
             RelationalException exception2 = Assertions.assertThrows(RelationalException.class, () -> {
                 storeCatalog.loadSchema(loadTxn3, URI.create("test_database_id"), "test_wrong_schema_name");
             });
-            Assertions.assertEquals("Primary key (\"Schema\", \"test_database_id\", \"test_wrong_schema_name\") not existed in Catalog!", exception2.getMessage());
             Assertions.assertEquals(ErrorCode.SCHEMA_NOT_FOUND, exception2.getErrorCode());
+        }
+    }
+
+    @Test
+    void listAllTheSchemas() throws RelationalException, SQLException {
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            final RelationalResultSet relationalResultSet = storeCatalog.listSchemas(txn, Continuation.BEGIN);
+            while (relationalResultSet.next()) {
+                System.out.println(relationalResultSet.getString("schema_name"));
+            }
         }
     }
 
@@ -307,6 +315,44 @@ public class RecordLayerStoreCatalogImplTest {
         Assertions.assertEquals(2, databases.size());
         Assertions.assertTrue(databases.contains("test_database_id1"));
         Assertions.assertTrue(databases.contains("test_database_id2"));
+    }
+
+    @Test
+    void testDoesDatabaseExist() throws RelationalException {
+        final CatalogData.Schema schema1 = generateTestSchema("test_schema_name1", "/test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.updateSchema(txn, schema1);
+            txn.commit();
+        }
+
+        //check if it exists
+        try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
+            Assertions.assertTrue(storeCatalog.doesDatabaseExist(listTxn, URI.create(schema1.getDatabaseId())), "Did not find a database!");
+        }
+    }
+
+    @Test
+    void testDeleteDatabaseWorks() throws RelationalException {
+        final CatalogData.Schema schema1 = generateTestSchema("test_schema_name1", "/test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.updateSchema(txn, schema1);
+            txn.commit();
+        }
+
+        //it should exist
+        try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
+            Assertions.assertTrue(storeCatalog.doesDatabaseExist(listTxn, URI.create(schema1.getDatabaseId())), "Did not find a database!");
+        }
+        //now delete it
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.deleteDatabase(txn, URI.create(schema1.getDatabaseId()));
+            txn.commit();
+        }
+
+        //now it shouldn't exist
+        try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
+            Assertions.assertFalse(storeCatalog.doesDatabaseExist(listTxn, URI.create(schema1.getDatabaseId())), "Did not find a database!");
+        }
     }
 
     @Test

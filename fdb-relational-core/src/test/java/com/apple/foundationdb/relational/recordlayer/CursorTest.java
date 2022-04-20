@@ -21,10 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
@@ -32,6 +30,8 @@ import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.apple.foundationdb.relational.utils.TestSchemas;
 
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -41,41 +41,31 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class CursorTest {
+    @RegisterExtension
+    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
     @RegisterExtension
     @Order(0)
-    RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
-
-    @RegisterExtension
-    @Order(1)
-    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("Restaurant", catalog)
-            .setRecordFile(Restaurant.getDescriptor())
-            .configureTable("RestaurantRecord", table -> table.setRecordTypeKey(0))
-            .addIndex(
-                    "RestaurantRecord", new Index("record_type_covering",
-                            Key.Expressions.keyWithValue(
-                                    Key.Expressions.concat(
-                                            Key.Expressions.recordType(), Key.Expressions.field("rest_no"),
-                                            Key.Expressions.field("name")), 2),
-                            IndexTypes.VALUE));
-
-    @RegisterExtension
-    @Order(2)
-    public final DatabaseRule database = new DatabaseRule("cursor_test", catalog)
-            .withSchema("main", template);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(),
+            URI.create("/" + CursorTest.class.getSimpleName()),
+            TestSchemas.restaurant()
+    );
 
     @RegisterExtension
     @Order(3)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database)
-            .withOptions(Options.create().withOption(OperationOption.forceVerifyDdl()))
-            .withSchema("main");
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+            .withOptions(Options.create())
+            .withSchema("testSchema");
 
     @RegisterExtension
     @Order(4)
@@ -245,7 +235,17 @@ public class CursorTest {
                                          BiConsumer<Iterable<Restaurant.RestaurantRecord>, RelationalStatement> test) throws RelationalException {
         // 1/2 add all records to table insert_test.main.Restaurant.RestaurantRecord
         Iterable<Restaurant.RestaurantRecord> records = Utils.generateRestaurantRecords(numRecords);
-        int count = statement.executeInsert("RestaurantRecord", records, Options.create());
+        final DynamicMessageBuilder dataBuilder = statement.getDataBuilder("RestaurantRecord");
+        Iterable<Message> convertedRecords = StreamSupport.stream(records.spliterator(), false)
+                .map(m -> {
+                    try {
+                        return dataBuilder.convertMessage(m);
+                    } catch (RelationalException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .collect(Collectors.toList());
+        int count = statement.executeInsert("RestaurantRecord", convertedRecords, Options.create());
         Assertions.assertEquals(numRecords, count);
 
         // 2/2 test logic follows

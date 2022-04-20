@@ -20,75 +20,60 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.catalog.Catalog;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.catalog.DatabaseLocator;
-import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
-import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
-import com.apple.foundationdb.relational.recordlayer.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
+import java.util.List;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-/**
- * A holder object for all the dependencies that need to be implemented by users.
- * What is passed to the constructor are the things that need to be implemented/provided
- * by the user of the Relational library--everything else is computed or determined based off
- * these interfaces.
- */
-public class RecordLayerEngine {
-    /*Internal objects*/
-    private final Catalog catalog;
-    private final ConstantActionFactory constantActionFactory;
-    private final RecordLayerDriver driver;
+public final class RecordLayerEngine {
 
-    public RecordLayerEngine(DatabaseLocator databaseFinder,
-                             MutableRecordMetaDataStore metaDataStore,
-                             FDBRecordStoreBase.UserVersionChecker userVersionChecker,
-                             SerializerRegistry serializerRegistry,
-                             KeySpace keySpace,
-                             @Nonnull FDBStoreTimer storeTimer) throws RelationalException {
+    public static EmbeddedRelationalEngine makeEngine(@Nonnull RecordLayerConfig cfg,
+                                                    @Nonnull List<FDBDatabase> databases,
+                                                    @Nonnull KeySpace baseKeySpace,
+                                                    @Nonnull Supplier<SchemaTemplateCatalog> templateCatalogSupplier) throws RelationalException {
+        return makeEngine(cfg, databases, baseKeySpace, templateCatalogSupplier, null);
+    }
 
-        this.catalog = new RecordLayerCatalog.Builder()
-                .setDatabaseLocator(databaseFinder)
-                .setKeySpace(keySpace)
-                .setMetadataProvider(metaDataStore)
-                .setSerializerRegistry(serializerRegistry)
-                .setUserVersionChecker(userVersionChecker)
-                .setStoreTimer(storeTimer)
+    public static EmbeddedRelationalEngine makeEngine(@Nonnull RecordLayerConfig cfg,
+                                                    @Nonnull List<FDBDatabase> databases,
+                                                    @Nonnull KeySpace baseKeySpace,
+                                                    @Nonnull Supplier<SchemaTemplateCatalog> templateCatalogSupplier,
+                                                    @Nullable FDBStoreTimer timer) throws RelationalException {
+
+        SchemaTemplateCatalog templateCatalog = templateCatalogSupplier.get();
+        //TODO(bfines) we need to move StoreCatalog to a per-cluster thing
+        RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(baseKeySpace);
+
+        List<StorageCluster> clusters = databases.stream().map(db ->
+                new RecordLayerStorageCluster(new DirectFdbConnection(db, timer), baseKeySpace, cfg, schemaCatalog)).collect(Collectors.toList());
+        try (Transaction txn = clusters.get(0).getTransactionManager().createTransaction()) {
+            schemaCatalog.initialize(txn);
+            txn.commit();
+        }
+
+        ConstantActionFactory constantActionFactory = new RecordLayerConstantActionFactory.Builder()
+                .setRlConfig(cfg)
+                .setBaseKeySpace(baseKeySpace)
+                .setTemplateCatalog(templateCatalog)
+                .setStoreCatalog(schemaCatalog)
                 .build();
 
-        this.constantActionFactory = new RecordLayerConstantActionFactory.Builder()
-                .setMetaDataStore(metaDataStore)
-                .setSerializerRegistry(serializerRegistry)
-                .setBaseKeySpace(keySpace)
-                .setUserVersionChecker(userVersionChecker)
-                .build();
-        this.driver = new RecordLayerDriver(this);
-
+        return new EmbeddedRelationalEngine(clusters, constantActionFactory, schemaCatalog, templateCatalog);
     }
 
-    public void registerDriver() {
-        Relational.registerDriver(driver);
-    }
-
-    public Catalog getCatalog() {
-        return catalog;
-    }
-
-    public ConstantActionFactory getConstantActionFactory() {
-        return constantActionFactory;
-    }
-
-    public String getScheme() {
-        return "embed";
-    }
-
-    public void deregisterDriver() {
-        Relational.deregisterDriver(driver);
+    private RecordLayerEngine() {
     }
 }

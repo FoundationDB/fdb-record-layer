@@ -20,46 +20,47 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
+import java.sql.SQLException;
 
 public class DropDatabaseConstantAction implements ConstantAction {
     private final URI dbUrl;
-    private final KeySpace baseKeySpace;
     private final Options options;
-    private final RecordLayerConstantActionFactory constantActionFactory;
+    private final StoreCatalog catalog;
+    private final ConstantActionFactory constantActionFactory;
 
-    public DropDatabaseConstantAction(URI dbUrl, KeySpace baseKeySpace, Options options, RecordLayerConstantActionFactory constantActionFactory) {
+    public DropDatabaseConstantAction(URI dbUrl,
+                                      StoreCatalog catalog,
+                                      ConstantActionFactory constantActionFactory,
+                                      Options options) {
         this.dbUrl = dbUrl;
-        this.baseKeySpace = baseKeySpace;
         this.options = options;
         this.constantActionFactory = constantActionFactory;
+        this.catalog = catalog;
     }
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        KeySpacePath path = KeySpaceUtils.uriToPath(dbUrl, baseKeySpace);
-        KeySpaceDirectory dir = path.getDirectory();
-        //each subdirectory is a schema, so drop each one individually
-
-        //make a copy to avoid a CME
-        final List<KeySpaceDirectory> subdirectories = new ArrayList<>(dir.getSubdirectories());
-        for (KeySpaceDirectory schemaDir : subdirectories) {
-            String schemaName = schemaDir.getName();
-            if (!schemaName.startsWith("/")) {
-                schemaName = "/" + schemaName;
+        try (RelationalResultSet schemas = catalog.listSchemas(txn, dbUrl, Continuation.BEGIN)) {
+            while (schemas.next()) {
+                String schemaName = schemas.getString("schema_name");
+                constantActionFactory.getDropSchemaConstantAction(dbUrl, schemaName, options).execute(txn);
             }
-            URI schemaUrl = URI.create(dbUrl + schemaName);
-            constantActionFactory.getDropSchemaConstantAction(schemaUrl, options).execute(txn);
+        } catch (SQLException se) {
+            ErrorCode ec = ErrorCode.get(se.getSQLState());
+            throw new RelationalException(se.getMessage(), ec, se);
         }
+
+        catalog.deleteDatabase(txn, dbUrl);
     }
 }

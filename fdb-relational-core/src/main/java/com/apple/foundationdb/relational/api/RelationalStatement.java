@@ -31,6 +31,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
+import java.util.Collections;
 import java.util.Iterator;
 
 import javax.annotation.Nonnull;
@@ -145,6 +146,11 @@ public interface RelationalStatement extends java.sql.Statement {
     @Nonnull
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException;
 
+    // syntactic sugar to make it easier to insert a single record
+    default int executeInsert(@Nonnull String tableName, Message message, @Nonnull Options options) throws RelationalException {
+        return executeInsert(tableName, Collections.singleton(message).iterator(), options);
+    }
+
     /**
      * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
      * <p>
@@ -171,6 +177,8 @@ public interface RelationalStatement extends java.sql.Statement {
      * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
      */
     int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException;
+
+    DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException;
 
     /**
      * Delete one or more records from the specified table, specified by key, if such records exist.

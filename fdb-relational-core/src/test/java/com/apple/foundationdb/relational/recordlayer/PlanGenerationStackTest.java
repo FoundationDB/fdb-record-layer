@@ -20,13 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.Restaurant;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.apple.foundationdb.relational.utils.TestSchemas;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -37,6 +36,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
+import java.net.URI;
 import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
@@ -55,25 +55,26 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class PlanGenerationStackTest {
     @RegisterExtension
-    @Order(0)
-    public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
-
-    @RegisterExtension
-    @Order(1)
-    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("RestaurantRecord", catalog)
-            .setRecordFile(Restaurant.getDescriptor())
-            .configureTable("RestaurantRecord", table -> table.setPrimaryKey(Key.Expressions.field("rest_no")));
+    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
+    //    @Order(0)
+    //    public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
+    //
+    //    @RegisterExtension
+    //    @Order(1)
+    //    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("RestaurantRecord", catalog)
+    //            .setRecordFile(Restaurant.getDescriptor())
+    //            .configureTable("RestaurantRecord", table -> table.setPrimaryKey(Key.Expressions.field("rest_no")));
 
     @RegisterExtension
     @Order(2)
-    public final DatabaseRule database = new DatabaseRule("query_test", catalog)
-            .withSchema("test", template);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(),
+            URI.create("/" + PlanGenerationStackTest.class.getSimpleName()),
+            TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(3)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database)
-            .withOptions(Options.create().withOption(OperationOption.forceVerifyDdl()))
-            .withSchema("test");
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+            .withSchema("testSchema");
 
     @RegisterExtension
     @Order(4)

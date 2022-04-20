@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.ConnectionScoped;
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.TableMetaData;
@@ -66,4 +67,6 @@ public interface Table extends DirectScannable, AutoCloseable {
      * @throws RelationalException if the metadata could not be retrieved
      */
     @Nonnull TableMetaData getMetaData() throws RelationalException;
+
+    DynamicMessageBuilder getDataBuilder() throws RelationalException;
 }

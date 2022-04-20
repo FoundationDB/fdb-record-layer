@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesPro
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Descriptors;
@@ -57,7 +59,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
@@ -96,6 +97,8 @@ public class RecordStoreStatement implements RelationalStatement {
 
     @Override
     @Nonnull
+    @ExcludeFromJacocoGeneratedReport
+    //excluded because QueryTest is currently disabled due to a RL bug, and also because we are going to remove this method soon anyway
     public RelationalResultSet executeQuery(@Nonnull Queryable query, @Nonnull Options options) throws RelationalException {
         ensureTransactionActive();
 
@@ -141,7 +144,7 @@ public class RecordStoreStatement implements RelationalStatement {
             recQueryBuilder.setFilter(WhereClauseUtils.convertClause(query.getWhereClause()));
         }
 
-        final QueryExecutor queryExecutor = new QueryExecutor(conn.frl.loadSchema(schemaAndTable[0], options),
+        final QueryExecutor queryExecutor = new QueryExecutor(schema,
                 recQueryBuilder.build(),
                 queryColumns.toArray(new String[0]),
                 EvaluationContext.empty(),
@@ -190,11 +193,15 @@ public class RecordStoreStatement implements RelationalStatement {
 
         final Row row = source.get(conn.transaction, tuple, queryProperties);
 
-        Iterable<Row> iterable = toIterable(row == null ? Collections.emptyIterator() : List.of(row).iterator());
-        DirectScannable scannable = new IterableScannable<>(iterable, Function.identity(), table.getFieldNames());
-        return new RecordLayerResultSet(source.getFieldNames(),
-                scannable.openScan(conn.transaction, new EmptyTuple(), new EmptyTuple(), options.getOption(OperationOption.CONTINUATION_NAME, null), queryProperties),
-                conn);
+        return new IteratorResultSet(table.getFieldNames(), row == null ? Collections.emptyIterator() : List.of(row).iterator(), 0);
+    }
+
+    @Override
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException {
+        ensureTransactionActive();
+        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), typeName);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], Options.create());
+        return schema.getDataBuilder(typeName);
     }
 
     @Override
@@ -333,10 +340,6 @@ public class RecordStoreStatement implements RelationalStatement {
             source = table;
         }
         return source;
-    }
-
-    private static <T> Iterable<T> toIterable(Iterator<T> it) {
-        return () -> it;
     }
 
 }

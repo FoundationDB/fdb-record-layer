@@ -31,6 +31,10 @@ import javax.annotation.Nullable;
  * A Driver which is used to connect to a Relational Database.
  */
 public interface RelationalDriver {
+    default RelationalConnection connect(@Nonnull URI url) throws RelationalException {
+        return connect(url, null, TransactionConfig.DEFAULT, Options.create());
+    }
+
     default RelationalConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
         return connect(url, null, TransactionConfig.DEFAULT, connectionOptions);
     }
@@ -51,20 +55,6 @@ public interface RelationalDriver {
      *                           database can be found in the catalog for the specified database url)
      */
     RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException;
-
-    /**
-     * Get the major version of the Relational Driver.
-     *
-     * @return the major version of the Relational Driver.
-     */
-    int getMajorVersion();
-
-    /**
-     * Get the minor version of the Relational Driver.
-     *
-     * @return the minor version of the Relational Driver.
-     */
-    int getMinorVersion();
 
     /**
      * Determine if this driver can be used for the specified scheme string.

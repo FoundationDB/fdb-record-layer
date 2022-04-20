@@ -1,0 +1,72 @@
+/*
+ * DdlLexer.tokens
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+KW_CREATE=1
+KW_AS=2
+KW_WITH=3
+KW_HAS=4
+KW_DROP=5
+KW_SHOW=6
+KW_DESCRIBE=7
+KW_SCHEMA=8
+KW_TABLE=9
+KW_INDEX=10
+KW_TEMPLATE=11
+KW_DEFAULT=12
+KW_NULL=13
+KW_PRIMARY=14
+KW_KEY=15
+KW_TYPE=16
+KW_DATABASE=17
+KW_DATABASES=18
+KW_PREFIX=19
+KW_TEMPLATES=20
+KW_BOOLEAN=21
+KW_BYTES=22
+KW_DOUBLE=23
+KW_INT64=24
+KW_STRING=25
+KW_TIMESTAMP=26
+KW_MESSAGE=27
+KW_REPEATED=28
+DOT=29
+COLON=30
+COMMA=31
+SEMICOLON=32
+LPAREN=33
+RPAREN=34
+LSQUARE=35
+RSQUARE=36
+LCURLY=37
+RCURLY=38
+QuotedString=39
+Identifier=40
+Path=41
+WS=42
+'.'=29
+':'=30
+','=31
+';'=32
+'('=33
+')'=34
+'['=35
+']'=36
+'{'=37
+'}'=38

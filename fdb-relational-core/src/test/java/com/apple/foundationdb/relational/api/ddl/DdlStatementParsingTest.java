@@ -1,0 +1,824 @@
+/*
+ * DdlStatementParsingTest.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.api.ddl;
+
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.api.catalog.TableInfo;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
+import com.apple.foundationdb.relational.utils.PermutationIterator;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.function.IntPredicate;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+import javax.annotation.Nonnull;
+
+/**
+ * Tests that verify that the language behaves correctly and has nice features and stuff. It does _not_ verify
+ * that the underlying execution is correct, only that the language is parsed as expected.
+ */
+public class DdlStatementParsingTest {
+    private static final InMemoryTransactionManager txnManager = new InMemoryTransactionManager();
+
+    private static final String[] validPrimitiveDataTypes = new String[]{
+            "int64", "double", "boolean", "string", "bytes"
+    };
+
+    public static Stream<Arguments> columnTypePermutations() {
+        int numColumns = 2;
+        List<String> items = List.of(validPrimitiveDataTypes);
+
+        final PermutationIterator<String> permutations = PermutationIterator.generatePermutations(items, numColumns);
+        return permutations.stream().map(Arguments::of);
+    }
+
+    @Test
+    void indexFailsWithEmptyStatement() throws Exception {
+        String stmt = "CREATE SCHEMA TEMPLATE test_template as {" +
+                "CREATE VALUE INDEX t_idx on foo(a,,);" +
+                "}";
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute(stmt));
+            Assertions.assertEquals(ErrorCode.UNKNOWN_TYPE, ve.getErrorCode());
+        }
+    }
+
+    @Test
+    void indexFailsWithReservedKeywordAsName() throws Exception {
+        String stmt = "CREATE SCHEMA TEMPLATE test_template as {" +
+                "CREATE VALUE INDEX table on foo(a);" +
+                "}";
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute(stmt));
+            Assertions.assertEquals(ErrorCode.SYNTAX_ERROR, ve.getErrorCode());
+        }
+    }
+
+    @Test
+    void failsToParseEmptyTemplateStatements() throws Exception {
+        //empty template statements are invalid, and can be rejected in the parser
+        String stmt = "CREATE SCHEMA TEMPLATE test_template AS {;}";
+
+        boolean[] visited = new boolean[]{false};
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.assertEquals(0, template.getTables().size(), "Tables defined!");
+                Assertions.assertEquals(0, template.getTypes().size(), "Tables defined!");
+                visited[0] = true;
+                return txn -> {
+                };
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute(stmt));
+            Assertions.assertEquals(ErrorCode.SYNTAX_ERROR, ve.getErrorCode());
+            Assertions.assertFalse(visited[0], "called for a constant action!");
+        }
+    }
+
+    @Test
+    void createTypeWithPrimaryKeyFails() throws Exception {
+        String stmt = "CREATE SCHEMA TEMPLATE test_template as {" +
+                "CREATE TYPE t (a int64, b string PRIMARY KEY(b));" +
+                "}";
+
+        boolean[] visited = new boolean[]{false};
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.fail("Should fail during parsing!");
+                return txn -> {
+                };
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute(stmt));
+            Assertions.assertEquals(ErrorCode.SYNTAX_ERROR, ve.getErrorCode());
+            Assertions.assertFalse(visited[0], "called for a constant action!");
+        }
+    }
+
+    /*Schema Template tests*/
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createSchemaTemplates(List<String> columns) throws Exception {
+        String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
+                "CREATE TYPE FOO " + makeColumnDefinition(columns, false) +
+                "}";
+
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.assertEquals("test_template", template.getUniqueId(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
+                Assertions.assertEquals(0, schema.getTables().size(), "Incorrect number of tables");
+                return txn -> {
+                    try {
+                        final DdlTestUtil.ParsedType type = schema.getType("foo");
+                        assertColumnsMatch(type, columns);
+                    } catch (Exception ve) {
+                        throw ExceptionUtil.toRelationalException(ve);
+                    }
+                };
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(columnStatement);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createSchemaTemplateTableWithOnlyRecordType(List<String> columns) throws Exception {
+        final String baseTableDef = makeColumnDefinition(columns, false).replace(")", " PRIMARY KEY(RECORD TYPE))");
+        String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
+                "CREATE TABLE FOO " + baseTableDef +
+                "}";
+
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.assertEquals("test_template", template.getUniqueId(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
+                Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
+                return txn -> {
+                    try {
+                        final DdlTestUtil.ParsedType type = schema.getTable("foo");
+                        assertColumnsMatch(type, columns);
+                    } catch (Exception ve) {
+                        throw ExceptionUtil.toRelationalException(ve);
+                    }
+                };
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(columnStatement);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createSchemaTemplateWithDuplicateIndexesFails(List<String> columns) throws Exception {
+        final String baseTableDef = makeColumnDefinition(columns, true);
+        String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
+                "CREATE TABLE FOO " + baseTableDef +
+                "; CREATE VALUE INDEX foo_idx on FOO(col0)" +
+                "; CREATE VALUE INDEX foo_idx on FOO(col0)" //duplicate with the same name  on same table should fail
+                + "}";
+
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.fail("Should not call this!");
+                return txn -> {
+                };
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute(columnStatement));
+            Assertions.assertEquals(ErrorCode.INDEX_EXISTS, ve.getErrorCode(), "Incorrect error code!");
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createSchemaTemplateWithIndex(List<String> columns) throws Exception {
+        String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
+                "CREATE TYPE FOO " + makeColumnDefinition(columns, false) + ";" +
+                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) + ";" +
+                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0)) + ");" +
+                "}";
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
+                TableInfo info = template.getTables().stream().findFirst().orElseThrow();
+                Assertions.assertEquals(1, info.getTable().getIndexesCount(), "Incorrect number of indexes!");
+                final CatalogData.Index index = info.getTable().getIndexes(0);
+                Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
+
+                var actualKe = index.getIndexDef().getRootExpression();
+                List<RecordMetaDataProto.KeyExpression> keys = null;
+                if (actualKe.hasThen()) {
+                    keys = new ArrayList<>(actualKe.getThen().getChildList());
+                } else if (actualKe.hasField()) {
+                    keys = new ArrayList<>();
+                    keys.add(actualKe);
+                } else {
+                    Assertions.fail("Unexpected KeyExpression type");
+                }
+                //if the first key is RecordType,remove that
+                if (keys.get(0).hasRecordTypeKey()) {
+                    keys.remove(0);
+                }
+
+                List<String> idxColumns = chooseIndexColumns(columns, n -> n % 2 == 0);
+                for (int i = 0; i < idxColumns.size(); i++) {
+                    Assertions.assertEquals(idxColumns.get(i), keys.get(i).getField().getFieldName(), "Incorrect column at position " + i);
+                }
+                return txn -> {
+                };
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(templateStatement);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createSchemaTemplateWithIndexAndInclude(List<String> columns) throws Exception {
+        Assumptions.assumeTrue(columns.size() > 1); //the test only works with multiple columns
+        final List<String> indexedColumns =  chooseIndexColumns(columns, n -> n % 2 == 0); //choose every other column
+        final List<String> unindexedColumns = chooseIndexColumns(columns, n -> n % 2 != 0);
+        String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
+                "CREATE TYPE FOO " + makeColumnDefinition(columns, false) + ";" +
+                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) + ";" +
+                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", indexedColumns) + ") INCLUDE (" + String.join(",", unindexedColumns) + ");" +
+                "}";
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
+                TableInfo info = template.getTables().stream().findFirst().orElseThrow();
+                Assertions.assertEquals(1, info.getTable().getIndexesCount(), "Incorrect number of indexes!");
+                final CatalogData.Index index = info.getTable().getIndexes(0);
+                Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
+
+                var actualKe = index.getIndexDef().getRootExpression();
+                Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
+                final RecordMetaDataProto.KeyWithValue keyWithValue = actualKe.getKeyWithValue();
+
+                //This is a weird workaround for the problem fixed in https://github.com/FoundationDB/fdb-record-layer/pull/1585,
+                // once that's been merged and we get a release that contains it, we can replace this with a more
+                //natural api
+                final RecordMetaDataProto.KeyExpression innerKey = keyWithValue.getInnerKey();
+                int splitPoint = keyWithValue.getSplitPoint();
+                final ThenKeyExpression then = new ThenKeyExpression(innerKey.getThen());
+                KeyExpression keyExpr = then.getSubKey(0, splitPoint);
+                KeyExpression valueExpr = then.getSubKey(splitPoint, then.getColumnSize());
+
+                //account for the record type key
+                Assertions.assertEquals(indexedColumns.size(), keyExpr.getColumnSize() - 1, "Incorrect number of parsed columns!");
+                for (int i = 1; i <= indexedColumns.size(); i++) {
+                    final RecordMetaDataProto.KeyExpression ke = keyExpr.getSubKey(i, i + 1).toKeyExpression();
+                    Assertions.assertEquals(indexedColumns.get(i - 1), ke.getField().getFieldName(), "Incorrect column at position " + (i - 1));
+                }
+
+                Assertions.assertEquals(unindexedColumns.size(), valueExpr.getColumnSize(), "Incorrect number of parsed columns!");
+                for (int i = 0; i < unindexedColumns.size(); i++) {
+                    final RecordMetaDataProto.KeyExpression ve = valueExpr.getSubKey(i, i + 1).toKeyExpression();
+                    Assertions.assertEquals(unindexedColumns.get(i), ve.getField().getFieldName(), "Incorrect column at position " + i);
+                }
+
+                return txn -> {
+                };
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(templateStatement);
+        }
+    }
+
+    @Test
+    void dropSchemaTemplates() throws Exception {
+        String columnStatement = "DROP SCHEMA TEMPLATE test_template";
+
+        boolean[] called = new boolean[]{false};
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
+                Assertions.assertEquals("test_template", templateId, "Incorrect schema template name!");
+                called[0] = true;
+                return txn -> {
+                };
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(columnStatement);
+            Assertions.assertTrue(called[0], "Did not call CA method!");
+        }
+    }
+
+    @Test
+    void createSchemaTemplateWithNoTypesFails() throws Exception {
+        String command = "CREATE SCHEMA TEMPLATE no_types AS {}";
+
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+                Assertions.fail("Should fail with a parser error");
+                return super.getCreateSchemaTemplateConstantAction(template, templateProperties);
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute(command));
+            Assertions.assertEquals(ErrorCode.INVALID_SCHEMA_TEMPLATE, ve.getErrorCode(), "Incorrect error code!");
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createTable(List<String> columns) throws Exception {
+        String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { CREATE TABLE FOO " +
+                makeColumnDefinition(columns, true) +
+                "}";
+
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.assertEquals("test_template", template.getUniqueId(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
+                Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
+                return txn -> {
+                    try {
+                        final DdlTestUtil.ParsedType table = schema.getTable("foo");
+                        assertColumnsMatch(table, columns);
+                    } catch (Exception ve) {
+                        throw ExceptionUtil.toRelationalException(ve);
+                    }
+                };
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(columnStatement);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createTableAndType(List<String> columns) throws Exception {
+        String tableDef = "CREATE TABLE tbl " + makeColumnDefinition(columns, true);
+        String typeDef = "CREATE TYPE typ " + makeColumnDefinition(columns, false);
+        String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS {" +
+                typeDef + ";" +
+                tableDef + ";" +
+                "}";
+
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.assertEquals("test_template", template.getUniqueId(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
+                Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
+                return txn -> {
+                    try {
+                        assertColumnsMatch(schema.getTable("tbl"), columns);
+                        assertColumnsMatch(schema.getType("typ"), columns);
+                    } catch (Exception ve) {
+                        throw ExceptionUtil.toRelationalException(ve);
+                    }
+                };
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(templateStatement);
+        }
+    }
+
+    /*Database tests*/
+    @Test
+    void createDatabase() throws Exception {
+        String command = "CREATE DATABASE /db_path";
+
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
+                Assertions.assertEquals(URI.create("/db_path"), dbPath, "Incorrect database path!");
+                return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(command);
+        }
+    }
+
+    @Test
+    void createDatabaseWithInvalidPathFails() throws Exception {
+        String command = "CREATE DATABASE not_a_path";
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
+                Assertions.fail("We should not reach this point! We should throw a RelationalException instead");
+                return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute(command));
+            Assertions.assertEquals(ErrorCode.INVALID_PATH, ve.getErrorCode(), "Incorrect error code!");
+        }
+    }
+
+    @Test
+    void dropDatabase() throws Exception {
+        String command = "DROP DATABASE /db_path";
+
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+                Assertions.assertEquals(URI.create("/db_path"), dbUrl, "Incorrect database path!");
+                return NoOpConstantActionFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, options);
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(command);
+        }
+    }
+
+    @Test
+    void dropDatabaseWithInvalidPathFails() throws Exception {
+        String command = "DROP DATABASE not_a_path";
+
+        final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+                Assertions.fail("We should not reach this point! We should throw a RelationalException instead");
+                return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbUrl, options);
+            }
+        };
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, constantActionFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute(command));
+            Assertions.assertEquals(ErrorCode.INVALID_PATH, ve.getErrorCode(), "Incorrect error code!");
+        }
+    }
+
+    @Test
+    void listDatabasesWithoutPrefixParsesCorrectly() throws Exception {
+        String command = "SHOW DATABASES";
+
+        boolean[] called = new boolean[]{false};
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+                called[0] = true;
+                Assertions.assertNotNull(prefixPath, "Null URI passed!");
+                Assertions.assertEquals(URI.create("/"), prefixPath, "incorrect root path specified!");
+                return txn -> null;
+            }
+
+            @Override
+            public DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath) {
+                Assertions.fail("Incorrectly called listSchemas!");
+                return txn -> null;
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(command);
+
+            Assertions.assertTrue(called[0], "Did not call the correct method!");
+        }
+    }
+
+    @Test
+    void listDatabasesWithPrefixParsesCorrectly() throws Exception {
+        String command = "SHOW DATABASES WITH PREFIX /prefix";
+
+        boolean[] called = new boolean[]{false};
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+                called[0] = true;
+                Assertions.assertNotNull(prefixPath, "Null URI passed!");
+                Assertions.assertEquals(URI.create("/prefix"), prefixPath, "incorrect prefixed path specified!");
+                return txn -> null;
+            }
+
+            @Override
+            public DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath) {
+                Assertions.fail("Incorrectly called listSchemas!");
+                return txn -> null;
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(command);
+
+            Assertions.assertTrue(called[0], "Did not call the correct method!");
+        }
+    }
+
+    @Test
+    void listSchemaTemplatesParsesProperly() throws Exception {
+        String command = "SHOW SCHEMA TEMPLATES";
+
+        boolean[] called = new boolean[]{false};
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+                Assertions.fail("Incorrectly called listSchemas!");
+                return txn -> null;
+            }
+
+            @Override
+            public DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath) {
+                Assertions.fail("Incorrectly called listSchemas!");
+                return txn -> null;
+            }
+
+            @Override
+            public DdlQuery getListSchemaTemplatesQueryAction() {
+                called[0] = true;
+                return txn -> null;
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute(command);
+
+            Assertions.assertTrue(called[0], "Did not call the correct method!");
+        }
+
+    }
+
+    @Test
+    void listSchemaTemplatesMissingSchemaFails() throws Exception {
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getListSchemaTemplatesQueryAction() {
+                Assertions.fail("Should not have called this method");
+                return txn -> null;
+            }
+        };
+
+        String command = "SHOW TEMPLATES";
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute(command));
+            Assertions.assertEquals(ErrorCode.SYNTAX_ERROR, ve.getErrorCode(), "Incorrect error code!");
+        }
+    }
+
+    @Test
+    void describeSchemaTemplate() throws Exception {
+        String templateName = "test_template";
+        boolean[] called = new boolean[]{false};
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                called[0] = true;
+                Assertions.assertNotNull(schemaId, "Passed a null schema id!");
+                Assertions.assertEquals(templateName, schemaId, "Incorrect template name!");
+                return txn -> null;
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute("DESCRIBE SCHEMA TEMPLATE " + templateName);
+
+            Assertions.assertTrue(called[0], "Did not call the correct method!");
+        }
+    }
+
+    @Test
+    void describeSchemaTemplateFailsWithNoTemplateId() throws Exception {
+
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return txn -> null;
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute("DESCRIBE SCHEMA TEMPLATE "));
+            Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, ve.getErrorCode());
+        }
+    }
+
+    @Test
+    void describeFailsWithNoIdentifier() throws Exception {
+
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+                Assertions.fail("Should not call the query!");
+                return txn -> null;
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute("DESCRIBE "));
+            Assertions.assertEquals(ErrorCode.SYNTAX_ERROR, ve.getErrorCode());
+        }
+    }
+
+    @Test
+    void describeSchemaFailsWithoutDatabase() throws Exception {
+        String templateName = "test_template";
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
+                Assertions.fail("Should not have called this method!");
+                return txn -> null;
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute("DESCRIBE SCHEMA " + templateName));
+            Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, ve.getErrorCode(), "Incorrect error code!");
+        }
+    }
+
+    @Test
+    void describeSchemaPathSucceeds() throws Exception {
+        String templateName = "test_template";
+        boolean[] called = new boolean[]{false};
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
+                called[0] = true;
+                Assertions.assertNotNull(schemaId, "Passed a null schema id!");
+                Assertions.assertNotNull(dbUri, "Passed a null db id!");
+                Assertions.assertEquals(templateName, schemaId, "Incorrect template name!");
+                return txn -> null;
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute("DESCRIBE SCHEMA " + "/test_db/" + templateName);
+
+            Assertions.assertTrue(called[0], "Did not call the correct method!");
+        }
+    }
+
+    @Test
+    void describeSchemaWithSetDatabaseSucceeds() throws Exception {
+        String templateName = "test_template";
+        boolean[] called = new boolean[]{false};
+        final DdlQueryFactory queryFactory = new AbstractQueryFactory() {
+            @Override
+            public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
+                called[0] = true;
+                Assertions.assertNotNull(schemaId, "Passed a null schema id!");
+                Assertions.assertNotNull(dbUri, "Passed a null db id!");
+                Assertions.assertEquals(templateName, schemaId, "Incorrect template name!");
+                return txn -> null;
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, NoOpConstantActionFactory.INSTANCE, queryFactory);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            ddlConnection.setDatabase(URI.create("/test_db"));
+            statement.execute("DESCRIBE SCHEMA " + templateName);
+
+            Assertions.assertTrue(called[0], "Did not call the correct method!");
+        }
+    }
+
+    @Test
+    void createSchemaWithPath() throws Exception {
+        String templateName = "test_template";
+        boolean[] called = new boolean[]{false};
+        final ConstantActionFactory caFactory = new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri,
+                                                                @Nonnull String schemaName,
+                                                                @Nonnull String templateId,
+                                                                Options constantActionOptions) {
+                called[0] = true;
+                Assertions.assertNotNull(dbUri, "No database URI specified");
+                Assertions.assertNotNull(schemaName, "No schema specified");
+                Assertions.assertNotNull(templateId, "No template specified");
+                return txn -> {
+                };
+            }
+        };
+
+        try (DdlConnection ddlConnection = new DdlConnection(txnManager, caFactory, NoOpQueryFactory.INSTANCE);
+                DdlStatement statement = ddlConnection.createStatement()) {
+            statement.execute("CREATE SCHEMA " + "/test_db/" + templateName + " WITH TEMPLATE " + templateName);
+
+            Assertions.assertTrue(called[0], "Did not call the correct method!");
+        }
+    }
+
+    private String makeColumnDefinition(List<String> columns, boolean isTable) {
+        StringBuilder columnStatement = new StringBuilder("(");
+        int pos = 0;
+        for (String col : columns) {
+            if (pos != 0) {
+                columnStatement.append(",");
+            }
+            columnStatement.append("col").append(pos).append(" ").append(col);
+            pos++;
+        }
+        if (isTable) {
+            //now add a primary key
+            columnStatement.append(" PRIMARY KEY(col0)");
+        }
+        return columnStatement.append(")").toString();
+    }
+
+    private List<String> chooseIndexColumns(List<String> columns, IntPredicate indexChoice) {
+        //choose every other column
+        return IntStream.range(0, columns.size())
+                .filter(indexChoice)
+                .mapToObj(n -> "col" + n)
+                .collect(Collectors.toList());
+    }
+
+    private void assertColumnsMatch(DdlTestUtil.ParsedType type, List<String> expectedColumns) {
+        Assertions.assertNotNull(type, "No type found!");
+        List<String> columnStrings = type.getColumnStrings();
+        List<String> expectedColStrings = IntStream.range(0, expectedColumns.size())
+                .mapToObj(i -> ("col" + i + " " + expectedColumns.get(i).toUpperCase(Locale.ROOT)))
+                .collect(Collectors.toList());
+        Assertions.assertEquals(expectedColStrings, columnStrings, "Incorrect columns for type <" + type.getName() + ">");
+    }
+}

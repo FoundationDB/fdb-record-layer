@@ -23,8 +23,6 @@ package com.apple.foundationdb.relational.api.catalog;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import java.util.Set;
-
 import javax.annotation.Nonnull;
 
 @ConnectionScoped
@@ -34,8 +32,6 @@ public interface DatabaseSchema extends AutoCloseable {
     String getSchemaName();
 
     int getSchemaVersion() throws RelationalException;
-
-    Set<String> listTables() throws RelationalException;
 
     @Override
     void close() throws RelationalException;

@@ -21,10 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.WhereClause;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.util.Arrays;
 import java.util.List;
 
+@ExcludeFromJacocoGeneratedReport
+//the basic test is disabled due to a RL bug, but also because it's all going to be removed soon
 public class OrClause implements WhereClause {
     private final List<WhereClause> childClauses;
 

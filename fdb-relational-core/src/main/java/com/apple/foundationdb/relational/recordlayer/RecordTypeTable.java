@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpressio
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -41,7 +43,6 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import java.sql.SQLException;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -136,23 +137,6 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
         currentTypeRef = null;
     }
 
-    void validate() throws RelationalException {
-        try {
-            if (!this.conn.inActiveTransaction()) {
-                this.conn.beginTransaction();
-                try {
-                    loadRecordType();
-                } finally {
-                    this.conn.rollback();
-                }
-            } else {
-                loadRecordType();
-            }
-        } catch (SQLException e) {
-            throw ExceptionUtil.toRelationalException(e);
-        }
-    }
-
     @Nonnull
     @Override
     public String getName() {
@@ -166,7 +150,15 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    protected RecordCursor<FDBStoredRecord<Message>> openScan(FDBRecordStore store, TupleRange range, @Nullable Continuation continuation, ScanProperties props) throws RelationalException {
+    public DynamicMessageBuilder getDataBuilder() throws RelationalException {
+        RecordType type = loadRecordType();
+        return new ProtobufDataBuilder(type.getDescriptor());
+    }
+
+    @Override
+    protected RecordCursor<FDBStoredRecord<Message>> openScan(FDBRecordStore store, TupleRange range,
+                                                              @Nullable Continuation continuation,
+                                                              ScanProperties props) throws RelationalException {
         RecordType type = loadRecordType();
         try {
             return store.scanRecords(range, continuation == null ? null : continuation.getBytes(), props)
@@ -198,11 +190,12 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                 //just try to load the store, and see if it fails. If it fails, it's not there
                 currentTypeRef = store.getRecordMetaData().getRecordType(tableName);
                 //make sure to clear our state if the transaction ends
-                this.conn.transaction.addTerminationListener(() -> currentTypeRef = null);
+                this.conn.addCloseListener(() -> currentTypeRef = null);
             } catch (MetaDataException mde) {
                 throw new RelationalException(mde.getMessage(), ErrorCode.UNKNOWN_SCHEMA, mde);
             }
         }
         return currentTypeRef;
     }
+
 }

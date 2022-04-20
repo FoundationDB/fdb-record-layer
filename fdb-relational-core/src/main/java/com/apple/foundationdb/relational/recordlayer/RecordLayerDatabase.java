@@ -22,28 +22,28 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.TransactionConfig;
+import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
+import com.apple.foundationdb.relational.recordlayer.catalog.CachedMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.base.Throwables;
 
 import java.net.URI;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -53,8 +53,9 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 @NotThreadSafe
 public class RecordLayerDatabase implements RelationalDatabase {
-    private final FDBDatabase fdbDb;
+    private final FdbConnection fdbDb;
     private final RecordMetaDataStore metaDataStore;
+    private final StoreCatalog storeCatalog;
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final int formatVersion;
 
@@ -65,31 +66,34 @@ public class RecordLayerDatabase implements RelationalDatabase {
 
     private final Map<String, RecordLayerSchema> schemas = new HashMap<>();
 
-    private final RecordLayerCatalog catalog;
-
-    @Nullable
-    private final FDBStoreTimer storeTimer;
-
-    public RecordLayerDatabase(FDBDatabase fdbDb,
+    public RecordLayerDatabase(FdbConnection fdbDb,
                                RecordMetaDataStore metaDataStore,
+                               StoreCatalog storeCatalog,
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                int formatVersion,
                                SerializerRegistry serializerRegistry,
-                               KeySpacePath dbPathPrefix,
-                               @Nullable FDBStoreTimer storeTimer,
-                               RecordLayerCatalog catalog) {
+                               KeySpacePath dbPathPrefix) {
         this.fdbDb = fdbDb;
-        this.metaDataStore = metaDataStore;
+        this.metaDataStore = new CachedMetaDataStore(metaDataStore);
+        this.storeCatalog = storeCatalog;
         this.userVersionChecker = userVersionChecker;
         this.formatVersion = formatVersion;
         this.serializerRegistry = serializerRegistry;
         this.ksPath = dbPathPrefix;
-        this.storeTimer = storeTimer;
-        this.catalog = catalog;
     }
 
     void setConnection(@Nonnull RecordStoreConnection conn) {
         this.connection = conn;
+    }
+
+    @Override
+    public RelationalConnection connect(@Nullable Transaction sharedTransaction, @Nonnull TransactionConfig txnConfig) throws RelationalException {
+        if (sharedTransaction != null && !(sharedTransaction instanceof RecordContextTransaction)) {
+            throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
+        }
+        RecordStoreConnection conn = new RecordStoreConnection(this, storeCatalog, (RecordContextTransaction) sharedTransaction);
+        setConnection(conn);
+        return conn;
     }
 
     @Override
@@ -102,26 +106,10 @@ public class RecordLayerDatabase implements RelationalDatabase {
             schema = new RecordLayerSchema(schemaId, this, connection, options);
             putBack = true;
         }
-        try {
-            if (options.hasOption(OperationOption.FORCE_VERIFY_DDL)) {
-                if (!this.connection.inActiveTransaction()) {
-                    this.connection.beginTransaction();
-                    try {
-                        schema.loadStore();
-                    } finally {
-                        this.connection.rollback();
-                    }
-                } else {
-                    schema.loadStore();
-                }
-            }
-        } catch (SQLException e) {
-            throw ExceptionUtil.toRelationalException(e);
-        }
 
         if (putBack) {
             schemas.put(schemaId, schema);
-            this.connection.transaction.addTerminationListener(() -> {
+            this.connection.transaction.unwrap(RecordContextTransaction.class).addTerminationListener(() -> {
                 RecordLayerSchema rlSchema = schemas.remove(schemaId);
                 try {
                     if (rlSchema != null) {
@@ -144,14 +132,14 @@ public class RecordLayerDatabase implements RelationalDatabase {
     }
 
     @SuppressWarnings("PMD.PreserveStackTrace") //we actually do, the PMD linter just doesn't seem to be able to tell
-    FDBRecordStore loadStore(@Nonnull FDBRecordContext txn, @Nonnull String storeName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
+    FDBRecordStore loadStore(@Nonnull Transaction txn, @Nonnull String schemaName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
 
         KeySpacePath storePath;
         try {
-            storePath = ksPath.add(storeName);
+            storePath = ksPath.add("schema", schemaName);
         } catch (NoSuchDirectoryException nsde) {
-            throw new RelationalException("Unknown schema <" + storeName + ">", ErrorCode.UNKNOWN_SCHEMA, nsde);
+            throw new RelationalException("Uninitialized Catalog", ErrorCode.INTERNAL_ERROR, nsde);
         } catch (MetaDataException mde) {
             throw new RelationalException(mde.getMessage(), ErrorCode.UNKNOWN_SCHEMA, mde);
         } catch (RecordCoreException ex) {
@@ -163,50 +151,34 @@ public class RecordLayerDatabase implements RelationalDatabase {
                     .setKeySpacePath(storePath)
                     .setSerializer(serializerRegistry.loadSerializer(storePath))
                     //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
-                    .setMetaDataProvider(metaDataStore.loadMetaData(KeySpaceUtils.pathToUri(storePath)))
+                    .setMetaDataProvider(metaDataStore.loadMetaData(txn, KeySpaceUtils.pathToUri(this.ksPath), schemaName))
                     .setUserVersionChecker(userVersionChecker)
                     .setFormatVersion(formatVersion)
-                    .setContext(txn)
+                    .setContext(txn.unwrap(FDBRecordContext.class))
                     .createOrOpen(existenceCheck);
         } catch (RecordCoreException rce) {
             Throwable cause = Throwables.getRootCause(rce);
             if (cause instanceof RecordStoreDoesNotExistException) {
-                throw new RelationalException("Schema does not exist. Schema: <" + storeName + ">", ErrorCode.SCHEMA_NOT_FOUND, cause);
+                throw new RelationalException("Schema does not exist. Schema: <" + schemaName + ">", ErrorCode.SCHEMA_NOT_FOUND, cause);
             } else {
-                throw new RelationalException("Schema <" + storeName + "> cannot be found", ErrorCode.UNKNOWN_SCHEMA, cause);
+                throw new RelationalException("Schema <" + schemaName + "> cannot be found", ErrorCode.UNKNOWN_SCHEMA, cause);
             }
         }
     }
 
-    FDBDatabase getFDBDatabase() {
+    FdbConnection getFDBDatabase() {
         return fdbDb;
-    }
-
-    KeySpace getKeySpace() {
-        return catalog.getKeySpace();
     }
 
     /* ****************************************************************************************************************/
     /* private helper methods */
 
     FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
-        return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId, existenceCheck);
-    }
-
-    void clearDatabase(@Nonnull FDBRecordContext context) throws RelationalException {
-        try {
-            FDBRecordStore.deleteStore(context, ksPath);
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
+        return loadStore(this.connection.transaction, schemaId, existenceCheck);
     }
 
     public URI getPath() {
         return KeySpaceUtils.pathToUri(ksPath);
     }
 
-    @Nullable
-    FDBStoreTimer getStoreTimer() {
-        return storeTimer;
-    }
 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -49,14 +50,12 @@ class MessageTupleTest {
         assertThat(tuple.getObject(4)).isEqualTo(Collections.emptyList());
         assertThat(tuple.getObject(5)).isEqualTo(Collections.emptyList());
 
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> tuple.getObject(-1),
-                ErrorCode.INVALID_COLUMN_REFERENCE
-        );
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> tuple.getObject(10),
-                ErrorCode.INVALID_COLUMN_REFERENCE
-        );
+        RelationalAssertions.assertThrows(
+                () -> tuple.getObject(-1))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
+        RelationalAssertions.assertThrows(
+                () -> tuple.getObject(10))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Test

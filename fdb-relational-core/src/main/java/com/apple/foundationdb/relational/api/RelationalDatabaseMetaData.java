@@ -20,9 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.sql.Connection;
@@ -37,18 +35,6 @@ import javax.annotation.Nonnull;
  */
 public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
 
-    /**
-     * Get the schemas for this database, as a list.
-     *
-     * The returned resultset has two fields:
-     * <ol>
-     *   <li> TABLE_SCHEM = the name of the schema</li>
-     *   <li> TABLE_CATALOG = the full path of the database</li>
-     * </ol>
-     *
-     * @return a resultset with a schema listing.
-     * @throws SQLException if something goes wrong
-     */
     @Nonnull
     @Override
     RelationalResultSet getSchemas() throws SQLException;
@@ -116,16 +102,8 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
             String table,
             String column) throws SQLException;
 
-    /**
-     * Get the TableMetaData for the table specified.
-     *
-     * @param schema the schema of interest.
-     * @param table the table of interest. There must be a table with this name in the specified schema, or a
-     *              {@link ErrorCode#UNDEFINED_TABLE} will be thrown.
-     * @return the TableMetaData for the Table directly.
-     * @throws RelationalException if something goes wrong.
-     */
-    @Nonnull TableMetaData describeTable(@Nonnull String schema, @Nonnull String table)throws RelationalException;
+    @Override
+    RelationalResultSet getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate) throws SQLException;
 
     @Override
     @ExcludeFromJacocoGeneratedReport
@@ -218,11 +196,13 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport //nothing to test
     default int getDriverMajorVersion() {
         return -1;
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport //nothing to test
     default int getDriverMinorVersion() {
         return -1;
     }
@@ -908,12 +888,6 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default ResultSet getTypeInfo() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default ResultSet getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

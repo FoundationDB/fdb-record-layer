@@ -51,13 +51,14 @@ class TestQueryCommand {
 
     @BeforeEach
     void setUp() throws SQLException, RelationalException {
-        TestUtils.runCommand("createdb --path /test_select_command_db --schema test_select_schema --schema-template com.apple.foundationdb.record.Restaurant", cli);
+        TestUtils.createRestaurantSchemaTemplate(cli);
+        TestUtils.executeDdl("CREATE DATABASE /test_select__command_db; CREATE SCHEMA /test_select_command_db/test_select_schema WITH TEMPLATE restaurant_template", cli);
         TestUtils.runCommand("connect jdbc:embed:/test_select_command_db", cli);
         TestUtils.runCommand("config --no-pretty-print", cli);
         TestUtils.runCommand("config --delimiter ####", cli);
         TestUtils.runCommand("config --headers", cli);
         TestUtils.runCommand("setschema test_select_schema", cli);
-        TestUtils.insertIntoTable("test_select_command_db", "test_select_schema", "RestaurantRecord", "com.apple.foundationdb.record.Restaurant$RestaurantRecord", insertRecords);
+        TestUtils.insertIntoTable("test_select_command_db", "test_select_schema", "RestaurantRecord",  insertRecords);
     }
 
     @AfterEach

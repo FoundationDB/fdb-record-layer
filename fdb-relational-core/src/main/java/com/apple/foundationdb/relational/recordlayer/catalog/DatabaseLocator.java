@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 
 import javax.annotation.Nonnull;
 
 public interface DatabaseLocator {
-    FDBDatabase locateDatabase(@Nonnull KeySpacePath dbPath);
+    FdbConnection locateDatabase(@Nonnull KeySpacePath dbPath);
 }

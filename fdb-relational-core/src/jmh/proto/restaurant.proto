@@ -44,7 +44,7 @@ message ReviewerStats {
 message RestaurantReview {
   option (com.apple.foundationdb.record.record).usage = NESTED;
   int64 reviewer = 1;
-  int32 rating = 2;
+  int64 rating = 2;
 }
 
 message RestaurantTag {

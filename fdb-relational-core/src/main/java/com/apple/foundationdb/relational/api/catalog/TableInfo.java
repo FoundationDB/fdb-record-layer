@@ -20,15 +20,24 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
+
+import com.google.protobuf.DescriptorProtos;
+
+import java.util.stream.Collectors;
 
 public class TableInfo {
     String tableName;
     CatalogData.Table table;
+    DescriptorProtos.DescriptorProto descriptor;
 
-    public TableInfo(String tableName, CatalogData.Table table) {
+    public TableInfo(String tableName,
+                     CatalogData.Table table,
+                     DescriptorProtos.DescriptorProto descriptor) {
         this.tableName = tableName;
         this.table = table;
+        this.descriptor = descriptor;
     }
 
     public String getTableName() {
@@ -37,5 +46,18 @@ public class TableInfo {
 
     public CatalogData.Table getTable() {
         return table;
+    }
+
+    public DescriptorProtos.DescriptorProto toDescriptor() {
+        return descriptor;
+    }
+
+    @Override
+    public String toString() {
+        String toStr =  "table: {name: " + descriptor.getName() + ", columns: { ";
+        toStr += descriptor.getFieldList().stream().map(field -> field.getName() + ":" + ProtobufDdlUtil.getTypeName(field)).collect(Collectors.joining(","));
+
+        toStr += "}}";
+        return toStr;
     }
 }

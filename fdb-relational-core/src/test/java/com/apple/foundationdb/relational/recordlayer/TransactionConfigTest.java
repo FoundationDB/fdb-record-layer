@@ -21,14 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.apple.foundationdb.relational.utils.TestSchemas;
 
 import com.google.common.collect.Iterators;
 import org.junit.jupiter.api.Assertions;
@@ -42,25 +42,17 @@ import java.util.UUID;
 
 public class TransactionConfigTest {
     @RegisterExtension
+    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
+
+    @RegisterExtension
     @Order(0)
-    public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
-
-    @RegisterExtension
-    @Order(1)
-    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("RestaurantRecord", catalog)
-            .setRecordFile(Restaurant.getDescriptor())
-            .configureTable("RestaurantRecord", table -> table.setPrimaryKey(Key.Expressions.field("rest_no")));
-
-    @RegisterExtension
-    @Order(2)
-    public final DatabaseRule database = new DatabaseRule("record_layer_transaction_config_test", catalog)
-            .withSchema("test", template);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(), TransactionConfig.class, TestSchemas.restaurant());
 
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.create())) {
             conn.beginTransaction(testTransactionConfig());
-            conn.setSchema("test");
+            conn.setSchema("testSchema");
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
@@ -70,7 +62,7 @@ public class TransactionConfigTest {
                 String errorMsg = throwable.getMessage();
                 Assertions.assertEquals("Operation aborted because the transaction timed out", errorMsg);
             }
-            Map<String, Object> metrics = catalog.getMetrics();
+            Map<String, Object> metrics = relational.getStoreTimerMetrics();
             Assertions.assertTrue(metrics.containsKey("CHECK_VERSION"));
         }
     }

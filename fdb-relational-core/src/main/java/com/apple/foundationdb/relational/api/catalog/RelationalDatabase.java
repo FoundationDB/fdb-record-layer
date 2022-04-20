@@ -21,12 +21,14 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.ConnectionScoped;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.TransactionConfig;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * There can only be 1 Database object per Connection instance, and its lifecycle is managed by the connection
@@ -35,15 +37,15 @@ import javax.annotation.Nonnull;
 @ConnectionScoped
 public interface RelationalDatabase extends AutoCloseable {
 
+    RelationalConnection connect(@Nullable Transaction sharedTransaction, @Nonnull TransactionConfig txnConfig) throws RelationalException;
+
     /**
-     * To force verification that the schema exists, set {@link OperationOption#forceVerifyDdl()}.
+     * Load the specified schema for the database.
      *
      * @param schemaId the unique id of the schema
      * @param options  the options for loading.
      * @return a Schema for the specified id.
-     * @throws RelationalException if something goes wrong during load, or if {@link OperationOption#forceVerifyDdl()}
-     *                           is true and the Schema does not exist. If the schema does not exist and {@link OperationOption#forceVerifyDdl()}
-     *                           is present in the options, then an error is thrown with {@link ErrorCode#UNKNOWN_SCHEMA}
+     * @throws RelationalException if something goes wrong during load
      */
     DatabaseSchema loadSchema(@Nonnull String schemaId, @Nonnull Options options) throws RelationalException;
 

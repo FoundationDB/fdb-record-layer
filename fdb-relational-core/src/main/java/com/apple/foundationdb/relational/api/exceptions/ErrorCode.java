@@ -72,6 +72,7 @@ public enum ErrorCode {
     SYNTAX_OR_ACCESS_VIOLATION("42000"),
     SERIALIZATION_FAILURE("40001"),
     SCHEMA_NOT_FOUND("4200Q"),
+    DATABASE_NOT_FOUND("42F00"),
     UNDEFINED_TABLE("42F01"),
     UNDEFINED_DATABASE("42F02"),
     UNKNOWN_SCHEMA("42P03"),
@@ -98,7 +99,19 @@ public enum ErrorCode {
      * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream
      * system.
      */
-    INTERNAL_ERROR("XX000");
+    INTERNAL_ERROR("XX000"),
+    SYNTAX_ERROR("22001"),
+
+    TABLE_NOT_FOUND("42P11"),
+    TEMPLATE_EXISTS("42F07"),
+    DATABASE_ALREADY_EXISTS("42P08"),
+    SCHEMA_TEMPLATE_EXISTS("42P09"),
+    INVALID_SCHEMA_TEMPLATE("42P13"),
+    INVALID_TABLE_DEFINITION("42P14"),
+    SCHEMA_EXISTS("42P15"),
+    UNKNOWN_TYPE("42F16"),
+    INDEX_EXISTS("42P17")
+    ;
 
     private final String errorCode;
 

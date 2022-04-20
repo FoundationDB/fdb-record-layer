@@ -70,6 +70,11 @@ class AbstractRecordLayerResultSetTest {
             Pair.of(Double.class, "getDouble"),
 
             Pair.of(null, "getString"),
+            Pair.of(Boolean.class, "getString"),
+            Pair.of(Integer.class, "getString"),
+            Pair.of(Long.class, "getString"),
+            Pair.of(Float.class, "getString"),
+            Pair.of(Double.class, "getString"),
             Pair.of(String.class, "getString"),
 
             Pair.of(null, "getRepeated"),

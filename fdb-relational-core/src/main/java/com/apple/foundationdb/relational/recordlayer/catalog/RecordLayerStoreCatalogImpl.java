@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -66,6 +67,18 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         this.metaDataBuilder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
         this.metaDataBuilder.getRecordType("Schema").setRecordTypeKey("Schema").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields("database_id", "schema_name")));
         this.metaDataBuilder.getRecordType("DatabaseInfo").setRecordTypeKey("DatabaseInfo").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("database_id")));
+    }
+
+    public void initialize(Transaction createTxn) throws RelationalException {
+        try {
+            FDBRecordStore.newBuilder()
+                    .setKeySpacePath(keySpacePath)
+                    .setContext(createTxn.unwrap(FDBRecordContext.class))
+                    .setMetaDataProvider(metaDataBuilder)
+                    .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+        } catch (RecordCoreStorageException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
     }
 
     @Override
@@ -136,6 +149,42 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         return new MessageTuple(databaseInfo);
     }
 
+    @Override
+    public void deleteSchema(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
+        try {
+            FDBRecordStore recordStore = openFDBRecordStore(txn);
+            Tuple primaryKey = getSchemaKey(dbUri, schemaName);
+            if (!recordStore.deleteRecord(primaryKey)) {
+                throw new RelationalException("Schema " + dbUri.getPath() + "/" + schemaName + " does not exist", ErrorCode.SCHEMA_NOT_FOUND);
+            }
+        } catch (RecordCoreException rce) {
+            throw ExceptionUtil.toRelationalException(rce);
+        }
+    }
+
+    @Override
+    public boolean doesDatabaseExist(Transaction txn, URI databaseId) throws RelationalException {
+        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        try {
+            String dbId = databaseId.getPath();
+            return recordStore.loadRecord(Tuple.from("DatabaseInfo", dbId)) != null;
+        } catch (RecordCoreException rce) {
+            throw ExceptionUtil.toRelationalException(rce);
+        }
+    }
+
+    @Override
+    public void deleteDatabase(Transaction txn, URI dbUrl) throws RelationalException {
+        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        try {
+            String dbId = dbUrl.getPath();
+            recordStore.deleteRecord(Tuple.from("DatabaseInfo", dbId));
+        } catch (RecordCoreException rce) {
+            throw ExceptionUtil.toRelationalException(rce);
+        }
+
+    }
+
     private FDBRecordStore openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
         try {
             return FDBRecordStore.newBuilder().setKeySpacePath(keySpacePath).setContext(txn.unwrap(FDBRecordContext.class)).setMetaDataProvider(metaDataBuilder).open();
@@ -154,6 +203,11 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     private String[] getFieldNames(Descriptors.Descriptor descriptor) {
         return descriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
+    }
+
+    @Nonnull
+    private Tuple getSchemaKey(@Nonnull URI databaseId, @Nonnull String schemaName) {
+        return Tuple.from("Schema", databaseId.getPath(), schemaName);
     }
 
 }

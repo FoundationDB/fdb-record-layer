@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.query.antlr.RelationalLexer;
-import com.apple.foundationdb.relational.recordlayer.query.antlr.RelationalParser;
+import com.apple.foundationdb.relational.generated.RelationalLexer;
+import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.base.VerifyException;
@@ -61,6 +61,7 @@ public final class PlanGenerator {
      * Parses a query generating an equivalent abstract syntax tree.
      * @param query The query.
      * @return The abstract syntax tree.
+     * @throws RelationalException if something goes wrong.
      */
     @Nonnull
     public static RelationalParser.RootContext parseQuery(@Nonnull final String query) throws RelationalException {
@@ -82,6 +83,7 @@ public final class PlanGenerator {
      * @param storeState The record store state.
      * @param postProcessor A post-processing hook that is activated after the generation of the logical plan.
      * @return The logical plan of the query.
+     * @throws RelationalException if something goes wrong.
      */
     @Nonnull
     public static RelationalExpression generateLogicalPlan(@Nonnull final String query,
@@ -99,6 +101,7 @@ public final class PlanGenerator {
      * @param storeState The record store state.
      * @param postProcessor A post-processing hook that is activated after the generation of the logical plan.
      * @return The logical plan of the query.
+     * @throws RelationalException if something goes wrong.
      */
     @Nonnull
     public static RelationalExpression generateLogicalPlan(@Nonnull final RelationalParser.RootContext ast,
@@ -143,6 +146,7 @@ public final class PlanGenerator {
      * @param metaData The record store metadata.
      * @param storeState The record store state.
      * @return The execution plan of the query.
+     * @throws RelationalException if something goes wrong.
      */
     @Nonnull
     public static RecordQueryPlan generatePlan(@Nonnull final String query,

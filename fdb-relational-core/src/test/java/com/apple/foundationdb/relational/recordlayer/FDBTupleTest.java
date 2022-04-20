@@ -24,6 +24,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -65,12 +66,12 @@ class FDBTupleTest {
         assertThat(fdbTuple.getObject(0)).isEqualTo("five");
         assertThat(fdbTuple.getObject(1)).isEqualTo(5L);
         assertThat(fdbTuple.getObject(2)).isEqualTo(5.0f);
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> fdbTuple.getObject(-1),
-                ErrorCode.INVALID_COLUMN_REFERENCE);
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> fdbTuple.getObject(10),
-                ErrorCode.INVALID_COLUMN_REFERENCE);
+        RelationalAssertions.assertThrows(
+                () -> fdbTuple.getObject(-1))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
+        RelationalAssertions.assertThrows(
+                () -> fdbTuple.getObject(10))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Test

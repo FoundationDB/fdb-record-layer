@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import org.jline.reader.LineReader;
 import picocli.CommandLine;
 import picocli.shell.jline3.PicocliCommands;
@@ -29,11 +31,18 @@ import java.io.PrintWriter;
 /**
  * Placeholder for all commands used to setup the interactive terminal.
  */
+@ExcludeFromJacocoGeneratedReport //excluded because it doesn't do anything really
 @CommandLine.Command(name = "",
         subcommands = {
-                CreateDbCommand.class, ConnectCommand.class, DisconnectCommand.class, SetSchemaCommand.class,
-                InsertInto.class, ConfCommand.class, PicocliCommands.ClearScreen.class,
-                ListSchemas.class, CommandLine.HelpCommand.class})
+                ConnectCommand.class,
+                DdlCommand.class,
+                DisconnectCommand.class,
+                SetSchemaCommand.class,
+                InsertInto.class,
+                ConfCommand.class,
+                PicocliCommands.ClearScreen.class,
+                ListSchemas.class,
+                CommandLine.HelpCommand.class})
 class CliCommands implements Runnable {
     PrintWriter out;
 

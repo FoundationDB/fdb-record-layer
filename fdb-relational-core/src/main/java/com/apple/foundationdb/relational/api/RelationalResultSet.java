@@ -45,6 +45,7 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -62,7 +63,7 @@ public interface RelationalResultSet extends java.sql.ResultSet {
      * @return the value of the column with the specified position as an Iterable.
      * @throws SQLException if something goes wrong.
      */
-    Iterable<?> getRepeated(int oneBasedPosition) throws SQLException;
+    Collection<?> getRepeated(int oneBasedPosition) throws SQLException;
 
     /**
      * Get the entity at the specified position as an instance of {@link Iterable}.
@@ -80,7 +81,7 @@ public interface RelationalResultSet extends java.sql.ResultSet {
      * @throws SQLException if something goes wrong. If the field does not exist,
      * the error code will be {@link ErrorCode#INVALID_PARAMETER}, otherwise the error code will tell you what happened.
      */
-    Iterable<?> getRepeated(String fieldName) throws SQLException;
+    Collection<?> getRepeated(String fieldName) throws SQLException;
 
     /**
      * Determine if the result set's current row support directly returning protobuf objects.

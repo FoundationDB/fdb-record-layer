@@ -24,6 +24,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.junit.jupiter.api.Test;
 
@@ -49,11 +50,11 @@ class ImmutableKeyValueTest {
         assertThat(row.getObject(3)).isEqualTo(5);
         assertThat(row.getObject(4)).isEqualTo(6);
 
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> row.getObject(-1),
-                ErrorCode.INVALID_COLUMN_REFERENCE);
-        RelationalAssertions.assertThrowsRelationalException(
-                () -> row.getObject(10),
-                ErrorCode.INVALID_COLUMN_REFERENCE);
+        RelationalAssertions.assertThrows(
+                () -> row.getObject(-1))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
+        RelationalAssertions.assertThrows(
+                () -> row.getObject(10))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 }

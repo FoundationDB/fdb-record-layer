@@ -90,4 +90,16 @@ public interface StoreCatalog {
      */
     RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException;
 
+    /**
+     * Delete the schema from the Catalog.
+     * @param txn the transaction to use
+     * @param dbUri the path to the specific database to delete the schema for
+     * @param schemaName the name of the schema to delete
+     * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
+     */
+    void deleteSchema(Transaction txn, URI dbUri, String schemaName) throws RelationalException;
+
+    boolean doesDatabaseExist(Transaction txn, URI dbUrl) throws RelationalException;
+
+    void deleteDatabase(Transaction txn, URI dbUrl) throws RelationalException;
 }

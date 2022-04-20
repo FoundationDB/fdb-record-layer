@@ -20,23 +20,22 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
+import com.google.protobuf.Descriptors;
 
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -79,29 +78,14 @@ public class RecordLayerSchema implements DatabaseSchema {
         return store.getUserVersion();
     }
 
-    @Override
-    public Set<String> listTables() throws RelationalException {
-        FDBRecordStore store = loadStore();
-
-        try {
-            final Map<String, RecordType> recordTypes = store.getRecordMetaData().getRecordTypes();
-            return recordTypes.values().stream().map(RecordType::getName).collect(Collectors.toSet());
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
-    }
-
     @Nonnull public Table loadTable(@Nonnull String tableName, @Nonnull Options options) throws RelationalException {
         //TODO(bfines) load the record type index, rather than just the generic type, then
         // return an index object instead
-        RecordTypeTable t = loadedTables.get(tableName);
+        RecordTypeTable t = loadedTables.get(tableName.toUpperCase(Locale.ROOT));
         boolean putBack = false;
         if (t == null) {
             t = new RecordTypeTable(this, tableName);
             putBack = true;
-        }
-        if (options.hasOption(OperationOption.FORCE_VERIFY_DDL)) {
-            t.validate();
         }
         if (putBack) {
             loadedTables.put(tableName.toUpperCase(Locale.ROOT), t);
@@ -135,7 +119,9 @@ public class RecordLayerSchema implements DatabaseSchema {
             return currentStore;
         }
         currentStore = db.loadRecordStore(schemaName, existenceCheck);
-        conn.transaction.addTerminationListener(() -> currentStore = null);
+        conn.addCloseListener(() -> {
+            currentStore = null;
+        });
         return currentStore;
     }
 
@@ -157,5 +143,15 @@ public class RecordLayerSchema implements DatabaseSchema {
                 throw new RelationalException("Invalid StoreExistenceCheck in options: <" + existenceCheck + ">",
                         ErrorCode.INVALID_PARAMETER);
         }
+    }
+
+    public DynamicMessageBuilder getDataBuilder(String typeName) throws RelationalException {
+        final Descriptors.FileDescriptor recordsDescriptor = loadStore().getRecordMetaData().getRecordsDescriptor();
+        for (Descriptors.Descriptor typeDescriptor : recordsDescriptor.getMessageTypes()) {
+            if (typeDescriptor.getName().equalsIgnoreCase(typeName)) {
+                return new ProtobufDataBuilder(typeDescriptor);
+            }
+        }
+        throw new RelationalException("Unknown type: <" + typeName + ">", ErrorCode.UNKNOWN_TYPE);
     }
 }

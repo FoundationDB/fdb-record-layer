@@ -54,11 +54,11 @@ import java.util.function.Supplier;
  * For this reason (and some other ones), consider using this CLI only for experimenting with Relational and playing
  * around with it.
  */
+//excluded because it's almost entirely configuring jline and running it
+@ExcludeFromJacocoGeneratedReport
 @SuppressWarnings({"PMD.AvoidCatchingThrowable", "PMD.AvoidPrintStackTrace", "PMD.EmptyCatchBlock"}) // justification: interactive shell.
 public final class RelationalCli {
 
-    //excluded because it's almost entirely configuring jline and running it
-    @ExcludeFromJacocoGeneratedReport
     public static void main(String[] args) {
         AnsiConsole.systemInstall();
         try {

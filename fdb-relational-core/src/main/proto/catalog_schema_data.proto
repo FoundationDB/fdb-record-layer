@@ -27,6 +27,7 @@ option java_outer_classname = "CatalogData";
 
 import "record_metadata.proto";
 import "record_metadata_options.proto";
+import "google/protobuf/descriptor.proto";
 
 message Schema {
   string schema_name = 1; // a logical schema name
@@ -41,7 +42,12 @@ message Table {
   string name = 1;
   // should we have Record layer dependency here?
   com.apple.foundationdb.record.KeyExpression primary_key = 2;
-  // repeated Index indexes = 3;
+  repeated Index indexes = 3;
+}
+
+message Index {
+  string name = 1;
+  com.apple.foundationdb.record.Index indexDef = 2;
 }
 
 message DatabaseInfo {
