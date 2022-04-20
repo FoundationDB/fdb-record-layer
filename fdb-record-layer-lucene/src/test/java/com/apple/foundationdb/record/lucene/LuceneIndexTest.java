@@ -963,6 +963,49 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void testAutoCompleteWithSearchForPhrase() throws Exception {
+        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.newBuilder())) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_WITH_AUTO_COMPLETE);
+            });
+
+            // Write 8 texts, all of which have both "united" and "states". Some of them have "united states" as phrase. Some of them have the order of the 2 words reversed.
+            recordStore.saveRecord(createSimpleDocument(1623L, "united states of america", 1));
+            recordStore.saveRecord(createSimpleDocument(1624L, "welcome to the united states of america", 1));
+            recordStore.saveRecord(createSimpleDocument(1625L, "united kingdom, france, the states", 1));
+            recordStore.saveRecord(createSimpleDocument(1626L, "The countries are united kingdom, france, the states", 1));
+            recordStore.saveRecord(createSimpleDocument(1627L, "states united as a country", 1));
+            recordStore.saveRecord(createSimpleDocument(1628L, "all the states united as a country", 1));
+            recordStore.saveRecord(createSimpleDocument(1629L, "states have been united as a country", 1));
+            recordStore.saveRecord(createSimpleDocument(1630L, "all the states have been united as a country", 1));
+
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
+
+            List<IndexEntry> results = recordStore.scanIndex(index,
+                    autoComplete(index, "\"united states\""),
+                    null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            // All indexed texts match and are returned as suggestions
+            assertEquals(8, results.size());
+
+            List<String> suggestions = results.stream().map(i -> i.getKey().getString(i.getKeySize() - 1)).collect(Collectors.toList());
+
+            // Phrase is tokenized as terms, a text matches as long as it contains all terms
+            assertEquals(ImmutableList.of("united states of america",
+                            "united kingdom, france, the states",
+                            "states united as a country",
+                            "states have been united as a country",
+                            "all the states united as a country",
+                            "all the states have been united as a country",
+                            "welcome to the united states of america",
+                            "The countries are united kingdom, france, the states"),
+                    suggestions);
+        }
+    }
+
+    @Test
     void searchForSpellCheck() throws Exception {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SPELLCHECK_INDEX);
