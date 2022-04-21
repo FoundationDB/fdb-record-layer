@@ -100,8 +100,8 @@ public final class LuceneRecordContextProperties {
 
     /**
      * This controls the suggester's base class to use for Lucene auto-complete search.
-     * True to use a {@link org.apache.lucene.search.suggest.analyzing.BlendedInfixSuggester},
-     * False to use a {@link org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester} for Lucene auto-complete search.
+     * True to use a {@link org.apache.lucene.search.suggest.analyzing.BlendedInfixSuggester}, that sorts the matches based on positions stored in term vectors.
+     * False to use a {@link com.apple.foundationdb.record.lucene.codec.LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors} that does not store term vectors, and sort matches based on positions detection in memory.
      */
-    public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_WITH_BLENDED_INFIX_SUGGESTER = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoComplete.withBlendedInfixSuggester", true);
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoComplete.withTermVectors", true);
 }
