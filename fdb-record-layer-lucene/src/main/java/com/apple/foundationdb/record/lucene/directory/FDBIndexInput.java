@@ -55,6 +55,9 @@ public class FDBIndexInput extends IndexInput {
     private int currentBlock;
     private final long initialOffset;
     private int numberOfSeeks = 0;
+    // These actual values are added to remove a hotspot during byte reads.
+    private byte[] actualCurrentData;
+    private FDBLuceneFileReference actualReference;
 
     /**
      * Constructor to create an FDBIndexInput from a file referenced in the metadata keyspace.
@@ -99,19 +102,35 @@ public class FDBIndexInput extends IndexInput {
         this.initialOffset = initalOffset;
         if (currentData == null) {
             numberOfSeeks++;
-            this.currentData = fdbDirectory.readBlock(resourceDescription, reference, currentBlock);
+            readBlock();
         } else {
             seek(position);
         }
     }
 
     private FDBLuceneFileReference getFileReference() {
-        return fdbDirectory.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, reference);
+        if (actualReference == null) {
+            actualReference = fdbDirectory.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, reference);
+        }
+        return actualReference;
     }
 
     private byte[] getCurrentData() {
-        return fdbDirectory.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, currentData);
+        if (actualCurrentData == null) {
+            actualCurrentData = fdbDirectory.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, currentData);
+        }
+        return actualCurrentData;
     }
+
+    /**
+     * Reads the current block and resets the actualCurrentData Cache.
+     *
+     */
+    private void readBlock() {
+        this.currentData = fdbDirectory.readBlock(resourceDescription, reference, currentBlock);
+        this.actualCurrentData = null;
+    }
+
 
     /**
      *
@@ -162,7 +181,7 @@ public class FDBIndexInput extends IndexInput {
                 LOGGER.trace(getLogMessage("actual seek",
                         LuceneLogMessageKeys.OFFSET, offset));
             }
-            this.currentData = fdbDirectory.readBlock(resourceDescription, reference, currentBlock); // Physical Seek
+            readBlock(); // Physical Seek
         } else {
             this.position = offset;     // Logical Seek
         }
@@ -243,7 +262,7 @@ public class FDBIndexInput extends IndexInput {
             if (absolutePosition() % fileReference.getBlockSize() == 0) {
                 currentBlock++;
                 numberOfSeeks++;
-                this.currentData = fdbDirectory.readBlock(resourceDescription, reference, currentBlock);
+                readBlock();
             }
         }
     }
@@ -283,7 +302,7 @@ public class FDBIndexInput extends IndexInput {
                             LuceneLogMessageKeys.POSITION, position,
                             LuceneLogMessageKeys.INITIAL_OFFSET, initialOffset));
                 }
-                this.currentData = fdbDirectory.readBlock(resourceDescription, reference, currentBlock);
+                readBlock();
             }
         }
 
