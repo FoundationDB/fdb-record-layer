@@ -72,6 +72,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -254,19 +255,31 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Document document = new Document();
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-        final Map<IndexOptions, AnalyzingInfixSuggester> suggesterMap = new HashMap<>();
-        for (LuceneDocumentFromRecord.DocumentField field : fields) {
-            final IndexOptions indexOptions = getIndexOptions((String) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS),
-                    LuceneFunctionNames.LuceneFieldIndexOptions.DOCS_AND_FREQS_AND_POSITIONS.name()));
-            final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey, texts, indexOptions) : null;
-            if (insertField(field, document, suggester)) {
-                suggesterMap.putIfAbsent(indexOptions, suggester);
+
+        Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> indexOptionsToFieldsMap = getIndexOptionsToFieldsMap(fields);
+        for (Map.Entry<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> entry : indexOptionsToFieldsMap.entrySet()) {
+            final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey, texts, entry.getKey()) : null;
+            boolean suggestionAdded = false;
+            for (LuceneDocumentFromRecord.DocumentField field : entry.getValue()) {
+                suggestionAdded = insertField(field, document, suggester) || suggestionAdded;
+            }
+            if (suggestionAdded) {
+                suggester.refresh();
             }
         }
         newWriter.addDocument(document);
-        for (AnalyzingInfixSuggester suggester : suggesterMap.values()) {
-            suggester.refresh();
-        }
+    }
+
+    @Nonnull
+    private Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> getIndexOptionsToFieldsMap(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
+        final Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> map = new HashMap<>();
+        fields.stream().forEach(f -> {
+            final IndexOptions indexOptions = getIndexOptions((String) Objects.requireNonNullElse(f.getConfig(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS),
+                    LuceneFunctionNames.LuceneFieldIndexOptions.DOCS_AND_FREQS_AND_POSITIONS.name()));
+            map.putIfAbsent(indexOptions, new ArrayList<>());
+            map.get(indexOptions).add(f);
+        });
+        return map;
     }
 
     private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {

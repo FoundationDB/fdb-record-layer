@@ -221,8 +221,7 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
 
     private double createCoefficient(Set<String> matchedTokens, String prefixToken,
                                      String text, BytesRef payload) throws IOException {
-        final Tuple fieldTuple = Tuple.fromBytes(payload.bytes);
-        final String fieldName = (String) fieldTuple.get(0);
+        final String fieldName = payload == null ? "" : (String) Tuple.fromBytes(payload.bytes).get(0);
         Integer position = Integer.MAX_VALUE;
         try (TokenStream tokenStream = indexAnalyzer.tokenStream(fieldName, text)) {
             CharTermAttribute charTermAttribute = tokenStream.addAttribute(CharTermAttribute.class);
