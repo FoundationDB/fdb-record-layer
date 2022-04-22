@@ -34,7 +34,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.zip.CRC32;
 
 /**
@@ -51,7 +54,6 @@ public final class FDBIndexOutput extends IndexOutput {
      * Current size keeps track of the number of bytes written overall.
      */
     private int currentSize = 0;
-    private int actualSize = 0;
     private ByteBuffer buffer;
     private final String resourceDescription;
     private final FDBDirectory fdbDirectory;
@@ -60,6 +62,7 @@ public final class FDBIndexOutput extends IndexOutput {
     private final long id;
     private static final ArrayBlockingQueue<ByteBuffer> BUFFERS;
     private static final int POOL_SIZE = 100;
+    private List<CompletableFuture<Integer>> flushes = new ArrayList<>();
 
     static {
         BUFFERS = new ArrayBlockingQueue<>(POOL_SIZE);
@@ -114,7 +117,11 @@ public final class FDBIndexOutput extends IndexOutput {
                     LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
         flush();
-        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, actualSize, blockSize));
+        CompletableFuture<Integer> result = CompletableFuture.completedFuture(0);
+        for (CompletableFuture<Integer> future : flushes) {
+            result = result.thenCombine(future, Integer::sum);
+        }
+        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, result.join(), blockSize));
         BUFFERS.offer(buffer);
     }
 
@@ -197,7 +204,7 @@ public final class FDBIndexOutput extends IndexOutput {
             buffer.flip();
             byte[] arr = new byte[buffer.remaining()];
             buffer.get(arr);
-            actualSize += fdbDirectory.writeData(id, (int) ( (currentSize - 1) / blockSize), arr);
+            flushes.add(fdbDirectory.writeData(id, (int) ( (currentSize - 1) / blockSize), arr));
             buffer.clear();
         }
     }
