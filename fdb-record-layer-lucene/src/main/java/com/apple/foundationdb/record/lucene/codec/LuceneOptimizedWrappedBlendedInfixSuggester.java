@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
+import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.TieredMergePolicy;
@@ -84,22 +85,23 @@ public class LuceneOptimizedWrappedBlendedInfixSuggester extends BlendedInfixSug
     @Nonnull
     public static AnalyzingInfixSuggester getSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir,
                                                        @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer,
-                                                       boolean highlight) {
+                                                       boolean highlight, @Nonnull IndexOptions indexOptions) {
         final String autoCompleteBlenderType = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_TYPE);
         final String autoCompleteBlenderNumFactor = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_NUM_FACTOR);
         final String autoCompleteMinPrefixSize = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE);
         final String autoCompleteBlenderExponent = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_EXPONENT);
 
-        final boolean useBlendedInfixSuggester = state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_BLENDED_INFIX_SUGGESTER);
+        final boolean useTermVectors = state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS);
         final int minPrefixChars = autoCompleteMinPrefixSize == null ? DEFAULT_MIN_PREFIX_CHARS : Integer.parseInt(autoCompleteMinPrefixSize);
         final BlenderType blenderType = autoCompleteBlenderType == null ? DEFAULT_BLENDER_TYPE : BlenderType.valueOf(autoCompleteBlenderType);
         final int numFactor = autoCompleteBlenderNumFactor == null ? DEFAULT_NUM_FACTOR : Integer.parseInt(autoCompleteBlenderNumFactor);
         final Double exponent = autoCompleteBlenderExponent == null ? null : Double.valueOf(autoCompleteBlenderExponent);
 
         try {
-            return useBlendedInfixSuggester
+            return useTermVectors
                    ? new LuceneOptimizedWrappedBlendedInfixSuggester(state, dir, indexAnalyzer, queryAnalyzer, minPrefixChars, blenderType, numFactor, exponent, highlight)
-                   : new LuceneOptimizedWrappedAnalyzingInfixSuggester(state, dir, indexAnalyzer, queryAnalyzer, minPrefixChars, highlight);
+                   : new LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors(state, dir, indexAnalyzer, queryAnalyzer, minPrefixChars, blenderType,
+                    numFactor, exponent, highlight, indexOptions);
         } catch (IllegalArgumentException iae) {
             throw new RecordCoreArgumentException("Invalid parameter for auto complete suggester", iae)
                     .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());

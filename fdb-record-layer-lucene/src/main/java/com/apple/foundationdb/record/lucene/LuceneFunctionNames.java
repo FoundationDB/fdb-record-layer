@@ -34,6 +34,7 @@ public class LuceneFunctionNames {
     public static final String LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS = "lucene_full_text_field_with_term_vectors";
     public static final String LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS = "lucene_full_text_field_with_term_vector_positions";
     public static final String LUCENE_FULL_TEXT_FIELD_WITH_OMIT_NORMS = "lucene_full_text_field_with_omit_norms";
+    public static final String LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS = "lucene_auto_complete_field_index_options";
 
     private LuceneFunctionNames() {
     }

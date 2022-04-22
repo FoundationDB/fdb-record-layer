@@ -66,6 +66,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -78,6 +79,7 @@ import org.apache.lucene.index.IndexFileNames;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -380,9 +382,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void simpleEmptyAutoComplete() {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "simpleEmptyAutoComplete[withTermVectors={0}]")
+    @BooleanSource
+    void simpleEmptyAutoComplete(boolean withTermVectors) {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_WITH_AUTO_COMPLETE);
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE, autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "something"), null, ScanProperties.FORWARD_SCAN)) {
                 assertEquals(RecordCursorResult.exhausted(), cursor.getNext());
@@ -796,44 +801,54 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void searchForAutoComplete() throws Exception {
-        searchForAutoCompleteAndAssert("good", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT);
+    @ParameterizedTest(name = "searchForAutoComplete[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoComplete(boolean withTermVectors) throws Exception {
+        searchForAutoCompleteAndAssert("good", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, withTermVectors);
     }
 
-    @Test
-    void searchForAutoCompleteWithoutFieldWithoutTerm() throws Exception {
+    @ParameterizedTest(name = "searchForAutoCompleteWithoutFieldWithoutTerm[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoCompleteWithoutFieldWithoutTerm(boolean withTermVectors) throws Exception {
         assertThrows(RecordCoreArgumentException.class,
-                () -> searchForAutoCompleteAndAssert("", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT),
+                () -> searchForAutoCompleteAndAssert("", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, withTermVectors),
                 "Invalid query for auto-complete search");
     }
 
-    @Test
-    void searchForAutoCompleteWithPrefix() throws Exception {
-        searchForAutoCompleteAndAssert("goo", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT);
+    @ParameterizedTest(name = "searchForAutoCompleteWithPrefix[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoCompleteWithPrefix(boolean withTermVectors) throws Exception {
+        searchForAutoCompleteAndAssert("goo", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, withTermVectors);
     }
 
-    @Test
-    void searchForAutoCompleteWithHighlight() throws Exception {
-        searchForAutoCompleteAndAssert("good", true, true, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT);
+    @ParameterizedTest(name = "searchForAutoCompleteWithHighlight[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoCompleteWithHighlight(boolean withTermVectors) throws Exception {
+        searchForAutoCompleteAndAssert("good", true, true, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, withTermVectors);
     }
 
-    @Test
-    void searchForAutoCompleteWithoutHittingSizeLimitation() throws Exception {
-        searchForAutoCompleteWithTextSizeLimit(DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, true);
+    @ParameterizedTest(name = "searchForAutoCompleteWithoutHittingSizeLimitation[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoCompleteWithoutHittingSizeLimitation(boolean withTermVectors) throws Exception {
+        searchForAutoCompleteWithTextSizeLimit(DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, true, withTermVectors);
     }
 
-    @Test
-    void searchForAutoCompleteWithHittingSizeLimitation() throws Exception {
-        searchForAutoCompleteWithTextSizeLimit(10, false);
+    @ParameterizedTest(name = "searchForAutoCompleteWithHittingSizeLimitation[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoCompleteWithHittingSizeLimitation(boolean withTermVectors) throws Exception {
+        searchForAutoCompleteWithTextSizeLimit(10, false, withTermVectors);
     }
 
     /**
      * To verify the suggestion lookup can work correctly if the suggester is never built and no entries exist in the directory.
      */
-    @Test
-    void searchForAutoCompleteWithLoadingNoRecords() throws Exception {
-        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.newBuilder().addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT))) {
+    @ParameterizedTest(name = "searchForAutoCompleteWithLoadingNoRecords[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoCompleteWithLoadingNoRecords(boolean withTermVectors) throws Exception {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT)
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_WITH_AUTO_COMPLETE);
@@ -848,9 +863,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void searchForAutoCompleteCrossingMultipleFields() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "searchForAutoCompleteCrossingMultipleFields[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoCompleteCrossingMultipleFields(boolean withTermVectors) throws Exception {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE);
@@ -903,9 +921,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void searchForAutoCompleteWithContinueTyping() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "searchForAutoCompleteWithContinueTyping[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoCompleteWithContinueTyping(boolean withTermVectors) throws Exception {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             addIndexAndSaveRecordForAutoComplete(context, false);
             List<IndexEntry> results = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE,
                     autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "good mor"),
@@ -926,9 +947,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void searchForAutoCompleteForGroupedRecord() throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @ParameterizedTest(name = "searchForAutoCompleteForGroupedRecord[withTermVectors={0}]")
+    @BooleanSource
+    void searchForAutoCompleteForGroupedRecord(boolean withTermVectors) throws Exception {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE);
@@ -1227,14 +1251,17 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testDeleteWhereAutoComplete() {
+    @ParameterizedTest(name = "testDeleteWhereAutoComplete[withTermVectors={0}]")
+    @BooleanSource
+    void testDeleteWhereAutoComplete(boolean withTermVectors) {
         final RecordMetaDataHook hook = metaDataBuilder -> {
             TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
             metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE);
         };
         final int maxGroup = 10;
-        try (FDBRecordContext context = openContext()) {
+        RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             openRecordStore(context, hook);
             for (int group = 0; group < maxGroup; group++) {
                 for (long docId = 0L; docId < 10L; docId++) {
@@ -1249,7 +1276,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             commit(context);
         }
-        try (FDBRecordContext context = openContext()) {
+        // Re-initialized the builder so the LUCENE_INDEX_COMPRESSION_ENABLED prop is not added twice
+        storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             openRecordStore(context, hook);
             for (int group = 0; group < maxGroup; group++) {
                 List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group), null, ScanProperties.FORWARD_SCAN)
@@ -1348,8 +1378,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void searchForAutoCompleteAndAssert(String query, boolean matches, boolean highlight, int textSizeLimit) throws Exception {
-        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.newBuilder().addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, textSizeLimit))) {
+    private void searchForAutoCompleteAndAssert(String query, boolean matches, boolean highlight, int textSizeLimit, boolean withTermVectors) throws Exception {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, textSizeLimit)
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context, highlight);
             final Index index = highlight ? SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT : SIMPLE_TEXT_WITH_AUTO_COMPLETE;
             List<IndexEntry> results = recordStore.scanIndex(index,
@@ -1400,8 +1433,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    void searchForAutoCompleteWithTextSizeLimit(int limit, boolean matches) throws Exception {
-        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.newBuilder().addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, limit))) {
+    void searchForAutoCompleteWithTextSizeLimit(int limit, boolean matches, boolean withTermVectors) throws Exception {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, limit)
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context, false);
             List<IndexEntry> results = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE,
                     autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "software engineer"),

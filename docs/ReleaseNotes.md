@@ -19,7 +19,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** An optimized BlendedInfixSuggester for auto-complete suggestion, that does not store term vectors [(Issue #1624)](https://github.com/FoundationDB/fdb-record-layer/issues/1624)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** A file sequence counter used to map file names to an internal ID by the Lucene directory implementation is now cached in memory [(Issue #1577)](https://github.com/FoundationDB/fdb-record-layer/issues/1577)

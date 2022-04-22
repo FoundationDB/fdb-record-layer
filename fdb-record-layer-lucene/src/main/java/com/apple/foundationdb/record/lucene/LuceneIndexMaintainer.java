@@ -72,7 +72,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -148,7 +150,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
             try {
                 return new LuceneAutoCompleteResultCursor(getSuggester(scanAutoComplete.getGroupKey(),
-                        Collections.singletonList(scanAutoComplete.getKeyToComplete())), scanAutoComplete.getKeyToComplete(),
+                        Collections.singletonList(scanAutoComplete.getKeyToComplete()), null), scanAutoComplete.getKeyToComplete(),
                         executor, scanProperties, state, scanAutoComplete.getGroupKey(), highlightForAutoCompleteIfEnabled);
             } catch (IOException ex) {
                 throw new RecordCoreException("Exception to get suggester for auto-complete search", ex)
@@ -253,15 +255,31 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Document document = new Document();
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-        final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey, texts) : null;
-        boolean suggestionAdded = false;
-        for (LuceneDocumentFromRecord.DocumentField field : fields) {
-            suggestionAdded = insertField(field, document, suggester) || suggestionAdded;
+
+        Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> indexOptionsToFieldsMap = getIndexOptionsToFieldsMap(fields);
+        for (Map.Entry<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> entry : indexOptionsToFieldsMap.entrySet()) {
+            final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey, texts, entry.getKey()) : null;
+            boolean suggestionAdded = false;
+            for (LuceneDocumentFromRecord.DocumentField field : entry.getValue()) {
+                suggestionAdded = insertField(field, document, suggester) || suggestionAdded;
+            }
+            if (suggestionAdded) {
+                suggester.refresh();
+            }
         }
         newWriter.addDocument(document);
-        if (suggestionAdded) {
-            suggester.refresh();
-        }
+    }
+
+    @Nonnull
+    private Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> getIndexOptionsToFieldsMap(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
+        final Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> map = new HashMap<>();
+        fields.stream().forEach(f -> {
+            final IndexOptions indexOptions = getIndexOptions((String) Objects.requireNonNullElse(f.getConfig(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS),
+                    LuceneFunctionNames.LuceneFieldIndexOptions.DOCS_AND_FREQS_AND_POSITIONS.name()));
+            map.putIfAbsent(indexOptions, new ArrayList<>());
+            map.get(indexOptions).add(f);
+        });
+        return map;
     }
 
     private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
@@ -321,9 +339,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return AsyncUtil.DONE;
     }
 
-    private AnalyzingInfixSuggester getSuggester(@Nullable Tuple groupingKey, @Nonnull List<String> texts) throws IOException {
+    /**
+     * Get the {@link AnalyzingInfixSuggester} for indexing or query, from the session of the context if there exists a corresponding one, or by creating a new one.
+     * @param indexOptions the {@link IndexOptions} for suggester's {@link FieldType}. This only matters for when the suggester is for indexing.
+     * The one for query can just use an arbitrary one, so just pass in a NULL when getting a suggester for query, so the existing one from session of context can be reused.
+     */
+    private AnalyzingInfixSuggester getSuggester(@Nullable Tuple groupingKey, @Nonnull List<String> texts, @Nullable IndexOptions indexOptions) throws IOException {
         return directoryManager.getAutocompleteSuggester(groupingKey, indexAnalyzerChooser.chooseAnalyzer(texts),
-                queryAnalyzerChooser.chooseAnalyzer(texts), highlightForAutoCompleteIfEnabled);
+                queryAnalyzerChooser.chooseAnalyzer(texts), highlightForAutoCompleteIfEnabled, indexOptions);
     }
 
     private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
