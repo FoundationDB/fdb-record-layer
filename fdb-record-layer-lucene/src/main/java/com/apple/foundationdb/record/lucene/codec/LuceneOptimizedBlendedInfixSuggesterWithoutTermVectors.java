@@ -64,6 +64,8 @@ import java.util.TreeSet;
 
 /**
  * Optimized {@link BlendedInfixSuggester} that does not rely on term vectors persisted in DB.
+ * The implementation of methods {@link #getIndexWriterConfig(Analyzer, IndexWriterConfig.OpenMode)}, {@link #getTextFieldType()} and {@link #createCoefficient(Set, String, String, BytesRef)}
+ * are the main differences between this and {@link BlendedInfixSuggester}.
  */
 public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends AnalyzingInfixSuggester {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors.class);
@@ -118,6 +120,10 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
         return super.lookup(key, contextQuery, num * numFactor, allTermsRequired, doHighlight);
     }
 
+    /**
+     * This one is different from the implementation by {@link BlendedInfixSuggester}.
+     * This method overrides the {@link IndexWriterConfig}, whereas the {@link BlendedInfixSuggester} does not.
+     */
     @Override
     protected IndexWriterConfig getIndexWriterConfig(Analyzer indexAnalyzer, IndexWriterConfig.OpenMode openMode) {
         TieredMergePolicy tieredMergePolicy = new TieredMergePolicy();
@@ -139,6 +145,10 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
         return iwc;
     }
 
+    /**
+     * This one is different from the implementation by {@link BlendedInfixSuggester}.
+     * This does not enable term vectors, and has the indexOptions configurable.
+     */
     @Override
     protected FieldType getTextFieldType() {
         FieldType ft = new FieldType(TextField.TYPE_NOT_STORED);
@@ -219,6 +229,11 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
         return new ArrayList<>(results.descendingSet());
     }
 
+    /**
+     * This one is different from the implementation by {@link BlendedInfixSuggester}.
+     * This one figures out the positions for matches by tokenizing the text and finding the matched tokens from it,
+     * instead of relying on the term vectors.
+     */
     private double createCoefficient(Set<String> matchedTokens, String prefixToken,
                                      String text, BytesRef payload) throws IOException {
         final String fieldName = payload == null ? "" : (String) Tuple.fromBytes(payload.bytes).get(0);
