@@ -28,8 +28,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.ServiceLoader;
 
 /**
@@ -46,22 +48,28 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     private static final LuceneAnalyzerRegistryImpl INSTANCE = new LuceneAnalyzerRegistryImpl();
 
     @Nonnull
-    private final Map<String, LuceneAnalyzerFactory> registry;
+    private final Map<LuceneAnalyzerType, Map<String, LuceneAnalyzerFactory>> registry;
 
     @Nonnull
-    private static Map<String, LuceneAnalyzerFactory> initRegistry() {
-        final Map<String, LuceneAnalyzerFactory> registry = new HashMap<>();
+    private static Map<LuceneAnalyzerType, Map<String, LuceneAnalyzerFactory>> initRegistry() {
+        final Map<LuceneAnalyzerType, Map<String, LuceneAnalyzerFactory>> registry = new HashMap<>();
         for (LuceneAnalyzerFactory factory : ServiceLoader.load(LuceneAnalyzerFactory.class)) {
             final String name = factory.getName();
-            if (registry.containsKey(name)) {
+            final LuceneAnalyzerType type = factory.getType();
+            if (registry.containsKey(type) && registry.get(type).containsKey(name)) {
                 if (LOGGER.isWarnEnabled()) {
-                    LOGGER.warn(KeyValueLogMessage.of("duplicate lucene analyzer", LuceneLogMessageKeys.ANALYZER_NAME, name));
+                    LOGGER.warn(KeyValueLogMessage.of("duplicate lucene analyzer",
+                            LuceneLogMessageKeys.ANALYZER_NAME, name,
+                            LuceneLogMessageKeys.ANALYZER_TYPE, type.name()));
                 }
             } else {
                 if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(KeyValueLogMessage.of("found lucene analyzer", LuceneLogMessageKeys.ANALYZER_NAME, name));
+                    LOGGER.info(KeyValueLogMessage.of("found lucene analyzer",
+                            LuceneLogMessageKeys.ANALYZER_NAME, name,
+                            LuceneLogMessageKeys.ANALYZER_TYPE, type.name()));
                 }
-                registry.put(name, factory);
+                registry.putIfAbsent(type, new HashMap<>());
+                registry.get(type).put(name, factory);
             }
         }
         return registry;
@@ -78,16 +86,18 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
 
     @Nonnull
     @Override
-    public Pair<AnalyzerChooser, AnalyzerChooser> getLuceneAnalyzerChooserPair(@Nonnull Index index) {
-        final String name = index.getOption(LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION);
-        // TODO: Get rid of the condition after OR operator, after having all analyzers registered with this registry
-        if (name == null || !registry.containsKey(name)) {
+    public Pair<AnalyzerChooser, AnalyzerChooser> getLuceneAnalyzerChooserPair(@Nonnull Index index, @Nonnull LuceneAnalyzerType type) {
+        final String name = index.getOption(type.getIndexOptionKey());
+        final Map<String, LuceneAnalyzerFactory> registryForType = Objects.requireNonNullElse(registry.get(type), Collections.emptyMap());
+        if (name == null || !registryForType.containsKey(name)) {
             return Pair.of(t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
                     t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper());
         } else {
-            LuceneAnalyzerFactory analyzerFactory = registry.get(name);
+            LuceneAnalyzerFactory analyzerFactory = registryForType.get(name);
             if (analyzerFactory == null) {
-                throw new MetaDataException("unrecognized lucene analyzer for tokenizer", LuceneLogMessageKeys.ANALYZER_NAME, name);
+                throw new MetaDataException("unrecognized lucene analyzer for tokenizer",
+                        LuceneLogMessageKeys.ANALYZER_NAME, name,
+                        LuceneLogMessageKeys.ANALYZER_TYPE, type.name());
             }
             final AnalyzerChooser indexAnalyzerChooser = analyzerFactory.getIndexAnalyzerChooser(index);
             return Pair.of(indexAnalyzerChooser, analyzerFactory.getQueryAnalyzerChooser(index, indexAnalyzerChooser));

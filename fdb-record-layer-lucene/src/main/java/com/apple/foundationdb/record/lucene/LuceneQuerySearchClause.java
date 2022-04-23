@@ -73,7 +73,7 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
 
     @Override
     public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-        final Pair<AnalyzerChooser, AnalyzerChooser> analyzerChooserPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index);
+        final Pair<AnalyzerChooser, AnalyzerChooser> analyzerChooserPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index, LuceneAnalyzerType.FULL_TEXT);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
         final QueryParser parser = new QueryParser(defaultField, analyzerChooserPair.getRight().chooseAnalyzer(searchString).getAnalyzer());
         try {

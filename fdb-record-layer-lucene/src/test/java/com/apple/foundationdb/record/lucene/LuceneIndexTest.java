@@ -1521,6 +1521,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         @Override
         @Nonnull
+        public LuceneAnalyzerType getType() {
+            return LuceneAnalyzerType.FULL_TEXT;
+        }
+
+        @Override
+        @Nonnull
         public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
             return new TestAnalyzerChooser();
         }

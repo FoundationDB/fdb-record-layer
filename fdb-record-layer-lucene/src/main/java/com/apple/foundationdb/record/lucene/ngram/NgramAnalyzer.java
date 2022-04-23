@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.ngram;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.lucene.AnalyzerChooser;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerType;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.metadata.Index;
@@ -89,6 +90,12 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
         @Override
         public String getName() {
             return ANALYZER_FACTORY_NAME;
+        }
+
+        @Nonnull
+        @Override
+        public LuceneAnalyzerType getType() {
+            return LuceneAnalyzerType.FULL_TEXT;
         }
 
         @SuppressWarnings("deprecation")

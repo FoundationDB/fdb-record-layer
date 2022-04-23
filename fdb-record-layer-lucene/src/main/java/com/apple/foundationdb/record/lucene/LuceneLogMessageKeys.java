@@ -31,6 +31,7 @@ import java.util.Locale;
 public enum LuceneLogMessageKeys {
     // Lucene data compression
     ANALYZER_NAME,
+    ANALYZER_TYPE,
     BLOCK_CACHE_STATS,
     BLOCK_NUMBER,
     BYTE_NUMBER,

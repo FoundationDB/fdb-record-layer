@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
  */
 public interface LuceneAnalyzerFactory {
     /**
-     * Get the unique name for the text analyzer factory. This is the name that should
+     * Get the unique name for the Lucene analyzer factory. This is the name that should
      * be included in the index meta-data in order to indicate that this analyzer factory
      * should be used within a certain index.
      *
@@ -46,7 +46,14 @@ public interface LuceneAnalyzerFactory {
     String getName();
 
     /**
-     * Get an instance of {@link AnalyzerChooser} that chooses the text analyzer based on texts for indexing, given the {@link Index}.
+     * Get the {@link LuceneAnalyzerType} for the Lucene analyzer factory.
+     * @return the {@link LuceneScanTypes} used to determine how the analyzers build by this factory is used
+     */
+    @Nonnull
+    LuceneAnalyzerType getType();
+
+    /**
+     * Get an instance of {@link AnalyzerChooser} that chooses the Lucene analyzer based on texts for indexing, given the {@link Index}.
      * For a given factory, each indexing analyzer chosen should be of the same type, and it should match the result of {@link #getName()}.
      *
      * @param index the index thi analyzer is used for
@@ -56,7 +63,7 @@ public interface LuceneAnalyzerFactory {
     AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index);
 
     /**
-     * Get an instance of {@link AnalyzerChooser} that chooses the text analyzer for query given the {@link Index}.
+     * Get an instance of {@link AnalyzerChooser} that chooses the Lucene analyzer for query given the {@link Index}.
      * For a given factory, each query analyzer chosen should be of the same type, and it should match the result of {@link #getName()}.
      * Call {@link #getIndexAnalyzerChooser(Index)} before calling this method, and use its return for the argument {@code indexAnalyzerChooser}.
      * No need to override this method if {@link StandardAnalyzer} is to be used for query time.

@@ -56,9 +56,13 @@ public class LuceneIndexOptions {
      */
     public static final String NGRAM_TOKEN_EDGES_ONLY = "ngramTokenEdgesOnly";
     /**
-     * The name of the Lucene analyzer to use.
+     * The name of the Lucene analyzer to use for full-text search.
      */
     public static final String TEXT_ANALYZER_NAME_OPTION = "textAnalyzerName";
+    /**
+     * The name of the Lucene analyzer to use for auto-complete suggestions.
+     */
+    public static final String AUTO_COMPLETE_ANALYZER_NAME_OPTION = "autoCompleteAnalyzerName";
     /**
      * The name of the synonym set to use in Lucene.
      */
