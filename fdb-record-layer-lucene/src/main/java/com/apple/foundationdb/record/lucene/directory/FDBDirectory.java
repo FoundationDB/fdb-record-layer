@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
+import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -44,6 +45,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
+import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -664,4 +666,23 @@ public class FDBDirectory extends Directory {
                 .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled)
                 .toString();
     }
+
+    /**
+     * Places a prefetchable buffer over the checksum input in an attempt to pipeline reads when an
+     * FDBIndexOutput performs a copyBytes operation.
+     *
+     * @param name file name
+     * @param context io context
+     * @return ChecksumIndexInput
+     * @throws IOException ioexception
+     */
+    @Override
+    public ChecksumIndexInput openChecksumInput(final String name, final IOContext context) throws IOException {
+        return new PrefetchableBufferedChecksumIndexInput(openInput(name, context));
+    }
+
+    Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> getBlockCache() {
+        return blockCache;
+    }
+
 }
