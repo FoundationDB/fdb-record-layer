@@ -39,5 +39,5 @@ import javax.annotation.Nonnull;
 @SuppressWarnings("unused")
 public interface LuceneAnalyzerRegistry {
     @Nonnull
-    Pair<AnalyzerChooser, AnalyzerChooser> getLuceneAnalyzerChooserPair(@Nonnull Index index);
+    Pair<AnalyzerChooser, AnalyzerChooser> getLuceneAnalyzerChooserPair(@Nonnull Index index, @Nonnull LuceneAnalyzerType type);
 }

@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
  * A wrapper for {@link Analyzer} and its unique identifier.
  */
 public class LuceneAnalyzerWrapper {
-    private static final String STANDARD_ANALYZER_NAME = "STANDARD";
+    public static final String STANDARD_ANALYZER_NAME = "STANDARD";
 
     private String uniqueIdentifier;
     private Analyzer analyzer;

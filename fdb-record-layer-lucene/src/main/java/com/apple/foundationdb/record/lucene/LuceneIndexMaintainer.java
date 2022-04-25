@@ -94,20 +94,21 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
     private final FDBDirectoryManager directoryManager;
     private final AnalyzerChooser indexAnalyzerChooser;
-    private final AnalyzerChooser queryAnalyzerChooser;
+    private final AnalyzerChooser autoCompleteIndexAnalyzerChooser;
+    private final AnalyzerChooser autoCompleteQueryAnalyzerChooser;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
     private final boolean autoCompleteEnabled;
     private final boolean highlightForAutoCompleteIfEnabled;
 
-    public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor,
-                                 @Nonnull AnalyzerChooser indexAnalyzerChooser, @Nonnull AnalyzerChooser queryAnalyzerChooser) {
+    public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
         this.executor = executor;
         this.directoryManager = FDBDirectoryManager.getManager(state);
-        this.indexAnalyzerChooser = indexAnalyzerChooser;
-        this.queryAnalyzerChooser = queryAnalyzerChooser;
+        this.indexAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.FULL_TEXT).getLeft();
+        this.autoCompleteIndexAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.AUTO_COMPLETE).getLeft();
+        this.autoCompleteQueryAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.AUTO_COMPLETE).getRight();
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
         this.highlightForAutoCompleteIfEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_HIGHLIGHT, false);
     }
@@ -345,8 +346,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * The one for query can just use an arbitrary one, so just pass in a NULL when getting a suggester for query, so the existing one from session of context can be reused.
      */
     private AnalyzingInfixSuggester getSuggester(@Nullable Tuple groupingKey, @Nonnull List<String> texts, @Nullable IndexOptions indexOptions) throws IOException {
-        return directoryManager.getAutocompleteSuggester(groupingKey, indexAnalyzerChooser.chooseAnalyzer(texts),
-                queryAnalyzerChooser.chooseAnalyzer(texts), highlightForAutoCompleteIfEnabled, indexOptions);
+        return directoryManager.getAutocompleteSuggester(groupingKey, autoCompleteIndexAnalyzerChooser.chooseAnalyzer(texts),
+                autoCompleteQueryAnalyzerChooser.chooseAnalyzer(texts), highlightForAutoCompleteIfEnabled, indexOptions);
     }
 
     private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
