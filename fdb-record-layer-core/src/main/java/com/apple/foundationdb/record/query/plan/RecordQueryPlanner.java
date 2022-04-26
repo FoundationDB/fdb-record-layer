@@ -511,6 +511,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         final ScoredPlan scoredPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), true);
         if (scoredPlan != null) {
             scoredPlan.planOrderingKey = inExtractor.adjustOrdering(scoredPlan.planOrderingKey, true);
+            if (scoredPlan.planOrderingKey == null) {
+                return null;
+            }
             final KeyExpression candidateKey = getKeyForMerge(planContext.query.getSort(), planContext.commonPrimaryKey);
             final KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(Collections.singletonList(scoredPlan), candidateKey, true);
             if (comparisonKey == null) {
