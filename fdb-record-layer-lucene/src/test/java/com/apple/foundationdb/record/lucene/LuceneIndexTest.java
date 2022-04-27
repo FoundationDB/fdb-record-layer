@@ -104,6 +104,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
@@ -134,6 +135,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index SIMPLE_TEXT_WITH_AUTO_COMPLETE = new Index("Simple_with_auto_complete",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
+                    LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
+
+    private static final Index SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS = new Index("Simple_with_auto_complete",
+            function(LuceneFunctionNames.LUCENE_TEXT, concat(field("text"),
+                    function(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS, value(LuceneFunctionNames.LuceneFieldIndexOptions.DOCS.name())))),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
                     LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
@@ -364,7 +372,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN);
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"propose a Vision\""), null, ScanProperties.FORWARD_SCAN);
             assertEquals(1, indexEntries.getCount().join());
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
@@ -987,6 +995,138 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void testAutoCompleteSearchForPhrase() throws Exception {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, false);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
+
+            addIndexAndSaveRecordsForAutoCompleteOfPhrase(context, index);
+
+            // All records are matches because they all contain both "united" and "states"
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "united states",
+                    ImmutableList.of("united states of america",
+                            "united states is a country in the continent of america",
+                            "united kingdom, france, the states",
+                            "states united as a country",
+                            "states have been united as a country",
+                            "all the states united as a country",
+                            "all the states have been united as a country",
+                            "welcome to the united states of america",
+                            "The countries are united kingdom, france, the states"));
+
+            // Only the texts containing "united states" are returned, the last token "states" is queried with term query,
+            // same as the other tokens due to the white space following it
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
+                    ImmutableList.of("united states of america",
+                            "united states is a country in the continent of america",
+                            "welcome to the united states of america"));
+
+            // Only the texts containing "united states" are returned, the last token "states" is queried with prefix query
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states\"",
+                    ImmutableList.of("united states of america",
+                            "united states is a country in the continent of america",
+                            "welcome to the united states of america"));
+
+            // Only the texts containing "united state" are returned, the last token "state" is queried with prefix query
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united state\"",
+                    ImmutableList.of("united states of america",
+                            "united states is a country in the continent of america",
+                            "welcome to the united states of america"));
+
+            // Only the texts containing "united states of" are returned, the last token "of" is queried with term query,
+            // same as the other tokens due to the white space following it
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of \"",
+                    ImmutableList.of("united states of america",
+                            "welcome to the united states of america"));
+
+            // Only the texts containing "united states of" are returned, the last token "of" is queried with term query against the NGRAM field
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of\"",
+                    ImmutableList.of("united states of america",
+                            "welcome to the united states of america"));
+
+            // Only the texts containing "united states o" are returned, the last token "o" is queried with term query against the NGRAM field
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states o\"",
+                    ImmutableList.of("united states of america",
+                            "welcome to the united states of america"));
+        }
+    }
+
+    @Test
+    void testAutoCompleteSearchWithHighlightForPhrase() throws Exception {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, false);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT;
+
+            addIndexAndSaveRecordsForAutoCompleteOfPhrase(context, index);
+
+            // All records are matches because they all contain both "united" and "states"
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "united states",
+                    ImmutableList.of("<b>united</b> <b>states</b> of america",
+                            "<b>united</b> <b>states</b> is a country in the continent of america",
+                            "<b>united</b> kingdom, france, the <b>states</b>",
+                            "<b>states</b> <b>united</b> as a country",
+                            "<b>states</b> have been <b>united</b> as a country",
+                            "all the <b>states</b> <b>united</b> as a country",
+                            "all the <b>states</b> have been <b>united</b> as a country",
+                            "welcome to the <b>united</b> <b>states</b> of america",
+                            "The countries are <b>united</b> kingdom, france, the <b>states</b>"));
+
+            // Only the texts containing "united states" are returned, the last token "states" is queried with term query,
+            // same as the other tokens due to the white space following it
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
+                    ImmutableList.of("<b>united</b> <b>states</b> of america",
+                            "<b>united</b> <b>states</b> is a country in the continent of america",
+                            "welcome to the <b>united</b> <b>states</b> of america"));
+
+            // Only the texts containing "united states" are returned, the last token "states" is queried with prefix query
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states\"",
+                    ImmutableList.of("<b>united</b> <b>states</b> of america",
+                            "<b>united</b> <b>states</b> is a country in the continent of america",
+                            "welcome to the <b>united</b> <b>states</b> of america"));
+
+            // Only the texts containing "united state" are returned, the last token "state" is queried with prefix query
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united state\"",
+                    ImmutableList.of("<b>united</b> <b>state</b>s of america",
+                            "<b>united</b> <b>state</b>s is a country in the continent of america",
+                            "welcome to the <b>united</b> <b>state</b>s of america"));
+
+            // Only the texts containing "united states of" are returned, the last token "of" is queried with term query,
+            // same as the other tokens due to the white space following it
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of \"",
+                    ImmutableList.of("<b>united</b> <b>states</b> <b>of</b> america",
+                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"));
+
+            // Only the texts containing "united states of" are returned, the last token "of" is queried with term query against the NGRAM field
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of\"",
+                    ImmutableList.of("<b>united</b> <b>states</b> <b>of</b> america",
+                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"));
+
+            // Only the texts containing "united states o" are returned, the last token "o" is queried with term query against the NGRAM field
+            queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states o\"",
+                    ImmutableList.of("<b>united</b> <b>states</b> <b>o</b>f america",
+                            "welcome to the <b>united</b> <b>states</b> <b>o</b>f america"));
+        }
+    }
+
+    @Test
+    void testAutoCompleteSearchForPhraseWithoutFreqsAndPositions() {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, false);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS;
+
+            addIndexAndSaveRecordsForAutoCompleteOfPhrase(context, index);
+
+            // Phrase search is not supported if positions are not indexed
+            assertThrows(ExecutionException.class,
+                    () -> queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
+                            ImmutableList.of()));
+        }
+    }
+
+    @Test
     void searchForSpellCheck() throws Exception {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SPELLCHECK_INDEX);
@@ -1487,6 +1627,34 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         recordStore.saveRecord(createSimpleDocument(1629L, "Hello Record Layer", 1));
         recordStore.saveRecord(createSimpleDocument(1630L, "Hello FoundationDB!", 1));
         return recordStore.saveRecord(createSimpleDocument(1631L, ENGINEER_JOKE, 1)).getRecordType();
+    }
+
+    private void addIndexAndSaveRecordsForAutoCompleteOfPhrase(@Nonnull FDBRecordContext context, @Nonnull Index index) {
+        openRecordStore(context, metaDataBuilder -> {
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.addIndex(SIMPLE_DOC, index);
+        });
+
+        recordStore.saveRecord(createSimpleDocument(1623L, "united states of america", 1));
+        recordStore.saveRecord(createSimpleDocument(1624L, "welcome to the united states of america", 1));
+        recordStore.saveRecord(createSimpleDocument(1625L, "united kingdom, france, the states", 1));
+        recordStore.saveRecord(createSimpleDocument(1626L, "The countries are united kingdom, france, the states", 1));
+        recordStore.saveRecord(createSimpleDocument(1627L, "states united as a country", 1));
+        recordStore.saveRecord(createSimpleDocument(1628L, "all the states united as a country", 1));
+        recordStore.saveRecord(createSimpleDocument(1629L, "states have been united as a country", 1));
+        recordStore.saveRecord(createSimpleDocument(1630L, "all the states have been united as a country", 1));
+        recordStore.saveRecord(createSimpleDocument(1630L, "united states is a country in the continent of america", 1));
+    }
+
+    private void queryAndAssertAutoCompleteSuggestionsReturned(@Nonnull Index index, @Nonnull String searchKey, @Nonnull List<String> expectedSuggestions) throws Exception {
+        List<IndexEntry> results = recordStore.scanIndex(index,
+                autoComplete(index, searchKey),
+                null,
+                ScanProperties.FORWARD_SCAN).asList().get();
+
+        assertEquals(expectedSuggestions.size(), results.size());
+        List<String> suggestions = results.stream().map(i -> i.getKey().getString(i.getKeySize() - 1)).collect(Collectors.toList());
+        assertEquals(expectedSuggestions, suggestions);
     }
 
     private void assertDocumentPartialRecordFromIndexEntry(@Nonnull RecordType recordType, @Nonnull IndexEntry indexEntry,
