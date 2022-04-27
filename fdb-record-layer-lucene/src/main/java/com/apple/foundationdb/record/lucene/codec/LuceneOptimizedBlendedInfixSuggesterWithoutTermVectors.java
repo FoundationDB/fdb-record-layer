@@ -118,7 +118,7 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
     /**
      * A copy of its superclass's minPrefixChars.
      */
-    private final int minPrefixChars;
+    private final int minPrefixCharsCopy;
 
     private Double exponent = 2.0;
 
@@ -131,7 +131,7 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
         this.blenderType = blenderType;
         this.indexOptions = indexOptions;
         this.numFactor = numFactor;
-        this.minPrefixChars = minPrefixChars;
+        this.minPrefixCharsCopy = minPrefixChars;
         if (exponent != null) {
             this.exponent = exponent;
         }
@@ -504,7 +504,7 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
             spanQuery.addClause(new SpanTermQuery(term));
         }
 
-        SpanQuery lastTokenQuery = lastToken.length() < minPrefixChars
+        SpanQuery lastTokenQuery = lastToken.length() < minPrefixCharsCopy
                                    ? new SpanTermQuery(new Term(TEXTGRAMS_FIELD_NAME, new BytesRef(lastToken.getBytes(StandardCharsets.UTF_8))))
                                    : new SpanMultiTermQueryWrapper<>(new PrefixQuery(new Term(TEXT_FIELD_NAME, lastToken)));
         FieldMaskingSpanQuery fieldMask = new FieldMaskingSpanQuery(lastTokenQuery, TEXT_FIELD_NAME);
