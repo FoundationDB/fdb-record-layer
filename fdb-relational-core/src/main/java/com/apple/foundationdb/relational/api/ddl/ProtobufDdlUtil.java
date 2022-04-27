@@ -33,9 +33,6 @@ public final class ProtobufDdlUtil {
 
     public static String getTypeName(DescriptorProtos.FieldDescriptorProto descriptor) {
         String type = "";
-        if (descriptor.getLabel() == DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED) {
-            type = "repeated ";
-        }
         switch (descriptor.getType()) {
             case TYPE_INT32:
             case TYPE_INT64:
@@ -63,14 +60,15 @@ public final class ProtobufDdlUtil {
                 throw new IllegalStateException("Unexpected descriptor java type <" + descriptor.getType());
         }
 
+        if (descriptor.getLabel() == DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED) {
+            type += " array";
+        }
+
         return type;
     }
 
     public static String getTypeName(Descriptors.FieldDescriptor descriptor) {
         String type = "";
-        if (descriptor.isRepeated()) {
-            type += "repeated ";
-        }
         switch (descriptor.getJavaType()) {
             case INT:
             case LONG:
@@ -94,6 +92,9 @@ public final class ProtobufDdlUtil {
                 break;
             default:
                 throw new IllegalStateException("Unexpected java type :" + descriptor.getJavaType());
+        }
+        if (descriptor.isRepeated()) {
+            type += " array";
         }
 
         return type.toUpperCase(Locale.ROOT);

@@ -125,7 +125,7 @@ public class DdlStatementParsingTest {
     @Test
     void createTypeWithPrimaryKeyFails() throws Exception {
         String stmt = "CREATE SCHEMA TEMPLATE test_template as {" +
-                "CREATE TYPE t (a int64, b string PRIMARY KEY(b));" +
+                "CREATE STRUCT t (a int64, b string PRIMARY KEY(b));" +
                 "}";
 
         boolean[] visited = new boolean[]{false};
@@ -152,7 +152,7 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createSchemaTemplates(List<String> columns) throws Exception {
         String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
-                "CREATE TYPE FOO " + makeColumnDefinition(columns, false) +
+                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
                 "}";
 
         final AbstractConstantActionFactory constantActionFactory = new AbstractConstantActionFactory() {
@@ -242,7 +242,7 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateWithIndex(List<String> columns) throws Exception {
         String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
-                "CREATE TYPE FOO " + makeColumnDefinition(columns, false) + ";" +
+                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) + ";" +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) + ";" +
                 "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0)) + ");" +
                 "}";
@@ -294,7 +294,7 @@ public class DdlStatementParsingTest {
         final List<String> indexedColumns =  chooseIndexColumns(columns, n -> n % 2 == 0); //choose every other column
         final List<String> unindexedColumns = chooseIndexColumns(columns, n -> n % 2 != 0);
         String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
-                "CREATE TYPE FOO " + makeColumnDefinition(columns, false) + ";" +
+                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) + ";" +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) + ";" +
                 "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", indexedColumns) + ") INCLUDE (" + String.join(",", unindexedColumns) + ");" +
                 "}";
@@ -422,7 +422,7 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createTableAndType(List<String> columns) throws Exception {
         String tableDef = "CREATE TABLE tbl " + makeColumnDefinition(columns, true);
-        String typeDef = "CREATE TYPE typ " + makeColumnDefinition(columns, false);
+        String typeDef = "CREATE STRUCT typ " + makeColumnDefinition(columns, false);
         String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS {" +
                 typeDef + ";" +
                 tableDef + ";" +

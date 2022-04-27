@@ -59,15 +59,15 @@ schemaTemplateDef
     :
         (KW_SCHEMA KW_TEMPLATE) identifier (
                     KW_AS LCURLY
-                        (KW_CREATE (typeDef | indexDef))
-                        (statementSeparator (KW_CREATE (typeDef | indexDef))?)*
+                        (KW_CREATE (structDef | indexDef))
+                        (statementSeparator (KW_CREATE (structDef | indexDef))?)*
                     RCURLY
                 )
     ;
 
-typeDef
+structDef
     :
-        (KW_TYPE |KW_TABLE)  identifier  (LPAREN
+        (KW_STRUCT |KW_TABLE)  identifier  (LPAREN
                              columnDef
                              (COMMA columnDef)*
                              (primaryKeyDef)?
@@ -87,7 +87,7 @@ schemaDef
 columnDef
     :
         identifier
-        (KW_REPEATED? (KW_BOOLEAN | KW_INT64 | KW_DOUBLE | KW_STRING | KW_TIMESTAMP | KW_BYTES| identifier))
+        ((KW_BOOLEAN | KW_INT64 | KW_DOUBLE | KW_STRING | KW_TIMESTAMP | KW_BYTES| identifier) KW_ARRAY?)
     ;
 
 databaseIdentifier

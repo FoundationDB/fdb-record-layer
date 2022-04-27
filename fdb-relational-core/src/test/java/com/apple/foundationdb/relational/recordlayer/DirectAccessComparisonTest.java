@@ -136,7 +136,7 @@ public class DirectAccessComparisonTest {
                     fileDescriptor.getMessageTypes().stream().filter(type -> !tables.contains(type.getName())).forEach(new Consumer<Descriptors.Descriptor>() {
                         @Override
                         public void accept(Descriptors.Descriptor type) {
-                            schemaCreateStatement.append("CREATE TYPE ").append(type.getName()).append("(");
+                            schemaCreateStatement.append("CREATE STRUCT ").append(type.getName()).append("(");
                             boolean isFirst = true;
                             for (Descriptors.FieldDescriptor field : type.getFields()) {
                                 if (isFirst) {

@@ -120,7 +120,7 @@ public class BasicMetadataTest {
             assertThat(rows).flatExtracting((Tuple t) -> t.getString(2)).containsOnly("RestaurantRecord");
             assertThat(rows).flatExtracting((Tuple t) -> t.getString(3)).isEqualTo(List.of("rest_no", "name", "location", "reviews", "tags", "customer"));
             assertThat(rows).flatExtracting((Tuple t) -> t.getString(4)).isEqualTo(List.of(
-                    "INT64", "STRING", "LOCATION", "REPEATED RESTAURANTREVIEW", "REPEATED RESTAURANTTAG", "REPEATED STRING"));
+                    "INT64", "STRING", "LOCATION", "RESTAURANTREVIEW ARRAY", "RESTAURANTTAG ARRAY", "STRING ARRAY"));
             //the JDBC spec says this should be 1-indexed :( what a bummer
             assertThat(rows).flatExtracting((Tuple t) -> t.getLong(5)).isEqualTo(List.of(1L, 2L, 3L, 4L, 5L, 6L));
         }

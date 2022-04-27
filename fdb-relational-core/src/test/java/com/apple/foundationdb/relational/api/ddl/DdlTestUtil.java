@@ -45,9 +45,6 @@ public class DdlTestUtil {
 
         String getType() {
             String type = "";
-            if (descriptor.getLabel() == DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED) {
-                type = "repeated ";
-            }
             switch (descriptor.getType()) {
                 case TYPE_INT32:
                 case TYPE_INT64:
@@ -73,6 +70,10 @@ public class DdlTestUtil {
                 //TODO(Bfines) figure this one out
                 default:
                     throw new IllegalStateException("Unexpected descriptor java type <" + descriptor.getType());
+            }
+
+            if (descriptor.getLabel() == DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED) {
+                type = " array";
             }
 
             return type;

@@ -55,7 +55,7 @@ public class DdlSchemaTemplateTest {
     @Test
     void canDropSchemaTemplates() throws Exception {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE drop_template AS {" +
-                "CREATE TYPE FOO_TYPE (a int64);" +
+                "CREATE STRUCT FOO_TYPE (a int64);" +
                 "CREATE TABLE FOO_TBL (b double PRIMARY KEY(b))" +
                 "}";
 
@@ -86,7 +86,7 @@ public class DdlSchemaTemplateTest {
     @MethodSource("columnTypePermutations")
     void describeSchemaTemplate(DdlPermutationGenerator.NamedPermutation table) throws Exception {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE " + table.getName() + " AS { " +
-                "CREATE TYPE " + table.getTypeDefinition("TYP") + ";" +
+                "CREATE STRUCT " + table.getTypeDefinition("TYP") + ";" +
                 "CREATE TABLE " + table.getTableDefinition("TBL") +
                 "}";
         try (DdlConnection conn = relational.getEngine().getDdlConnection()) {
@@ -120,7 +120,7 @@ public class DdlSchemaTemplateTest {
     @MethodSource("columnTypePermutations")
     void listSchemaTemplatesWorks(DdlPermutationGenerator.NamedPermutation table) throws Exception {
         String columnStatement = "CREATE SCHEMA TEMPLATE <TEST_TEMPLATE> AS { " +
-                "CREATE TYPE " + table.getTypeDefinition("FOO") +
+                "CREATE STRUCT " + table.getTypeDefinition("FOO") +
                 "}";
 
         try (DdlConnection conn = relational.getEngine().getDdlConnection()) {

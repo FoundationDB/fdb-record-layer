@@ -47,7 +47,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
                               Collection<TypeDefinition> types,
                               Supplier<DdlConnection> connSupplier) {
         this.templateName = templateName;
-        this.typeCreator = new CreatorFromDefinition("TYPE", types);
+        this.typeCreator = new CreatorFromDefinition("STRUCT", types);
         this.tableCreator = new CreatorFromDefinition("TABLE", tables);
         this.connSupplier = connSupplier;
     }

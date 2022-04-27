@@ -77,9 +77,9 @@ class ProtobufDdlUtilTest {
     void getTypeNameFromProto(DescriptorProtos.FieldDescriptorProto fieldProto) {
         final String typeName = ProtobufDdlUtil.getTypeName(fieldProto);
         if (fieldProto.getLabel() == DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED) {
-            Assertions.assertThat(typeName).containsIgnoringCase("repeated");
+            Assertions.assertThat(typeName).containsIgnoringCase("array");
         } else {
-            Assertions.assertThat(typeName).doesNotContainIgnoringCase("repeated");
+            Assertions.assertThat(typeName).doesNotContainIgnoringCase("array");
         }
         switch (fieldProto.getType()) {
             case TYPE_DOUBLE:
@@ -113,9 +113,9 @@ class ProtobufDdlUtilTest {
         Assumptions.assumeThat(field.getJavaType()).isNotEqualTo(Descriptors.FieldDescriptor.JavaType.MESSAGE);
         final String typeName = ProtobufDdlUtil.getTypeName(field);
         if (field.isRepeated()) {
-            Assertions.assertThat(typeName).containsIgnoringCase("repeated");
+            Assertions.assertThat(typeName).containsIgnoringCase("array");
         } else {
-            Assertions.assertThat(typeName).doesNotContainIgnoringCase("repeated");
+            Assertions.assertThat(typeName).doesNotContainIgnoringCase("array");
         }
         switch (field.getJavaType()) {
             case DOUBLE:

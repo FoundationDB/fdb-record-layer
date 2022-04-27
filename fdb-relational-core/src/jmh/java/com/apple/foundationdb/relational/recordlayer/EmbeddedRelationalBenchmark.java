@@ -55,11 +55,11 @@ import java.util.stream.IntStream;
 
 public abstract class EmbeddedRelationalBenchmark {
     private static final String restaurantSchema =
-            "CREATE TYPE Location (address string, latitude string, longitude string);" +
-                    "CREATE TYPE RestaurantReview (reviewer int64, rating int64);" +
-                    "CREATE TYPE RestaurantTag (tag string, weight int64);" +
-                    "CREATE TYPE ReviewerStats (start_date int64, school_name string, hometown string);" +
-                    "CREATE TABLE RestaurantRecord (rest_no int64, name string, location Location, reviews repeated RestaurantReview, tags repeated RestaurantTag, customer repeated string PRIMARY KEY(rest_no));" +
+            "CREATE STRUCT Location (address string, latitude string, longitude string);" +
+                    "CREATE STRUCT RestaurantReview (reviewer int64, rating int64);" +
+                    "CREATE STRUCT RestaurantTag (tag string, weight int64);" +
+                    "CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string);" +
+                    "CREATE TABLE RestaurantRecord (rest_no int64, name string, location Location, reviews RestaurantReview ARRAY, tags RestaurantTag ARRAY, customer string ARRAY PRIMARY KEY(rest_no));" +
                     "CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats PRIMARY KEY(id));" +
                     "CREATE VALUE INDEX record_type_covering on RestaurantRecord(rest_no) INCLUDE (name);" +
                     "CREATE VALUE INDEX record_name_idx on RestaurantRecord(name);" +

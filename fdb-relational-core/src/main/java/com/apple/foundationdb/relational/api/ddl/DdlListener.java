@@ -154,11 +154,11 @@ class DdlListener extends DdlParserBaseListener {
     }
 
     @Override
-    public void enterTypeDef(DdlParser.TypeDefContext ctx) {
+    public void enterStructDef(DdlParser.StructDefContext ctx) {
         if (ctx.getChildCount() <= 0) {
             return; // empty string no biggie
         }
-        if (ctx.getChild(0).equals(ctx.KW_TYPE())) {
+        if (ctx.getChild(0).equals(ctx.KW_STRUCT())) {
             typeBuilder = new CustomTypeBuilder(templateBuilder.customTypes, ctx.identifier().getText());
         } else {
             tableBuilder = new TableBuilder(templateBuilder.customTypes, ctx.identifier().getText());
@@ -221,7 +221,7 @@ class DdlListener extends DdlParserBaseListener {
     }
 
     @Override
-    public void exitTypeDef(DdlParser.TypeDefContext ctx) {
+    public void exitStructDef(DdlParser.StructDefContext ctx) {
         if (ctx.exception != null) {
             String message = ctx.exception.getMessage();
             throw new ParseCancellationException(new RelationalException(message, ErrorCode.SYNTAX_ERROR));
@@ -267,13 +267,11 @@ class DdlListener extends DdlParserBaseListener {
             int pos = 1;
 
             ParseTree typeNode = ctx.getChild(pos);
-            pos++;
-            if (typeNode.equals(ctx.KW_REPEATED())) {
-                fdProto.setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED);
-                typeNode = ctx.getChild(pos);
-                pos++;
-            }
             fdProto = fdProto.setType(getColumnType(typeNode.getText()));
+            ParseTree arrNode = ctx.getChild(pos + 1);
+            if (arrNode != null && arrNode.equals(ctx.KW_ARRAY())) {
+                fdProto.setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED);
+            }
 
             String messageType = null;
             if (fdProto.getType() == DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE) {
