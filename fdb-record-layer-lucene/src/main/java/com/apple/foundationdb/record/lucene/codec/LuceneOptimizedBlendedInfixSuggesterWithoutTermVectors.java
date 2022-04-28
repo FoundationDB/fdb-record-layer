@@ -28,6 +28,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.BinaryDocValues;
@@ -36,12 +37,26 @@ import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.MultiDocValues;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.PhraseQuery;
+import org.apache.lucene.search.PrefixQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.SearcherManager;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopFieldDocs;
+import org.apache.lucene.search.spans.FieldMaskingSpanQuery;
+import org.apache.lucene.search.spans.SpanMultiTermQueryWrapper;
+import org.apache.lucene.search.spans.SpanNearQuery;
+import org.apache.lucene.search.spans.SpanQuery;
+import org.apache.lucene.search.spans.SpanTermQuery;
 import org.apache.lucene.search.suggest.Lookup;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.apache.lucene.search.suggest.analyzing.BlendedInfixSuggester;
@@ -54,8 +69,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.Serializable;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
@@ -66,19 +84,41 @@ import java.util.TreeSet;
  * Optimized {@link BlendedInfixSuggester} that does not rely on term vectors persisted in DB.
  * The implementation of methods {@link #getIndexWriterConfig(Analyzer, IndexWriterConfig.OpenMode)}, {@link #getTextFieldType()} and {@link #createCoefficient(Set, String, String, BytesRef)}
  * are the main differences between this and {@link BlendedInfixSuggester}.
+ * This implementation also overrides the {@link AnalyzingInfixSuggester#lookup(CharSequence, BooleanQuery, int, boolean, boolean)} to also support phrase query.
  */
 public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends AnalyzingInfixSuggester {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors.class);
     private static final Comparator<LookupResult> LOOKUP_COMP = new LookUpComparator();
+    /**
+     * Coefficient used for linear blending.
+     */
     private static final double LINEAR_COEF = 0.10;
+
+    /**
+     * How we sort the postings and search results.
+     */
+    private static final Sort SORT = new Sort(new SortField("weight", SortField.Type.LONG, true));
 
     @Nonnull
     private final IndexMaintainerState state;
     @Nonnull
-    private final BlendedInfixSuggester.BlenderType blenderType;
-    @Nonnull
     private final IndexOptions indexOptions;
+
+    /**
+     * Type of blender used by the suggester.
+     */
+    @Nonnull
+    private final BlendedInfixSuggester.BlenderType blenderType;
+
+    /**
+     * Factor to multiply the number of searched elements.
+     */
     private final int numFactor;
+
+    /**
+     * A copy of its superclass's minPrefixChars.
+     */
+    private final int minPrefixCharsCopy;
 
     private Double exponent = 2.0;
 
@@ -91,6 +131,7 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
         this.blenderType = blenderType;
         this.indexOptions = indexOptions;
         this.numFactor = numFactor;
+        this.minPrefixCharsCopy = minPrefixChars;
         if (exponent != null) {
             this.exponent = exponent;
         }
@@ -114,10 +155,93 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
         return super.lookup(key, contextInfo, num, allTermsRequired, doHighlight);
     }
 
+    /**
+     * This one is different from the implementation by {@link BlendedInfixSuggester}.
+     * This method supports phrase query, whereas the {@link BlendedInfixSuggester} does not.
+     */
     @Override
     public List<Lookup.LookupResult> lookup(CharSequence key, BooleanQuery contextQuery, int num, boolean allTermsRequired, boolean doHighlight) throws IOException {
-        /** We need to do num * numFactor here only because it is the last call in the lookup chain*/
-        return super.lookup(key, contextQuery, num * numFactor, allTermsRequired, doHighlight);
+        if (searcherMgr == null) {
+            throw new IllegalStateException("suggester was not built");
+        }
+
+        final BooleanClause.Occur occur;
+        if (allTermsRequired) {
+            occur = BooleanClause.Occur.MUST;
+        } else {
+            occur = BooleanClause.Occur.SHOULD;
+        }
+
+        BooleanQuery.Builder query = new BooleanQuery.Builder();
+        Set<String> matchedTokens = new HashSet<>();
+
+        final boolean phraseQueryNeeded = key.toString().startsWith("\"") && key.toString().endsWith("\"");
+        final String searchKey = phraseQueryNeeded ? key.toString().substring(1, key.toString().length() - 1) : key.toString();
+
+        String prefixToken = phraseQueryNeeded
+                             ? buildQueryForPhraseMatching(query, matchedTokens, searchKey, occur)
+                             : buildQueryForTermsMatching(query, matchedTokens, searchKey, occur);
+
+        if (contextQuery != null) {
+            boolean allMustNot = true;
+            for (BooleanClause clause : contextQuery.clauses()) {
+                if (clause.getOccur() != BooleanClause.Occur.MUST_NOT) {
+                    allMustNot = false;
+                    break;
+                }
+            }
+
+            if (allMustNot) {
+                // All are MUST_NOT: add the contextQuery to the main query instead (not as sub-query)
+                for (BooleanClause clause : contextQuery.clauses()) {
+                    query.add(clause);
+                }
+            } else if (allTermsRequired == false) {
+                // We must carefully upgrade the query clauses to MUST:
+                BooleanQuery.Builder newQuery = new BooleanQuery.Builder();
+                newQuery.add(query.build(), BooleanClause.Occur.MUST);
+                newQuery.add(contextQuery, BooleanClause.Occur.MUST);
+                query = newQuery;
+            } else {
+                // Add contextQuery as sub-query
+                query.add(contextQuery, BooleanClause.Occur.MUST);
+            }
+        }
+
+        // TODO: we could allow blended sort here, combining
+        // weight w/ score.  Now we ignore score and sort only
+        // by weight:
+
+        Query finalQuery = finishQuery(query, allTermsRequired);
+
+        //System.out.println("finalQuery=" + finalQuery);
+
+        // Sort by weight, descending:
+        TopFieldCollector c = TopFieldCollector.create(SORT, num * numFactor, 1);
+        List<LookupResult> results = null;
+        SearcherManager mgr;
+        IndexSearcher searcher;
+        synchronized (searcherMgrLock) {
+            mgr = searcherMgr; // acquire & release on same SearcherManager, via local reference
+            searcher = mgr.acquire();
+        }
+        try {
+            //System.out.println("got searcher=" + searcher);
+            searcher.search(finalQuery, c);
+
+            TopFieldDocs hits = c.topDocs();
+
+            // Slower way if postings are not pre-sorted by weight:
+            // hits = searcher.search(query, null, num, SORT);
+            results = createResults(searcher, hits, num * numFactor, key, doHighlight, matchedTokens, prefixToken);
+        } finally {
+            mgr.release(searcher);
+        }
+
+        //System.out.println((System.currentTimeMillis() - t0) + " msec for infix suggest");
+        //System.out.println(results);
+
+        return results;
     }
 
     /**
@@ -274,6 +398,119 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
         }
 
         return coefficient;
+    }
+
+    @Nullable
+    private String buildQueryForPhraseMatching(@Nonnull BooleanQuery.Builder query, @Nonnull Set<String> matchedTokens,
+                                               @Nonnull String searchKey, @Nonnull BooleanClause.Occur occur) throws IOException {
+        String prefixToken = null;
+        try (TokenStream ts = queryAnalyzer.tokenStream("", new StringReader(searchKey))) {
+            //long t0 = System.currentTimeMillis();
+            ts.reset();
+            final CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
+            final OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            String lastToken = null;
+            PhraseQuery.Builder phraseQueryBuilder = new PhraseQuery.Builder();
+            int maxEndOffset = -1;
+            while (ts.incrementToken()) {
+                if (lastToken != null) {
+                    matchedTokens.add(lastToken);
+                    phraseQueryBuilder.add(new Term(TEXT_FIELD_NAME, lastToken));
+                }
+                lastToken = termAtt.toString();
+                if (lastToken != null) {
+                    maxEndOffset = Math.max(maxEndOffset, offsetAtt.endOffset());
+                }
+            }
+            ts.end();
+
+            if (lastToken != null) {
+                if (maxEndOffset == offsetAtt.endOffset()) {
+                    // Use PrefixQuery (or the ngram equivalent) when
+                    // there was no trailing discarded chars in the
+                    // string (e.g. whitespace), so that if query does
+                    // not end with a space we show prefix matches for
+                    // that token:
+                    query.add(getPhrasePrefixQuery(phraseQueryBuilder.build(), lastToken), occur);
+                    prefixToken = lastToken;
+                } else {
+                    // Use TermQuery for an exact match if there were
+                    // trailing discarded chars (e.g. whitespace), so
+                    // that if query ends with a space we only show
+                    // exact matches for that term:
+                    matchedTokens.add(lastToken);
+                    phraseQueryBuilder.add(new Term(TEXT_FIELD_NAME, lastToken));
+                    query.add(phraseQueryBuilder.build(), occur);
+                }
+            }
+        }
+        return prefixToken;
+    }
+
+    @Nullable
+    private String buildQueryForTermsMatching(@Nonnull BooleanQuery.Builder query, @Nonnull Set<String> matchedTokens,
+                                              @Nonnull String searchKey, @Nonnull BooleanClause.Occur occur) throws IOException {
+        String prefixToken = null;
+        try (TokenStream ts = queryAnalyzer.tokenStream("", new StringReader(searchKey))) {
+            //long t0 = System.currentTimeMillis();
+            ts.reset();
+            final CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
+            final OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            String lastToken = null;
+            int maxEndOffset = -1;
+            while (ts.incrementToken()) {
+                if (lastToken != null) {
+                    matchedTokens.add(lastToken);
+                    query.add(new TermQuery(new Term(TEXT_FIELD_NAME, lastToken)), occur);
+                }
+                lastToken = termAtt.toString();
+                if (lastToken != null) {
+                    maxEndOffset = Math.max(maxEndOffset, offsetAtt.endOffset());
+                }
+            }
+            ts.end();
+
+            if (lastToken != null) {
+                Query lastQuery;
+                if (maxEndOffset == offsetAtt.endOffset()) {
+                    // Use PrefixQuery (or the ngram equivalent) when
+                    // there was no trailing discarded chars in the
+                    // string (e.g. whitespace), so that if query does
+                    // not end with a space we show prefix matches for
+                    // that token:
+                    lastQuery = getLastTokenQuery(lastToken);
+                    prefixToken = lastToken;
+                } else {
+                    // Use TermQuery for an exact match if there were
+                    // trailing discarded chars (e.g. whitespace), so
+                    // that if query ends with a space we only show
+                    // exact matches for that term:
+                    matchedTokens.add(lastToken);
+                    lastQuery = new TermQuery(new Term(TEXT_FIELD_NAME, lastToken));
+                }
+
+                if (lastQuery != null) {
+                    query.add(lastQuery, occur);
+                }
+            }
+        }
+        return prefixToken;
+    }
+
+    private Query getPhrasePrefixQuery(@Nonnull PhraseQuery phraseQuery, @Nonnull String lastToken) {
+        Term[] terms = phraseQuery.getTerms();
+        SpanNearQuery.Builder spanQuery = new SpanNearQuery.Builder(TEXT_FIELD_NAME, true); // field
+        for (Term term : terms) {
+            spanQuery.addClause(new SpanTermQuery(term));
+        }
+
+        SpanQuery lastTokenQuery = lastToken.length() < minPrefixCharsCopy
+                                   ? new SpanTermQuery(new Term(TEXTGRAMS_FIELD_NAME, new BytesRef(lastToken.getBytes(StandardCharsets.UTF_8))))
+                                   : new SpanMultiTermQueryWrapper<>(new PrefixQuery(new Term(TEXT_FIELD_NAME, lastToken)));
+        FieldMaskingSpanQuery fieldMask = new FieldMaskingSpanQuery(lastTokenQuery, TEXT_FIELD_NAME);
+        spanQuery.addClause(fieldMask);
+
+        return spanQuery.build();
     }
 
     @SuppressWarnings("serial")
