@@ -193,8 +193,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     protected void openRecordStoreWithSynonymIndex(FDBRecordContext context) {
         final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
                 ImmutableMap.of(
-                        LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
-                        LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.CONFIG_NAME));
+                        LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                        LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
         openRecordStore(context, store -> { }, ngramIndex);
     }
 

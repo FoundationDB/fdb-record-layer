@@ -78,7 +78,7 @@ public class LuceneAnalyzerTest {
         String input = "Hello RL";
         Collection<String> result = new HashSet<>();
 
-        tokenizeWithAnalyzer(result, input, new SynonymAnalyzer(null, EnglishSynonymMapConfig.CONFIG_NAME));
+        tokenizeWithAnalyzer(result, input, new SynonymAnalyzer(null, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
         Assertions.assertEquals(ImmutableSet.of("hi", "how", "hullo", "howdy", "rl", "hello", "do", "you"), result);
     }
 

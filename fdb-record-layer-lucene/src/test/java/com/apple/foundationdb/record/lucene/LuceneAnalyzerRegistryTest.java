@@ -42,10 +42,10 @@ public class LuceneAnalyzerRegistryTest {
                 function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
                 LuceneIndexTypes.LUCENE,
                 ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
-                        LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
-                        LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.CONFIG_NAME));
+                        LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                        LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
         // Assert the synonym analyzer is used for query analyzer for full-text search
-        Assertions.assertEquals(SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+        Assertions.assertEquals(SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                 LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index, LuceneAnalyzerType.FULL_TEXT).getRight().chooseAnalyzer("").getUniqueIdentifier());
         // Assert the standard analyzer is used for query analyzer for auto-complete suggestions
         Assertions.assertEquals(LuceneAnalyzerWrapper.STANDARD_ANALYZER_NAME,
