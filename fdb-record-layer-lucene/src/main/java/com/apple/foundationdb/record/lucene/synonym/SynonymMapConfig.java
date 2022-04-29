@@ -44,6 +44,12 @@ public interface SynonymMapConfig {
      */
     InputStream getSynonymInputStream();
 
+    /**
+     * Whether to include all synonyms of the original phrases in the map or only the authoritative one.
+     * The {@link org.apache.lucene.analysis.synonym.SynonymGraphFilter} needs to be included in both index and query analyzer if this returns false.
+     */
+    boolean expand();
+
     @Nonnull
     static InputStream openFile(@Nonnull String file) {
         InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(file);

@@ -179,16 +179,21 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
                     IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
 
-    private static final Index SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
+    private static final Index QUERY_ONLY_SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
-                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
-                    LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.CONFIG_NAME));
+                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
+
+    private static final Index AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(
+                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.AuthoritativeSynonymOnlyAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.AuthoritativeOnlyEnglishSynonymMapConfig.CONFIG_NAME));
 
     private static final String COMBINED_SYNONYM_SETS = "COMBINED_SYNONYM_SETS";
 
-    private static final Index SYNONYM_LUCENE_COMBINED_SETS_INDEX = new Index("synonym_combined_sets_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
+    private static final Index QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX = new Index("synonym_combined_sets_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
-                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, COMBINED_SYNONYM_SETS));
 
     private static final Index SPELLCHECK_INDEX = new Index(
@@ -703,29 +708,157 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void scanWithSynonymIndex() {
+    void scanWithQueryOnlySynonymIndex() {
         try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SYNONYM_LUCENE_INDEX);
+            rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, fullTextSearch(SYNONYM_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello recor layer", 1));
-            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, fullTextSearch(SYNONYM_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             // "hullo" is synonym of "hello"
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX,
-                            fullTextSearch(SYNONYM_LUCENE_INDEX, matchAll("hullo", "record", "layer")), null, ScanProperties.FORWARD_SCAN)
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX,
+                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("hullo", "record", "layer")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             // it doesn't match due to the "recor"
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(0, recordStore.scanIndex(SYNONYM_LUCENE_INDEX,
-                            fullTextSearch(SYNONYM_LUCENE_INDEX, matchAll("hullo", "recor", "layer")), null, ScanProperties.FORWARD_SCAN)
+            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX,
+                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("hullo", "recor", "layer")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             // "hullo" is synonym of "hello", and "show" is synonym of "record"
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX,
-                            fullTextSearch(SYNONYM_LUCENE_INDEX, matchAll("hullo", "show", "layer")), null, ScanProperties.FORWARD_SCAN)
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX,
+                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("hullo", "show", "layer")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+        }
+    }
+
+    @Test
+    void scanWithAuthoritativeSynonymOnlyIndex() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello recor layer", 1));
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // "hullo" is synonym of "hello"
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX,
+                            fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, matchAll("hullo", "record", "layer")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // it doesn't match due to the "recor"
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(0, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX,
+                            fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, matchAll("hullo", "recor", "layer")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // "hullo" is synonym of "hello", and "show" is synonym of "record"
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX,
+                            fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, matchAll("hullo", "show", "layer")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+        }
+    }
+
+    @Test
+    void phraseSearchBasedOnQueryOnlySynonymIndex() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
+            // Save a document to verify synonym search based on the group {'motivation','motive','need'}
+            recordStore.saveRecord(createSimpleDocument(1623L, "I think you need to search with Lucene index", 1));
+            // Search for original phrase
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"you need to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with changed order of tokens, no match is expected
+            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"need you to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with "motivation" as synonym of "need"
+            // "Motivation" is the authoritative term of the group {'motivation','motive','need'}
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"you motivation to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with "motivation" with changed order of tokens, no match is expected
+            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"motivation you to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with "motive" as synonym of "need"
+            // "Motive" is not the authoritative term of the group {'motivation','motive','need'}
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"you motive to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with "motive" with changed order of tokens, no match is expected
+            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"motive you to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Term query rather than phrase query, so match is expected although the order is changed
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "motivation you to"), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+
+            // Save a document to verify synonym search based on the group {'departure','going','going away','leaving'}
+            // This group contains multi-word term "going away", and also the single-word term "going"
+            recordStore.saveRecord(createSimpleDocument(1624L, "He is leaving for New York next week", 1));
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is departure for\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+
+            // Search for phrase with "going away"
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is going away for\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+
+            //Search for phrase with "going"
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is going for\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+
+            // Search for phrase with only "away", no match is expected
+            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is away for\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+        }
+    }
+
+    @Test
+    void phraseSearchBasedOnAuthoritativeSynonymOnlyIndex() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX);
+            // Save a document to verify synonym search based on the group {'motivation','motive','need'}
+            recordStore.saveRecord(createSimpleDocument(1623L, "I think you need to search with Lucene index", 1));
+            // Search for original phrase
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"you need to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with changed order of tokens, no match is expected
+            assertEquals(0, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"need you to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with "motivation" as synonym of "need"
+            // "Motivation" is the authoritative term of the group {'motivation','motive','need'}
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"you motivation to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with "motivation" with changed order of tokens, no match is expected
+            assertEquals(0, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"motivation you to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with "motive" as synonym of "need"
+            // "Motive" is not the authoritative term of the group {'motivation','motive','need'}
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"you motive to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Search for phrase with "motive" with changed order of tokens, no match is expected
+            assertEquals(0, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"motive you to\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // Term query rather than phrase query, so match is expected although the order is changed
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "motivation you to"), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+
+            // Save a document to verify synonym search based on the group {'departure','going','going away','leaving'}
+            // This group contains multi-word term "going away", and also the single-word term "going"
+            recordStore.saveRecord(createSimpleDocument(1624L, "He is leaving for New York next week", 1));
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is departure for\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+
+            // Search for phrase with "going away"
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is going away for\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+
+            //Search for phrase with "going"
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is going for\""), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+
+            // Search for phrase with only "away", the correct behavior is to return no match. But match is still hit due to the poor handling of positional data for multi-word synonym by this analyzer
+            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is away for\""), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
         }
     }
@@ -741,11 +874,16 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
+        public boolean expand() {
+            return true;
+        }
+
+        @Override
         public InputStream getSynonymInputStream() {
             InputStream is1 = null;
             InputStream is2 = null;
             try {
-                is1 = new EnglishSynonymMapConfig().getSynonymInputStream();
+                is1 = new EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig().getSynonymInputStream();
                 is2 = SynonymMapConfig.openFile("test.txt");
                 return new SequenceInputStream(is1, is2);
             } catch (RecordCoreException e) {
@@ -771,15 +909,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SYNONYM_LUCENE_INDEX);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SYNONYM_LUCENE_COMBINED_SETS_INDEX);
+                metaDataBuilder.addIndex(SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
+                metaDataBuilder.addIndex(SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX);
             });
             recordStore.saveRecord(createSimpleDocument(1623L, "synonym is fun", 1));
-            assertEquals(0, recordStore.scanIndex(SYNONYM_LUCENE_INDEX,
-                            fullTextSearch(SYNONYM_LUCENE_INDEX, matchAll("nonsynonym", "is", "fun")), null, ScanProperties.FORWARD_SCAN)
+            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX,
+                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("nonsynonym", "is", "fun")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
-            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_COMBINED_SETS_INDEX,
-                            fullTextSearch(SYNONYM_LUCENE_COMBINED_SETS_INDEX, matchAll("nonsynonym", "is", "fun")), null, ScanProperties.FORWARD_SCAN)
+            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX,
+                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX, matchAll("nonsynonym", "is", "fun")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
         }
     }
@@ -1706,7 +1844,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         public LuceneAnalyzerWrapper chooseAnalyzer(@Nonnull List<String> texts) {
             if (texts.stream().filter(t -> t.contains("synonym")).findAny().isPresent()) {
                 return new LuceneAnalyzerWrapper("TEST_SYNONYM",
-                        new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, EnglishSynonymMapConfig.CONFIG_NAME));
+                        new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
             } else {
                 return new LuceneAnalyzerWrapper("TEST_NGRAM",
                         new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, 3, 30, false));
