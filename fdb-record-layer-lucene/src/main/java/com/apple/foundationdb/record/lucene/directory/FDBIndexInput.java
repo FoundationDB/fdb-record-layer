@@ -315,7 +315,7 @@ public class FDBIndexInput extends IndexInput {
      * @param position current position (not counting offset)
      * @return block
      */
-    private int getBlock(long position) {
+    public int getBlock(long position) {
         return (int) ( (position + initialOffset) / getFileReference().getBlockSize());
     }
 
@@ -326,4 +326,19 @@ public class FDBIndexInput extends IndexInput {
                 .addKeyAndValue(LuceneLogMessageKeys.RESOURCE, resourceDescription)
                 .toString();
     }
+
+    /**
+     * Prefetches the blocks from the underlying directory without manipulating the FDBInput.
+     *
+     * @param beginBlock Block to start caching.
+     * @param length number of blocks to read forward
+     * @return length supplied
+     */
+    public int prefetch(int beginBlock, int length) {
+        for (int i = 0; i < length; i++) {
+            fdbDirectory.readBlock(resourceDescription, reference, beginBlock + i);
+        }
+        return length;
+    }
+
 }

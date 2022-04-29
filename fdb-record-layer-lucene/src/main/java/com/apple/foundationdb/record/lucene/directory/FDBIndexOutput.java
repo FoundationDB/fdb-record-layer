@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.IndexOutput;
 import org.slf4j.Logger;
@@ -157,12 +158,26 @@ public final class FDBIndexOutput extends IndexOutput {
         }
     }
 
+    /**
+     * Internal method to set the total number of expected bytes to drive the read ahead of blocks.
+     *
+     * @param input input to setExpectedBytes
+     * @param numBytes expected number of bytes
+     */
+    void setExpectedBytes(@Nonnull final PrefetchableBufferedChecksumIndexInput input, final long numBytes) {
+        input.setExpectedBytes(numBytes);
+    }
+
     @Override
     public void copyBytes(@Nonnull final DataInput input, final long numBytes) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("copy bytes",
                     LuceneLogMessageKeys.INPUT, input,
                     LuceneLogMessageKeys.BYTE_NUMBER, numBytes));
+        }
+        // This is an attempt to pre-fetch blocks to speed up large copies (Segment Merge Process)
+        if (input instanceof PrefetchableBufferedChecksumIndexInput) {
+            setExpectedBytes( (PrefetchableBufferedChecksumIndexInput) input, numBytes);
         }
         super.copyBytes(input, numBytes);
     }
