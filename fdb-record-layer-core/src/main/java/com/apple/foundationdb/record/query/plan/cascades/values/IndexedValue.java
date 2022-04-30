@@ -74,7 +74,7 @@ public class IndexedValue implements LeafValue, Value.CompileTimeValue {
     }
 
     @Override
-    public int semanticHashCode() {
+    public int hashCodeWithoutChildren() {
         return PlanHashable.objectPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
     }
 

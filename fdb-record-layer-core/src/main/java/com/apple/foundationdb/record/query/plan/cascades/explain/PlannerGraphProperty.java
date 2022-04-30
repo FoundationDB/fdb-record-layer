@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRefTraversal;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.GraphExporter.Cluster;
 import com.apple.foundationdb.record.query.plan.cascades.explain.GraphExporter.ComponentIdProvider;
@@ -70,7 +70,7 @@ import java.util.stream.Collectors;
  * Class to hold a graph for explain, optimization, and rewrite purposes.
  */
 @SuppressWarnings({"UnstableApiUsage"})
-public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
+public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph> {
 
     public static final int EMPTY_FLAGS                = 0x0000;
 

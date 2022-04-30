@@ -25,14 +25,15 @@ import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalTypeFilterExpression;
@@ -63,7 +64,7 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
             call.yield(qun.getRangesOver());
         } else {
             // otherwise, keep a logical filter on record types which the quantifier might produce and are included in the filter
-            final var unsatisfiedTypeFilters = Sets.intersection(childRecordTypes, filterRecordTypes);
+            final Set<String> unsatisfiedTypeFilters = Sets.intersection(childRecordTypes, filterRecordTypes);
             if (!unsatisfiedTypeFilters.equals(filterRecordTypes)) {
                 final var planContext = call.getContext();
                 final var metaData = planContext.getMetaData();

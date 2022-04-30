@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -37,7 +37,7 @@ import java.util.Set;
  * A property for collecting all {@link ScanComparisons} for the sub tree the property is evaluated on.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ScanComparisonsProperty implements PlannerProperty<Set<ScanComparisons>> {
+public class ScanComparisonsProperty implements ExpressionProperty<Set<ScanComparisons>> {
     @Nonnull
     @Override
     public Set<ScanComparisons> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<ScanComparisons>> childResults) {

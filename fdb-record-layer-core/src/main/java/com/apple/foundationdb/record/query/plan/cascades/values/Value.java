@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -38,12 +37,13 @@ import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -54,6 +54,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -130,11 +131,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @SuppressWarnings({"java:S2637", "ConstantConditions"})
     @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
     default Object compileTimeEval(@Nonnull final EvaluationContext context) {
-        return eval(null, context, null, null);
+        return eval(null, context);
     }
 
     @Nullable
-    <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
+    <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context);
 
     /**
      * Method to create a {@link QueryPredicate} that is based on this value and a
@@ -163,7 +164,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     /**
      * Method to derive if this value is functionally dependent on another value. In order to produce a meaningful
      * result that {@code otherValue} and this value must parts of the result values of the same
-     * {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}.
+     * {@link RelationalExpression}.
      *
      * <h2>Example 1</h2>
      * <pre>
@@ -272,7 +273,24 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return narrowedClass.cast(this);
     }
 
-    @Nonnull
+    /**
+     * Method to compute the hash code of this value without considering the children of this {@link TreeLike}.
+     * @return a hash code that similar to the regular {@link Object#hashCode()} computes a hash code, but does not
+     *         incorporate the children of this value
+     */
+    int hashCodeWithoutChildren();
+
+    /**
+     * Overridden method to compute the semantic hash code of this tree of values. This method uses
+     * {@link #hashCodeWithoutChildren()} to fold over the tree.
+     * @return the semantic hash code
+     */
+    @Override
+    default int semanticHashCode() {
+        return fold(Value::hashCodeWithoutChildren,
+                (hashCodeWithoutChildren, childrenHashCodes) -> Objects.hash(childrenHashCodes, hashCodeWithoutChildren));
+    }
+
     @Override
     default boolean semanticEquals(@Nullable final Object other,
                                    @Nonnull final AliasMap aliasMap) {
@@ -338,9 +356,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         @Nullable
         @Override
         default <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                                @Nonnull final EvaluationContext context,
-                                                @Nullable FDBRecord<M> record,
-                                                @Nullable M message) {
+                                                @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value is compile-time only and cannot be evaluated");
         }
     }
@@ -354,9 +370,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         @Nullable
         @Override
         default <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                                @Nonnull final EvaluationContext context,
-                                                @Nullable FDBRecord<M> record,
-                                                @Nullable M message) {
+                                                @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value is index-only and cannot be evaluated");
         }
     }

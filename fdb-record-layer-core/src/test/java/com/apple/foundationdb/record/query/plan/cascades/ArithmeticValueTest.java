@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords7Proto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -32,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
@@ -63,7 +63,7 @@ class ArithmeticValueTest {
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
     private static final ParserContext parserContext = new ParserContext(null, typeRepositoryBuilder, null, null);
-    private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.Internal.CORRELATION.bindingName("ident"), TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build());
+    private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.Internal.CORRELATION.bindingName("ident"), QueryResult.of(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()));
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
@@ -276,7 +276,7 @@ class ArithmeticValueTest {
         } else {
             Typed value = function.encapsulate(parserContext, args);
             Assertions.assertTrue(value instanceof ArithmeticValue);
-            Object actualValue = ((ArithmeticValue)value).eval(null, evaluationContext, null, RecordMetaDataProto.Empty.getDefaultInstance());
+            Object actualValue = ((ArithmeticValue)value).eval(null, evaluationContext);
             Assertions.assertEquals(result, actualValue);
         }
     }

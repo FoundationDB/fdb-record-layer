@@ -21,18 +21,20 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
@@ -42,22 +44,32 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverPlans;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalTypeFilterExpression;
 
 /**
  * A rule that implements a logical type filter on an (already implemented) {@link RecordQueryPlan} as a
  * {@link RecordQueryTypeFilterPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
     @Nonnull
-    private static final CollectionMatcher<RecordQueryPlan> innerPlansMatcher = some(anyPlan());
+    private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
+
+    @Nonnull
+    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
+            planPartitions(where(planPartition -> planPartition.getAttributeValue(StoredRecordProperty.STORED_RECORD),
+                    any(innerPlanPartitionMatcher)));
+
     @Nonnull
     private static final BindingMatcher<LogicalTypeFilterExpression> root =
-            RelationalExpressionMatchers.logicalTypeFilterExpression(exactly(forEachQuantifierOverPlans(innerPlansMatcher)));
+            logicalTypeFilterExpression(exactly(forEachQuantifierOverRef(innerReferenceMatcher)));
 
     public ImplementTypeFilterRule() {
         super(root);
@@ -66,11 +78,11 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final var logicalTypeFilterExpression = call.get(root);
-        final var innerPlans = call.get(innerPlansMatcher);
+        final var planPartition = call.get(innerPlanPartitionMatcher);
         final var noTypeFilterNeededBuilder = ImmutableList.<RecordQueryPlan>builder();
         final var unsatisfiedMapBuilder = ImmutableMultimap.<Set<String>, RecordQueryPlan>builder();
 
-        for (final var innerPlan : innerPlans) {
+        for (final var innerPlan : planPartition.getPlans()) {
             final var childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), innerPlan);
             final var filterRecordTypes = Sets.newHashSet(logicalTypeFilterExpression.getRecordTypes());
 

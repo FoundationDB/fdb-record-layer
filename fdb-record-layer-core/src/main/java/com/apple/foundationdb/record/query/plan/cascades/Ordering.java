@@ -112,15 +112,6 @@ public class Ordering {
         this.partialOrderSupplier = Suppliers.memoize(this::computePartialOrder);
     }
 
-    /**
-     * When expressing a requirement (see also {@link OrderingAttribute}), the requirement may be to preserve
-     * the order of records that are being encountered. This is represented by a special value here.
-     * @return {@code true} if the ordering needs to be preserved
-     */
-    public boolean isPreserve() {
-        return orderingKeyParts.isEmpty();
-    }
-
     @Nonnull
     public SetMultimap<KeyExpression, Comparison> getEqualityBoundKeyMap() {
         return equalityBoundKeyMap;
@@ -138,6 +129,10 @@ public class Ordering {
 
     public boolean isDistinct() {
         return isDistinct;
+    }
+
+    public boolean isEmpty() {
+        return equalityBoundKeyMap.isEmpty() && orderingKeyParts.isEmpty();
     }
 
     @Override
@@ -205,7 +200,7 @@ public class Ordering {
     @Nonnull
     public static boolean satisfiesRequestedOrdering(@Nonnull Ordering providedOrdering,
                                                      @Nonnull RequestedOrdering requestedOrdering) {
-        return satisfiesKeyPartsOrdering(providedOrdering.toPartialOrder(),
+        return satisfyingKeyPartsOrdering(providedOrdering.toPartialOrder(),
                 requestedOrdering.getOrderingKeyParts(),
                 Function.identity())
                 .isPresent();
@@ -232,9 +227,9 @@ public class Ordering {
     }
 
     @Nonnull
-    public static <T> Optional<List<T>> satisfiesKeyPartsOrdering(@Nonnull final PartialOrder<T> partialOrder,
-                                                                  @Nonnull final List<KeyPart> requestedOrderingKeyParts,
-                                                                  @Nonnull final Function<T, KeyPart> domainMapperFunction) {
+    public static <T> Optional<List<T>> satisfyingKeyPartsOrdering(@Nonnull final PartialOrder<T> partialOrder,
+                                                                   @Nonnull final List<KeyPart> requestedOrderingKeyParts,
+                                                                   @Nonnull final Function<T, KeyPart> domainMapperFunction) {
         final var satisfyingPermutations =
                 TopologicalSort.satisfyingPermutations(
                         partialOrder,
@@ -357,67 +352,50 @@ public class Ordering {
      * }
      * </pre>
      *
-     * @param orderingOptionals a list of orderings that should be combined to a common ordering
+     * @param orderings a list of orderings that should be combined to a common ordering
      * @param requestedOrdering an ordering that is desirable (or required). This parameter is ignored if the ordering
      *        passed in is to preserve ordering
      * @return an optional of a list of parts that defines the common ordering that also satisfies the required ordering,
      *         {@code Optional.empty()} if such a common ordering does not exist
      */
     @Nonnull
-    public static Optional<List<KeyPart>> commonOrderingKeys(@Nonnull List<Optional<Ordering>> orderingOptionals,
+    public static Optional<List<KeyPart>> commonOrderingKeys(@Nonnull Collection<Ordering> orderings,
                                                              @Nonnull RequestedOrdering requestedOrdering) {
-        if (orderingOptionals.isEmpty()) {
-            return Optional.empty();
-        }
-
-        if (orderingOptionals
-                .stream()
-                .anyMatch(Optional::isEmpty)) {
+        if (orderings.isEmpty()) {
             return Optional.empty();
         }
 
         final var mergedPartialOrder =
                 mergePartialOrderOfOrderings(
-                        () -> orderingOptionals
+                        () -> orderings
                                 .stream()
-                                .map(orderingOptional -> orderingOptional.orElseThrow(() -> new IllegalStateException("optional cannot be empty")))
                                 .map(Ordering::toPartialOrder)
                                 .iterator());
 
-        return satisfiesKeyPartsOrdering(mergedPartialOrder, requestedOrdering.getOrderingKeyParts(), Function.identity());
+        return satisfyingKeyPartsOrdering(mergedPartialOrder, requestedOrdering.getOrderingKeyParts(), Function.identity());
     }
 
     /**
      * Method to combine the map of equality-bound keys (and their bindings) for multiple orderings.
      *
-     * @param orderingInfoOptionals a list of ordering optionals
+     * @param orderings a list of orderings
      * @param combineFn a {@link BinaryOperator} that can combine two maps of equality-bound keys (and their bindings).
      * @return a new combined multimap of equality-bound keys (and their bindings) for all the orderings passed in
      */
     @Nonnull
-    public static Optional<SetMultimap<KeyExpression, Comparison>> combineEqualityBoundKeys(@Nonnull final List<Optional<Ordering>> orderingInfoOptionals,
+    public static Optional<SetMultimap<KeyExpression, Comparison>> combineEqualityBoundKeys(@Nonnull final Collection<Ordering> orderings,
                                                                                             @Nonnull final BinaryOperator<SetMultimap<KeyExpression, Comparison>> combineFn) {
-        final Iterator<Optional<Ordering>> membersIterator = orderingInfoOptionals.iterator();
+        final Iterator<Ordering> membersIterator = orderings.iterator();
         if (!membersIterator.hasNext()) {
             // don't bail on incorrect graph structure, just return empty()
             return Optional.empty();
         }
 
-        final Optional<Ordering> commonOrderingInfoOptional = membersIterator.next();
-        if (commonOrderingInfoOptional.isEmpty()) {
-            return Optional.empty();
-        }
-
-        final var commonOrderingInfo = commonOrderingInfoOptional.get();
+        final var commonOrderingInfo = membersIterator.next();
         SetMultimap<KeyExpression, Comparison> commonEqualityBoundKeyMap = commonOrderingInfo.getEqualityBoundKeyMap();
 
         while (membersIterator.hasNext()) {
-            final Optional<Ordering> currentOrderingOptional = membersIterator.next();
-            if (currentOrderingOptional.isEmpty()) {
-                return Optional.empty();
-            }
-
-            final var currentOrdering = currentOrderingOptional.get();
+            final var currentOrdering = membersIterator.next();
 
             final SetMultimap<KeyExpression, Comparison> currentEqualityBoundKeyMap = currentOrdering.getEqualityBoundKeyMap();
             commonEqualityBoundKeyMap = combineFn.apply(commonEqualityBoundKeyMap, currentEqualityBoundKeyMap);
@@ -428,7 +406,7 @@ public class Ordering {
 
     /**
      * Union the equality-bound keys of two orderings. This method is usually passed in as a method reference to
-     * {@link #combineEqualityBoundKeys(List, BinaryOperator)} as the binary operator.
+     * {@link #combineEqualityBoundKeys(Collection, BinaryOperator)} as the binary operator.
      * @param left multimap of equality-bound keys of the left ordering (and their bindings)
      * @param right multimap of equality-bound keys of the right ordering (and their bindings)
      * @return new combined multimap of equality-bound keys (and their bindings)
@@ -444,7 +422,7 @@ public class Ordering {
 
     /**
      * Intersect the equality-bound keys of two orderings. This method is usually passed in as a method reference to
-     * {@link #combineEqualityBoundKeys(List, BinaryOperator)} as the binary operator.
+     * {@link #combineEqualityBoundKeys(Collection, BinaryOperator)} as the binary operator.
      * @param left multimap of equality-bound keys of the left ordering (and their bindings)
      * @param right multimap of equality-bound keys of the right ordering (and their bindings)
      * @return new combined multimap of equality-bound keys (and their bindings)
@@ -473,5 +451,10 @@ public class Ordering {
         }
 
         return resultBuilder.build();
+    }
+
+    @Nonnull
+    public static Ordering emptyOrder() {
+        return new Ordering(ImmutableSetMultimap.of(), ImmutableList.of(), false);
     }
 }

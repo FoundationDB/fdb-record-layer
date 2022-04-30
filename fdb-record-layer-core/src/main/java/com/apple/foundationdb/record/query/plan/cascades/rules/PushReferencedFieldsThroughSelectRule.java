@@ -26,10 +26,10 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsAttribute;
-import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsAttribute.ReferencedFields;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint.ReferencedFields;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -50,7 +50,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * A rule that pushes an interesting {@link ReferencedFields} through a {@link SelectExpression}.
+ * A rule that pushes a {@link ReferencedFieldsConstraint} through a {@link SelectExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -62,7 +62,7 @@ public class PushReferencedFieldsThroughSelectRule extends PlannerRule<SelectExp
             selectExpression(all(predicateMatcher), exactly(innerQuantifierMatcher));
 
     public PushReferencedFieldsThroughSelectRule() {
-        super(root, ImmutableSet.of(ReferencedFieldsAttribute.REFERENCED_FIELDS));
+        super(root, ImmutableSet.of(ReferencedFieldsConstraint.REFERENCED_FIELDS));
     }
 
     @Override
@@ -79,14 +79,14 @@ public class PushReferencedFieldsThroughSelectRule extends PlannerRule<SelectExp
 
         final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
         final ImmutableSet<FieldValue> allReferencedValues = ImmutableSet.<FieldValue>builder()
-                .addAll(call.getInterestingProperty(ReferencedFieldsAttribute.REFERENCED_FIELDS)
+                .addAll(call.getPlannerConstraint(ReferencedFieldsConstraint.REFERENCED_FIELDS)
                         .map(ReferencedFields::getReferencedFieldValues)
                         .orElse(ImmutableSet.of()))
                 .addAll(fieldValuesFromPredicates)
                 .addAll(fieldValuesFromResultValues)
                 .build();
-        call.pushRequirement(lowerRef,
-                ReferencedFieldsAttribute.REFERENCED_FIELDS,
+        call.pushConstraint(lowerRef,
+                ReferencedFieldsConstraint.REFERENCED_FIELDS,
                 new ReferencedFields(allReferencedValues));
     }
 

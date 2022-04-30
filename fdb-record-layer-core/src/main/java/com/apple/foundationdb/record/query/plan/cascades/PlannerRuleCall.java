@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 
@@ -86,7 +87,7 @@ public interface PlannerRuleCall {
     }
 
     @Nonnull
-    <T> Optional<T> getInterestingProperty(@Nonnull PlannerAttribute<T> plannerAttribute);
+    <T> Optional<T> getPlannerConstraint(@Nonnull PlannerConstraint<T> plannerConstraint);
 
     /**
      * Notify the planner's data structures that the new expression contained in <code>expression</code> has been
@@ -112,9 +113,9 @@ public interface PlannerRuleCall {
                            @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
                            @Nonnull final MatchInfo matchInfo);
 
-    <T> void pushRequirement(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
-                             @Nonnull final PlannerAttribute<T> plannerAttribute,
-                             @Nonnull final T requirement);
+    <T> void pushConstraint(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+                            @Nonnull final PlannerConstraint<T> plannerConstraint,
+                            @Nonnull final T requirement);
 
     /**
      * Wrap the given planner expression in an implementation of {@link ExpressionRef} suitable for the planner

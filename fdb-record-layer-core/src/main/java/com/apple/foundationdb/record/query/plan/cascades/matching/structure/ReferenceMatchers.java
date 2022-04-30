@@ -21,11 +21,19 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
@@ -35,23 +43,79 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class ReferenceMatchers {
+    @Nonnull
+    private static final BindingMatcher<GroupExpressionRef<RelationalExpression>> topExpressionReferenceMatcher = BindingMatcher.instance();
+
     private ReferenceMatchers() {
         // do not instantiate
     }
 
+
+    @Nonnull
+    public static BindingMatcher<GroupExpressionRef<RelationalExpression>> getTopExpressionReferenceMatcher() {
+        return topExpressionReferenceMatcher;
+    }
+
+    @Nonnull
     @SuppressWarnings("unchecked")
     public static <R extends ExpressionRef<? extends RelationalExpression>> BindingMatcher<R> anyRef() {
         return typed((Class<R>)(Class<?>)ExpressionRef.class);
     }
 
+    @Nonnull
     public static BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> anyRefOverOnlyPlans() {
-        return references(all(RelationalExpressionMatchers.ofType(RecordQueryPlan.class)));
+        return members(all(RelationalExpressionMatchers.ofType(RecordQueryPlan.class)));
     }
 
+    @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends ExpressionRef<? extends RelationalExpression>, E extends RelationalExpression> BindingMatcher<R> references(@Nonnull final CollectionMatcher<E> downstream) {
+    public static <R extends ExpressionRef<? extends RelationalExpression>, E extends RelationalExpression> BindingMatcher<R> members(@Nonnull final CollectionMatcher<E> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)ExpressionRef.class,
                 Extractor.of(r -> r.getMembers(), name -> "members(" + name + ")"),
                 downstream);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <R extends ExpressionRef<? extends RelationalExpression>> BindingMatcher<R> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)ExpressionRef.class,
+                Extractor.of(r -> r.getPlanPartitions(), name -> "planPartitions(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static BindingMatcher<Collection<PlanPartition>> where(@Nonnull final Predicate<PlanPartition> predicate,
+                                                                  @Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
+                Extractor.of(planPartitions -> planPartitions.stream().filter(predicate).collect(ImmutableList.toImmutableList()), name -> "filtered planPartitions(" + name + ")"),
+                downstream);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static BindingMatcher<Collection<PlanPartition>> rollUp(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
+        return rollUpTo(downstream, ImmutableSet.of());
+    }
+
+    @SuppressWarnings("unchecked")
+    public static BindingMatcher<Collection<PlanPartition>> rollUpTo(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream, @Nonnull final PlanProperty<?> interestingAttribute) {
+        return rollUpTo(downstream, ImmutableSet.of(interestingAttribute));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static BindingMatcher<Collection<PlanPartition>> rollUpTo(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream, @Nonnull final Set<PlanProperty<?>> interestingAttributes) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
+                Extractor.of(planPartitions -> PlanPartition.rollUpTo(planPartitions, interestingAttributes), name -> "filtered planPartitions(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<PlanPartition> anyPlanPartition() {
+        return typed(PlanPartition.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<PlanPartition> planPartitionWhere(@Nonnull Predicate<PlanPartition> predicate) {
+        return TypedMatcherWithPredicate.typedMatcherWithPredicate(PlanPartition.class, predicate);
     }
 }

@@ -62,7 +62,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
      */
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<? extends T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<T> in) {
         final ImmutableList.Builder<T> items = ImmutableList.builder();
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
 
@@ -73,7 +73,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
             if (individualBindings.isEmpty()) {
                 final Optional<Stream<PlannerBindings>> onEmptyStreamOptional =
                         onEmptyIndividualBindings(bindingStream);
-                if (!onEmptyStreamOptional.isPresent()) {
+                if (onEmptyStreamOptional.isEmpty()) {
                     return Stream.empty();
                 } else {
                     bindingStream = onEmptyStreamOptional.get();

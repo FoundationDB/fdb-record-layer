@@ -103,6 +103,11 @@ public class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
     }
 
     @Override
+    public boolean containsKey(final Object key) {
+        return map.containsKey(identity.wrap(key));
+    }
+
+    @Override
     public V get(final Object key) {
         return map.get(identity.wrap(key));
     }

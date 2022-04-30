@@ -197,6 +197,33 @@ public interface BindingMatcher<T> {
         }
     }
 
+    /**
+     * Create a dummy instance that can be used to manually set a binding in a {@link PlannerBindings}.
+     * @param <T> type parameter
+     * @return a new instance of a matcher that can be used to manually set a binding in a {@link PlannerBindings}
+     *         object
+     */
+    static <T> BindingMatcher<T> instance() {
+        return new BindingMatcher<T>() {
+            @Nonnull
+            @Override
+            public Class<T> getRootClass() {
+                throw new RecordCoreException("unreachable code");
+            }
+
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+                return Stream.of(PlannerBindings.from(this,  in));
+            }
+
+            @Override
+            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+                throw new RecordCoreException("this matcher should not actually be called for matching purposes");
+            }
+        };
+    }
+
     static String newLine(@Nonnull final String indent) {
         return "\n" + indent;
     }

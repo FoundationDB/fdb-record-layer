@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -93,31 +93,31 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nullable
     @Override
-    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult datum) {
-        final var currentObject = datum.<M>getObject();
-        if (currentObject == null) {
+    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult queryResult) {
+        final var datum = queryResult.getDatum();
+        if (datum == null) {
             return null;
         }
 
-        final var nestedContext = context.withBinding(getInner().getAlias(), currentObject);
-        return conjunctedPredicate.eval(store, nestedContext, null, datum.getMessage());
+        final var nestedContext = context.withBinding(getInner().getAlias(), queryResult);
+        return conjunctedPredicate.eval(store, nestedContext);
     }
 
     @Nullable
     @Override
-    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult datum) {
+    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult queryResult) {
+        final var nestedContext = context.withBinding(getInner().getAlias(), queryResult);
+
         return new AsyncBoolean<>(false,
                 getPredicates(),
                 predicate -> {
-                    final var recordMaybe = datum.<M>getQueriedRecordMaybe();
-                    final M message = datum.<M>getMessage();
                     if (predicate instanceof QueryComponentPredicate) {
                         final QueryComponentPredicate queryComponentPredicate = (QueryComponentPredicate)predicate;
                         if (queryComponentPredicate.hasAsyncQueryComponent()) {
-                            return queryComponentPredicate.evalMessageAsync(store, context, recordMaybe.orElse(null), message);
+                            return queryComponentPredicate.evalMessageAsync(store, nestedContext);
                         }
                     }
-                    return CompletableFuture.completedFuture(predicate.eval(store, context, recordMaybe.orElse(null), message));
+                    return CompletableFuture.completedFuture(predicate.eval(store, nestedContext));
                 },
                 store).eval();
     }

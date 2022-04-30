@@ -100,7 +100,7 @@ public class QueryResult {
      * @return an optional that potentially contains the object narrowed to the requested class
      */
     @Nonnull
-    public <T> Optional<T> getMaybe(@Nonnull final Class<? extends T> clazz) {
+    public <T> Optional<T> getDatumMaybe(@Nonnull final Class<? extends T> clazz) {
         if (clazz.isInstance(datum)) {
             return Optional.of(get(clazz));
         }
@@ -115,6 +115,16 @@ public class QueryResult {
             return (M)datum;
         }
         throw new RecordCoreException("cannot be retrieve message from flowed object");
+    }
+
+    @SuppressWarnings("unchecked")
+    public <M extends Message> Optional<M> getMessageMaybe() {
+        if (datum instanceof FDBQueriedRecord) {
+            return Optional.of(((FDBQueriedRecord<M>)datum).getRecord());
+        } else if (datum instanceof Message) {
+            return Optional.of((M)datum);
+        }
+        return Optional.empty();
     }
 
     @Nullable

@@ -76,8 +76,8 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 return false;
             } else {
                 previousValidResult = innerResult;
-                final Object currentObject = Objects.requireNonNull(innerResult.get()).getObject();
-                boolean groupBreak = streamGrouping.apply(currentObject);
+                final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
+                boolean groupBreak = streamGrouping.apply(queryResult);
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {

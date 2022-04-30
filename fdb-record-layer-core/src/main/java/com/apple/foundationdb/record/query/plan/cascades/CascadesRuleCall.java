@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.google.common.base.Verify;
 import com.google.common.collect.Sets;
@@ -101,9 +102,9 @@ public class CascadesRuleCall implements PlannerRuleCall {
 
     @Nonnull
     @Override
-    public <T> Optional<T> getInterestingProperty(@Nonnull final PlannerAttribute<T> plannerAttribute) {
-        if (rule.getRequirementDependencies().contains(plannerAttribute)) {
-            return root.getRequirementsMap().getPropertyOptional(plannerAttribute);
+    public <T> Optional<T> getPlannerConstraint(@Nonnull final PlannerConstraint<T> plannerConstraint) {
+        if (rule.getConstraintDependencies().contains(plannerConstraint)) {
+            return root.getRequirementsMap().getConstraintOptional(plannerConstraint);
         }
 
         throw new RecordCoreArgumentException("rule is not dependent on requested planner requirement");
@@ -152,12 +153,12 @@ public class CascadesRuleCall implements PlannerRuleCall {
 
     @Override
     @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // deliberate use of id equality check for short-circuit condition
-    public <T> void pushRequirement(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
-                                    @Nonnull final PlannerAttribute<T> plannerAttribute,
-                                    @Nonnull final T requirement) {
+    public <T> void pushConstraint(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+                                   @Nonnull final PlannerConstraint<T> plannerConstraint,
+                                   @Nonnull final T requirement) {
         Verify.verify(root != reference);
-        final InterestingPropertiesMap requirementsMap = reference.getRequirementsMap();
-        if (requirementsMap.pushProperty(plannerAttribute, requirement).isPresent()) {
+        final ConstraintsMap requirementsMap = reference.getRequirementsMap();
+        if (requirementsMap.pushProperty(plannerConstraint, requirement).isPresent()) {
             referencesWithPushedRequirements.add(reference);
         }
     }

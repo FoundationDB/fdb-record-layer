@@ -26,10 +26,10 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsAttribute;
-import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsAttribute.ReferencedFields;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint.ReferencedFields;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -49,7 +49,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalFilterExpression;
 
 /**
- * A rule that pushes an interesting {@link ReferencedFields} through a {@link LogicalFilterExpression}.
+ * A rule that pushes a {@link ReferencedFieldsConstraint} through a {@link LogicalFilterExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -61,7 +61,7 @@ public class PushReferencedFieldsThroughFilterRule extends PlannerRule<LogicalFi
             logicalFilterExpression(all(predicateMatcher), exactly(innerQuantifierMatcher));
 
     public PushReferencedFieldsThroughFilterRule() {
-        super(root, ImmutableSet.of(ReferencedFieldsAttribute.REFERENCED_FIELDS));
+        super(root, ImmutableSet.of(ReferencedFieldsConstraint.REFERENCED_FIELDS));
     }
 
     @Override
@@ -74,13 +74,13 @@ public class PushReferencedFieldsThroughFilterRule extends PlannerRule<LogicalFi
 
         final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
         final ImmutableSet<FieldValue> allReferencedValues = ImmutableSet.<FieldValue>builder()
-                .addAll(call.getInterestingProperty(ReferencedFieldsAttribute.REFERENCED_FIELDS)
+                .addAll(call.getPlannerConstraint(ReferencedFieldsConstraint.REFERENCED_FIELDS)
                         .map(ReferencedFields::getReferencedFieldValues)
                         .orElse(ImmutableSet.of()))
                 .addAll(fieldValuesFromPredicates)
                 .build();
-        call.pushRequirement(lowerRef,
-                ReferencedFieldsAttribute.REFERENCED_FIELDS,
+        call.pushConstraint(lowerRef,
+                ReferencedFieldsConstraint.REFERENCED_FIELDS,
                 new ReferencedFields(allReferencedValues));
     }
 }

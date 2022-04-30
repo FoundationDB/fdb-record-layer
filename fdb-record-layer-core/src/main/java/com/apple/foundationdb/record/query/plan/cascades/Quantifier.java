@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
@@ -468,13 +469,13 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public abstract String getShorthand();
 
     /**
-     * Allow the computation of {@link PlannerProperty}s across the quantifiers in the data flow graph.
+     * Allow the computation of {@link ExpressionProperty}s across the quantifiers in the data flow graph.
      * @param visitor the planner property that is being computed
      * @param <U> the type of the property being computed
      * @return the property
      */
     @Nullable
-    public <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> visitor) {
+    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> visitor) {
         if (visitor.shouldVisit(this)) {
             return visitor.evaluateAtQuantifier(this, getRangesOver().acceptPropertyVisitor(visitor));
         }

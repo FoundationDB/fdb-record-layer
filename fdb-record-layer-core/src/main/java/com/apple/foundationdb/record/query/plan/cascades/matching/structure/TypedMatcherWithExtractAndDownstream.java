@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
@@ -42,7 +42,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
+    @Nonnull
     private final Extractor<? super T, ?> extractor;
+    @Nonnull
     private final BindingMatcher<?> downstream;
 
     protected TypedMatcherWithExtractAndDownstream(@Nonnull final Class<T> bindableClass,
@@ -53,10 +55,12 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
         this.downstream = downstream;
     }
 
+    @Nonnull
     public Extractor<? super T, ?> getExtractor() {
         return extractor;
     }
 
+    @Nonnull
     public BindingMatcher<?> getDownstream() {
         return downstream;
     }

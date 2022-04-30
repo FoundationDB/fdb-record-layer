@@ -29,8 +29,9 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -97,10 +98,10 @@ public interface MatchCandidate {
     List<CorrelationIdentifier> getOrderingAliases();
 
     /**
-     * This method returns a key expression that can be used to actually compute the the keys of this candidate for a
+     * This method returns a key expression that can be used to actually compute the keys of this candidate for a
      * given record.
      * The current expression hierarchy cannot be evaluated at runtime (in general). This key expression helps
-     * representing compensation or part of compensation if needed.
+     * represent compensation or part of compensation if needed.
      * @return a key expression that can be evaluated based on a base record
      */
     @Nonnull

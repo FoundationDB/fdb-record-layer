@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
@@ -649,10 +650,7 @@ public interface Compensation {
             final var predicates = predicateCompensationMap.values();
             if (!predicates.isEmpty()) {
                 final var quantifier = Quantifier.forEach(GroupExpressionRef.of(relationalExpression));
-                final var translationMap =
-                        (mappedQuantifiers.size() == 1)
-                        ? AliasMap.of(mappedForEachQuantifierAlias, quantifier.getAlias())
-                        : AliasMap.emptyMap();
+                final var translationMap = AliasMap.of(mappedForEachQuantifierAlias, quantifier.getAlias());
 
                 final var rebasedPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
                 for (final var predicate : predicates) {

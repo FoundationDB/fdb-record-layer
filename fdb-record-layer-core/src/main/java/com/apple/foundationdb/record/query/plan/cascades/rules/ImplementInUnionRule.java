@@ -24,18 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
-import com.apple.foundationdb.record.query.plan.plans.InSource;
-import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlanBase;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingAttribute;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -46,26 +41,29 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
+import com.apple.foundationdb.record.query.plan.plans.InSource;
+import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.SetMultimap;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
@@ -87,7 +85,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
             selectExpression(explodeQuantifiersMatcher);
 
     public ImplementInUnionRule() {
-        super(root, ImmutableSet.of(OrderingAttribute.ORDERING));
+        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
     }
 
     @SuppressWarnings({"unchecked", "java:S135"})
@@ -96,7 +94,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         final var context = call.getContext();
         final var bindings = call.getBindings();
 
-        final var requestedOrderingsOptional = call.getInterestingProperty(OrderingAttribute.ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -165,35 +163,26 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         }
 
         final var inSources = sourcesBuilder.build();
-
-        final Map<Ordering, ImmutableList<RecordQueryPlan>> groupedByOrdering =
-                innerQuantifier
-                        .getRangesOver()
-                        .getMembers()
-                        .stream()
-                        .flatMap(relationalExpression -> relationalExpression.narrowMaybe(RecordQueryPlan.class).stream())
-                        .flatMap(plan -> {
-                            final Optional<Ordering> orderingForLegOptional =
-                                    OrderingProperty.evaluate(plan, context);
-
-                            return orderingForLegOptional
-                                    .stream()
-                                    .map(ordering -> Pair.of(ordering, plan));
-                        })
-                        .collect(Collectors.groupingBy(Pair::getLeft,
-                                Collectors.mapping(Pair::getRight,
-                                        ImmutableList.toImmutableList())));
+        
+        final var innerReference = innerQuantifier.getRangesOver();
+        final var planPartitions =
+                PlanPartition.rollUpTo(
+                        innerReference.getPlanPartitions()
+                                .stream()
+                                .filter(planPartition -> planPartition.getAttributeValue(StoredRecordProperty.STORED_RECORD))
+                                .collect(ImmutableList.toImmutableList()),
+                        OrderingProperty.ORDERING);
 
         final int attemptFailedInJoinAsUnionMaxSize = call.getContext().getPlannerConfiguration().getAttemptFailedInJoinAsUnionMaxSize();
 
-        for (final Map.Entry<Ordering, ImmutableList<RecordQueryPlan>> providedOrderingEntry : groupedByOrdering.entrySet()) {
-            for (final RequestedOrdering requestedOrdering : requestedOrderings) {
-                final var providedOrdering = providedOrderingEntry.getKey();
+        for (final var planPartition : planPartitions) {
+            for (final var requestedOrdering : requestedOrderings) {
+                final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
                 final var matchingKeyExpressionsBuilder = ImmutableSet.<KeyExpression>builder();
-                for (Map.Entry<KeyExpression, Comparisons.Comparison> expressionComparisonEntry : providedOrdering.getEqualityBoundKeyMap().entries()) {
-                    final Comparisons.Comparison comparison = expressionComparisonEntry.getValue();
+                for (final var expressionComparisonEntry : providedOrdering.getEqualityBoundKeyMap().entries()) {
+                    final var comparison = expressionComparisonEntry.getValue();
                     if (comparison.getType() == Comparisons.Type.EQUALS && comparison instanceof Comparisons.ParameterComparison) {
-                        final Comparisons.ParameterComparison parameterComparison = (Comparisons.ParameterComparison)comparison;
+                        final var parameterComparison = (Comparisons.ParameterComparison)comparison;
                         if (parameterComparison.isCorrelation() && explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
                             matchingKeyExpressionsBuilder.add(expressionComparisonEntry.getKey());
                         }
@@ -223,13 +212,12 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                         orderingKeys.size() == 1
                         ? Iterables.getOnlyElement(orderingKeys) : Key.Expressions.concat(orderingKeys);
 
-                final GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(providedOrderingEntry.getValue());
+                final GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
                 final Quantifier.Physical newInnerQuantifier = Quantifier.physical(newInnerPlanReference);
                 call.yield(call.ref(
-                        new RecordQueryInUnionPlan(newInnerQuantifier,
+                        RecordQueryInUnionPlan.from(newInnerQuantifier,
                                 inSources,
                                 comparisonKey,
-                                RecordQueryUnionPlanBase.isReversed(ImmutableList.of(newInnerQuantifier)),
                                 attemptFailedInJoinAsUnionMaxSize)));
             }
         }

@@ -20,14 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+
 import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * Interface to allow {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}s to rewrite their own
+ * Interface to allow {@link RelationalExpression}s to rewrite their own
  * graph representation.
  *
- * This interface allows a {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression} to create/modify
+ * This interface allows a {@link RelationalExpression} to create/modify
  * low level planner graph structures while a planner graph is created through an expression walk in
  * {@link PlannerGraphProperty}. Such a rewrite can be useful if the standard representation is confusing, misleading,
  * or just too complicated. For instance, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex}
@@ -43,7 +45,7 @@ import java.util.List;
  *
  * Note that these three interfaces do not form a hierarchy themselves. Also, in order to keep the code from bleeding
  * into general expression structures, we didn't want to have another set of methods on
- * {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}.
+ * {@link RelationalExpression}.
  * The approach taken here works more like a tag interface that can be chosen by a specific operator to do something
  * very specific without cluttering the general code path.
  */

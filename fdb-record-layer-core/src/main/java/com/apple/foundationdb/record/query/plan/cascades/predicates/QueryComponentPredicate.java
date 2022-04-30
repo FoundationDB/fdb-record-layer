@@ -25,11 +25,11 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -55,14 +55,10 @@ public class QueryComponentPredicate implements LeafQueryPredicate {
     @Nonnull
     public final QueryComponent queryComponent;
 
-    @Nullable
+    @Nonnull
     public final CorrelationIdentifier correlation;
 
-    public QueryComponentPredicate(@Nonnull QueryComponent queryComponent) {
-        this(queryComponent, null);
-    }
-
-    public QueryComponentPredicate(@Nonnull QueryComponent queryComponent, @Nullable CorrelationIdentifier correlation) {
+    public QueryComponentPredicate(@Nonnull QueryComponent queryComponent, @Nonnull CorrelationIdentifier correlation) {
         this.queryComponent = queryComponent;
         this.correlation = correlation;
     }
@@ -78,12 +74,27 @@ public class QueryComponentPredicate implements LeafQueryPredicate {
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        final var result = (QueryResult)context.getBinding(correlation);
+        if (result.getDatum() == null) {
+            return null;
+        }
+
+        final var record = result.<M>getQueriedRecordMaybe().orElse(null);
+        // this predicate must be expressed over a record
+        final var message = result.<M>getMessage();
         return queryComponent.evalMessage(store, context, record, message);
     }
 
-    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                           @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        final var result = (QueryResult)context.getBinding(correlation);
+        if (result.getDatum() == null) {
+            return null;
+        }
+
+        final var record = result.<M>getQueriedRecordMaybe().orElse(null);
+        // this predicate must be expressed over a record
+        final var message = result.<M>getMessage();
         return queryComponent.evalMessageAsync(store, context, record, message);
     }
 
@@ -134,7 +145,7 @@ public class QueryComponentPredicate implements LeafQueryPredicate {
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return correlation == null ? ImmutableSet.of() : ImmutableSet.of(correlation);
+        return ImmutableSet.of(correlation);
     }
 
     @Nullable

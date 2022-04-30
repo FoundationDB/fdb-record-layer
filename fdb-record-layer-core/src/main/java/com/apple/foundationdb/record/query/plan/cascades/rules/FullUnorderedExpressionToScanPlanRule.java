@@ -44,9 +44,10 @@ public class FullUnorderedExpressionToScanPlanRule extends PlannerRule<FullUnord
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final FullUnorderedScanExpression fullUnorderedScanExpression = call.get(root);
+        final var fullUnorderedScanExpression = call.get(root);
 
         call.yield(call.ref(new RecordQueryScanPlan(fullUnorderedScanExpression.getRecordTypes(),
+                call.getContext().getCommonPrimaryKey(),
                 ScanComparisons.EMPTY,
                 false)));
     }

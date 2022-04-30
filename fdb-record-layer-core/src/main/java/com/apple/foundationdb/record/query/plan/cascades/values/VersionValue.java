@@ -63,8 +63,8 @@ public class VersionValue implements LeafValue, Value.CompileTimeValue {
     }
 
     @Override
-    public int semanticHashCode() {
-        return 51;
+    public int hashCodeWithoutChildren() {
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
     }
 
     @Override

@@ -62,7 +62,7 @@ public class ListMatcher<T> implements CollectionMatcher<T> {
     @Nonnull
     @Override
     @SuppressWarnings("java:S3958")
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<? extends T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<T> in) {
         if (in.size() != downstreams.size()) {
             return Stream.empty();
         }

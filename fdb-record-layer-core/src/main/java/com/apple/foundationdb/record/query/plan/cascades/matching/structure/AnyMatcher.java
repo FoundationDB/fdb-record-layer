@@ -82,7 +82,7 @@ public class AnyMatcher<T> implements ContainerMatcher<T, Iterable<? extends T>>
         return new CollectionMatcher<T>() {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<? extends T> in) {
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
                 return anyMatcher.bindMatchesSafely(outerBindings, in);
             }
 

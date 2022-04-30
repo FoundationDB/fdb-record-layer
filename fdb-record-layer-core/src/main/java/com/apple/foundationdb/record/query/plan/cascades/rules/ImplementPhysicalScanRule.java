@@ -49,6 +49,7 @@ public class ImplementPhysicalScanRule extends PlannerRule<PrimaryScanExpression
         final PrimaryScanExpression logical = call.get(root);
         call.yield(call.ref(new RecordQueryScanPlan(
                 logical.getRecordTypes(),
+                call.getContext().getCommonPrimaryKey(),
                 logical.scanComparisons(),
                 logical.isReverse())));
     }

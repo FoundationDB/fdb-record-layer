@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
@@ -38,11 +37,11 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,45 +63,41 @@ import java.util.stream.Collectors;
  * A query plan that executes union over instantiations of a child plan for each of the elements of some {@code IN} list(s).
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQuerySetPlan {
+public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQuerySetPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("In-Union-Plan");
 
     @Nonnull
     protected final Quantifier.Physical inner;
     @Nonnull
-    private final List<? extends InSource> valuesSources;
+    private final List<? extends InSource> inSources;
     @Nonnull
-    private final KeyExpression comparisonKey;
-    private final boolean reverse;
-    private final int maxNumberOfValuesAllowed;
+    private final ComparisonKeyFunction comparisonKeyFunction;
+    protected final boolean reverse;
+    protected final int maxNumberOfValuesAllowed;
 
-    public RecordQueryInUnionPlan(@Nonnull final Quantifier.Physical inner,
-                                  @Nonnull final List<? extends InSource> valuesSources,
-                                  @Nonnull final KeyExpression comparisonKey, final boolean reverse,
-                                  final int maxNumberOfValuesAllowed) {
+    protected RecordQueryInUnionPlan(@Nonnull final Quantifier.Physical inner,
+                                     @Nonnull final List<? extends InSource> inSources,
+                                     @Nonnull final ComparisonKeyFunction comparisonKeyFunction,
+                                     final boolean reverse,
+                                     final int maxNumberOfValuesAllowed) {
         this.inner = inner;
-        this.valuesSources = valuesSources;
-        this.comparisonKey = comparisonKey;
+        this.inSources = inSources;
+        this.comparisonKeyFunction = comparisonKeyFunction;
         this.reverse = reverse;
         this.maxNumberOfValuesAllowed = maxNumberOfValuesAllowed;
     }
 
-    public RecordQueryInUnionPlan(@Nonnull final RecordQueryPlan inner,
-                                  @Nonnull final List<? extends InSource> valuesSources,
-                                  @Nonnull final KeyExpression comparisonKey, final boolean reverse,
-                                  final int maxNumberOfValuesAllowed) {
-        this(Quantifier.physical(GroupExpressionRef.of(inner)), valuesSources, comparisonKey, reverse, maxNumberOfValuesAllowed);
+    private RecordQueryInUnionPlan(@Nonnull final RecordQueryPlan inner,
+                                   @Nonnull final List<? extends InSource> inSources,
+                                   @Nonnull final ComparisonKeyFunction comparisonKeyFunction,
+                                   final boolean reverse,
+                                   final int maxNumberOfValuesAllowed) {
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), inSources, comparisonKeyFunction, reverse, maxNumberOfValuesAllowed);
     }
 
     @Nonnull
-    public KeyExpression getComparisonKey() {
-        return comparisonKey;
-    }
-
-    @Nonnull
-    @Override
-    public Set<KeyExpression> getRequiredFields() {
-        return ImmutableSet.copyOf(comparisonKey.normalizeKeyForPositions());
+    public ComparisonKeyFunction getComparisonKeyFunction() {
+        return comparisonKeyFunction;
     }
 
     @Nonnull
@@ -118,9 +113,10 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
 
     @Nonnull
     public List<? extends InSource> getInSources() {
-        return valuesSources;
+        return inSources;
     }
 
+    @SuppressWarnings("resource")
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -146,12 +142,11 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
         } else {
             childExecuteProperties = executeProperties;
         }
-        final List<Function<byte[], RecordCursor<FDBQueriedRecord<M>>>> childCursorFunctions = getValuesContexts(context).stream()
-                .map(childContext -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)childContinuation -> childPlan.execute(store, childContext, childContinuation, childExecuteProperties))
+        final List<Function<byte[], RecordCursor<QueryResult>>> childCursorFunctions = getValuesContexts(context).stream()
+                .map(childContext -> (Function<byte[], RecordCursor<QueryResult>>)childContinuation -> childPlan.executePlan(store, childContext, childContinuation, childExecuteProperties))
                 .collect(Collectors.toList());
-        return UnionCursor.create(store, comparisonKey, reverse, childCursorFunctions, continuation)
-                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(QueryResult::of);
+        return UnionCursor.create(comparisonKeyFunction.apply(store, context), reverse, childCursorFunctions, continuation, store.getTimer())
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Nonnull
@@ -189,14 +184,14 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.IN_UNION_OPERATOR,
                         ImmutableList.of("COMPARE BY {{comparisonKey}}"),
-                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString())));
+                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKeyFunction.toString())));
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
         final PlannerGraph.DataNodeWithInfo valuesNode =
                 new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
                         getResultType(),
                         ImmutableList.of("VALUES({{values}}"),
                         ImmutableMap.of("values",
-                                Attribute.gml(Objects.requireNonNull(valuesSources).stream()
+                                Attribute.gml(Objects.requireNonNull(inSources).stream()
                                         .map(String::valueOf)
                                         .map(Attribute::gml)
                                         .collect(ImmutableList.toImmutableList()))));
@@ -217,22 +212,13 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
 
     @Nonnull
     @Override
-    public RelationalExpressionWithChildren rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryInUnionPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                valuesSources, comparisonKey, reverse, maxNumberOfValuesAllowed);
-    }
-
-    @Nonnull
-    @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
     @Nonnull
     @Override
-    public RecordQueryInUnionPlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryInUnionPlan(child, valuesSources, comparisonKey, reverse, maxNumberOfValuesAllowed);
-    }
+    public abstract RecordQueryInUnionPlan withChild(@Nonnull final RecordQueryPlan child);
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
@@ -244,7 +230,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
             return false;
         }
         final RecordQueryInUnionPlan other = (RecordQueryInUnionPlan)otherExpression;
-        return valuesSources.equals(other.valuesSources);
+        return inSources.equals(other.inSources) && comparisonKeyFunction.equals(other.comparisonKeyFunction);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -260,25 +246,25 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(valuesSources);
+        return Objects.hash(inSources, comparisonKeyFunction);
     }
 
     @Override
     public int planHash(@Nonnull PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), valuesSources);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), inSources, comparisonKeyFunction);
     }
 
     @Nonnull
     @Override
     public String toString() {
-        return valuesSources.stream().map(Object::toString).collect(Collectors.joining(", ", "∪(", ") ")) +
+        return inSources.stream().map(Object::toString).collect(Collectors.joining(", ", "∪(", ") ")) +
                getChild();
     }
 
     @Override
     public int getComplexity() {
         int complexity = getInnerPlan().getComplexity();
-        for (InSource values : valuesSources) {
+        for (InSource values : inSources) {
             if (values instanceof InValuesSource) {
                 complexity *= values.size(EvaluationContext.EMPTY);
             }
@@ -288,7 +274,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
 
     protected int getValuesSize(@Nonnull EvaluationContext context) {
         int size = 1;
-        for (InSource values : valuesSources) {
+        for (InSource values : inSources) {
             size *= values.size(context);
         }
         return size;
@@ -297,7 +283,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     @Nonnull
     protected List<EvaluationContext> getValuesContexts(@Nonnull EvaluationContext context) {
         List<EvaluationContext> parents = Collections.singletonList(context);
-        for (InSource values : valuesSources) {
+        for (InSource values : inSources) {
             final List<EvaluationContext> children = new ArrayList<>();
             for (EvaluationContext parent : parents) {
                 for (Object value : values.getValues(parent)) {
@@ -307,5 +293,49 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
             parents = children;
         }
         return parents;
+    }
+
+    /**
+     * Construct a new in-union plan based on an existing physical quantifier.
+     *
+     * @param inner the input/inner plan to this in-union
+     * @param inSources a list of outer in-sources
+     * @param comparisonKey a key expression by which the results of both plans are ordered
+     * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
+     * @return a new plan that will return the union of all results from both child plans
+     */
+    @Nonnull
+    public static RecordQueryInUnionOnKeyExpressionPlan from(@Nonnull final Quantifier.Physical inner,
+                                                             @Nonnull final List<? extends InSource> inSources,
+                                                             @Nonnull KeyExpression comparisonKey,
+                                                             final int maxNumberOfValuesAllowed) {
+        return new RecordQueryInUnionOnKeyExpressionPlan(inner,
+                inSources,
+                comparisonKey,
+                Quantifiers.isReversed(ImmutableList.of(inner)),
+                maxNumberOfValuesAllowed);
+    }
+
+    /**
+     * Construct a new in-union plan.
+     *
+     * @param inner the input/inner plan to this in-union
+     * @param inSources a list of outer in-sources
+     * @param comparisonKey a key expression by which the results of both plans are ordered
+     * @param isReverse indicator if this operator produces its ordering in reverse order
+     * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
+     * @return a new plan that will return the union of all results from both child plans
+     */
+    @Nonnull
+    public static RecordQueryInUnionOnKeyExpressionPlan from(@Nonnull RecordQueryPlan inner,
+                                                             @Nonnull final List<? extends InSource> inSources,
+                                                             @Nonnull KeyExpression comparisonKey,
+                                                             final boolean isReverse,
+                                                             final int maxNumberOfValuesAllowed) {
+        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(GroupExpressionRef.of(inner)),
+                inSources,
+                comparisonKey,
+                isReverse,
+                maxNumberOfValuesAllowed);
     }
 }

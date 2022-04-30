@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;

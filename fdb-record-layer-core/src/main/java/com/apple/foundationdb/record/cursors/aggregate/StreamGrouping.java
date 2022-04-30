@@ -173,7 +173,7 @@ public class StreamGrouping<M extends Message> {
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
                 .build(context.getTypeRepository());
-        previousCompleteResult = completeResultValue.eval(store, nestedContext, null, null);
+        previousCompleteResult = completeResultValue.eval(store, nestedContext);
 
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
@@ -182,13 +182,13 @@ public class StreamGrouping<M extends Message> {
 
     private void accumulate(@Nullable Object currentObject) {
         EvaluationContext nestedContext = context.withBinding(alias, currentObject);
-        final Object partial = aggregateValue.evalToPartial(store, nestedContext, null, null);
+        final Object partial = aggregateValue.evalToPartial(store, nestedContext);
         accumulator.accumulate(partial);
     }
 
     private Object evalGroupingKey(@Nullable final Object currentObject) {
         final EvaluationContext nestedContext = context.withBinding(alias, currentObject);
-        return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext, null, null);
+        return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext);
     }
 
     public boolean isResultOnEmpty() {

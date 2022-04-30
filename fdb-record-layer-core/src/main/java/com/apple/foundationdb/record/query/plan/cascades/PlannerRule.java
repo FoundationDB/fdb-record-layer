@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.common.collect.ImmutableSet;
 
@@ -65,14 +66,14 @@ public abstract class PlannerRule<T> {
     private final BindingMatcher<T> matcher;
 
     @Nonnull
-    private final Set<PlannerAttribute<?>> requirementDependencies;
+    private final Set<PlannerConstraint<?>> requirementDependencies;
 
     public PlannerRule(@Nonnull BindingMatcher<T> matcher) {
         this.matcher = matcher;
         this.requirementDependencies = ImmutableSet.of();
     }
 
-    public PlannerRule(@Nonnull BindingMatcher<T> matcher, Collection<PlannerAttribute<?>> requirementDependencies) {
+    public PlannerRule(@Nonnull BindingMatcher<T> matcher, Collection<PlannerConstraint<?>> requirementDependencies) {
         this.matcher = matcher;
         this.requirementDependencies = ImmutableSet.copyOf(requirementDependencies);
     }
@@ -88,7 +89,7 @@ public abstract class PlannerRule<T> {
     }
 
     @Nonnull
-    public Set<PlannerAttribute<?>> getRequirementDependencies() {
+    public Set<PlannerConstraint<?>> getConstraintDependencies() {
         return requirementDependencies;
     }
 

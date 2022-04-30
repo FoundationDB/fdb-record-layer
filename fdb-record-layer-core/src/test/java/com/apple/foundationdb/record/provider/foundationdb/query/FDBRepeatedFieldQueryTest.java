@@ -77,7 +77,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests of query planning and execution for queries on records with repeated fields.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
+class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     private void openDoublyRepeatedRecordStore(FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords6Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
@@ -90,7 +90,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that equality checks against repeated fields can scan an index scan with a FanType of Concatenate.
      */
     @Test
-    public void doublyRepeated() throws Exception {
+    void doublyRepeated() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openDoublyRepeatedRecordStore(context);
 
@@ -135,7 +135,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * <code>FanType.Concatenate</code> and can apply a union to the result.
      */
     @Test
-    public void doublyRepeatedComparison() throws Exception {
+    void doublyRepeatedComparison() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openDoublyRepeatedRecordStore(context);
 
@@ -164,8 +164,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), scan(unbounded())));
         assertEquals(972152650, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1355730769, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1194920909, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(38587029, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(199396889, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(Arrays.asList(1L), fetchResultValues(plan, TestRecords6Proto.MyRepeatedRecord.REC_NO_FIELD_NUMBER,
                 this::openDoublyRepeatedRecordStore,
                 context -> assertDiscardedAtMost(1, context)));
@@ -198,7 +198,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      */
     @ParameterizedTest
     @BooleanSource
-    public void sortRepeated(final boolean shouldOptimizeForIndexFilters) throws Exception {
+    void sortRepeated(final boolean shouldOptimizeForIndexFilters) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
 
@@ -490,7 +490,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that they include distinctness filters and value filters where necessary.
      */
     @DualPlannerTest
-    public void sortRepeated2() throws Exception {
+    void sortRepeated2() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
             commit(context);
@@ -537,7 +537,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that demanding unique values forces a distinctness plan at the end.
      */
     @DualPlannerTest
-    public void testComplexQuery7() throws Exception {
+    void testComplexQuery7() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -601,7 +601,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * and so cannot be deduplicated without additional space.
      */
     @DualPlannerTest
-    public void testPrefixRepeated() throws Exception {
+    void testPrefixRepeated() {
         RecordMetaDataHook hook = metaData -> {
             metaData.addIndex("MySimpleRecord", "prefix_repeated", concat(field("num_value_2"), field("repeater", FanType.FanOut)));
         };
@@ -687,7 +687,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that an index on a repeated field isn't used for normal scans.
      */
     @DualPlannerTest
-    public void testOnlyRepeatIndex() throws Exception {
+    void testOnlyRepeatIndex() {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
             metaData.removeIndex("MySimpleRecord$num_value_unique");
@@ -728,7 +728,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * second field and so cannot be deduplicated without additional space.
      */
     @DualPlannerTest
-    public void testPrefixRepeatedNested() throws Exception {
+    void testPrefixRepeatedNested() throws Exception {
         final RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(field("rec_no")));

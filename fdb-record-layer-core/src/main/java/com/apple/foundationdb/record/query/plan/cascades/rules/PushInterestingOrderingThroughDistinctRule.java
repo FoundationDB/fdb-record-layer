@@ -22,12 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingAttribute;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -44,7 +44,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 
 /**
- * A rule that pushes an interesting {@link OrderingAttribute} through a {@link LogicalDistinctExpression}.
+ * A rule that pushes an {@link OrderingConstraint} through a {@link LogicalDistinctExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -55,12 +55,12 @@ public class PushInterestingOrderingThroughDistinctRule extends PlannerRule<Logi
             logicalDistinctExpression(exactly(innerQuantifierMatcher));
 
     public PushInterestingOrderingThroughDistinctRule() {
-        super(root, ImmutableSet.of(OrderingAttribute.ORDERING));
+        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final Optional<Set<RequestedOrdering>> requestedOrderingOptionals = call.getInterestingProperty(OrderingAttribute.ORDERING);
+        final Optional<Set<RequestedOrdering>> requestedOrderingOptionals = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingOptionals.isEmpty()) {
             return;
         }
@@ -68,8 +68,8 @@ public class PushInterestingOrderingThroughDistinctRule extends PlannerRule<Logi
         final PlannerBindings bindings = call.getBindings();
         final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
 
-        call.pushRequirement(lowerRef,
-                OrderingAttribute.ORDERING,
+        call.pushConstraint(lowerRef,
+                OrderingConstraint.REQUESTED_ORDERING,
                 requestedOrderingOptionals.get());
     }
 }

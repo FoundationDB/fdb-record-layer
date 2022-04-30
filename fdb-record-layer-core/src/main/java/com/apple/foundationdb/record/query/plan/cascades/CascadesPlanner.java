@@ -35,15 +35,17 @@ import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
+import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import org.slf4j.Logger;
@@ -202,7 +204,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private final PlannerRuleSet ruleSet;
     @Nonnull
-    private GroupExpressionRef<? extends RelationalExpression> currentRoot;
+    private GroupExpressionRef<RelationalExpression> currentRoot;
     @Nonnull
     private AliasResolver aliasResolver;
     @Nonnull
@@ -330,7 +332,7 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    public RecordQueryPlan planGraph(@Nonnull Supplier<GroupExpressionRef<? extends RelationalExpression>> expressionRefSupplier,
+    public RecordQueryPlan planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier,
                                      @Nonnull final Optional<Collection<String>> recordTypeNamesOptional,
                                      @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                      @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
@@ -367,7 +369,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<GroupExpressionRef<? extends RelationalExpression>> expressionRefSupplier) {
+    private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier) {
         currentRoot = expressionRefSupplier.get();
         final RelationalExpression expression = currentRoot.get();
         Debugger.withDebugger(debugger -> debugger.onQuery(expression.toString(), context));
@@ -705,7 +707,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         protected boolean shouldEnqueueRule(@Nonnull PlannerRule<?> rule) {
-            final Set<PlannerAttribute<?>> requirementDependencies = rule.getRequirementDependencies();
+            final Set<PlannerConstraint<?>> requirementDependencies = rule.getConstraintDependencies();
             final GroupExpressionRef<RelationalExpression> group = getGroup();
             if (!group.isExploring()) {
                 if (logger.isWarnEnabled()) {
@@ -795,7 +797,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Nonnull
         protected PlannerBindings getInitialBindings() {
-            return PlannerBindings.empty();
+            return PlannerBindings.from(ReferenceMatchers.getTopExpressionReferenceMatcher(), currentRoot);
         }
 
         protected boolean shouldExecute() {

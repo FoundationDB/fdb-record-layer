@@ -92,7 +92,7 @@ public class PrimitiveMatchers {
             @SuppressWarnings("SuspiciousMethodCalls")
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<? extends T> in) {
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
                 return Stream.of(PlannerBindings.from(this, in))
                         .flatMap(bindings -> {
                             if (in.containsAll(elements)) {
