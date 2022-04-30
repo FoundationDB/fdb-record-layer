@@ -96,6 +96,27 @@ public class QueryResult {
         return datum;
     }
 
+    /**
+     * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @return the object narrowed to the requested class
+     */
+    @Nonnull
+    public <T> T get(@Nonnull final Class<? extends T> clazz) {
+        return clazz.cast(datum);
+    }
+
+    /**
+     * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @return an optional that potentially contains the object narrowed to the requested class
+     */
+    @Nonnull
+    public <T> Optional<T> getMaybe(@Nonnull final Class<? extends T> clazz) {
+        if (clazz.isInstance(datum)) {
+            return Optional.of(get(clazz));
+        }
+        return Optional.empty();
+    }
+
     @SuppressWarnings("unchecked")
     public <M extends Message> M getMessage() {
         if (datum instanceof FDBQueriedRecord) {
