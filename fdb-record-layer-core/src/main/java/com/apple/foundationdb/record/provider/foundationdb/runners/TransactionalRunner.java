@@ -106,8 +106,9 @@ public class TransactionalRunner implements AutoCloseable {
     /**
      * Run a function against a context synchronously.
      * <p>
-     *     Note: since committing the transaction is an inherently async function, this calls join, so if calling async
-     *     methods from within {@code runnable}, it is probably better to use {@link #runAsync(boolean, Function)}.
+     *     Note: since committing the transaction is an inherently async function, this is a blocking call, so if
+     *     calling async methods from within {@code runnable}, it is probably better to use
+     *     {@link #runAsync(boolean, Function)}.
      * </p>
      * @param clearWeakReadSemantics whether to clear the {@link FDBRecordContextConfig#getWeakReadSemantics()} before
      * creating the transaction. These should be cleared if retrying a transaction, particularly in response to a

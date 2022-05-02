@@ -22,12 +22,13 @@ package com.apple.foundationdb.record.provider.foundationdb.runners;
 
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.util.TriFunction;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -35,6 +36,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.MDC;
 
@@ -48,11 +50,13 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -68,18 +72,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TransactionalRunnerTest extends FDBTestBase {
 
     private FDBDatabase database;
+    private byte[] key;
+    private byte[] value;
 
     @BeforeEach
-    public void getDatabase() {
+    public void setUp() {
         database = FDBDatabaseFactory.instance().getDatabase();
+        final Random random = new Random();
+        key = randomBytes(100, random);
+        key[0] = 0x10; // to make sure it doesn't end up in unwritable space
+        value = randomBytes(200, random);
     }
 
     @Test
     void commits() {
-        final Random random = new Random();
-        final byte[] key = randomBytes(100, random);
-        key[0] = 0x10; // to make sure it doesn't end up in unwritable space
-        final byte[] value = randomBytes(200, random);
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final String result = runner.runAsync(false, context -> {
                 context.ensureActive().set(key, value);
@@ -87,16 +93,25 @@ class TransactionalRunnerTest extends FDBTestBase {
             }).join();
             assertEquals("boo", result);
 
-            assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
+            assertValue(runner, key, value);
+        }
+    }
+
+    @Test
+    void commitsSynchronous() {
+        try (TransactionalRunner runner = defaultTransactionalRunner()) {
+            final String result = runner.run(false, context -> {
+                context.ensureActive().set(key, value);
+                return "boo";
+            });
+            assertEquals("boo", result);
+
+            assertValue(runner, key, value);
         }
     }
 
     @Test
     void aborts() {
-        final Random random = new Random();
-        final byte[] key = randomBytes(100, random);
-        key[0] = 0x10; // to make sure it doesn't end up in unwritable space
-        final byte[] value = randomBytes(200, random);
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final Exception cause = new Exception("ABORT");
             final CompletionException exception = assertThrows(CompletionException.class,
@@ -108,7 +123,22 @@ class TransactionalRunnerTest extends FDBTestBase {
                     }).join());
             assertEquals(cause, exception.getCause());
 
-            assertArrayEquals(null, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
+            assertValue(runner, key, null);
+        }
+    }
+
+    @Test
+    void abortsSynchronous() {
+        try (TransactionalRunner runner = defaultTransactionalRunner()) {
+            final RuntimeException cause = new RuntimeException("ABORT");
+            final RuntimeException exception = assertThrows(RuntimeException.class,
+                    () -> runner.run(false, context -> {
+                        context.ensureActive().set(key, value);
+                        throw cause;
+                    }));
+            assertEquals(cause, exception);
+
+            assertValue(runner, key, null);
         }
     }
 
@@ -120,6 +150,19 @@ class TransactionalRunnerTest extends FDBTestBase {
                     context -> conflicter.readOtherKeySetKey(context)
                             .thenCompose(vignore ->
                                     runner.runAsync(false, conflicter::readKeySetOtherKey))));
+            conflicter.expectValues(runner, null, conflicter.otherValue);
+        }
+    }
+
+    @Test
+    void conflictsSynchronous() {
+        final Conflicter conflicter = new Conflicter();
+        try (TransactionalRunner runner = defaultTransactionalRunner()) {
+            assertConflicts(() -> runner.run(false,
+                    context -> {
+                        conflicter.readOtherKeySetKey(context).join();
+                        return runner.run(false, context1 -> conflicter.readKeySetOtherKey(context1).join());
+                    }));
             conflicter.expectValues(runner, null, conflicter.otherValue);
         }
     }
@@ -139,14 +182,69 @@ class TransactionalRunnerTest extends FDBTestBase {
         }
     }
 
+    @Test
+    void doesNotConflictBeforeUsingTransactionSynchronous() {
+        // just like doesNotConflictBeforeUsingTransaction but using synchronous Apis
+        final Conflicter conflicter = new Conflicter();
+        try (TransactionalRunner runner = defaultTransactionalRunner()) {
+            assertEquals("set key", runner.run(false,
+                    context -> {
+                        runner.run(false, context1 -> conflicter.readKeySetOtherKey(context1).join());
+                        return conflicter.readOtherKeySetKey(context).join();
+                    }));
+
+            conflicter.expectValues(runner, conflicter.value, conflicter.otherValue);
+        }
+    }
+
+
+    @Test
+    void runWithWeakReadSemanticsSynchronous() {
+        runWithWeakReadSemantics(
+                (runner, clearWeakReadSemantics) ->
+                        runner.run(clearWeakReadSemantics, context -> {
+                            context.ensureActive().addWriteConflictKey(key);
+                            return context.getReadVersion();
+                        }),
+                (runner, clearWeakReadSemantics) ->
+                        runner.run(clearWeakReadSemantics, context -> {
+                            // will not conflict if we clear weak read semantics
+                            context.ensureActive().addReadConflictKey(key);
+                            context.ensureActive().addWriteConflictKey(key);
+                            return "ignored";
+                        }),
+                FDBExceptions.FDBStoreTransactionConflictException.class,
+                this::assertConflictException);
+    }
+
+    @Test
+    void runWithWeakReadSemantics() {
+        runWithWeakReadSemantics(
+                (runner, clearWeakReadSemantics) -> runner.runAsync(clearWeakReadSemantics, context -> {
+                    context.ensureActive().addWriteConflictKey(key);
+                    return context.getReadVersionAsync();
+                }).join(),
+                (runner, clearWeakReadSemantics) -> runner.runAsync(clearWeakReadSemantics, context -> {
+                    // will not conflict if we clear weak read semantics
+                    context.ensureActive().addReadConflictKey(key);
+                    context.ensureActive().addWriteConflictKey(key);
+                    return CompletableFuture.completedFuture("ignored");
+                }).join(),
+                CompletionException.class,
+                this::assertConflictException);
+    }
+
     /**
      * Validate that if the user sets {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase.WeakReadSemantics}
      * on the runner to something non-trivial, then the cached version is only used the first time.
      * Subsequent attempts, especially attempts that are caused by conflicts, do not want to use the stale read version,
      * as it may see the same old data multiple times (and therefore conflict each time).
      */
-    @Test
-    public void runWithWeakReadSemantics() {
+    private <T extends Exception> void runWithWeakReadSemantics(
+            BiFunction<TransactionalRunner, Boolean, Long> getReadVersionWithWriteConflict,
+            BiFunction<TransactionalRunner, Boolean, String> conflicting,
+            Class<T> exceptionClass,
+            Consumer<T> assertConflicts) {
         final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
         final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
         try {
@@ -157,12 +255,8 @@ class TransactionalRunnerTest extends FDBTestBase {
 
             // Commit something and cache just the read version
             long firstReadVersion;
-            final Function<FDBRecordContext, CompletableFuture<? extends Long>> getReadVersionWithWriteConflict = context -> {
-                context.ensureActive().addWriteConflictKey(key);
-                return context.getReadVersionAsync();
-            };
             try (TransactionalRunner runner = defaultTransactionalRunner()) {
-                firstReadVersion = runner.runAsync(false, getReadVersionWithWriteConflict).join();
+                firstReadVersion = getReadVersionWithWriteConflict.apply(runner, false);
             }
 
             FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(
@@ -170,28 +264,16 @@ class TransactionalRunnerTest extends FDBTestBase {
             final FDBRecordContextConfig.Builder contextConfigBuilder = FDBRecordContextConfig.newBuilder()
                     .setWeakReadSemantics(weakReadSemantics);
             try (TransactionalRunner runner = new TransactionalRunner(database, contextConfigBuilder)) {
-                assertEquals(firstReadVersion, runner.runAsync(false, getReadVersionWithWriteConflict).join());
-                final Long newReadVersion = runner.runAsync(true, getReadVersionWithWriteConflict).join();
+                assertEquals(firstReadVersion, getReadVersionWithWriteConflict.apply(runner, false));
+                final Long newReadVersion = getReadVersionWithWriteConflict.apply(runner, true);
                 assertNotEquals(firstReadVersion, newReadVersion);
-                assertEquals(newReadVersion, runner.runAsync(false, getReadVersionWithWriteConflict).join());
+                assertEquals(newReadVersion, getReadVersionWithWriteConflict.apply(runner, false));
 
-                assertConflicts(runner.runAsync(false, context -> {
-                    context.ensureActive().addReadConflictKey(key); // will cause conflict
-                    context.ensureActive().addWriteConflictKey(key);
-                    return CompletableFuture.completedFuture("ignored");
-                }));
+                assertConflicts.accept(assertThrows(exceptionClass, () -> conflicting.apply(runner, false)));
 
-                assertEquals("boxes", runner.runAsync(true, context -> {
-                    context.ensureActive().addReadConflictKey(key); // no conflict because we cleared the weak read semantics
-                    context.ensureActive().addWriteConflictKey(key);
-                    return CompletableFuture.completedFuture("boxes");
-                }).join());
+                assertEquals("ignored", conflicting.apply(runner, true));
 
-                assertConflicts(runner.runAsync(false, context -> {
-                    context.ensureActive().addReadConflictKey(key); // conflicts because we are reusing the weak read semantics
-                    context.ensureActive().addWriteConflictKey(key);
-                    return CompletableFuture.completedFuture("ignored");
-                }));
+                assertConflicts.accept(assertThrows(exceptionClass, () -> conflicting.apply(runner, false)));
             }
         } finally {
             database.setTrackLastSeenVersionOnRead(tracksReadVersions);
@@ -200,27 +282,47 @@ class TransactionalRunnerTest extends FDBTestBase {
     }
 
     @Test
+    void closesContextsSynchronous() {
+        closesContext((runner, contexts, completed) ->
+                // You shouldn't be doing this, but maybe I haven't thought of something similar, but reasonable, where
+                // the executable for `run` does not complete, but the runner is closed
+                CompletableFuture.runAsync(() -> {
+                    runner.run(false, context -> {
+                        contexts.add(context);
+                        new CompletableFuture<Void>().join(); // never joins
+                        return completed.incrementAndGet();
+                    });
+                })
+        );
+    }
+
+    @Test
     void closesContexts() {
+        closesContext((runner, contexts, completed) ->
+                runner.runAsync(false, context -> {
+                    contexts.add(context);
+                    // the first future will never complete
+                    return new CompletableFuture<Void>()
+                            .thenApply(vignore -> completed.incrementAndGet());
+                }) // DO NOT join
+        );
+    }
+
+    private <T> void closesContext(TriFunction<TransactionalRunner, List<FDBRecordContext>, AtomicInteger, T> run) {
         List<FDBRecordContext> contexts = new ArrayList<>();
         AtomicInteger completed = new AtomicInteger();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
-            for (int i = 0; i < 20; i++) {
-                runner.runAsync(false, context -> {
-                    contexts.add(context);
-                    return MoreAsyncUtil.delayedFuture(60, TimeUnit.SECONDS)
-                            // delayed future isn't guaranteed, so we need to make sure at least some delayed past the close
-                            .thenApply(vignore -> completed.incrementAndGet());
-                }); // DO NOT join
+            for (int i = 0; i < 10; i++) {
+                run.apply(runner, contexts, completed);
             }
             for (final FDBRecordContext context : contexts) {
                 assertFalse(context.isClosed());
             }
         }
-        assertThat(completed.get(), Matchers.lessThan(20));
+        assertEquals(0, completed.get());
         for (final FDBRecordContext context : contexts) {
             assertTrue(context.isClosed());
         }
-
     }
 
     /**
@@ -244,8 +346,22 @@ class TransactionalRunnerTest extends FDBTestBase {
             assertEquals(mdc, runner.runAsync(false,
                             context -> CompletableFuture.completedFuture(context.getMdcContext()))
                     .join());
-
         }
+        assertNull(MDC.get("foobar"));
+    }
+
+    @Test
+    void synchronousDoesNotChangeMdc() {
+        final FDBRecordContextConfig.Builder contextConfigBuilder = FDBRecordContextConfig.newBuilder();
+        contextConfigBuilder.setMdcContext(Map.of("foobar", "fishes"));
+        try (TransactionalRunner runner = new TransactionalRunner(database, contextConfigBuilder)) {
+            assertNull(runner.run(false, context -> MDC.get("foobar")));
+
+            contextConfigBuilder.setMdcContext(Map.of("foobar", "boxes"));
+
+            assertNull(runner.run(false, context -> MDC.get("foobar")));
+        }
+        assertNull(MDC.get("foobar"));
     }
 
     /**
@@ -294,10 +410,6 @@ class TransactionalRunnerTest extends FDBTestBase {
 
     @Test
     void runSynchronously() {
-        final Random random = new Random();
-        final byte[] key = randomBytes(100, random);
-        key[0] = 0x10; // to make sure it doesn't end up in unwritable space
-        final byte[] value = randomBytes(200, random);
         Set<Thread> threads = Collections.synchronizedSet(new HashSet<>());
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final String result = runner.run(false, context -> {
@@ -307,7 +419,7 @@ class TransactionalRunnerTest extends FDBTestBase {
             });
             assertEquals("boo", result);
 
-            assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
+            assertValue(runner, key, value);
             assertEquals(Set.of(Thread.currentThread()), threads);
         }
     }
@@ -315,10 +427,6 @@ class TransactionalRunnerTest extends FDBTestBase {
     @ParameterizedTest(name = "closesAfterCompletion({argumentsWithNames})")
     @BooleanSource
     void closesAfterCompletion(boolean success) {
-        final Random random = new Random();
-        final byte[] key = randomBytes(100, random);
-        key[0] = 0x10; // to make sure it doesn't end up in unwritable space
-        final byte[] value = randomBytes(200, random);
         AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final Exception cause = new Exception("ABORT");
@@ -343,12 +451,49 @@ class TransactionalRunnerTest extends FDBTestBase {
             assertTrue(contextRef.get().isClosed());
 
             if (success) {
-                assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
+                assertValue(runner, key, value);
             } else {
                 assertEquals(cause, exception.getCause());
-                assertArrayEquals(null, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
+                assertValue(runner, key, null);
             }
         }
+    }
+
+    @ParameterizedTest(name = "closesAfterCompletionSynchronous({argumentsWithNames})")
+    @BooleanSource
+    void closesAfterCompletionSynchronous(boolean success) throws Exception {
+        AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
+        try (TransactionalRunner runner = defaultTransactionalRunner()) {
+            final RuntimeException cause = new RuntimeException("ABORT");
+            final Callable<String> callable = () -> runner.run(false, context -> {
+                context.ensureActive().set(key, value);
+                contextRef.set(context);
+                if (success) {
+                    return "boo";
+                } else {
+                    throw cause;
+                }
+            });
+            final RuntimeException exception;
+            if (success) {
+                assertEquals("boo", callable.call());
+                exception = null;
+            } else {
+                exception = assertThrows(RuntimeException.class, callable::call);
+            }
+            assertTrue(contextRef.get().isClosed());
+
+            if (success) {
+                assertValue(runner, key, value);
+            } else {
+                assertEquals(cause, exception);
+                assertValue(runner, key, null);
+            }
+        }
+    }
+
+    private static void assertValue(final TransactionalRunner runner, final byte[] key, final byte[] value) {
+        assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
     }
 
     @Nonnull
@@ -357,7 +502,18 @@ class TransactionalRunnerTest extends FDBTestBase {
     }
 
     private <T> void assertConflicts(CompletableFuture<T> future) {
-        final CompletionException exception = assertThrows(CompletionException.class, future::join);
+        assertConflictException(assertThrows(CompletionException.class, future::join));
+    }
+
+    private void assertConflicts(Executable callable) {
+        assertConflictException(assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, callable));
+    }
+
+    private void assertConflictException(final FDBExceptions.FDBStoreTransactionConflictException exception) {
+        assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)exception.getCause()).getCode());
+    }
+
+    private void assertConflictException(final CompletionException exception) {
         assertThat(exception.getCause(), Matchers.instanceOf(FDBException.class));
         assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException) exception.getCause()).getCode());
     }
@@ -405,10 +561,8 @@ class TransactionalRunnerTest extends FDBTestBase {
 
         public void expectValues(TransactionalRunner runner,
                                  @Nullable byte[] expectedForKey, @Nullable byte[] expectedForOtherKey) {
-            assertArrayEquals(expectedForKey, runner.runAsync(false,
-                    context -> context.ensureActive().get(key)).join());
-            assertArrayEquals(expectedForOtherKey, runner.runAsync(false,
-                    context -> context.ensureActive().get(otherKey)).join());
+            assertValue(runner, key, expectedForKey);
+            assertValue(runner, otherKey, expectedForOtherKey);
         }
     }
 }
