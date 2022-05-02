@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -214,6 +215,48 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
                 assertThrows(ExecutionException.class, () -> cursor.asList().get());
             }
+        }
+    }
+
+    @Test
+    void testIndexPrefetchReadYourWriteFails() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, simpleMetadataHook);
+            // Save record (don't commit)
+            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+            recBuilder.setRecNo(1000);
+            recBuilder.setStrValueIndexed("even");
+            recBuilder.setNumValueUnique(1000);
+            recBuilder.setNumValue2(3);
+            recBuilder.setNumValue3Indexed(5);
+            recordStore.saveRecord(recBuilder.build());
+
+            // Execute the query (will fail because a record in memory cannot be processed by index prefetch)
+            RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
+            ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
+            RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
+            assertThrows(RecordCoreException.class, () -> cursor.getNext());
+        }
+    }
+
+    @Test
+    void testIndexPrefetchReadYourWriteFallbackSucceeds() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, simpleMetadataHook);
+            // Save record (don't commit)
+            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+            recBuilder.setRecNo(1000);
+            recBuilder.setStrValueIndexed("even");
+            recBuilder.setNumValueUnique(1000);
+            recBuilder.setNumValue2(3);
+            recBuilder.setNumValue3Indexed(5);
+            recordStore.saveRecord(recBuilder.build());
+
+            // Execute the query (will fail because a record in memory cannot be processed by index prefetch)
+            RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH_WITH_FALLBACK);
+            ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
+            RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
+            cursor.getNext();
         }
     }
 

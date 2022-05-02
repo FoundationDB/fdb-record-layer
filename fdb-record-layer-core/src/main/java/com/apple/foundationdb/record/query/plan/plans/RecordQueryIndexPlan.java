@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.cursors.FallbackCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -174,10 +175,16 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 return executeUsingIndexPrefetch(store, context, continuation, executeProperties);
             case USE_INDEX_PREFETCH_WITH_FALLBACK:
                 // Use Index prefetch and fall back to regular index scan.
-                // This is not ideal, but using teh fallback mechanism here separates the execution part from the planning part
+                // Using the fallback mechanism here separates the execution part from the planning part
                 // (No need to plan again) and from failures at other parts of the execution.
+                // In practice, the same continuation should not be used for both kinds of cursors. In practice, we
+                // rely on the fact that the fallback mode should not be used with a non-empty continuation:
+                // If the previous call succeeded, we should have PREFETCH mode and if it failed, it should be NONE
                 try {
-                    return executeUsingIndexPrefetch(store, context, continuation, executeProperties);
+                    // The fallback cursor will handle failures that happen after the executeUsingIndexPrefetch call
+                    return new FallbackCursor<>(
+                            executeUsingIndexPrefetch(store, context, continuation, executeProperties),
+                            () -> RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties));
                 } catch (Exception ex) {
                     KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch plan failed, falling back to Index scan",
                             LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));

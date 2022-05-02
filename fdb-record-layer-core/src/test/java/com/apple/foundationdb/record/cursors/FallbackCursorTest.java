@@ -1,0 +1,161 @@
+/*
+ * ChainedCursorTest.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.cursors;
+
+import com.apple.foundationdb.record.ByteArrayContinuation;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+/**
+ * Tests for {@link FallbackCursor}.
+ */
+@Tag(Tags.RequiresFDB)
+public class FallbackCursorTest extends FDBTestBase {
+
+    @Test
+    public void testFallBackCursorNoFailure() throws Exception {
+        List<Integer> integers = List.of(1, 2, 3);
+        ListCursor<Integer> inner = new ListCursor<>(integers, null);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> null);
+
+        List<Integer> result = classUnderTest.asList().get();
+        assertEquals(3, result.size());
+        assertEquals(integers, result);
+    }
+
+    @Test
+    public void testPrimaryCursorImmediateFailure() throws Exception {
+        RecordCursor<Integer> inner = new FailingCursor(0);
+        List<Integer> integers = List.of(1, 2, 3);
+        RecordCursor<Integer> fallbackCursor = new ListCursor<>(integers, null);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
+
+        List<Integer> result = classUnderTest.asList().get();
+        assertEquals(3, result.size());
+        assertEquals(integers, result);
+    }
+
+    @Test
+    public void testPrimaryCursorFailureAfterFewResults() throws Exception {
+        RecordCursor<Integer> inner = new FailingCursor(2);
+        List<Integer> integers = List.of(1, 2, 3);
+        RecordCursor<Integer> fallbackCursor = new ListCursor<>(integers, null);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
+
+        assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+    }
+
+    @Test
+    public void testFallBackCursorFailureFailsImmediately() throws Exception {
+        RecordCursor<Integer> inner = new FailingCursor(0);
+        RecordCursor<Integer> fallbackCursor = new FailingCursor(0);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
+
+        assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+    }
+
+    @Test
+    public void testFallBackCursorFailureFailsAfterFewResults() throws Exception {
+        RecordCursor<Integer> inner = new FailingCursor(0);
+        RecordCursor<Integer> fallbackCursor = new FailingCursor(3);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
+
+        assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+    }
+
+    /**
+     * A cursor that returns a number of Integer values and then fails.
+     */
+    private static class FailingCursor implements RecordCursor<Integer> {
+        @Nonnull
+        private final Executor executor;
+        @Nonnull
+        private final List<Integer> list;
+        private int nextPosition = 0; // position of the next value to return
+
+        public FailingCursor(int numOfElementsBeforeFailure) {
+            executor = ForkJoinPool.commonPool();
+            list = listOfLength(numOfElementsBeforeFailure);
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<RecordCursorResult<Integer>> onNext() {
+            try {
+                return CompletableFuture.completedFuture(getNext());
+            } catch (Exception ex) {
+                return CompletableFuture.failedFuture(ex);
+            }
+        }
+
+        @Nonnull
+        @Override
+        public RecordCursorResult<Integer> getNext() {
+            RecordCursorResult<Integer> nextResult;
+            if (nextPosition < list.size()) {
+                nextResult = RecordCursorResult.withNextValue(list.get(nextPosition), ByteArrayContinuation.fromInt(nextPosition + 1));
+                nextPosition++;
+            } else {
+                throw new RecordCoreException("Failing");
+            }
+            return nextResult;
+        }
+
+        @Override
+        public void close() {
+        }
+
+        @Override
+        public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+            visitor.visitEnter(this);
+            return visitor.visitLeave(this);
+        }
+
+        @Override
+        @Nonnull
+        public Executor getExecutor() {
+            return executor;
+        }
+
+        @Nonnull
+        private static List<Integer> listOfLength(final int length) {
+            return IntStream.range(0, length).boxed().collect(Collectors.toList());
+        }
+    }
+}
