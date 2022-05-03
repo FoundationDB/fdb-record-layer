@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.KeyArrayResult;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
@@ -190,6 +192,23 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(range), limit, reverse, streamingMode));
+    }
+
+    @Override
+    public AsyncIterable<MappedKeyValue> getMappedRange(final KeySelector begin, final KeySelector end, final byte[] mapper, final int limit, final boolean reverse, final StreamingMode mode) {
+        increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
+        return underlying.getMappedRange(begin, end, mapper, limit, reverse, mode);
+    }
+
+    @Override
+    public CompletableFuture<KeyArrayResult> getRangeSplitPoints(final Range range, final long chunkSize) {
+        return underlying.getRangeSplitPoints(range, chunkSize);
+    }
+
+    @Override
+    public CompletableFuture<KeyArrayResult> getRangeSplitPoints(final byte[] begin, final byte[] end, final long chunkSize) {
+        return underlying.getRangeSplitPoints(begin, end, chunkSize);
     }
 
     @Override

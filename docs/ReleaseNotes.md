@@ -4,11 +4,11 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 3.1
+## 3.2
 
-### Breaking Changes
+### Breaking changes
 
-This version of the Record Layer changes the Java source and target compatibility to version 11.  Downstream projects need to be aware that the byte code produced is of class file version `55.0` going forward.
+The FoundationDB Java binding dependency has been updated to 7.1 with this release. This means that clients also need to update their main FDB C client to a 7.1 version. Adopters that still wish to connect to an FDB cluster running a 6.3 or 7.0 server version can do so by packaging additional FDB C clients at the appropriate version(s) using the [FDB multi-version client feature](https://apple.github.io/foundationdb/api-general.html#multi-version-client).
 
 <!--
 // begin next release
@@ -29,7 +29,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The FDB dependency has been updated to require version 7.1 [(Issue #1636)](https://github.com/FoundationDB/fdb-record-layer/issues/1636)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,12 @@ This version of the Record Layer changes the Java source and target compatibilit
 
 // end next release
 -->
+
+## 3.1
+
+### Breaking Changes
+
+This version of the Record Layer changes the Java source and target compatibility to version 11.  Downstream projects need to be aware that the byte code produced is of class file version `55.0` going forward.
 
 ### 3.1.256.0
 
