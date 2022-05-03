@@ -31,16 +31,17 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.predicates.DerivedValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -65,18 +66,22 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Nonnull
     private final Quantifier.Physical inner;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Type resultType;
     @Nonnull
     private final TranslateValueFunction translateValueFunction;
 
-    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner, @Nonnull final TranslateValueFunction translateValueFunction) {
-        this(Quantifier.physical(GroupExpressionRef.of(inner)), translateValueFunction);
+    @Nonnull
+    private final Supplier<? extends Value> resultValueSupplier;
+
+    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType) {
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), translateValueFunction, resultType);
     }
 
-    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction) {
+    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType) {
         this.inner = inner;
-        this.resultValuesSupplier = Suppliers.memoize(() -> ImmutableList.of(new DerivedValue(inner.getFlowedValues())));
+        this.resultType = resultType;
         this.translateValueFunction = translateValueFunction;
+        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @Nonnull
@@ -87,7 +92,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         // Plan return exactly one (full) record for each (partial) record from inner, so we can preserve all limits.
         return store.fetchIndexRecords(getChild().executePlan(store, context, continuation, executeProperties)
-                .map(result -> result.getIndexEntry(0)), IndexOrphanBehavior.ERROR, executeProperties.getState())
+                .map(result -> result.getQueriedRecord().getIndexEntry()), IndexOrphanBehavior.ERROR, executeProperties.getState())
                 .map(store::queriedRecord)
                 .map(QueryResult::of);
     }
@@ -144,24 +149,29 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Nonnull
     @Override
     public RecordQueryFetchFromPartialRecordPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), translateValueFunction);
+        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), translateValueFunction, resultType);
     }
 
     @Nonnull
-    public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier newAlias) {
-        return translateValueFunction.translateValue(value, QuantifiedColumnValue.of(newAlias, 0));
+    public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier targetAlias) {
+        return translateValueFunction.translateValue(value, targetAlias);
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryFetchFromPartialRecordPlan(child, TranslateValueFunction.unableToTranslate());
+        return new RecordQueryFetchFromPartialRecordPlan(child, TranslateValueFunction.unableToTranslate(), resultType);
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
+    }
+
+    @Nonnull
+    public Value computeResultValue() {
+        return new DerivedValue(ImmutableList.of(QuantifiedObjectValue.of(inner.getAlias(), resultType)), resultType);
     }
 
     @Override

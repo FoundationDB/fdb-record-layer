@@ -29,13 +29,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
@@ -53,7 +53,7 @@ import java.util.Objects;
  * A query plan of any complexity will have child plans and execute by altering or combining the children's streams in some way.
  *
  * @see com.apple.foundationdb.record.query.RecordQuery
- * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan
+ * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan(com.apple.foundationdb.record.query.RecordQuery)
  *
  */
 @API(API.Status.STABLE)
@@ -74,7 +74,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ExecuteProperties executeProperties) {
         return executePlan(store, context, continuation, executeProperties)
-                .map(result -> result.getQueriedRecord(0));
+                .map(QueryResult::getQueriedRecord);
     }
 
     @Nonnull

@@ -25,14 +25,11 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -41,6 +38,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A {@link QueryComponent} that evaluates a {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} against each of the values of a repeated field and is satisfied if any of those are.
@@ -64,7 +62,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null ) {
             return getComparison().eval(store, context, null);
         }
@@ -100,15 +98,22 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
         return new OneOfThemWithComparison(getFieldName(), getEmptyMode(), comparison);
     }
 
+    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 @Nonnull final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
+        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
         final SelectExpression selectExpression =
-                GraphExpansion.ofPredicate(new QuantifiedObjectValue(childBase.getAlias()).withComparison(comparison)).buildSelectWithBase(childBase);
+                GraphExpansion.builder()
+                        .addQuantifier(childBase)
+                        .addPredicate(childBase.getFlowedObjectValue().withComparison(comparison))
+                        .build()
+                        .buildSimpleSelectOverQuantifier(childBase);
         final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
 
         // create a query component that creates a path to this prefix and then applies this to it
@@ -120,7 +125,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
             withPrefix = Query.field(fieldName).matches(withPrefix);
         }
 
-        return GraphExpansion.ofPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias(), withPrefix), childQuantifier);
+        return GraphExpansion.ofExists(childQuantifier, withPrefix);
     }
 
     @Override

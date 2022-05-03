@@ -35,16 +35,15 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.ScanWithFetchMatchCandidate;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.predicates.IndexedValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -100,7 +99,9 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @SuppressWarnings("unchecked")
     @API(API.Status.INTERNAL)
     public <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> indexEntryToQueriedRecord(final @Nonnull FDBRecordStoreBase<M> store) {
-        return QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordTypeName, getIndexName(), toRecord, getScanType());
+        final IndexScanType scanType = getScanType();
+        boolean hasPrimaryKey = scanType != IndexScanType.BY_GROUP;
+        return QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordTypeName, getIndexName(), toRecord, hasPrimaryKey);
     }
 
     @Nonnull
@@ -172,8 +173,12 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new IndexedValue());
+    public Value getResultValue() {
+        // TODO This should generate a value whose result type are the parts of what the index returns flattened out
+        //      in the way that it is stored on disk. As we currently massage the index keys (and values) into a partial
+        //      record we cannot do that just yet. In essence, we currently have to create a type that is the base record
+        //      type with the assumption that columns not contained in the index are omitted from that record.
+        return new IndexedValue(Objects.requireNonNull(indexPlan.getResultType().getInnerType()));
     }
 
     @Nonnull
@@ -196,10 +201,10 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                                 @Nonnull QuantifiedColumnValue newQuantifiedColumnValue) {
+                                                 @Nonnull CorrelationIdentifier baseAlias) {
         return indexPlan.getMatchCandidateOptional()
                 .flatMap(matchCandidate -> matchCandidate instanceof ScanWithFetchMatchCandidate ? Optional.of((ScanWithFetchMatchCandidate)matchCandidate) : Optional.empty())
-                .flatMap(scanWithFetchMatchCandidate -> scanWithFetchMatchCandidate.pushValueThroughFetch(value, newQuantifiedColumnValue));
+                .flatMap(scanWithFetchMatchCandidate -> scanWithFetchMatchCandidate.pushValueThroughFetch(value, baseAlias));
     }
 
     @Override

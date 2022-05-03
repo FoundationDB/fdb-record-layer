@@ -24,21 +24,20 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
-import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.base.Suppliers;
-import com.google.common.base.Verify;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.Iterables;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
 import javax.annotation.Nonnull;
-import java.util.function.Supplier;
+import java.util.Set;
 
 /**
  * A specialized Hamcrest matcher that recognizes both {@link RecordQueryFilterPlan}s and the {@link QueryComponent}s
@@ -46,29 +45,16 @@ import java.util.function.Supplier;
  * This is designed to support the current {@link com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest}
  * infrastructure where we run exactly the same unit tests using both the
  * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} (which produces {@link RecordQueryFilterPlan}s)
- * and the {@link com.apple.foundationdb.record.query.plan.temp.CascadesPlanner} (which produces
+ * and the {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} (which produces
  * {@link RecordQueryPredicatesFilterPlan}).
  */
 public class FilterMatcherWithComponent extends PlanMatcherWithChild {
     @Nonnull
     private final QueryComponent component;
 
-    @Nonnull
-    private final CorrelationIdentifier baseAlias;
-
-    @Nonnull
-    private final Supplier<QueryPredicate> componentAsPredicateSupplier;
-
     public FilterMatcherWithComponent(@Nonnull QueryComponent component, @Nonnull Matcher<RecordQueryPlan> childMatcher) {
         super(childMatcher);
         this.component = component;
-        this.baseAlias = CorrelationIdentifier.uniqueID();
-        this.componentAsPredicateSupplier = Suppliers.memoize(() -> {
-            final GraphExpansion graphExpansion =
-                    component.expand(baseAlias);
-            Verify.verify(graphExpansion.getQuantifiers().isEmpty());
-            return graphExpansion.asAndPredicate();
-        });
     }
 
     @Override
@@ -81,10 +67,20 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
             // we lazily convert the given component to a predicate and let semantic equals establish equality
             // under the given equivalence: baseAlias <-> planBaseAlias
             final QueryPredicate predicate = AndPredicate.and(((RecordQueryPredicatesFilterPlan)plan).getPredicates());
-            final CorrelationIdentifier planBaseAlias = Iterables.getOnlyElement(plan.getQuantifiers()).getAlias();
-
+            
             if (predicate instanceof PredicateWithValue) {
-                return predicate.semanticEquals(componentAsPredicateSupplier.get(), AliasMap.of(planBaseAlias, baseAlias))
+                final Set<CorrelationIdentifier> predicateCorrelatedTo = predicate.getCorrelatedTo();
+                if (predicateCorrelatedTo.size() != 1) {
+                    return false;
+                }
+                final CorrelationIdentifier singlePredicateAlias = Iterables.getOnlyElement(predicateCorrelatedTo);
+                final Quantifier planBaseQuantifier = Iterables.getOnlyElement(plan.getQuantifiers());
+                final Quantifier.ForEach expandBaseQuantifier = Quantifier.forEach(planBaseQuantifier.getRangesOver(), planBaseQuantifier.getAlias());
+                final GraphExpansion graphExpansion =
+                        component.expand(expandBaseQuantifier, () -> {
+                            throw new UnsupportedOperationException();
+                        });
+                return predicate.semanticEquals(graphExpansion.asAndPredicate(), AliasMap.of(planBaseQuantifier.getAlias(), singlePredicateAlias))
                        && super.matchesSafely(plan);
             } else if (predicate instanceof QueryComponentPredicate) {
                 return component.equals(((QueryComponentPredicate)predicate).getQueryComponent()) && super.matchesSafely(plan);
@@ -98,7 +94,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
 
     @Override
     public void describeTo(Description description) {
-        description.appendText("Filter(" + component.toString() + "; ");
+        description.appendText("Filter(" + component + "; ");
         super.describeTo(description);
         description.appendText(")");
     }

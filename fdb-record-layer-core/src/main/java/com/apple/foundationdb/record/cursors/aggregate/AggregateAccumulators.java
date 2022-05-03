@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 

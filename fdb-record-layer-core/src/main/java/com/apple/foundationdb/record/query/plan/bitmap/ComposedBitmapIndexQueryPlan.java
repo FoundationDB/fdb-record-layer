@@ -35,15 +35,14 @@ import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.predicates.QueriedValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -192,8 +191,8 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue();
     }
     
     @Override

@@ -24,6 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.IndexOutput;
 import org.slf4j.Logger;
@@ -33,7 +35,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.zip.CRC32;
 
 /**
@@ -58,6 +63,7 @@ public final class FDBIndexOutput extends IndexOutput {
     private final long id;
     private static final ArrayBlockingQueue<ByteBuffer> BUFFERS;
     private static final int POOL_SIZE = 100;
+    private List<CompletableFuture<Integer>> flushes = new ArrayList<>();
 
     static {
         BUFFERS = new ArrayBlockingQueue<>(POOL_SIZE);
@@ -87,8 +93,8 @@ public final class FDBIndexOutput extends IndexOutput {
         super(resourceDescription, name);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("init",
-                    LogMessageKeys.RESOURCE, resourceDescription,
-                    LogMessageKeys.FILE_NAME, name));
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription,
+                    LuceneLogMessageKeys.FILE_NAME, name));
         }
         this.resourceDescription = resourceDescription;
         this.fdbDirectory = fdbDirectory;
@@ -109,10 +115,14 @@ public final class FDBIndexOutput extends IndexOutput {
     public void close() {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("close()",
-                    LogMessageKeys.RESOURCE, resourceDescription));
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
         flush();
-        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, blockSize));
+        CompletableFuture<Integer> result = CompletableFuture.completedFuture(0);
+        for (CompletableFuture<Integer> future : flushes) {
+            result = result.thenCombine(future, Integer::sum);
+        }
+        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, result.join(), blockSize));
         BUFFERS.offer(buffer);
     }
 
@@ -120,8 +130,8 @@ public final class FDBIndexOutput extends IndexOutput {
     public long getFilePointer() {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("getFilePointer()",
-                    LogMessageKeys.RESOURCE, resourceDescription,
-                    LogMessageKeys.POINTER, currentSize));
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription,
+                    LuceneLogMessageKeys.POINTER, currentSize));
         }
         return currentSize;
     }
@@ -130,7 +140,7 @@ public final class FDBIndexOutput extends IndexOutput {
     public long getChecksum() {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("getChecksum()",
-                    LogMessageKeys.CHECKSUM, crc.getValue()));
+                    LuceneLogMessageKeys.CHECKSUM, crc.getValue()));
         }
         return crc.getValue();
     }
@@ -148,12 +158,26 @@ public final class FDBIndexOutput extends IndexOutput {
         }
     }
 
+    /**
+     * Internal method to set the total number of expected bytes to drive the read ahead of blocks.
+     *
+     * @param input input to setExpectedBytes
+     * @param numBytes expected number of bytes
+     */
+    void setExpectedBytes(@Nonnull final PrefetchableBufferedChecksumIndexInput input, final long numBytes) {
+        input.setExpectedBytes(numBytes);
+    }
+
     @Override
     public void copyBytes(@Nonnull final DataInput input, final long numBytes) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("copy bytes",
-                    LogMessageKeys.INPUT, input,
-                    LogMessageKeys.BYTE_NUMBER, numBytes));
+                    LuceneLogMessageKeys.INPUT, input,
+                    LuceneLogMessageKeys.BYTE_NUMBER, numBytes));
+        }
+        // This is an attempt to pre-fetch blocks to speed up large copies (Segment Merge Process)
+        if (input instanceof PrefetchableBufferedChecksumIndexInput) {
+            setExpectedBytes( (PrefetchableBufferedChecksumIndexInput) input, numBytes);
         }
         super.copyBytes(input, numBytes);
     }
@@ -170,8 +194,8 @@ public final class FDBIndexOutput extends IndexOutput {
     public void writeBytes(@Nonnull final byte[] bytes, final int offset, final int length) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("writeBytes()",
-                    LogMessageKeys.OFFSET, offset,
-                    LogMessageKeys.LENGTH, length));
+                    LuceneLogMessageKeys.OFFSET, offset,
+                    LuceneLogMessageKeys.LENGTH, length));
         }
         crc.update(bytes, offset, length);
         int bytesWritten = 0;
@@ -189,13 +213,13 @@ public final class FDBIndexOutput extends IndexOutput {
     private void flush() {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("flush()",
-                    LogMessageKeys.FILE_ID, id));
+                    LuceneLogMessageKeys.FILE_ID, id));
         }
         if (buffer.position() > 0) {
             buffer.flip();
             byte[] arr = new byte[buffer.remaining()];
             buffer.get(arr);
-            fdbDirectory.writeData(id, (int) ( (currentSize - 1) / blockSize), arr);
+            flushes.add(fdbDirectory.writeData(id, (int) ( (currentSize - 1) / blockSize), arr));
             buffer.clear();
         }
     }
@@ -204,7 +228,7 @@ public final class FDBIndexOutput extends IndexOutput {
     private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, fdbDirectory.getSubspace())
-                .addKeyAndValue(LogMessageKeys.RESOURCE, resourceDescription)
+                .addKeyAndValue(LuceneLogMessageKeys.RESOURCE, resourceDescription)
                 .toString();
     }
 }

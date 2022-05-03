@@ -36,8 +36,8 @@ import javax.annotation.Nonnull;
  */
 public interface LuceneAnalyzerFactory {
     /**
-     * Get the unique name for the text analyzer. This is the name that should
-     * be included in the index meta-data in order to indicate that this analyzer
+     * Get the unique name for the Lucene analyzer factory. This is the name that should
+     * be included in the index meta-data in order to indicate that this analyzer factory
      * should be used within a certain index.
      *
      * @return the name of the analyzer that this factory creates
@@ -46,28 +46,35 @@ public interface LuceneAnalyzerFactory {
     String getName();
 
     /**
-     * Get an instance of the text analyzer for indexing given the {@link Index}. For a given factory, each indexing analyzer
-     * should be of the same type, and it should match the result of {@link #getName()}.
-     *
-     * @param index the index this analyzer is used for
-     * @return an instance of the analyzer for indexing that this factory creates
+     * Get the {@link LuceneAnalyzerType} for the Lucene analyzer factory.
+     * @return the {@link LuceneScanTypes} used to determine how the analyzers build by this factory is used
      */
     @Nonnull
-    Analyzer getIndexAnalyzer(@Nonnull Index index);
+    LuceneAnalyzerType getType();
 
     /**
-     * Get an instance of the text analyzer for query given the {@link Index}. For a given factory, each query analyzer
-     * should be of the same type, and it should match the result of {@link #getName()}.
-     * Not need to override this method if {@link StandardAnalyzer} is to be used for query time.
-     * Call {@link #getIndexAnalyzer(Index)} before calling this method, and use its return for the argument {@code indexAnalyzer}.
-     * Override this method to customize the analyzer for query time, or directly return the {@code indexAnalyzer} instance, if it is used for both indexing and query time.
+     * Get an instance of {@link AnalyzerChooser} that chooses the Lucene analyzer based on texts for indexing, given the {@link Index}.
+     * For a given factory, each indexing analyzer chosen should be of the same type, and it should match the result of {@link #getName()}.
      *
-     * @param index the index this analyzer is used for
-     * @param indexAnalyzer the instance of analyzer for indexing used by this factory, that can be returned by this method in case it is also used for query
-     * @return an instance of the analyzer for query that this factory creates, the default one is {@link StandardAnalyzer}
+     * @param index the index thi analyzer is used for
+     * @return an instance of the {@link AnalyzerChooser} for indexing that this factory creates
      */
     @Nonnull
-    default Analyzer getQueryAnalyzer(@Nonnull Index index, @Nonnull Analyzer indexAnalyzer) {
-        return new StandardAnalyzer();
+    AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index);
+
+    /**
+     * Get an instance of {@link AnalyzerChooser} that chooses the Lucene analyzer for query given the {@link Index}.
+     * For a given factory, each query analyzer chosen should be of the same type, and it should match the result of {@link #getName()}.
+     * Call {@link #getIndexAnalyzerChooser(Index)} before calling this method, and use its return for the argument {@code indexAnalyzerChooser}.
+     * No need to override this method if {@link StandardAnalyzer} is to be used for query time.
+     * Override this method to customize the analyzer for query time, or directly return the {@code indexAnalyzerChooser} instance, if it is used for both indexing and query time.
+     *
+     * @param index the index the analyzer is used for
+     * @param indexAnalyzerChooser indexAnalyzerChooser the instance of {@link AnalyzerChooser} for indexing used by this factory, that can be returned by this method in case it is also used for query
+     * @return an instance of the {@link AnalyzerChooser} for query that this factory creates, the default one is always using {@link StandardAnalyzer}
+     */
+    @Nonnull
+    default AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index index, @Nonnull AnalyzerChooser indexAnalyzerChooser) {
+        return t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper();
     }
 }

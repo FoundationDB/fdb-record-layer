@@ -71,6 +71,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -88,6 +89,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -99,6 +101,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -113,8 +116,10 @@ import javax.annotation.Nullable;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -139,8 +144,11 @@ import static com.apple.foundationdb.record.RecordCursor.NoNextReason.SOURCE_EXH
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexBunchedSerializerTest.entryOf;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MULTI_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
@@ -162,7 +170,9 @@ import static org.hamcrest.Matchers.any;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -211,10 +221,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     private static final Index MAP_ON_VALUE_PREFIX = new Index("Map$entry-value_prefix", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "1"));
     private static final Index MAP_ON_VALUE_GROUPED_INDEX = new Index("Map$entry-value_by_group", new GroupingKeyExpression(concat(field("group"), field("entry", FanType.FanOut).nest(concatenateFields("key", "value"))), 1), IndexTypes.TEXT);
-    private static final String MAP_DOC = "MapDocument";
 
     @BeforeEach
-    public void resetRegistry() {
+    void resetRegistry() {
         TextTokenizerRegistryImpl.instance().reset();
     }
 
@@ -403,7 +412,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveSimpleDocuments() throws Exception {
+    void saveSimpleDocuments() throws Exception {
         final SimpleDocument simpleDocument = SimpleDocument.newBuilder()
                 .setDocId(1066L)
                 .setText("This is a simple document. There isn't much going on here, if I'm honest.")
@@ -521,7 +530,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     // be returned after the scan that were both greater than the map key due to a race condition.
     // This was able to reproduce the error when run alone.
     @Test
-    public void backwardsRangeScanRaceCondition() throws Exception {
+    void backwardsRangeScanRaceCondition() throws Exception {
         final Random r = new Random(0x5ca1ab1e);
         final List<String> lexicon = Arrays.asList(TextSamples.ROMEO_AND_JULIET_PROLOGUE.split(" "));
         final SimpleDocument bigDocument = getRandomRecords(r, 1, lexicon, 100, 0).get(0);
@@ -554,7 +563,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveSimpleDocumentsWithPrefix() throws Exception {
+    void saveSimpleDocumentsWithPrefix() throws Exception {
         final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
                 .setDocId(1623L)
                 .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
@@ -593,7 +602,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveSimpleDocumentsWithFilter() throws Exception {
+    void saveSimpleDocumentsWithFilter() throws Exception {
         final SimpleDocument russianDocument = SimpleDocument.newBuilder()
                 .setDocId(1547L)
                 .setText(TextSamples.RUSSIAN)
@@ -625,7 +634,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveSimpleDocumentsWithSuffixes() throws Exception {
+    void saveSimpleDocumentsWithSuffixes() throws Exception {
         final SimpleDocument germanDocument = SimpleDocument.newBuilder()
                 .setDocId(1623L)
                 .setText(TextSamples.GERMAN)
@@ -655,7 +664,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveSimpleDocumentsWithNoPositions() throws Exception {
+    void saveSimpleDocumentsWithNoPositions() throws Exception {
         final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
                 .setDocId(1623L)
                 .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
@@ -700,7 +709,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveSimpleDocumentsWithPositionsOptionChange() throws Exception {
+    void saveSimpleDocumentsWithPositionsOptionChange() throws Exception {
         final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
                 .setDocId(1623L)
                 .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
@@ -749,7 +758,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveComplexDocuments() throws Exception {
+    void saveComplexDocuments() throws Exception {
         ComplexDocument complexDocument = ComplexDocument.newBuilder()
                 .setGroup(0)
                 .setDocId(1066L)
@@ -832,7 +841,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveComplexMultiDocuments() throws Exception {
+    void saveComplexMultiDocuments() throws Exception {
         final ComplexDocument shakespeareDocument = ComplexDocument.newBuilder()
                 .setGroup(0)
                 .setDocId(1623L)
@@ -871,7 +880,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveMapDocuments() throws Exception {
+    void saveMapDocuments() throws Exception {
         final MapDocument firstDocument = MapDocument.newBuilder()
                 .setDocId(1066L)
                 .addEntry(MapDocument.Entry.newBuilder()
@@ -928,7 +937,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveCombinedByGroup() throws Exception {
+    void saveCombinedByGroup() throws Exception {
         final SimpleDocument simpleDocument = SimpleDocument.newBuilder()
                 .setGroup(0)
                 .setDocId(1907L)
@@ -992,7 +1001,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveSimpleWithAggressiveConflictRanges() throws Exception {
+    void saveSimpleWithAggressiveConflictRanges() throws Exception {
         // These two documents are from different languages and thus have no conflicts, so
         // without the aggressive conflict ranges, they wouldn't conflict if not
         // for the aggressive conflict ranges
@@ -1017,7 +1026,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveComplexWithAggressiveConflictRanges() throws Exception {
+    void saveComplexWithAggressiveConflictRanges() throws Exception {
         // These two documents are in different groups, so even with aggressive conflict
         // ranges, they should be able to be committed concurrently.
         final ComplexDocument zeroGroupDocument = ComplexDocument.newBuilder()
@@ -1039,7 +1048,200 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void tokenizerVersionChange() throws Exception {
+    void deleteWhereSimpleDocuments() {
+        final SimpleDocument doc1 = SimpleDocument.newBuilder()
+                .setDocId(1623L)
+                .setGroup(0)
+                .setText("foo bar")
+                .build();
+        final SimpleDocument doc2 = SimpleDocument.newBuilder()
+                .setDocId(1945L)
+                .setGroup(0)
+                .setText("foo bar")
+                .build();
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
+            // Add "text" to the simple document primary key so that when we issue a delete where based
+            // on the first field of the SimpleDocument$text index, it will align with the primary key
+            metaDataBuilder.getRecordType(SIMPLE_DOC)
+                    .setPrimaryKey(concat(recordType(), field("text"), field("doc_id")));
+        };
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            recordStore.saveRecord(doc1);
+            recordStore.saveRecord(doc2);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            Query.InvalidExpressionException err = assertThrows(Query.InvalidExpressionException.class,
+                    () -> recordStore.deleteRecordsWhere(SIMPLE_DOC, Query.field("text").equalsValue("foo bar")));
+            assertThat(err.getMessage(), containsString("deleteRecordsWhere not supported by index SimpleDocument$text"));
+        }
+    }
+
+    private List<ComplexDocument> queryComplexByGroup(RecordQueryPlan plan, int group) {
+        return plan.execute(recordStore, EvaluationContext.forBinding("group_value", group))
+                .map(FDBRecord::getRecord)
+                .map(message -> ComplexDocument.newBuilder().mergeFrom(message).build())
+                .asList()
+                .join();
+    }
+
+    @Test
+    void deleteWhereComplexByGroup() {
+        final Map<Integer, Collection<ComplexDocument>> docsByGroup = new HashMap<>();
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
+            metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_TEXT_BY_GROUP);
+        };
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            for (int group = 0; group < 10; group++) {
+                Collection<ComplexDocument> docs = new HashSet<>();
+                for (long docId = 0L; docId < 10L; docId++) {
+                    ComplexDocument document = ComplexDocument.newBuilder()
+                            .setGroup(group)
+                            .setDocId(docId)
+                            .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                            .build();
+                    recordStore.saveRecord(document);
+                    docs.add(document);
+                }
+                docsByGroup.put(group, docs);
+            }
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(COMPLEX_DOC)
+                    .setFilter(Query.and(
+                            Query.field("group").equalsParameter("group_value"),
+                            Query.field("text").text().containsPhrase("nought could remove")
+                    ))
+                    .build();
+            RecordQueryPlan plan = recordStore.planQuery(query);
+
+            // Make sure all groups have elements prior to range delete
+            Map<Integer, List<ComplexDocument>> queryResults = new HashMap<>();
+            for (Map.Entry<Integer, Collection<ComplexDocument>> groupAndDocs : docsByGroup.entrySet()) {
+                List<ComplexDocument> queried = queryComplexByGroup(plan, groupAndDocs.getKey());
+                assertThat(queried, containsInAnyOrder(groupAndDocs.getValue().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+                queryResults.put(groupAndDocs.getKey(), queried);
+            }
+
+            final int groupToRemove = 4;
+            recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("group").equalsValue(groupToRemove));
+
+            // Range delete should only affect deleted group
+            for (Integer group : docsByGroup.keySet()) {
+                List<ComplexDocument> queried = queryComplexByGroup(plan, group);
+                if (group == groupToRemove) {
+                    assertThat(queried, empty());
+                } else {
+                    assertEquals(queryResults.get(group), queried);
+                }
+            }
+        }
+    }
+
+    private List<MapDocument> queryMapDocumentByGroupAndKey(RecordQueryPlan plan, int group, String mapKey) {
+        EvaluationContext evaluationContext = EvaluationContext.newBuilder()
+                .setBinding("group_value", group)
+                .setBinding("key_value", mapKey)
+                .build(TypeRepository.empty());
+        return plan.execute(recordStore, evaluationContext)
+                .map(FDBRecord::getRecord)
+                .map(message -> MapDocument.newBuilder().mergeFrom(message).build())
+                .asList()
+                .join();
+    }
+
+    @Test
+    void deleteWhereGroupedMap() {
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
+            final RecordTypeBuilder mapDoc = metaDataBuilder.getRecordType(MAP_DOC);
+            mapDoc.setPrimaryKey(concat(recordType(), field("group"), field("doc_id")));
+            metaDataBuilder.addIndex(mapDoc, MAP_ON_VALUE_GROUPED_INDEX);
+        };
+        final List<String> keys = List.of("skeleton", "tubular", "smart");
+        final Map<Integer, Collection<MapDocument>> docsByGroup = new HashMap<>();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            for (int group = 0; group < 10; group++) {
+                Collection<MapDocument> documents = new ArrayList<>();
+                for (long docId = 0L; docId < 10L; docId++) {
+                    MapDocument.Builder builder = MapDocument.newBuilder()
+                            .setGroup(group)
+                            .setDocId(docId + 1);
+                    for (String key : keys) {
+                        builder.addEntry(MapDocument.Entry.newBuilder()
+                                .setKey(key)
+                                .setValue(TextSamples.AETHELRED));
+                    }
+                    MapDocument document = builder.build();
+                    recordStore.saveRecord(document);
+                    documents.add(document);
+                }
+                docsByGroup.put(group, documents);
+            }
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.and(
+                            Query.field("group").equalsParameter("group_value"),
+                            Query.field("entry").oneOfThem().matches(Query.and(
+                                    Query.field("key").equalsParameter("key_value"),
+                                    Query.field("value").text().containsAll("king")
+                            ))
+                    ))
+                    .setRemoveDuplicates(false)
+                    .build();
+            RecordQueryPlan plan = recordStore.planQuery(query);
+            assertThat(plan, textIndexScan(indexName(MAP_ON_VALUE_GROUPED_INDEX.getName())));
+
+            for (Map.Entry<Integer, Collection<MapDocument>> groupAndDocs : docsByGroup.entrySet()) {
+                for (String key : keys) {
+                    List<MapDocument> queried = queryMapDocumentByGroupAndKey(plan, groupAndDocs.getKey(), key);
+                    assertThat(queried, containsInAnyOrder(groupAndDocs.getValue().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+                }
+            }
+
+            // Attempt to delete by group and map key. This shouldn't work because the primary key doesn't align
+            Query.InvalidExpressionException err = assertThrows(Query.InvalidExpressionException.class,
+                    () -> recordStore.deleteRecordsWhere(MAP_DOC, Query.and(
+                            Query.field("group").equalsValue(2),
+                            Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue(keys.get(0))))));
+            assertThat(err.getMessage(), containsString("deleteRecordsWhere not matching primary key " + MAP_DOC));
+
+            // Now delete everything with a certain group (which should succeed)
+            final int groupToDelete = 8;
+            recordStore.deleteRecordsWhere(MAP_DOC, Query.field("group").equalsValue(groupToDelete));
+
+            // Validate that all keys are empty in the deleted group, but that the data are the same in the other groups
+            for (Map.Entry<Integer, Collection<MapDocument>> groupAndDocs : docsByGroup.entrySet()) {
+                for (String key : keys) {
+                    List<MapDocument> queried = queryMapDocumentByGroupAndKey(plan, groupAndDocs.getKey(), key);
+                    if (groupAndDocs.getKey() == groupToDelete) {
+                        assertThat(queried, empty());
+                    } else {
+                        assertThat(queried, containsInAnyOrder(groupAndDocs.getValue().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void tokenizerVersionChange() throws Exception {
         final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
                 .setDocId(1623L)
                 .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
@@ -1112,7 +1314,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void tokenizerVersionChangeWithMultipleEntries() throws Exception {
+    void tokenizerVersionChangeWithMultipleEntries() throws Exception {
         final MapDocument map1 = MapDocument.newBuilder()
                 .setDocId(1066L)
                 .addEntry(MapDocument.Entry.newBuilder().setKey("fr").setValue(TextSamples.FRENCH))
@@ -1239,7 +1441,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    public void scanWithSkip(@Nonnull Index index, @Nonnull String token, int skip, int limit, boolean reverse) throws Exception {
+    void scanWithSkip(@Nonnull Index index, @Nonnull String token, int skip, int limit, boolean reverse) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final List<IndexEntry> fullResults = scanIndex(recordStore, index, TupleRange.allOf(Tuple.from(token)));
@@ -1266,7 +1468,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void scan() throws Exception {
+    void scan() throws Exception {
         final Random r = new Random(0x5ca1ab1e);
         List<SimpleDocument> records = getRandomRecords(r, 50);
         try (FDBRecordContext context = openContext()) {
@@ -1297,7 +1499,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void invalidScans() throws Exception {
+    void invalidScans() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final Index index = recordStore.getRecordMetaData().getIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
@@ -1365,12 +1567,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .get();
     }
 
-    @Nonnull
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash, boolean isCoveringIndexExpected,
-                                                     @Nonnull Matcher<? super Comparisons.TextComparison> comparisonMatcher) throws InterruptedException, ExecutionException {
-        return querySimpleDocumentsWithIndex(filter, TextIndexTestUtils.SIMPLE_DEFAULT_NAME, planHash, isCoveringIndexExpected, comparisonMatcher);
-    }
-
     @Nullable
     private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, @Nonnull QueryComponent textFilter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
         if (textFilter instanceof ComponentWithComparison && ((ComponentWithComparison)textFilter).getComparison() instanceof Comparisons.TextComparison) {
@@ -1402,7 +1598,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void querySimpleDocuments() throws Exception {
+    void querySimpleDocuments() throws Exception {
         final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ANGSTROM,
                 TextSamples.AETHELRED,
@@ -1518,7 +1714,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void queryDocumentsWithScanLimit() throws Exception {
+    void queryDocumentsWithScanLimit() throws Exception {
         // Load a big (ish) data set
         final int recordCount = 100;
         final int batchSize = 10;
@@ -1575,7 +1771,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void querySimpleDocumentsWithAdditionalFilters() throws Exception {
+    void querySimpleDocumentsWithAdditionalFilters() throws Exception {
         final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
@@ -1679,7 +1875,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void querySimpleDocumentsWithDifferentTokenizers() throws Exception {
+    void querySimpleDocumentsWithDifferentTokenizers() throws Exception {
         final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
                 TextSamples.RUSSIAN,
@@ -1753,7 +1949,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void querySimpleDocumentsMaybeCovering() throws Exception {
+    void querySimpleDocumentsMaybeCovering() throws Exception {
         final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ANGSTROM,
                 TextSamples.AETHELRED,
@@ -1918,7 +2114,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void querySimpleDocumentsWithoutPositions() throws Exception {
+    void querySimpleDocumentsWithoutPositions() throws Exception {
         final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ANGSTROM,
                 TextSamples.AETHELRED,
@@ -2051,7 +2247,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void queryComplexDocuments() throws Exception {
+    void queryComplexDocuments() throws Exception {
         final List<String> textSamples = Arrays.asList(
                 TextSamples.ANGSTROM,
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
@@ -2097,7 +2293,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void queryComplexDocumentsWithAdditionalFilters() throws Exception {
+    void queryComplexDocumentsWithAdditionalFilters() throws Exception {
         final List<String> textSamples = Arrays.asList(
                 TextSamples.ANGSTROM,
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
@@ -2200,7 +2396,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void queryComplexDocumentsCovering() throws Exception {
+    void queryComplexDocumentsCovering() throws Exception {
         final List<String> textSamples = Arrays.asList(
                 TextSamples.FRENCH,
                 TextSamples.GERMAN,
@@ -2300,7 +2496,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void queryMultiTypeDocuments() throws Exception {
+    void queryMultiTypeDocuments() throws Exception {
         final List<String> bothTypes = Arrays.asList(SIMPLE_DOC, COMPLEX_DOC);
         final List<String> simpleTypes = Collections.singletonList(SIMPLE_DOC);
         final List<String> complexTypes = Collections.singletonList(COMPLEX_DOC);
@@ -2412,7 +2608,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void queryMapDocuments() throws Exception {
+    void queryMapDocuments() throws Exception {
         final List<String> textSamples = Arrays.asList(
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
                 TextSamples.AETHELRED,
@@ -2507,7 +2703,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void queryMapsWithGroups() throws Exception {
+    void queryMapsWithGroups() throws Exception {
         final List<String> textSamples = Arrays.asList(
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
                 TextSamples.AETHELRED,
@@ -2621,7 +2817,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
      */
     @MethodSource("indexArguments")
     @ParameterizedTest
-    public void queryScanEquivalence(@Nonnull Index index) throws Exception {
+    void queryScanEquivalence(@Nonnull Index index) throws Exception {
         final Random r = new Random(0xba5eba1L + index.getName().hashCode());
         final int recordCount = 100;
         final int recordBatch = 25;
@@ -2740,7 +2936,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void invalidQueries() {
+    void invalidQueries() {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(SIMPLE_DOC, new Index("SimpleDocument$max_group", field("group").ungrouped(), IndexTypes.MAX_EVER_TUPLE)));
             List<RecordQuery> queries = Arrays.asList(
@@ -2787,7 +2983,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void invalidIndexes() {
+    void invalidIndexes() {
         final String testIndex = "test_index";
         List<KeyExpression> expressions = Arrays.asList(
                 // VersionKeyExpression.VERSION, // no version expression allowed
@@ -2804,7 +3000,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
 
         // Verify doesn't work with repeated fields but in a case where a repeated field is possible.
-        invalidateIndex(KeyExpression.InvalidExpressionException.class, "MultiDocument",
+        invalidateIndex(KeyExpression.InvalidExpressionException.class, MULTI_DOC,
                 new Index(testIndex, field("text", FanType.FanOut), IndexTypes.TEXT));
 
         // Verify that unique indexes are invalid
@@ -2945,7 +3141,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Tag(Tags.Performance)
     @Test
-    public void textIndexPerf1000SerialInsert() throws Exception {
+    void textIndexPerf1000SerialInsert() throws Exception {
         // Create 1000 records
         Random r = new Random();
         List<SimpleDocument> records = getRandomRecords(r, 1000);
@@ -2969,7 +3165,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Tag(Tags.Performance)
     @Test
-    public void textIndexPerf100InsertOneBatch() throws Exception {
+    void textIndexPerf100InsertOneBatch() throws Exception {
         // Create 1000 records
         Random r = new Random();
         List<SimpleDocument> records = getRandomRecords(r, 100);
@@ -2991,7 +3187,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Tag(Tags.Performance)
     @Test
-    public void textIndexPerf1000SerialInsertNoBatching() throws Exception {
+    void textIndexPerf1000SerialInsertNoBatching() throws Exception {
         // Create 1000 records
         Random r = new Random();
         List<SimpleDocument> records = getRandomRecords(r, 1000);
@@ -3013,7 +3209,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Tag(Tags.Performance)
     @Test
-    public void textIndexPerf1000ParallelInsert() throws Exception {
+    void textIndexPerf1000ParallelInsert() throws Exception {
         // Create 1000 records
         Random r = new Random();
         List<SimpleDocument> records = getRandomRecords(r, 1000);

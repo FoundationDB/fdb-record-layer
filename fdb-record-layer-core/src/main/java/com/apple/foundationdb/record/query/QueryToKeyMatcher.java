@@ -212,14 +212,12 @@ public class QueryToKeyMatcher {
     private Match matches(@Nonnull QueryComponent query, @Nonnull KeyExpression key,
                           @Nonnull MatchingMode matchingMode, @Nullable FilterSatisfiedMask filterMask) {
         if (key instanceof GroupingKeyExpression) {
-            return matches(query, ((GroupingKeyExpression) key).getWholeKey(), matchingMode, filterMask);
+            KeyExpression group = extractGroupingKey((GroupingKeyExpression) key, matchingMode);
+            return group == null ? Match.none() : matches(query, group, matchingMode, filterMask);
         }
         if (key instanceof KeyWithValueExpression) {
-            try {
-                return matches(query, ((KeyWithValueExpression)key).getKeyExpression(), matchingMode, filterMask);
-            } catch (BaseKeyExpression.UnsplittableKeyExpressionException e) {
-                return Match.none();
-            }
+            KeyExpression onlyKey = extractKeyFromKeyWithValue((KeyWithValueExpression)key, matchingMode);
+            return onlyKey == null ? Match.none() : matches(query, onlyKey, matchingMode, filterMask);
         }
         if (query instanceof NestedField) {
             return matches(((NestedField) query), key, matchingMode, filterMask);
@@ -487,6 +485,49 @@ public class QueryToKeyMatcher {
     @Nonnull
     private Match unexpected(@Nonnull KeyExpression key) {
         throw new KeyExpression.InvalidExpressionException("Unexpected Key Expression type " + key.getClass());
+    }
+
+    private KeyExpression extractGroupingKey(GroupingKeyExpression grouping, MatchingMode matchingMode) {
+        try {
+            return grouping.getGroupingSubKey();
+        } catch (BaseKeyExpression.UnsplittableKeyExpressionException err) {
+            if (matchingMode == MatchingMode.SATISFY_QUERY) {
+                return extractPrefixUntilSplittable(grouping.getWholeKey(), grouping.getGroupingCount());
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private KeyExpression extractKeyFromKeyWithValue(KeyWithValueExpression keyWithValue, MatchingMode matchingMode) {
+        try {
+            return keyWithValue.getKeyExpression();
+        } catch (BaseKeyExpression.UnsplittableKeyExpressionException err) {
+            // We can get here if the KeyWithValueExpression splits something that cannot be split, e.g.,
+            // a function key expression. There's still a possibility that a prefix of the key still can
+            // cover the entire query, so keep trying a more and more selective prefix of the key until
+            // we no longer hit the unsplittable exception
+            if (matchingMode == MatchingMode.SATISFY_QUERY) {
+                return extractPrefixUntilSplittable(keyWithValue.getInnerKey(), keyWithValue.getSplitPoint());
+            }
+        }
+        return null;
+    }
+
+    @Nonnull
+    private KeyExpression extractPrefixUntilSplittable(KeyExpression wholeKeyExpression, int originalSplitPoint) {
+        int adjustedSplitPoint = originalSplitPoint - 1;
+        while (adjustedSplitPoint >= 0) {
+            try {
+                return wholeKeyExpression.getSubKey(0, adjustedSplitPoint);
+            } catch (BaseKeyExpression.UnsplittableKeyExpressionException innerErr) {
+                adjustedSplitPoint--;
+            }
+        }
+        // We should always be able to extract 0 columns, so this should be unreachable code
+        throw new RecordCoreException("unable to extract splittable prefix from key expression")
+                .addLogInfo(LogMessageKeys.KEY_EXPRESSION, wholeKeyExpression)
+                .addLogInfo(LogMessageKeys.COLUMN_SIZE, originalSplitPoint);
     }
 
     /**

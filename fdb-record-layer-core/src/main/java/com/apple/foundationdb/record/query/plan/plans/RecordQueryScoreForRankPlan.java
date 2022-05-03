@@ -37,17 +37,19 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.predicates.QueriedValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -111,7 +113,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                 }
                 builder.setBinding(rank.bindingName, binding);
             }
-            return builder.build();
+            return builder.build(context.getTypeRepository());
         });
     }
 
@@ -145,8 +147,8 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue();
     }
 
     @Nonnull
@@ -240,9 +242,26 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        return PlannerGraph.fromNodeAndChildGraphs(
-                new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.SCORE_FOR_RANK_OPERATOR),
-                childGraphs);
+        final PlannerGraph.Node root =
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.NESTED_LOOP_JOIN_OPERATOR);
+        final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
+        final PlannerGraph.DataNodeWithInfo valuesNode =
+                new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
+                        getResultType(),
+                        ImmutableList.of("VALUES({{values}}"),
+                        ImmutableMap.of("values",
+                                Attribute.gml(Objects.requireNonNull(getRanks()).stream()
+                                        .map(ScoreForRank::callToString)
+                                        .map(Attribute::gml)
+                                        .collect(ImmutableList.toImmutableList()))));
+        final PlannerGraph.Edge fromValuesEdge = new PlannerGraph.Edge();
+        return PlannerGraph.builder(root)
+                .addGraph(graphForInner)
+                .addNode(valuesNode)
+                .addEdge(valuesNode, root, fromValuesEdge)
+                .addEdge(graphForInner.getRoot(), root, new PlannerGraph.Edge(ImmutableSet.of(fromValuesEdge)))
+                .build();
     }
 
     /**
@@ -275,7 +294,11 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
         @Override
         public String toString() {
-            return bindingName + " = " + function.getIndex() + "." + function.getName() + comparisons.stream().map(Comparisons.Comparison::typelessString).collect(Collectors.joining(", ", "(", ")"));
+            return bindingName + " = " + callToString();
+        }
+
+        public String callToString() {
+            return function.getIndex() + "." + function.getName() + comparisons.stream().map(Comparisons.Comparison::typelessString).collect(Collectors.joining(", ", "(", ")"));
         }
 
         @Override

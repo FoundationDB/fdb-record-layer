@@ -39,16 +39,17 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
-import com.apple.foundationdb.record.query.predicates.QueriedValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -78,7 +79,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     protected final boolean reverse;
     protected final boolean strictlySorted;
     @Nonnull
-    private final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional;
+    private final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional;
+    @Nonnull
+    private final Type resultType;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, scanParameters, reverse, false);
@@ -88,36 +91,40 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                 @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
-        this(indexName, scanParameters, reverse, strictlySorted, Optional.empty());
+        this(indexName, scanParameters, reverse, strictlySorted, Optional.empty(), new Type.Any());
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted,
-                                @Nonnull final ValueIndexScanMatchCandidate matchCandidate) {
-        this(indexName, scanParameters, reverse, strictlySorted, Optional.of(matchCandidate));
+                                @Nonnull final ScanWithFetchMatchCandidate matchCandidate,
+                                @Nonnull final Type.Record resultType) {
+        this(indexName, scanParameters, reverse, strictlySorted, Optional.of(matchCandidate), resultType);
     }
 
     private RecordQueryIndexPlan(@Nonnull final String indexName,
                                  @Nonnull final IndexScanParameters scanParameters,
                                  final boolean reverse,
                                  final boolean strictlySorted,
-                                 @Nonnull final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional) {
+                                 @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional,
+                                 @Nonnull final Type resultType) {
         this.indexName = indexName;
         this.scanParameters = scanParameters;
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
+        this.resultType = resultType;
     }
 
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                                        @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
-        final IndexScanBounds scanBounds = scanParameters.bind(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
-        return store.scanIndex(metaData.getIndex(indexName), scanBounds, continuation, executeProperties.asScanProperties(reverse));
+        final Index index = metaData.getIndex(indexName);
+        final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
+        return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
     }
 
     @Nonnull
@@ -180,7 +187,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public Optional<ValueIndexScanMatchCandidate> getMatchCandidateOptional() {
+    public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateOptional() {
         return matchCandidateOptional;
     }
 
@@ -207,7 +214,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 getScanParameters(),
                 isReverse(),
                 isStrictlySorted(),
-                matchCandidateOptional);
+                matchCandidateOptional,
+                resultType);
     }
 
     @Nonnull
@@ -218,8 +226,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue(resultType);
     }
 
     @Override
@@ -297,13 +305,19 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         }
     }
 
+    @Override
+    public boolean hasComparisons() {
+        return scanParameters instanceof IndexScanComparisons;
+    }
+
     @Nonnull
     @Override
     public ScanComparisons getComparisons() {
         if (scanParameters instanceof IndexScanComparisons) {
             return ((IndexScanComparisons)scanParameters).getComparisons();
+        } else {
+            throw new RecordCoreException("this plan does not use ScanComparisons");
         }
-        throw new RecordCoreException("this plan does not use ScanComparisons");
     }
 
     @Override
@@ -344,7 +358,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                         attributeMapBuilder.build()),
                 ImmutableList.of(
                         PlannerGraph.fromNodeAndChildGraphs(
-                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.copyOf(getUsedIndexes())),
+                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, getResultType(), ImmutableList.copyOf(getUsedIndexes())),
                                 ImmutableList.of())));
     }
 }

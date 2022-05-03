@@ -205,11 +205,17 @@ public class ParameterRelationshipGraph {
                 });
     }
 
+    /**
+     * The type of {@link Relationship}.
+     */
     public enum RelationshipType {
         EQUALS,
         NOT_EQUALS
     }
 
+    /**
+     * A relationship between two parameter values.
+     */
     public static class Relationship {
         @Nonnull
         private final RelationshipType relationshipType;

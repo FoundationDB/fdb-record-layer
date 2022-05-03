@@ -34,12 +34,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
  * A JUnit 5 extension that runs the test (which must inherit from {@link FDBRecordStoreQueryTestBase}) with both the
  * old {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} and the new, experimental
- * {@link com.apple.foundationdb.record.query.plan.temp.CascadesPlanner}.
+ * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
  */
 public class DualPlannerExtension implements TestTemplateInvocationContextProvider {
 
@@ -65,9 +66,27 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
             return nestedProvider.provideTestTemplateInvocationContexts(context).map(existingContext ->
                             new DualPlannerTestInvocationContext(displayName, true, existingContext.getAdditionalExtensions())); // new planner
         } else {
-            return Stream.of(
-                    new DualPlannerTestInvocationContext(displayName, false), // old planner
-                    new DualPlannerTestInvocationContext(displayName, true)); // new planner
+            final Optional<DualPlannerTest> annotationOptional =
+                    AnnotationUtils.findAnnotation(context.getTestMethod(), DualPlannerTest.class);
+            if (annotationOptional.isEmpty()) {
+                throw new RecordCoreException("dual planner test annotation not found");
+            }
+            final DualPlannerTest annotation = annotationOptional.get();
+
+            switch (annotation.planner()) {
+                case OLD:
+                    return Stream.of(
+                            new DualPlannerTestInvocationContext(displayName, false)); // old planner
+                case CASCADES:
+                    return Stream.of(
+                            new DualPlannerTestInvocationContext(displayName, true)); // cascades planner
+                case BOTH:
+                default:
+                    return Stream.of(
+                            new DualPlannerTestInvocationContext(displayName, false), // old planner
+                            new DualPlannerTestInvocationContext(displayName, true)); // cascades planner
+
+            }
         }
 
     }
@@ -81,7 +100,7 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
         }
 
         public DualPlannerTestInvocationContext(String baseName, boolean useRewritePlanner, List<Extension> extensions) {
-            this.displayName = String.format("%s[%s]", baseName, useRewritePlanner ? "new" : "old");
+            this.displayName = String.format("%s[%s]", baseName, useRewritePlanner ? "cascades" : "old");
             this.extensions = new ArrayList<>(extensions);
             this.extensions.add((TestInstancePostProcessor) (testInstance, context) ->
                     ((FDBRecordStoreQueryTestBase) testInstance).setUseRewritePlanner(useRewritePlanner));

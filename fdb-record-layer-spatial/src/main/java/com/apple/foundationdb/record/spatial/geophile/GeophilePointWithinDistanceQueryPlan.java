@@ -28,13 +28,14 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.predicates.QueriedValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.spatial.common.DoubleValueOrParameter;
 import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.SpatialJoin;
@@ -133,8 +134,8 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+    public Value getResultValue() {
+        return new QueriedValue();
     }
 
     @Override
@@ -211,7 +212,7 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
                         attributeMapBuilder.build()),
                 ImmutableList.of(
                         PlannerGraph.fromNodeAndChildGraphs(
-                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.copyOf(getUsedIndexes())),
+                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, new Type.Relation(new Type.Any()), ImmutableList.copyOf(getUsedIndexes())),
                                 ImmutableList.of())));
     }
 }

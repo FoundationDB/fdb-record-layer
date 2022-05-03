@@ -72,15 +72,18 @@ public class IndexingScrubDangling extends IndexingBase {
     @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
 
     @Nonnull private final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy;
+    @Nonnull private final AtomicLong danglingCount;
     private long scanCounter = 0;
     private int logWarningCounter;
 
     public IndexingScrubDangling(@Nonnull final IndexingCommon common,
                                  @Nonnull final OnlineIndexer.IndexingPolicy policy,
-                                 @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
+                                 @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy,
+                                 @Nonnull final AtomicLong danglingCount) {
         super(common, policy, true);
         this.scrubbingPolicy = scrubbingPolicy;
         this.logWarningCounter = scrubbingPolicy.getLogWarningsLimit();
+        this.danglingCount = danglingCount;
     }
 
     @Override
@@ -150,7 +153,7 @@ public class IndexingScrubDangling extends IndexingBase {
 
         // scrubbing only readable, VALUE, idempotence indexes (at least for now)
         validateOrThrowEx(maintainer.isIdempotent(), "scrubbed index is not idempotent");
-        validateOrThrowEx(index.getType().equals(IndexTypes.VALUE), "scrubbed index is not a VALUE index");
+        validateOrThrowEx(index.getType().equals(IndexTypes.VALUE) || scrubbingPolicy.ignoreIndexTypeCheck(), "scrubbed index is not a VALUE index");
         validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
 
         RangeSet rangeSet = new RangeSet(indexScrubIndexRangeSubspace(store, index));
@@ -209,6 +212,7 @@ public class IndexingScrubDangling extends IndexingBase {
 
         if (! indexResult.hasStoredRecord() ) {
             // Here: Oh, No! this index is dangling!
+            danglingCount.incrementAndGet();
             final FDBStoreTimer timer = getRunner().getTimer();
             timerIncrement(timer, FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES);
             final IndexEntry indexEntry = indexResult.getIndexEntry();

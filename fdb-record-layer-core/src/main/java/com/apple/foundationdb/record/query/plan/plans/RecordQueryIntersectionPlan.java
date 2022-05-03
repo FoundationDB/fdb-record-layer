@@ -35,19 +35,18 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.predicates.MergeValue;
-import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.MergeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -61,7 +60,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -89,7 +87,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     private final boolean reverse;
 
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Value resultValue;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
@@ -99,8 +97,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKey = comparisonKey;
         this.reverse = reverse;
-
-        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValue = MergeValue.pivotAndMergeValues(quantifiers);
     }
 
     @Nonnull
@@ -116,7 +113,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
                         .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
                                 ((byte[] childContinuation) -> childPlan
                                         .executePlan(store, context, childContinuation, childExecuteProperties)
-                                        .map(result -> result.getQueriedRecord(0))))
+                                        .map(QueryResult::getQueriedRecord)))
                         .collect(Collectors.toList()),
                 continuation)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
@@ -175,8 +172,8 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValue;
     }
 
     @Override

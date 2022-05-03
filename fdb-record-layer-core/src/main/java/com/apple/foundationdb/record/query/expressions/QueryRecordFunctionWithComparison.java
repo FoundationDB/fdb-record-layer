@@ -21,15 +21,25 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordFunction;
+import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -38,6 +48,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * A {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} whose value from the record,
@@ -81,8 +92,8 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return store.getContext().join(evalMessageAsync(store, context, record, message));
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
+        return store.getContext().join(evalMessageAsync(store, context, rec, message));
     }
 
     @Override
@@ -93,11 +104,11 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                           @Nullable FDBRecord<M> record, @Nullable Message message) {
-        if (record == null) {
+                                                                           @Nullable FDBRecord<M> rec, @Nullable Message message) {
+        if (rec == null) {
             return CompletableFuture.completedFuture(getComparison().eval(store, context, null));
         }
-        return store.evaluateRecordFunction(context, function, record).thenApply(value -> getComparison().eval(store, context, value));
+        return store.evaluateRecordFunction(context, function, rec).thenApply(value -> getComparison().eval(store, context, value));
     }
 
     @Override
@@ -105,14 +116,81 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
         function.validate(descriptor);
     }
 
+    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 @Nonnull final List<String> fieldNamePrefix) {
+        // TODO for now we only do this for rank but we can do this for more than that
+        if (function instanceof IndexRecordFunction && function.getName().equals(FunctionNames.RANK)) {
+            final var groupingKeyExpression = ((IndexRecordFunction<?>)function).getOperand();
+            final var wholeKeyExpression = groupingKeyExpression.getWholeKey();
+            final var expansionVisitor = new KeyExpressionExpansionVisitor();
+            final var innerBaseQuantifier = outerQuantifierSupplier.get();
+            final var partitioningAndArgumentExpansion =
+                    wholeKeyExpression.expand(
+                            expansionVisitor.push(VisitorState.forQueries(Lists.newArrayList(),
+                                    innerBaseQuantifier,
+                                    fieldNamePrefix)));
+            final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal();
+
+            // construct a select expression that uses a windowed value to express the rank
+            final var partitioningSize = groupingKeyExpression.getGroupingCount();
+            final var partitioningExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
+            final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
+            final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
+            final var rankExpansion =
+                    partitioningAndArgumentExpansion
+                            .toBuilder()
+                            .addQuantifier(innerBaseQuantifier)
+                            .addResultValue(rankValue)
+                            .build();
+            final var rankSelectExpression = rankExpansion.buildSelect();
+            final var rankQuantifier = Quantifier.forEach(GroupExpressionRef.of(rankSelectExpression));
+
+            //
+            // Construct another select expression that applies the predicate on the rank value as well as adds a join
+            // predicate between the outer and the inner base as we model this index access as a semi join
+            //
+
+            // predicate on rank
+            final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValues().size() - 1);
+            final var rankComparisonExpansion =
+                    GraphExpansion.builder()
+                            .addQuantifier(rankQuantifier)
+                            .addPredicate(new ValuePredicate(rankColumnValue, comparison))
+                            .build();
+
+            // join predicate
+            final var selfJoinPredicate =
+                    rankQuantifier.getFlowedObjectValue()
+                            .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
+                                    Bindings.Internal.CORRELATION.bindingName(baseQuantifier.getAlias().toString()), Bindings.Internal.CORRELATION));
+            final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
+
+            final var rankAndJoiningPredicateSelectExpression =
+                    GraphExpansion.ofOthers(rankComparisonExpansion, selfJoinPredicateExpansion).buildSelect();
+            final var rankComparisonQuantifier =
+                    Quantifier.existential(GroupExpressionRef.of(rankAndJoiningPredicateSelectExpression));
+
+            // create a query component that creates a path to this prefix and then applies this to it
+            // this is needed for reapplication of the component if the sub query cannot be matched or only matched with
+            // compensation
+            QueryComponent withPrefix = this;
+            for (int i = fieldNamePrefix.size() - 1; i >= 0;  i--) {
+                final String fieldName = fieldNamePrefix.get(i);
+                withPrefix = Query.field(fieldName).matches(withPrefix);
+            }
+
+            return GraphExpansion.ofExists(rankComparisonQuantifier, withPrefix);
+        }
+
         throw new UnsupportedOperationException();
     }
 
     @Override
     public String toString() {
-        return function.toString() + " " + getComparison();
+        return function + " " + getComparison();
     }
 
     @Override

@@ -44,9 +44,9 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -70,37 +70,37 @@ import static com.apple.foundationdb.record.query.plan.ScanComparisons.anyParame
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.equalities;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.only;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers.equalsObject;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.valuePredicate;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.comparisonKey;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.coveringIndexPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.descendantPlans;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.filterPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inParameterJoinPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionBindingName;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionComparisonKey;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionInParameter;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionInValues;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionValuesSources;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inValuesJoinPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inValuesList;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexName;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexPlanOf;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicates;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicatesFilterPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.queryComponents;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.scanComparisons;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.scanPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.selfOrDescendantPlans;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.unionPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.unorderedUnionPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.comparisonKey;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inParameterJoinPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionBindingName;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionComparisonKey;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionInParameter;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionInValues;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionValuesSources;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inValuesJoinPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inValuesList;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.selfOrDescendantPlans;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
@@ -311,11 +311,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(2045945193, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertMatchesExactly(plan,
-                    fetchFromPartialRecordPlan(inUnionPlan(
-                            coveringIndexPlan().where(indexPlanOf(indexPlan()
-                                    .where(indexName("multi_index"))
-                                    .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison()))))))
-                    ).where(RecordQueryPlanMatchers.inUnionValuesSources(exactly(inUnionInParameter(equalsObject("valueThrees")))))));
+                    fetchFromPartialRecordPlan(
+                            inUnionPlan(
+                                    coveringIndexPlan().where(indexPlanOf(indexPlan()
+                                            .where(indexName("multi_index"))
+                                            .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison()))))))
+                            ).where(RecordQueryPlanMatchers.inUnionValuesSources(exactly(inUnionInParameter(equalsObject("valueThrees")))))));
             assertEquals(1947663752, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -818,11 +819,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                                     .where(indexPlanOf(indexPlan()
                                                             .where(indexName("ind"))
                                                             .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison())))))))
-                                            .where(inValuesList(equalsObject(longList))))
-                            .where(inValuesList(equalsObject(stringList)))));
+                                            .where(inValuesList(equalsObject(stringList))))
+                            .where(inValuesList(equalsObject(longList)))));
 
-            assertEquals(-2124922292, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2055315359, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1217841460, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2110068961, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1810804415, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
@@ -1336,11 +1337,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(417180157, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             // Cascades planner avoids IN-JOIN causing a primary scan and a UNION-ALL
-            unionPlan(
-                    indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([null],[910])"))),
-                    predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
-                            .where(predicates(valuePredicate(fieldValue("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(0, 2))))))
-                    .where(comparisonKey(concat(field("num_value_unique"), primaryKey("MySimpleRecord"))));
+            assertMatchesExactly(plan,
+                    unionPlan(
+                            indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([null],[910])"))),
+                            predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
+                                    .where(predicates(valuePredicate(fieldValue("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(2, 0))))))
+                            .where(comparisonKey(concat(field("num_value_unique"), primaryKey("MySimpleRecord")))));
             assertEquals(-1933328656, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1747054907, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-1932097284, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));

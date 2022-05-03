@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -37,17 +37,17 @@ public interface TranslateValueFunction {
     /**
      * Translate a value to an equivalent value that can be evaluated prior to the operation that we are trying to push
      * through. That operation normally is a {@link RecordQueryFetchFromPartialRecordPlan} but could potentially be
-     * any {@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}.
+     * any {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}.
      * @param value a value that is correlated to a quantifier ranging over the current expression or that is
      *        only externally correlated. External correlations do not matter for translations as they are still
      *        valid after pushing the value though the current operation.
-     * @param newBaseColumnValue a new value that the referencing sub-values should be translated to
+     * @param baseAlias an alias that the referencing sub-values should be rebased to
      * @return an optional containing the translated value if this method is successful in translating the {@code value}
      *         passed in, {@code Optional.empty()} if the value passed in could not be translated.
      */
     @Nonnull
     Optional<Value> translateValue(@Nonnull Value value,
-                                   @Nonnull QuantifiedColumnValue newBaseColumnValue);
+                                   @Nonnull CorrelationIdentifier baseAlias);
 
     /**
      * Shorthand for a function that never translates any value successfully.

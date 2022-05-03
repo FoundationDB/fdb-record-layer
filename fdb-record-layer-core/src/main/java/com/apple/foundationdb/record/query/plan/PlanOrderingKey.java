@@ -119,6 +119,9 @@ public class PlanOrderingKey {
             }
             final int prefixSize;
             if (indexPlan instanceof RecordQueryIndexPlan) {
+                if (!((RecordQueryIndexPlan)indexPlan).hasComparisons()) {
+                    return null;
+                }
                 prefixSize = ((RecordQueryIndexPlan)indexPlan).getComparisons().getEqualitySize();
             } else if (indexPlan instanceof RecordQueryTextIndexPlan) {
                 final TextScan textScan = ((RecordQueryTextIndexPlan)indexPlan).getTextScan();
@@ -174,7 +177,7 @@ public class PlanOrderingKey {
      * Get a key to be evaluated on record results to drive a merge. This key must respect the underlying ordering
      * so that only a single record needs to be buffered from each cursor. And it must uniquely identify duplicates
      * by including the primary key.
-     * @param plans the plans for which to find a compatible ordering
+     * @param plans the plans for which to find a compatible ordering, all of which must have ordering keys
      * @param candidateKey a suggested key to use
      * @param candidateOnly only accept the given candidate
      * @return a comparison key compatible with all the plans

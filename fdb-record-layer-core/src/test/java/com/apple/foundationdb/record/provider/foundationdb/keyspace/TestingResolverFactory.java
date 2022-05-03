@@ -42,6 +42,9 @@ import java.util.Set;
  * performed.
  */
 public class TestingResolverFactory implements BeforeEachCallback, AfterEachCallback {
+    /**
+     * The type of resolver.
+     */
     public enum ResolverType {
         EXTENDED_DIRECTORY_LAYER,
         SCOPED_DIRECTORY_LAYER,

@@ -8,4 +8,6 @@
         files=".*[\\/]protogen[\\/].*"/>
     <suppress checks="JavadocPackage"
         files=".*[\\/]test[\\/].*|.*[\\/]java-proto[23][\\/].*[\\/]metadata[\\/].*"/>
+    <suppress checks="Header"
+        files=".*[\\/]org[\\/]apache[\\/]lucene[\\/]codecs[\\/]lucene84[\\/]LuceneOptimizedPostingsReader.java"/>
 </suppressions>

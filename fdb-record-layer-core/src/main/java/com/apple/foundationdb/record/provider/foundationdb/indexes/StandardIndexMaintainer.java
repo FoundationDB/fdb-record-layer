@@ -621,6 +621,15 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return canDeleteWhere(state, match, evaluated);
     }
 
+    protected boolean canDeleteGroup(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
+        KeyExpression rootExpression = state.index.getRootExpression();
+        if (!(rootExpression instanceof GroupingKeyExpression)) {
+            return false;
+        }
+        final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(rootExpression);
+        return canDeleteWhere(state, match, evaluated);
+    }
+
     // Update index for deleting records where primary key starts with prefix. Prefix must be a prefix of the index grouping.
     @Override
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {

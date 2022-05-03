@@ -91,22 +91,71 @@ public class LuceneIndexExpressions {
      * @param recordType Protobuf meta-data for record type
      */
     public static void validate(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
-        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, overriddeKeyRanges, groupingKeyIndex) -> {
+        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, overriddeKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
         }, null);
     }
 
     /**
-     * Get the types of known document fields.
+     * Information about how a document field is derived from a record field.
+     */
+    // TODO: Make this a JDK 14 record.
+    public static class DocumentFieldDerivation {
+        @Nonnull
+        private final String documentField;
+        @Nonnull
+        private final List<String> recordFieldPath;
+        @Nonnull
+        private final DocumentFieldType type;
+        private final boolean stored;
+
+        public DocumentFieldDerivation(@Nonnull final String documentField, @Nonnull final List<String> recordFieldPath, @Nonnull final DocumentFieldType type, final boolean stored) {
+            this.documentField = documentField;
+            this.recordFieldPath = recordFieldPath;
+            this.type = type;
+            this.stored = stored;
+        }
+
+        @Nonnull
+        public String getDocumentField() {
+            return documentField;
+        }
+
+        @Nonnull
+        public List<String> getRecordFieldPath() {
+            return recordFieldPath;
+        }
+
+        @Nonnull
+        public DocumentFieldType getType() {
+            return type;
+        }
+
+        public boolean isStored() {
+            return stored;
+        }
+    }
+
+    /**
+     * Get the derivations of known document fields.
      * @param root the {@code LUCENE} index root expresison
      * @param recordType Protobuf meta-data for record type
-     * @return a map of document field names to {@link DocumentFieldType}
+     * @return a map of document field names to {@link DocumentFieldDerivation}
      */
-    public static Map<String, DocumentFieldType> getDocumentFieldTypes(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
-        final Map<String, DocumentFieldType> fields = new HashMap<>();
+    public static Map<String, DocumentFieldDerivation> getDocumentFieldDerivations(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
+        final Map<String, DocumentFieldDerivation> fields = new HashMap<>();
         getFields(root,
                 new MetaDataSource(recordType),
-                (source, fieldName, value, type, stored, overriddenKeyRanges, groupingKeyIndex) -> fields.put(fieldName, type),
-                null);
+                (source, fieldName, value, type, stored, overriddenKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
+                    List<String> path = new ArrayList<>();
+                    for (MetaDataSource metaDataSource = source; metaDataSource != null; metaDataSource = metaDataSource.getParent()) {
+                        if (metaDataSource.getField() != null) {
+                            path.add(0, metaDataSource.getField());
+                        }
+                    }
+                    path.add((String)value);
+                    DocumentFieldDerivation derivation = new DocumentFieldDerivation(fieldName, path, type, stored);
+                    fields.put(fieldName, derivation);
+                }, null);
         return fields;
     }
 
@@ -131,7 +180,7 @@ public class LuceneIndexExpressions {
      */
     public interface DocumentDestination<T extends RecordSource<T>> {
         void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable Object value, @Nonnull DocumentFieldType type,
-                      boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex);
+                      boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs);
     }
 
     /**
@@ -211,6 +260,7 @@ public class LuceneIndexExpressions {
 
         boolean fieldStored = false;
         boolean fieldText = false;
+        Map<String, Object> configs = Collections.emptyMap();
         while (true) {
             if (expression instanceof LuceneFunctionKeyExpression.LuceneStored) {
                 LuceneFunctionKeyExpression.LuceneStored storedExpression = (LuceneFunctionKeyExpression.LuceneStored)expression;
@@ -220,6 +270,7 @@ public class LuceneIndexExpressions {
                 LuceneFunctionKeyExpression.LuceneText textExpression = (LuceneFunctionKeyExpression.LuceneText)expression;
                 fieldText = true;
                 expression = textExpression.getFieldExpression();
+                configs = textExpression.getFieldConfigs();
             } else {
                 // TODO: More text options.
                 break;
@@ -271,7 +322,7 @@ public class LuceneIndexExpressions {
             }
             for (Object value : source.getValues(fieldExpression)) {
                 destination.addField(source, fieldName, value, fieldType, fieldStored,
-                        overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1);
+                        overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1, configs);
             }
             if (suffixOverride) {
                 // Remove the last 2 numbers added above
@@ -312,69 +363,25 @@ public class LuceneIndexExpressions {
     }
 
     static class MetaDataSource implements RecordSource<MetaDataSource> {
-        @Nonnull
-        private final Descriptors.Descriptor descriptor;
-
-        MetaDataSource(@Nonnull Descriptors.Descriptor descriptor) {
-            this.descriptor = descriptor;
-        }
-
-        @Override
-        public Descriptors.Descriptor getDescriptor() {
-            return descriptor;
-        }
-
-        @Override
-        public Iterable<MetaDataSource> getChildren(final FieldKeyExpression parentExpression) {
-            Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(parentExpression.getFieldName());
-            return Collections.singletonList(new MetaDataSource(fieldDescriptor.getMessageType()));
-        }
-
-        @Override
-        public Iterable<Object> getValues(final FieldKeyExpression fieldExpression) {
-            // Something that will be deterministic & suggestive if interpolated into document field name.
-            return Collections.singletonList("${" + fieldExpression.getFieldName() + "}");
-        }
-    }
-
-    // TODO: Until do a better job of matching predicates and indexed fields.
-    public static List<List<String>> getRecordFieldsPaths(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor descriptor) {
-        final List<List<String>> paths = new ArrayList<>();
-        getFields(root,
-                new PathMetaDataSource(descriptor),
-                (source, fieldName, value, type, stored, overriddenKeyRanges, groupingKeyIndex) -> {
-                    List<String> path = new ArrayList<>();
-                    for (PathMetaDataSource metaDataSource = source; metaDataSource != null; metaDataSource = metaDataSource.getParent()) {
-                        if (metaDataSource.getField() != null) {
-                            path.add(0, metaDataSource.getField());
-                        }
-                    }
-                    path.add((String)value);
-                    paths.add(path);
-                }, null);
-        return paths;
-    }
-
-    static class PathMetaDataSource implements RecordSource<PathMetaDataSource> {
         @Nullable
-        private final PathMetaDataSource parent;
+        private final MetaDataSource parent;
         @Nullable
         private final String field;
         @Nonnull
         private final Descriptors.Descriptor descriptor;
 
-        PathMetaDataSource(@Nonnull Descriptors.Descriptor descriptor) {
+        MetaDataSource(@Nonnull Descriptors.Descriptor descriptor) {
             this(null, null, descriptor);
         }
 
-        PathMetaDataSource(@Nullable PathMetaDataSource parent, @Nullable String field, @Nonnull Descriptors.Descriptor descriptor) {
+        MetaDataSource(@Nullable MetaDataSource parent, @Nullable String field, @Nonnull Descriptors.Descriptor descriptor) {
             this.parent = parent;
             this.field = field;
             this.descriptor = descriptor;
         }
 
         @Nullable
-        public PathMetaDataSource getParent() {
+        public MetaDataSource getParent() {
             return parent;
         }
 
@@ -389,10 +396,10 @@ public class LuceneIndexExpressions {
         }
 
         @Override
-        public Iterable<PathMetaDataSource> getChildren(@Nonnull FieldKeyExpression parentExpression) {
+        public Iterable<MetaDataSource> getChildren(@Nonnull FieldKeyExpression parentExpression) {
             final String parentField = parentExpression.getFieldName();
             final Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(parentField);
-            return Collections.singletonList(new PathMetaDataSource(this, parentField, fieldDescriptor.getMessageType()));
+            return Collections.singletonList(new MetaDataSource(this, parentField, fieldDescriptor.getMessageType()));
         }
 
         @Override

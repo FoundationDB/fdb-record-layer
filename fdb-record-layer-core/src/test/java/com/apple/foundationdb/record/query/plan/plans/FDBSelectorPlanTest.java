@@ -30,8 +30,9 @@ import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.predicates.Value;
-import com.apple.foundationdb.record.query.predicates.ValuePickerValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValuePickerValue;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -51,6 +52,9 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Tests for {@link RecordQuerySelectorPlan}.
+ */
 @Tag(Tags.RequiresFDB)
 public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
     int mockSelectionCount;
@@ -172,13 +176,11 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
 
         RecordQueryPlan plan = RecordQuerySelectorPlan.from(plan(query1, query2), List.of(50, 50));
 
-        List<? extends Value> resultValues = plan.getResultValues();
-        assertThat(resultValues.size(), is(1));
-        ValuePickerValue value = (ValuePickerValue)resultValues.get(0);
+        ValuePickerValue value = (ValuePickerValue)plan.getResultValue();
         List<Value> subValues = ImmutableList.copyOf(value.getChildren());
         assertThat(subValues.size(), is(2));
-        assertThat(subValues.get(0), is(plan.getQuantifiers().get(0).getFlowedValues().get(0)));
-        assertThat(subValues.get(1), is(plan.getQuantifiers().get(1).getFlowedValues().get(0)));
+        assertThat(((QuantifiedObjectValue)subValues.get(0)).getAlias(), is(plan.getQuantifiers().get(0).getAlias()));
+        assertThat(((QuantifiedObjectValue)subValues.get(1)).getAlias(), is(plan.getQuantifiers().get(1).getAlias()));
     }
 
     private PlanSelector mockSelector() {

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;

@@ -23,7 +23,9 @@
  *
  * <p>
  * Lucene indexes are backed by FDB, using {@link com.apple.foundationdb.record.lucene.directory.FDBDirectory} to implement a virtual file system holding the inverted index files.
- * This is not fundamental, though. This maintainer used standard {@link org.apache.lucene.index.IndexWriter} and {@link org.apache.lucene.index.IndexReader}, gotten with {@link com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync#getOrCreateIndexWriter getOrCreateIndexWriter}, for interfacing to Lucene.
+ * This is not fundamental, though. This maintainer used standard {@link org.apache.lucene.index.IndexWriter} and {@link org.apache.lucene.index.IndexReader}, gotten with
+ * {@link com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager#getIndexWriter(com.apple.foundationdb.tuple.Tuple, LuceneAnalyzerWrapper) getIndexWriter},
+ * for interfacing to Lucene.
  * </p>
  *
  * <p>
@@ -51,8 +53,8 @@
  * A special {@link com.apple.foundationdb.record.lucene.LucenePlanner} is able to synthesize these from regular query expressions and Lucene search syntax.
  * </p>
  *
- * @see com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync
  * @see com.apple.foundationdb.record.lucene.directory.FDBDirectory
+ * @see com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager
  * @see com.apple.foundationdb.record.lucene.LuceneIndexExpressions
  * @see com.apple.foundationdb.record.lucene.LuceneFunctionNames
  *

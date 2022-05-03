@@ -24,7 +24,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Create a transactional runner that does not retry [(Issue #1615)](https://github.com/FoundationDB/fdb-record-layer/issues/1615)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,65 @@ This version of the Record Layer changes the Java source and target compatibilit
 
 // end next release
 -->
+
+### 3.1.255.0
+
+* **Feature** Support auto-complete suggestions for phrases [(Issue #1630)](https://github.com/FoundationDB/fdb-record-layer/issues/1630)
+
+### 3.1.254.0
+
+* **Feature** Have separate analyzer pairs for Lucene full-text search and auto-complete suggestions [(Issue #1627)](https://github.com/FoundationDB/fdb-record-layer/issues/1627)
+
+### 3.1.253.0
+
+* **Performance** An optimized BlendedInfixSuggester for auto-complete suggestion, that does not store term vectors [(Issue #1624)](https://github.com/FoundationDB/fdb-record-layer/issues/1624)
+* **Performance** A file sequence counter used to map file names to an internal ID by the Lucene directory implementation is now cached in memory [(Issue #1577)](https://github.com/FoundationDB/fdb-record-layer/issues/1577)
+
+### 3.1.252.0
+
+
+### 3.1.251.0
+
+* **Bug fix** Scans of empty Lucene index now return an empty cursor instead of throwing and error [(Issue #1597)](https://github.com/FoundationDB/fdb-record-layer/issues/1597)
+* **Feature** The `LuceneIndexMaintainer` now supports delete where operations if the filter is on the grouping columns of the index [(Issue #1582)](https://github.com/FoundationDB/fdb-record-layer/issues/1582)
+
+### 3.1.250.0
+
+* **Bug fix** FDBDatabaseRunnerImpl correctly trends towards maxDelayMillis, not 0 [(Issue #1565)](https://github.com/FoundationDB/fdb-record-layer/issues/1565)
+
+### 3.1.249.0
+
+* **Bug fix** Delete records where limits indexes on grouping key expressions to predicates that can be satisfied by only the grouping columns [(Issue #1583)](https://github.com/FoundationDB/fdb-record-layer/issues/1583)
+
+### 3.1.248.0
+
+* **Bug fix** Blocking calls within the Lucene index maintainer implementation now use `asyncToSync` to wrap exceptions, control timeouts, and report metrics [(Issue #1571)](https://github.com/FoundationDB/fdb-record-layer/issues/1571)
+* **Performance** The Lucene directory implementation now caches the complete list of files in a directory [(Issue #1575)](https://github.com/FoundationDB/fdb-record-layer/issues/1575)
+* **Performance** Improve performance of chooseK algorithm by using integer counters for state management instead of Iterator heap objects [(Issue #1590)](https://github.com/FoundationDB/fdb-record-layer/issues/1590)
+
+### 3.1.247.0
+
+* **Bug fix** "rebuilding index failed" does not include primary_key [(Issue #1572)](https://github.com/FoundationDB/fdb-record-layer/issues/1572)
+* **Bug fix** Delete records where now handles indexes on key-with-value expressions that split at locations that are in the middle of function key expressions [(Issue #1563)](https://github.com/FoundationDB/fdb-record-layer/issues/1563)
+
+### 3.1.246.0
+
+* **Feature** Lucene plans should support simple comparisons on indexed fields and fielded search [(Issue #1238)](https://github.com/FoundationDB/fdb-record-layer/issues/1238)
+* **Breaking change** Adjust Lucene index to use new scan bounds [(Issue #1517)](https://github.com/FoundationDB/fdb-record-layer/issues/1517)
+* **Breaking change** Lucene index entry grouping key consistency [(Issue #1528)](https://github.com/FoundationDB/fdb-record-layer/issues/1528)
+* **Breaking change** Lucene specific code should be in the lucene module [(Issue #1529)](https://github.com/FoundationDB/fdb-record-layer/issues/1529)
+
+### 3.1.244.0
+
+* **Feature** Type system for Values [(Issue #1545](https://github.com/FoundationDB/fdb-record-layer/issues/1545)
+
+### 3.1.243.0
+
+* **Feature** Index scrubber - return the count of bad entries found [(Issue #1547)](https://github.com/FoundationDB/fdb-record-layer/issues/1547)
+* **Feature** Allow scrubbing of non-"value" indexes [(Issue #1551)](https://github.com/FoundationDB/fdb-record-layer/issues/1551)
+
+### 3.1.242.0
+
 
 ### 3.1.241.0
 

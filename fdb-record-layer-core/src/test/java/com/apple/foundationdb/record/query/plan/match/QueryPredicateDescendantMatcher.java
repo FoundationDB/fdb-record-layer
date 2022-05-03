@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.match;
 
-import com.apple.foundationdb.record.query.predicates.AndOrPredicate;
-import com.apple.foundationdb.record.query.predicates.NotPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;

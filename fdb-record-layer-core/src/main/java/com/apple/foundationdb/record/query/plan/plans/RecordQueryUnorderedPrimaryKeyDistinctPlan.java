@@ -29,16 +29,15 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -53,7 +52,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A query plan that removes duplicates by means of a hash table of primary keys already seen.
@@ -66,8 +64,6 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
     @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_PK_DISTINCT);
     @Nonnull
@@ -82,7 +78,6 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull Quantifier.Physical inner) {
         this.inner = inner;
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Nonnull
@@ -93,7 +88,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final Set<Tuple> seen = new HashSet<>();
         return getInner().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
-                .filterInstrumented(result -> seen.add(result.getQueriedRecord(0).getPrimaryKey()), store.getTimer(),
+                .filterInstrumented(result -> seen.add(result.getQueriedRecord().getPrimaryKey()), store.getTimer(),
                         Collections.emptySet(), duringEvents, uniqueCounts, duplicateCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
@@ -146,8 +141,8 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedObjectValue();
     }
 
     @Override

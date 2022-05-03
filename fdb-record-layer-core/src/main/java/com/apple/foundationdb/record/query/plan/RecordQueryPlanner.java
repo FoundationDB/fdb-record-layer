@@ -82,8 +82,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimar
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.UnorderedPrimaryKeyDistinctVisitor;
@@ -511,6 +511,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         final ScoredPlan scoredPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), true);
         if (scoredPlan != null) {
             scoredPlan.planOrderingKey = inExtractor.adjustOrdering(scoredPlan.planOrderingKey, true);
+            if (scoredPlan.planOrderingKey == null) {
+                return null;
+            }
             final KeyExpression candidateKey = getKeyForMerge(planContext.query.getSort(), planContext.commonPrimaryKey);
             final KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(Collections.singletonList(scoredPlan), candidateKey, true);
             if (comparisonKey == null) {
@@ -624,26 +627,15 @@ public class RecordQueryPlanner implements QueryPlanner {
                 GroupingKeyExpression grouping = (GroupingKeyExpression) indexExpr;
                 p = planRank(candidateScan, index, grouping, filter);
                 indexExpr = grouping.getWholeKey(); // Plan as just value index.
-            } else if (indexTypes.getTextTypes().contains(index.getType())) {
-                p = planText(candidateScan, index, filter, sort);
-                if (p != null) {
-                    p = planRemoveDuplicates(planContext, p);
-                }
-                if (p != null) {
-                    p = computeIndexFilters(planContext, p);
-                }
-                return p;
-            } else if (indexTypes.getLuceneTypes().contains(index.getType())) {
-                p = planLucene(candidateScan, index, filter, sort);
-                if (p != null) {
-                    p = planRemoveDuplicates(planContext, p);
-                }
-                if (p != null) {
-                    p = computeIndexFilters(planContext, p);
-                }
-                return p;
             } else if (!indexTypes.getValueTypes().contains(index.getType())) {
-                return null;
+                p = planOther(candidateScan, index, filter, sort);
+                if (p != null) {
+                    p = planRemoveDuplicates(planContext, p);
+                }
+                if (p != null) {
+                    p = computeIndexFilters(planContext, p);
+                }
+                return p;
             }
         }
         if (p == null) {
@@ -691,6 +683,8 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         return p;
     }
+
+
 
     private ScoredPlan computeIndexFilters(@Nonnull PlanContext planContext, @Nonnull final ScoredPlan plan) {
         if (plan.plan instanceof RecordQueryPlanWithIndex) {
@@ -1343,10 +1337,14 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    protected ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
-                                @Nonnull Index index, @Nonnull QueryComponent filter,
-                                @Nullable KeyExpression sort) {
-        return null;
+    protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
+                                   @Nonnull Index index, @Nonnull QueryComponent filter,
+                                   @Nullable KeyExpression sort) {
+        if (indexTypes.getTextTypes().contains(index.getType())) {
+            return planText(candidateScan, index, filter, sort);
+        } else {
+            return null;
+        }
     }
 
     @Nullable

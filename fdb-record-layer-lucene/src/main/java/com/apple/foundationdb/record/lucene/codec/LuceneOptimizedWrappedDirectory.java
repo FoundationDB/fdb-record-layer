@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import org.apache.lucene.store.BufferedChecksumIndexInput;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
@@ -32,10 +31,18 @@ import org.apache.lucene.store.Lock;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isEntriesFile;
 import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isSegmentInfo;
 
+
+/**
+ * An Optimized Directory that understands that we store segments and names in the file reference instead of
+ * stand-alone files.
+ *
+ */
 class LuceneOptimizedWrappedDirectory extends Directory {
     private final FDBDirectory fdbDirectory;
     private final Directory wrappedDirectory;
@@ -108,8 +115,22 @@ class LuceneOptimizedWrappedDirectory extends Directory {
         throw new UnsupportedOperationException("Not Supported");
     }
 
+    /**
+     * Places a prefetchable buffer over the checksum input in an attempt to pipeline reads when an
+     * FDBIndexOutput performs a copyBytes operation.
+     *
+     * @param name file name
+     * @param context io context
+     * @return ChecksumIndexInput
+     * @throws IOException ioexception
+     */
     @Override
     public ChecksumIndexInput openChecksumInput(final String name, final IOContext context) throws IOException {
-        return new BufferedChecksumIndexInput(openInput(name, context));
+        return new PrefetchableBufferedChecksumIndexInput(openInput(name, context));
+    }
+
+    @Override
+    public Set<String> getPendingDeletions() throws IOException {
+        return Collections.emptySet();
     }
 }

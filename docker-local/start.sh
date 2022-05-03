@@ -37,7 +37,7 @@ fi
 RUNDIR=${ROOTDIR}/run
 mkdir -p ${RUNDIR}
 
-FDB_VERSION="${FDB_VERSION:-6.3.18}"
+FDB_VERSION="${FDB_VERSION:-6.3.24}"
 FDB_PORT="${FDB_PORT:-14550}"
 
 FDB_CLUSTER_FILE=${RUNDIR}/docker.cluster
@@ -48,16 +48,25 @@ FDB_LIBRARY_FILE=${RUNDIR}/libfdb_c_${FDB_VERSION}.${SO_SUFFIX}
 if [ ! -x ${FDB_CLI_FILE} ]; then
     cd /tmp
     if [ $OS == 'macOS' ]; then
-        curl -L -O https://www.foundationdb.com/downloads/${FDB_VERSION}/${OS}/installers/FoundationDB-${FDB_VERSION}.pkg
+        curl -L -O https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/FoundationDB-${FDB_VERSION}.pkg
+        curl -L -O https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/FoundationDB-${FDB_VERSION}.pkg.sha256
+        echo '' '' FoundationDB-${FDB_VERSION}.pkg >>FoundationDB-${FDB_VERSION}.pkg.sha256
+        shasum -a 256 -c FoundationDB-${FDB_VERSION}.pkg.sha256 || exit 1
         pkgutil --expand-full FoundationDB-${FDB_VERSION}.pkg fdbpkg
         mv fdbpkg/FoundationDB-clients.pkg/Payload/usr/local/bin/fdbcli ${FDB_CLI_FILE}
         mv fdbpkg/FoundationDB-clients.pkg/Payload/usr/local/lib/libfdb_c.${SO_SUFFIX} ${FDB_LIBRARY_FILE}
-        rm -rf fdbpkg FoundationDB-${FDB_VERSION}.pkg
+        rm -rf fdbpkg FoundationDB-${FDB_VERSION}.pkg FoundationDB-${FDB_VERSION}.pkg.sha256
     else
-        curl -L -O https://www.foundationdb.com/downloads/${FDB_VERSION}/${OS}/fdb_${FDB_VERSION}.tar.gz
-        tar fx fdb_${FDB_VERSION}.tar.gz
-        mv fdb_binaries/fdbcli ${FDB_CLI_FILE}
-        rm -rf fdb_binaries fdb_${FDB_VERSION}.tar.gz
+        curl -L -O https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/fdbcli.x86_64
+        curl -L -O https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/fdbcli.x86_64.sha256
+        curl -L -O https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/libfdb_c.x86_64.so
+        curl -L -O https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/libfdb_c.x86_64.so.sha256
+        echo $(cat fdbcli.x86_64.sha256) '' fdbcli.x86_64 >fdb.sha256
+        echo $(cat libfdb_c.x86_64.so.sha256) '' libfdb_c.x86_64.so >>fdb.sha256
+        shasum -a 256 -c fdb.sha256 || exit 1
+        mv fdbcli.x86_64 ${FDB_CLI_FILE}
+        mv libfdb_c.x86_64.so ${FDB_LIBRARY_FILE}
+        rm -rf fdbcli.x86_64.sha256 libfdb_c.x86_64.so.sha256 fdb.sha256
     fi
 fi
 
@@ -73,7 +82,7 @@ ln -s libfdb_c_${FDB_VERSION}.${SO_SUFFIX} libfdb_c.${SO_SUFFIX}
 cd ../docker-local
 FDB_VERSION=$FDB_VERSION FDB_PORT=$FDB_PORT docker-compose up --detach fdb
 
-if ! ${RUNDIR}/fdbcli -C $FDB_CLUSTER_FILE --exec status --timeout 1 ; then
+if ! ${RUNDIR}/fdbcli -C $FDB_CLUSTER_FILE --exec status --timeout 1 2>/dev/null ; then
     if ! ${RUNDIR}/fdbcli -C $FDB_CLUSTER_FILE --exec "configure new single memory ; status" --timeout 10 ; then 
         echo "Unable to configure new FDB cluster."
         exit 1

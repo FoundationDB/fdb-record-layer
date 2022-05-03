@@ -26,6 +26,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Objects;
 
+/**
+ * Tests for {@link RecordLayerPropertyStorage}.
+ */
 public class RecordLayerPropertyTest {
     @Test
     void testDefaultPropertyValue() {

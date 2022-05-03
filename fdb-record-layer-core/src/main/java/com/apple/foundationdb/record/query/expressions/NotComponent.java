@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.apple.foundationdb.record.query.predicates.NotPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -38,6 +38,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * A {@link QueryComponent} that is satisfied when its child component is not satisfied.
@@ -67,15 +68,15 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return invert(getChild().evalMessage(store, context, record, message));
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
+        return invert(getChild().evalMessage(store, context, rec, message));
     }
 
     @Override
     @Nonnull
     public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                           @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return getChild().evalMessageAsync(store, context, record, message).thenApply(this::invert);
+                                                                           @Nullable FDBRecord<M> rec, @Nullable Message message) {
+        return getChild().evalMessageAsync(store, context, rec, message).thenApply(this::invert);
     }
 
     @Override
@@ -147,8 +148,10 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
 
     @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
-        final GraphExpansion childGraphExpansion = child.expand(base, fieldNamePrefix);
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 @Nonnull final List<String> fieldNamePrefix) {
+        final GraphExpansion childGraphExpansion = child.expand(baseQuantifier, outerQuantifierSupplier, fieldNamePrefix);
         return childGraphExpansion.withPredicate(NotPredicate.not(childGraphExpansion.asAndPredicate()));
     }
 }

@@ -30,7 +30,22 @@ public class LuceneFunctionNames {
     public static final String LUCENE_FIELD_NAME = "lucene_field_name";
     public static final String LUCENE_STORED = "lucene_stored";
     public static final String LUCENE_TEXT = "lucene_text";
+    public static final String LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS = "lucene_full_text_field_index_options";
+    public static final String LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS = "lucene_full_text_field_with_term_vectors";
+    public static final String LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS = "lucene_full_text_field_with_term_vector_positions";
+    public static final String LUCENE_FULL_TEXT_FIELD_WITH_OMIT_NORMS = "lucene_full_text_field_with_omit_norms";
+    public static final String LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS = "lucene_auto_complete_field_index_options";
 
     private LuceneFunctionNames() {
+    }
+
+    /**
+     * Option keys for {@link #LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS}.
+     */
+    public enum LuceneFieldIndexOptions {
+        DOCS,
+        DOCS_AND_FREQS,
+        DOCS_AND_FREQS_AND_POSITIONS,
+        DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS,
     }
 }

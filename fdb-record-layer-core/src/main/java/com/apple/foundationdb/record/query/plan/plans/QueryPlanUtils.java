@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -49,12 +48,11 @@ public class QueryPlanUtils {
                                                                                                                              final @Nonnull String recordTypeName,
                                                                                                                              final @Nonnull String indexName,
                                                                                                                              final @Nonnull IndexKeyValueToPartialRecord toRecord,
-                                                                                                                             final @Nonnull IndexScanType scanType) {
+                                                                                                                             final boolean hasPrimaryKey) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final RecordType recordType = metaData.getRecordType(recordTypeName);
         final Index index = metaData.getIndex(indexName);
         final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
-        boolean hasPrimaryKey = scanType != IndexScanType.BY_GROUP && scanType != IndexScanType.BY_LUCENE_AUTO_COMPLETE && scanType != IndexScanType.BY_LUCENE_SPELLCHECK;
         return indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey);
     }
 }

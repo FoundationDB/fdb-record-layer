@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -37,6 +37,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * Base component interface for checking whether a given record matches a query.
@@ -64,14 +65,14 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      * @param <M> the type of records
      * @param store the record store from which the record came
      * @param context context against which evaluation takes place
-     * @param record a record of the appropriate record type for this component
+     * @param rec a record of the appropriate record type for this component
      * @return true/false/null, true if the given record should be included in results, false if it should not, and
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
     default <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                             @Nullable FDBRecord<M> record) {
-        return evalMessage(store, context, record, record == null ? null : record.getRecord());
+                                             @Nullable FDBRecord<M> rec) {
+        return evalMessage(store, context, rec, rec == null ? null : rec.getRecord());
     }
 
     /**
@@ -89,28 +90,28 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      * @param <M> the type of record
      * @param store the record store from which the record came
      * @param context context for bound expressions
-     * @param record the record
+     * @param rec the record
      * @param message the Protobuf message to evaluate against
      * @return true/false/null, true if the given record should be included in results, false if it should not, and
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
     <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                            @Nullable FDBRecord<M> record, @Nullable Message message);
+                                            @Nullable FDBRecord<M> rec, @Nullable Message message);
 
     /**
      * Asynchronous version of {@code eval}.
      * @param <M> the type of records
      * @param store the record store from which the record came
      * @param context context against which evaluation takes place
-     * @param record a record of the appropriate record type for this component
+     * @param rec a record of the appropriate record type for this component
      * @return a future that completes with whether the record should be included in the query result
      * @see #eval
      */
     @Nonnull
     default <M extends Message> CompletableFuture<Boolean> evalAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                     @Nullable FDBRecord<M> record) {
-        return evalMessageAsync(store, context, record, record == null ? null : record.getRecord());
+                                                                     @Nullable FDBRecord<M> rec) {
+        return evalMessageAsync(store, context, rec, rec == null ? null : rec.getRecord());
     }
 
     /**
@@ -119,14 +120,14 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      * @param <M> the type of record
      * @param store the record store from which the record came
      * @param context context for bound expressions
-     * @param record the record
+     * @param rec the record
      * @param message the Protobuf message to evaluate against
      * @return a future that completes with whether the record should be included in the query result
      */
     @Nonnull
     default <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                            @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return CompletableFuture.completedFuture(evalMessage(store, context, record, message));
+                                                                            @Nullable FDBRecord<M> rec, @Nullable Message message) {
+        return CompletableFuture.completedFuture(evalMessage(store, context, rec, message));
     }
 
     /**
@@ -148,26 +149,30 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
     /**
      * Expand this query component into a data flow graph. The returned graph represents an adequate representation
      * of the component as composition of relational expressions and operators.
-     * @param baseAlias a an alias that refers to the data flow equivalent of an input to this component
+     * @param baseQuantifier a quantifier that flows the data for this level of expansion
+     * @param outerQuantifierSupplier a supplier that creates additional base accesses for the purpose of
+     *        creating semi joins with the actual outer base referred to by means of {@code baseAlias}
      * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
      * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
      */
     @API(API.Status.EXPERIMENTAL)
-    default GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias) {
-        return expand(baseAlias, Collections.emptyList());
+    default GraphExpansion expand(@Nonnull Quantifier.ForEach baseQuantifier, @Nonnull Supplier<Quantifier.ForEach> outerQuantifierSupplier) {
+        return expand(baseQuantifier, outerQuantifierSupplier, Collections.emptyList());
     }
 
     /**
      * Expand this query component into a data flow graph. The returned graph represents an adequate representation
      * of the component as composition of relational expressions and operators.
-     * @param baseAlias a an alias that refers to the data flow equivalent of an input to this component
+     * @param baseQuantifier a quantifier that flows the data for this level of expansion
+     * @param outerQuantifierSupplier a supplier that can create additional base accesses for the purpose of
+     *        constructing semi joins with the actual outer base referred to by means of {@code baseAlias}
      * @param fieldNamePrefix a list of field names that accumulate a field nesting chain for non-repeated fields
      * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
      * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
-     * TODO make this method private in Java 11
      */
     @API(API.Status.EXPERIMENTAL)
-    GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix);
+    @Nonnull
+    GraphExpansion expand(@Nonnull Quantifier.ForEach baseQuantifier, @Nonnull Supplier<Quantifier.ForEach> outerQuantifierSupplier, @Nonnull List<String> fieldNamePrefix);
 
     @Nonnull
     default QueryComponent withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -40,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -83,6 +85,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     void testScrubberSimpleMissing() throws ExecutionException, InterruptedException {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 50;
+        long res;
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
@@ -101,11 +104,12 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubMissingIndexEntries();
+            res = indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, res);
 
         // manually delete a few index entries
         openSimpleMetaData(hook);
@@ -132,11 +136,12 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubMissingIndexEntries();
+            res = indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(missingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(missingCount, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(missingCount, res);
 
         // now verify it's fixed
         timer.reset();
@@ -146,18 +151,19 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubMissingIndexEntries();
+            res = indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, res);
     }
-
 
     @Test
     void testScrubberSimpleDangling() throws ExecutionException, InterruptedException {
         final FDBStoreTimer timer = new FDBStoreTimer();
         long numRecords = 51;
+        long res;
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
@@ -175,11 +181,12 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
+            res = indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, res);
 
         // manually delete a few records w/o updating the indexes
         openSimpleMetaData(hook);
@@ -207,11 +214,12 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .setAllowRepair(false))
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
+            res = indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(danglingCount, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(danglingCount, res);
 
         // verify the missing entries are found and fixed
         timer.reset();
@@ -222,11 +230,13 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
+            res = indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(danglingCount, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(danglingCount, res);
+
         numRecords -= danglingCount; // if the dangling indexes were removed, this should be reflected later
 
         // now verify it's fixed
@@ -238,11 +248,12 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
+            res = indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, res);
     }
 
     @Test
@@ -251,6 +262,8 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         final int numRecords = 52;
         final int chunkSize = 7;
         final int numChunks = 1 + (numRecords / chunkSize);
+        long resDangling;
+        long resMissing;
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
@@ -272,13 +285,16 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .setLimit(chunkSize)
                 .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
-            indexScrubber.scrubMissingIndexEntries();
+            resDangling = indexScrubber.scrubDanglingIndexEntries();
+            resMissing = indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numChunks * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, resDangling);
+        assertEquals(0, resMissing);
+
 
         // Scrub dangling with a quota
         timer.reset();
@@ -289,13 +305,13 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .setLimit(chunkSize)
                 .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
+            resDangling = indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(chunkSize, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
-
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, resDangling);
 
         // Scrub both with a quota
         timer.reset();
@@ -306,18 +322,19 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .setLimit(chunkSize)
                 .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
-            indexScrubber.scrubMissingIndexEntries();
+            resDangling = indexScrubber.scrubDanglingIndexEntries();
+            resMissing = indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(chunkSize * 3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, resDangling);
+        assertEquals(0, resMissing);
     }
 
     @Test
     void testScrubberInvalidIndexState() {
-        final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 20;
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -354,5 +371,36 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
             assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubDanglingIndexEntries);
             assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubMissingIndexEntries);
         }
+    }
+
+    @Test
+    void testScrubberNonValueIndex() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        long numRecords = 9;
+
+        final Index tgtIndex = new Index("myVersionIndex", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndex(tgtIndex);
+
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .ignoreIndexTypeCheck() // required to allow non-value index scrubbing
+                        .build())
+                .setTimer(timer)
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
     }
 }

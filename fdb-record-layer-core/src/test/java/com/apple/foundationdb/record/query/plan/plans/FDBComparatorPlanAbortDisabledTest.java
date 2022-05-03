@@ -26,6 +26,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 
+/**
+ * Test with {@code abortOnComparisonFailure} off.
+ */
 public class FDBComparatorPlanAbortDisabledTest extends FDBComparatorPlanTest {
     @BeforeEach
     void setup() {

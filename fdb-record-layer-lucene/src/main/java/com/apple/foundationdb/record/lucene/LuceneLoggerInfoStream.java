@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import org.apache.lucene.util.InfoStream;
 import org.slf4j.Logger;
 
@@ -41,7 +40,7 @@ public class LuceneLoggerInfoStream extends InfoStream {
     @Override
     public void message(String component, String message) {
         if (loggerForStreamOutput.isTraceEnabled()) {
-            loggerForStreamOutput.trace(KeyValueLogMessage.of(message, LogMessageKeys.COMPONENT, component));
+            loggerForStreamOutput.trace(KeyValueLogMessage.of(message, LuceneLogMessageKeys.COMPONENT, component));
         }
     }
 
@@ -52,5 +51,6 @@ public class LuceneLoggerInfoStream extends InfoStream {
 
     @Override
     public void close() {
+        // Nothing to close
     }
 }

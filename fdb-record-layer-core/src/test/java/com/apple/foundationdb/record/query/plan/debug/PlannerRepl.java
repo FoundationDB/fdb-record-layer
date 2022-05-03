@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
-import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlanContext;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.google.common.cache.Cache;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -99,7 +99,7 @@ public class PlannerRepl implements Debugger {
     private int currentInternalBreakPointIndex;
 
     @Nullable
-    private RecordQuery recordQuery;
+    private String queryAsString;
     @Nullable
     private PlanContext planContext;
 
@@ -175,9 +175,14 @@ public class PlannerRepl implements Debugger {
     }
 
     @Override
-    public void onQuery(@Nonnull final RecordQuery recordQuery, @Nonnull final PlanContext planContext) {
+    public void onShow(@Nonnull final ExpressionRef<? extends RelationalExpression> ref) {
+        PlannerGraphProperty.show(true, ref);
+    }
+
+    @Override
+    public void onQuery(@Nonnull final String queryAsString, @Nonnull final PlanContext planContext) {
         this.stateStack.push(State.copyOf(getCurrentState()));
-        this.recordQuery = recordQuery;
+        this.queryAsString = queryAsString;
         this.planContext = planContext;
 
         printlnQuery();
@@ -221,7 +226,7 @@ public class PlannerRepl implements Debugger {
         if (lineReader == null) {
             return;
         }
-        Objects.requireNonNull(recordQuery);
+        Objects.requireNonNull(queryAsString);
         Objects.requireNonNull(planContext);
 
         final State state = getCurrentState();
@@ -426,13 +431,11 @@ public class PlannerRepl implements Debugger {
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
         this.planContext = null;
-        this.recordQuery = null;
+        this.queryAsString = null;
     }
 
     void printlnQuery() {
-        getSilently("query.toString()", () -> Objects.requireNonNull(recordQuery).toString())
-                .ifPresent(queryAsString ->
-                        printlnKeyValue("query", queryAsString));
+        printlnKeyValue("query", queryAsString);
     }
 
     void printlnReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {

@@ -25,11 +25,11 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.predicates.AndOrPredicate;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.predicates.NotPredicate;
-import com.apple.foundationdb.record.query.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -67,6 +67,9 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.INTERNAL)
 public class BooleanPredicateNormalizer {
+    /**
+     * The target normal form.
+     */
     @SpotBugsSuppressWarnings(justification = "https://github.com/spotbugs/spotbugs/issues/740", value = "SE_BAD_FIELD")
     public enum Mode {
         DNF(OrPredicate.class, OrPredicate::or, AndPredicate.class, AndPredicate::and),

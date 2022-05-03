@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.engine.discovery.MethodSelector;
 import org.junit.platform.launcher.Launcher;

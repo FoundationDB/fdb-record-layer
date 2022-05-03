@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
 import org.apache.lucene.index.IndexFileNames;
@@ -53,13 +56,22 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     }
 
     @Override
-    public Directory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
+    public CompoundDirectory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
         dir = (dir instanceof LuceneOptimizedWrappedDirectory) ? dir : new LuceneOptimizedWrappedDirectory(dir);
         return new LuceneOptimizedCompoundReader(dir, si, context);
     }
 
     @Override
     public void write(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
+        // Make sure all fetches are initiated in advance of the compoundFormat sequentially stepping through them.
+        si.files().stream().forEach(file -> {
+            try {
+                dir.openInput(file, IOContext.READONCE);
+            } catch (IOException ioe) {
+                throw new RecordCoreArgumentException("Cannot open input for file", ioe)
+                        .addLogInfo(LogMessageKeys.SOURCE_FILE, file);
+            }
+        });
         compoundFormat.write(new LuceneOptimizedWrappedDirectory(dir), si, context);
         final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
         si.setFiles(si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet()));

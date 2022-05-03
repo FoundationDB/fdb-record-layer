@@ -21,19 +21,22 @@
 package com.apple.foundationdb.record.lucene.ngram;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.lucene.AnalyzerChooser;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerType;
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.google.auto.service.AutoService;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.StopFilter;
 import org.apache.lucene.analysis.StopwordAnalyzerBase;
 import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.ngram.EdgeNGramTokenFilter;
 import org.apache.lucene.analysis.ngram.NGramTokenFilter;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
 
 import javax.annotation.Nonnull;
@@ -41,6 +44,9 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * An NGRAM analyzer.
+ */
 public class NgramAnalyzer extends StopwordAnalyzerBase {
     private static final String DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH = "3";
     private static final String DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH = "30";
@@ -73,25 +79,35 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
         return new LowerCaseFilter(in);
     }
 
+    /**
+     * Factory for {@code NgramAnalyzer}.
+     */
     @AutoService(LuceneAnalyzerFactory.class)
     public static class NgramAnalyzerFactory implements LuceneAnalyzerFactory {
-        public static final String ANALYZER_NAME = "NGRAM";
+        public static final String ANALYZER_FACTORY_NAME = "NGRAM";
 
         @Nonnull
         @Override
         public String getName() {
-            return ANALYZER_NAME;
+            return ANALYZER_FACTORY_NAME;
+        }
+
+        @Nonnull
+        @Override
+        public LuceneAnalyzerType getType() {
+            return LuceneAnalyzerType.FULL_TEXT;
         }
 
         @SuppressWarnings("deprecation")
         @Nonnull
         @Override
-        public Analyzer getIndexAnalyzer(@Nonnull Index index) {
+        public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
             try {
                 final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH);
                 final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH);
-                final String edgesOnly = Optional.ofNullable(index.getOption(IndexOptions.NGRAM_TOKEN_EDGES_ONLY)).orElse(DEFAULT_NGRAM_WITH_EDGES_ONLY);
-                return new NgramAnalyzer(StandardAnalyzer.STOP_WORDS_SET, Integer.parseInt(minLengthString), Integer.parseInt(maxLengthString), Boolean.parseBoolean(edgesOnly));
+                final String edgesOnly = Optional.ofNullable(index.getOption(LuceneIndexOptions.NGRAM_TOKEN_EDGES_ONLY)).orElse(DEFAULT_NGRAM_WITH_EDGES_ONLY);
+                return t -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
+                        new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, Integer.parseInt(minLengthString), Integer.parseInt(maxLengthString), Boolean.parseBoolean(edgesOnly)));
             } catch (NumberFormatException ex) {
                 throw new RecordCoreArgumentException("Invalid index option for token size", ex);
             }

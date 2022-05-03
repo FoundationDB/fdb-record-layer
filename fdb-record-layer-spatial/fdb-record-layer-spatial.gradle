@@ -63,7 +63,10 @@ test {
 def geonames_files = ['countryInfo.txt', 'cities15000.zip', 'shapes_all_low.zip']
 
 task downloadGeonames(type: de.undercouch.gradle.tasks.download.Download) {
-    src geonames_files.collect { file -> "http://download.geonames.org/export/dump/${file}" }
+    // src geonames_files.collect { file -> "http://download.geonames.org/export/dump/${file}" }
+    /* some times geonames times out or is otherwise unreliable, move files to
+    an s3 bucket that we control for more consistent download behavior */
+    src geonames_files.collect { file -> "https://fdb-record-layer.s3.amazonaws.com/geonames/${file}" }
     dest buildDir
     overwrite false         // Don't need the very latest.
 }

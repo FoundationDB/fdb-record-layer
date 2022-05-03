@@ -30,12 +30,21 @@ import java.lang.annotation.Target;
 
 /**
  * An annotation used to indicate that a test should be run using the old {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner}
- * and the new, experimental {@link com.apple.foundationdb.record.query.plan.temp.CascadesPlanner}.
+ * and the new, experimental {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
  */
 @Target({ ElementType.ANNOTATION_TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
 @TestTemplate
 @ExtendWith(DualPlannerExtension.class)
 public @interface DualPlannerTest {
+    Planner planner() default Planner.BOTH;
 
+    /**
+     * The planner(s) to test.
+     */
+    enum Planner {
+        OLD,
+        CASCADES,
+        BOTH;
+    }
 }

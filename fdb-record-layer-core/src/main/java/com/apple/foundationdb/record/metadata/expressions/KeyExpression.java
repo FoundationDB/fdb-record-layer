@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -210,7 +210,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     /**
      * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
      * of the key expression as composition of relational expressions and operators
-     * ({@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}s). Note that implementors should
+     * ({@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}s). Note that implementors should
      * defer to the visitation methods in the supplied visitor rather than encoding actual logic in an overriding
      * method.
      * @param <S> a type that represents the state that {@code visitor} uses
@@ -274,10 +274,20 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     }
 
     /**
-     * Returns a sub-set of the key expression.
-     * @param start starting position
-     * @param end ending position
+     * Returns a sub-set of the key expression based on the column indexes into the expression.
+     * Column indexes start at zero. If {@code start} is equal to {@code end}, this
+     * should return an {@link EmptyKeyExpression}, and if {@code start} is equal to zero and
+     * {@code end} is equal to {@link #getColumnSize()}, then this should return the original
+     * key expression.
+     *
+     * @param start inclusive starting column index
+     * @param end exclusive ending column index
      * @return a key expression for the subkey between {@code start} and {@code end}
+     * @throws com.apple.foundationdb.record.metadata.expressions.BaseKeyExpression.IllegalSubKeyException
+     *     if {@code start} or {@code end} are outside the expected range or if {@code end < start}
+     * @throws com.apple.foundationdb.record.metadata.expressions.BaseKeyExpression.UnsplittableKeyExpressionException
+     *     if the key expression cannot be split at the current location because a split point would land in the
+     *     middle of a key expression that does not support being split
      */
     @Nonnull
     KeyExpression getSubKey(int start, int end);

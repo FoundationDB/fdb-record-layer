@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;

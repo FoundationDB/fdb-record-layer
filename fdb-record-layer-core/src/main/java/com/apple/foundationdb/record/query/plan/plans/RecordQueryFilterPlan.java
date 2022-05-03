@@ -24,20 +24,18 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,7 +50,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 /**
  * A query plan that filters out records from a child plan that do not satisfy a filter component.
@@ -67,8 +64,6 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     private final List<QueryComponent> filters;
     @Nonnull
     private final QueryComponent conjunctedFilter;
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull List<QueryComponent> filters) {
         this(Quantifier.physical(GroupExpressionRef.of(inner)), filters);
@@ -83,7 +78,6 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
         super(inner);
         this.filters = ImmutableList.copyOf(filters);
         this.conjunctedFilter = this.filters.size() == 1 ? Iterables.getOnlyElement(this.filters) : Query.and(this.filters);
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Override
@@ -95,16 +89,16 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Override
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store,
                                                      @Nonnull EvaluationContext context,
-                                                     @Nullable FDBRecord<M> record) {
-        return conjunctedFilter.eval(store, context, record);
+                                                     @Nonnull QueryResult datum) {
+        return conjunctedFilter.eval(store, context, datum.getQueriedRecord());
     }
 
     @Nullable
     @Override
     protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store,
                                                                              @Nonnull EvaluationContext context,
-                                                                             @Nullable FDBRecord<M> record) {
-        return conjunctedFilter.evalAsync(store, context, record);
+                                                                             @Nonnull QueryResult datum) {
+        return conjunctedFilter.evalAsync(store, context, datum.getQueriedRecord());
     }
 
     @Override
@@ -140,8 +134,8 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return getInner().getFlowedObjectValue();
     }
 
     @Override

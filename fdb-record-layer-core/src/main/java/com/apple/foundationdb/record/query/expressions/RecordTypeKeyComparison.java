@@ -27,10 +27,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.apple.foundationdb.record.query.predicates.RecordTypeValue;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A {@link QueryComponent} that implements checking for a given record type.
@@ -73,7 +74,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
         return getComparison().eval(store, context, message);
     }
 
@@ -88,9 +89,12 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         return comparison;
     }
 
+    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
-        return GraphExpansion.ofPredicate(new RecordTypeValue(baseAlias).withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, Objects.requireNonNull(comparison.getComparand()))));
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 @Nonnull final List<String> fieldNamePrefix) {
+        return GraphExpansion.ofPredicate(new RecordTypeValue(baseQuantifier.getAlias()).withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, Objects.requireNonNull(comparison.getComparand()))));
     }
 
     @Override

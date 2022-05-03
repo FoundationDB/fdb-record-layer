@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.combinatorics;
 
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;

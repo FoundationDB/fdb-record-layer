@@ -25,14 +25,14 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -48,7 +48,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     private final RecordCursor<QueryResult> inner;
     // group aggregator to break incoming records into groups
     @Nonnull
-    private final StreamGrouping<M> groupAggregator;
+    private final StreamGrouping<M> streamGrouping;
     // Previous record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousResult;
@@ -56,40 +56,42 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
 
-    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner, @Nonnull final StreamGrouping<M> groupAggregator) {
+    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner, @Nonnull final StreamGrouping<M> streamGrouping) {
         this.inner = inner;
-        this.groupAggregator = groupAggregator;
+        this.streamGrouping = streamGrouping;
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
         if (previousResult != null && !previousResult.hasNext()) {
-            // post-done termination condition: Keep returning terminal element after inner is exhausted.
-            return CompletableFuture.completedFuture(previousResult);
+            // we are done
+            return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
         }
 
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                groupAggregator.finalizeGroup();
+                streamGrouping.finalizeGroup();
                 return false;
             } else {
                 previousValidResult = innerResult;
-                FDBQueriedRecord<M> record = innerResult.get().getQueriedRecord(0);
-                boolean groupBreak = groupAggregator.apply(record);
+                final Object currentObject = Objects.requireNonNull(innerResult.get()).getObject();
+                boolean groupBreak = streamGrouping.apply(currentObject);
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {
             if ((previousValidResult == null) && (!previousResult.hasNext())) {
                 // Edge case where there are no records at all
-                return previousResult;
+                if (streamGrouping.isResultOnEmpty()) {
+                    return RecordCursorResult.withNextValue(QueryResult.of(streamGrouping.getCompletedGroupResult()), RecordCursorStartContinuation.START);
+                } else {
+                    return RecordCursorResult.exhausted();
+                }
             }
-            List<Object> groupResult = groupAggregator.getCompletedGroupResult();
-            QueryResult queryResult = QueryResult.of(groupResult);
             // Use the last valid result for the continuation as we need non-terminal one here.
             RecordCursorContinuation continuation = previousValidResult.getContinuation();
-            return RecordCursorResult.withNextValue(queryResult, continuation);
+            return RecordCursorResult.withNextValue(QueryResult.of(streamGrouping.getCompletedGroupResult()), continuation);
         });
     }
 

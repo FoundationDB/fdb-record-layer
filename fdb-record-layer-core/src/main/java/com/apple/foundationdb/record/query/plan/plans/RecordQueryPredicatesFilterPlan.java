@@ -24,22 +24,22 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.AsyncBoolean;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
-import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
-import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,7 +53,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 /**
  * A query plan that filters out records from a child plan that do not satisfy a {@link QueryPredicate}.
@@ -66,15 +65,12 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     private final List<QueryPredicate> predicates;
     @Nonnull
     private final QueryPredicate conjunctedPredicate;
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public RecordQueryPredicatesFilterPlan(@Nonnull Quantifier.Physical inner,
                                            @Nonnull Iterable<? extends QueryPredicate> predicates) {
         super(inner);
         this.predicates = ImmutableList.copyOf(predicates);
         this.conjunctedPredicate = AndPredicate.and(this.predicates);
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Nonnull
@@ -85,24 +81,45 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Override
     protected boolean hasAsyncFilter() {
-        return false;
+        // TODO Query components can be evaluated in an async way as they may access indexes, etc. themselves. In
+        //      QGM such an access is always explicitly modelled. Therefore predicates don't need this functionality
+        //      and we should not add evalAsync() and isAsync() in the way it is implemented on query components.
+        //      Since predicates cannot speak up for themselves when it comes to async-ness of the filter, we need
+        //      to special case this (shim) class.
+        return predicates.stream()
+                .filter(predicate -> predicate instanceof QueryComponentPredicate)
+                .anyMatch(predicate -> ((QueryComponentPredicate)predicate).hasAsyncQueryComponent());
     }
 
     @Nullable
     @Override
-    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record) {
-        if (record == null) {
+    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult datum) {
+        final var currentObject = datum.<M>getObject();
+        if (currentObject == null) {
             return null;
         }
 
-        final EvaluationContext nestedContext = context.withBinding(getInner().getAlias(), record.getRecord());
-        return conjunctedPredicate.eval(store, nestedContext, record, record.getRecord());
+        final var nestedContext = context.withBinding(getInner().getAlias(), currentObject);
+        return conjunctedPredicate.eval(store, nestedContext, null, datum.getMessage());
     }
 
     @Nullable
     @Override
-    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record) {
-        throw new UnsupportedOperationException();
+    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult datum) {
+        return new AsyncBoolean<>(false,
+                getPredicates(),
+                predicate -> {
+                    final var recordMaybe = datum.<M>getQueriedRecordMaybe();
+                    final M message = datum.<M>getMessage();
+                    if (predicate instanceof QueryComponentPredicate) {
+                        final QueryComponentPredicate queryComponentPredicate = (QueryComponentPredicate)predicate;
+                        if (queryComponentPredicate.hasAsyncQueryComponent()) {
+                            return queryComponentPredicate.evalMessageAsync(store, context, recordMaybe.orElse(null), message);
+                        }
+                    }
+                    return CompletableFuture.completedFuture(predicate.eval(store, context, recordMaybe.orElse(null), message));
+                },
+                store).eval();
     }
 
     @Nonnull
@@ -136,8 +153,8 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return getInner().getFlowedObjectValue();
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -150,8 +167,8 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final RecordQueryPredicatesFilterPlan otherPlan = (RecordQueryPredicatesFilterPlan)otherExpression;
-        final List<? extends QueryPredicate> otherPredicates = otherPlan.getPredicates();
+        final var otherPlan = (RecordQueryPredicatesFilterPlan)otherExpression;
+        final var otherPredicates = otherPlan.getPredicates();
         if (predicates.size() != otherPredicates.size()) {
             return false;
         }

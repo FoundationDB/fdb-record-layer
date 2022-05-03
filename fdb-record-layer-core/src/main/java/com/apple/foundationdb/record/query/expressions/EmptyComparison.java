@@ -26,10 +26,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -38,6 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A comparison to determine whether a repeated field is empty (has no occurrences).
@@ -56,7 +56,7 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+                                                   @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null) {
             return null;
         }
@@ -82,13 +82,16 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
         return isEmpty;
     }
 
+    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 @Nonnull final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return GraphExpansion.ofPredicate(new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames).withComparison(Comparisons.LIST_EMPTY));
+        return GraphExpansion.ofPredicate(new FieldValue(baseQuantifier.getFlowedObjectValue(), fieldNames).withComparison(Comparisons.LIST_EMPTY));
     }
 
     @Override

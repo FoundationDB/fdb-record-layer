@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A {@link QueryComponent} that implements a {@link Comparisons.Comparison} against a multi-valued {@link QueryableKeyExpression}.
@@ -62,8 +63,8 @@ public class QueryKeyExpressionWithOneOfComparison implements ComponentWithCompa
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {
-        final List<Object> values = keyExpression.evalForOneOfQuery(store, context, record, message);
+    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> rec, @Nullable Message message) {
+        final List<Object> values = keyExpression.evalForOneOfQuery(store, context, rec, message);
         for (Object value : values) {
             final Boolean comp = getComparison().eval(store, context, value);
             if (Boolean.TRUE.equals(comp)) {
@@ -84,9 +85,12 @@ public class QueryKeyExpressionWithOneOfComparison implements ComponentWithCompa
         return this.comparison;
     }
 
+    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
-        return GraphExpansion.ofPredicate(keyExpression.toValue(baseAlias, fieldNamePrefix).withComparison(comparison));
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 @Nonnull final List<String> fieldNamePrefix) {
+        return GraphExpansion.ofPredicate(keyExpression.toValue(baseQuantifier.getAlias(), fieldNamePrefix).withComparison(comparison));
     }
 
     @Override

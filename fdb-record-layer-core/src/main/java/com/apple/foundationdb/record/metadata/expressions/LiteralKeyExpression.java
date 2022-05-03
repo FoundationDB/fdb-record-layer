@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
@@ -104,7 +104,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     @Override
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
                          @Nonnull final List<String> fieldNamePrefix) {
-        return new LiteralValue<>(value);
+        return LiteralValue.ofScalar(value);
     }
 
     @Nonnull

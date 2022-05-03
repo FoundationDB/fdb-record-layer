@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import org.apache.lucene.codecs.SegmentInfoFormat;
-import org.apache.lucene.codecs.lucene70.Lucene70SegmentInfoFormat;
+import org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
@@ -32,7 +32,7 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 
 class LuceneOptimizedSegmentInfoFormat extends SegmentInfoFormat {
-    private final SegmentInfoFormat segmentInfosFormat = new Lucene70SegmentInfoFormat();
+    private final SegmentInfoFormat segmentInfosFormat = new Lucene86SegmentInfoFormat();
 
     LuceneOptimizedSegmentInfoFormat() {
         super();
@@ -57,7 +57,7 @@ class LuceneOptimizedSegmentInfoFormat extends SegmentInfoFormat {
                 info.getAttributes(), info.getIndexSort());
         segmentInfoToWrite.setFiles(info.files());
         segmentInfosFormat.write(new LuceneOptimizedWrappedDirectory(dir), segmentInfoToWrite, ioContext);
-        final String fileName = IndexFileNames.segmentFileName(info.name, "", Lucene70SegmentInfoFormat.SI_EXTENSION);
+        final String fileName = IndexFileNames.segmentFileName(info.name, "", Lucene86SegmentInfoFormat.SI_EXTENSION);
         info.setFiles(info.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet()));
     }
 }

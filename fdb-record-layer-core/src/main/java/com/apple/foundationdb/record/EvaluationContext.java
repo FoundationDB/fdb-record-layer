@@ -21,7 +21,8 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,7 +40,10 @@ public class EvaluationContext {
     @Nonnull
     private final Bindings bindings;
 
-    public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS);
+    @Nonnull
+    private final TypeRepository typeRepository;
+
+    public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS, TypeRepository.EMPTY_SCHEMA);
 
     /**
      * Get an empty evaluation context.
@@ -50,8 +54,9 @@ public class EvaluationContext {
         return EMPTY;
     }
 
-    private EvaluationContext(@Nonnull Bindings bindings) {
+    private EvaluationContext(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
         this.bindings = bindings;
+        this.typeRepository = typeRepository;
     }
 
     /**
@@ -62,7 +67,24 @@ public class EvaluationContext {
      */
     @Nonnull
     public static EvaluationContext forBindings(@Nonnull Bindings bindings) {
-        return new EvaluationContext(bindings);
+        return new EvaluationContext(bindings, TypeRepository.EMPTY_SCHEMA);
+    }
+
+    /**
+     * Create a new {@link EvaluationContext} around a given set of {@link Bindings} and a {@link TypeRepository}.
+     * from parameter names to values.
+     * @param bindings a mapping from parameter name to values
+     * @param typeRepository a type repository
+     * @return a new evaluation context with the bindings and the schema.
+     */
+    @Nonnull
+    public static EvaluationContext forBindingsAndTypeRepository(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
+        return new EvaluationContext(bindings, typeRepository);
+    }
+
+    @Nonnull
+    public static EvaluationContext forTypeRepository(@Nonnull TypeRepository typeRepository) {
+        return new EvaluationContext(Bindings.EMPTY_BINDINGS, typeRepository);
     }
 
     /**
@@ -74,7 +96,7 @@ public class EvaluationContext {
      */
     @Nonnull
     public static EvaluationContext forBinding(@Nonnull String bindingName, @Nullable Object value) {
-        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build());
+        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build(), TypeRepository.EMPTY_SCHEMA);
     }
 
     /**
@@ -108,6 +130,11 @@ public class EvaluationContext {
      */
     public Object getBinding(@Nonnull CorrelationIdentifier alias) {
         return bindings.get(Bindings.Internal.CORRELATION.bindingName(alias.getId()));
+    }
+
+    @Nonnull
+    public TypeRepository getTypeRepository() {
+        return typeRepository;
     }
 
     /**
@@ -145,7 +172,7 @@ public class EvaluationContext {
      */
     @Nonnull
     public EvaluationContext withBinding(@Nonnull String bindingName, @Nullable Object value) {
-        return childBuilder().setBinding(bindingName, value).build();
+        return childBuilder().setBinding(bindingName, value).build(typeRepository);
     }
 
     /**
@@ -159,6 +186,6 @@ public class EvaluationContext {
      * @return a new <code>EvaluationContext</code> with the new binding
      */
     public EvaluationContext withBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
-        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build();
+        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build(typeRepository);
     }
 }

@@ -40,7 +40,6 @@ public interface ComponentWithComparison extends ComponentWithNoChildren {
     @Nonnull
     @Override
     default QueryComponent withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-        //TODO not entirely sure if this is correct about what lucene should do here. It seems that this is just rewriting the same comparison but I can't be sure.
         return withOtherComparison(getComparison().withParameterRelationshipMap(parameterRelationshipGraph));
     }
 }

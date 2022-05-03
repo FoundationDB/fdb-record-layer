@@ -20,29 +20,29 @@
 
 package com.apple.foundationdb.record.lucene.synonym;
 
+import com.apple.foundationdb.record.lucene.AnalyzerChooser;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerType;
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.google.auto.service.AutoService;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.StopFilter;
 import org.apache.lucene.analysis.StopwordAnalyzerBase;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymGraphFilter;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * The analyzer for index with synonym enabled.
- * Only for in fly analysis during query time.
- * The synonyms are not indexed to disk. So no index rebuilding is needed if the wordnet file gets updated.
  */
 public class SynonymAnalyzer extends StopwordAnalyzerBase {
     @Nonnull
@@ -83,32 +83,79 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         return SynonymMapRegistryImpl.instance().getSynonymMap(name);
     }
 
+    /**
+     * An analyzer factory including in fly synonym tokenizing on query time.
+     * The synonyms are not indexed to disk. So no index rebuilding is needed if the wordnet file gets updated.
+     */
     @AutoService(LuceneAnalyzerFactory.class)
-    public static class SynonymAnalyzerFactory implements LuceneAnalyzerFactory {
-        public static final String ANALYZER_NAME = "SYNONYM";
+    public static class QueryOnlySynonymAnalyzerFactory implements LuceneAnalyzerFactory {
+        public static final String ANALYZER_FACTORY_NAME = "SYNONYM";
 
         @Nonnull
         @Override
         public String getName() {
-            return ANALYZER_NAME;
+            return ANALYZER_FACTORY_NAME;
+        }
+
+        @Nonnull
+        @Override
+        public LuceneAnalyzerType getType() {
+            return LuceneAnalyzerType.FULL_TEXT;
         }
 
         @SuppressWarnings("deprecation")
         @Nonnull
         @Override
-        public Analyzer getIndexAnalyzer(@Nonnull Index index) {
-            return new StandardAnalyzer();
+        public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
+            return t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper();
         }
 
         @SuppressWarnings("deprecation")
         @Nonnull
         @Override
-        public Analyzer getQueryAnalyzer(@Nonnull Index index, @Nonnull Analyzer indexAnalyzer) {
-            String name = index.getOption(IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION);
-            if (name == null) {
-                name = EnglishSynonymMapConfig.CONFIG_NAME;
-            }
-            return new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, name);
+        public AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index index, @Nonnull AnalyzerChooser indexAnalyzerChooser) {
+            final String name = Objects.requireNonNullElse(index.getOption(LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION),
+                    EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME);
+            return t -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
+                    new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, name));
+        }
+    }
+
+    /**
+     * An analyzer factory including synonym tokenizing on both index time and query time.
+     * Only authoritative phrase for each synonym group is included in the token stream.
+     */
+    @AutoService(LuceneAnalyzerFactory.class)
+    public static class AuthoritativeSynonymOnlyAnalyzerFactory implements LuceneAnalyzerFactory {
+        public static final String ANALYZER_FACTORY_NAME = "INDEX_ONLY_SYNONYM";
+
+        @Nonnull
+        @Override
+        public String getName() {
+            return ANALYZER_FACTORY_NAME;
+        }
+
+        @Nonnull
+        @Override
+        public LuceneAnalyzerType getType() {
+            return LuceneAnalyzerType.FULL_TEXT;
+        }
+
+        @SuppressWarnings("deprecation")
+        @Nonnull
+        @Override
+        public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
+            final String name = Objects.requireNonNullElse(index.getOption(LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION),
+                    EnglishSynonymMapConfig.AuthoritativeOnlyEnglishSynonymMapConfig.CONFIG_NAME);
+            return t -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
+                    new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, name));
+        }
+
+        @SuppressWarnings("deprecation")
+        @Nonnull
+        @Override
+        public AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index index, @Nonnull AnalyzerChooser indexAnalyzerChooser) {
+            return indexAnalyzerChooser;
         }
     }
 }

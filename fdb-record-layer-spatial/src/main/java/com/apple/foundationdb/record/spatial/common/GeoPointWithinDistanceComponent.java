@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * Query filter for points (latitude, longitude) within a given distance of a given center.
@@ -74,7 +75,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
 
     @Nullable
     @Override
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> rec, @Nullable Message message) {
         Double distanceValue = distance.getValue(context);
         Double centerLatitudeValue = centerLatitude.getValue(context);
         Double centerLongitudeValue = centerLongitude.getValue(context);
@@ -122,8 +123,11 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
         }
     }
 
+    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 @Nonnull final List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException("not yet implemented");
     }
 

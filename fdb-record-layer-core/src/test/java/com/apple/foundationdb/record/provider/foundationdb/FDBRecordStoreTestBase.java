@@ -38,7 +38,9 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -169,6 +171,10 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
         if (useRewritePlanner) {
             planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+            if (Debugger.getDebugger() == null) {
+                Debugger.setDebugger(new DebuggerWithSymbolTables());
+            }
+            Debugger.setup();
         } else {
             if (indexTypes == null) {
                 indexTypes = PlannableIndexTypes.DEFAULT;
@@ -313,14 +319,16 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
                 .build());
     }
 
-    protected void saveHeaderRecord(long rec_no, String path, int num, String str) {
-        TestRecordsWithHeaderProto.MyRecord.Builder recBuilder = TestRecordsWithHeaderProto.MyRecord.newBuilder();
-        TestRecordsWithHeaderProto.HeaderRecord.Builder headerBuilder = recBuilder.getHeaderBuilder();
-        headerBuilder.setRecNo(rec_no);
-        headerBuilder.setPath(path);
-        headerBuilder.setNum(num);
-        recBuilder.setStrValue(str);
-        recordStore.saveRecord(recBuilder.build());
+    protected TestRecordsWithHeaderProto.MyRecord saveHeaderRecord(long rec_no, String path, int num, String str) {
+        TestRecordsWithHeaderProto.MyRecord.Builder recBuilder = TestRecordsWithHeaderProto.MyRecord.newBuilder()
+                .setStrValue(str);
+        recBuilder.getHeaderBuilder()
+                .setRecNo(rec_no)
+                .setPath(path)
+                .setNum(num);
+        TestRecordsWithHeaderProto.MyRecord rec = recBuilder.build();
+        recordStore.saveRecord(rec);
+        return rec;
     }
 
     protected TestRecordsWithHeaderProto.MyRecord parseMyRecord(Message message) {

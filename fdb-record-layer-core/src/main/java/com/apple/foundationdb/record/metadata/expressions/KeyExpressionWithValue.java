@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -34,7 +34,7 @@ import java.util.List;
  *     <li>It's a single value rather than a complex tuple.</li>
  *     <li>It does not produce multiple values because of fan-out.</li>
  * </ul>
- * This is completely unrelated to the the (disturbingly) similarly named {@link KeyWithValueExpression}.
+ * This is completely unrelated to the (disturbingly) similarly named {@link KeyWithValueExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface KeyExpressionWithValue extends KeyExpression {

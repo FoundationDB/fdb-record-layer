@@ -1970,6 +1970,9 @@ public class OnlineIndexer implements AutoCloseable {
         private final DesiredAction ifMismatchPrevious;
         private final DesiredAction ifReadable;
 
+        /**
+         * Possible actions when an index is already partially built.
+         */
         public enum DesiredAction {
             ERROR,
             REBUILD,
