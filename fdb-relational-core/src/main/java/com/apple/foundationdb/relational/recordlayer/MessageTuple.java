@@ -48,4 +48,9 @@ public class MessageTuple extends AbstractRow {
     public <M extends Message> M parseMessage() {
         return (M) message;
     }
+
+    @Override
+    public String toString() {
+        return "(" + message.toString() + ")";
+    }
 }

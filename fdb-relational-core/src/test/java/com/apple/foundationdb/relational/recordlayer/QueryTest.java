@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -47,6 +49,8 @@ import java.util.Set;
 import java.util.function.Function;
 
 import javax.annotation.Nonnull;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class QueryTest {
     @RegisterExtension
@@ -189,6 +193,30 @@ public class QueryTest {
         }
     }
 
+    @Test
+    void getBytes() throws RelationalException, SQLException {
+        insertRestaurantRecord(statement, 1, "getBytes", "blob1".getBytes(StandardCharsets.UTF_8));
+        insertRestaurantRecord(statement, 2, "getBytes", "".getBytes(StandardCharsets.UTF_8));
+
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE name = 'getBytes'", Options.create(), QueryProperties.DEFAULT)) {
+            while (resultSet.next()) {
+                Assertions.assertTrue(resultSet.supportsMessageParsing());
+                byte[] bytes = resultSet.getBytes("blob");
+                switch ((int) resultSet.getLong("rest_no")) {
+                    case 1:
+                        assertThat(bytes).isEqualTo("blob1".getBytes(StandardCharsets.UTF_8));
+                        break;
+                    case 2:
+                        assertThat(bytes).isEqualTo("".getBytes(StandardCharsets.UTF_8));
+                        break;
+                    default:
+                        Assertions.fail("Unknown record returned by query");
+                        break;
+                }
+            }
+        }
+    }
+
     @Disabled // until we fix the implicit fetch operator in record layer.
     void projectIndividualPredicateColumns() throws RelationalException, SQLException {
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT rest_no FROM RestaurantRecord WHERE 11 <= rest_no", Options.create(), QueryProperties.DEFAULT)) {
@@ -219,6 +247,18 @@ public class QueryTest {
 
     private Restaurant.RestaurantRecord insertRestaurantRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName) throws RelationalException {
         Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(recordNumber).setName(recordName).setLocation(Restaurant.Location.newBuilder().setAddress("address").build()).build();
+        int cnt = s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(rec), Options.create());
+        Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+        return rec;
+    }
+
+    private Restaurant.RestaurantRecord insertRestaurantRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws RelationalException {
+        Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder()
+                .setRestNo(recordNumber)
+                .setName(recordName)
+                .setBlob(ByteString.copyFrom(blob))
+                .setLocation(Restaurant.Location.newBuilder().setAddress("address"))
+                .build();
         int cnt = s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(rec), Options.create());
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return rec;

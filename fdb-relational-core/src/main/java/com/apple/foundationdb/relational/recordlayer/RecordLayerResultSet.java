@@ -29,11 +29,9 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import java.sql.SQLException;
-import java.util.List;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -112,20 +110,10 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    protected int getZeroBasedPosition(String fieldName) throws SQLException, InvalidColumnReferenceException {
-        if (supportsMessageParsing()) {
-            Message m = parseMessage();
-            final List<Descriptors.FieldDescriptor> fields = m.getDescriptorForType().getFields();
-            for (Descriptors.FieldDescriptor field : fields) {
-                if (field.getName().equalsIgnoreCase(fieldName)) {
-                    return field.getIndex();
-                }
-            }
-        } else {
-            for (int pos = 0; pos < fieldNames.length; pos++) {
-                if (fieldNames[pos] != null && fieldNames[pos].equalsIgnoreCase(fieldName)) {
-                    return pos;
-                }
+    protected int getZeroBasedPosition(String fieldName) throws InvalidColumnReferenceException {
+        for (int pos = 0; pos < fieldNames.length; pos++) {
+            if (fieldNames[pos] != null && fieldNames[pos].equalsIgnoreCase(fieldName)) {
+                return pos;
             }
         }
         throw new InvalidColumnReferenceException(fieldName);

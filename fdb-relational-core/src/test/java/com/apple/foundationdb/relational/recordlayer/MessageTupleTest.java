@@ -38,7 +38,7 @@ class MessageTupleTest {
 
     @Test
     void getNumFields() {
-        assertThat(tuple.getNumFields()).isEqualTo(6);
+        assertThat(tuple.getNumFields()).isEqualTo(7);
     }
 
     @Test

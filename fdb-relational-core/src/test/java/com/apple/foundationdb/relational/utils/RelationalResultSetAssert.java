@@ -118,7 +118,7 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
                     break;
                 }
             }
-            Assertions.assertThat(found).describedAs("Row %s").withFailMessage("Was not found!").isTrue();
+            Assertions.assertThat(found).describedAs("Row %s", expectedRow).withFailMessage("Was not found!").isTrue();
         }
 
         for (Row actualRow : actualRows) {

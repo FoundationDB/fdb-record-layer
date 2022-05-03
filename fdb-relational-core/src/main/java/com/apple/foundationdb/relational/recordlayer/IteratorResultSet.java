@@ -50,7 +50,7 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    protected int getZeroBasedPosition(String fieldName) throws SQLException, InvalidColumnReferenceException {
+    protected int getZeroBasedPosition(String fieldName) throws InvalidColumnReferenceException {
         for (int i = 0; i < fieldNames.length; i++) {
             if (fieldNames[i].equalsIgnoreCase(fieldName)) {
                 return i;

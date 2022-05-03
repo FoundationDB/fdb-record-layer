@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 import java.net.URI;
@@ -51,6 +52,30 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     public boolean getBoolean(String columnLabel) throws SQLException {
         try {
             return getBoolean(getOneBasedPosition(columnLabel));
+        } catch (InvalidColumnReferenceException e) {
+            throw e.toSqlException();
+        }
+    }
+
+    @Override
+    public byte[] getBytes(int oneBasedPosition) throws SQLException {
+        Object o = getObject(oneBasedPosition);
+        if (o == null) {
+            return null;
+        }
+        if (o instanceof ByteString) {
+            return ((ByteString) o).toByteArray();
+        } else if (o instanceof byte[]) {
+            return (byte[]) o;
+        } else {
+            throw new SQLException("byte[]", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+    }
+
+    @Override
+    public byte[] getBytes(String columnLabel) throws SQLException {
+        try {
+            return getBytes(getOneBasedPosition(columnLabel));
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
@@ -199,19 +224,17 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
      * Returns a 0-based position number for this column label.
      * @param columnLabel the name of the column
      * @return The 0-based position of the field in this result set
-     * @throws SQLException if parsing the underlying message fails
      * @throws InvalidColumnReferenceException if this field name does not exist
      */
-    protected abstract int getZeroBasedPosition(String columnLabel) throws SQLException, InvalidColumnReferenceException;
+    protected abstract int getZeroBasedPosition(String columnLabel) throws InvalidColumnReferenceException;
 
     /**
      * Returns a 1-based position number for this column label.
      * @param columnLabel the name of the column
      * @return The 1-based position of the column in this result set
-     * @throws SQLException if parsing the underlying message fails
      * @throws InvalidColumnReferenceException if this field name does not exist
      */
-    protected int getOneBasedPosition(String columnLabel) throws SQLException, InvalidColumnReferenceException {
+    protected int getOneBasedPosition(String columnLabel) throws InvalidColumnReferenceException {
         return getZeroBasedPosition(columnLabel) + 1;
     }
 

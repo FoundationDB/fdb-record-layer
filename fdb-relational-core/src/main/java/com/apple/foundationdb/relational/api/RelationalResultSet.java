@@ -198,18 +198,6 @@ public interface RelationalResultSet extends java.sql.ResultSet {
 
     @ExcludeFromJacocoGeneratedReport
     @Override
-    default byte[] getBytes(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @ExcludeFromJacocoGeneratedReport
-    @Override
-    default byte[] getBytes(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @ExcludeFromJacocoGeneratedReport
-    @Override
     default Date getDate(int columnIndex) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
