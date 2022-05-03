@@ -25,6 +25,7 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

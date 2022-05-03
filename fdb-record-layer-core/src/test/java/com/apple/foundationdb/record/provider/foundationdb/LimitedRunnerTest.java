@@ -24,6 +24,7 @@ import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -523,10 +524,11 @@ class LimitedRunnerTest {
             super(3000, 10000);
         }
 
+        @Nonnull
         @Override
-        public CompletableFuture<Void> delay() {
+        protected CompletableFuture<Void> delayedFuture(final long nextDelayMillis) {
             delayCount++;
-            return CompletableFuture.runAsync(this::calculateNextDelay);
+            return CompletableFuture.completedFuture(null);
         }
     }
 
