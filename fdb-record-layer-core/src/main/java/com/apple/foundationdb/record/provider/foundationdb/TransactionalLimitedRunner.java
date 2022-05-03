@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
+import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
 
 import javax.annotation.Nonnull;
 import java.util.List;
