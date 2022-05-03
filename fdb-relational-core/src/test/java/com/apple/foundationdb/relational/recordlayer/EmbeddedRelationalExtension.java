@@ -29,11 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
@@ -43,7 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-public class EmbeddedRelationalExtension implements BeforeEachCallback, AfterEachCallback, BeforeAllCallback, AfterAllCallback {
+public class EmbeddedRelationalExtension implements BeforeEachCallback, AfterEachCallback {
     private final Supplier<KeySpace> keySpaceSupplier;
     private EmbeddedRelationalEngine engine;
     private final TestStoreTimer storeTimer = new TestStoreTimer();
@@ -52,35 +49,13 @@ public class EmbeddedRelationalExtension implements BeforeEachCallback, AfterEac
         this.keySpaceSupplier = this::createNewKeySpace;
     }
 
-    public EmbeddedRelationalExtension(Supplier<KeySpace> keySpaceSupplier) {
-        this.keySpaceSupplier = keySpaceSupplier;
-    }
-
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        tearDown();
-    }
-
-    @Override
-    public void afterAll(ExtensionContext context) throws Exception {
-        tearDown();
-    }
-
-    @Override
-    public void beforeAll(ExtensionContext context) throws Exception {
-        setup();
+        engine.deregisterDriver();
     }
 
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
-        setup();
-    }
-
-    private void tearDown() {
-        engine.deregisterDriver();
-    }
-
-    private void setup() throws RelationalException {
         RecordLayerConfig rlCfg = new RecordLayerConfig(
                 (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                 path -> DynamicMessageRecordSerializer.instance(),

@@ -22,41 +22,42 @@ package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.ddl.DdlConnection;
 import com.apple.foundationdb.relational.api.ddl.DdlStatement;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
-import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.Collection;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Manages the lifecycle of a single SchemaTemplate within a unit test.
  */
-public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback, BeforeAllCallback, AfterAllCallback {
+public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback {
+    private final EmbeddedRelationalExtension relationalExtension;
     private final String templateName;
     private final TypeCreator typeCreator;
     private final TypeCreator tableCreator;
-    private final Supplier<DdlConnection> connSupplier;
 
-    public SchemaTemplateRule(String templateName,
+    public SchemaTemplateRule(EmbeddedRelationalExtension relationalExtension,
+                              String templateName,
                               Collection<TableDefinition> tables,
-                              Collection<TypeDefinition> types,
-                              Supplier<DdlConnection> connSupplier) {
+                              Collection<TypeDefinition> types) {
+        this.relationalExtension = relationalExtension;
         this.templateName = templateName;
         this.typeCreator = new CreatorFromDefinition("STRUCT", types);
         this.tableCreator = new CreatorFromDefinition("TABLE", tables);
-        this.connSupplier = connSupplier;
     }
 
-    public SchemaTemplateRule(String templateName, String templateDefinition, Supplier<DdlConnection> connSupplier) {
+    public SchemaTemplateRule(
+            EmbeddedRelationalExtension relationalExtension,
+            String templateName,
+            String templateDefinition) {
+        this.relationalExtension = relationalExtension;
         this.templateName = templateName;
         this.typeCreator = new CreatorFromString(templateDefinition);
         this.tableCreator = () -> "";
-        this.connSupplier = connSupplier;
     }
 
     public String getTemplateName() {
@@ -64,44 +65,26 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
     }
 
     @Override
-    public void afterAll(ExtensionContext context) throws Exception {
-        tearDown();
-    }
-
-    @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        tearDown();
-    }
+        StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE ").append(templateName);
 
-    @Override
-    public void beforeAll(ExtensionContext context) throws Exception {
-        makeTemplate();
+        try (DdlConnection conn = relationalExtension.getEngine().getDdlConnection();
+                DdlStatement statement = conn.createStatement()) {
+            statement.execute(dropStatement.toString());
+        }
     }
 
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
-        makeTemplate();
-    }
-
-    private void makeTemplate() throws Exception {
         StringBuilder createStatement = new StringBuilder("CREATE SCHEMA TEMPLATE ").append(templateName).append(" AS {");
         createStatement.append(typeCreator.getTypeDefinition());
         createStatement.append(tableCreator.getTypeDefinition());
         createStatement.append("}");
 
-        try (DdlConnection conn = connSupplier.get();
+        try (DdlConnection conn = relationalExtension.getEngine().getDdlConnection();
                 DdlStatement statement = conn.createStatement()) {
             statement.execute(createStatement.toString());
             conn.commit();
-        }
-    }
-
-    private void tearDown() throws Exception {
-        StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE ").append(templateName);
-
-        try (DdlConnection conn = connSupplier.get();
-                DdlStatement statement = conn.createStatement()) {
-            statement.execute(dropStatement.toString());
         }
     }
 

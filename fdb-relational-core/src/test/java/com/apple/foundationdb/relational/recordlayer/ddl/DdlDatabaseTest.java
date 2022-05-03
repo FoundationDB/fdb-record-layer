@@ -47,10 +47,9 @@ public class DdlDatabaseTest {
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule( DdlDatabaseTest.class.getSimpleName() + "_TEMPLATE",
+    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule( relational, DdlDatabaseTest.class.getSimpleName() + "_TEMPLATE",
             Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col1"))),
-            Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "int64"))),
-            () -> relational.getEngine().getDdlConnection());
+            Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "int64"))));
 
     @Test
     @Disabled("Awaiting support for listDatabases")
@@ -101,7 +100,7 @@ public class DdlDatabaseTest {
     }
 
     @Test
-    @Disabled("Catalog behavior w.r.t databses that have no schemas needs to be addressed(TODO)")
+    @Disabled("Catalog behavior w.r.t databases that have no schemas needs to be addressed(TODO)")
     public void cannotCreateSchemaFromDroppedDatabase() throws Exception {
         /*
          * a sort-of-dirty way of verifying that a database was created: if you can create

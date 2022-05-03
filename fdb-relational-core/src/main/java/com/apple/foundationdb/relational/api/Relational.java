@@ -24,13 +24,12 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.net.URI;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public final class Relational {
-    private static final CopyOnWriteArrayList<RelationalDriver> registeredDrivers = new CopyOnWriteArrayList<>();
+    private static volatile RelationalDriver registeredDriver;
 
     public static RelationalConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
         return connect(url, null, connectionOptions);
@@ -51,20 +50,25 @@ public final class Relational {
     }
 
     public static RelationalDriver getDriver(@Nonnull URI connectionUrl) throws RelationalException {
-        for (RelationalDriver driver : registeredDrivers) {
-            if (driver.acceptsURL(connectionUrl)) {
-                return driver;
-            }
+        if (registeredDriver.acceptsURL(connectionUrl)) {
+            return registeredDriver;
         }
         throw new RelationalException("No Driver registered which can interpret scheme <" + connectionUrl.getScheme() + ">", ErrorCode.UNKNOWN_SCHEME);
     }
 
-    public static void registerDriver(@Nonnull RelationalDriver newDriver) {
-        registeredDrivers.add(newDriver);
+    public static synchronized void registerDriver(@Nonnull RelationalDriver newDriver) throws RelationalException {
+        if (registeredDriver != null) {
+            throw new RelationalException("A driver is currently registered. Please deregister it before registering a new driver", ErrorCode.PROTOCOL_VIOLATION);
+        }
+        registeredDriver = newDriver;
     }
 
-    public static void deregisterDriver(@Nonnull RelationalDriver driver) {
-        registeredDrivers.remove(driver);
+    public static synchronized void deregisterDriver(@Nonnull RelationalDriver driver) throws RelationalException {
+        if (driver.equals(registeredDriver)) {
+            registeredDriver = null;
+        } else {
+            throw new RelationalException("Attempted to deregister a driver that was not registered", ErrorCode.PROTOCOL_VIOLATION);
+        }
     }
 
     private Relational() {

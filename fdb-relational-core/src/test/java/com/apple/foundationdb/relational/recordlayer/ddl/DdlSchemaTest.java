@@ -51,15 +51,14 @@ public class DdlSchemaTest {
 
     @RegisterExtension
     @Order(1)
-    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule("'" + DdlSchemaTest.class.getName() + "_TEMPLATE'",
+    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational,
+            "'" + DdlSchemaTest.class.getName() + "_TEMPLATE'",
             Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col0"))),
-            Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "int64"))),
-            () -> relational.getEngine().getDdlConnection()
-    );
+            Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "int64"))));
 
     @RegisterExtension
     @Order(2)
-    public final DatabaseRule db = new DatabaseRule(relational.getEngine(), URI.create("/" + DdlSchemaTest.class.getSimpleName()));
+    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/" + DdlSchemaTest.class.getSimpleName()));
 
     @Test
     void cannotCreateSchemaWithNonexistentSchemaTemplate() throws Exception {

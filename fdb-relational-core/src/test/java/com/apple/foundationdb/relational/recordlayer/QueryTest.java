@@ -50,20 +50,21 @@ import javax.annotation.Nonnull;
 
 public class QueryTest {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
-
-    @RegisterExtension
     @Order(0)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(), QueryTest.class, TestSchemas.restaurant());
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    @Order(3)
+    @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, QueryTest.class, TestSchemas.restaurant());
+
+    @RegisterExtension
+    @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withOptions(Options.create())
             .withSchema("testSchema");
 
     @RegisterExtension
-    @Order(4)
+    @Order(3)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     private Restaurant.RestaurantRecord insertedRecord;

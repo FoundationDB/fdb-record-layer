@@ -20,16 +20,14 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
-import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.net.URI;
-import java.util.Collection;
+import java.util.Map;
 
 import javax.annotation.Nonnull;
 
@@ -42,46 +40,26 @@ import javax.annotation.Nonnull;
  * Use this whenever you want a SQL-style database for testing (i.e. you just want a single database with a single
  * schema format).
  */
-public class SimpleDatabaseRule implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, AfterAllCallback {
+public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback {
+    private final EmbeddedRelationalExtension relationalExtension;
     private final SchemaTemplateRule templateRule;
     private final DatabaseRule databaseRule;
     private final SchemaRule schemaRule;
 
-    public SimpleDatabaseRule(@Nonnull EmbeddedRelationalEngine engine,
-                              @Nonnull URI dbPath,
-                              @Nonnull Collection<TableDefinition> tables,
-                              @Nonnull Collection<TypeDefinition> types) {
-
-        String schemaName = "testSchema";
-        String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
-
-        this.templateRule = new SchemaTemplateRule(templateName + "_TEMPLATE", tables, types, engine::getDdlConnection);
-        this.databaseRule = new DatabaseRule(engine, dbPath);
-        this.schemaRule = new SchemaRule(schemaName, dbPath, templateRule.getTemplateName(), engine);
-    }
-
-    public SimpleDatabaseRule(@Nonnull EmbeddedRelationalEngine engine,
-                              @Nonnull URI dbPath,
+    public SimpleDatabaseRule(EmbeddedRelationalExtension relationalExtension, @Nonnull URI dbPath,
                               @Nonnull String templateDefinition) {
-        String schemaName = "testSchema";
-        String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
+        final String schemaName = "testSchema";
+        final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
-        this.templateRule = new SchemaTemplateRule(templateName + "_TEMPLATE", templateDefinition, engine::getDdlConnection);
-        this.databaseRule = new DatabaseRule(engine, dbPath);
-        this.schemaRule = new SchemaRule(schemaName, dbPath, templateRule.getTemplateName(), engine);
+        this.relationalExtension = relationalExtension;
+        this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", templateDefinition);
+        this.databaseRule = new DatabaseRule(this.relationalExtension, dbPath);
+        this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
     }
 
-    public SimpleDatabaseRule(@Nonnull EmbeddedRelationalEngine engine,
-                              @Nonnull Class<?> testClass,
+    public SimpleDatabaseRule(EmbeddedRelationalExtension relationalExtension, @Nonnull Class<?> testClass,
                               @Nonnull String templateDefinition) {
-        this(engine, URI.create("/" + testClass.getSimpleName()), templateDefinition);
-    }
-
-    @Override
-    public void afterAll(ExtensionContext context) throws Exception {
-        schemaRule.afterAll(context);
-        databaseRule.afterAll(context);
-        templateRule.afterAll(context);
+        this(relationalExtension, URI.create("/" + testClass.getSimpleName()), templateDefinition);
     }
 
     @Override
@@ -89,13 +67,6 @@ public class SimpleDatabaseRule implements BeforeAllCallback, BeforeEachCallback
         schemaRule.afterEach(context);
         databaseRule.afterEach(context);
         templateRule.afterEach(context);
-    }
-
-    @Override
-    public void beforeAll(ExtensionContext context) throws Exception {
-        templateRule.beforeAll(context);
-        databaseRule.beforeAll(context);
-        schemaRule.beforeAll(context);
     }
 
     @Override
@@ -115,5 +86,9 @@ public class SimpleDatabaseRule implements BeforeAllCallback, BeforeEachCallback
 
     public URI getConnectionUri() {
         return URI.create("jdbc:embed://" + getDatabasePath().getPath());
+    }
+
+    public Map<String, Object> getStoreTimerMetrics() {
+        return relationalExtension.getStoreTimerMetrics();
     }
 }

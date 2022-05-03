@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.ddl.CatalogQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlConnection;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.StorageCluster;
 
 import java.util.Collection;
@@ -55,11 +56,11 @@ public class EmbeddedRelationalEngine {
         this.queryFactory = new CatalogQueryFactory(storeCatalog, templateCatalog);
     }
 
-    public void registerDriver() {
+    public void registerDriver() throws RelationalException {
         Relational.registerDriver(driver);
     }
 
-    public void deregisterDriver() {
+    public void deregisterDriver() throws RelationalException {
         Relational.deregisterDriver(driver);
     }
 

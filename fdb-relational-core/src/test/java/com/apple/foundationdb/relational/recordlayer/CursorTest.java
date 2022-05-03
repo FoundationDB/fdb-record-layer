@@ -52,23 +52,23 @@ import java.util.stream.StreamSupport;
 
 public class CursorTest {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
-
-    @RegisterExtension
     @Order(0)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(),
-            URI.create("/" + CursorTest.class.getSimpleName()),
-            TestSchemas.restaurant()
-    );
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    @Order(3)
+    @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+            URI.create("/" + CursorTest.class.getSimpleName()),
+            TestSchemas.restaurant());
+
+    @RegisterExtension
+    @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withOptions(Options.create())
             .withSchema("testSchema");
 
     @RegisterExtension
-    @Order(4)
+    @Order(3)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test

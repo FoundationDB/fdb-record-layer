@@ -55,21 +55,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class PlanGenerationStackTest {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
-    //    @Order(0)
-    //    public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
-    //
-    //    @RegisterExtension
-    //    @Order(1)
-    //    public final RecordLayerTemplateRule template = new RecordLayerTemplateRule("RestaurantRecord", catalog)
-    //            .setRecordFile(Restaurant.getDescriptor())
-    //            .configureTable("RestaurantRecord", table -> table.setPrimaryKey(Key.Expressions.field("rest_no")));
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(),
-            URI.create("/" + PlanGenerationStackTest.class.getSimpleName()),
-            TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+            URI.create("/" + PlanGenerationStackTest.class.getSimpleName()), TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(3)

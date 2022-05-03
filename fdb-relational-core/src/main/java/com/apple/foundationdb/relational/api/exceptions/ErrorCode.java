@@ -95,6 +95,7 @@ public enum ErrorCode {
      */
     UNKNOWN("XXXXX"),
     UNKNOWN_SCHEME("08001"),
+    PROTOCOL_VIOLATION("08P01"),
     /**
      * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream
      * system.

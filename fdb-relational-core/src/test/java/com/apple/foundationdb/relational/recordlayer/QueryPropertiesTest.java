@@ -53,11 +53,12 @@ import javax.annotation.Nonnull;
 
 public class QueryPropertiesTest {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    @Order(0)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(), QueryPropertiesTest.class, TestSchemas.restaurant());
+    @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, QueryPropertiesTest.class, TestSchemas.restaurant());
 
     @Test
     void verifyExecuteAndScanPropertiesGivenQueryProperties() {

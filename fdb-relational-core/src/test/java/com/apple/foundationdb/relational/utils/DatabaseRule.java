@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.ddl.DdlConnection;
 import com.apple.foundationdb.relational.api.ddl.DdlStatement;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -33,11 +33,11 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import java.net.URI;
 
 public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
-    private final EmbeddedRelationalEngine relationalEngine;
+    private final EmbeddedRelationalExtension relationalExtension;
     private final URI databasePath;
 
-    public DatabaseRule(EmbeddedRelationalEngine relationalEngine, URI databasePath) {
-        this.relationalEngine = relationalEngine;
+    public DatabaseRule(EmbeddedRelationalExtension relationalExtension, URI databasePath) {
+        this.relationalExtension = relationalExtension;
         this.databasePath = databasePath;
     }
 
@@ -62,7 +62,7 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
     }
 
     private void setup() throws Exception {
-        try (DdlConnection ddlConn = relationalEngine.getDdlConnection()) {
+        try (DdlConnection ddlConn = relationalExtension.getEngine().getDdlConnection()) {
             ddlConn.begin();
             try (DdlStatement statement = ddlConn.createStatement()) {
                 statement.execute("CREATE DATABASE " + databasePath.getPath());
@@ -72,7 +72,7 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
     }
 
     private void tearDown() throws Exception {
-        try (DdlConnection ddlConn = relationalEngine.getDdlConnection()) {
+        try (DdlConnection ddlConn = relationalExtension.getEngine().getDdlConnection()) {
             ddlConn.begin();
             try (DdlStatement statement = ddlConn.createStatement()) {
                 statement.execute("DROP DATABASE " + databasePath.getPath());

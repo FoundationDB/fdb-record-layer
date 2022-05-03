@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -47,12 +48,13 @@ import java.sql.SQLException;
  */
 public class SimpleDirectAccessInsertionTests {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relational.getEngine(),
-            URI.create("/" + SimpleDirectAccessInsertionTests.class.getSimpleName()),
-            TestSchemas.restaurant());
+    @Order(1)
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension,
+            URI.create("/" + SimpleDirectAccessInsertionTests.class.getSimpleName()), TestSchemas.restaurant());
 
     @Test
     void insertNestedFields() throws RelationalException, SQLException {

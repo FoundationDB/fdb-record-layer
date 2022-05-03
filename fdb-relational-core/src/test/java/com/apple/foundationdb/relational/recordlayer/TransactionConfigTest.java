@@ -42,11 +42,12 @@ import java.util.UUID;
 
 public class TransactionConfigTest {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    @Order(0)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(), TransactionConfig.class, TestSchemas.restaurant());
+    @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TransactionConfig.class, TestSchemas.restaurant());
 
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
@@ -62,7 +63,7 @@ public class TransactionConfigTest {
                 String errorMsg = throwable.getMessage();
                 Assertions.assertEquals("Operation aborted because the transaction timed out", errorMsg);
             }
-            Map<String, Object> metrics = relational.getStoreTimerMetrics();
+            Map<String, Object> metrics = database.getStoreTimerMetrics();
             Assertions.assertTrue(metrics.containsKey("CHECK_VERSION"));
         }
     }

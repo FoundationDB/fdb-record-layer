@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -46,10 +47,12 @@ import java.util.Map;
 
 public class InsertTest {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(), InsertTest.class, TestSchemas.restaurant());
+    @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, InsertTest.class, TestSchemas.restaurant());
 
     @Test
     void canInsertWithMultipleRecordTypes() throws RelationalException, SQLException {

@@ -20,44 +20,32 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.ddl.DdlConnection;
 import com.apple.foundationdb.relational.api.ddl.DdlStatement;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 
-import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.net.URI;
 
-public class SchemaRule implements BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback {
+public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     private final String schemaName;
     private final URI dbUri;
     private final String templateName;
-    private final EmbeddedRelationalEngine engine;
+    private final EmbeddedRelationalExtension relationalExtension;
 
-    public SchemaRule(String schemaName, URI dbUri, String templateName, EmbeddedRelationalEngine engine) {
+    public SchemaRule(EmbeddedRelationalExtension relationalExtension, String schemaName, URI dbUri, String templateName) {
+        this.relationalExtension = relationalExtension;
         this.schemaName = schemaName;
         this.dbUri = dbUri;
         this.templateName = templateName;
-        this.engine = engine;
-    }
-
-    @Override
-    public void afterAll(ExtensionContext context) throws Exception {
-        tearDown();
     }
 
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
         tearDown();
-    }
-
-    @Override
-    public void beforeAll(ExtensionContext context) throws Exception {
-        setup();
     }
 
     @Override
@@ -70,7 +58,7 @@ public class SchemaRule implements BeforeAllCallback, AfterAllCallback, BeforeEa
     }
 
     private void setup() throws Exception {
-        try (DdlConnection conn = engine.getDdlConnection()) {
+        try (DdlConnection conn = relationalExtension.getEngine().getDdlConnection()) {
             conn.begin();
             try (DdlStatement statement = conn.createStatement()) {
                 statement.execute("CREATE SCHEMA " + dbUri.getPath() + "/" + schemaName + " WITH TEMPLATE " + templateName);
@@ -80,7 +68,7 @@ public class SchemaRule implements BeforeAllCallback, AfterAllCallback, BeforeEa
     }
 
     private void tearDown() throws Exception {
-        try (DdlConnection conn = engine.getDdlConnection()) {
+        try (DdlConnection conn = relationalExtension.getEngine().getDdlConnection()) {
             conn.begin();
             try (DdlStatement statement = conn.createStatement()) {
                 statement.execute("DROP SCHEMA " + dbUri.getPath() + "/" + schemaName);

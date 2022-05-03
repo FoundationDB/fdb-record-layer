@@ -51,20 +51,21 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 public class RecordLayerTableTest {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
-
-    @RegisterExtension
     @Order(0)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(), RecordLayerTableTest.class, TestSchemas.restaurant());
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    @Order(3)
+    @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, RecordLayerTableTest.class, TestSchemas.restaurant());
+
+    @RegisterExtension
+    @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withOptions(Options.create())
             .withSchema("testSchema");
 
     @RegisterExtension
-    @Order(4)
+    @Order(3)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test

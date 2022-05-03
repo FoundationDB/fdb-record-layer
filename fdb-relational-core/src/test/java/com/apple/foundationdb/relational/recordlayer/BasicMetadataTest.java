@@ -46,16 +46,16 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class BasicMetadataTest {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
-
-    @RegisterExtension
     @Order(0)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(),
-            URI.create("/basic_metadata_test"),
-            TestSchemas.restaurant());
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
     @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+            URI.create("/basic_metadata_test"), TestSchemas.restaurant());
+
+    @RegisterExtension
+    @Order(2)
     public final RelationalConnectionRule dbConn = new RelationalConnectionRule(database::getConnectionUri);
 
     @Test

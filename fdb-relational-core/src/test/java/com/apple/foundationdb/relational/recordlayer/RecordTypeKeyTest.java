@@ -40,24 +40,25 @@ import java.sql.SQLException;
 
 public class RecordTypeKeyTest {
     @RegisterExtension
-    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
-
-    @RegisterExtension
     @Order(0)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational.getEngine(), RecordTypeKeyTest.class,
-            "CREATE TABLE RestaurantReview (reviewer int64, rating int64 PRIMARY KEY(RECORD TYPE));" +
-                    "CREATE TABLE RestaurantTag (tag string, weight int64 PRIMARY KEY(RECORD TYPE,tag));" +
-                    "CREATE VALUE INDEX record_rt_covering_idx on RestaurantReview(reviewer)"
-    );
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
     @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+            RecordTypeKeyTest.class,
+            "CREATE TABLE RestaurantReview (reviewer int64, rating int64 PRIMARY KEY(RECORD TYPE));" +
+                    "CREATE TABLE RestaurantTag (tag string, weight int64 PRIMARY KEY(RECORD TYPE,tag));" +
+                    "CREATE VALUE INDEX record_rt_covering_idx on RestaurantReview(reviewer)");
+
+    @RegisterExtension
+    @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withOptions(Options.create())
             .withSchema("testSchema");
 
     @RegisterExtension
-    @Order(2)
+    @Order(3)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test

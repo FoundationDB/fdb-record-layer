@@ -103,7 +103,7 @@ public abstract class EmbeddedRelationalBenchmark {
         }
 
         @TearDown(Level.Trial)
-        public void down() {
+        public void down() throws RelationalException {
             engine.deregisterDriver();
         }
     }
