@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Interface to represent a match candidate. A match candidate on code level is just a name and a data flow graph
@@ -325,7 +326,9 @@ public interface MatchCandidate {
     @Nonnull
     static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
         final var quantifier =
-                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
+                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, metaData.getAllIndexes().stream()
+                        .map(Index::getName)
+                        .collect(Collectors.toSet()))));
         return GroupExpressionRef.of(
                 new LogicalTypeFilterExpression(recordTypesForIndex,
                         quantifier,

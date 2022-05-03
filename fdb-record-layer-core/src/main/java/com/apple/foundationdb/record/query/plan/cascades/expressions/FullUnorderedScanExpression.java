@@ -30,11 +30,11 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -65,13 +65,22 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     private final Set<String> recordTypes;
 
-    public FullUnorderedScanExpression(final Set<String> recordTypes) {
+    @Nonnull
+    private final Set<String> indexSet;
+
+    public FullUnorderedScanExpression(final Set<String> recordTypes, final Set<String> indexSet) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
+        this.indexSet = ImmutableSet.copyOf(indexSet);
     }
 
     @Nonnull
     public Set<String> getRecordTypes() {
         return recordTypes;
+    }
+
+    @Nonnull
+    public Set<String> getIndexSet() {
+        return indexSet;
     }
 
     @Nonnull
@@ -134,7 +143,15 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     @Override
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
-        return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
+        if (getClass() != candidateExpression.getClass()) {
+            return ImmutableList.of();
+        }
+        // if query doesn't contain any index, or contains candidate's index, the query should be exactly subsumed by the candidate
+        if (getIndexSet().size() == 0 || getIndexSet().containsAll(((FullUnorderedScanExpression)candidateExpression).getIndexSet())) {
+            return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
+        } else {
+            return ImmutableList.of();
+        }
     }
 
     @Override
