@@ -31,14 +31,19 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** The FDB dependency has been updated to require version 7.1 [(Issue #1636)](https://github.com/FoundationDB/fdb-record-layer/issues/1636)
-* **Breaking change** Additional downstream dependency versions have been upgraded, including Protobuf [(Issue #1640)](https://github.com/FoundationDB/fdb-record-layer/issues/1640)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.2.257.0
+
+* **Breaking change** The FDB dependency has been updated to require version 7.1 [(Issue #1636)](https://github.com/FoundationDB/fdb-record-layer/issues/1636)
+* **Breaking change** Additional downstream dependency versions have been upgraded, including Protobuf [(Issue #1640)](https://github.com/FoundationDB/fdb-record-layer/issues/1640)
 
 ## 3.1
 
