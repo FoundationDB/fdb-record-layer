@@ -24,7 +24,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Create a transactional runner that does not retry [(Issue #1615)](https://github.com/FoundationDB/fdb-record-layer/issues/1615)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,10 @@ This version of the Record Layer changes the Java source and target compatibilit
 
 // end next release
 -->
+
+### 3.1.256.0
+
+* **Feature** Create a transactional runner that does not retry [(Issue #1615)](https://github.com/FoundationDB/fdb-record-layer/issues/1615)
 
 ### 3.1.255.0
 
