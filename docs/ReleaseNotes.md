@@ -6,7 +6,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 3.2
 
-### Breaking changes
+### Breaking Changes
 
 The FoundationDB Java binding dependency has been updated to 7.1 with this release. This means that clients also need to update their main FDB C client to a 7.1 version. Adopters that still wish to connect to an FDB cluster running a 6.3 or 7.0 server version can do so by packaging additional FDB C clients at the appropriate version(s) using the [FDB multi-version client feature](https://apple.github.io/foundationdb/api-general.html#multi-version-client).
 
