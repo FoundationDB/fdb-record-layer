@@ -81,6 +81,8 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     private String traceLogGroup = null;
     @Nonnull
     private FDBTraceFormat traceFormat = FDBTraceFormat.DEFAULT;
+    @Nonnull
+    private APIVersion apiVersion = APIVersion.getDefault();
 
     private boolean runLoopProfilingEnabled = false;
 
@@ -101,7 +103,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.of("Starting FDB"));
             }
-            fdb = FDB.selectAPIVersion(API_VERSION);
+            fdb = FDB.selectAPIVersion(apiVersion.getVersionNumber());
             fdb.setUnclosedWarning(unclosedWarning);
             setStaticOptions(fdb);
             NetworkOptions options = fdb.options();
@@ -171,6 +173,19 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     @Override
     public void setTraceFormat(@Nonnull FDBTraceFormat traceFormat) {
         this.traceFormat = traceFormat;
+    }
+
+    @Override
+    public synchronized void setAPIVersion(@Nonnull APIVersion apiVersion) {
+        if (inited) {
+            throw new RecordCoreException("API version cannot be changed after client has already started");
+        }
+        this.apiVersion = apiVersion;
+    }
+
+    @Override
+    public APIVersion getAPIVersion() {
+        return apiVersion;
     }
 
     @Override

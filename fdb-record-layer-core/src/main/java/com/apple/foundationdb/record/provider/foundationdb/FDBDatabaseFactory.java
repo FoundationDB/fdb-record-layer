@@ -666,6 +666,39 @@ public abstract class FDBDatabaseFactory {
 
     public abstract Supplier<Boolean> getTransactionIsTracedSupplier();
 
+    /**
+     * Set the API version for this database factory. This value will be used to determine what FDB APIs are
+     * available.
+     *
+     * <p>
+     * Note that once an API version has been set, the client will not be able to talk to any FDB cluster
+     * that is running an older associated server version. It is therefore important that the adopter sets
+     * this value so that it does not exceed the smallest FDB server version that this client will be
+     * expected to connect to. However, if there are features that are only available on a subset of
+     * supported FDB API versions, the Record Layer will attempt to guard those features so that they are
+     * only used if the configured API version supports it.
+     * </p>
+     *
+     * <p>
+     * By default, this will be set to {@link APIVersion#getDefault()}.
+     * </p>
+     *
+     * @param apiVersion the API version to use when initializing the FDB client
+     * @see APIVersion
+     */
+    public abstract void setAPIVersion(@Nonnull APIVersion apiVersion);
+
+    /**
+     * Get the configured FDB API version. This is an internal method to indicate what value was configured
+     * on this database factory, as other Record Layer APIs should hide API-version compatibility code so
+     * that adopters do not need to worry about setting this value except possibly during client initialization.
+     *
+     * @return the configured FDB API version
+     * @see #setAPIVersion(APIVersion)
+     */
+    @API(API.Status.INTERNAL)
+    public abstract APIVersion getAPIVersion();
+
     @Nonnull
     public abstract FDBDatabase getDatabase(@Nullable String clusterFile);
 

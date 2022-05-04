@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -518,5 +519,12 @@ public class FDBDatabaseTest extends FDBTestBase {
                 FDBRecordContextConfig.newBuilder().setEnableAssertions(true).build())) {
             assertThrows(exception, () -> consumer.accept(context));
         }
+    }
+
+    @Test
+    public void getAPIVersion() {
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        assertEquals(APIVersion.getDefault(), database.getAPIVersion());
+        assertEquals(FDB.instance().getAPIVersion(), database.getAPIVersion().getVersionNumber());
     }
 }
