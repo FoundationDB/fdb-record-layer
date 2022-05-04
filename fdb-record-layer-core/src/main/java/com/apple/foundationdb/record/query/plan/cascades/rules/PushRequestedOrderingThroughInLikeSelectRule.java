@@ -1,5 +1,5 @@
 /*
- * PushInterestingOrderingThroughInLikeSelectRule.java
+ * PushRequestedOrderingThroughInLikeSelectRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
@@ -46,24 +46,24 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * A rule that pushes an {@link OrderingConstraint} through a specific {@link SelectExpression}.
+ * A rule that pushes an {@link RequestedOrderingConstraint} through a specific {@link SelectExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushInterestingOrderingThroughInLikeSelectRule extends PlannerRule<SelectExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughInLikeSelectRule extends PlannerRule<SelectExpression> implements PreOrderRule {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(explodeQuantifiersMatcher);
 
-    public PushInterestingOrderingThroughInLikeSelectRule() {
-        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
+    public PushRequestedOrderingThroughInLikeSelectRule() {
+        super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final var requestedOrderingsOptional = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -93,7 +93,7 @@ public class PushInterestingOrderingThroughInLikeSelectRule extends PlannerRule<
         // and in-unions.
         //
         call.pushConstraint(lowerReference,
-                OrderingConstraint.REQUESTED_ORDERING,
+                RequestedOrderingConstraint.REQUESTED_ORDERING,
                 requestedOrderings);
     }
 

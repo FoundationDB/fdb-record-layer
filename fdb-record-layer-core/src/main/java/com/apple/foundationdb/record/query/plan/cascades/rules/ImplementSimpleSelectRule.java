@@ -1,5 +1,5 @@
 /*
- * ImplementMapRule.java
+ * ImplementSimpleSelectRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
@@ -30,16 +31,19 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
@@ -51,7 +55,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementMapRule extends PlannerRule<SelectExpression> {
+public class ImplementSimpleSelectRule extends PlannerRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
@@ -59,11 +63,17 @@ public class ImplementMapRule extends PlannerRule<SelectExpression> {
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
             planPartitions(rollUp(any(innerPlanPartitionMatcher)));
 
+    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
-    private static final BindingMatcher<SelectExpression> root =
-            selectExpression(CollectionMatcher.empty(), exactly(innerQuantifierMatcher));
 
-    public ImplementMapRule() {
+    @Nonnull
+    private static final BindingMatcher<QueryPredicate> predicateMatcher = anyPredicate();
+
+    @Nonnull
+    private static final BindingMatcher<SelectExpression> root =
+            selectExpression(all(predicateMatcher), exactly(innerQuantifierMatcher));
+
+    public ImplementSimpleSelectRule() {
         super(root);
     }
 
@@ -73,20 +83,46 @@ public class ImplementMapRule extends PlannerRule<SelectExpression> {
         final var selectExpression = bindings.get(root);
         final var planPartition = bindings.get(innerPlanPartitionMatcher);
 
-        final Quantifier.ForEach innerQuantifier = bindings.get(innerQuantifierMatcher);
-        final var resultValue = selectExpression.getResultValue();
-        if (resultValue instanceof QuantifiedObjectValue &&
-                ((QuantifiedObjectValue)resultValue).getAlias().equals(innerQuantifier.getAlias())) {
+        final var predicates = bindings.getAll(predicateMatcher);
+        Quantifier quantifier = bindings.get(innerQuantifierMatcher);
+        var resultValue = selectExpression.getResultValue();
+        var reference = GroupExpressionRef.from(planPartition.getPlans());
+
+        final var isSimpleResultValue =
+                resultValue instanceof QuantifiedObjectValue &&
+                ((QuantifiedObjectValue)resultValue).getAlias().equals(quantifier.getAlias());
+
+        if (predicates.isEmpty() &&
+                isSimpleResultValue) {
+            call.yield(reference);
             return;
         }
-        
-        final GroupExpressionRef<? extends RecordQueryPlan> referenceOverPlans = GroupExpressionRef.from(planPartition.getPlans());
 
-        call.yield(GroupExpressionRef.of(
-                new RecordQueryMapPlan(
-                        Quantifier.physicalBuilder()
-                                .morphFrom(innerQuantifier)
-                                .build(referenceOverPlans),
-                        resultValue)));
+        if (!predicates.isEmpty()) {
+            reference = GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(
+                    Quantifier.physicalBuilder()
+                            .withAlias(quantifier.getAlias())
+                            .build(reference),
+                    predicates));
+        }
+
+        if (!isSimpleResultValue) {
+            final Quantifier.Physical beforeMapQuantifier;
+            if (!predicates.isEmpty()) {
+                final var lowerAlias = quantifier.getAlias();
+                beforeMapQuantifier = Quantifier.physical(reference);
+                resultValue = resultValue.rebase(AliasMap.of(lowerAlias, quantifier.getAlias()));
+            } else {
+                beforeMapQuantifier = Quantifier.physicalBuilder()
+                        .withAlias(quantifier.getAlias())
+                        .build(reference);
+            }
+
+            reference = GroupExpressionRef.of(
+                    new RecordQueryMapPlan(beforeMapQuantifier,
+                            resultValue));
+        }
+
+        call.yield(reference);
     }
 }

@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -100,7 +100,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     protected AbstractDataAccessRule(@Nonnull final BindingMatcher<MatchPartition> rootMatcher,
                                      @Nonnull final BindingMatcher<PartialMatch> completeMatchMatcher,
                                      @Nonnull final BindingMatcher<R> expressionMatcher) {
-        super(rootMatcher, ImmutableSet.of(ReferencedFieldsConstraint.REFERENCED_FIELDS, OrderingConstraint.REQUESTED_ORDERING));
+        super(rootMatcher, ImmutableSet.of(ReferencedFieldsConstraint.REFERENCED_FIELDS, RequestedOrderingConstraint.REQUESTED_ORDERING));
         this.completeMatchMatcher = completeMatchMatcher;
         this.expressionMatcher = expressionMatcher;
     }
@@ -208,7 +208,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         //
         // return if there is no pre-determined interesting ordering
         //
-        final var requestedOrderingsOptional = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }

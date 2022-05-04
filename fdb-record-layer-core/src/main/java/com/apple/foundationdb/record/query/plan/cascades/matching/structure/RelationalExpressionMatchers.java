@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
@@ -34,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;

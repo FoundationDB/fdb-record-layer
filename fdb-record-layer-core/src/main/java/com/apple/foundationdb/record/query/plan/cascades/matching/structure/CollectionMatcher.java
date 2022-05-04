@@ -58,4 +58,20 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
             }
         };
     }
+
+    @Nonnull
+    static <E> CollectionMatcher<E> fromBindingMatcher(@Nonnull final BindingMatcher<Collection<E>> matcher) {
+        return new CollectionMatcher<E>() {
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<E> in) {
+                return matcher.bindMatchesSafely(outerBindings, in);
+            }
+
+            @Override
+            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+                return matcher.explainMatcher(atLeastType, boundId, indentation);
+            }
+        };
+    }
 }

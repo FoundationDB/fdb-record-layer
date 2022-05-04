@@ -90,7 +90,7 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
         final ImmutableList<String> downstreamIds = Streams.mapWithIndex(downstreams.stream(), (downstream, index) -> downstream.identifierFromMatcher() + index)
                 .collect(ImmutableList.toImmutableList());
 
-        return "(" + String.join(", ", downstreamIds) + ") in permuations(" + boundId + ") match all {" + newLine(nestedIndentation) +
+        return "(" + String.join(", ", downstreamIds) + ") in permutations(" + boundId + ") match all {" + newLine(nestedIndentation) +
                Streams.zip(downstreams.stream(), downstreamIds.stream(),
                        (downstream, downstreamId) -> downstream.explainMatcher(Object.class, downstreamId, nestedIndentation) + "," + newLine(nestedIndentation))
                        .collect(Collectors.joining()) + newLine(indentation) + "}";

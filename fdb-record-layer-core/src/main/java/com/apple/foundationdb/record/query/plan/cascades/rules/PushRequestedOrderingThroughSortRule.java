@@ -1,5 +1,5 @@
 /*
- * PushInterestingOrderingThroughSortRule.java
+ * PushRequestedOrderingThroughSortRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
@@ -46,18 +46,18 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalSortExpression;
 
 /**
- * A rule that pushes an ordering {@link OrderingConstraint} through a {@link LogicalSortExpression}.
+ * A rule that pushes an ordering {@link RequestedOrderingConstraint} through a {@link LogicalSortExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushInterestingOrderingThroughSortRule extends PlannerRule<LogicalSortExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughSortRule extends PlannerRule<LogicalSortExpression> implements PreOrderRule {
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     private static final BindingMatcher<LogicalSortExpression> root =
             logicalSortExpression(exactly(innerQuantifierMatcher));
 
-    public PushInterestingOrderingThroughSortRule() {
-        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
+    public PushRequestedOrderingThroughSortRule() {
+        super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
@@ -70,7 +70,7 @@ public class PushInterestingOrderingThroughSortRule extends PlannerRule<LogicalS
         final KeyExpression sortKeyExpression = logicalSortExpression.getSort();
         if (sortKeyExpression == null) {
             call.pushConstraint(lowerRef,
-                    OrderingConstraint.REQUESTED_ORDERING,
+                    RequestedOrderingConstraint.REQUESTED_ORDERING,
                     ImmutableSet.of(RequestedOrdering.preserve()));
         } else {
             final List<KeyExpression> normalizedSortKeys = sortKeyExpression.normalizeKeyForPositions();
@@ -83,7 +83,7 @@ public class PushInterestingOrderingThroughSortRule extends PlannerRule<LogicalS
                     ImmutableSet.of(new RequestedOrdering(keyPartBuilder.build(), RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
 
             call.pushConstraint(lowerRef,
-                    OrderingConstraint.REQUESTED_ORDERING,
+                    RequestedOrderingConstraint.REQUESTED_ORDERING,
                     orderings);
         }
     }

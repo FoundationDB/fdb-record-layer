@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
@@ -70,7 +70,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.PushInterestingOrderingThroughInLikeSelectRule.findInnerQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule.findInnerQuantifier;
 
 /**
  * A rule that implements a SELECT over a VALUES and a correlated subexpression as a {@link RecordQueryInUnionPlan}.
@@ -85,7 +85,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
             selectExpression(explodeQuantifiersMatcher);
 
     public ImplementInUnionRule() {
-        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
+        super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
     @SuppressWarnings({"unchecked", "java:S135"})
@@ -94,7 +94,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         final var context = call.getContext();
         final var bindings = call.getBindings();
 
-        final var requestedOrderingsOptional = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }

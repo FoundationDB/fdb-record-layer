@@ -29,8 +29,10 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
@@ -147,6 +149,12 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
+        public Boolean visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
+            return false;
+        }
+
+        @Nonnull
+        @Override
         public Boolean visitIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan element) {
             return false;
         }
@@ -222,6 +230,12 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
             return visitInJoinPlan(inParameterJoinPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan element) {
+            return false;
         }
 
         @Nonnull

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
+import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -45,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueCompari
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Sargable;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -63,6 +65,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -76,6 +79,10 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     private final List<Quantifier> children;
     @Nonnull
     private final List<? extends QueryPredicate> predicates;
+    @Nonnull
+    private final Supplier<Map<CorrelationIdentifier, ? extends Quantifier>> aliasToQuantifierMapSupplier;
+    @Nonnull
+    private final Supplier<PartialOrder<CorrelationIdentifier>> correlationOrderSupplier;
 
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
@@ -85,6 +92,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
                           : partitionPredicates(predicates);
+        this.aliasToQuantifierMapSupplier = Suppliers.memoize(this::computeAliasToQuantifierMap);
+        this.correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
     }
 
     @Nonnull
@@ -176,6 +185,32 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     public int hashCodeWithoutChildren() {
         return Objects.hash(getPredicates(), getResultValue());
+    }
+
+    @Nonnull
+    public Map<CorrelationIdentifier, ? extends Quantifier> getAliasToQuantifierMap() {
+        return aliasToQuantifierMapSupplier.get();
+    }
+
+    @Nonnull
+    private Map<CorrelationIdentifier, ? extends Quantifier> computeAliasToQuantifierMap() {
+        return getQuantifiers().stream()
+                .collect(ImmutableMap.toImmutableMap(Quantifier::getAlias, Function.identity()));
+    }
+
+    @Nonnull
+    public PartialOrder<CorrelationIdentifier> getCorrelationOrder() {
+        return correlationOrderSupplier.get();
+    }
+
+    @Nonnull
+    private PartialOrder<CorrelationIdentifier> computeCorrelationOrder() {
+        final var aliasToQuantifierMap = getAliasToQuantifierMap();
+        return PartialOrder.of(
+                getQuantifiers().stream()
+                        .map(Quantifier::getAlias)
+                        .collect(ImmutableSet.toImmutableSet()),
+                alias -> Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getCorrelatedTo());
     }
 
     @Nonnull

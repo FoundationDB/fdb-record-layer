@@ -197,7 +197,7 @@ public class ChooseK {
             }
         }
 
-        private ComplexIterable(@Nonnull final Iterable<T> elements, final int numberOfElementsToChoose) {
+        private ComplexIterable(@Nonnull final Iterable<? extends T> elements, final int numberOfElementsToChoose) {
             this.elements = ImmutableList.copyOf(elements);
             this.numberOfElementsToChoose = numberOfElementsToChoose;
         }
@@ -265,7 +265,7 @@ public class ChooseK {
      *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
      *         orderings that violate the given depends-on constraints
      */
-    public static <T> EnumeratingIterable<T> chooseK(@Nonnull final Collection<T> elements, final int numberOfElementsToChoose) {
+    public static <T> EnumeratingIterable<T> chooseK(@Nonnull final Collection<? extends T> elements, final int numberOfElementsToChoose) {
         Preconditions.checkArgument(numberOfElementsToChoose >= 0 && numberOfElementsToChoose <= elements.size());
         // try simple
         @Nullable
@@ -278,7 +278,7 @@ public class ChooseK {
     }
 
     @Nullable
-    private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final Collection<T> elements, final int numberOfElementsToChoose) {
+    private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final Collection<? extends T> elements, final int numberOfElementsToChoose) {
         if (elements.isEmpty() || numberOfElementsToChoose == 0) {
             return new SingleIterable<>(ImmutableList.of());
         } else if (elements.size() == 1) {

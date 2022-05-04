@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -69,8 +70,10 @@ public class AllOfMatcher<T> implements BindingMatcher<T> {
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
 
-        for (final BindingMatcher<?> extractingMatcher : downstreams) {
-            bindingStream = bindingStream.flatMap(bindings -> extractingMatcher.bindMatches(outerBindings, in).map(bindings::mergedWith));
+        for (final BindingMatcher<?> downstream : downstreams) {
+            bindingStream = bindingStream
+                    .flatMap(bindings -> downstream.bindMatches(outerBindings, in)
+                            .map(bindings::mergedWith));
         }
 
         return bindingStream;
@@ -87,6 +90,11 @@ public class AllOfMatcher<T> implements BindingMatcher<T> {
                Streams.zip(downstreams.stream(), downstreamIds.stream(),
                        (downstream, downstreamId) -> downstream.explainMatcher(atLeastType, boundId, nestedIndentation))
                        .collect(Collectors.joining(" && " + newLine(nestedIndentation))) + newLine(indentation) + "}";
+    }
+
+    public static <T> AllOfMatcher<T> matchingAllOf(@Nonnull final Class<T> staticClassOfT,
+                                                    @Nonnull final BindingMatcher<?>... matchingExtractors) {
+        return new AllOfMatcher<>(staticClassOfT, Arrays.asList(matchingExtractors));
     }
 
     public static <T> AllOfMatcher<T> matchingAllOf(@Nonnull final Class<T> staticClassOfT,

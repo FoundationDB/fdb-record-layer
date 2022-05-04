@@ -38,8 +38,10 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
@@ -229,6 +231,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
+        public Ordering visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
+            return Ordering.emptyOrder();
+        }
+
+        @Nonnull
+        @Override
         public Ordering visitIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan element) {
             return Ordering.emptyOrder();
         }
@@ -372,6 +380,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
             return visitInJoinPlan(inParameterJoinPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan element) {
+            return Ordering.emptyOrder();
         }
 
         @Nonnull

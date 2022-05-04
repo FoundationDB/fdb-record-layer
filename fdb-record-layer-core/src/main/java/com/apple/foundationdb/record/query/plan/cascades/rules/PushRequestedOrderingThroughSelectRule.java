@@ -1,5 +1,5 @@
 /*
- * PushInterestingOrderingThroughDistinctRule.java
+ * PushRequestedOrderingThroughSelectRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,54 +22,56 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
-import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * A rule that pushes an {@link OrderingConstraint} through a {@link LogicalDistinctExpression}.
+ * A rule that pushes a {@link ReferencedFieldsConstraint} through a {@link SelectExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushInterestingOrderingThroughDistinctRule extends PlannerRule<LogicalDistinctExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughSelectRule extends PlannerRule<SelectExpression> implements PreOrderRule {
+    @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
+    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
-    private static final BindingMatcher<LogicalDistinctExpression> root =
-            logicalDistinctExpression(exactly(innerQuantifierMatcher));
+    @Nonnull
+    private static final BindingMatcher<QueryPredicate> predicateMatcher = anyPredicate();
+    @Nonnull
+    private static final BindingMatcher<SelectExpression> root =
+            selectExpression(all(predicateMatcher), exactly(innerQuantifierMatcher));
 
-    public PushInterestingOrderingThroughDistinctRule() {
-        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
+    public PushRequestedOrderingThroughSelectRule() {
+        super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final Optional<Set<RequestedOrdering>> requestedOrderingOptionals = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
-        if (requestedOrderingOptionals.isEmpty()) {
-            return;
-        }
-
-        final PlannerBindings bindings = call.getBindings();
-        final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
-
+        final var bindings = call.getBindings();
+        final var lowerRef = bindings.get(lowerRefMatcher);
+        final var requestedOrdering =
+                call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING)
+                        .orElse(ImmutableSet.of());
         call.pushConstraint(lowerRef,
-                OrderingConstraint.REQUESTED_ORDERING,
-                requestedOrderingOptionals.get());
+                RequestedOrderingConstraint.REQUESTED_ORDERING,
+                requestedOrdering);
     }
 }
