@@ -42,7 +42,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Base class for {@link IndexScanParameters} used by {@code LUCENE} indexes.
@@ -79,9 +78,9 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
     protected static List<String> indexTextFields(@Nonnull Index index, @Nonnull RecordMetaData metaData) {
         final List<String> textFields = new ArrayList<>();
         for (RecordType recordType : metaData.recordTypesForIndex(index)) {
-            for (Map.Entry<String, LuceneIndexExpressions.DocumentFieldDerivation> entry : LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), recordType.getDescriptor()).entrySet()) {
-                if (entry.getValue().getType() == LuceneIndexExpressions.DocumentFieldType.TEXT) {
-                    textFields.add(entry.getKey());
+            for (LuceneIndexExpressions.DocumentFieldDerivation documentField : LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), recordType.getDescriptor()).values()) {
+                if (documentField.getType() == LuceneIndexExpressions.DocumentFieldType.TEXT) {
+                    textFields.add(documentField.getDocumentField());
                 }
             }
         }

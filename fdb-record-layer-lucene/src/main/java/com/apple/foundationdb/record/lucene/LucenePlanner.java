@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
@@ -43,6 +46,8 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,16 +71,17 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Override
     protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
                                    @Nonnull Index index, @Nonnull QueryComponent filter,
-                                   @Nullable KeyExpression sort) {
+                                   @Nullable KeyExpression sort, boolean sortReverse) {
         if (index.getType().equals(LuceneIndexTypes.LUCENE)) {
-            return planLucene(candidateScan, index, filter);
+            return planLucene(candidateScan, index, filter, sort, sortReverse);
         } else {
-            return super.planOther(candidateScan, index, filter, sort);
+            return super.planOther(candidateScan, index, filter, sort, sortReverse);
         }
     }
 
     private ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
-                                  @Nonnull Index index, @Nonnull QueryComponent filter) {
+                                  @Nonnull Index index, @Nonnull QueryComponent filter,
+                                  @Nullable KeyExpression sort, boolean sortReverse) {
 
         final FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
 
@@ -105,7 +111,12 @@ public class LucenePlanner extends RecordQueryPlanner {
             if (query == null) {
                 return null;
             }
-            scanParameters = new LuceneScanQueryParameters(groupingComparisons, query);
+            if (sort != null && !getSort(state, sort, sortReverse)) {
+                return null;
+            }
+            getStoredFields(state);
+            scanParameters = new LuceneScanQueryParameters(groupingComparisons, query,
+                    state.sort, state.storedFields, state.storedFieldTypes);
         }
 
         // Wrap in plan.
@@ -126,6 +137,12 @@ public class LucenePlanner extends RecordQueryPlanner {
         final ScanComparisons groupingComparisons;
         @Nonnull
         final QueryComponent filter;
+        @Nullable
+        Sort sort;
+        @Nullable
+        List<String> storedFields;
+        @Nullable
+        List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
         Map<String, LuceneIndexExpressions.DocumentFieldDerivation> documentFields;
         boolean repeated;   // Matching a repeated field may introduce duplicates
@@ -314,6 +331,83 @@ public class LucenePlanner extends RecordQueryPlanner {
             }
         }
         return false;
+    }
+
+    private boolean getSort(@Nonnull LucenePlanState state, @Nonnull KeyExpression sort, boolean sortReverse) {
+        final List<KeyExpression> sorts = sort.normalizeKeyForPositions();
+        final SortField[] fields = new SortField[sorts.size()];
+        for (int i = 0; i < fields.length; i++) {
+            for (LuceneIndexExpressions.DocumentFieldDerivation documentField : state.documentFields.values()) {
+                if (recordFieldPathMatches(sorts.get(i), documentField.getRecordFieldPath())) {
+                    final SortField.Type type;
+                    switch (documentField.getType()) {
+                        case STRING:
+                        case BOOLEAN:
+                            type = SortField.Type.STRING;
+                            break;
+                        case INT:
+                            type = SortField.Type.INT;
+                            break;
+                        case LONG:
+                            type = SortField.Type.LONG;
+                            break;
+                        case DOUBLE:
+                            type = SortField.Type.DOUBLE;
+                            break;
+                        default:
+                            throw new RecordCoreException("Unsupported document field type for sorting: " + documentField.getType() + ":" + documentField.getDocumentField());
+                    }
+                    fields[i] = new SortField(documentField.getDocumentField(), type, sortReverse);
+                    break;
+                }
+            }
+            if (fields[i] == null) {
+                return false;
+            }
+        }
+        state.sort = new Sort(fields);
+        return true;
+    }
+
+    private void getStoredFields(@Nonnull LucenePlanState state) {
+        final List<KeyExpression> fields = state.index.getRootExpression().normalizeKeyForPositions();
+        for (LuceneIndexExpressions.DocumentFieldDerivation documentField : state.documentFields.values()) {
+            if (documentField.isStored()) {
+                if (state.storedFields == null) {
+                    state.storedFields = new ArrayList<>(Collections.nCopies(fields.size(), null));
+                    state.storedFieldTypes = new ArrayList<>(Collections.nCopies(fields.size(), null));
+                }
+                for (int i = 0; i < fields.size(); i++) {
+                    if (recordFieldPathMatches(fields.get(i), documentField.getRecordFieldPath())) {
+                        state.storedFields.set(i, documentField.getDocumentField());
+                        state.storedFieldTypes.set(i, documentField.getType());
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean recordFieldPathMatches(@Nonnull KeyExpression keyExpression, @Nonnull List<String> recordFieldPath) {
+        int i = 0;
+        while (true) {
+            if (keyExpression instanceof FieldKeyExpression) {
+                return i == recordFieldPath.size() - 1 && ((FieldKeyExpression)keyExpression).getFieldName().equals(recordFieldPath.get(i));
+            } else if (keyExpression instanceof NestingKeyExpression) {
+                if (i < recordFieldPath.size() && ((NestingKeyExpression)keyExpression).getParent().getFieldName().equals(recordFieldPath.get(i))) {
+                    keyExpression = ((NestingKeyExpression)keyExpression).getChild();
+                    i++;
+                } else {
+                    return false;
+                }
+            } else if (keyExpression instanceof LuceneFunctionKeyExpression.LuceneSorted) {
+                keyExpression = ((LuceneFunctionKeyExpression.LuceneSorted)keyExpression).getSortedExpression();
+            } else if (keyExpression instanceof LuceneFunctionKeyExpression.LuceneStored) {
+                keyExpression = ((LuceneFunctionKeyExpression.LuceneStored)keyExpression).getStoredExpression();
+            } else {
+                return false;
+            }
+        }
     }
 
 }
