@@ -36,7 +36,7 @@ public final class LuceneRecordContextProperties {
      * It is used as a key to get the property value from {@link RecordLayerPropertyStorage#getPropertyValue(RecordLayerPropertyKey)}.
      * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
      */
-    public static final RecordLayerPropertyKey<Boolean> LUCENE_INDEX_COMPRESSION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.compressionEnabled", false);
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_INDEX_COMPRESSION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.compressionEnabled", true);
 
     /**
      * A defined {@link RecordLayerPropertyKey} for Boolean type to control whether the encryption of lucene index is enabled.
