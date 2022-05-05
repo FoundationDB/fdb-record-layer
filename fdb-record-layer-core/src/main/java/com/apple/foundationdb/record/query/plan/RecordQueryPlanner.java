@@ -630,7 +630,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 p = planRank(candidateScan, index, grouping, filter);
                 indexExpr = grouping.getWholeKey(); // Plan as just value index.
             } else if (!indexTypes.getValueTypes().contains(index.getType())) {
-                p = planOther(candidateScan, index, filter, sort, sortReverse);
+                p = planOther(candidateScan, index, filter, sort, sortReverse, planContext.commonPrimaryKey);
                 if (p != null) {
                     p = planRemoveDuplicates(planContext, p);
                 }
@@ -1345,7 +1345,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
                                    @Nonnull Index index, @Nonnull QueryComponent filter,
-                                   @Nullable KeyExpression sort, boolean sortReverse) {
+                                   @Nullable KeyExpression sort, boolean sortReverse,
+                                   @Nullable KeyExpression commonPrimaryKey) {
         if (indexTypes.getTextTypes().contains(index.getType())) {
             return planText(candidateScan, index, filter, sort, sortReverse);
         } else {
