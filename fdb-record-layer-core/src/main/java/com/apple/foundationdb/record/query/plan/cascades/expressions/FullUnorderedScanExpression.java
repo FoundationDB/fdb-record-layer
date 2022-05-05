@@ -146,8 +146,8 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         if (getClass() != candidateExpression.getClass()) {
             return ImmutableList.of();
         }
-        // if query doesn't contain any index, or contains candidate's index, the query should be exactly subsumed by the candidate
-        if (getIndexSet().size() == 0 || getIndexSet().containsAll(((FullUnorderedScanExpression)candidateExpression).getIndexSet())) {
+        // if 1) query contains candidate's indexes; AND 2) the query can be exactly subsumed by the candidate, the query can be subsumed by the candidate
+        if (getIndexSet().isEmpty() || getIndexSet().containsAll(((FullUnorderedScanExpression)candidateExpression).getIndexSet())) {
             return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
         } else {
             return ImmutableList.of();
