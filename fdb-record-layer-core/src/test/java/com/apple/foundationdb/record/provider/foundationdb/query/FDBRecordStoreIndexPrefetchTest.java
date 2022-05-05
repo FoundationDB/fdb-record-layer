@@ -20,24 +20,34 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.cursors.ListCursor;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,13 +57,20 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
+import java.lang.reflect.Constructor;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -286,6 +303,40 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Test
+    void testOrphanPolicyError() throws Exception {
+        List<FDBIndexedRawRecord> mappedKeyValues = buildIndexedRawRecordWithOrphanIndexEntry();
+        RecordCursor<FDBIndexedRawRecord> recordCursor = new ListCursor<>(mappedKeyValues, null);
+        Subspace recordSubspace = new Subspace(new byte[] {21, 8, 20, 21, 17, 21, 1});
+        RecordCursor<FDBIndexedRecord<Message>> result = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR, recordSubspace, recordCursor);
+        assertThrows(ExecutionException.class, () -> result.getCount().get());
+    }
+
+    @Test
+    void testOrphanPolicySkip() throws Exception {
+        List<FDBIndexedRawRecord> mappedKeyValues = buildIndexedRawRecordWithOrphanIndexEntry();
+        RecordCursor<FDBIndexedRawRecord> recordCursor = new ListCursor<>(mappedKeyValues, null);
+        Subspace recordSubspace = new Subspace(new byte[] {21, 8, 20, 21, 17, 21, 1});
+        RecordCursor<FDBIndexedRecord<Message>> resultFuture = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.SKIP, recordSubspace, recordCursor);
+        List<FDBIndexedRecord<Message>> result = resultFuture.asList().get();
+        assertEquals(2, result.size());
+        assertRecord(FDBQueriedRecord.indexed(result.get(0)), 9, "odd", 991, "MyIndex", 991L, 9);
+        assertRecord(FDBQueriedRecord.indexed(result.get(1)), 7, "odd", 993, "MyIndex", 991L, 7);
+    }
+
+    @Test
+    void testOrphanPolicyReturn() throws Exception {
+        List<FDBIndexedRawRecord> mappedKeyValues = buildIndexedRawRecordWithOrphanIndexEntry();
+        RecordCursor<FDBIndexedRawRecord> recordCursor = new ListCursor<>(mappedKeyValues, null);
+        Subspace recordSubspace = new Subspace(new byte[] {21, 8, 20, 21, 17, 21, 1});
+        RecordCursor<FDBIndexedRecord<Message>> resultFuture = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.RETURN, recordSubspace, recordCursor);
+        List<FDBIndexedRecord<Message>> result = resultFuture.asList().get();
+        assertEquals(3, result.size());
+        assertRecord(FDBQueriedRecord.indexed(result.get(0)), 9, "odd", 991, "MyIndex", (long)991, 9);
+        assertFalse(result.get(1).hasStoredRecord());
+        assertRecord(FDBQueriedRecord.indexed(result.get(2)), 7, "odd", 993, "MyIndex", (long)991, 7);
+    }
+
     public boolean isUseSplitRecords() {
         return useSplitRecords;
     }
@@ -359,5 +410,40 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         }
         assertThat(count, equalTo(expectedRecords));
         return lastContinuation;
+    }
+
+    private List<FDBIndexedRawRecord> buildIndexedRawRecordWithOrphanIndexEntry() throws Exception {
+        long i = 9;
+        Index index = new Index("MyIndex", "a");
+        List<MappedKeyValue> mappedKeyValues = buildMappedResultWithOrphanIndexEntry();
+        List<FDBIndexedRawRecord> result = new ArrayList<>();
+        for (MappedKeyValue mappedKeyValue : mappedKeyValues) {
+            Tuple key = Tuple.from(991L, i--);
+            Tuple value = Tuple.from();
+            result.add(new FDBIndexedRawRecord(new IndexEntry(index, key, value), mappedKeyValue));
+        }
+        return result;
+    }
+
+    private List<MappedKeyValue> buildMappedResultWithOrphanIndexEntry() throws Exception {
+        List<MappedKeyValue> result = new ArrayList<>();
+        // Fully populated record
+        result.add(buildMappedKeyValue(new byte[] {21, 8, 20, 21, 17, 21, 2, 9}, new byte[0],
+                List.of(new KeyValue(new byte[] {21, 8, 20, 21, 17, 21, 1, 21, 9, 19, -2}, new byte[] {51, 0, 0, 1, -46, -35, 49, 113, 85, 0, 0, 0, 9}),
+                        new KeyValue(new byte[] {21, 8, 20, 21, 17, 21, 1, 21, 9, 20}, new byte[] {10, 32, 8, 9, 18, 3, 111, 100, 100, 24, -33, 7, 32, 0, 40, 4, 48, 0, 48, 1, 48, 2, 48, 3, 48, 4, 48, 5, 48, 6, 48, 7, 48, 8}))));
+        // Orphan index entry
+        result.add(buildMappedKeyValue(new byte[] {21, 8, 20, 21, 17, 21, 2, 8}, new byte[0],
+                Collections.emptyList()));
+        // Fully populated record
+        result.add(buildMappedKeyValue(new byte[] {21, 8, 20, 21, 17, 21, 2, 7}, new byte[0],
+                List.of(new KeyValue(new byte[] {21, 8, 20, 21, 17, 21, 1, 21, 7, 19, -2}, new byte[] {51, 0, 0, 1, -46, -35, 49, 113, 85, 0, 0, 0, 7}),
+                        new KeyValue(new byte[] {21, 8, 20, 21, 17, 21, 1, 21, 7, 20}, new byte[] {10, 28, 8, 7, 18, 3, 111, 100, 100, 24, -31, 7, 32, 1, 40, 2, 48, 0, 48, 1, 48, 2, 48, 3, 48, 4, 48, 5, 48, 6}))));
+        return result;
+    }
+
+    private MappedKeyValue buildMappedKeyValue(byte[] indexKey, byte[] indexValue, List<KeyValue> recordSplits) throws Exception {
+        Constructor<MappedKeyValue> constructor = MappedKeyValue.class.getDeclaredConstructor(byte[].class, byte[].class, byte[].class, byte[].class, List.class);
+        constructor.setAccessible(true);
+        return constructor.newInstance(indexKey, indexValue, null, null, recordSplits);
     }
 }

@@ -925,10 +925,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                       @Nonnull final TupleRange range,
                                                                       @Nullable final KeyExpression commonPrimaryKey,
                                                                       @Nullable byte[] continuation,
-                                                                      @Nonnull ScanProperties scanProperties) {
+                                                                      @Nonnull ScanProperties scanProperties,
+                                                                      @Nonnull final IndexOrphanBehavior orphanBehavior) {
 
         final Index index = getRecordMetaData().getIndex(indexName);
-        return scanIndexPrefetch(index, range, commonPrimaryKey, continuation, scanProperties);
+        return scanIndexPrefetch(index, range, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
     }
 
     /**
@@ -942,7 +943,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, TupleRange range, final KeyExpression commonPrimaryKey,
-                                                              byte[] continuation, ScanProperties scanProperties);
+                                                              byte[] continuation, ScanProperties scanProperties,
+                                                              @Nonnull final IndexOrphanBehavior orphanBehavior);
 
     /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
@@ -1002,7 +1004,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchRecordsEqual(@Nonnull final String indexName, KeyExpression primaryKey, @Nonnull final Object... values) {
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
-        return scanIndexPrefetch(indexName, range, primaryKey, null, ScanProperties.FORWARD_SCAN);
+        return scanIndexPrefetch(indexName, range, primaryKey, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
     }
 
     /**

@@ -119,6 +119,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -1213,13 +1214,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, TupleRange range, final KeyExpression commonPrimaryKey,
-                                                                     byte[] continuation, ScanProperties scanProperties) {
-        return scanIndexPrefetchInternal(index, range, commonPrimaryKey, continuation, scanProperties);
+                                                                     byte[] continuation, ScanProperties scanProperties,
+                                                                     @Nonnull final IndexOrphanBehavior orphanBehavior) {
+        return scanIndexPrefetchInternal(index, range, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
     }
 
     protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final TupleRange range,
                                                                                 final KeyExpression commonPrimaryKey, final byte[] continuation,
-                                                                                final ScanProperties scanProperties) {
+                                                                                final ScanProperties scanProperties,
+                                                                                @Nonnull final IndexOrphanBehavior orphanBehavior) {
         if (!isIndexReadable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
@@ -1229,30 +1232,67 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Subspace recordSubspace = recordsSubspace();
         IndexMaintainer indexMaintainer = getIndexMaintainer(index);
         final Tuple hopInfo = createHopInfo(indexMaintainer.getIndexSubspace(), recordSubspace, commonPrimaryKey, index);
-        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo(); // ??
-        ExecuteState executeState = scanProperties.getExecuteProperties().getState();
         // Get the cursor with the index entries and the records from FDB
         RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanIndexPrefetch(range, hopInfo.pack(), continuation, scanProperties);
+        RecordCursor<FDBIndexedRecord<Message>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries);
+
+        return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, indexedRecordCursor);
+    }
+
+    @VisibleForTesting
+    // Make the method package protected
+    public RecordCursor<FDBIndexedRecord<Message>> indexEntriesToIndexRecords(final ScanProperties scanProperties,
+                                                                       final @Nonnull IndexOrphanBehavior orphanBehavior,
+                                                                       final Subspace recordSubspace,
+                                                                       final RecordCursor<FDBIndexedRawRecord> indexEntries) {
+        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo(); // ??
+        ExecuteState executeState = scanProperties.getExecuteProperties().getState();
 
         RecordCursor<FDBIndexedRecord<Message>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
             // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
             FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties, useOldVersionFormat());
+            if (fdbRawRecord == null) {
+                return handleOrphanEntry(indexedRawRecord.getIndexEntry(), orphanBehavior);
+            } else {
+                Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
+                // The version future will be ignored in case the record already has a version
+                if (useOldVersionFormat() && !fdbRawRecord.hasVersion()) {
+                    versionFutureOptional = loadRecordVersionAsync(indexedRawRecord.getIndexEntry().getPrimaryKey());
+                }
+                final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
+                // TODO: Should we add the index entry bytes to the scanned bytes count?
+                byteScanLimiter.registerScannedBytes(sizeInfo.getKeySize() + sizeInfo.getValueSize());
 
-            Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
-            // The version future will be ignored in case the record already has a version
-            if (useOldVersionFormat() && !fdbRawRecord.hasVersion()) {
-                versionFutureOptional = loadRecordVersionAsync(indexedRawRecord.getIndexEntry().getPrimaryKey());
+                // Deserialize the raw record
+                CompletableFuture<FDBStoredRecord<Message>> storedRecord = deserializeRecord(serializer, fdbRawRecord, metaDataProvider.getRecordMetaData(), versionFutureOptional);
+                return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
             }
-            final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
-            // TODO: Should we add the index entry bytes to the scanned bytes count?
-            byteScanLimiter.registerScannedBytes(sizeInfo.getKeySize() + sizeInfo.getValueSize());
-
-            // Deserialize the raw record
-            CompletableFuture<FDBStoredRecord<Message>> storedRecord = deserializeRecord(serializer, fdbRawRecord, metaDataProvider.getRecordMetaData(), versionFutureOptional);
-            return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
         }, 1);
 
-        return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, indexedRecordCursor);
+        if (orphanBehavior == IndexOrphanBehavior.SKIP) {
+            indexedRecordCursor = indexedRecordCursor.filter(Objects::nonNull);
+        }
+        return indexedRecordCursor;
+    }
+
+    private CompletableFuture<FDBIndexedRecord<Message>> handleOrphanEntry(final IndexEntry indexEntry, final IndexOrphanBehavior orphanBehavior) {
+        switch (orphanBehavior) {
+            case SKIP:
+                return CompletableFuture.completedFuture(null);
+            case RETURN:
+                return CompletableFuture.completedFuture(new FDBIndexedRecord<>(indexEntry, null));
+            case ERROR:
+                if (getTimer() != null) {
+                    getTimer().increment(FDBStoreTimer.Counts.BAD_INDEX_ENTRY);
+                }
+                throw new RecordCoreStorageException("record not found for prefetched index entry").addLogInfo(
+                        LogMessageKeys.INDEX_NAME, indexEntry.getIndex().getName(),
+                        LogMessageKeys.PRIMARY_KEY, indexEntry.getPrimaryKey(),
+                        LogMessageKeys.INDEX_KEY, indexEntry.getKey(),
+                        getSubspaceProvider().logKey(), getSubspaceProvider().toString(getContext()));
+            default:
+                throw new RecordCoreException("Unexpected index orphan behavior: " + orphanBehavior);
+        }
     }
 
     /**
@@ -1264,12 +1304,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param mappedResult the record splits, packed into a KeyValueAndMappedReqAndResult
      * @param scanProperties the scam properties to use
      * @param oldVersionFormat whether to use the old version record format when reading the records
-     * @return an instance of {@link FDBRawRecord} reconstructed from the given record splits
+     * @return an instance of {@link FDBRawRecord} reconstructed from the given record splits, null if no record entries found
      */
+    @Nullable
     private FDBRawRecord reconstructSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo,
                                                  final MappedKeyValue mappedResult, final ScanProperties scanProperties,
                                                  final boolean oldVersionFormat) {
         List<KeyValue> scannedRange = mappedResult.getRangeResult();
+        if ((scannedRange == null) || scannedRange.isEmpty()) {
+            return null;
+        }
+
         ListCursor<KeyValue> rangeCursor = new ListCursor<>(scannedRange, null);
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final RecordCursor<FDBRawRecord> rawRecords;

@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
@@ -200,7 +201,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private <M extends Message> RecordCursor<QueryResult> executeUsingIndexPrefetch(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
                                                                                     @Nullable final byte [] continuation, @Nonnull final ExecuteProperties executeProperties) {
         final TupleRange range = getComparisons().toTupleRange(store, context);
-        return store.scanIndexPrefetch(getIndexName(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()))
+        return store.scanIndexPrefetch(getIndexName(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecordOfMessage)
                 .map(QueryResult::of);
     }
