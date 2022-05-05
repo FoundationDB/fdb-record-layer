@@ -195,7 +195,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     }
 
     @Override
-    public APIVersion getAPIVersion() {
+    public synchronized APIVersion getAPIVersion() {
         return apiVersion;
     }
 
