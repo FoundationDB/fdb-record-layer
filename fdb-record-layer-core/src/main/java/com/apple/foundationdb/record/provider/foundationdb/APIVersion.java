@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
  * controls the minimum FDB server version that can be successfully connected to, as well as
  * what features are supported by the FDB client. It is therefore important that in scenarios where
  * there are FDB servers on different versions that the API version be configured to not exceed the
- * smallest FDB server version. If the API version is set too high, the FDB client may hang when
+ * lowest FDB server version. If the API version is set too high, the FDB client may hang when
  * trying to connect to the server.
  *
  * <p>

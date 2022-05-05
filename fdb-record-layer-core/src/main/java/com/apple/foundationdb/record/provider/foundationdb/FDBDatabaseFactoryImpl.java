@@ -27,6 +27,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,8 +100,16 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     protected synchronized FDB initFDB() {
         if (!inited) {
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(KeyValueLogMessage.of("Starting FDB"));
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("Staring FDB")
+                        .addKeyAndValue(LogMessageKeys.API_VERSION, apiVersion.getVersionNumber())
+                        .addKeyAndValue(LogMessageKeys.UNCLOSED_WARNING, unclosedWarning)
+                        .addKeyAndValue(LogMessageKeys.TRACE_FORMAT, traceFormat)
+                        .addKeyAndValue(LogMessageKeys.TRACE_DIRECTORY, traceDirectory)
+                        .addKeyAndValue(LogMessageKeys.TRACE_LOG_GROUP, traceLogGroup)
+                        .addKeyAndValue(LogMessageKeys.RUN_LOOP_PROFILING, runLoopProfilingEnabled)
+                        .addKeyAndValue(LogMessageKeys.THREADS_PER_CLIENT_VERSION, threadsPerClientVersion)
+                        .getMessageWithKeys());
             }
             fdb = FDB.selectAPIVersion(apiVersion.getVersionNumber());
             fdb.setUnclosedWarning(unclosedWarning);

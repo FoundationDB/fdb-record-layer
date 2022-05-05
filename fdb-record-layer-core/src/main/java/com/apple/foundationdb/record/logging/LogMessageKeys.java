@@ -165,6 +165,15 @@ public enum LogMessageKeys {
     INDEXING_POLICY,
     INDEXING_POLICY_DESIRED_ACTION,
 
+    // FDB client configuration
+    API_VERSION,
+    RUN_LOOP_PROFILING,
+    THREADS_PER_CLIENT_VERSION,
+    TRACE_DIRECTORY,
+    TRACE_FORMAT,
+    TRACE_LOG_GROUP,
+    UNCLOSED_WARNING,
+
     // comparisons
     COMPARISON_VALUE,
     EXPECTED,
