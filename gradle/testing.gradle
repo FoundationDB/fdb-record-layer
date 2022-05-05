@@ -70,7 +70,7 @@ def configureTestTask = { propertyPrefix, task ->
     task.systemProperties['java.io.tmpdir'] = tmpdir.absolutePath
 
     // configure test logging
-    task.systemProperties['log4j.configuration'] = rootProject.file('gradle/scripts/log4j-test.properties').toURI()
+    task.systemProperties['log4j2.configurationFile'] = rootProject.file('gradle/scripts/log4j-test.properties').toURI()
     task.systemProperties['mme.app.useLog4jPropertyConfigurator'] = 'false'
 
     task.maxParallelForks = Integer.getInteger(propertyPrefix + '.maxParallelForks', 1)

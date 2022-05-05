@@ -41,7 +41,6 @@ import java.util.function.Supplier;
 public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
-    private static final int API_VERSION = 630;
 
     @Nonnull
     private static final FDBDatabaseFactoryImpl INSTANCE = new FDBDatabaseFactoryImpl();
@@ -177,6 +176,9 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     @Override
     public synchronized void setAPIVersion(@Nonnull APIVersion apiVersion) {
+        if (this.apiVersion == apiVersion) {
+            return;
+        }
         if (inited) {
             throw new RecordCoreException("API version cannot be changed after client has already started");
         }

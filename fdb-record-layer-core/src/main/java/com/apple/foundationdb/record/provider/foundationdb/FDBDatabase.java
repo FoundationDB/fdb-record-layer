@@ -1287,7 +1287,7 @@ public class FDBDatabase {
                                            boolean isComplete,
                                            @Nonnull StackTraceElement stackElement,
                                            @Nonnull String title) {
-        final RuntimeException exception = new BlockingInAsyncException(title)
+        final RecordCoreException exception = new BlockingInAsyncException(title)
                 .addLogInfo(
                         LogMessageKeys.FUTURE_COMPLETED, isComplete,
                         LogMessageKeys.CALLING_CLASS, stackElement.getClassName(),
@@ -1297,12 +1297,9 @@ public class FDBDatabase {
         if (!isComplete && behavior.throwExceptionOnBlocking()) {
             throw exception;
         } else {
-            LOGGER.warn(KeyValueLogMessage.of(title,
-                    LogMessageKeys.FUTURE_COMPLETED, isComplete,
-                    LogMessageKeys.CALLING_CLASS, stackElement.getClassName(),
-                    LogMessageKeys.CALLING_METHOD, stackElement.getMethodName(),
-                    LogMessageKeys.CALLING_LINE, stackElement.getLineNumber()),
-                    exception);
+            KeyValueLogMessage logMessage = KeyValueLogMessage.build(title)
+                    .addKeysAndValues(exception.getLogInfo());
+            LOGGER.warn(logMessage.toString(), exception);
         }
     }
 
