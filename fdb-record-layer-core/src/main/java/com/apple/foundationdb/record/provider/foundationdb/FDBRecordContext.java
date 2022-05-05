@@ -1184,6 +1184,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * <li>Same {@linkplain FDBDatabase.WeakReadSemantics weak read semantics}</li>
      * <li>Same {@linkplain FDBTransactionPriority priority}</li>
      * <li>Same {@linkplain #getTimeoutMillis() transaction timeout}</li>
+     * <li>Same {@linkplain #getPropertyStorage()}  property storage}</li>
      * </ul>
      * @return a new database runner based on this context
      */
@@ -1195,6 +1196,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         runner.setWeakReadSemantics(weakReadSemantics);
         runner.setPriority(priority);
         runner.setTransactionTimeoutMillis(timeoutMillis);
+        runner.setRecordLayerPropertyStorage(propertyStorage);
         return runner;
     }
 
