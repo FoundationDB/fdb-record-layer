@@ -105,6 +105,7 @@ public enum FDBError {
     private final int code;
 
     private static final Map<Integer, FDBError> ERROR_BY_CODE;
+
     static {
         ImmutableMap.Builder<Integer, FDBError> builder = new ImmutableMap.Builder<>();
         for (FDBError error : FDBError.values()) {
