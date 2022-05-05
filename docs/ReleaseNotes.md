@@ -16,7 +16,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** FDBRecordContext::newRunner drops property storage [(Issue #1645)](https://github.com/FoundationDB/fdb-record-layer/issues/1645)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,10 @@ This release also updates downstream dependency versions. Most notably, the prot
 
 // end next release
 -->
+
+### 3.2.258.0
+
+* **Bug fix** FDBRecordContext::newRunner drops property storage [(Issue #1645)](https://github.com/FoundationDB/fdb-record-layer/issues/1645)
 
 ### 3.2.257.0
 
