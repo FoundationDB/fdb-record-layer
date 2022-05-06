@@ -680,12 +680,15 @@ public abstract class FDBDatabaseFactory {
      * </p>
      *
      * <p>
-     * By default, this will be set to {@link APIVersion#getDefault()}.
+     * By default, this will be set to {@link APIVersion#getDefault()}. Note that setting the API version
+     * to a non-default value is currently experimental as additional testing and validation of various
+     * API versions is developed.
      * </p>
      *
      * @param apiVersion the API version to use when initializing the FDB client
      * @see APIVersion
      */
+    @API(API.Status.EXPERIMENTAL)
     public abstract void setAPIVersion(@Nonnull APIVersion apiVersion);
 
     /**

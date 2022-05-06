@@ -44,12 +44,14 @@ import javax.annotation.Nonnull;
  * <p>
  * A note on Record Layer API stability: the elements of this enum are expected to shift as support
  * for FDB versions are deprecated and removed. As a result, the elements of this enum will be added
- * and removed as support for old FDB versions is dropped and new FDB versions is added.
+ * and removed as support for old FDB versions is dropped and new FDB versions is added. Setting the
+ * API version to a non-default value is also currently an experimental feature as additional testing
+ * and validation work to evaluate the library at various FDB API versions is developed.
  * </p>
  *
  * @see FDBDatabaseFactory#setAPIVersion(APIVersion)
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.EXPERIMENTAL)
 public enum APIVersion {
     /**
      * API version corresponding to FoundationDB 6.3.
