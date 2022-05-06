@@ -536,7 +536,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      *         passed in, {@code false} otherwise
      */
     protected boolean needsRebase(@Nonnull final AliasMap translationMap) {
-
         final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
 
         // translations are usually smaller, we may want to flip this around if needed later

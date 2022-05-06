@@ -222,7 +222,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
-                        NodeInfo.VALUE_COMPUTATION_OPERATOR,
+                        NodeInfo.NESTED_LOOP_JOIN_OPERATOR,
                         ImmutableList.of("FLATMAP {{expr}}"),
                         ImmutableMap.of("expr", Attribute.gml(getResultValue().toString()))),
                 childGraphs);

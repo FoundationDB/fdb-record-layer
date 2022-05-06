@@ -542,7 +542,8 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("repeater").oneOfThem().equalsValue(100))
+                .setFilter(Query.and(Query.field("repeater").oneOfThem().equalsValue(100),
+                        Query.field("repeater").oneOfThem().lessThan(300)))
                 .build();
 
         try (FDBRecordContext context = openContext()) {

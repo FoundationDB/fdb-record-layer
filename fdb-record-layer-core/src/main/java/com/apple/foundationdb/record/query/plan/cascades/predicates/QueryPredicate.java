@@ -40,9 +40,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
 
 /**
@@ -282,14 +282,14 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    default Optional<QueryPredicate> translateValues(@Nonnull final Map<Value, Value> translationMap) {
+    default Optional<QueryPredicate> translateValues(@Nonnull final UnaryOperator<Value> translationOperator) {
         return replaceLeavesMaybe(t -> {
             if (!(t instanceof PredicateWithValue)) {
                 return this;
             }
             final PredicateWithValue predicateWithValue = (PredicateWithValue)t;
             return predicateWithValue.getValue()
-                            .translate(translationMap)
+                            .replaceLeavesMaybe(translationOperator)
                     .map(predicateWithValue::withValue)
                     .orElse(null);
         });
