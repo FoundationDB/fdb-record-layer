@@ -42,14 +42,8 @@ public abstract class ImportRunner<T> implements TransactionalLimitedRunner.Runn
     protected abstract CompletableFuture<Void> save(T value, FDBRecordContext context);
 
     @Override
-    public CompletableFuture<Void> prep(final int limit) {
-        // TODO fillBuffer should probably be async
-        fillBuffer(limit);
-        return AsyncUtil.DONE;
-    }
-
-    @Override
     public CompletableFuture<Boolean> runAsync(FDBRecordContext context, int limit) {
+        fillBuffer(limit);
         if (buffer.isEmpty()) {
             return AsyncUtil.READY_FALSE;
         }

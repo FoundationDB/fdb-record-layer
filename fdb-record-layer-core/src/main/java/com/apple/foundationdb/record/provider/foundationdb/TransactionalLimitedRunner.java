@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
 
@@ -30,26 +29,25 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-// TODO make this have a LimitedRunner, not extend LimitedRunner. It should still be AutoCloseable though
 @API(API.Status.EXPERIMENTAL)
-public class TransactionalLimitedRunner extends LimitedRunner {
+public class TransactionalLimitedRunner implements AutoCloseable {
 
     private final TransactionalRunner transactionalRunner;
+    private final LimitedRunner limitedRunner;
     private boolean closed;
 
     public TransactionalLimitedRunner(@Nonnull FDBDatabase database,
                                       FDBRecordContextConfig.Builder contextConfigBuilder,
                                       int maxLimit) {
-        super(database.newContextExecutor(contextConfigBuilder.getMdcContext()), maxLimit, new ExponentialDelay(3, 10));
+        this.limitedRunner = new LimitedRunner(database.newContextExecutor(contextConfigBuilder.getMdcContext()),
+                maxLimit, new ExponentialDelay(3, 10)); // TODO make these literals come from somewhere
         this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
     }
 
     public CompletableFuture<Void> runAsync(Runner runnable, final List<Object> additionalLogMessageKeyValues) {
         AtomicBoolean isFirst = new AtomicBoolean(true);
-        return runAsync(limit ->
-                runnable.prep(limit).thenCompose(vignore ->
-                        transactionalRunner.runAsync(isFirst.getAndSet(false),
-                                context -> runnable.runAsync(context, limit))), additionalLogMessageKeyValues);
+        return limitedRunner.runAsync(limit -> transactionalRunner.runAsync(isFirst.getAndSet(false),
+                context -> runnable.runAsync(context, limit)), additionalLogMessageKeyValues);
     }
 
     @Override
@@ -58,16 +56,31 @@ public class TransactionalLimitedRunner extends LimitedRunner {
             return;
         }
         transactionalRunner.close();
-        super.close();
+        limitedRunner.close();
         this.closed = true;
     }
 
+    public TransactionalLimitedRunner setIncreaseLimitAfter(final int increaseLimitAfter) {
+        limitedRunner.setIncreaseLimitAfter(increaseLimitAfter);
+        return this;
+    }
+
+    public TransactionalLimitedRunner setDecreaseLimitAfter(final int maxAttempts) {
+        limitedRunner.setDecreaseLimitAfter(maxAttempts);
+        return this;
+    }
+
+    public TransactionalLimitedRunner setMaxDecreaseRetries(final int maxDecreases) {
+        limitedRunner.setMaxDecreaseRetries(maxDecreases);
+        return this;
+    }
+
+    public TransactionalLimitedRunner setMaxLimit(final int maxLimit) {
+        limitedRunner.setMaxLimit(maxLimit);
+        return this;
+    }
+
     public interface Runner {
-
-        default CompletableFuture<Void> prep(int limit) {
-            return AsyncUtil.DONE;
-        }
-
         CompletableFuture<Boolean> runAsync(FDBRecordContext context, int limit);
     }
 }
