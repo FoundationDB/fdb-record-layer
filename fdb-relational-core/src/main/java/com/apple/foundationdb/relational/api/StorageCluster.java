@@ -18,10 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.api;
 
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 

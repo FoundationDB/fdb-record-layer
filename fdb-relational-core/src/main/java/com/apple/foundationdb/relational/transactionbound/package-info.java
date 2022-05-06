@@ -1,5 +1,5 @@
 /*
- * DatabaseSchema.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,19 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.catalog;
-
-import com.apple.foundationdb.relational.api.ConnectionScoped;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
-import javax.annotation.Nonnull;
-
-@ConnectionScoped
-public interface DatabaseSchema extends AutoCloseable {
-
-    @Nonnull
-    String getSchemaName();
-
-    @Override
-    void close() throws RelationalException;
-}
+/**
+ * A collection of testing systems which are based on comparing results to equivalent queries in an embedded
+ * SQL database.
+ */
+package com.apple.foundationdb.relational.compare;

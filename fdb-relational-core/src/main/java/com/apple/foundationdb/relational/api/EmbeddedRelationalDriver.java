@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.StorageCluster;
 
 import java.net.URI;
 

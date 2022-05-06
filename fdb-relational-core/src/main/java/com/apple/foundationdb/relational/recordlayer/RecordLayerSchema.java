@@ -43,7 +43,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 @NotThreadSafe
 @ConnectionScoped
 public class RecordLayerSchema implements DatabaseSchema {
-    private final RecordLayerDatabase db;
+    private final AbstractDatabase db;
     //could be accessed through the database, but this seems convenient
     final RecordStoreConnection conn;
     @Nonnull
@@ -59,9 +59,9 @@ public class RecordLayerSchema implements DatabaseSchema {
      */
     private final Map<String, RecordTypeTable> loadedTables = new HashMap<>();
 
-    public RecordLayerSchema(@Nonnull String schemaName, RecordLayerDatabase recordLayerDatabase, RecordStoreConnection connection, @Nonnull Options options) throws RelationalException {
+    public RecordLayerSchema(@Nonnull String schemaName, AbstractDatabase database, RecordStoreConnection connection, @Nonnull Options options) throws RelationalException {
         this.schemaName = schemaName;
-        this.db = recordLayerDatabase;
+        this.db = database;
         this.conn = connection;
         this.existenceCheck = getExistenceCheckGivenOptions(options);
     }
@@ -70,12 +70,6 @@ public class RecordLayerSchema implements DatabaseSchema {
     @Nonnull
     public String getSchemaName() {
         return schemaName;
-    }
-
-    @Override
-    public int getSchemaVersion() throws RelationalException {
-        FDBRecordStore store = loadStore();
-        return store.getUserVersion();
     }
 
     @Nonnull public Table loadTable(@Nonnull String tableName, @Nonnull Options options) throws RelationalException {

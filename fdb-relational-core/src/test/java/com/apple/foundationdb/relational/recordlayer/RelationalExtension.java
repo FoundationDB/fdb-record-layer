@@ -1,5 +1,5 @@
 /*
- * DatabaseSchema.java
+ * RelationalExtension.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,19 +18,15 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.catalog;
+package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.ConnectionScoped;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 
-import javax.annotation.Nonnull;
+import java.util.Map;
 
-@ConnectionScoped
-public interface DatabaseSchema extends AutoCloseable {
+public interface RelationalExtension {
 
-    @Nonnull
-    String getSchemaName();
+    EmbeddedRelationalEngine getEngine();
 
-    @Override
-    void close() throws RelationalException;
+    Map<String, Object> getStoreTimerMetrics();
 }

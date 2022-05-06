@@ -95,4 +95,8 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     public void close() throws SQLException {
         statement.close();
     }
+
+    public RelationalStatement getUnderlying() {
+        return statement;
+    }
 }

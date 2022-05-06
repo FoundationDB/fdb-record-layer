@@ -1,5 +1,5 @@
 /*
- * RecordLayerTableTest.java
+ * TableTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -49,14 +49,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Basic integration tests outlining the full process of using Relational to insert and scan records from a database.
  */
-public class RecordLayerTableTest {
+public class TableTest {
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, RecordLayerTableTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TableTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)

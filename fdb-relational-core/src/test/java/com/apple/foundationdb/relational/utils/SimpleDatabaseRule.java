@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -41,12 +41,12 @@ import javax.annotation.Nonnull;
  * schema format).
  */
 public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback {
-    private final EmbeddedRelationalExtension relationalExtension;
+    private final RelationalExtension relationalExtension;
     private final SchemaTemplateRule templateRule;
     private final DatabaseRule databaseRule;
     private final SchemaRule schemaRule;
 
-    public SimpleDatabaseRule(EmbeddedRelationalExtension relationalExtension, @Nonnull URI dbPath,
+    public SimpleDatabaseRule(RelationalExtension relationalExtension, @Nonnull URI dbPath,
                               @Nonnull String templateDefinition) {
         final String schemaName = "testSchema";
         final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
@@ -57,7 +57,7 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
         this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
     }
 
-    public SimpleDatabaseRule(EmbeddedRelationalExtension relationalExtension, @Nonnull Class<?> testClass,
+    public SimpleDatabaseRule(RelationalExtension relationalExtension, @Nonnull Class<?> testClass,
                               @Nonnull String templateDefinition) {
         this(relationalExtension, URI.create("/" + testClass.getSimpleName()), templateDefinition);
     }

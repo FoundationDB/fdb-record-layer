@@ -40,7 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-public class EmbeddedRelationalExtension implements BeforeEachCallback, AfterEachCallback {
+public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
     private final Supplier<KeySpace> keySpaceSupplier;
     private EmbeddedRelationalEngine engine;
     private final TestStoreTimer storeTimer = new TestStoreTimer();

@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.ddl.DdlConnection;
 import com.apple.foundationdb.relational.api.ddl.DdlStatement;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -33,10 +33,10 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import java.net.URI;
 
 public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
-    private final EmbeddedRelationalExtension relationalExtension;
+    private final RelationalExtension relationalExtension;
     private final URI databasePath;
 
-    public DatabaseRule(EmbeddedRelationalExtension relationalExtension, URI databasePath) {
+    public DatabaseRule(RelationalExtension relationalExtension, URI databasePath) {
         this.relationalExtension = relationalExtension;
         this.databasePath = databasePath;
     }

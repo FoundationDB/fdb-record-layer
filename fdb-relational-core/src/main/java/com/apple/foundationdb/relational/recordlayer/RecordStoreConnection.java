@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
 
 public class RecordStoreConnection implements RelationalConnection {
     private boolean isClosed;
-    final RecordLayerDatabase frl;
+    final AbstractDatabase frl;
     final StoreCatalog backingCatalog;
 
     Transaction transaction;
@@ -48,11 +48,11 @@ public class RecordStoreConnection implements RelationalConnection {
     private boolean usingAnExistingTransaction;
     private final TransactionManager txnManager;
 
-    public RecordStoreConnection(@Nonnull RecordLayerDatabase frl,
+    public RecordStoreConnection(@Nonnull AbstractDatabase frl,
                                  @Nonnull StoreCatalog backingCatalog,
-                                 @Nullable RecordContextTransaction existingTransaction) {
+                                 @Nullable Transaction existingTransaction) {
         this.frl = frl;
-        this.txnManager = frl.getFDBDatabase().getTransactionManager();
+        this.txnManager = frl.getTransactionManager();
         this.transaction = existingTransaction;
         this.usingAnExistingTransaction = existingTransaction != null;
         this.backingCatalog = backingCatalog;

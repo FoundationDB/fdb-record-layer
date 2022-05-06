@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.ddl.DdlConnection;
 import com.apple.foundationdb.relational.api.ddl.DdlStatement;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -34,9 +34,9 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     private final String schemaName;
     private final URI dbUri;
     private final String templateName;
-    private final EmbeddedRelationalExtension relationalExtension;
+    private final RelationalExtension relationalExtension;
 
-    public SchemaRule(EmbeddedRelationalExtension relationalExtension, String schemaName, URI dbUri, String templateName) {
+    public SchemaRule(RelationalExtension relationalExtension, String schemaName, URI dbUri, String templateName) {
         this.relationalExtension = relationalExtension;
         this.schemaName = schemaName;
         this.dbUri = dbUri;

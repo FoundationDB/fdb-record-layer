@@ -67,11 +67,11 @@ public class RecordStoreStatement implements RelationalStatement {
     }
 
     @Override
-    public RelationalResultSet executeQuery(@Nonnull String query, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException, SQLException {
+    public RelationalResultSet executeQuery(@Nonnull String query, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException {
         ensureTransactionActive();
         final String schemaName = conn.getSchema();
         final RecordLayerSchema schema = conn.frl.loadSchema(schemaName, options);
-        final FDBRecordStore store = conn.frl.loadSchema(schemaName, options).loadStore();
+        final FDBRecordStore store = schema.loadStore();
         final RelationalExpression relationalExpression = PlanGenerator.generateLogicalPlan(query, store.getRecordMetaData(), store.getRecordStoreState(), ignore -> {
         });
         final Type innerType = relationalExpression.getResultType().getInnerType();

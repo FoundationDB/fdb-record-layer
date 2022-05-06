@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlConnection;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.StorageCluster;
 
 import java.util.Collection;
 import java.util.List;

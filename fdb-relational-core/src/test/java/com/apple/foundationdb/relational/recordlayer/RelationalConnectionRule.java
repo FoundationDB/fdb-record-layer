@@ -129,4 +129,8 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     public void beginTransaction(@Nullable TransactionConfig config) throws RelationalException {
         connection.beginTransaction(config);
     }
+
+    public RelationalConnection getUnderlying() {
+        return connection;
+    }
 }

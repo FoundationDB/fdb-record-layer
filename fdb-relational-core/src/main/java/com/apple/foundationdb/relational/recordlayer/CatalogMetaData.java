@@ -59,12 +59,12 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     @Override
     public RelationalResultSet getSchemas() throws SQLException {
         ensureActiveTransaction();
-        try (RelationalResultSet rrs = catalog.listSchemas(conn.transaction, conn.frl.getPath(), Continuation.BEGIN)) {
+        try (RelationalResultSet rrs = catalog.listSchemas(conn.transaction, conn.frl.getURI(), Continuation.BEGIN)) {
             //TODO(bfines) we need to transform this live, not materialize like this
             List<Row> simplifiedRows = new ArrayList<>();
             while (rrs.next()) {
                 Object[] data = new Object[]{
-                        conn.frl.getPath(),
+                        conn.frl.getURI(),
                         rrs.getString("schema_name"),
                 };
                 simplifiedRows.add(new ArrayRow(data));
@@ -99,7 +99,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         }
         ensureActiveTransaction();
         try {
-            final CatalogData.Schema schemaInfo = this.catalog.loadSchema(conn.transaction, conn.frl.getPath(), schema);
+            final CatalogData.Schema schemaInfo = this.catalog.loadSchema(conn.transaction, conn.frl.getURI(), schema);
             List<Row> tableList = schemaInfo.getTablesList().stream()
                     .map(tbl -> new String[]{null, schema, tbl.getName()})
                     .map(ArrayRow::new)
@@ -134,7 +134,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         ensureActiveTransaction();
         try {
             //TODO(bfines) this is a weird way of doing this, is there a better way?
-            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, conn.frl.getPath(), schema, conn.transaction).getRecordMetaData();
+            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, conn.frl.getURI(), schema, conn.transaction).getRecordMetaData();
             Descriptors.FileDescriptor fileDesc = rmd.getRecordsDescriptor();
             //verify that it is in fact a table
             try {
@@ -147,7 +147,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             final List<Row> columnDefs = tableDescriptor.getFields().stream()
                     .map(field -> {
                         Object[] row = new Object[]{
-                                conn.frl.getPath(),
+                                conn.frl.getURI(),
                                 schema,
                                 tablePattern,
                                 field.getName(),
@@ -229,7 +229,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         ensureActiveTransaction();
         try {
             //TODO(bfines) this is a weird way of doing this, is there a better way?
-            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, conn.frl.getPath(), schema, conn.transaction).getRecordMetaData();
+            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, conn.frl.getURI(), schema, conn.transaction).getRecordMetaData();
             //verify that it is in fact a table
             List<Row> indexDefs;
             try {
@@ -238,7 +238,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                 indexDefs = indexes.stream()
                         .map(index -> {
                             Object[] row = new Object[]{
-                                    conn.frl.getPath(),
+                                    conn.frl.getURI(),
                                     schema,
                                     recordType.getName(),
                                     index.isUnique(),

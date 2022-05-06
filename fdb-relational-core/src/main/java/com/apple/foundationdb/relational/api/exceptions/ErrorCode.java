@@ -94,7 +94,7 @@ public enum ErrorCode {
      * the error handling system can't find a more accurate representation, and shouldn't be used in general.
      */
     UNKNOWN("XXXXX"),
-    UNKNOWN_SCHEME("08001"),
+    UNABLE_TO_ESTABLISH_SQL_CONNECTION("08001"),
     PROTOCOL_VIOLATION("08P01"),
     /**
      * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream
