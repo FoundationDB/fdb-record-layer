@@ -38,6 +38,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
+/**
+ * A class for doing an operation repeatedly, in a chunked fashion, where the limit per chunk may adjust depending on
+ * failure/success rates.
+ * <p>
+ *     As an example, one might use this to alter every record in a database, over many transactions. Rather than having
+ *     to hardcode how many records to modify per transaction, this will provide a limit to the code, which will then
+ *     update N records. If the transaction fails for a generic retryable error, the operation will be retried. If it
+ *     fails due to an error that indicates that it tried to do too much, it will retry with a lower limit. If previous
+ *     success rates indicate that perhaps a higher limit could be used, the limit may be increased for future attempts.
+ * </p>
+ *
+ * @see TransactionalLimitedRunner for code that connects this to opening/committing transactions
+ * @see FDBDatabaseRunner if limit management does not make sense
+ */
 public class LimitedRunner implements AutoCloseable {
 
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(LimitedRunner.class);
@@ -275,7 +289,17 @@ public class LimitedRunner implements AutoCloseable {
         return this;
     }
 
+    /**
+     * A single operation to be run by the {@link LimitedRunner}.
+     */
+    @FunctionalInterface
     public interface Runner {
+        /**
+         * Run some code with a limit.
+         * @param limit the code should process this many operations (however it concludes it can split up work).
+         * @return a future that will have a value of {@code true} if there are more operations to do, or {@code false},
+         * if the work has been completed.
+         */
         CompletableFuture<Boolean> runAsync(int limit);
     }
 }

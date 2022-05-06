@@ -29,6 +29,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * A class similar to {@link LimitedRunner}, but that combines with {@link TransactionalRunner} to run each operation
+ * in a transaction and commit it.
+ */
 @API(API.Status.EXPERIMENTAL)
 public class TransactionalLimitedRunner implements AutoCloseable {
 
@@ -80,7 +84,20 @@ public class TransactionalLimitedRunner implements AutoCloseable {
         return this;
     }
 
+    /**
+     * A single operation to be run by the {@link TransactionalLimitedRunner}.
+     * @see LimitedRunner.Runner
+     */
+    @FunctionalInterface
     public interface Runner {
+        /**
+         * Run some code in a transaction with some limit.
+         * @param context the transaction for this run of the operation. At the time this has been passed in, no
+         * operations will have been done, so one does not have to worry about the transaction time limit.
+         * @param limit the number of operations to do with this context.
+         * @return a future that will have a value of {@code true} if there are more operations to do, or {@code false},
+         * if the work has been completed.
+         */
         CompletableFuture<Boolean> runAsync(FDBRecordContext context, int limit);
     }
 }

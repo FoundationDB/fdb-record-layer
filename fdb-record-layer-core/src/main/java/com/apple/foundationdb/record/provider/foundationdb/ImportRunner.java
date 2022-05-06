@@ -27,6 +27,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Proof-of-concept abstract class for importing a bunch of data using TransactionalLimitedRunner.
+ * @param <T> the type of values saved in the buffer
+**/
 public abstract class ImportRunner<T> implements TransactionalLimitedRunner.Runner {
     private final Iterator<T> source;
     private final FDBDatabaseRunner runner;
