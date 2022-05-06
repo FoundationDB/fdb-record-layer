@@ -68,6 +68,9 @@ allprojects {
     }
     project.tasks.withType(Test) {
         systemProperty "file.encoding", "utf-8"
+        if (project.hasProperty("apiVersion")) {
+            systemProperty "com.apple.foundationdb.apiVersion", project.getProperty("apiVersion")
+        }
     }
 
     buildDir = ".out"

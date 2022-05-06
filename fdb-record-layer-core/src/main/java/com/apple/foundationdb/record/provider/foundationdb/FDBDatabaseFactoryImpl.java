@@ -27,6 +27,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +42,6 @@ import java.util.function.Supplier;
 public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
-    private static final int API_VERSION = 630;
 
     @Nonnull
     private static final FDBDatabaseFactoryImpl INSTANCE = new FDBDatabaseFactoryImpl();
@@ -81,6 +81,8 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     private String traceLogGroup = null;
     @Nonnull
     private FDBTraceFormat traceFormat = FDBTraceFormat.DEFAULT;
+    @Nonnull
+    private APIVersion apiVersion = APIVersion.getDefault();
 
     private boolean runLoopProfilingEnabled = false;
 
@@ -98,10 +100,18 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     protected synchronized FDB initFDB() {
         if (!inited) {
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(KeyValueLogMessage.of("Starting FDB"));
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("Staring FDB")
+                        .addKeyAndValue(LogMessageKeys.API_VERSION, apiVersion.getVersionNumber())
+                        .addKeyAndValue(LogMessageKeys.UNCLOSED_WARNING, unclosedWarning)
+                        .addKeyAndValue(LogMessageKeys.TRACE_FORMAT, traceFormat)
+                        .addKeyAndValue(LogMessageKeys.TRACE_DIRECTORY, traceDirectory)
+                        .addKeyAndValue(LogMessageKeys.TRACE_LOG_GROUP, traceLogGroup)
+                        .addKeyAndValue(LogMessageKeys.RUN_LOOP_PROFILING, runLoopProfilingEnabled)
+                        .addKeyAndValue(LogMessageKeys.THREADS_PER_CLIENT_VERSION, threadsPerClientVersion)
+                        .getMessageWithKeys());
             }
-            fdb = FDB.selectAPIVersion(API_VERSION);
+            fdb = FDB.selectAPIVersion(apiVersion.getVersionNumber());
             fdb.setUnclosedWarning(unclosedWarning);
             setStaticOptions(fdb);
             NetworkOptions options = fdb.options();
@@ -171,6 +181,22 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     @Override
     public void setTraceFormat(@Nonnull FDBTraceFormat traceFormat) {
         this.traceFormat = traceFormat;
+    }
+
+    @Override
+    public synchronized void setAPIVersion(@Nonnull APIVersion apiVersion) {
+        if (this.apiVersion == apiVersion) {
+            return;
+        }
+        if (inited) {
+            throw new RecordCoreException("API version cannot be changed after client has already started");
+        }
+        this.apiVersion = apiVersion;
+    }
+
+    @Override
+    public synchronized APIVersion getAPIVersion() {
+        return apiVersion;
     }
 
     @Override

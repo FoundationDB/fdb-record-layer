@@ -26,9 +26,22 @@ import org.junit.jupiter.api.BeforeAll;
  * Base class that all tests touching FoundationDB should inherit from.
  */
 public abstract class FDBTestBase {
+    private static final int MIN_API_VERSION = 630;
+    private static final int MAX_API_VERSION = 710;
+    private static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
+
+    private static int getAPIVersion() {
+        int apiVersion = Integer.parseInt(System.getProperty(API_VERSION_PROPERTY, "630"));
+        if (apiVersion < MIN_API_VERSION || apiVersion > MAX_API_VERSION) {
+            throw new IllegalStateException(String.format("unsupported API version %d (must be between %d and %d)",
+                    apiVersion, MIN_API_VERSION, MAX_API_VERSION));
+        }
+        return apiVersion;
+    }
+
     @BeforeAll
     public static void setupFDB() {
-        FDB fdb = FDB.selectAPIVersion(630);
+        FDB fdb = FDB.selectAPIVersion(getAPIVersion());
         fdb.setUnclosedWarning(true);
     }
 }
