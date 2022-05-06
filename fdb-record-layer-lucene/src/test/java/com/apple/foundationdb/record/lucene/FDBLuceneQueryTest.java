@@ -45,8 +45,8 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -65,6 +65,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,6 +98,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primar
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorderedUnion;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -1074,6 +1076,41 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(1)).asList().get();
             assertEquals(List.of(2L, 0L), primaryKeys);
+        }
+    }
+
+    @ParameterizedTest(name = "unionSearches[sorted={0}]")
+    @BooleanSource
+    void unionSearches(boolean sorted) throws Exception {
+        initializeFlat();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("parents", Lists.newArrayList("text"), true);
+            final QueryComponent filter2 = new LuceneQueryComponent("king", Lists.newArrayList("text"), true);
+            RecordQuery.Builder query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(Query.or(filter1, filter2));
+            if (sorted) {
+                query.setSort(field("doc_id"));
+            }
+            RecordQueryPlan plan = planner.plan(query.build());
+            Matcher<RecordQueryPlan> matcher1 = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
+                    indexName(SIMPLE_TEXT_SUFFIXES.getName()),
+                    scanParams(query(hasToString("MULTI parents")))));
+            Matcher<RecordQueryPlan> matcher2 = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
+                    indexName(SIMPLE_TEXT_SUFFIXES.getName()),
+                    scanParams(query(hasToString("MULTI king")))));
+            if (sorted) {
+                assertThat(plan, union(matcher1, matcher2));
+            } else {
+                assertThat(plan, primaryKeyDistinct(unorderedUnion(matcher1, matcher2)));
+            }
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            if (sorted) {
+                assertEquals(List.of(1L, 2L, 4L, 5L), primaryKeys);
+            } else {
+                assertEquals(Set.of(1L, 2L, 4L, 5L), new HashSet<>(primaryKeys));
+            }
         }
     }
 

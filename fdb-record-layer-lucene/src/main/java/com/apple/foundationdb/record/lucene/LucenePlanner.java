@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -134,7 +135,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         // Wrap in plan.
-        LuceneIndexQueryPlan lucenePlan = new LuceneIndexQueryPlan(index.getName(), scanParameters, false);
+        LuceneIndexQueryPlan lucenePlan = new LuceneIndexQueryPlan(index.getName(), scanParameters, false, state.planOrderingKey);
         RecordQueryPlan plan = lucenePlan;
         plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
         if (filterMask.allSatisfied()) {
@@ -157,6 +158,8 @@ public class LucenePlanner extends RecordQueryPlanner {
         List<String> storedFields;
         @Nullable
         List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
+        @Nullable
+        PlanOrderingKey planOrderingKey;
 
         Map<String, LuceneIndexExpressions.DocumentFieldDerivation> documentFields;
         boolean repeated;   // Matching a repeated field may introduce duplicates
@@ -490,6 +493,20 @@ public class LucenePlanner extends RecordQueryPlanner {
             }
         }
         state.sort = new Sort(fields);
+        // Unlike normal indexes, entries are not additionally ordered by the primary key,
+        // except in the case where the query asked for a prefix of it and we used the whole internal field.
+        List<KeyExpression> orderingKeys = new ArrayList<>(sorts.size());
+        int prefixSize = 0;
+        if (groupingKey != null) {
+            orderingKeys.addAll(groupingKey.normalizeKeyForPositions());
+            prefixSize = orderingKeys.size();
+        }
+        orderingKeys.addAll(sorts);
+        int primaryKeyStart = orderingKeys.size();
+        if (primaryKeys != null && primaryKeyPosition < primaryKeys.size()) {
+            orderingKeys.addAll(primaryKeys.subList(primaryKeyPosition, primaryKeys.size()));
+        }
+        state.planOrderingKey = new PlanOrderingKey(orderingKeys, prefixSize, primaryKeyStart, orderingKeys.size());
         return true;
     }
 

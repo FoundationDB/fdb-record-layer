@@ -35,6 +35,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
+import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlanUtils;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -44,13 +46,19 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Objects;
 
 /**
- * Lucene query plan for including sort parameters.
+ * Lucene query plan for including search-related scan parameters.
  */
-public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
-    public LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters, boolean reverse) {
+public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWithOrderingKey {
+    @Nullable
+    private final PlanOrderingKey planOrderingKey;
+
+    public LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters, boolean reverse,
+                                @Nullable PlanOrderingKey planOrderingKey) {
         super(indexName, scanParameters, reverse);
+        this.planOrderingKey = planOrderingKey;
     }
 
     /**
@@ -126,5 +134,31 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     public boolean allowedForCoveringIndexPlan() {
         return !getScanType().equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)
                && !getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK);
+    }
+
+    @Nullable
+    @Override
+    public PlanOrderingKey getPlanOrderingKey() {
+        return planOrderingKey;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        final LuceneIndexQueryPlan that = (LuceneIndexQueryPlan)o;
+        return Objects.equals(planOrderingKey, that.planOrderingKey);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), planOrderingKey);
     }
 }
