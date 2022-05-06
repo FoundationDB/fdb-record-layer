@@ -306,8 +306,7 @@ public class RecordLayerStoreCatalogImplTest {
             do {
                 RelationalResultSet result = storeCatalog.listDatabases(listTxn, continuation);
                 while (result.next()) {
-                    CatalogData.DatabaseInfo databaseInfo = result.parseMessage();
-                    databases.add(databaseInfo.getDatabaseId());
+                    databases.add(result.getString("database_id"));
                 }
                 continuation = result.getContinuation();
             } while (!continuation.atEnd());
@@ -374,8 +373,7 @@ public class RecordLayerStoreCatalogImplTest {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
                     // to test continuation, only read 1 result at once
                     if (result.next()) {
-                        CatalogData.Schema schema = result.parseMessage();
-                        fullSchemaNames.add(schema.getDatabaseId() + "/" + schema.getSchemaName());
+                        fullSchemaNames.add(result.getString("database_id") + "/" + result.getString("schema_name"));
                     }
                     continuation = result.getContinuation();
                 }
@@ -392,8 +390,7 @@ public class RecordLayerStoreCatalogImplTest {
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, URI.create("test_database_id1"), continuation)) {
                     if (result.next()) {
-                        CatalogData.Schema schema = result.parseMessage();
-                        resultSet.add(schema.getDatabaseId() + "/" + schema.getSchemaName());
+                        resultSet.add(result.getString("database_id") + "/" + result.getString("schema_name"));
                     }
                     continuation = result.getContinuation();
                 }
@@ -413,8 +410,7 @@ public class RecordLayerStoreCatalogImplTest {
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
                     if (result.next()) {
-                        CatalogData.Schema schema = result.parseMessage();
-                        fullSchemaNames.add(schema.getDatabaseId() + "/" + schema.getSchemaName());
+                        fullSchemaNames.add(result.getString("database_id") + "/" + result.getString("schema_name"));
                     }
                     continuation = result.getContinuation();
                 }

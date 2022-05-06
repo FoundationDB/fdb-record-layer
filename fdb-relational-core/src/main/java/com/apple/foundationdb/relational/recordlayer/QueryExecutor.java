@@ -22,19 +22,13 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.plan.QueryPlanResult;
-import com.apple.foundationdb.record.query.plan.QueryPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -64,26 +58,6 @@ public class QueryExecutor {
         this.evaluationContext = evaluationContext;
         this.isExplain = isExplain;
         this.plan = plan;
-    }
-
-    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "internal implementation should have proper usage")
-    public QueryExecutor(RecordLayerSchema schema,
-                         RecordQuery recordQuery,
-                         String[] expectedFieldNames,
-                         EvaluationContext evaluationContext,
-                         boolean isExplain) throws RelationalException {
-        this.schema = schema;
-        this.expectedFieldNames = expectedFieldNames;
-        this.evaluationContext = evaluationContext;
-        this.isExplain = isExplain;
-        final FDBRecordStore fdbRecordStore = schema.loadStore();
-        try {
-            final QueryPlanner planner = new CascadesPlanner(fdbRecordStore.getRecordMetaData(), fdbRecordStore.getRecordStoreState());
-            final QueryPlanResult qpr = planner.planQuery(recordQuery);
-            this.plan = qpr.getPlan();
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
     }
 
     @Nonnull

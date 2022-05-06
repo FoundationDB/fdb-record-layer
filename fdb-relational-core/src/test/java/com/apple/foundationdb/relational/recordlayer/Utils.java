@@ -20,11 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.Restaurant;
+import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import com.google.protobuf.Message;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
@@ -34,55 +38,71 @@ public final class Utils {
 
     static Random r = new Random(42);
 
-    static volatile long sequencer;
+    static volatile AtomicLong sequencer = new AtomicLong();
 
-    static Iterable<Restaurant.RestaurantRecord> generateRestaurantRecords(int count) {
-        return generateList(count, Utils::generateRestaurantRecord);
+    static Iterable<Message> generateRestaurantRecords(int count, RelationalStatement statement) {
+        return generateList(count, () -> Utils.generateRestaurantRecord(statement));
     }
 
-    static Restaurant.RestaurantRecord generateRestaurantRecord() {
-        int numReviewers = r.nextInt(5) + 1;
+    static Message generateRestaurantRecord(RelationalStatement statement) {
+        int numReviews = r.nextInt(5) + 1;
         int numTags = r.nextInt(5) + 1;
         int numCustomers = r.nextInt(5) + 1;
 
-        return Restaurant.RestaurantRecord.newBuilder()
-                .setRestNo(sequencer++)
-                .setName("restName" + r.nextInt())
-                .setLocation(generateLocation())
-                .addAllReviews(generateReviewers(numReviewers))
-                .addAllTags(generateTags(numTags))
-                .addAllCustomer(generateList(numCustomers, () -> "cust" + r.nextInt()))
-                .build();
+        try {
+            return statement.getDataBuilder("RestaurantRecord")
+                    .setField("rest_no", sequencer.incrementAndGet())
+                    .setField("name", "restName" + r.nextInt())
+                    .setField("location", generateLocation(statement))
+                    .addRepeatedFields("reviews", generateReviews(statement, numReviews))
+                    .addRepeatedFields("tags", generateTags(statement, numTags))
+                    .addRepeatedFields("customer", generateList(numCustomers, () -> "cust" + r.nextInt()))
+                    .build();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
-    private static Restaurant.Location generateLocation() {
-        return Restaurant.Location.newBuilder()
-                .setAddress("addr" + r.nextInt())
-                .setLatitude("lat" + r.nextInt())
-                .setLongitude("long" + r.nextInt())
-                .build();
+    private static Message generateLocation(RelationalStatement statement) {
+        try {
+            return statement.getDataBuilder("Location")
+                    .setField("address", "addr" + r.nextInt())
+                    .setField("latitude", "lat" + r.nextInt())
+                    .setField("longitude", "long" + r.nextInt())
+                    .build();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
-    private static Restaurant.RestaurantReview generateReviewer() {
-        return Restaurant.RestaurantReview.newBuilder()
-                .setRating(r.nextInt(5))
-                .setReviewer(r.nextInt())
-                .build();
+    private static Message generateReview(RelationalStatement statement) {
+        try {
+            return statement.getDataBuilder("RestaurantReview")
+                    .setField("rating", r.nextInt(5))
+                    .setField("reviewer", r.nextInt())
+                    .build();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
-    private static Iterable<Restaurant.RestaurantReview> generateReviewers(int numReviewers) {
-        return generateList(numReviewers, Utils::generateReviewer);
+    private static Iterable<Message> generateReviews(RelationalStatement statement, int numReviewers) {
+        return generateList(numReviewers, () -> generateReview(statement));
     }
 
-    private static Restaurant.RestaurantTag generateTag() {
-        return Restaurant.RestaurantTag.newBuilder()
-                .setTag("tag" + r.nextInt())
-                .setWeight(r.nextInt())
-                .build();
+    private static Message generateTag(RelationalStatement statement) {
+        try {
+            return statement.getDataBuilder("RestaurantTag")
+                    .setField("tag", "tag" + r.nextInt())
+                    .setField("weight", r.nextInt())
+                    .build();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
-    private static Iterable<Restaurant.RestaurantTag> generateTags(int numTags) {
-        return generateList(numTags, Utils::generateTag);
+    private static Iterable<Message> generateTags(RelationalStatement statement, int numTags) {
+        return generateList(numTags, () -> generateTag(statement));
     }
 
     private static <T> Iterable<T> generateList(int count, Supplier<T> supplier) {

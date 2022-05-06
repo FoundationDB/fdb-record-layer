@@ -24,8 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import com.google.protobuf.Message;
-
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -84,40 +82,11 @@ public interface RelationalResultSet extends java.sql.ResultSet {
     Collection<?> getRepeated(String fieldName) throws SQLException;
 
     /**
-     * Determine if the result set's current row support directly returning protobuf objects.
-     *
-     * @return {@code true} if current row can be parsed directly to protobuf message objects, {@code false} otherwise.
+     * Return this row as a {@link Row}.
+     * @return the row
+     * @throws SQLException if something goes wrong.
      */
-    boolean supportsMessageParsing();
-
-    /**
-     * Return this row as a protobuf message (if possible).
-     * <p>
-     *     This method exists primarily as a performance and user-experience improvement. It is possible
-     *     for the caller to reconstruct any Message type that they would like based on using the other methods
-     *     supported in this interface (the `getX(String)` methods) and manually constructing a Protocol buffer
-     *     on the other side. However, when the underlying query result is already a protocol buffer, and
-     *     the caller wants a protocol buffer, then doing so is a needless copy operation.
-     * </p>
-     * <p>
-     *     This normally wouldn't matter, but there are existing use-cases where this type of operation is currently
-     *     going on, and so it is convenient to provide some simplicity in those use-cases. However, its use outside
-     *     of existing scenarios is highly discouraged; don't use this unless you <em>really</em> know what you're
-     *     doing and why.
-     * </p>
-     * <p>
-     *     To use this properly, you must <em>always</em> first call {@link #supportsMessageParsing()}. It is possible
-     *     (although somewhat unlikely) that a query could be able to parse some rows in a result set but not others.
-     *     If this returns {@code false}, you must be prepared to extract information using the standard JDBC
-     *     functions.
-     * </p>
-     *
-     * @param <M> the expected type of the message.
-     * @return the object at the specified position, as a protobuf Message
-     * @throws SQLException if something goes wrong
-     * @throws ArrayIndexOutOfBoundsException if the specified position is invalid
-     */
-    <M extends Message> M parseMessage() throws SQLException;
+    Row asRow() throws SQLException;
 
     /**
      * A {@code Continuation} that can be used for retrieving the rest of the rows.

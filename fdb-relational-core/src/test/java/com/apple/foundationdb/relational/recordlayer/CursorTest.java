@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -33,8 +33,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 
-import com.google.common.collect.ImmutableList;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -49,6 +47,8 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import static com.apple.foundationdb.relational.utils.RelationalAssertions.assertThat;
 
 public class CursorTest {
     @RegisterExtension
@@ -72,38 +72,23 @@ public class CursorTest {
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test
-    public void canIterateOverAllResults() throws RelationalException, SQLException {
-        havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, RelationalStatement s) -> {
+    public void canIterateOverAllResults() throws RelationalException {
+        havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
             // 1/2 scan all records
-            List<Restaurant.RestaurantRecord> actual = new ArrayList<>();
             try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),
                     Options.create())) {
-                while (resultSet.next()) {
-                    Assertions.assertTrue(resultSet.supportsMessageParsing());
-                    Message m = resultSet.parseMessage();
-                    Restaurant.RestaurantRecord r = null;
-                    try {
-                        r = Restaurant.RestaurantRecord.parseFrom(m.toByteArray());
-                    } catch (InvalidProtocolBufferException e) {
-                        Assertions.fail("failed to parse ");
-                    }
-                    actual.add(r);
-                }
+                assertThat(resultSet).hasExactlyInAnyOrder(records);
             } catch (SQLException | RelationalException e) {
                 throw new RuntimeException(e);
             }
-            // 2/2 make sure we've received everything
-            Collection<Restaurant.RestaurantRecord> expected = ImmutableList.copyOf(records);
-            Assertions.assertEquals(expected.size(), actual.size());
-            Assertions.assertTrue(actual.containsAll(expected)); // no dups
         });
     }
 
     @Test
-    public void canIterateWithContinuation() throws RelationalException, SQLException {
-        havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, RelationalStatement s) -> {
+    public void canIterateWithContinuation() throws RelationalException {
+        havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
             // 1/2 scan all records
-            List<Restaurant.RestaurantRecord> actual = new ArrayList<>();
+            List<Row> actual = new ArrayList<>();
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord")
@@ -111,15 +96,7 @@ public class CursorTest {
                 resultSet = s.executeScan(scan, Options.create());
                 while (true) {
                     while (resultSet.next()) {
-                        Assertions.assertTrue(resultSet.supportsMessageParsing());
-                        Message m = resultSet.parseMessage();
-                        Restaurant.RestaurantRecord r = null;
-                        try {
-                            r = Restaurant.RestaurantRecord.parseFrom(m.toByteArray());
-                        } catch (InvalidProtocolBufferException e) {
-                            Assertions.fail("failed to parse ");
-                        }
-                        actual.add(r);
+                        actual.add(resultSet.asRow());
                     }
                     if (!resultSet.getContinuation().atEnd()) {
                         resultSet.close();
@@ -142,7 +119,7 @@ public class CursorTest {
                 }
             }
             // 2/2 make sure we've received everything
-            Collection<Restaurant.RestaurantRecord> expected = ImmutableList.copyOf(records);
+            Collection<Row> expected = StreamSupport.stream(records.spliterator(), false).map(MessageTuple::new).collect(Collectors.toList());
             Assertions.assertEquals(expected.size(), actual.size());
             Assertions.assertTrue(actual.containsAll(expected)); // no dups
         });
@@ -151,7 +128,7 @@ public class CursorTest {
     @Test
     public void continuationOnEdgesOfRecordCollection() throws RelationalException, SQLException {
 
-        havingInsertedRecordsDo(3, (Iterable<Restaurant.RestaurantRecord> records, RelationalStatement s) -> {
+        havingInsertedRecordsDo(3, (Iterable<Message> records, RelationalStatement s) -> {
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
@@ -161,34 +138,34 @@ public class CursorTest {
                 Continuation beginContinuation = resultSet.getContinuation();
 
                 resultSet.next();
-                Restaurant.RestaurantRecord firstRecord = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
+                Row firstRecord = resultSet.asRow();
                 // get continuation at the first (should point to the second record).
                 final Continuation firstContinuation = resultSet.getContinuation();
 
                 resultSet.next();
-                Restaurant.RestaurantRecord secondRecord = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
+                Row secondRecord = resultSet.asRow();
                 // get continuation at the second element (should point to third).
                 final Continuation secondContinuation = resultSet.getContinuation();
 
                 resultSet.next();
-                Restaurant.RestaurantRecord lastRecord = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
+                Row lastRecord = resultSet.asRow();
                 // get continuation at the last record (should point to FINISHED).
                 Continuation lastContinuation = resultSet.getContinuation();
 
                 // verify
-                Restaurant.RestaurantRecord resumedFirstRecord = readFirstRecordWithContinuation(s, beginContinuation);
+                Row resumedFirstRecord = readFirstRecordWithContinuation(s, beginContinuation);
                 Assertions.assertEquals(firstRecord, resumedFirstRecord);
 
-                Restaurant.RestaurantRecord resumedSecondRecord = readFirstRecordWithContinuation(s, firstContinuation);
+                Row resumedSecondRecord = readFirstRecordWithContinuation(s, firstContinuation);
                 Assertions.assertEquals(secondRecord, resumedSecondRecord);
 
-                Restaurant.RestaurantRecord resumedThirdRecord = readFirstRecordWithContinuation(s, secondContinuation);
+                Row resumedThirdRecord = readFirstRecordWithContinuation(s, secondContinuation);
                 Assertions.assertEquals(lastRecord, resumedThirdRecord);
 
                 Assertions.assertNull(lastContinuation.getBytes());
                 Assertions.assertTrue(lastContinuation.atEnd());
 
-            } catch (InvalidProtocolBufferException | RelationalException | SQLException e) {
+            } catch (RelationalException | SQLException e) {
                 Assertions.fail("failed to parse ", e);
             } finally {
 
@@ -205,7 +182,7 @@ public class CursorTest {
 
     @Test
     public void continuationOnEmptyCollection() throws RelationalException, SQLException {
-        havingInsertedRecordsDo(0, (Iterable<Restaurant.RestaurantRecord> records, RelationalStatement s) -> {
+        havingInsertedRecordsDo(0, (Iterable<Message> records, RelationalStatement s) -> {
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
@@ -232,9 +209,9 @@ public class CursorTest {
     // helper methods
 
     private void havingInsertedRecordsDo(int numRecords,
-                                         BiConsumer<Iterable<Restaurant.RestaurantRecord>, RelationalStatement> test) throws RelationalException {
+                                         BiConsumer<Iterable<Message>, RelationalStatement> test) throws RelationalException {
         // 1/2 add all records to table insert_test.main.Restaurant.RestaurantRecord
-        Iterable<Restaurant.RestaurantRecord> records = Utils.generateRestaurantRecords(numRecords);
+        Iterable<Message> records = Utils.generateRestaurantRecords(numRecords, statement);
         final DynamicMessageBuilder dataBuilder = statement.getDataBuilder("RestaurantRecord");
         Iterable<Message> convertedRecords = StreamSupport.stream(records.spliterator(), false)
                 .map(m -> {
@@ -252,14 +229,14 @@ public class CursorTest {
         test.accept(records, statement);
     }
 
-    private Restaurant.RestaurantRecord readFirstRecordWithContinuation(RelationalStatement s, Continuation c) throws SQLException, RelationalException {
+    private Row readFirstRecordWithContinuation(RelationalStatement s, Continuation c) throws SQLException, RelationalException {
         RelationalResultSet resultSet = null;
         try {
             TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
             resultSet = s.executeScan(scan, Options.create().withOption(OperationOption.continuation(c)));
             resultSet.next();
-            return Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
-        } catch (InvalidProtocolBufferException | SQLException e) {
+            return resultSet.asRow();
+        } catch (SQLException e) {
             Assertions.fail("failed to parse ", e);
         } finally {
             if (resultSet != null) {
@@ -268,5 +245,4 @@ public class CursorTest {
         }
         return null;
     }
-
 }

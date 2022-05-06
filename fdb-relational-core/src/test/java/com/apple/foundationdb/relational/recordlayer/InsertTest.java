@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -104,10 +103,6 @@ public class InsertTest {
                     Assertions.assertNotNull(recordScan, "Did not return a valid result set!");
 
                     while (recordScan.next()) {
-                        if (recordScan.supportsMessageParsing()) {
-                            Message row = recordScan.parseMessage();
-                            Assertions.assertEquals(record.getDescriptorForType().getName(), row.getDescriptorForType().getName(), "Unexpected descriptor type");
-                        }
                         Assertions.assertDoesNotThrow(() -> {
                             //make sure that the correct fields are returned
                             recordScan.getString("name");

@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
-import com.apple.foundationdb.relational.api.Queryable;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -67,12 +66,6 @@ public class JDBCStatement implements RelationalStatement {
     public RelationalResultSet executeQuery(@Nonnull String query) throws SQLException {
         final ResultSet resultSet = statement.executeQuery(query);
         return new JDBCRelationalResultSet(resultSet);
-    }
-
-    @Nonnull
-    @Override
-    public RelationalResultSet executeQuery(@Nonnull Queryable query, @Nonnull Options options) throws RelationalException {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
 
     @Override

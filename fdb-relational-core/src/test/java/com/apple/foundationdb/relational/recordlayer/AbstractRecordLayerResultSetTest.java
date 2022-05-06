@@ -260,21 +260,6 @@ class AbstractRecordLayerResultSetTest {
     }
 
     @Test
-    void supportsMessageParsing() {
-        Mockito.doCallRealMethod().when(resultSet).supportsMessageParsing();
-        assertThat(resultSet.supportsMessageParsing()).isFalse();
-    }
-
-    @Test
-    void parseMessage() throws SQLException {
-        Mockito.doCallRealMethod().when(resultSet).parseMessage();
-        assertThatThrownBy(() -> resultSet.parseMessage())
-                .isInstanceOf(SQLException.class)
-                .extracting("SQLState")
-                .isEqualTo(ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Test
     void getMetaData() throws SQLException {
         Mockito.doCallRealMethod().when(resultSet).getMetaData();
         String[] mockedFieldNames = {"a", "b", "c"};

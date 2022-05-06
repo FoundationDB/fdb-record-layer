@@ -43,10 +43,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
@@ -200,7 +199,6 @@ public class QueryTest {
 
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord WHERE name = 'getBytes'", Options.create(), QueryProperties.DEFAULT)) {
             while (resultSet.next()) {
-                Assertions.assertTrue(resultSet.supportsMessageParsing());
                 byte[] bytes = resultSet.getBytes("blob");
                 switch ((int) resultSet.getLong("rest_no")) {
                     case 1:
@@ -264,34 +262,11 @@ public class QueryTest {
         return rec;
     }
 
-    private void assertMatches(RelationalResultSet resultSet, Restaurant.RestaurantRecord rec, boolean ignoreNested) throws SQLException {
+    private <M extends Message> void assertMatches(RelationalResultSet resultSet, Collection<M> rec, Function<M, M> adapter) throws SQLException, RelationalException {
         Assertions.assertNotNull(resultSet, "Did not return a result set!");
-        Assertions.assertTrue(resultSet.next(), "Did not return a record!");
-        Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
-        try {
-            Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
-            Restaurant.RestaurantRecord actual = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
-            if (ignoreNested) {
-                Assertions.assertEquals(rec.getName(), actual.getName());
-                Assertions.assertEquals(rec.getRestNo(), actual.getRestNo());
-            } else {
-                Assertions.assertEquals(rec, actual, "Incorrect returned record!");
-                Assertions.assertFalse(resultSet.next(), "Has more than one row!");
-            }
-        } catch (InvalidProtocolBufferException e) {
-            Assertions.fail();
-        }
-    }
-
-    private <M extends Message> void assertMatches(RelationalResultSet resultSet, Collection<M> rec, Function<M, M> adapter) throws SQLException {
-        Assertions.assertNotNull(resultSet, "Did not return a result set!");
-        Set<M> expected = new HashSet<>(rec);
-        Set<M> actual = new HashSet<>();
-        while (resultSet.next()) {
-            Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
-            actual.add(adapter.apply(resultSet.parseMessage()));
-        }
-        Assertions.assertEquals(expected, actual);
+        RelationalAssertions.assertThat(resultSet).hasExactlyInAnyOrder(
+                rec.stream().map(MessageTuple::new).collect(Collectors.toList())
+        );
     }
 
     private Message convert(Message message) {

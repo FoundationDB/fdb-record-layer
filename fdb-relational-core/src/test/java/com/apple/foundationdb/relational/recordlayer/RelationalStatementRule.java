@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
-import com.apple.foundationdb.relational.api.Queryable;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -63,12 +62,6 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     @Override
     public RelationalResultSet executeQuery(@Nonnull String query, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException, SQLException {
         return statement.executeQuery(query, options, queryProperties);
-    }
-
-    @Nonnull
-    @Override
-    public RelationalResultSet executeQuery(@Nonnull Queryable query, @Nonnull Options options) throws RelationalException {
-        return statement.executeQuery(query, options);
     }
 
     @Nonnull

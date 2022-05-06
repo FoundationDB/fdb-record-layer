@@ -22,16 +22,12 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.QueryProperties;
-import com.apple.foundationdb.relational.api.Queryable;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.WhereClause;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.query.RelationalQuery;
-import com.apple.foundationdb.relational.recordlayer.query.ValueComparisonClause;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -98,9 +94,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
             dbConn.setSchema(schema);
             long restId = ThreadLocalRandom.current().nextInt(1, dbSize + 1);
             try (RelationalStatement stmt = dbConn.createStatement()) {
-                WhereClause clause = new ValueComparisonClause("rest_no", ValueComparisonClause.ComparisonType.EQUALS, restId);
-                Queryable query = new RelationalQuery(restaurantRecord, schema, List.of("rest_no", "name"), clause, false, QueryProperties.DEFAULT);
-                RelationalResultSet resultSet = stmt.executeQuery(query, com.apple.foundationdb.relational.api.Options.create());
+                RelationalResultSet resultSet = stmt.executeQuery("SELECT rest_no, name from RestaurantRecord where rest_no = " + restId, com.apple.foundationdb.relational.api.Options.create(), QueryProperties.DEFAULT);
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
                 bh.consume(resultSet.getString("name"));

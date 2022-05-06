@@ -63,6 +63,14 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     }
 
     @Override
+    public DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> values) throws RelationalException {
+        for (Object value : values) {
+            addRepeatedField(fieldName, value);
+        }
+        return this;
+    }
+
+    @Override
     public Message build() {
         return data.build();
     }

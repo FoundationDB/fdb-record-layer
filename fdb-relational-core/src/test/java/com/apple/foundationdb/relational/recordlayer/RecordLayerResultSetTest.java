@@ -117,9 +117,4 @@ class RecordLayerResultSetTest {
     void getFieldNames() {
         assertThat(resultSet.getFieldNames()).containsExactly("a", "b");
     }
-
-    @Test
-    void parseMessageFail() {
-        RelationalAssertions.assertThrowsSqlException(() -> resultSet.parseMessage()).hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
-    }
 }

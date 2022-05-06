@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -175,7 +176,6 @@ class ProtobufDataBuilderTest {
 
     @Test
     void failsForMissingField() throws Descriptors.DescriptorValidationException, RelationalException {
-
         DescriptorProtos.DescriptorProto descProto = DescriptorProtos.DescriptorProto.newBuilder()
                 .setName("test")
                 .addField(newDescriptor("blah", JavaType.STRING, null, false)).build();
@@ -187,7 +187,6 @@ class ProtobufDataBuilderTest {
 
     @Test
     void failsForNonRepeatingField() throws Descriptors.DescriptorValidationException, RelationalException {
-
         DescriptorProtos.DescriptorProto descProto = DescriptorProtos.DescriptorProto.newBuilder()
                 .setName("test")
                 .addField(newDescriptor("blah", JavaType.STRING, null, false)).build();
@@ -206,6 +205,17 @@ class ProtobufDataBuilderTest {
         ProtobufDataBuilder dataBuilder = new ProtobufDataBuilder(file.findMessageTypeByName("test"));
         RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> dataBuilder.getNestedMessageBuilder("blah"));
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, ve.getErrorCode());
+    }
 
+    @Test
+    void failWhenAddRepeatedField() throws Descriptors.DescriptorValidationException {
+        DescriptorProtos.DescriptorProto descProto = DescriptorProtos.DescriptorProto.newBuilder()
+                .setName("test")
+                .addField(newDescriptor("field1", JavaType.STRING, null, false)).build();
+        Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(descProto).build(), new Descriptors.FileDescriptor[]{});
+        ProtobufDataBuilder dataBuilder = new ProtobufDataBuilder(file.findMessageTypeByName("test"));
+        RelationalAssertions.assertThrows(() -> dataBuilder.addRepeatedField("field1", "foo"))
+                .hasErrorCode(ErrorCode.INVALID_PARAMETER)
+                .hasMessageContaining("is not repeated");
     }
 }

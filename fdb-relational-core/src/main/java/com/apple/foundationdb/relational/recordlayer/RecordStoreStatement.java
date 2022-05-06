@@ -21,10 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -35,7 +32,6 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
-import com.apple.foundationdb.relational.api.Queryable;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -45,14 +41,11 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.common.base.Preconditions;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -90,65 +83,6 @@ public class RecordStoreStatement implements RelationalStatement {
         final RecordQueryPlan recordQueryPlan = PlanGenerator.generatePlan(query, store.getRecordMetaData(), store.getRecordStoreState());
         final String[] fieldNames = Objects.requireNonNull(((Type.Record) innerType).getFields()).stream().sorted(Comparator.comparingInt(Type.Record.Field::getFieldIndex)).map(Type.Record.Field::getFieldName).collect(Collectors.toUnmodifiableList()).toArray(String[]::new);
         final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan, fieldNames, EvaluationContext.forTypeRepository(builder.build()), schema, false /* get this information from the query plan */);
-        return new RecordLayerResultSet(queryExecutor.getFieldNames(),
-                queryExecutor.execute(options.getOption(OperationOption.CONTINUATION_NAME, null)),
-                conn);
-    }
-
-    @Override
-    @Nonnull
-    @ExcludeFromJacocoGeneratedReport
-    //excluded because QueryTest is currently disabled due to a RL bug, and also because we are going to remove this method soon anyway
-    public RelationalResultSet executeQuery(@Nonnull Queryable query, @Nonnull Options options) throws RelationalException {
-        ensureTransactionActive();
-
-        String schem = query.getSchema();
-        if (schem == null) {
-            schem = conn.getSchema();
-        }
-        String[] schemaAndTable = getSchemaAndTable(schem, query.getTable());
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
-
-        Table table = schema.loadTable(schemaAndTable[1], options);
-        final Descriptors.Descriptor tableTypeDescriptor = table.getMetaData().getTableTypeDescriptor();
-        final List<Descriptors.FieldDescriptor> fields = tableTypeDescriptor.getFields();
-        List<String> queryColumns = query.getColumns();
-        List<KeyExpression> queryCols = new ArrayList<>(queryColumns.size());
-
-        for (String queryColumn : queryColumns) {
-            Descriptors.FieldDescriptor fieldToUse = null;
-            for (Descriptors.FieldDescriptor field : fields) {
-                if (field.getName().equalsIgnoreCase(queryColumn)) {
-                    fieldToUse = field;
-                    break;
-                }
-            }
-            if (fieldToUse == null) {
-                throw new RelationalException("Invalid column for table. Table: <" + query.getTable() + ">,column: <" + queryColumn + ">", ErrorCode.INVALID_PARAMETER);
-            }
-            if (fieldToUse.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-                final Descriptors.Descriptor messageType = fieldToUse.getMessageType();
-                List<Descriptors.FieldDescriptor> nestedFields = messageType.getFields();
-                KeyExpression kE = Key.Expressions.concatenateFields(nestedFields.stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toList()));
-                queryCols.add(Key.Expressions.field(queryColumn).nest(kE));
-            } else {
-                queryCols.add(Key.Expressions.field(queryColumn));
-            }
-        }
-
-        RecordQuery.Builder recQueryBuilder = RecordQuery.newBuilder().setRecordType(table.getName());
-        if (!queryCols.isEmpty()) {
-            recQueryBuilder.setRequiredResults(queryCols);
-        }
-        if (query.getWhereClause() != null) {
-            recQueryBuilder.setFilter(WhereClauseUtils.convertClause(query.getWhereClause()));
-        }
-
-        final QueryExecutor queryExecutor = new QueryExecutor(schema,
-                recQueryBuilder.build(),
-                queryColumns.toArray(new String[0]),
-                EvaluationContext.empty(),
-                query.isExplain());
         return new RecordLayerResultSet(queryExecutor.getFieldNames(),
                 queryExecutor.execute(options.getOption(OperationOption.CONTINUATION_NAME, null)),
                 conn);

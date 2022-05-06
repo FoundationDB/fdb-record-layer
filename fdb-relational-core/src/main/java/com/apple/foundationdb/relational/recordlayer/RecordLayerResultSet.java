@@ -24,12 +24,9 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
-import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
-import com.google.protobuf.Message;
 
 import java.sql.SQLException;
 
@@ -122,19 +119,6 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Override
     protected String[] getFieldNames() {
         return fieldNames;
-    }
-
-    @Override
-    public boolean supportsMessageParsing() {
-        return currentRow != null && currentRow instanceof MessageTuple;
-    }
-
-    @Override
-    public <M extends Message> M parseMessage() throws SQLException {
-        if (!supportsMessageParsing()) {
-            throw new OperationUnsupportedException("This ResultSet does not support Message Parsing").toSqlException();
-        }
-        return ((MessageTuple) currentRow).parseMessage();
     }
 
     @Override

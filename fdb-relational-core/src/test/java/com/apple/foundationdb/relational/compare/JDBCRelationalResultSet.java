@@ -21,10 +21,9 @@
 package com.apple.foundationdb.relational.compare;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
-import com.google.protobuf.Message;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -957,12 +956,7 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     }
 
     @Override
-    public boolean supportsMessageParsing() {
-        return false;
-    }
-
-    @Override
-    public <M extends Message> M parseMessage() throws SQLException {
+    public Row asRow() throws SQLException {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
 

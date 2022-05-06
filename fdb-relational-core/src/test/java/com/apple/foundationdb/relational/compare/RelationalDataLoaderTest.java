@@ -133,12 +133,6 @@ public class RelationalDataLoaderTest {
                     try (final RelationalResultSet rrs = s.executeGet("RestaurantRecord", ks, Options.create())) {
                         if (!rrs.next()) {
                             System.out.println("NOT FOUND!");
-                        } else {
-                            if (rrs.supportsMessageParsing()) {
-                                Message m = rrs.parseMessage();
-                                System.out.println(m);
-                            }
-                            //                            System.out.println("FOUND");
                         }
                     }
                 } finally {

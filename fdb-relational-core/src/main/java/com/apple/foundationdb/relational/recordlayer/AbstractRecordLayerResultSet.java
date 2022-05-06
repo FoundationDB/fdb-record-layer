@@ -20,13 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
-import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Message;
 
 import java.net.URI;
 import java.sql.ResultSetMetaData;
@@ -206,13 +205,13 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public boolean supportsMessageParsing() {
-        return false;
-    }
-
-    @Override
-    public <M extends Message> M parseMessage() throws SQLException {
-        throw new OperationUnsupportedException("Does not support message parsing").toSqlException();
+    public Row asRow() throws SQLException {
+        final ResultSetMetaData metaData = getMetaData();
+        Object[] theRow = new Object[metaData.getColumnCount()];
+        for (int i = 1; i <= metaData.getColumnCount(); i++) {
+            theRow[i - 1] = getObject(i);
+        }
+        return new ArrayRow(theRow);
     }
 
     @Override

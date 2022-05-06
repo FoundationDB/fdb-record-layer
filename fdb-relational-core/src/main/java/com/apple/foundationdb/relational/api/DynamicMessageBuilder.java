@@ -33,6 +33,8 @@ public interface DynamicMessageBuilder {
 
     DynamicMessageBuilder addRepeatedField(String fieldName, Object value) throws RelationalException;
 
+    DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> value) throws RelationalException;
+
     Message build();
 
     <T extends Message> Message convertMessage(T m) throws RelationalException;

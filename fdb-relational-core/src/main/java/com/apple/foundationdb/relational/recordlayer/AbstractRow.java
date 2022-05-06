@@ -25,6 +25,8 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 
+import com.google.protobuf.Message;
+
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -150,7 +152,15 @@ public abstract class AbstractRow implements Row {
         }
         for (int i = 0; i < numFields; i++) {
             try {
-                if (!Objects.equals(this.getObject(i), otherTuple.getObject(i))) {
+                Object lhs = this.getObject(i);
+                Object rhs = otherTuple.getObject(i);
+                if (lhs instanceof Message) {
+                    lhs = new MessageTuple((Message) lhs);
+                }
+                if (rhs instanceof Message) {
+                    rhs = new MessageTuple((Message) rhs);
+                }
+                if (!Objects.equals(lhs, rhs)) {
                     return false;
                 }
             } catch (InvalidColumnReferenceException e) {
