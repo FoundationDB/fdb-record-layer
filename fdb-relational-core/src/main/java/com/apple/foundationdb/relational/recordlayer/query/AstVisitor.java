@@ -52,6 +52,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 
 import java.math.BigInteger;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,6 +62,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Visits the abstract syntax tree of the query and generates a {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}
@@ -78,10 +80,15 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
     // upfront by the planner, and it should become unnecessary later on.
     @Nonnull
     private final Set<String> filteredRecords;
+
+    @Nullable
+    private byte[] continuation;
+
     public static final String UNSUPPORTED_QUERY = "query is not supported";
 
     /**
      * Creates a new instance of {@link AstVisitor}.
+     *
      * @param parserContext The parsing context.
      */
     public AstVisitor(@Nonnull final ParserContext parserContext) {
@@ -106,6 +113,16 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
     @ExcludeFromJacocoGeneratedReport
     public Typed visitUnionSelect(RelationalParser.UnionSelectContext ctx) {
         Assert.failUnchecked(UNSUPPORTED_QUERY);
+        return null;
+    }
+
+    @Override
+    public Typed visitWithContinuationStatement(RelationalParser.WithContinuationStatementContext ctx) {
+        // validate it is a valid continuation
+        // sets member variable continuation
+        String continuationStr = LiteralValue.ofScalar(ParserUtils.safeCast(visit(ctx.stringLiteral()), String.class)).getLiteralValue();
+        Assert.notNullUnchecked(continuationStr, "continuation can not be null");
+        continuation = Base64.getDecoder().decode(continuationStr);
         return null;
     }
 
@@ -286,7 +303,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
 
     @Override
     public Value visitNotExpression(RelationalParser.NotExpressionContext ctx) {
-        return new NotValue( (Value) visit(ctx.expression()) );
+        return new NotValue((Value) visit(ctx.expression()));
     }
 
     @Override
@@ -302,7 +319,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
         return (Value) (new AndOrValue.OrFn().encapsulate(parserContext, List.of(left, right)));
     }
 
-    @ExcludeFromJacocoGeneratedReport // remove once code branch is testable after fixing nullability bug in record layer
+    @ExcludeFromJacocoGeneratedReport
+    // remove once code branch is testable after fixing nullability bug in record layer
     @Override
     public Value visitIsExpression(RelationalParser.IsExpressionContext ctx) {
         Assert.isNullUnchecked(ctx.UNKNOWN(), UNSUPPORTED_QUERY);
@@ -671,5 +689,10 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
     @Nonnull
     public Set<String> getFilteredRecords() {
         return filteredRecords;
+    }
+
+    @Nullable
+    public byte[] getContinuation() {
+        return continuation == null ? null : continuation.clone();
     }
 }

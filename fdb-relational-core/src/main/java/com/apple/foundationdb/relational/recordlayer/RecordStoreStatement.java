@@ -44,6 +44,7 @@ import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.sql.SQLException;
 import java.util.Collections;
@@ -71,20 +72,21 @@ public class RecordStoreStatement implements RelationalStatement {
         ensureTransactionActive();
         final String schemaName = conn.getSchema();
         final RecordLayerSchema schema = conn.frl.loadSchema(schemaName, options);
-        final FDBRecordStore store = schema.loadStore();
-        final RelationalExpression relationalExpression = PlanGenerator.generateLogicalPlan(query, store.getRecordMetaData(), store.getRecordStoreState(), ignore -> {
+        final FDBRecordStore store = conn.frl.loadSchema(schemaName, options).loadStore();
+        final Pair<RelationalExpression, byte[]> logicalPlan = PlanGenerator.generateLogicalPlan(query, store.getRecordMetaData(), store.getRecordStoreState(), ignore -> {
         });
+        final RelationalExpression relationalExpression = logicalPlan.getLeft();
         final Type innerType = relationalExpression.getResultType().getInnerType();
         Assert.notNull(innerType);
         Assert.that(innerType instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", innerType.getTypeCode()));
         final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         usedTypes.forEach(builder::addTypeIfNeeded);
-        final RecordQueryPlan recordQueryPlan = PlanGenerator.generatePlan(query, store.getRecordMetaData(), store.getRecordStoreState());
+        final Pair<RecordQueryPlan, byte[]> recordQueryPlan = PlanGenerator.generatePlan(query, store.getRecordMetaData(), store.getRecordStoreState());
         final String[] fieldNames = Objects.requireNonNull(((Type.Record) innerType).getFields()).stream().sorted(Comparator.comparingInt(Type.Record.Field::getFieldIndex)).map(Type.Record.Field::getFieldName).collect(Collectors.toUnmodifiableList()).toArray(String[]::new);
-        final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan, fieldNames, EvaluationContext.forTypeRepository(builder.build()), schema, false /* get this information from the query plan */);
+        final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan.getLeft(), fieldNames, EvaluationContext.forTypeRepository(builder.build()), schema, false /* get this information from the query plan */);
         return new RecordLayerResultSet(queryExecutor.getFieldNames(),
-                queryExecutor.execute(options.getOption(OperationOption.CONTINUATION_NAME, null)),
+                queryExecutor.execute(ContinuationImpl.fromBytes(recordQueryPlan.getRight())),
                 conn);
     }
 

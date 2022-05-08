@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
@@ -153,6 +155,39 @@ public class QueryTest {
     }
 
     @Test
+    void selectWithContinuation() throws RelationalException, SQLException {
+        Restaurant.RestaurantRecord l42 = insertRestaurantRecord(statement, 42, "rest1");
+        Restaurant.RestaurantRecord l43 = insertRestaurantRecord(statement, 43, "rest1");
+        Restaurant.RestaurantRecord l44 = insertRestaurantRecord(statement, 44, "rest1");
+        Restaurant.RestaurantRecord l45 = insertRestaurantRecord(statement, 45, "rest2");
+        String initialQuery = "select * from RestaurantRecord where rest_no > 40";
+        Continuation continuation = Continuation.BEGIN;
+        List<Message> expected = List.of(l42, l43, l44, l45);
+        int i = 0;
+
+        while (!continuation.atEnd()) {
+            String query = initialQuery;
+            if (!continuation.atBeginning()) {
+                query += " WITH CONTINUATION \"" + Base64.getEncoder().encodeToString(continuation.getBytes()) + "\"";
+            }
+            try (final RelationalResultSet resultSet = statement.executeQuery(query, Options.create(), QueryProperties.DEFAULT)) {
+                // add message in resultSet to actual
+                Assertions.assertNotNull(resultSet, "Did not return a result set!");
+                RelationalAssertions.assertThat(resultSet).nextRowMatches(new MessageTuple(expected.get(i)));
+
+                // Assertions.assertTrue(resultSet.next(), "result set is empty!");
+                // Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
+                // actual.add(resultSet.asRow());
+                // get continuation for the next query
+                continuation = resultSet.getContinuation();
+                i += 1;
+            }
+        }
+        // Assertions.assertEquals(expected, actual);
+
+    }
+
+    @Test
     void projectIndividualColumns() throws RelationalException, SQLException {
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantRecord WHERE 11 <= rest_no", Options.create(), QueryProperties.DEFAULT)) {
 
@@ -215,7 +250,8 @@ public class QueryTest {
         }
     }
 
-    @Disabled // until we fix the implicit fetch operator in record layer.
+    @Disabled
+    // until we fix the implicit fetch operator in record layer.
     void projectIndividualPredicateColumns() throws RelationalException, SQLException {
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT rest_no FROM RestaurantRecord WHERE 11 <= rest_no", Options.create(), QueryProperties.DEFAULT)) {
             while (resultSet.next()) {
@@ -224,7 +260,8 @@ public class QueryTest {
         }
     }
 
-    @Disabled // until we implement operators for type promotion and casts in record layer.
+    @Disabled
+    // until we implement operators for type promotion and casts in record layer.
     void predicateWithImplicitCast() throws RelationalException, SQLException {
         Restaurant.RestaurantRecord l42 = insertRestaurantRecord(statement, 42, "rest1");
         Restaurant.RestaurantRecord l43 = insertRestaurantRecord(statement, 43, "rest1");

@@ -221,6 +221,7 @@ WHEN:                                'WHEN';
 WHERE:                               'WHERE';
 WHILE:                               'WHILE';
 WITH:                                'WITH';
+CONTINUATION:                    'CONTINUATION';
 WRITE:                               'WRITE';
 XOR:                                 'XOR';
 ZEROFILL:                            'ZEROFILL';

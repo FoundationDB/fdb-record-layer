@@ -135,7 +135,9 @@ public class PlanGenerationStackTest {
                     Arguments.of(56, "select * from RestaurantRecord where (((42 + 3) - 2) + 6 is null OR ((42 + 3) - 2) + 6 > rest_no) OR (name = 'foo')", null),
                     Arguments.of(57, "select * from RestaurantRecord where (((42 + 3) - 2) + 6 is not null OR ((42 + 3) - 2) + 6 > rest_no) OR (name = 'foo')", null),
                     Arguments.of(58, "select * from RestaurantRecord where rest_no is null", null),
-                    Arguments.of(58, "select * from RestaurantRecord where rest_no is not null", null)
+                    Arguments.of(59, "select * from RestaurantRecord where rest_no is not null", null),
+                    Arguments.of(60, "select * from RestaurantRecord with continuation \"abc\"", null),
+                    Arguments.of(61, "select * from RestaurantRecord with continuation", "Syntax error at line 1 position 48")
             );
         }
     }

@@ -43,6 +43,8 @@ import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.base.VerifyException;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -52,13 +54,14 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 
 /**
- * This class contains a set of utility methods that helps in parsing a query, generating a logical
+ * This class contains a set of utility methods that helps in parsing a query, generating continuation, a logical
  * plan, and physical execution plan.
  */
 public final class PlanGenerator {
 
     /**
      * Parses a query generating an equivalent abstract syntax tree.
+     *
      * @param query The query.
      * @return The abstract syntax tree.
      * @throws RelationalException if something goes wrong.
@@ -78,44 +81,46 @@ public final class PlanGenerator {
 
     /**
      * Parses a query and generates an equivalent logical plan.
-     * @param query The query.
-     * @param metaData The record store metadata.
-     * @param storeState The record store state.
+     *
+     * @param query         The query.
+     * @param metaData      The record store metadata.
+     * @param storeState    The record store state.
      * @param postProcessor A post-processing hook that is activated after the generation of the logical plan.
-     * @return The logical plan of the query.
+     * @return The logical plan and continuation of the query.
      * @throws RelationalException if something goes wrong.
      */
     @Nonnull
-    public static RelationalExpression generateLogicalPlan(@Nonnull final String query,
-                                                           @Nonnull final RecordMetaData metaData,
-                                                           @Nonnull final RecordStoreState storeState,
-                                                           @Nonnull final Consumer<AstVisitor> postProcessor) throws RelationalException {
+    public static Pair<RelationalExpression, byte[]> generateLogicalPlan(@Nonnull final String query,
+                                                                         @Nonnull final RecordMetaData metaData,
+                                                                         @Nonnull final RecordStoreState storeState,
+                                                                         @Nonnull final Consumer<AstVisitor> postProcessor) throws RelationalException {
         return generateLogicalPlan(parseQuery(query), query, metaData, storeState, postProcessor);
     }
 
     /**
      * Parses a query and generates an equivalent logical plan.
-     * @param ast The abstract syntax tree.
-     * @param query The query string, required for logging.
-     * @param metaData The record store metadata.
-     * @param storeState The record store state.
+     *
+     * @param ast           The abstract syntax tree.
+     * @param query         The query string, required for logging.
+     * @param metaData      The record store metadata.
+     * @param storeState    The record store state.
      * @param postProcessor A post-processing hook that is activated after the generation of the logical plan.
-     * @return The logical plan of the query.
+     * @return The logical plan and continuation of the query.
      * @throws RelationalException if something goes wrong.
      */
     @Nonnull
-    public static RelationalExpression generateLogicalPlan(@Nonnull final RelationalParser.RootContext ast,
-                                                           @Nonnull final String query,
-                                                           @Nonnull final RecordMetaData metaData,
-                                                           @Nonnull final RecordStoreState storeState,
-                                                           @Nonnull final Consumer<AstVisitor> postProcessor) throws RelationalException {
+    public static Pair<RelationalExpression, byte[]> generateLogicalPlan(@Nonnull final RelationalParser.RootContext ast,
+                                                                         @Nonnull final String query,
+                                                                         @Nonnull final RecordMetaData metaData,
+                                                                         @Nonnull final RecordStoreState storeState,
+                                                                         @Nonnull final Consumer<AstVisitor> postProcessor) throws RelationalException {
         final ParserContext astContext = new ParserContext(new Scopes(), TypeRepository.newBuilder(), metaData, storeState);
         final AstVisitor astWalker = new AstVisitor(astContext);
         try {
             final Object maybePlan = astWalker.visit(ast);
             Assert.that(maybePlan instanceof RelationalExpression, String.format("Could not generate a logical plan for query '%s'", query));
             postProcessor.accept(astWalker);
-            return (RelationalExpression) maybePlan;
+            return new ImmutablePair<>((RelationalExpression) maybePlan, astWalker.getContinuation());
         } catch (UncheckedRelationalException uve) {
             throw uve.unwrap();
         } catch (MetaDataException mde) {
@@ -142,29 +147,30 @@ public final class PlanGenerator {
 
     /**
      * Parses a query, generates an equivalent logical plan and calls the planner to generate an execution plan.
-     * @param query The query string.
-     * @param metaData The record store metadata.
+     *
+     * @param query      The query string.
+     * @param metaData   The record store metadata.
      * @param storeState The record store state.
-     * @return The execution plan of the query.
+     * @return The execution plan and continuation of the query.
      * @throws RelationalException if something goes wrong.
      */
     @Nonnull
-    public static RecordQueryPlan generatePlan(@Nonnull final String query,
-                                               @Nonnull final RecordMetaData metaData,
-                                               @Nonnull final RecordStoreState storeState) throws RelationalException {
+    public static Pair<RecordQueryPlan, byte[]> generatePlan(@Nonnull final String query,
+                                                             @Nonnull final RecordMetaData metaData,
+                                                             @Nonnull final RecordStoreState storeState) throws RelationalException {
         final CascadesPlanner planner = new CascadesPlanner(metaData, storeState);
         final Collection<String> recordTypeNames = new LinkedHashSet<>();
         final RelationalParser.RootContext ast = parseQuery(query);
 
-        // need to do this step, so we can populate the record type names.
-        generateLogicalPlan(ast, query, metaData, storeState, astWalker -> recordTypeNames.addAll(astWalker.getFilteredRecords()));
+        // need to do this step, so we can populate the record type names, and get the continuation (if any).
+        final byte[] continuation = generateLogicalPlan(ast, query, metaData, storeState, astWalker -> recordTypeNames.addAll(astWalker.getFilteredRecords())).getRight();
 
         try {
-            return planner.planGraph(
+            return new ImmutablePair<>(planner.planGraph(
                     () -> {
                         final RelationalExpression relationalExpression;
                         try {
-                            relationalExpression = generateLogicalPlan(ast, query, metaData, storeState, astWalker -> recordTypeNames.addAll(astWalker.getFilteredRecords()));
+                            relationalExpression = generateLogicalPlan(ast, query, metaData, storeState, astWalker -> recordTypeNames.addAll(astWalker.getFilteredRecords())).getLeft();
                         } catch (RelationalException e) {
                             throw e.toUncheckedWrappedException();
                         }
@@ -174,7 +180,7 @@ public final class PlanGenerator {
                     Optional.ofNullable(recordTypeNames.isEmpty() ? null : recordTypeNames),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false, ParameterRelationshipGraph.empty());
+                    false, ParameterRelationshipGraph.empty()), continuation);
         } catch (UncheckedRelationalException uve) {
             throw uve.unwrap();
         }

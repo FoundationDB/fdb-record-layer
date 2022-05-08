@@ -34,6 +34,11 @@ root
     : sqlStatements? (MINUS MINUS)? EOF
     ;
 
+// Base64 encode byte array to a string
+withContinuationStatement
+    : (WITH CONTINUATION) stringLiteral
+    ;
+
 sqlStatements
     : (sqlStatement (MINUS MINUS)? SEMI? | emptyStatement_)*
     (sqlStatement ((MINUS MINUS)? SEMI)? | emptyStatement_)
@@ -65,7 +70,7 @@ ddlStatement
     ;
 
 dmlStatement
-    : selectStatement | insertStatement | updateStatement
+    : (selectStatement withContinuationStatement?) | insertStatement | updateStatement
     | deleteStatement | replaceStatement | callStatement
     | loadDataStatement | loadXmlStatement | doStatement
     | handlerStatement
@@ -736,7 +741,7 @@ replaceStatement
 // done
 selectStatement
     : querySpecification lockClause?                                #simpleSelect // done
-    | queryExpression lockClause?                                   #parenthesisSelect // done
+    | queryExpression lockClause?                              #parenthesisSelect // done
     | querySpecificationNointo unionStatement+
         (
           UNION unionType=(ALL | DISTINCT)?
