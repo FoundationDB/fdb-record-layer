@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -70,11 +71,14 @@ public class ObjectValue implements LeafValue {
 
     @Nonnull
     @Override
-    public ObjectValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(alias)) {
-            return ObjectValue.of(translationMap.getTargetOrThrow(alias), resultType);
-        }
-        return this;
+    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
+        return ObjectValue.of(targetAlias, resultType);
+    }
+
+    @Nonnull
+    @Override
+    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
+        throw new RecordCoreException("this method should not be replaced with this method call.");
     }
 
     @Nullable

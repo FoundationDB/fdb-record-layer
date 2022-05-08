@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -37,10 +38,8 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.OrdinalFieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
@@ -49,14 +48,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.choose;
@@ -254,94 +250,34 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         //
         // Translate all the references to inner and outer to the joined alias
         //
-
         final var translationMap =
-                ImmutableMap.<CorrelationIdentifier, Function<QuantifiedValue, Value>>builder()
-                        .put(outerAlias, quantifiedValue -> replaceJoinedReference(outerAlias, joinedAlias, joinedResultValue.getResultType(), outerFieldName, quantifiedValue))
-                        .put(innerAlias, quantifiedValue -> replaceJoinedReference(innerAlias, joinedAlias, joinedResultValue.getResultType(), innerFieldName, quantifiedValue))
+                TranslationMap.builder()
+                        .when(outerAlias).then(joinedAlias, (sourceAlias, targetAlias, leafValue) ->
+                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), outerFieldName, leafValue))
+                        .when(innerAlias).then(joinedAlias, (sourceAlias, targetAlias, leafValue) ->
+                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), innerFieldName, leafValue))
                         .build();
-
 
         final var newPredicates =
                 otherPredicates.stream()
                         .map(otherPredicate ->
-                                otherPredicate.translateValues(leafValue ->
-                                                replaceReferences(translationMap, leafValue))
+                                otherPredicate.translateValues(value -> value.replaceLeaves(translationMap))
                                         .orElseThrow(() -> new RecordCoreException("translateValues() returned unexpected result")))
                         .collect(ImmutableList.toImmutableList());
 
         final var resultValue = selectExpression.getResultValue();
         final var newResultValue =
-                resultValue.replaceLeavesMaybe(leafValue ->
-                                replaceReferences(translationMap, leafValue))
-                        .orElseThrow(() -> new RecordCoreException("replaceLeavesMaybe() returned unexpected result"));
+                resultValue.replaceLeaves(translationMap);
 
         call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates)));
     }
 
     @Nonnull
-    private Value replaceReferences(@Nonnull final Map<CorrelationIdentifier, Function<QuantifiedValue, Value>> translationMap,
-                                    @Nonnull final Value leafValue) {
-        if (!(leafValue instanceof QuantifiedValue)) {
-            return leafValue;
-        }
-
-        final var quantifiedValue = (QuantifiedValue)leafValue;
-
-        final var alias = quantifiedValue.getAlias();
-        if (translationMap.containsKey(alias)) {
-            return translationMap.get(alias).apply(quantifiedValue);
-        }
-
-        //
-        // some deep correlation -- just return the original leaf
-        //
-        return leafValue;
-    }
-
-    @Nonnull
-    private Value replaceJoinedReferences(@Nonnull final CorrelationIdentifier outerAlias,
-                                          @Nonnull final CorrelationIdentifier innerAlias,
-                                          @Nonnull final Type.Record joinedRecordType,
-                                          @Nonnull final CorrelationIdentifier resultAlias,
-                                          @Nonnull final Value leafValue) {
-        if (!(leafValue instanceof QuantifiedValue)) {
-            return leafValue;
-        }
-
-        final var quantifiedValue = (QuantifiedValue)leafValue;
-
-        if (quantifiedValue.getAlias().equals(outerAlias)) {
-            return replaceJoinedReference(outerAlias, resultAlias, joinedRecordType, outerFieldName, quantifiedValue);
-        } else if (quantifiedValue.getAlias().equals(innerAlias)) {
-            return replaceJoinedReference(innerAlias, resultAlias, joinedRecordType, innerFieldName, quantifiedValue);
-        }
-
-        //
-        // some deep correlation -- just return the original leaf
-        //
-        return leafValue;
-    }
-    
-    @Nonnull
-    private Value replaceJoinedReference(@Nonnull final CorrelationIdentifier alias,
-                                         @Nonnull final CorrelationIdentifier resultAlias,
+    private Value replaceJoinedReference(@Nonnull final CorrelationIdentifier resultAlias,
                                          @Nonnull final Type.Record joinedRecordType,
                                          @Nonnull final String fieldName,
-                                         @Nonnull final QuantifiedValue quantifiedValue) {
-        Verify.verify(quantifiedValue.getAlias().equals(alias));
-
+                                         @Nonnull final LeafValue leafValue) {
         final var fieldValue = new FieldValue(QuantifiedObjectValue.of(resultAlias, joinedRecordType), ImmutableList.of(fieldName));
-
-        if (quantifiedValue instanceof QuantifiedObjectValue) {
-            return fieldValue;
-        }
-
-        if (quantifiedValue instanceof QuantifiedColumnValue) {
-            final var quantifiedColumnValue = (QuantifiedColumnValue)quantifiedValue;
-            return OrdinalFieldValue.of(fieldValue, quantifiedColumnValue.getOrdinalPosition());
-        }
-
-        throw new RecordCoreException("unknown implementation of QuantifiedValue");
+        return leafValue.replaceReferenceWithField(fieldValue);
     }
 }

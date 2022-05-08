@@ -84,12 +84,6 @@ public class ValuePickerValue implements Value.CompileTimeValue {
         return new ValuePickerValue(selectedAlternative, newChildren);
     }
 
-    @Nonnull
-    @Override
-    public Value rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        return this;
-    }
-
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
         return getSelectedValue().isFunctionallyDependentOn(otherValue);

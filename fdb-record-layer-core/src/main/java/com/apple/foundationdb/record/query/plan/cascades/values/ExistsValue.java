@@ -33,14 +33,13 @@ import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -50,7 +49,7 @@ import java.util.Optional;
  * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
+public class ExistsValue implements BooleanValue, ValueWithChild, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Value");
     @Nonnull
     private final QuantifiedObjectValue child;
@@ -68,15 +67,13 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(child);
+    public Value getChild() {
+        return child;
     }
 
     @Nonnull
     @Override
-    public ExistsValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == 1);
-        final Value newChild = Iterables.getOnlyElement(newChildren);
+    public ValueWithChild withNewChild(@Nonnull final Value newChild) {
         Verify.verify(newChild instanceof QuantifiedObjectValue);
         return new ExistsValue((QuantifiedObjectValue)newChild);
     }

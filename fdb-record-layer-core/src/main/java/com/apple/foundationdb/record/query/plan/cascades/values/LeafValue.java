@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -45,5 +47,15 @@ public interface LeafValue extends Value {
     @Override
     default LeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
         return this;
+    }
+
+    @Nonnull
+    default Value rebaseLeaf(@Nonnull CorrelationIdentifier targetAlias) {
+        throw new RecordCoreException("implementor must override");
+    }
+
+    @Nonnull
+    default Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
+        throw new RecordCoreException("implementor must override");
     }
 }

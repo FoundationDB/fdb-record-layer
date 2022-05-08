@@ -81,7 +81,7 @@ public class LiteralValue<T> implements LeafValue {
 
     @Nonnull
     @Override
-    public Value rebaseLeaf(@Nonnull final AliasMap translationMap) {
+    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         return this;
     }
 

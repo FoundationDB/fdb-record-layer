@@ -48,7 +48,7 @@ public class EmptyValue implements LeafValue {
 
     @Nonnull
     @Override
-    public EmptyValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
+    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         return this;
     }
 

@@ -64,11 +64,14 @@ public class QuantifiedObjectValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public QuantifiedObjectValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(alias)) {
-            return QuantifiedObjectValue.of(translationMap.getTargetOrThrow(alias), resultType);
-        }
-        return this;
+    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
+        return QuantifiedObjectValue.of(targetAlias, resultType);
+    }
+
+    @Nonnull
+    @Override
+    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
+        return fieldValue;
     }
 
     @Nullable
