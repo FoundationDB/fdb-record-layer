@@ -71,6 +71,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PLACEHOLDER;
 
 /**
  * A test for the Index Prefetch FDB API.
@@ -109,7 +110,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         complexQuerySetup(simpleMetadataHook);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "indexPrefetchSimpleIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void indexPrefetchSimpleIndexTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
@@ -121,7 +122,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         });
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "indexPrefetchSimpleIndexReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void indexPrefetchSimpleIndexReverseTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990_REVERSE, useIndexPrefetch);
@@ -133,7 +134,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         });
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "indexPrefetchComplexIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void indexPrefetchComplexIndexTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(STR_VALUE_EVEN, useIndexPrefetch);
@@ -144,7 +145,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         });
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "indexPrefetchWithContinuationTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void indexPrefetchWithContinuationTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
@@ -172,11 +173,11 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         assertNull(continuation);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "indexPrefetchByteLimitContinuation(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void indexPrefetchByteLimitContinuation(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
-        // TODO: Why should hte index prefetch take so many more bytes to scan the same number of records? Maybe the index scan counts the records and the fetch does not?
+        // TODO: Why should the index prefetch take so many more bytes to scan the same number of records? Maybe the index scan counts the records and the fetch does not?
         int scanBytesLimit = (useIndexPrefetch == RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE) ? 350 : 1300;
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setScannedBytesLimit(scanBytesLimit)
