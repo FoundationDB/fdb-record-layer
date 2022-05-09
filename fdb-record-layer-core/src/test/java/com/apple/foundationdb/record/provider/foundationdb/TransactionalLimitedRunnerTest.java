@@ -1,11 +1,66 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 @Tag(Tags.RequiresFDB)
-class TransactionalLimitedRunnerTest {
+class TransactionalLimitedRunnerTest extends FDBTestBase {
+
+    private FDBDatabase fdb;
+    private Tuple prefix;
+
+    @BeforeEach
+    public void runBefore() {
+        fdb = FDBDatabaseFactory.instance().getDatabase();
+        prefix = Tuple.from(UUID.randomUUID());
+    }
+
+    @Test
+    void basicTest() {
+        // the size of the value is small enough to be inserted, but large enough that it quickly exceeds max transaction
+        // size (~100 key/value pairs)
+        byte[] value = new byte[100_000];
+        try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(fdb, FDBRecordContextConfig.newBuilder(), 500)
+                .setIncreaseLimitAfter(4)
+                .setDecreaseLimitAfter(2)) {
+            runner.runAsync((context, limit) ->
+                    context.ensureActive().getRange(prefix.range(), 1, true)
+                            .asList().thenApply(keyValues -> {
+                                long starting = 0;
+                                if (!keyValues.isEmpty()) {
+                                    starting = ((long)Tuple.fromBytes(keyValues.get(0).getKey()).get(1)) + 1;
+                                }
+                                long l = Math.min(limit, 1_000 - starting);
+                                for (int i = 0; i < l; i++) {
+                                    context.ensureActive().set(prefix.add(starting + i).pack(), value);
+                                }
+                                System.out.println(starting + " " + limit);
+                                return starting + l < 1_000;
+                            }), List.of("loggingKey", "aConstantValue")).join();
+        }
+        final List<Long> resultingKeys = new AutoContinuingCursor<>(fdb.newRunner(),
+                (context, continuation) ->
+                        KeyValueCursor.Builder.withSubspace(new Subspace(prefix))
+                                .setContext(context)
+                                .setScanProperties(ScanProperties.FORWARD_SCAN)
+                                .setContinuation(continuation).build()
+                                .map(keyValue -> ((long)Tuple.fromBytes(keyValue.getKey()).get(1)))).asList().join();
+        assertEquals(LongStream.range(0, 1000).boxed().collect(Collectors.toList()),
+                resultingKeys);
+    }
 
     @Test
     void weakReadSemantics() {
