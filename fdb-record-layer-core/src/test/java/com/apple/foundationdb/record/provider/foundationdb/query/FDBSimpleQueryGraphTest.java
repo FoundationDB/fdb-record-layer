@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
 import java.util.Optional;
@@ -150,6 +152,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
             commit(context);
         }
 
+        // no index hints, correctly plan a query
         final var plan = cascadesPlanner.planGraph(
                 () -> {
                     var qun =
@@ -188,5 +191,80 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                                 scanPlan()
                                         .where(scanComparisons(range("([1],>")))))
                         .where(result(recordConstructorValue(exactly(fieldValue("name"), fieldValue("rest_no"))))));
+
+        // with index hints, cannot plan a query ("review_rating")
+        Exception exception = Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
+                () -> {
+                    var qun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new FullUnorderedScanExpression(ImmutableSet.of("RestaurantRecord",
+                                            "RestaurantReviewer"), ImmutableSet.of("review_rating"))));
+
+                    qun = Quantifier.forEach(GroupExpressionRef.of(
+                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                                    qun,
+                                    Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
+
+                    final var graphExpansionBuilder = GraphExpansion.builder();
+
+                    graphExpansionBuilder.addQuantifier(qun);
+                    final var nameValue =
+                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("name"));
+                    final var restNoValue =
+                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("rest_no"));
+
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
+                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(nameValue.getResultType(), Optional.of("nameNew")), nameValue));
+                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restNoValue.getResultType(), Optional.of("restNoNew")), restNoValue));
+                    qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
+                    return GroupExpressionRef.of(new LogicalSortExpression(null, false, qun));
+                },
+                Optional.of(ImmutableSet.of("RestaurantRecord")),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty()));
+        Assertions.assertEquals("Cascades planner could not plan query", exception.getMessage());
+
+        // with index hints, plan a different query
+        final var plan2 = cascadesPlanner.planGraph(
+                () -> {
+                    var qun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new FullUnorderedScanExpression(ImmutableSet.of("RestaurantRecord",
+                                            "RestaurantReviewer"), ImmutableSet.of("RestaurantRecord$name"))));
+
+                    qun = Quantifier.forEach(GroupExpressionRef.of(
+                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                                    qun,
+                                    Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
+
+                    final var graphExpansionBuilder = GraphExpansion.builder();
+
+                    graphExpansionBuilder.addQuantifier(qun);
+                    final var nameValue =
+                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("name"));
+                    final var restNoValue =
+                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("rest_no"));
+
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
+                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(nameValue.getResultType(), Optional.of("nameNew")), nameValue));
+                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restNoValue.getResultType(), Optional.of("restNoNew")), restNoValue));
+                    qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
+                    return GroupExpressionRef.of(new LogicalSortExpression(null, false, qun));
+                },
+                Optional.of(ImmutableSet.of("RestaurantRecord")),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty());
+
+        assertMatchesExactly(plan2,
+                mapPlan(
+                        typeFilterPlan(
+                                scanPlan()
+                                        .where(scanComparisons(range("([1],>")))))
+                        .where(result(recordConstructorValue(exactly(fieldValue("name"), fieldValue("rest_no"))))));
+
     }
 }
