@@ -44,6 +44,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -82,20 +83,20 @@ class LimitedRunnerTest {
     @Test
     void completesInOnePass() {
         List<Integer> limits = new ArrayList<>();
-        new LimitedRunner(executor, 10, mockDelay()).runAsync(limit -> {
+        run(limit -> {
             limits.add(limit);
             return AsyncUtil.READY_FALSE;
-        }, List.of()).join();
+        });
         assertEquals(List.of(10), limits);
     }
 
     @Test
     void loopsSuccessfully() {
         List<Integer> limits = new ArrayList<>();
-        new LimitedRunner(executor, 10, mockDelay()).runAsync(limit -> {
+        run(limit -> {
             limits.add(limit);
             return limits.size() < 20 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
-        }, List.of()).join();
+        });
         assertEquals(20, limits.size());
         // If we ever change the starting limit to be less than the max limit, this should start at 10, but go up
         assertEquals(Set.of(10), Set.copyOf(limits), "The limit should not decrease");
@@ -107,12 +108,12 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(retriableNonLessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10, mockDelay())
-                        .setDecreaseLimitAfter(3)
-                        .runAsync(limit -> {
+                () -> run(mockDelay(), 10,
+                        limitedRunner -> limitedRunner.setDecreaseLimitAfter(3),
+                        limit -> {
                             limits.add(limit);
                             return exceptionStyle.hasMore(cause);
-                        }, List.of()).join());
+                        }));
         assertEquals(cause, completionException.getCause());
         assertThat(limits, Matchers.hasSize(3));
         for (Integer limit : limits) {
@@ -126,10 +127,10 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10, mockDelay()).runAsync(limit -> {
+                () -> run(limit -> {
                     limits.add(limit);
                     return exceptionStyle.hasMore(cause);
-                }, List.of()).join());
+                }));
         assertEquals(cause, completionException.getCause());
         assertEquals(10, limits.get(0));
         assertEquals(1, limits.get(limits.size() - 1));
@@ -146,12 +147,12 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(retryAndLessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10, mockDelay())
-                        .setDecreaseLimitAfter(3)
-                        .runAsync(limit -> {
+                () -> run(mockDelay(), 10,
+                        limitedRunner -> limitedRunner.setDecreaseLimitAfter(3),
+                        limit -> {
                             limits.add(limit);
                             return exceptionStyle.hasMore(cause);
-                        }, List.of()).join());
+                        }));
         assertEquals(cause, completionException.getCause());
         assertEquals(10, limits.get(0));
         assertEquals(1, limits.get(limits.size() - 1));
@@ -190,12 +191,12 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(rootCause);
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10, mockDelay())
-                        .setDecreaseLimitAfter(3)
-                        .runAsync(limit -> {
+                () -> run(mockDelay(), 10,
+                        limitedRunner -> limitedRunner.setDecreaseLimitAfter(3),
+                        limit -> {
                             limits.add(limit);
                             return exceptionStyle.hasMore(cause);
-                        }, List.of()).join());
+                        }));
         assertEquals(cause, completionException.getCause());
         assertEquals(List.of(10), limits);
     }
@@ -212,14 +213,16 @@ class LimitedRunnerTest {
         //           F                 F
         // Note: I'm picking an even multiple of 4 here, because we do 3/4 decrease and 4/3 and this means there's
         // no rounding
-        new LimitedRunner(executor, 12, mockDelay()).setIncreaseLimitAfter(3).runAsync(limit -> {
-            limits.add(limit);
-            if (limits.size() % 5 == 4) {
-                return exceptionStyle.hasMore(cause);
-            } else {
-                return limits.size() < 40 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
-            }
-        }, List.of()).join();
+        run(mockDelay(), 12,
+                limitedRunner -> limitedRunner.setIncreaseLimitAfter(3),
+                limit -> {
+                    limits.add(limit);
+                    if (limits.size() % 5 == 4) {
+                        return exceptionStyle.hasMore(cause);
+                    } else {
+                        return limits.size() < 40 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+                    }
+                });
         assertEquals(12, limits.get(0));
         for (int i = 1; i < limits.size(); i++) {
             String message = buildPointerMessage(limits, i);
@@ -241,20 +244,22 @@ class LimitedRunnerTest {
         AtomicBoolean increasing = new AtomicBoolean(false);
         final int maxLimit = 93;
         final int minLimit = 1;
-        new LimitedRunner(executor, maxLimit, mockDelay()).setIncreaseLimitAfter(5).runAsync(limit -> {
-            limits.add(limit);
-            if (limit == maxLimit) {
-                increasing.set(false);
-            }
-            if (limit == minLimit) {
-                increasing.set(true);
-            }
-            if (increasing.get()) {
-                return limits.size() < 200 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
-            } else {
-                return exceptionStyle.hasMore(cause);
-            }
-        }, List.of()).join();
+        run(mockDelay(), maxLimit,
+                limitedRunner -> limitedRunner.setIncreaseLimitAfter(5),
+                limit -> {
+                    limits.add(limit);
+                    if (limit == maxLimit) {
+                        increasing.set(false);
+                    }
+                    if (limit == minLimit) {
+                        increasing.set(true);
+                    }
+                    if (increasing.get()) {
+                        return limits.size() < 200 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+                    } else {
+                        return exceptionStyle.hasMore(cause);
+                    }
+                });
         increasing.set(false);
         assertEquals(93, limits.get(0));
         int changedDirection = 0;
@@ -304,26 +309,27 @@ class LimitedRunnerTest {
         final int maxLimit = 93;
         final int minLimit = 1;
         // decrease until we get to the minLimit, than be successful until we get to the maxLimit
-        new LimitedRunner(executor, maxLimit, mockDelay()).setIncreaseLimitAfter(7).runAsync(limit -> {
-            limits.add(limit);
-            if (increasing.get()) {
-                if (limit == maxLimit) {
-                    return AsyncUtil.READY_FALSE;
-                } else {
-                    return AsyncUtil.READY_TRUE;
-                }
-            } else {
-                if (limit == minLimit) {
-                    increasing.set(true);
-                    return AsyncUtil.READY_TRUE;
-                } else {
-                    return exceptionStyle.hasMore(cause);
-                }
-            }
-        }, List.of()).join();
+        run(mockDelay(), maxLimit,
+                limitedRunner -> limitedRunner.setIncreaseLimitAfter(7),
+                limit -> {
+                    limits.add(limit);
+                    if (increasing.get()) {
+                        if (limit == maxLimit) {
+                            return AsyncUtil.READY_FALSE;
+                        } else {
+                            return AsyncUtil.READY_TRUE;
+                        }
+                    } else {
+                        if (limit == minLimit) {
+                            increasing.set(true);
+                            return AsyncUtil.READY_TRUE;
+                        } else {
+                            return exceptionStyle.hasMore(cause);
+                        }
+                    }
+                });
         increasing.set(false);
         assertEquals(93, limits.get(0));
-        int changedDirection = 0;
         final int hitMin = limits.indexOf(1);
         int expectedLimit = -1;
         for (int i = hitMin; i < limits.size(); i++) {
@@ -346,9 +352,9 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(retriableNonLessenWorkException());
         final RuntimeException lessenCause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
-        new LimitedRunner(executor, 12, mockDelay())
-                .setIncreaseLimitAfter(3)
-                .runAsync(limit -> {
+        run(mockDelay(), 12,
+                limitedRunner -> limitedRunner.setIncreaseLimitAfter(3),
+                limit -> {
                     limits.add(limit);
                     if (limits.size() < 3) {
                         // Cause the limit to go down, so that it could go back up, if it were reliably successful
@@ -359,7 +365,7 @@ class LimitedRunnerTest {
                     } else {
                         return limits.size() < 20 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
                     }
-                }, List.of()).join();
+                });
         assertThat(buildPointerMessage(limits, 3), limits.get(3), Matchers.lessThan(12));
         for (int i = 3; i < limits.size(); i++) {
             assertEquals(limits.get(3), limits.get(i), buildPointerMessage(limits, i));
@@ -372,10 +378,10 @@ class LimitedRunnerTest {
         final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
         List<Integer> limits = new ArrayList<>();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10, mockDelay()).runAsync(limit -> {
+                () -> run(limit -> {
                     limits.add(limit);
                     return exceptionStyle.hasMore(cause);
-                }, List.of()).join());
+                }));
         assertEquals(cause, completionException.getCause());
         assertEquals(10, limits.get(0));
         assertEquals(1, limits.get(limits.size() - 1));
@@ -396,11 +402,10 @@ class LimitedRunnerTest {
         List<Integer> limits = new ArrayList<>();
         final MockDelay mockDelay = mockDelay();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> new LimitedRunner(executor, 10, mockDelay)
-                        .runAsync(limit -> {
-                            limits.add(limit);
-                            return exceptionStyle.hasMore(wrappedCause);
-                        }, List.of()).join());
+                () -> run(mockDelay, 10, ignored -> { }, limit -> {
+                    limits.add(limit);
+                    return exceptionStyle.hasMore(wrappedCause);
+                }));
         assertEquals(wrappedCause, completionException.getCause());
         assertEquals(limits.size() - 1, mockDelay.delays.size());
     }
@@ -447,6 +452,7 @@ class LimitedRunnerTest {
         assertThat(completionException.getCause(), Matchers.instanceOf(FDBDatabaseRunner.RunnerClosed.class));
     }
 
+    @SuppressWarnings("TryFinallyCanBeTryWithResources") // we call close inside the try block
     @Test
     void closesDelay() {
         final ExceptionStyle exceptionStyle = ExceptionStyle.WrappedAsFuture;
@@ -507,6 +513,21 @@ class LimitedRunnerTest {
     @Nonnull
     private static FDBException nonRetriableException() {
         return new FDBException("Non Retriable", FDBError.INTERNAL_ERROR.code());
+    }
+
+    private void run(final LimitedRunner.Runner runner) {
+        run(mockDelay(), 10, vignored -> { }, runner);
+    }
+
+    private void run(final MockDelay exponentialDelay, final int maxLimit,
+                     final Consumer<LimitedRunner> updateConfig,
+                     final LimitedRunner.Runner runner) {
+        try (LimitedRunner limitedRunner = new LimitedRunner(executor, maxLimit, exponentialDelay)) {
+            updateConfig.accept(limitedRunner);
+            limitedRunner
+                    .runAsync(runner, List.of())
+                    .join();
+        }
     }
 
     @Nonnull
