@@ -143,7 +143,7 @@ public class LimitedRunner implements AutoCloseable {
     }
 
     private void maybeIncreaseLimit(final List<Object> additionalLogMessageKeyValues) {
-        if (successSinceLastIncrease >= increaseLimitAfter && currentLimit < maxLimit) {
+        if (increaseLimitAfter > 0 && successSinceLastIncrease >= increaseLimitAfter && currentLimit < maxLimit) {
             currentLimit = Math.min(maxLimit, Math.max(currentLimit + 1, (4 * currentLimit) / 3));
             logIncreaseLimit("Increasing limit", additionalLogMessageKeyValues);
             successSinceLastIncrease = 0;

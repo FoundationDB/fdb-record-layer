@@ -66,7 +66,6 @@ class LimitedRunnerTest {
         FDB.selectAPIVersion(630);
     }
 
-
     public static Stream<Arguments> allRetriableCauseTypes() {
         return Stream.of(retriableNonLessenWorkException(),
                         retryAndLessenWorkException(),
@@ -296,7 +295,6 @@ class LimitedRunnerTest {
         assertThat(changedDirection, Matchers.greaterThan(4));
     }
 
-
     @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
     @EnumSource(ExceptionStyle.class)
     void increaseAfterSteps(ExceptionStyle exceptionStyle) {
@@ -369,6 +367,34 @@ class LimitedRunnerTest {
         assertThat(buildPointerMessage(limits, 3), limits.get(3), Matchers.lessThan(12));
         for (int i = 3; i < limits.size(); i++) {
             assertEquals(limits.get(3), limits.get(i), buildPointerMessage(limits, i));
+        }
+    }
+
+
+    @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
+    @EnumSource(ExceptionStyle.class)
+    void doNotIncreaseAfter(ExceptionStyle exceptionStyle) {
+        final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
+        List<Integer> limits = new ArrayList<>();
+        run(mockDelay(), 12,
+                limitedRunner -> { },
+                limit -> {
+                    limits.add(limit);
+                    if (limit > 1) {
+                        return exceptionStyle.hasMore(cause);
+                    } else {
+                        return limits.size() < 1000 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+                    }
+                });
+        assertEquals(12, limits.get(0));
+        for (int i = 1; i < limits.size(); i++) {
+            String message = buildPointerMessage(limits, i, 3);
+            if (limits.get(i - 1) > 1) {
+                assertThat(message, limits.get(i), Matchers.lessThan(limits.get(i - 1)));
+                assertThat(message, i, Matchers.lessThan(20));
+            } else {
+                assertEquals(1, limits.get(i), message);
+            }
         }
     }
 
