@@ -241,23 +241,6 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         return underlying.getExecutor();
     }
 
-    @Override
-    public AsyncIterable<MappedKeyValue> getMappedRange(KeySelector begin, KeySelector end, byte[] mapper, int limit, boolean reverse, StreamingMode mode) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
-        return underlying.getMappedRange(begin, end, mapper, limit, reverse, mode);
-    }
-
-    @Override
-    public CompletableFuture<KeyArrayResult> getRangeSplitPoints(final byte[] bytes, final byte[] bytes1, final long l) {
-        return underlying.getRangeSplitPoints(bytes, bytes1, l);
-    }
-
-    @Override
-    public CompletableFuture<KeyArrayResult> getRangeSplitPoints(final Range range, final long l) {
-        return underlying.getRangeSplitPoints(range, l);
-    }
-
     @Nullable
     protected byte[] recordRead(@Nullable byte[] value) {
         if (value != null) {

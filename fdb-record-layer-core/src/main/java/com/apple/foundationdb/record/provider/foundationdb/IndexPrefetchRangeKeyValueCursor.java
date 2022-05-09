@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
  * This subclass of {@link KeyValueCursor} uses a different scan operation ({@link com.apple.foundationdb.Transaction#getMappedRange})
  * and therefore the actual returned types of the scanned range are different too - they need to be parsed into records
  * rather than Index entries. The returned values are MappedKeyValues and contain all splits of
- * the record for an particular index entry.
+ * the record for a particular index entry.
  */
 @API(API.Status.EXPERIMENTAL)
 public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
@@ -49,6 +49,12 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
         super(context, iterator, prefixLength, limitManager, valuesLimit);
     }
 
+    /**
+     * A Builder for the cursor. Note that this builder actually extends the superclass' builder, and does not create
+     * a {@link IndexPrefetchRangeKeyValueCursor} but rather a {@link KeyValueCursor}, by virtue of the fact that it
+     * only extends teh {@link #scanRange} method. This is by design and the created cursor is a {@link KeyValueCursor}
+     * with no behavior differences from the default.
+     */
     @API(API.Status.EXPERIMENTAL)
     public static class Builder extends KeyValueCursor.Builder {
         // The HopInfo that is used for the getRangeAndFlatMap call

@@ -39,6 +39,9 @@ import java.util.stream.Stream;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryPlannerConfiguration {
+    /**
+     * An indicator as to whether to use index prefetch for a given query.
+     */
     public enum IndexPrefetchUse { NONE, USE_INDEX_PREFETCH, USE_INDEX_PREFETCH_WITH_FALLBACK }
 
     @Nonnull

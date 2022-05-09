@@ -59,7 +59,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </ul>
  *
  * The logic that this rules delegates to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch)}
+ * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch, com.apple.foundationdb.record.query.plan.cascades.PlanContext)}
  *
  */
 @API(API.Status.EXPERIMENTAL)

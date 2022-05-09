@@ -96,15 +96,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional;
     @Nonnull
     private final Type resultType;
-    @Nonnull
-    private final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch;
-
-    public RecordQueryIndexPlan(@Nonnull final String indexName,
-                                @Nonnull IndexScanType scanType,
-                                @Nonnull final ScanComparisons comparisons,
-                                final boolean reverse) {
-        this(indexName, null, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE, scanType, comparisons, reverse, false, Optional.empty());
-    }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, null, scanParameters, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE, reverse, false);
@@ -146,7 +137,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
         this.resultType = resultType;
-        this.useIndexPrefetch = useIndexPrefetch;
         if (useIndexPrefetch != RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE) {
             if (commonPrimaryKey == null) {
                 KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch cannot be used without a primary key. Falling back to regular scan.",
@@ -380,6 +370,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                     planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
                 }
                 // Backwards compatible calculation to keep previous (non-prefetch) plan hashes the same
+                // TODO: This will likely get removed since it is not a change to the plan
                 if (useIndexPrefetch != RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE) {
                     planHash = Objects.hash(planHash, useIndexPrefetch.name());
                 }
