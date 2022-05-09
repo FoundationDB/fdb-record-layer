@@ -45,12 +45,14 @@ import java.util.concurrent.TimeUnit;
 public class ExponentialDelay {
 
     private static final long MIN_DELAY_MILLIS = 2;
+    private final long initialDelayMillis;
     private final long maxDelayMillis;
     private long currentDelayMillis;
     private long nextDelayMillis;
 
     public ExponentialDelay(final long initialDelayMillis, final long maxDelayMillis) {
         currentDelayMillis = initialDelayMillis;
+        this.initialDelayMillis = initialDelayMillis;
         this.maxDelayMillis = maxDelayMillis;
         this.nextDelayMillis = calculateNextDelayMillis();
     }
@@ -62,9 +64,14 @@ public class ExponentialDelay {
         return delayedFuture(delay);
     }
 
+    protected long calculateNextDelayMillis() {
+        return (long)(randomDouble() * currentDelayMillis);
+    }
+
     @SuppressWarnings("java:S2245") // this source of randomness is not for cryptography/security
-    private long calculateNextDelayMillis() {
-        return (long)(ThreadLocalRandom.current().nextDouble() * currentDelayMillis);
+    @VisibleForTesting
+    protected double randomDouble() {
+        return ThreadLocalRandom.current().nextDouble();
     }
 
     @Nonnull
@@ -75,5 +82,10 @@ public class ExponentialDelay {
 
     public long getNextDelayMillis() {
         return nextDelayMillis;
+    }
+
+    public void reset() {
+        currentDelayMillis = initialDelayMillis;
+        nextDelayMillis = calculateNextDelayMillis();
     }
 }

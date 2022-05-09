@@ -122,6 +122,7 @@ public class LimitedRunner implements AutoCloseable {
             failuresSinceLastSuccess = 0;
             successSinceLastIncrease++;
             maybeIncreaseLimit(additionalLogMessageKeyValues);
+            exponentialDelay.reset();
             if (!shouldContinue) {
                 overallResult.complete(null);
             }

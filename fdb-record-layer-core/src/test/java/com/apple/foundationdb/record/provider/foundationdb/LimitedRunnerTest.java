@@ -65,12 +65,18 @@ class LimitedRunnerTest {
         FDB.selectAPIVersion(630);
     }
 
-    public static Stream<Arguments> allCauseTypes() {
+
+    public static Stream<Arguments> allRetriableCauseTypes() {
         return Stream.of(retriableNonLessenWorkException(),
-                retryAndLessenWorkException(),
-                lessenWorkException(),
-                nonRetriableException())
+                        retryAndLessenWorkException(),
+                        lessenWorkException())
                 .map(Arguments::of);
+    }
+
+    public static Stream<Arguments> allCauseTypes() {
+        return Stream.concat(allRetriableCauseTypes(),
+                Stream.of(nonRetriableException())
+                        .map(Arguments::of));
     }
 
     @Test
@@ -393,11 +399,42 @@ class LimitedRunnerTest {
                 () -> new LimitedRunner(executor, 10, mockDelay)
                         .runAsync(limit -> {
                             limits.add(limit);
-                            System.out.println(mockDelay.getNextDelayMillis());
                             return exceptionStyle.hasMore(wrappedCause);
                         }, List.of()).join());
         assertEquals(wrappedCause, completionException.getCause());
-        assertEquals(limits.size() - 1, mockDelay.delayCount);
+        assertEquals(limits.size() - 1, mockDelay.delays.size());
+    }
+
+    @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
+    @MethodSource("allRetriableCauseTypes")
+    void delayResets(FDBException cause) {
+        final ExceptionStyle exceptionStyle = ExceptionStyle.WrappedAsFuture;
+        final RuntimeException wrappedCause = exceptionStyle.wrap(cause);
+        List<Integer> limits = new ArrayList<>();
+        final MockDelay mockDelay = mockDelay();
+        try (LimitedRunner limitedRunner = new LimitedRunner(executor, 10, mockDelay)) {
+            limitedRunner
+                    .runAsync(limit -> {
+                        limits.add(limit);
+                        if (limits.size() == 5) {
+                            return AsyncUtil.READY_TRUE;
+                        } else if (limits.size() < 10) {
+                            return exceptionStyle.hasMore(wrappedCause);
+                        } else {
+                            return AsyncUtil.READY_FALSE;
+                        }
+                    }, List.of()).join();
+        }
+        assertEquals(limits.size() - 2, mockDelay.delays.size());
+        for (int i = 1; i < mockDelay.delays.size(); i++) {
+            String message = buildPointerMessage(mockDelay.delays, i, 6);
+            if (i == 4) {
+                assertEquals(MockDelay.INITIAL_DELAY_MILLIS, mockDelay.delays.get(4), message);
+            } else {
+                assertEquals(mockDelay.delays.get(i - 1) * 2, mockDelay.delays.get(i), message);
+            }
+            System.out.printf("ok [%02d] %06d%n", i, mockDelay.delays.get(i));
+        }
     }
 
     @Test
@@ -435,12 +472,20 @@ class LimitedRunnerTest {
     }
 
     @Nonnull
-    private String buildPointerMessage(final List<Integer> limits, final int i) {
+    private String buildPointerMessage(final List<?> limits, final int i, final int width) {
+        String format = "%" + width + "s";
+        String space = String.format(format, "_");
+        String pointer = "  " + new String(new char[width]).replace('\0', '^');
         return limits.stream()
-                       .map(limit -> String.format("%02d", limit))
+                       .map(limit -> String.format("%" + width + "s", limit))
                        .collect(Collectors.joining(", ", "[", "]\n"))
-               + limits.stream().limit(i).map(limit -> "  ")
-                       .collect(Collectors.joining("  ", " ", "  ^^"));
+               + limits.stream().limit(i).map(vignored -> space)
+                       .collect(Collectors.joining(", ", "[", pointer));
+    }
+
+    @Nonnull
+    private String buildPointerMessage(final List<Integer> limits, final int i) {
+        return buildPointerMessage(limits, i, 2);
     }
 
     @Nonnull
@@ -510,24 +555,33 @@ class LimitedRunnerTest {
             super(Long.MAX_VALUE, Long.MAX_VALUE);
         }
 
+        @Nonnull
         @Override
-        public CompletableFuture<Void> delay() {
+        public CompletableFuture<Void> delayedFuture(final long nextDelayMillis) {
             return future;
         }
     }
 
     private static class MockDelay extends ExponentialDelay {
 
-        int delayCount = 0;
+        public static final int INITIAL_DELAY_MILLIS = 3000;
+        private final List<Long> delays = new ArrayList<>();
 
         public MockDelay() {
-            super(3000, 10000);
+            super(INITIAL_DELAY_MILLIS, 1000000);
+        }
+
+        @Override
+        protected double randomDouble() {
+            // remove the randomness at this level, so that we can more easily assert about behavior,
+            // lower-level tests assert that it does the right thing with the randomness
+            return 1;
         }
 
         @Nonnull
         @Override
         protected CompletableFuture<Void> delayedFuture(final long nextDelayMillis) {
-            delayCount++;
+            delays.add(nextDelayMillis);
             return CompletableFuture.completedFuture(null);
         }
     }

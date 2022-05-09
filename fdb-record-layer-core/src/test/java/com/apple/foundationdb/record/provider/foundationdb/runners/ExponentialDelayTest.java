@@ -146,6 +146,24 @@ class ExponentialDelayTest {
         }
     }
 
+    @RepeatedTest(value = 50, name = "delayResets({currentRepetition} of {totalRepetitions})")
+    void delayResets() {
+        final Random random = new Random();
+        final long initialDelayMillis = random.nextInt(10) + 45;
+        final long maxDelayMillis = random.nextInt(1000) + 9500;
+        final NoActualDelay exponentialDelay = new NoActualDelay(initialDelayMillis, maxDelayMillis);
+        final int minCount = 100;
+        final int maxCount = 100000;
+        final double minAverage = maxDelayMillis / 2.0 - 100;
+        final List<Long> nextDelays = runUntilAverageMax(exponentialDelay, minCount, maxCount, minAverage);
+        assertThat(nextDelays.get(0), Matchers.lessThanOrEqualTo(initialDelayMillis));
+        assertThat(nextDelays.get(1), Matchers.lessThanOrEqualTo(initialDelayMillis * 2));
+        exponentialDelay.reset();
+        final List<Long> delaysAfterReset = runUntilAverageMax(exponentialDelay, minCount, maxCount, minAverage);
+        assertThat(delaysAfterReset.get(0), Matchers.lessThanOrEqualTo(initialDelayMillis));
+        assertThat(delaysAfterReset.get(1), Matchers.lessThanOrEqualTo(initialDelayMillis * 2));
+    }
+
     private int areAveragesApproximatelyExponential(final long initialDelayMillis, final long maxDelayMillis,
                                                     final List<Double> averaged) {
         if (averaged.get(0) <= initialDelayMillis * 0.25 || averaged.get(0) >= initialDelayMillis * 0.75) {
@@ -210,5 +228,4 @@ class ExponentialDelayTest {
             return AsyncUtil.DONE;
         }
     }
-
 }
