@@ -469,6 +469,20 @@ public class Quantifiers {
                 .orElseThrow(() -> new RecordCoreException("unable to determine reversed-ness"));
     }
 
+    public static boolean areSameByReference(@Nonnull final List<? extends Quantifier> quantifiers, @Nonnull final List<? extends Quantifier> otherQuantifiers) {
+        if (quantifiers.size() != otherQuantifiers.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < quantifiers.size(); i++) {
+            if (quantifiers.get(i) != otherQuantifiers.get(i)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /**
      * Resolver to resolve aliases to quantifiers.
      */

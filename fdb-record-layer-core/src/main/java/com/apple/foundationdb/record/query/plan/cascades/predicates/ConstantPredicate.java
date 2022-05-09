@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -75,7 +76,7 @@ public class ConstantPredicate implements LeafQueryPredicate {
 
     @Nonnull
     @Override
-    public QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
+    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
         return this;
     }
 

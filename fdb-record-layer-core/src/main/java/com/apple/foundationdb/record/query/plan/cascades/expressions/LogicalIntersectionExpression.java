@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -100,10 +101,9 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
 
     @Nonnull
     @Override
-    public LogicalIntersectionExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                      @Nonnull final List<Quantifier> rebasedQuantifiers) {
+    public LogicalIntersectionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
         return new LogicalIntersectionExpression(
-                Quantifiers.narrow(Quantifier.ForEach.class, rebasedQuantifiers),
+                Quantifiers.narrow(Quantifier.ForEach.class, translatedQuantifiers),
                 getComparisonKey());
     }
 

@@ -31,15 +31,16 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -136,13 +137,14 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                 .collect(ImmutableSet.toImmutableSet());
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
-    public RecordQueryPredicatesFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                        @Nonnull final List<Quantifier> rebasedQuantifiers) {
+    public RecordQueryPredicatesFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+        final var translatedPredicates = predicates.stream().map(queryPredicate -> queryPredicate.translateCorrelations(translationMap)).collect(ImmutableList.toImmutableList());
         return new RecordQueryPredicatesFilterPlan(
-                Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                predicates.stream().map(queryPredicate -> queryPredicate.rebase(translationMap)).collect(ImmutableList.toImmutableList()));
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
+                translatedPredicates);
     }
 
     @Nonnull

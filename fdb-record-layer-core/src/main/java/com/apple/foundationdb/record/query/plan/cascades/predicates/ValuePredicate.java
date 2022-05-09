@@ -24,10 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -87,9 +89,12 @@ public class ValuePredicate implements PredicateWithValue {
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        final var rebasedValue = value.rebase(translationMap);
-        final var rebasedComparison = comparison.rebase(translationMap);
+    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+        final var rebasedValue = value.translateCorrelations(translationMap);
+        final var aliasMap = translationMap.getAliasMapMaybe()
+                .orElseThrow(() -> new RecordCoreException("unsupported translate of a comparison"));
+
+        final var rebasedComparison = comparison.rebase(aliasMap);
         if (value != rebasedValue || rebasedComparison != comparison) { // reference comparison intended
             return new ValuePredicate(rebasedValue, rebasedComparison);
         }

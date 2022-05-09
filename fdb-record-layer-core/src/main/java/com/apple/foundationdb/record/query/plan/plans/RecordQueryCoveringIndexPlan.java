@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -195,8 +196,12 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    public RecordQueryCoveringIndexPlan rebase(@Nonnull final AliasMap translationMap) {
-        return new RecordQueryCoveringIndexPlan(indexPlan, recordTypeName, availableFields, toRecord);
+    public RecordQueryCoveringIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+        final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
+        if (translatedIndexPlan != indexPlan) {
+            return new RecordQueryCoveringIndexPlan(translatedIndexPlan, recordTypeName, availableFields, toRecord);
+        }
+        return this;
     }
 
     @Nonnull

@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -157,8 +159,10 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
 
     @Nonnull
     @Override
-    public RecordQueryTextIndexPlan rebase(@Nonnull final AliasMap translationMap) {
-        return new RecordQueryTextIndexPlan(getIndexName(), getTextScan(), isReverse());
+    public RecordQueryTextIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                          @Nonnull final List<Quantifier> translatedQuantifiers) {
+        // TODO make return this dependent on whether the index scan is correlated according to the translation map
+        return this;
     }
 
     @Nonnull

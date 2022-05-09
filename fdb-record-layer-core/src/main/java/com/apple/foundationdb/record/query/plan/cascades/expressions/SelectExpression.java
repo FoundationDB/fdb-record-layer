@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
@@ -139,16 +140,10 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Nonnull
     @Override
-    public SelectExpression rebase(@Nonnull final AliasMap translationMap) {
-        return (SelectExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
-    }
-
-    @Nonnull
-    @Override
-    public SelectExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        List<QueryPredicate> rebasedPredicates = predicates.stream().map(p -> p.rebase(translationMap)).collect(Collectors.toList());
-        final Value rebasedResultValue = resultValue.rebase(translationMap);
-        return new SelectExpression(rebasedResultValue, rebasedQuantifiers, rebasedPredicates);
+    public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+        List<QueryPredicate> translatedPredicates = predicates.stream().map(p -> p.translateCorrelations(translationMap)).collect(Collectors.toList());
+        final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
+        return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

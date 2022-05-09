@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -271,13 +272,19 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     @Nonnull
     @Override
-    default QueryPredicate rebase(@Nonnull final AliasMap translationMap) {
-        return replaceLeavesMaybe(t -> t.rebaseLeaf(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+    default QueryPredicate rebase(@Nonnull final AliasMap aliasMap) {
+        final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
+        return translateCorrelations(translationMap);
+    }
+
+    @Nonnull
+    default QueryPredicate translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nullable
     @SuppressWarnings("unused")
-    default QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
+    default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
         throw new RecordCoreException("implementor must override");
     }
 

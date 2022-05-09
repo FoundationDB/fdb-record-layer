@@ -22,12 +22,12 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
@@ -74,9 +74,8 @@ public class RecordQueryIntersectionOnValuePlan extends RecordQueryIntersectionP
 
     @Nonnull
     @Override
-    public RecordQueryIntersectionOnValuePlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                           @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryIntersectionOnValuePlan(Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
+    public RecordQueryIntersectionOnValuePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+        return new RecordQueryIntersectionOnValuePlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 baseAlias,
                 getComparisonKeyValue(),
                 isReverse());

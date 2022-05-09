@@ -21,13 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -88,20 +87,6 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
 
     @Nonnull
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
-
-    @Nonnull
-    @Override
-    default RelationalExpressionWithChildren rebase(@Nonnull final AliasMap translationMap) {
-        final List<Quantifier> rebasedQuantifiers = getQuantifiers().stream()
-                .map(quantifier -> quantifier.rebase(translationMap))
-                .collect(Collectors.toList());
-        return rebaseWithRebasedQuantifiers(translationMap,
-                rebasedQuantifiers);
-    }
-
-    @Nonnull
-    RelationalExpressionWithChildren rebaseWithRebasedQuantifiers(@Nonnull AliasMap translationMap,
-                                                                  @Nonnull List<Quantifier> rebasedQuantifiers);
 
     @Nonnull
     @Override

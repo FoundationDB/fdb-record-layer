@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -82,16 +83,8 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     @Override
-    public LogicalDistinctExpression rebase(@Nonnull final AliasMap translationMap) {
-        // we know the following is correct, just Java doesn't
-        return (LogicalDistinctExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalDistinctExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                  @Nonnull final List<Quantifier> rebasedChildren) {
-        return new LogicalDistinctExpression(Iterables.getOnlyElement(rebasedChildren));
+    public LogicalDistinctExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+        return new LogicalDistinctExpression(Iterables.getOnlyElement(translatedQuantifiers));
     }
 
     @Nonnull

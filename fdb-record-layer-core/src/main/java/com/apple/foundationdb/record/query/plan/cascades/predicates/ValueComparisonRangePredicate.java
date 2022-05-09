@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -155,8 +156,8 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Nonnull
         @Override
-        public Placeholder rebaseLeaf(@Nonnull final AliasMap translationMap) {
-            return new Placeholder(getValue().rebase(translationMap), alias);
+        public Placeholder translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+            return new Placeholder(getValue().translateCorrelations(translationMap), alias);
         }
 
         @Override
@@ -228,9 +229,11 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Sargable rebaseLeaf(@Nonnull final AliasMap translationMap) {
-            final var rebasedValue = getValue().rebase(translationMap);
-            final var rebasedComparisonRange = comparisonRange.rebase(translationMap);
+        public Sargable translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+            final var rebasedValue = getValue().translateCorrelations(translationMap);
+            final var aliasMap = translationMap.getAliasMapMaybe()
+                    .orElseThrow(() -> new RecordCoreException("unsupported translate of a comparison"));
+            final var rebasedComparisonRange = comparisonRange.rebase(aliasMap);
             if (rebasedValue != getValue() || rebasedComparisonRange != comparisonRange) {
                 return new Sargable(rebasedValue, rebasedComparisonRange);
             }

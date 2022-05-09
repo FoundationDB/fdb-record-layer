@@ -37,10 +37,11 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -183,10 +184,9 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
     @Nonnull
     @Override
-    public RecordQueryComparatorPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                  @Nonnull final List<Quantifier> rebasedQuantifiers) {
+    public RecordQueryComparatorPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
         return new RecordQueryComparatorPlan(
-                Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
+                Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 getComparisonKey(), referencePlanIndex, abortOnComparisonFailure);
     }
 

@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -103,10 +104,10 @@ public class ExistsPredicate implements LeafQueryPredicate {
 
     @Nonnull
     @Override
-    public ExistsPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(existentialAlias) || translationMap.containsSource(alternativeBaseAlias)) {
-            return new ExistsPredicate(translationMap.getTargetOrDefault(existentialAlias, existentialAlias),
-                    alternativeBaseAlias == null ? null : translationMap.getTargetOrDefault(alternativeBaseAlias, alternativeBaseAlias),
+    public ExistsPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+        if (translationMap.containsSourceAlias(existentialAlias) || translationMap.containsSourceAlias(alternativeBaseAlias)) {
+            return new ExistsPredicate(translationMap.getTargetAliasOrDefault(existentialAlias, existentialAlias),
+                    alternativeBaseAlias == null ? null : translationMap.getTargetAliasOrDefault(alternativeBaseAlias, alternativeBaseAlias),
                     alternativeComponent);
         } else {
             return this;

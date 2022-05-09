@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.MergeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableSet;
@@ -68,16 +69,8 @@ public class LogicalUnionExpression implements RelationalExpressionWithChildren 
 
     @Nonnull
     @Override
-    public LogicalUnionExpression rebase(@Nonnull final AliasMap translationMap) {
-        // we know the following is correct, just Java doesn't
-        return (LogicalUnionExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalUnionExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                               @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new LogicalUnionExpression(rebasedQuantifiers);
+    public LogicalUnionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+        return new LogicalUnionExpression(translatedQuantifiers);
     }
 
     @Nonnull

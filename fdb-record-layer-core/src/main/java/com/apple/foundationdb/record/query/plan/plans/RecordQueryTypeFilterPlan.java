@@ -29,15 +29,15 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -130,10 +130,10 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
 
     @Nonnull
     @Override
-    public RecordQueryTypeFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                  @Nonnull final List<Quantifier> rebasedQuantifiers) {
+    public RecordQueryTypeFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                           @Nonnull final List<Quantifier> translatedQuantifiers) {
         return new RecordQueryTypeFilterPlan(
-                Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getRecordTypes(),
                 resultType);
     }

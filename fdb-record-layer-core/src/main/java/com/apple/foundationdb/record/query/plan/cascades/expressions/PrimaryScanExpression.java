@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -96,12 +97,14 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
+        // TODO this is not correct
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
-    public PrimaryScanExpression rebase(@Nonnull final AliasMap translationMap) {
+    public PrimaryScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+        // TODO this may or may not need to be translated depending on the correlations this expression is correlated
         return this;
     }
 

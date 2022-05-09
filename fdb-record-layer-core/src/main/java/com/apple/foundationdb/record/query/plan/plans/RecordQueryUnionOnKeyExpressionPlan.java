@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -65,9 +65,8 @@ public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
 
     @Nonnull
     @Override
-    public RecordQueryUnionOnKeyExpressionPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                            @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
+    public RecordQueryUnionOnKeyExpressionPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+        return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 getComparisonKeyExpression(),
                 isReverse(),
                 showComparisonKey);

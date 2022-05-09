@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -43,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -185,8 +188,22 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    public ComposedBitmapIndexQueryPlan rebase(@Nonnull AliasMap translationMap) {
-        return new ComposedBitmapIndexQueryPlan(indexPlans.stream().map(i -> i.rebase(translationMap)).collect(Collectors.toList()), composer);
+    public ComposedBitmapIndexQueryPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                              @Nonnull final List<Quantifier> translatedQuantifiers) {
+        final var translatedIndexPlansBuilder = ImmutableList.<RecordQueryCoveringIndexPlan>builder();
+        boolean allAreSame = true;
+        for (final var indexPlan : indexPlans) {
+            final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
+            if (translatedIndexPlan != indexPlan) {
+                allAreSame = false;
+            }
+            translatedIndexPlansBuilder.add(translatedIndexPlan);
+        }
+
+        if (!allAreSame) {
+            return new ComposedBitmapIndexQueryPlan(translatedIndexPlansBuilder.build(), composer);
+        }
+        return this;
     }
 
     @Nonnull

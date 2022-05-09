@@ -165,6 +165,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
+        public ForEach overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+            return Quantifier.forEachBuilder()
+                    .from(this)
+                    .build(reference);
+        }
+
+        @Override
+        @Nonnull
         public ForEach rebase(@Nonnull final AliasMap translationMap) {
             return Quantifier.forEachBuilder()
                     .from(this)
@@ -259,6 +267,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public String getShorthand() {
             return "∃";
+        }
+
+        @Override
+        @Nonnull
+        public Existential overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+            return Quantifier.existentialBuilder()
+                    .from(this)
+                    .build(reference);
         }
 
         @Override
@@ -399,6 +415,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public String toString() {
             return rangesOver.toString();
+        }
+
+        @Override
+        @Nonnull
+        public Physical overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+            return Quantifier.physicalBuilder()
+                    .from(this)
+                    .build(reference);
         }
 
         @Override
@@ -606,4 +630,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         Verify.verify(resolvedTypeAcrossReference.getTypeCode() == Type.TypeCode.RELATION);
         return Objects.requireNonNull(((Type.Relation)resolvedTypeAcrossReference).getInnerType());
     }
+
+    @Nonnull
+    public abstract Quantifier overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference);
 }

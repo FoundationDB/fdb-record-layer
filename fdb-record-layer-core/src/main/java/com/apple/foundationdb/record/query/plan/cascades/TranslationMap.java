@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Map used to specify translations.
@@ -41,13 +43,27 @@ public class TranslationMap {
         this.aliasToTargetMap = ImmutableMap.copyOf(aliasToTargetMap);
     }
 
-    public boolean containsSourceAlias(@Nonnull CorrelationIdentifier sourceAlias) {
+    @Nonnull
+    public Optional<AliasMap> getAliasMapMaybe() {
+        return Optional.empty();
+    }
+
+    public boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias) {
         return aliasToTargetMap.containsKey(sourceAlias);
     }
 
     @Nonnull
     public CorrelationIdentifier getTargetAlias(@Nonnull final CorrelationIdentifier sourceAlias) {
         return Objects.requireNonNull(aliasToTargetMap.get(sourceAlias)).getTargetAlias();
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getTargetAliasOrDefault(@Nonnull final CorrelationIdentifier sourceAlias,
+                                                         @Nonnull final CorrelationIdentifier defaultTargetAlias) {
+        if (aliasToTargetMap.containsKey(sourceAlias)) {
+            return Objects.requireNonNull(aliasToTargetMap.get(sourceAlias)).getTargetAlias();
+        }
+        return defaultTargetAlias;
     }
 
     @Nonnull
@@ -67,6 +83,33 @@ public class TranslationMap {
         return new Builder();
     }
 
+    @Nonnull
+    public static TranslationMap rebaseWithAliasMap(@Nonnull final AliasMap aliasMap) {
+        final var translationMapBuilder = ImmutableMap.<CorrelationIdentifier, TranslationTarget>builder();
+        for (final var entry : aliasMap.entrySet()) {
+            translationMapBuilder.put(entry.getKey(), new TranslationTarget(entry.getValue(),
+                    ((sourceAlias, targetAlias, leafValue) -> leafValue.rebaseLeaf(targetAlias))));
+        }
+        return new AliasMapBasedTranslationMap(translationMapBuilder.build(), aliasMap);
+    }
+
+    private static class AliasMapBasedTranslationMap  extends TranslationMap {
+        @Nonnull
+        private final AliasMap aliasMap;
+
+        public AliasMapBasedTranslationMap(@Nonnull final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap,
+                                           @Nonnull final AliasMap aliasMap) {
+            super(aliasToTargetMap);
+            this.aliasMap = aliasMap;
+        }
+
+        @Nonnull
+        @Override
+        public Optional<AliasMap> getAliasMapMaybe() {
+            return Optional.of(aliasMap);
+        }
+    }
+    
     private static class TranslationTarget {
         @Nonnull
         private final CorrelationIdentifier targetAlias;
@@ -111,20 +154,14 @@ public class TranslationMap {
             this.translationMapBuilder = ImmutableMap.builder();
         }
 
+        @Nonnull
         public TranslationMap build() {
             return new TranslationMap(translationMapBuilder.build());
         }
 
+        @Nonnull
         public Builder.When when(@Nonnull final CorrelationIdentifier sourceAlias) {
             return new When(sourceAlias);
-        }
-
-        public Builder rebaseWithAliasMap(@Nonnull final AliasMap aliasMap) {
-            for (final var entry : aliasMap.entrySet()) {
-                translationMapBuilder.put(entry.getKey(), new TranslationTarget(entry.getValue(),
-                        ((sourceAlias, targetAlias, leafValue) -> leafValue.rebaseLeaf(targetAlias))));
-            }
-            return this;
         }
 
         /**
@@ -138,6 +175,7 @@ public class TranslationMap {
                 this.sourceAlias = sourceAlias;
             }
 
+            @Nonnull
             public Builder then(@Nonnull CorrelationIdentifier targetAlias, @Nonnull TranslationFunction translationFunction) {
                 translationMapBuilder.put(sourceAlias, new TranslationTarget(targetAlias, translationFunction));
                 return Builder.this;

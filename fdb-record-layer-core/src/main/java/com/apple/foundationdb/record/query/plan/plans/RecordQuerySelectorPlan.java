@@ -39,11 +39,11 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
@@ -199,9 +199,9 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
 
     @Nonnull
     @Override
-    public RelationalExpressionWithChildren rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
+    public RecordQuerySelectorPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
         return new RecordQuerySelectorPlan(
-                Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers), planSelector);
+                Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), planSelector);
     }
 
     private int selectPlanIndex(final SelectorContinuation continuation) {

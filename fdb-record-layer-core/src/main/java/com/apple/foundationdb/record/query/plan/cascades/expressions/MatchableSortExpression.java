@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -201,18 +202,11 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public MatchableSortExpression rebase(@Nonnull final AliasMap translationMap) {
-        // we know the following is correct, just Java doesn't and we don't want to add generics everywhere
-        return (MatchableSortExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
-    }
-
-    @Nonnull
-    @Override
-    public MatchableSortExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                @Nonnull final List<Quantifier> rebasedQuantifiers) {
+    public MatchableSortExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                         @Nonnull final List<Quantifier> translatedQuantifiers) {
         return new MatchableSortExpression(getSortParameterIds(),
                 isReverse(),
-                Iterables.getOnlyElement(rebasedQuantifiers));
+                Iterables.getOnlyElement(translatedQuantifiers));
     }
 
     @Nonnull

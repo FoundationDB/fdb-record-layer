@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -202,7 +203,8 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
 
     @Nonnull
     @Override
-    public GeophileSpatialObjectQueryPlan rebase(@Nonnull final AliasMap translationMap) {
+    public GeophileSpatialObjectQueryPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                @Nonnull final List<Quantifier> translatedQuantifiers) {
         return this;
     }
 

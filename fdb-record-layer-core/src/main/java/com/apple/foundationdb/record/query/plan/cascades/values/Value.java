@@ -56,9 +56,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -251,11 +249,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @Nonnull
     @Override
     default Value rebase(@Nonnull final AliasMap aliasMap) {
-        return replaceLeaves(TranslationMap.builder().rebaseWithAliasMap(aliasMap).build());
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap));
     }
 
     @Nonnull
-    default Value replaceLeaves(@Nonnull final TranslationMap translationMap) {
+    default Value translateCorrelations(@Nonnull final TranslationMap translationMap) {
         return replaceLeavesMaybe(value -> {
             if (value instanceof LeafValue) {
                 final var leafValue = (LeafValue)value;
@@ -268,17 +266,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             }
             throw new RecordCoreException("leaf value does not implement LeafValue");
         }).orElseThrow(() -> new RecordCoreException("unable to map tree"));
-    }
-
-    @Nonnull
-    default Optional<Value> translate(@Nonnull final Map<Value, Value> translationMap) {
-        return replaceLeavesMaybe(t -> t.translateLeaf(translationMap));
-    }
-
-    @Nonnull
-    @SuppressWarnings("unused")
-    default Value translateLeaf(@Nonnull final Map<Value, Value> translationMap) {
-        return translationMap.getOrDefault(this, this);
     }
 
     @Nonnull

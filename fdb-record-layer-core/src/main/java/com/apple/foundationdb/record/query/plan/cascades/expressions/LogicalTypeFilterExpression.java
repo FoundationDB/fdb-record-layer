@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -109,17 +110,9 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
     @Nonnull
     @Override
-    public LogicalTypeFilterExpression rebase(@Nonnull final AliasMap translationMap) {
-        // we know the following is correct, just Java doesn't
-        return (LogicalTypeFilterExpression)TypeFilterExpression.super.rebase(translationMap);
-    }
-
-    @Override
-    @Nonnull
-    public LogicalTypeFilterExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                    @Nonnull final List<Quantifier> rebasedQuantifiers) {
+    public LogicalTypeFilterExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
         return new LogicalTypeFilterExpression(getRecordTypes(),
-                Iterables.getOnlyElement(rebasedQuantifiers),
+                Iterables.getOnlyElement(translatedQuantifiers),
                 resultType);
     }
 

@@ -241,7 +241,8 @@ public class MemoExpressionTest {
 
         @Nonnull
         @Override
-        public SyntheticPlannerExpression rebase(@Nonnull final AliasMap translationMap) {
+        public SyntheticPlannerExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                @Nonnull final List<Quantifier> translatedQuantifiers) {
             return this;
         }
 

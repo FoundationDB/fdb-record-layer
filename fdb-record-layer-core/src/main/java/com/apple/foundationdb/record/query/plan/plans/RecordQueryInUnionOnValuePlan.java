@@ -22,10 +22,10 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.Iterables;
 
@@ -75,9 +75,8 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
 
     @Nonnull
     @Override
-    public RecordQueryInUnionOnValuePlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                      @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryInUnionOnValuePlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
+    public RecordQueryInUnionOnValuePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+        return new RecordQueryInUnionOnValuePlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getInSources(),
                 baseAlias,
                 getComparisonKeyValue(),

@@ -22,15 +22,20 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
@@ -225,6 +230,78 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                 // an o1 where o1.getClass() == o.getClass()
                 .map(member -> (T)member.rebase(translationMap))
                 .collect(Collectors.toList()));
+    }
+
+    @SuppressWarnings("unchecked")
+    public GroupExpressionRef<T> translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(this);
+
+        final var expressionRefs =
+                TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
+                        .orElseThrow(() -> new RecordCoreException("graph has cycles"));
+
+        final var cachedTranslationsMap =
+                Maps.<ExpressionRef<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>>newIdentityHashMap();
+
+        for (final var expressionRef : expressionRefs) {
+            final var translatedMembersBuilder = ImmutableList.<RelationalExpression>builder();
+            var allMembersSame = true;
+            for (final var member : expressionRef.getMembers()) {
+                var allChildTranslationsSame = true;
+                final var translatedQuantifiersBuilder = ImmutableList.<Quantifier>builder();
+                for (final var quantifier : member.getQuantifiers()) {
+                    final var childReference = quantifier.getRangesOver();
+
+                    // these must exist
+                    Verify.verify(cachedTranslationsMap.containsKey(childReference));
+                    final ExpressionRef<? extends RelationalExpression> translatedChildReference = cachedTranslationsMap.get(childReference);
+                    if (translatedChildReference != childReference) {
+                        translatedQuantifiersBuilder.add(quantifier.overNewReference(translatedChildReference));
+                        allChildTranslationsSame = false;
+                    } else {
+                        translatedQuantifiersBuilder.add(quantifier);
+                    }
+                }
+
+                final var translatedQuantifiers = translatedQuantifiersBuilder.build();
+                final RelationalExpression translatedMember;
+
+                // we may not have to translate the current member
+                if (allChildTranslationsSame) {
+                    final Set<CorrelationIdentifier> memberCorrelatedTo;
+                    if (member instanceof RelationalExpressionWithChildren) {
+                        memberCorrelatedTo = ((RelationalExpressionWithChildren)member).getCorrelatedToWithoutChildren();
+                    } else {
+                        memberCorrelatedTo = member.getCorrelatedTo();
+                    }
+
+                    if (memberCorrelatedTo.stream().noneMatch(translationMap::containsSourceAlias)) {
+                        translatedMember = member;
+                    } else {
+                        translatedMember = member.translateCorrelations(translationMap, translatedQuantifiers);
+                        allMembersSame = false;
+                    }
+                } else {
+                    translatedMember = member.translateCorrelations(translationMap, translatedQuantifiers);
+                    allMembersSame = false;
+                }
+                translatedMembersBuilder.add(translatedMember);
+            }
+
+            if (allMembersSame) {
+                cachedTranslationsMap.put(expressionRef, expressionRef);
+            } else {
+                cachedTranslationsMap.put(expressionRef, GroupExpressionRef.from(translatedMembersBuilder.build()));
+            }
+        }
+
+        final var result = cachedTranslationsMap.get(this);
+
+        if (result instanceof GroupExpressionRef<?>) {
+            return (GroupExpressionRef<T>)cachedTranslationsMap.get(this);
+        } else {
+            return GroupExpressionRef.from(result.getMembers().stream().map(relationalExpression -> (T)relationalExpression).collect(ImmutableList.toImmutableList()));
+        }
     }
 
     /**

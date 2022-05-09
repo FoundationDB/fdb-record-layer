@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -261,13 +260,12 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         final var newPredicates =
                 otherPredicates.stream()
                         .map(otherPredicate ->
-                                otherPredicate.translateValues(value -> value.replaceLeaves(translationMap))
-                                        .orElseThrow(() -> new RecordCoreException("translateValues() returned unexpected result")))
+                                otherPredicate.translateCorrelations(translationMap))
                         .collect(ImmutableList.toImmutableList());
 
         final var resultValue = selectExpression.getResultValue();
         final var newResultValue =
-                resultValue.replaceLeaves(translationMap);
+                resultValue.translateCorrelations(translationMap);
 
         call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates)));
     }

@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
@@ -726,6 +727,20 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     default Set<Quantifier.ForEach> computeUnmatchedForEachQuantifiers(@Nonnull final PartialMatch partialMatch) {
         return ImmutableSet.of();
     }
+
+    @Nonnull
+    @Override
+    default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
+        final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
+        final var rebasedQuantifiers = getQuantifiers()
+                .stream()
+                .map(quantifier -> quantifier.rebase(aliasMap))
+                .collect(ImmutableList.toImmutableList());
+        return translateCorrelations(translationMap, rebasedQuantifiers);
+    }
+
+    @Nonnull
+    RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers);
 
     /**
      * Compute the semantic hash code of this expression. The logic computing the hash code is agnostic to the order
