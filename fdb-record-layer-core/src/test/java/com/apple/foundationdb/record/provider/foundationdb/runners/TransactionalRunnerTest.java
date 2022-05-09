@@ -282,22 +282,31 @@ class TransactionalRunnerTest extends FDBTestBase {
     }
 
     @Test
-    void closesContextsSynchronous() {
-        closesContext((runner, contexts, completed) ->
-                // You shouldn't be doing this, but maybe I haven't thought of something similar, but reasonable, where
-                // the executable for `run` does not complete, but the runner is closed
-                CompletableFuture.runAsync(() -> {
-                    runner.run(false, context -> {
-                        contexts.add(context);
-                        new CompletableFuture<Void>().join(); // never joins
-                        return completed.incrementAndGet();
-                    });
-                })
-        );
+    void closesContextsSynchronous() throws InterruptedException {
+        final List<CompletableFuture<Void>> futures = new ArrayList<>();
+        try {
+            closesContext((runner, contexts, completed) ->
+                    // You shouldn't be doing this, but maybe I haven't thought of something similar, but reasonable, where
+                    // the executable for `run` does not complete, but the runner is closed
+                    CompletableFuture.runAsync(() ->
+                            runner.run(false, context -> {
+                                contexts.add(context);
+                                final CompletableFuture<Void> future = new CompletableFuture<>();
+                                futures.add(future);
+                                future.join(); // never joins
+                                return completed.incrementAndGet();
+                            }))
+            );
+        } finally {
+            // cleanup the futures, so that the executor used by runAsync doesn't have a bunch of garbage sitting around
+            // Note: if you remove this, and change the test to @RepeatedTest(100), after 28 repetitions, it fails
+            // consistently.
+            futures.forEach(future -> future.complete(null));
+        }
     }
 
     @Test
-    void closesContexts() {
+    void closesContexts() throws InterruptedException {
         closesContext((runner, contexts, completed) ->
                 runner.runAsync(false, context -> {
                     contexts.add(context);
@@ -308,13 +317,19 @@ class TransactionalRunnerTest extends FDBTestBase {
         );
     }
 
-    private <T> void closesContext(TriFunction<TransactionalRunner, List<FDBRecordContext>, AtomicInteger, T> run) {
+    private <T> void closesContext(TriFunction<TransactionalRunner, List<FDBRecordContext>, AtomicInteger, T> run)
+            throws InterruptedException {
         List<FDBRecordContext> contexts = new ArrayList<>();
         AtomicInteger completed = new AtomicInteger();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             for (int i = 0; i < 10; i++) {
                 run.apply(runner, contexts, completed);
             }
+            // make sure that the contexts have been created
+            while (contexts.size() < 10) {
+                Thread.sleep(100);
+            }
+            assertEquals(0, completed.get());
             for (final FDBRecordContext context : contexts) {
                 assertFalse(context.isClosed());
             }
