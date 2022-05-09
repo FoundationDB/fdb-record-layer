@@ -146,15 +146,15 @@ public interface MatchCandidate {
             }
 
             switch (comparisonRange.getRangeType()) {
-            case EQUALITY:
-                prefixMap.put(parameter, comparisonRange);
-                break;
-            case INEQUALITY:
-                prefixMap.put(parameter, comparisonRange);
-                return ImmutableMap.copyOf(prefixMap);
-            case EMPTY:
-            default:
-                return ImmutableMap.copyOf(prefixMap);
+                case EQUALITY:
+                    prefixMap.put(parameter, comparisonRange);
+                    break;
+                case INEQUALITY:
+                    prefixMap.put(parameter, comparisonRange);
+                    return ImmutableMap.copyOf(prefixMap);
+                case EMPTY:
+                default:
+                    return ImmutableMap.copyOf(prefixMap);
             }
         }
 
