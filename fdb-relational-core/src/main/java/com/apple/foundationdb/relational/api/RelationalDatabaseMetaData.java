@@ -35,15 +35,43 @@ import javax.annotation.Nonnull;
  */
 public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
 
+    /**
+     * Get the Schemas for the specified schema pattern within this database, as a ResultSet.
+     *
+     * Equivalent to calling {@code getSchemas(currentDatabase(),null)}.
+     *
+     * The returned columns are:
+     * 1. <em>TABLE_SCHEM</em> String => schema name
+     * 2. <em>TABLE_CATALOG</em> String => The path of the database.
+     *
+     * Unlike in the superinterface definition, the returned results for this method are not required to be ordered.
+     *
+     * @return a list of schemas contained in the currently connected database.
+     * @throws SQLException if something goes wrong.
+     */
     @Nonnull
     @Override
     RelationalResultSet getSchemas() throws SQLException;
 
+    /**
+     * Get the Schemas for the specified schema pattern within the specified database, as a ResultSet.
+     *
+     * For the moment, the only valid schemaPattern is {@code null} (TODO). Any other patterns will be
+     * ignored.
+     *
+     * The returned columns are:
+     * 1. <em>TABLE_SCHEM</em> String => schema name
+     * 2. <em>TABLE_CATALOG</em> String => The path of the database.
+     *
+     * Unlike in the superinterface definition, the returned results for this method are not required to be ordered.
+     *
+     * @param catalog the database path to get schemas for.
+     * @param schemaPattern the schema pattern to use in searching. Currently ignored
+     * @return a list of schemas contained in the specified database
+     * @throws SQLException if something goes wrong.
+     */
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    default ResultSet getSchemas(String catalog, String schemaPattern) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
+    RelationalResultSet getSchemas(String catalog, String schemaPattern) throws SQLException;
 
     /**
      * Get the tables for the specified schema within this database, as a ResultSet.
@@ -104,6 +132,39 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
 
     @Override
     RelationalResultSet getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate) throws SQLException;
+
+    /**
+     * Retrieves a description of the given table's primary key columns.
+     *
+     * <P>Each primary key column description has the following columns:
+     *  <OL>
+     *  <LI><B>TABLE_CAT</B> String {@code =>} table catalog (may be <code>null</code>)
+     *  <LI><B>TABLE_SCHEM</B> String {@code =>} table schema (may be <code>null</code>)
+     *  <LI><B>TABLE_NAME</B> String {@code =>} table name
+     *  <LI><B>COLUMN_NAME</B> String {@code =>} column name
+     *  <LI><B>KEY_SEQ</B> short {@code =>} sequence number within primary key( a value
+     *  of 1 represents the first column of the primary key, a value of 2 would
+     *  represent the second column within the primary key).
+     *  </OL>
+     *
+     *
+     * <P>Unlike in the superinterface definition, the rows are not guaranteed to return in any order.
+     *
+     * @param catalog a catalog name; must match the catalog name as it
+     *        is stored in the database; "" retrieves those without a catalog;
+     *        <code>null</code> means that the catalog name should not be used to narrow
+     *        the search
+     * @param schema a schema name; must match the schema name
+     *        as it is stored in the database; "" retrieves those without a schema;
+     *        <code>null</code> means that the schema name should not be used to narrow
+     *        the search
+     * @param table a table name; must match the table name as it is stored
+     *        in the database
+     * @return <code>ResultSet</code> - each row is a primary key column description
+     * @exception SQLException if a database access error occurs
+     */
+    @Override
+    RelationalResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException;
 
     @Override
     @ExcludeFromJacocoGeneratedReport
@@ -858,12 +919,6 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default ResultSet getVersionColumns(String catalog, String schema, String table) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default ResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

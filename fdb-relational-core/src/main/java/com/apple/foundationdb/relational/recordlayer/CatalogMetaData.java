@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -31,16 +32,19 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
 
 import com.google.protobuf.Descriptors;
 
+import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -58,8 +62,16 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     @Nonnull
     @Override
     public RelationalResultSet getSchemas() throws SQLException {
+        return getSchemas(conn.frl.getURI().getPath(), null);
+    }
+
+    @Override
+    public RelationalResultSet getSchemas(String catalogStr, String schemaPattern) throws SQLException {
+        if (catalogStr == null) {
+            throw new OperationUnsupportedException("Must use a non-null catalog name currently").toSqlException();
+        }
         ensureActiveTransaction();
-        try (RelationalResultSet rrs = catalog.listSchemas(conn.transaction, conn.frl.getURI(), Continuation.BEGIN)) {
+        try (RelationalResultSet rrs = catalog.listSchemas(conn.transaction, URI.create(catalogStr), Continuation.BEGIN)) {
             //TODO(bfines) we need to transform this live, not materialize like this
             List<Row> simplifiedRows = new ArrayList<>();
             while (rrs.next()) {
@@ -71,7 +83,6 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             }
 
             return new IteratorResultSet(new String[]{"TABLE_CATALOG", "TABLE_SCHEM"}, simplifiedRows.iterator(), 0);
-
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
@@ -105,6 +116,34 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     .map(ArrayRow::new)
                     .collect(Collectors.toList());
             return new IteratorResultSet(new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME"}, tableList.iterator(), 0);
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
+    }
+
+    @Override
+    public RelationalResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
+        ensureActiveTransaction();
+        try {
+            final CatalogData.Schema schemaInfo = this.catalog.loadSchema(conn.transaction, URI.create(catalog), schema);
+            List<Row> rows = new ArrayList<>();
+            for (CatalogData.Table tbl : schemaInfo.getTablesList()) {
+                if (tbl.getName().equalsIgnoreCase(table)) {
+                    RecordMetaDataProto.KeyExpression pk = tbl.getPrimaryKey();
+                    String[] pkInfo = keyExpressionToPrimaryKey(pk);
+                    for (int i = 0; i < pkInfo.length; i++) {
+                        rows.add(new ArrayRow(new Object[]{
+                                catalog,
+                                schema,
+                                tbl.getName(),
+                                pkInfo[i],
+                                i + 1,
+                                null
+                        }));
+                    }
+                }
+            }
+            return new IteratorResultSet(new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "KEY_SEQ", "PK_NAME"}, rows.iterator(), 0);
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
@@ -287,6 +326,33 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             } catch (RelationalException e) {
                 throw e.toSqlException();
             }
+        }
+    }
+
+    //the position in the array is the key sequence, the value is the name of the column
+    private String[] keyExpressionToPrimaryKey(RecordMetaDataProto.KeyExpression ke) throws RelationalException {
+        if (ke.hasThen()) {
+            final List<RecordMetaDataProto.KeyExpression> childList = ke.getThen().getChildList();
+            String[] fields = new String[childList.size()];
+            int pos = 0;
+            for (RecordMetaDataProto.KeyExpression childKe : childList) {
+                //skip record type keys
+                if (!childKe.hasRecordTypeKey()) {
+                    if (childKe.hasField()) {
+                        //this is a pk field!
+                        fields[pos] = childKe.getField().getFieldName();
+                        pos++;
+                    }
+                }
+            }
+            if (pos < fields.length) {
+                fields = Arrays.copyOf(fields, pos);
+            }
+            return fields;
+        } else {
+            //TODO(bfines) we should never throw this, we need to check all the different KeyExpression structures
+            //that are valid
+            throw new OperationUnsupportedException("Unexpected Primary Key structure");
         }
     }
 }

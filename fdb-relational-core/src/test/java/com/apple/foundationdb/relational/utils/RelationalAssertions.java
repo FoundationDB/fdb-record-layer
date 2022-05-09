@@ -59,6 +59,10 @@ public final class RelationalAssertions {
         return new RelationalResultSetAssert(resultSet);
     }
 
+    public static RelationalExceptionAssert assertThat(RelationalException ve) {
+        return new RelationalExceptionAssert(ve);
+    }
+
     public static RelationalExceptionAssert assertThrows(ThrowableAssert.ThrowingCallable shouldThrow) {
         RelationalException ve = Assertions.catchThrowableOfType(shouldThrow, RelationalException.class);
         return new RelationalExceptionAssert(ve);

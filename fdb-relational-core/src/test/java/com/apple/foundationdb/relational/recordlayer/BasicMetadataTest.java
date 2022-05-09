@@ -59,11 +59,29 @@ public class BasicMetadataTest {
     public final RelationalConnectionRule dbConn = new RelationalConnectionRule(database::getConnectionUri);
 
     @Test
+    void canGetPrimaryKeysForTable() throws SQLException {
+        final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
+        Assertions.assertNotNull(metaData, "Null metadata returned");
+
+        try (final RelationalResultSet pks = metaData.getPrimaryKeys(database.getDatabasePath().getPath(),
+                "testSchema", "RestaurantRecord")) {
+            RelationalAssertions.assertThat(pks).hasExactly(new ArrayRow(new Object[]{
+                    database.getDatabasePath().getPath(),
+                    "testSchema",
+                    "RestaurantRecord",
+                    "rest_no",
+                    1,
+                    null
+            }));
+        }
+    }
+
+    @Test
     void canGetSchemasForDatabase() throws SQLException {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
-        try (final RelationalResultSet schemas = metaData.getSchemas()) {
+        try (final RelationalResultSet schemas = metaData.getSchemas(database.getDatabasePath().getPath(), null)) {
             Assertions.assertNotNull(schemas, "Null schemas returned");
             List<String> retData = new ArrayList<>(1);
             while (schemas.next()) {
@@ -72,6 +90,16 @@ public class BasicMetadataTest {
             }
             assertThat(retData).containsExactlyInAnyOrder("testSchema");
         }
+    }
+
+    @Test
+    void getSchemasForNullDatabaseThrowsException() throws SQLException {
+        //TODO(bfines) remove this test when the catalog pattern is allowed to be null(TODO)
+        final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
+        Assertions.assertNotNull(metaData, "Null metadata returned");
+
+        SQLException ve = Assertions.assertThrows(SQLException.class, () -> metaData.getSchemas(null, null));
+        Assertions.assertEquals(ErrorCode.UNSUPPORTED_OPERATION.getErrorCode(), ve.getSQLState(), "Incorrect SQL state!");
     }
 
     @Test
@@ -156,7 +184,7 @@ public class BasicMetadataTest {
         RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         dbConn.setAutoCommit(false);
         dbConn.commit();
-        try (RelationalResultSet schemas = metaData.getSchemas()) {
+        try (RelationalResultSet schemas = metaData.getSchemas(dbConn.getCatalog(), null)) {
             schemas.next();
             assertThat(schemas.getString("TABLE_CATALOG")).isEqualTo(database.getDatabasePath().getPath());
             assertThat(schemas.getString("TABLE_SCHEM")).satisfiesAnyOf(
