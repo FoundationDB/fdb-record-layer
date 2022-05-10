@@ -773,12 +773,12 @@ public abstract class IndexingBase {
         logMessageKeyValues.addAll(additionalLogMessageKeyValues);
         logMessageKeyValues.addAll(common.indexLogMessageKeyValues());
         return common.runAsync(
-                (context, startingLimit) -> {
+                runState -> {
                     common.loadConfig();
-                    int limit = Math.min(startingLimit, common.config.getMaxLimit());
+                    int limit = Math.min(runState.getLimit(), common.config.getMaxLimit());
                     AtomicBoolean hasMoreForHook = new AtomicBoolean(true);
                     AtomicLong recordsScanned = new AtomicLong(0);
-                    context.addPostCommit(() -> {
+                    runState.getContext().addPostCommit(() -> {
                         common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
                         if (hasMoreForHook.get()) {
                             return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Collections.emptyList())
@@ -787,7 +787,7 @@ public abstract class IndexingBase {
                             return AsyncUtil.DONE;
                         }
                     });
-                    return common.openStoreAsync(context)
+                    return common.openStoreAsync(runState.getContext())
                             .thenCompose(store -> {
                                 // In a multi-target build, this will fail if one of the targets becomes readable
                                 // perhaps it shouldn't

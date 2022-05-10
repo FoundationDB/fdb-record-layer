@@ -103,7 +103,7 @@ public class LimitedRunner implements AutoCloseable {
                 return AsyncUtil.READY_FALSE;
             }
             try {
-                return runner.runAsync(currentLimit)
+                return runner.runAsync(new RunState(currentLimit))
                         .handle((shouldContinue, error) -> handle(overallResult, shouldContinue, error,
                                 additionalLogMessageKeyValues))
                         .thenCompose(Function.identity());
@@ -297,10 +297,48 @@ public class LimitedRunner implements AutoCloseable {
     public interface Runner {
         /**
          * Run some code with a limit.
-         * @param limit the code should process this many operations (however it concludes it can split up work).
+         * @param runState the state/configuration of this attempt/range of work
          * @return a future that will have a value of {@code true} if there are more operations to do, or {@code false},
          * if the work has been completed.
          */
-        CompletableFuture<Boolean> runAsync(int limit);
+        CompletableFuture<Boolean> runAsync(RunState runState);
+    }
+
+    /**
+     * Parameter object for {@link Runner#runAsync(RunState)}.
+     */
+    public static class RunState {
+        private final int limit;
+        private final List<Object> additionalLogMessageKeyValues;
+
+        private RunState(final int limit) {
+            this.limit = limit;
+            this.additionalLogMessageKeyValues = new ArrayList<>();
+        }
+
+        /**
+         * The limit of work to be processed.
+         * @return the maximum number of items this run should process
+         */
+        public int getLimit() {
+            return limit;
+        }
+
+        // TODO synchronize with getting them back out to avoid ConcurrentModificationException
+
+        /**
+         * Add additional log message key/values that are determined while running.
+         * <p>
+         *     For example, if one is iterating over all records, and maintaining which records have been processed in
+         *     the database (like {@link OnlineIndexer} does), one may want to add the start of the range being
+         *     processed, so that it appears in logs, so that you know whether this is making progress or not.
+         * </p>
+         * @param key the log message key
+         * @param value the log message value
+         */
+        public void addLogMessageKeyValue(Object key, Object value) {
+            additionalLogMessageKeyValues.add(key);
+            additionalLogMessageKeyValues.add(value);
+        }
     }
 }

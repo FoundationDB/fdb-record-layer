@@ -60,18 +60,18 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
         try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(fdb, FDBRecordContextConfig.newBuilder(), 500)
                 .setIncreaseLimitAfter(4)
                 .setDecreaseLimitAfter(2)) {
-            runner.runAsync((context, limit) ->
-                    context.ensureActive().getRange(prefix.range(), 1, true)
+            runner.runAsync(runState ->
+                    runState.getContext().ensureActive().getRange(prefix.range(), 1, true)
                             .asList().thenApply(keyValues -> {
                                 long starting = 0;
                                 if (!keyValues.isEmpty()) {
                                     starting = ((long)Tuple.fromBytes(keyValues.get(0).getKey()).get(1)) + 1;
                                 }
-                                long l = Math.min(limit, 1_000 - starting);
+                                long l = Math.min(runState.getLimit(), 1_000 - starting);
                                 for (int i = 0; i < l; i++) {
-                                    context.ensureActive().set(prefix.add(starting + i).pack(), value);
+                                    runState.getContext().ensureActive().set(prefix.add(starting + i).pack(), value);
                                 }
-                                System.out.println(starting + " " + limit);
+                                System.out.println(starting + " " + runState.getLimit());
                                 return starting + l < 1_000;
                             }), List.of("loggingKey", "aConstantValue")).join();
         }
@@ -110,15 +110,15 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
             List<Long> readVersions = new ArrayList<>();
             try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(fdb, contextConfigBuilder, 20)
                     .setDecreaseLimitAfter(1)) {
-                runner.runAsync((context, limit) -> {
+                runner.runAsync(runState -> {
                     // will not conflict if we clear weak read semantics
-                    context.ensureActive().addReadConflictKey(conflictingKey);
-                    context.ensureActive().addWriteConflictKey(conflictingKey);
+                    runState.getContext().ensureActive().addReadConflictKey(conflictingKey);
+                    runState.getContext().ensureActive().addWriteConflictKey(conflictingKey);
                     long v = newValue.getAndIncrement();
-                    for (int i = 0; i < limit; i++) {
-                        context.ensureActive().set(prefix.add(i).pack(), Tuple.from(v).pack());
+                    for (int i = 0; i < runState.getLimit(); i++) {
+                        runState.getContext().ensureActive().set(prefix.add(i).pack(), Tuple.from(v).pack());
                     }
-                    return context.getReadVersionAsync()
+                    return runState.getContext().getReadVersionAsync()
                             .thenApply(readVersion -> {
                                 readVersions.add(readVersion);
                                 return false;

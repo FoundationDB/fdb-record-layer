@@ -192,8 +192,8 @@ public class IndexingCommon {
             return limitedRunner.runAsync(runnable, additionalLogMessageKeyValues);
         } else {
             return limitedRunner.runAsync(
-                    (context, limit) -> synchronizedSessionRunner.runInSessionAsync(context,
-                            () -> runnable.runAsync(context, limit)),
+                    runState -> synchronizedSessionRunner.runInSessionAsync(runState.getContext(),
+                            () -> runnable.runAsync(runState)),
                     synchronizedSessionRunner.addLoggingDetails(additionalLogMessageKeyValues));
         }
     }

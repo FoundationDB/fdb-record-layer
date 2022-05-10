@@ -51,9 +51,9 @@ public class TransactionalLimitedRunner implements AutoCloseable {
 
     public CompletableFuture<Void> runAsync(Runner runnable, final List<Object> additionalLogMessageKeyValues) {
         AtomicBoolean clearWeakReadSemantics = new AtomicBoolean(false);
-        return limitedRunner.runAsync(limit -> transactionalRunner.runAsync(
+        return limitedRunner.runAsync(runState -> transactionalRunner.runAsync(
                 clearWeakReadSemantics.getAndSet(true),
-                context -> runnable.runAsync(context, limit)), additionalLogMessageKeyValues);
+                context -> runnable.runAsync(new RunState(runState, context))), additionalLogMessageKeyValues);
     }
 
     @Override
@@ -94,12 +94,51 @@ public class TransactionalLimitedRunner implements AutoCloseable {
     public interface Runner {
         /**
          * Run some code in a transaction with some limit.
-         * @param context the transaction for this run of the operation. At the time this has been passed in, no
-         * operations will have been done, so one does not have to worry about the transaction time limit.
-         * @param limit the number of operations to do with this context.
+         * @param runState the state/configuration of this attempt/range of work
          * @return a future that will have a value of {@code true} if there are more operations to do, or {@code false},
          * if the work has been completed.
          */
-        CompletableFuture<Boolean> runAsync(FDBRecordContext context, int limit);
+        CompletableFuture<Boolean> runAsync(RunState runState);
+    }
+
+    /**
+     * Parameter object for {@link Runner#runAsync(RunState)}.
+     * @see LimitedRunner.RunState
+     */
+    public static class RunState {
+        @Nonnull
+        private final LimitedRunner.RunState parent;
+        @Nonnull
+        private final FDBRecordContext context;
+
+        public RunState(@Nonnull final LimitedRunner.RunState parent, @Nonnull final FDBRecordContext context) {
+            this.parent = parent;
+            this.context = context;
+        }
+
+        @Nonnull
+        public FDBRecordContext getContext() {
+            return context;
+        }
+
+        /**
+         *
+         * The limit of work to be processed.
+         * @return the maximum number of items this run should process
+         * @see LimitedRunner.RunState#getLimit()
+         */
+        public int getLimit() {
+            return parent.getLimit();
+        }
+
+        /**
+         * Add additional log message key/values that are determined while running.
+         * @param key the log message key
+         * @param value the log message value
+         * @see LimitedRunner.RunState#addLogMessageKeyValue(Object, Object)
+         */
+        public void addLogMessageKeyValue(Object key, Object value) {
+            parent.addLogMessageKeyValue(key, value);
+        }
     }
 }

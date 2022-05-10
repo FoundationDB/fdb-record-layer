@@ -45,6 +45,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -109,8 +110,8 @@ class LimitedRunnerTest {
         final CompletionException completionException = assertThrows(CompletionException.class,
                 () -> run(mockDelay(), 10,
                         limitedRunner -> limitedRunner.setDecreaseLimitAfter(3),
-                        limit -> {
-                            limits.add(limit);
+                        runState -> {
+                            limits.add(runState.getLimit());
                             return exceptionStyle.hasMore(cause);
                         }));
         assertEquals(cause, completionException.getCause());
@@ -148,8 +149,8 @@ class LimitedRunnerTest {
         final CompletionException completionException = assertThrows(CompletionException.class,
                 () -> run(mockDelay(), 10,
                         limitedRunner -> limitedRunner.setDecreaseLimitAfter(3),
-                        limit -> {
-                            limits.add(limit);
+                        runState -> {
+                            limits.add(runState.getLimit());
                             return exceptionStyle.hasMore(cause);
                         }));
         assertEquals(cause, completionException.getCause());
@@ -192,8 +193,8 @@ class LimitedRunnerTest {
         final CompletionException completionException = assertThrows(CompletionException.class,
                 () -> run(mockDelay(), 10,
                         limitedRunner -> limitedRunner.setDecreaseLimitAfter(3),
-                        limit -> {
-                            limits.add(limit);
+                        runState -> {
+                            limits.add(runState.getLimit());
                             return exceptionStyle.hasMore(cause);
                         }));
         assertEquals(cause, completionException.getCause());
@@ -214,8 +215,8 @@ class LimitedRunnerTest {
         // no rounding
         run(mockDelay(), 12,
                 limitedRunner -> limitedRunner.setIncreaseLimitAfter(3),
-                limit -> {
-                    limits.add(limit);
+                runState -> {
+                    limits.add(runState.getLimit());
                     if (limits.size() % 5 == 4) {
                         return exceptionStyle.hasMore(cause);
                     } else {
@@ -245,12 +246,12 @@ class LimitedRunnerTest {
         final int minLimit = 1;
         run(mockDelay(), maxLimit,
                 limitedRunner -> limitedRunner.setIncreaseLimitAfter(5),
-                limit -> {
-                    limits.add(limit);
-                    if (limit == maxLimit) {
+                runState -> {
+                    limits.add(runState.getLimit());
+                    if (runState.getLimit() == maxLimit) {
                         increasing.set(false);
                     }
-                    if (limit == minLimit) {
+                    if (runState.getLimit() == minLimit) {
                         increasing.set(true);
                     }
                     if (increasing.get()) {
@@ -309,16 +310,16 @@ class LimitedRunnerTest {
         // decrease until we get to the minLimit, than be successful until we get to the maxLimit
         run(mockDelay(), maxLimit,
                 limitedRunner -> limitedRunner.setIncreaseLimitAfter(7),
-                limit -> {
-                    limits.add(limit);
+                runState -> {
+                    limits.add(runState.getLimit());
                     if (increasing.get()) {
-                        if (limit == maxLimit) {
+                        if (runState.getLimit() == maxLimit) {
                             return AsyncUtil.READY_FALSE;
                         } else {
                             return AsyncUtil.READY_TRUE;
                         }
                     } else {
-                        if (limit == minLimit) {
+                        if (runState.getLimit() == minLimit) {
                             increasing.set(true);
                             return AsyncUtil.READY_TRUE;
                         } else {
@@ -352,8 +353,8 @@ class LimitedRunnerTest {
         List<Integer> limits = new ArrayList<>();
         run(mockDelay(), 12,
                 limitedRunner -> limitedRunner.setIncreaseLimitAfter(3),
-                limit -> {
-                    limits.add(limit);
+                runState -> {
+                    limits.add(runState.getLimit());
                     if (limits.size() < 3) {
                         // Cause the limit to go down, so that it could go back up, if it were reliably successful
                         return exceptionStyle.hasMore(lessenCause);
@@ -378,9 +379,9 @@ class LimitedRunnerTest {
         List<Integer> limits = new ArrayList<>();
         run(mockDelay(), 12,
                 limitedRunner -> { },
-                limit -> {
-                    limits.add(limit);
-                    if (limit > 1) {
+                runState -> {
+                    limits.add(runState.getLimit());
+                    if (runState.getLimit() > 1) {
                         return exceptionStyle.hasMore(cause);
                     } else {
                         return limits.size() < 1000 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
@@ -428,8 +429,8 @@ class LimitedRunnerTest {
         List<Integer> limits = new ArrayList<>();
         final MockDelay mockDelay = mockDelay();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> run(mockDelay, 10, ignored -> { }, limit -> {
-                    limits.add(limit);
+                () -> run(mockDelay, 10, ignored -> { }, runState -> {
+                    limits.add(runState.getLimit());
                     return exceptionStyle.hasMore(wrappedCause);
                 }));
         assertEquals(wrappedCause, completionException.getCause());
@@ -445,8 +446,8 @@ class LimitedRunnerTest {
         final MockDelay mockDelay = mockDelay();
         try (LimitedRunner limitedRunner = new LimitedRunner(executor, 10, mockDelay)) {
             limitedRunner
-                    .runAsync(limit -> {
-                        limits.add(limit);
+                    .runAsync(runState -> {
+                        limits.add(runState.getLimit());
                         if (limits.size() == 5) {
                             return AsyncUtil.READY_TRUE;
                         } else if (limits.size() < 10) {
@@ -472,7 +473,7 @@ class LimitedRunnerTest {
     void closesFuture() {
         final CompletableFuture<Void> future;
         try (LimitedRunner limitedRunner = new LimitedRunner(executor, 10, mockDelay())) {
-            future = limitedRunner.runAsync(limit -> new CompletableFuture<>(), List.of());
+            future = limitedRunner.runAsync(runState -> new CompletableFuture<>(), List.of());
         }
         CompletionException completionException = assertThrows(CompletionException.class, future::join);
         assertThat(completionException.getCause(), Matchers.instanceOf(FDBDatabaseRunner.RunnerClosed.class));
@@ -487,10 +488,9 @@ class LimitedRunnerTest {
         final InfiniteDelay infiniteDelay = new InfiniteDelay();
         LimitedRunner limitedRunner = new LimitedRunner(executor, 10, infiniteDelay);
         try {
-            future = limitedRunner.runAsync(limit -> exceptionStyle.hasMore(wrappedCause)
-                    .whenComplete((ignoredResult, ignoredError) -> {
-                        limitedRunner.close();
-                    }), List.of());
+            future = limitedRunner.runAsync(runState -> exceptionStyle.hasMore(wrappedCause)
+                    .whenComplete((ignoredResult, ignoredError) -> limitedRunner.close()),
+                    List.of());
         } finally {
             limitedRunner.close();
         }
@@ -541,8 +541,8 @@ class LimitedRunnerTest {
         return new FDBException("Non Retriable", FDBError.INTERNAL_ERROR.code());
     }
 
-    private void run(final LimitedRunner.Runner runner) {
-        run(mockDelay(), 10, vignored -> { }, runner);
+    private void run(final Function<Integer, CompletableFuture<Boolean>> runner) {
+        run(mockDelay(), 10, vignored -> { }, runState -> runner.apply(runState.getLimit()));
     }
 
     private void run(final MockDelay exponentialDelay, final int maxLimit,

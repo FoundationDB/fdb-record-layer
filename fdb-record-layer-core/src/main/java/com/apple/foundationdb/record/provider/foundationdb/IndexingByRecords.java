@@ -388,12 +388,12 @@ public class IndexingByRecords extends IndexingBase {
         // startTuple/endTuple, these values are just added to retry logic in LimitedRunner.
         final List<Object> additionalLogMessageKeyValues = common.indexLogMessageKeyValues();
         return common.runAsync(
-                (context, startingLimit) -> {
+                runState -> {
                     if (rangeDeque.isEmpty()) {
                         return AsyncUtil.READY_FALSE; // We're done.
                     }
                     common.loadConfig();
-                    int limit = Math.min(startingLimit, common.config.getMaxLimit());
+                    int limit = Math.min(runState.getLimit(), common.config.getMaxLimit());
                     Range toBuild = rangeDeque.peek();
 
                     // This only works if the things included within the rangeSet are serialized Tuples.
@@ -402,7 +402,7 @@ public class IndexingByRecords extends IndexingBase {
 
                     AtomicReference<Tuple> postCommitRealEnd = new AtomicReference<>(startTuple);
                     AtomicLong recordsScanned = new AtomicLong(0);
-                    context.addPostCommit(() -> {
+                    runState.getContext().addPostCommit(() -> {
                         final Tuple realEnd = postCommitRealEnd.get();
                         common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
                         // this will add back realEnd->END if realEnd is not already at the end
@@ -410,7 +410,7 @@ public class IndexingByRecords extends IndexingBase {
                         return handleBuiltRange(subspaceProvider, rangeDeque, startTuple, endTuple, realEnd, limit)
                                 .thenApply(vignore -> null);
                     });
-                    return common.openStoreAsync(context)
+                    return common.openStoreAsync(runState.getContext())
                             .thenCompose(store -> {
                                 common.checkTargetIndexState(expectedIndexState, store);
                                 return buildUnbuiltRange(store, startTuple, endTuple, recordsScanned, limit);

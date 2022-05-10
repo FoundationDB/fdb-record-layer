@@ -46,20 +46,20 @@ public abstract class ImportRunner<T> implements TransactionalLimitedRunner.Runn
     protected abstract CompletableFuture<Void> save(T value, FDBRecordContext context);
 
     @Override
-    public CompletableFuture<Boolean> runAsync(FDBRecordContext context, int limit) {
-        fillBuffer(limit);
+    public CompletableFuture<Boolean> runAsync(TransactionalLimitedRunner.RunState runState) {
+        fillBuffer(runState.getLimit());
         if (buffer.isEmpty()) {
             return AsyncUtil.READY_FALSE;
         }
-        context.addPostCommit(() -> {
+        runState.getContext().addPostCommit(() -> {
             // these entries were successfully saved, so remove them from the buffer
             buffer.subList(0, position).clear();
             return AsyncUtil.DONE;
         });
         return AsyncUtil.whileTrue(
-                        () -> save(buffer.get(position), context)
-                                .thenApply(vignore -> position < limit && position < buffer.size()),
-                        context.getExecutor())
+                        () -> save(buffer.get(position), runState.getContext())
+                                .thenApply(vignore -> position < runState.getLimit() && position < buffer.size()),
+                        runState.getContext().getExecutor())
                 .thenApply(vignore -> buffer.isEmpty() && !source.hasNext());
     }
 
