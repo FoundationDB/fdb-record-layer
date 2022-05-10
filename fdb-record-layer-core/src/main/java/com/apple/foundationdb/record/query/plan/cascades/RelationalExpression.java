@@ -229,9 +229,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Overloaded method to call {@link #semanticEquals} with an empty alias map.
-     *
      * @param other object to compare to this expression
-     *
      * @return {@code true} if this object is semantically equal to {@code other} that is {@code this} and {@code other}
      *         produce the same result when invoked with no bindings, {@code false} otherwise.
      */
@@ -242,7 +240,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     /**
      * Method to establish whether this relational expression is equal to another object under the bindings
      * given by the {@link AliasMap} passed in.
-     *
      * @param other the other object to establish equality with
      * @param aliasMap a map of {@link CorrelationIdentifier}s {@code ids} to {@code ids'}. A correlation
      *        identifier {@code id} used in {@code this} should be considered equal to another correlation identifier
@@ -361,10 +358,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @param constraintsFunction function constraining the number of permutations to enumerate
      * @param matchFunction function producing a match result as iterable of type {@code M}
      * @param combineFunction function to produce an iterable of type {@code S} by combining on bound matches of type
-     * {@code M}
+     *        {@code M}
      * @param <M> intermediate type to represent match results
      * @param <S> final type to represent match results
-     *
      * @return an {@link Iterable} of type {@code S} of matches of {@code this} expression with {@code otherExpression}.
      */
     @Nonnull
@@ -393,21 +389,17 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * themselves under a bijective association (mapping between the quantifiers of this expression and
      * the quantifier of the candidate expression). To this end, the {@code matchFunction} passed in to this method is
      * used to determine the matches between two quantifiers: one from this graph and one from the candidate graph.
-     * The {@code matchFunction} can produce zero, one or many matches which are returned as an {@link Iterable} of
-     * type
+     * The {@code matchFunction} can produce zero, one or many matches which are returned as an {@link Iterable} of type
      * {@code M}.
      *
      * This method attempts to find that bijective mapping between the quantifiers contained by their respective
-     * expressions. Naturally, if the expressions that are being matched own a different number of quantifiers we
-     * cannot
+     * expressions. Naturally, if the expressions that are being matched own a different number of quantifiers we cannot
      * ever find a bijective mapping. In that case, the two expressions do not match at all. If, on the other hand the
      * expressions that are being matched do have the same number of quantifiers, we need to enumerate all possible
      * associations in order to potentially find matches. In a naive implementation, and not considering any other
-     * constraints, such an enumeration produces a number of mappings that is equal to the enumeration of all
-     * permutations
+     * constraints, such an enumeration produces a number of mappings that is equal to the enumeration of all permutations
      * of sets of size {@code n} which is {@code n!}. Fortunately, it is possible for most cases to impose strict
-     * constraints on the enumeration of mappings and therefore reduce the degrees of freedom we seemingly have at
-     * first
+     * constraints on the enumeration of mappings and therefore reduce the degrees of freedom we seemingly have at first
      * considerably. For instance, if this expression can be the anchor of a correlation, there might be an implied
      * necessary order imposed by a correlation between two quantifiers {@code q1} and {@code q2} where {@code q2}
      * depends on {@code q1}, denoted by {@code q1 -> q2}.
@@ -428,7 +420,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      *        {@code M}
      * @param <M> intermediate type to represent match results
      * @param <S> final type to represent match results
-     *
      * @return an {@link Iterable} of type {@code S} of matches of {@code this} expression with {@code otherExpression}.
      */
     @Nonnull
@@ -640,7 +631,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      *         all the records that the query may produce.
      *     </li>
      * </ul>
-     *
      * @param candidateExpression the candidate expression
      * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
      * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
@@ -738,7 +728,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     /**
      * Apply the given property visitor to this planner expression and its children. Returns {@code null} if
      * {@link PlannerProperty#shouldVisit(RelationalExpression)} called on this expression returns {@code false}.
-     *
      * @param visitor a {@link PlannerProperty} visitor to evaluate
      * @param <U> the type of the evaluated property
      * @return the result of evaluating the property on the subtree rooted at this expression
@@ -761,7 +750,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * This is needed for graph integration into IntelliJ as IntelliJ only ever evaluates selfish methods. Add this
      * method as a custom renderer for the type {@link RelationalExpression}. During debugging you can then for instance
      * click show() on an instance and enjoy the query graph it represents rendered in your standard browser.
-     *
      * @param renderSingleGroups whether to render group references with just one member
      * @return the String "done"
      */

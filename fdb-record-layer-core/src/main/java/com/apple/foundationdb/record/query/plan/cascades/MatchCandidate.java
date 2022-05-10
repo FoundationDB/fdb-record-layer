@@ -155,11 +155,9 @@ public interface MatchCandidate {
     /**
      * Compute a list of {@link BoundKeyPart}s which forms a bridge to relate {@link KeyExpression}s and
      * {@link QueryPredicate}s.
-     *
      * @param matchInfo a pre-existing match info structure
      * @param sortParameterIds the query should be ordered by
      * @param isReverse reversed-ness of the order
-     *
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate
      */
