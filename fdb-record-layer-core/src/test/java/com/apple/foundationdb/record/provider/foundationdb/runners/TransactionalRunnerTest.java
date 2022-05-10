@@ -251,7 +251,6 @@ class TransactionalRunnerTest extends FDBTestBase {
             // Enable version tracking so that the database will use the latest version seen if we have weak read semantics
             database.setTrackLastSeenVersionOnRead(true);
             database.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
-            final byte[] key = Tuple.from(UUID.randomUUID()).pack(); // not actually modified, so value doesn't matter
 
             // Commit something and cache just the read version
             long firstReadVersion;

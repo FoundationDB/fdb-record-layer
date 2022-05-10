@@ -5,15 +5,19 @@ import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Tag(Tags.RequiresFDB)
@@ -57,14 +61,65 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
                                 .setContext(context)
                                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                                 .setContinuation(continuation).build()
-                                .map(keyValue -> ((long)Tuple.fromBytes(keyValue.getKey()).get(1)))).asList().join();
+                                .map(keyValue -> ((long)Tuple.fromBytes(keyValue.getKey()).get(1))))
+                .asList().join();
         assertEquals(LongStream.range(0, 1000).boxed().collect(Collectors.toList()),
                 resultingKeys);
     }
 
     @Test
     void weakReadSemantics() {
-        // TODO if config says to use weak read semantics, retries should use new version
+        // TODO extract this into something reusable across test fixtures
+        final boolean tracksReadVersions = fdb.isTrackLastSeenVersionOnRead();
+        final boolean tracksCommitVersions = fdb.isTrackLastSeenVersionOnCommit();
+        try {
+            // Enable version tracking so that the database will use the latest version seen if we have weak read semantics
+            fdb.setTrackLastSeenVersionOnRead(true);
+            fdb.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
+            final byte[] conflictingKey = prefix.add(0).pack();
+            final Long firstReadVersion = fdb.run(context -> {
+                context.ensureActive().addWriteConflictKey(conflictingKey);
+                return context.getReadVersion();
+            });
+            FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(
+                    firstReadVersion, Long.MAX_VALUE, true);
+            final FDBRecordContextConfig.Builder contextConfigBuilder = FDBRecordContextConfig.newBuilder()
+                    .setWeakReadSemantics(weakReadSemantics);
+
+            AtomicLong newValue = new AtomicLong(1);
+            List<Long> readVersions = new ArrayList<>();
+            try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(fdb, contextConfigBuilder, 20)
+                    .setDecreaseLimitAfter(1)) {
+                runner.runAsync((context, limit) -> {
+                    // will not conflict if we clear weak read semantics
+                    context.ensureActive().addReadConflictKey(conflictingKey);
+                    context.ensureActive().addWriteConflictKey(conflictingKey);
+                    long v = newValue.getAndIncrement();
+                    for (int i = 0; i < limit; i++) {
+                        context.ensureActive().set(prefix.add(i).pack(), Tuple.from(v).pack());
+                    }
+                    return context.getReadVersionAsync()
+                            .thenApply(readVersion -> {
+                                readVersions.add(readVersion);
+                                return false;
+                            });
+                }, List.of()).join();
+            }
+            assertThat(readVersions, Matchers.hasSize(Matchers.greaterThan(1)));
+            assertEquals(firstReadVersion, readVersions.get(0));
+            final List<Long> resultingValues = fdb.run(context ->
+                            KeyValueCursor.Builder.withSubspace(new Subspace(prefix))
+                                    .setContext(context)
+                                    .setScanProperties(ScanProperties.FORWARD_SCAN)
+                                    .build()
+                                    .map(keyValue -> ((long)Tuple.fromBytes(keyValue.getValue()).get(0))))
+                    .asList().join();
+            assertThat(resultingValues, Matchers.hasSize(Matchers.lessThan(20)));
+            assertThat(resultingValues, Matchers.everyItem(Matchers.greaterThan(1L)));
+        } finally {
+            fdb.setTrackLastSeenVersionOnRead(tracksReadVersions);
+            fdb.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
+        }
     }
 
     @Test

@@ -41,6 +41,7 @@ public class TransactionalLimitedRunner implements AutoCloseable {
     private boolean closed;
 
     public TransactionalLimitedRunner(@Nonnull FDBDatabase database,
+                                      // TODO can this not be a builder
                                       FDBRecordContextConfig.Builder contextConfigBuilder,
                                       int maxLimit) {
         this.limitedRunner = new LimitedRunner(database.newContextExecutor(contextConfigBuilder.getMdcContext()),
@@ -49,8 +50,9 @@ public class TransactionalLimitedRunner implements AutoCloseable {
     }
 
     public CompletableFuture<Void> runAsync(Runner runnable, final List<Object> additionalLogMessageKeyValues) {
-        AtomicBoolean isFirst = new AtomicBoolean(true);
-        return limitedRunner.runAsync(limit -> transactionalRunner.runAsync(isFirst.getAndSet(false),
+        AtomicBoolean clearWeakReadSemantics = new AtomicBoolean(false);
+        return limitedRunner.runAsync(limit -> transactionalRunner.runAsync(
+                clearWeakReadSemantics.getAndSet(true),
                 context -> runnable.runAsync(context, limit)), additionalLogMessageKeyValues);
     }
 
