@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -53,18 +51,15 @@ import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.result;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
@@ -80,7 +75,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testSimplePlanGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
-        // no index hints, correctly plan a query
+        // no index hints, plan a query
         final var plan = cascadesPlanner.planGraph(
                 () -> {
                     var qun =
@@ -113,8 +108,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 false,
                 ParameterRelationshipGraph.empty());
 
-        plan.show(true);
-
         assertMatchesExactly(plan,
                 mapPlan(
                         typeFilterPlan(
@@ -126,7 +119,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testCannotPlanWithIndexHintGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
-        // with index hints, cannot plan a query ("review_rating")
+        // with index hints ("review_rating"), cannot plan a query
         Exception exception = Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
                 () -> {
                     var qun =
@@ -165,8 +158,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testPlanDifferentWithIndexHintGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
-        // with index hints, plan a different query
-        final var plan2 = cascadesPlanner.planGraph(
+        // with index hints (RestaurantRecord$name), plan a different query
+        final var plan = cascadesPlanner.planGraph(
                 () -> {
                     var qun =
                             Quantifier.forEach(GroupExpressionRef.of(
@@ -198,13 +191,12 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 false,
                 ParameterRelationshipGraph.empty());
 
-        plan2.show(true);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = fetchFromPartialRecordPlan(
                 predicatesFilterPlan(
                         coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(unbounded())))))
-                        .where(predicates(only(valuePredicate(fieldValue("rest_no"), new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1))))));
-        
-        assertMatchesExactly(plan2, planMatcher);
+                        .where(predicates(only(valuePredicate(fieldValue("rest_no"), new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L))))));
+
+        assertMatchesExactly(plan, planMatcher);
     }
 
     private CascadesPlanner setUp() throws Exception {

@@ -351,7 +351,6 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         // Covering(Index(multi_index ([null],[1])) -> [num_value_2: KEY[1], num_value_3_indexed: KEY[0], rec_no: KEY[2]]) | num_value_2 LESS_THAN 2
         RecordQueryPlan plan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
-            // plan.show(true);
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     filterPlan(
                             coveringIndexPlan()
@@ -363,7 +362,6 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1359983418, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-1492450855, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-           // plan.show(true);
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     predicatesFilterPlan(
                             coveringIndexPlan()
@@ -409,7 +407,6 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 assertEquals(1350035332, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
                 assertEquals(-1843652335, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
-                plan.show(true);
                 final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                         fetchFromPartialRecordPlan(
                                 predicatesFilterPlan(
