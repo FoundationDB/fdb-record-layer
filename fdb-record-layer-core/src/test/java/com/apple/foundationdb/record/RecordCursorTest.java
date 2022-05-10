@@ -33,6 +33,7 @@ import com.apple.test.BooleanSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -304,6 +305,60 @@ public class RecordCursorTest {
         newInts = cursor.asList().join();
         assertTrue(cursor instanceof MapResultCursor, "Creating an async filter should create a map cursor");
         assertEquals(Arrays.asList(2, 4, 6), newInts);
+    }
+
+    @Test
+    void mapContinuationsTest() {
+        final List<Integer> ints = Arrays.asList(1, 2, 3, 4, 5, 6);
+        final ByteString prefix = ByteString.copyFromUtf8("prefix+");
+        RecordCursor<Integer> cursor = RecordCursor.fromList(ints)
+                .mapContinuation(continuation -> {
+                    if (continuation.isEnd()) {
+                        return RecordCursorEndContinuation.END;
+                    }
+
+                    return new RecordCursorContinuation() {
+                        @Nonnull
+                        @Override
+                        public ByteString toByteString() {
+                            return prefix.concat(continuation.toByteString());
+                        }
+
+                        @Nullable
+                        @Override
+                        public byte[] toBytes() {
+                            return toByteString().toByteArray();
+                        }
+
+                        @Override
+                        public boolean isEnd() {
+                            return false;
+                        }
+                    };
+                });
+
+        List<Integer> soFar = new ArrayList<>();
+        RecordCursorResult<Integer> result;
+        do {
+            result = cursor.getNext();
+            if (result.getContinuation().isEnd()) {
+                assertEquals(ByteString.EMPTY, result.getContinuation().toByteString());
+                assertNull(result.getContinuation().toBytes());
+            } else {
+                soFar.add(result.get());
+
+                // Modified continuation should begin with the prefix
+                assertTrue(result.getContinuation().toByteString().startsWith(prefix));
+
+                // Stripping away the prefix and resuming the cursor should produce the rest of the list
+                byte[] continuation = result.getContinuation().toBytes();
+                assertNotNull(continuation);
+                RecordCursor<Integer> tailCursor = RecordCursor.fromList(ints, Arrays.copyOfRange(continuation, prefix.size(), continuation.length));
+                final List<Integer> resultList = new ArrayList<>(soFar);
+                tailCursor.forEach(resultList::add).join();
+                assertEquals(ints, resultList);
+            }
+        } while (result.hasNext());
     }
 
     @Test
