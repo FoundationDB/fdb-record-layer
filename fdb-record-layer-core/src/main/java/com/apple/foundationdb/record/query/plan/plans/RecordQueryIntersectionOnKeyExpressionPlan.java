@@ -1,5 +1,5 @@
 /*
- * RecordQueryUnionOnKeyExpressionPlan.java
+ * RecordQueryIntersectionOnKeyExpressionPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,9 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -30,28 +28,21 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Union plan that compares using a {@link KeyExpression}.
+ * Intersection plan that compares using a {@link KeyExpression}.
  */
 public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryIntersectionPlan {
     public RecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                                       @Nonnull final KeyExpression comparisonKey,
                                                       final boolean reverse) {
         super(quantifiers,
-                new ComparisonKeyFunction.OnKeyExpression(comparisonKey) {
-                    @Override
-                    public <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
-                        return queryResult -> comparisonKey.evaluateSingleton(queryResult.getQueriedRecord()).toTupleAppropriateList();
-                    }
-                },
+                new ComparisonKeyFunction.OnKeyExpression(comparisonKey),
                 reverse);
     }
 

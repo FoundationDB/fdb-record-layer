@@ -45,7 +45,7 @@ public class PrimitiveMatchers {
      */
     @Nonnull
     public static <T> BindingMatcher<T> equalsObject(@Nonnull final T object) {
-        return new BindingMatcher<T>() {
+        return new BindingMatcher<>() {
             @Nonnull
             @Override
             public Class<T> getRootClass() {

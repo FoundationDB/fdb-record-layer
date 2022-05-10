@@ -45,15 +45,6 @@ public class NotMatcher implements BindingMatcher<Object> {
         return Object.class;
     }
 
-    /**
-     * Attempt to match this matcher against the given expression reference.
-     * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
-     * expression or attempt to access the members of the given reference.
-     *
-     * @param outerBindings preexisting bindings to be used by the matcher
-     * @param in the bindable we attempt to match
-     * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
-     */
     @Nonnull
     @Override
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Object in) {

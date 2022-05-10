@@ -29,8 +29,8 @@ import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 /**
- * A binding matcher that matches the expression if the same object as another {@link BindingMatcher}.
- *
+ * A typed matcher that matches the current expression if the current expression is contained in a
+ * group reference binding designated by another {@link BindingMatcher} (which was bound earlier on a reference).
  */
 @API(API.Status.EXPERIMENTAL)
 public class ContainsExpressionInReferenceMatcher extends TypedMatcher<RelationalExpression> {
@@ -43,7 +43,7 @@ public class ContainsExpressionInReferenceMatcher extends TypedMatcher<Relationa
     }
 
     /**
-     * Attempt to match this matcher against the given expression reference.
+     * Attempt to match this matcher against the given expression.
      * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
      * expression or attempt to access the members of the given reference.
      *

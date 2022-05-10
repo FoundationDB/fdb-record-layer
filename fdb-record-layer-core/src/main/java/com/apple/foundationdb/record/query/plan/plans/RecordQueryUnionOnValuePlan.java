@@ -38,24 +38,18 @@ import java.util.function.Function;
 /**
  * Union plan that compares using a {@link Value}.
  */
+@SuppressWarnings("java:S2160")
 public class RecordQueryUnionOnValuePlan extends RecordQueryUnionPlan {
     @Nonnull
     private final CorrelationIdentifier baseAlias;
-    
-    public RecordQueryUnionOnValuePlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                       @Nonnull final Function<CorrelationIdentifier, Value> correlationIdentifierValueFunction,
-                                       final boolean reverse,
-                                       final boolean showComparisonKey) {
-        this(quantifiers, CorrelationIdentifier.uniqueID(), correlationIdentifierValueFunction, reverse, showComparisonKey);
-    }
 
     private RecordQueryUnionOnValuePlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                         @Nonnull final CorrelationIdentifier baseAlias,
-                                        @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
+                                        @Nonnull final Value comparisonKeyValue,
                                         final boolean reverse,
                                         final boolean showComparisonKey) {
         super(quantifiers,
-                RecordQuerySetPlan.comparisonKeyValueFunction(baseAlias, comparisonKeyValueFunction.apply(baseAlias)),
+                new ComparisonKeyFunction.OnValue(baseAlias, comparisonKeyValue),
                 reverse,
                 showComparisonKey);
         this.baseAlias = baseAlias;
@@ -84,7 +78,7 @@ public class RecordQueryUnionOnValuePlan extends RecordQueryUnionPlan {
                                                                     @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryUnionOnValuePlan(Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
                 baseAlias,
-                alias -> getComparisonKeyValue(),
+                getComparisonKeyValue(),
                 isReverse(),
                 showComparisonKey);
     }
@@ -97,8 +91,17 @@ public class RecordQueryUnionOnValuePlan extends RecordQueryUnionPlan {
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList()),
                 baseAlias,
-                alias -> getComparisonKeyValue(),
+                getComparisonKeyValue(),
                 isReverse(),
                 showComparisonKey);
+    }
+
+    @Nonnull
+    public static RecordQueryUnionOnValuePlan union(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                                    @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
+                                                    final boolean reverse,
+                                                    final boolean showComparisonKey) {
+        final var baseAlias = CorrelationIdentifier.uniqueID();
+        return new RecordQueryUnionOnValuePlan(quantifiers, baseAlias, comparisonKeyValueFunction.apply(baseAlias), reverse, showComparisonKey);
     }
 }

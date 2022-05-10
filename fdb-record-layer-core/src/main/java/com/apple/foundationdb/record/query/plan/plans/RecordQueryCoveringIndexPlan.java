@@ -92,7 +92,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
         return indexPlan
                 .executeEntries(store, context, continuation, executeProperties)
                 .map(indexEntryToQueriedRecord(store))
-                .map(QueryResult::of);
+                .map(QueryResult::fromQueriedRecord);
     }
 
     @Nonnull

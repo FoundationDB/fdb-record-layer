@@ -82,7 +82,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
                     // Apply (map) each value to the incoming record
                     return resultValue.eval(store, nestedContext);
                 })
-                .map(QueryResult::of);
+                .map(QueryResult::ofComputed);
     }
 
     @Override

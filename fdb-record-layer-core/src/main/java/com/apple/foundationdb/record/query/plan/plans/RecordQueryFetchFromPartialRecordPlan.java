@@ -92,9 +92,9 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         // Plan return exactly one (full) record for each (partial) record from inner, so we can preserve all limits.
         return store.fetchIndexRecords(getChild().executePlan(store, context, continuation, executeProperties)
-                .map(result -> result.getQueriedRecord().getIndexEntry()), IndexOrphanBehavior.ERROR, executeProperties.getState())
+                .map(QueryResult::getIndexEntry), IndexOrphanBehavior.ERROR, executeProperties.getState())
                 .map(store::queriedRecord)
-                .map(QueryResult::of);
+                .map(QueryResult::fromQueriedRecord);
     }
 
     @Nonnull

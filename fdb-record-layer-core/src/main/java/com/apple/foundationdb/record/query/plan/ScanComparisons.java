@@ -366,7 +366,7 @@ public class ScanComparisons implements PlanHashable {
 
     @Nonnull
     public static BindingMatcher<ScanComparisons> unbounded() {
-        return new TypedMatcher<ScanComparisons>(ScanComparisons.class) {
+        return new TypedMatcher<>(ScanComparisons.class) {
             @Nonnull
             @Override
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final ScanComparisons in) {

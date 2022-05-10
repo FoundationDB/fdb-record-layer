@@ -84,14 +84,14 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             if ((previousValidResult == null) && (!previousResult.hasNext())) {
                 // Edge case where there are no records at all
                 if (streamGrouping.isResultOnEmpty()) {
-                    return RecordCursorResult.withNextValue(QueryResult.of(streamGrouping.getCompletedGroupResult()), RecordCursorStartContinuation.START);
+                    return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), RecordCursorStartContinuation.START);
                 } else {
                     return RecordCursorResult.exhausted();
                 }
             }
             // Use the last valid result for the continuation as we need non-terminal one here.
             RecordCursorContinuation continuation = previousValidResult.getContinuation();
-            return RecordCursorResult.withNextValue(QueryResult.of(streamGrouping.getCompletedGroupResult()), continuation);
+            return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
         });
     }
 

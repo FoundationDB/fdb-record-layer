@@ -101,7 +101,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
         } else {
             sorted = FileSortCursor.create(adapter, innerCursor, timer, continuation, skip, limit);
         }
-        return sorted.map(QueryResult::of);
+        return sorted.map(QueryResult::fromQueriedRecord);
     }
 
     @Override

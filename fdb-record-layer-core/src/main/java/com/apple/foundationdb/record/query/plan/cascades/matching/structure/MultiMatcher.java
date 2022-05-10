@@ -53,13 +53,6 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
         return downstream;
     }
 
-    /**
-     * Attempt to match this matcher against the given object.
-     *
-     * @param outerBindings preexisting bindings to be used by the matcher
-     * @param in the bindable we attempt to match
-     * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
-     */
     @Nonnull
     @Override
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<T> in) {

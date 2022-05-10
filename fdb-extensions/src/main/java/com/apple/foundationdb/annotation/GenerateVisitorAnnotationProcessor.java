@@ -93,7 +93,7 @@ import java.util.stream.Collectors;
  * default T visitDefault(@Nonnull final ANNOTATED_ROOT_CLASS element);
  * }
  * </p><p>
- * is called. All methods except {@code visit()} itself ust be implemented by the user. Using the annotation processor
+ * is called. All methods except {@code visit()} itself must be implemented by the user. Using the annotation processor
  * makes sure every subclass known to the compiler is represented by its own visitation method and is adequately
  * dispatched to. Due to the encoded dispatching, the original class hierarchy does not need to implement an
  * {@code accept()} method.
@@ -135,7 +135,7 @@ public class GenerateVisitorAnnotationProcessor extends AbstractProcessor {
 
 
         for (final Element annotatedElement : roundEnv.getElementsAnnotatedWith(GenerateVisitor.class)) {
-            if (annotatedElement.getKind().isClass() && !annotatedElement.getKind().isInterface()) {
+            if (!annotatedElement.getKind().isClass() && !annotatedElement.getKind().isInterface()) {
                 error(messager, annotatedElement, "only classes and interfaces can be annotated with %s", GenerateVisitor.class.getSimpleName());
                 return true;
             }
@@ -169,11 +169,6 @@ public class GenerateVisitorAnnotationProcessor extends AbstractProcessor {
                     .filter(mirror -> mirror.getKind() == TypeKind.DECLARED)
                     .filter(mirror -> typeUtils.isSubtype(mirror, rootTypeMirror))
                     .collect(Collectors.toList());
-
-            Objects.requireNonNull(messager)
-                    .printMessage(Diagnostic.Kind.NOTE,
-                            "generating visitor interface for " + annotatedElement.getSimpleName() + "; classes discovered: " +
-                            subClassTypeMirrors.stream().map(mirror -> typeUtils.asElement(mirror).getSimpleName()).collect(Collectors.joining(", ")));
 
             try {
                 generateCode(typeUtils, filer, generateVisitor, packageOfRoot, rootTypeElement, subClassTypeMirrors);
@@ -326,10 +321,7 @@ public class GenerateVisitorAnnotationProcessor extends AbstractProcessor {
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     private boolean isValidClass(final TypeElement annotatedClassElement) {
-        if (!annotatedClassElement.getModifiers().contains(Modifier.PUBLIC)) {
-            return false;
-        }
-        return true;
+        return annotatedClassElement.getModifiers().contains(Modifier.PUBLIC);
     }
 
     private void error(final Messager messager,

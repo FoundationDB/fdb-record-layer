@@ -53,6 +53,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -98,7 +99,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
         final RecordCursor<QueryResult> results = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         return results
-                .filterInstrumented(result -> recordTypes.contains(result.getQueriedRecord().getRecordType().getName()), store.getTimer(),
+                .filterInstrumented(result -> recordTypes.contains(Objects.requireNonNull(result.getRecordType()).getName()), store.getTimer(),
                         inCounts, duringEvents, successCounts, failureCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }

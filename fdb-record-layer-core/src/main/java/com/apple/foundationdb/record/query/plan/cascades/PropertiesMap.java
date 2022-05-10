@@ -43,7 +43,7 @@ import java.util.Set;
  * Class to manage properties for plans.
  */
 public class PropertiesMap {
-    private static final Set<PlanProperty<?>> plannerAttributes =
+    private static final Set<PlanProperty<?>> planProperties =
             ImmutableSet.<PlanProperty<?>>builder()
                     .add(OrderingProperty.ORDERING)
                     .add(DistinctRecordsProperty.DISTINCT_RECORDS)
@@ -51,13 +51,13 @@ public class PropertiesMap {
                     .build();
 
     @Nonnull
-    private final Map<RecordQueryPlan, Map<PlanProperty<?>, ?>> planAttributesMap;
+    private final Map<RecordQueryPlan, Map<PlanProperty<?>, ?>> planPropertiesMap;
 
     @Nonnull
     private final SetMultimap<Map<PlanProperty<?>, ?>, RecordQueryPlan> attributeGroupedPlansMap;
 
     public PropertiesMap(@Nonnull Collection<? extends RelationalExpression> relationalExpressions) {
-        this.planAttributesMap = new LinkedIdentityMap<>();
+        this.planPropertiesMap = new LinkedIdentityMap<>();
         this.attributeGroupedPlansMap = Multimaps.newSetMultimap(Maps.newLinkedHashMap(), LinkedIdentitySet::new);
         relationalExpressions
                 .stream()
@@ -66,37 +66,41 @@ public class PropertiesMap {
     }
 
     public boolean insert(@Nonnull final RelationalExpression relationalExpression) {
-        if (!(relationalExpression instanceof RecordQueryPlan) || planAttributesMap.containsKey(relationalExpression)) {
+        if (!(relationalExpression instanceof RecordQueryPlan) || planPropertiesMap.containsKey(relationalExpression)) {
             return false;
         }
 
         final var recordQueryPlan = (RecordQueryPlan)relationalExpression;
         final var attributeMapBuilder = ImmutableMap.<PlanProperty<?>, Object>builder();
 
-        for (final var plannerAttribute : plannerAttributes) {
-            final var attributeVisitor = plannerAttribute.createVisitor();
-            final var attribute = attributeVisitor.visit(recordQueryPlan);
-
-            attributeMapBuilder.put(plannerAttribute, attribute);
+        for (final var planProperty : planProperties) {
+            attributeMapBuilder.put(planProperty, computePropertyValue(planProperty, recordQueryPlan));
         }
 
         final var attributeForPlanMap = attributeMapBuilder.build();
 
-        planAttributesMap.put(recordQueryPlan, attributeForPlanMap);
+        planPropertiesMap.put(recordQueryPlan, attributeForPlanMap);
         attributeGroupedPlansMap.put(attributeForPlanMap, recordQueryPlan);
 
         return true;
     }
 
+    @Nonnull
+    private <P> P computePropertyValue(@Nonnull final PlanProperty<P> planProperty,
+                                       @Nonnull final RecordQueryPlan recordQueryPlan) {
+        final var propertyVisitor = planProperty.createVisitor();
+        return propertyVisitor.visit(recordQueryPlan);
+    }
+
     public void clear() {
-        planAttributesMap.clear();
+        planPropertiesMap.clear();
         attributeGroupedPlansMap.clear();
     }
 
     @Nonnull
-    public <A> Map<RecordQueryPlan, A> getPlannerAttributeForAllPlans(@Nonnull final PlanProperty<A> planProperty) {
-        final var resultMap = new LinkedIdentityMap<RecordQueryPlan, A>();
-        for (final var entry : planAttributesMap.entrySet()) {
+    public <P> Map<RecordQueryPlan, P> getPlannerAttributeForAllPlans(@Nonnull final PlanProperty<P> planProperty) {
+        final var resultMap = new LinkedIdentityMap<RecordQueryPlan, P>();
+        for (final var entry : planPropertiesMap.entrySet()) {
             resultMap.put(entry.getKey(), planProperty.narrowAttribute(entry.getValue().get(planProperty)));
         }
 
@@ -112,6 +116,6 @@ public class PropertiesMap {
     @Nonnull
     public static Set<PlanProperty<?>> allAttributesExcept(final PlanProperty<?>... exceptAttributes) {
         final var exceptAttributesSet = ImmutableSet.copyOf(Arrays.asList(exceptAttributes));
-        return ImmutableSet.copyOf(Sets.difference(plannerAttributes, exceptAttributesSet));
+        return ImmutableSet.copyOf(Sets.difference(planProperties, exceptAttributesSet));
     }
 }

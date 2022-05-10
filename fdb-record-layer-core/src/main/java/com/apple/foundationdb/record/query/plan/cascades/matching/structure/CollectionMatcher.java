@@ -27,7 +27,7 @@ import java.util.Collection;
 import java.util.stream.Stream;
 
 /**
- * Tag interface used for overloads for matchers.
+ * Tag interface used for overloads for matchers that bind to collections of values/objects.
  * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)

@@ -159,36 +159,31 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
         return false;
     }
 
-    static ComparisonKeyFunction.OnValue comparisonKeyValueFunction(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Value comparisonKeyValue) {
-        return new ComparisonKeyFunction.OnValue(comparisonKeyValue) {
-            @Override
-            public <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
-                return queryResult -> {
-                    final var nestedContext = evaluationContext.withBinding(baseAlias, queryResult);
-                    return Lists.newArrayList(comparisonKeyValue.eval(store, nestedContext));
-                };
-            }
-        };
-    }
-
     /**
      * A comparison key function that extracts a comparison key for binary comparison by some set operations which
      * also provides a stable plan hash and hash code.
      */
     interface ComparisonKeyFunction extends PlanHashable {
 
+        @Nonnull
         <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext evaluationContext);
 
         /**
          * Class to encapsulate the functionality of extracting a comparison key from a {@link QueryResult} while
          * also providing comparability and the ability to compute a stable plan hash.
          */
-        abstract class OnKeyExpression implements ComparisonKeyFunction {
+        class OnKeyExpression implements ComparisonKeyFunction {
             @Nonnull
             private final KeyExpression comparisonKeyExpression;
 
             protected OnKeyExpression(@Nonnull final KeyExpression comparisonKeyExpression) {
                 this.comparisonKeyExpression = comparisonKeyExpression;
+            }
+
+            @Nonnull
+            @Override
+            public final <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
+                return queryResult -> comparisonKeyExpression.evaluateMessageSingleton(null, queryResult.getMessage()).toTupleAppropriateList();
             }
 
             @Nonnull
@@ -234,17 +229,30 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
          * Class to encapsulate the functionality of extracting a comparison key from a {@link QueryResult} while
          * also providing comparability and the ability to compute a stable plan hash.
          */
-        abstract class OnValue implements ComparisonKeyFunction {
+        class OnValue implements ComparisonKeyFunction {
+            @Nonnull
+            private final CorrelationIdentifier baseAlias;
             @Nonnull
             private final Value comparisonKeyValue;
 
-            protected OnValue(@Nonnull final Value comparisonKeyValue) {
+            protected OnValue(@Nonnull final CorrelationIdentifier baseAlias,
+                              @Nonnull final Value comparisonKeyValue) {
+                this.baseAlias = baseAlias;
                 this.comparisonKeyValue = comparisonKeyValue;
             }
 
             @Nonnull
             public Value getComparisonKeyValue() {
                 return comparisonKeyValue;
+            }
+
+            @Nonnull
+            @Override
+            public final <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
+                return queryResult -> {
+                    final var nestedContext = evaluationContext.withBinding(baseAlias, queryResult);
+                    return Lists.newArrayList(comparisonKeyValue.eval(store, nestedContext));
+                };
             }
 
             @Override

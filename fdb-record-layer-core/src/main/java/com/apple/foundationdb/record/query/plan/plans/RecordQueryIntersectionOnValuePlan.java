@@ -1,5 +1,5 @@
 /*
- * RecordQueryUnionOnKeyExpressionPlan.java
+ * RecordQueryIntersectionOnValuePlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -38,24 +38,19 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Union plan that compares using a {@link Value}.
+ * Intersection plan that compares using a {@link Value}.
  */
+@SuppressWarnings("java:S2160")
 public class RecordQueryIntersectionOnValuePlan extends RecordQueryIntersectionPlan {
     @Nonnull
     private final CorrelationIdentifier baseAlias;
 
-    public RecordQueryIntersectionOnValuePlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                              @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
-                                              final boolean reverse) {
-        this(quantifiers, CorrelationIdentifier.uniqueID(), comparisonKeyValueFunction, reverse);
-    }
-
     private RecordQueryIntersectionOnValuePlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                                @Nonnull final CorrelationIdentifier baseAlias,
-                                               @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
+                                               @Nonnull final Value comparisonKeyValue,
                                                final boolean reverse) {
         super(quantifiers,
-                RecordQuerySetPlan.comparisonKeyValueFunction(baseAlias, comparisonKeyValueFunction.apply(baseAlias)),
+                new ComparisonKeyFunction.OnValue(baseAlias, comparisonKeyValue),
                 reverse);
         this.baseAlias = baseAlias;
     }
@@ -83,7 +78,7 @@ public class RecordQueryIntersectionOnValuePlan extends RecordQueryIntersectionP
                                                                            @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryIntersectionOnValuePlan(Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
                 baseAlias,
-                alias -> getComparisonKeyValue(),
+                getComparisonKeyValue(),
                 isReverse());
     }
 
@@ -95,7 +90,7 @@ public class RecordQueryIntersectionOnValuePlan extends RecordQueryIntersectionP
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList()),
                 baseAlias,
-                alias -> getComparisonKeyValue(),
+                getComparisonKeyValue(),
                 isReverse());
     }
 
@@ -105,6 +100,17 @@ public class RecordQueryIntersectionOnValuePlan extends RecordQueryIntersectionP
                 Quantifiers.fromPlans(getChildren()
                         .stream()
                         .map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList()));
-        return new RecordQueryIntersectionOnValuePlan(quantifiers, baseAlias, alias -> getComparisonKeyValue(), reverse);
+        return new RecordQueryIntersectionOnValuePlan(quantifiers, baseAlias, getComparisonKeyValue(), reverse);
+    }
+
+    @Nonnull
+    public static RecordQueryIntersectionOnValuePlan intersection(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                                                  @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
+                                                                  final boolean reverse) {
+        final var baseAlias = CorrelationIdentifier.uniqueID();
+        return new RecordQueryIntersectionOnValuePlan(quantifiers,
+                baseAlias,
+                comparisonKeyValueFunction.apply(baseAlias),
+                reverse);
     }
 }

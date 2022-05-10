@@ -20,20 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * Union plan that compares using a {@link KeyExpression}.
@@ -46,12 +42,7 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
                                                  final int maxNumberOfValuesAllowed) {
         super(inner,
                 inSources,
-                new ComparisonKeyFunction.OnKeyExpression(comparisonKeyExpression) {
-                    @Override
-                    public <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
-                        return queryResult -> comparisonKeyExpression.evaluateSingleton(queryResult.getQueriedRecord()).toTupleAppropriateList();
-                    }
-                },
+                new ComparisonKeyFunction.OnKeyExpression(comparisonKeyExpression),
                 reverse,
                 maxNumberOfValuesAllowed);
     }

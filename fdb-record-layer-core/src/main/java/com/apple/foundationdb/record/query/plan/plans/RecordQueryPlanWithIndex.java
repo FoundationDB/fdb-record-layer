@@ -81,7 +81,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
         final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
         return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
                 .map(store::queriedRecord)
-                .map(QueryResult::of);
+                .map(QueryResult::fromQueriedRecord);
     }
 
     /**

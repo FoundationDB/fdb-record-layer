@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +42,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -98,7 +101,6 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * key.
      *
      * @param <M> the type of the Protobuf record elements of the cursor
-     * @param <S> the type of record wrapping a record of type <code>M</code>
      * @param store record store from which records will be fetched
      * @param comparisonKey the key expression used to compare records from different cursors
      * @param cursorFunctions a list of functions to produce {@link RecordCursor}s from a continuation
@@ -113,17 +115,17 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @see #create(Function, List, byte[], FDBStoreTimer, int, boolean, Supplier, Supplier)
      */
     @Nonnull
-    public static <M extends Message, S extends FDBRecord<M>> ComparatorCursor<S> create(
+    public static <M extends Message> ComparatorCursor<QueryResult> create(
             @Nonnull FDBRecordStoreBase<M> store,
             @Nonnull KeyExpression comparisonKey,
-            @Nonnull List<Function<byte[], RecordCursor<S>>> cursorFunctions,
+            @Nonnull List<Function<byte[], RecordCursor<QueryResult>>> cursorFunctions,
             @Nullable byte[] continuation,
             final int referencePlanIndex,
             final boolean abortOnComparisonFailure,
             @Nonnull final Supplier<String> planStringSupplier,
             @Nonnull final Supplier<Integer> planHashSupplier) {
         return create(
-                (S rec) -> evaluateKey(comparisonKey, rec),
+                queryResult -> ComparatorCursor.evaluateKey(comparisonKey, queryResult.getMessage()),
                 cursorFunctions, continuation, store.getTimer(),
                 referencePlanIndex, abortOnComparisonFailure,
                 planStringSupplier, planHashSupplier);
@@ -201,7 +203,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     @Override
     @Nonnull
     protected T getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
-        return getReferenceState(cursorStates).getResult().get();
+        return Objects.requireNonNull(Objects.requireNonNull(getReferenceState(cursorStates).getResult()).get());
     }
 
     /**
@@ -221,18 +223,18 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
         // Wait for all cursors to have a valid state
         return whenAll(cursorStates).thenApply(vignore -> {
             // if all cursors have a value, compare and continue
-            if (cursorStates.stream().allMatch(cursorState -> hasNext(cursorState))) {
+            if (cursorStates.stream().allMatch(this::hasNext)) {
                 compareAllStates(cursorStates);
                 // Regardless of comparison result, return all states (comparison logged results)
                 return cursorStates;
             }
             // some cursors have no next value. If any has out-of-band state - give them a chance to catch up
-            if (cursorStates.stream().anyMatch(cursorState -> isOutOfBand(cursorState))) {
+            if (cursorStates.stream().anyMatch(this::isOutOfBand)) {
                 return Collections.emptyList();
             }
             // all cursors are either exhausted or reached in-band limit
             // if all are exhausted, we are done
-            long exhaustedCount = cursorStates.stream().filter(cursorState -> isSourceExhausted(cursorState)).count();
+            long exhaustedCount = cursorStates.stream().filter(this::isSourceExhausted).count();
             if (exhaustedCount == cursorStates.size()) {
                 // Success
                 return Collections.emptyList();
@@ -286,15 +288,14 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * yet have the ability to compare multiple keys for equality.
      *
      * @param comparisonKey the key to apply to the record
-     * @param rec the record in question
+     * @param message the message
      * @param <M> the type of encoding for the record
-     * @param <S> the type of record
      *
      * @return the result of applying the key to the record, for the purpose of comparison to other records
      */
     @Nonnull
-    private static <M extends Message, S extends FDBRecord<M>> List<Object> evaluateKey(final @Nonnull KeyExpression comparisonKey, final S rec) {
-        final List<Key.Evaluated> keys = comparisonKey.evaluate(rec);
+    private static <M extends Message> List<Object> evaluateKey(final @Nonnull KeyExpression comparisonKey, final M message) {
+        final List<Key.Evaluated> keys = comparisonKey.evaluateMessage(null, message);
         if (keys.size() != 1) {
             return Collections.singletonList(new Unequal());
         } else {
@@ -302,7 +303,8 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
         }
     }
 
-    private boolean compareAllStates(final List<KeyedMergeCursorState<T>> cursorStates) {
+    @CanIgnoreReturnValue
+    private boolean compareAllStates(@Nonnull final List<KeyedMergeCursorState<T>> cursorStates) {
         final long startTime = System.nanoTime();
 
         List<Object> referenceKey = getReferenceState(cursorStates).getComparisonKey();
@@ -337,7 +339,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
         if (hasNext(cursorState)) {
             return false;
         } else {
-            return cursorState.getResult().getNoNextReason().isSourceExhausted();
+            return Objects.requireNonNull(cursorState.getResult()).getNoNextReason().isSourceExhausted();
         }
     }
 
@@ -345,7 +347,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
         if (hasNext(cursorState)) {
             return false;
         } else {
-            return cursorState.getResult().getNoNextReason().isOutOfBand();
+            return Objects.requireNonNull(cursorState.getResult()).getNoNextReason().isOutOfBand();
         }
     }
 
@@ -368,7 +370,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
                         LogMessageKeys.ACTUAL, actualKey,
                         LogMessageKeys.PLAN_HASH, planHashSupplier.get(),
                         LogMessageKeys.PLAN, planStringSupplier.get());
-                logger.error(message.toString());
+                logger.error("comparison failure: {}", message);
             }
         }
     }
@@ -383,7 +385,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
                         LogMessageKeys.EXPECTED, isSourceExhausted(referenceCursorState),
                         LogMessageKeys.PLAN_HASH, planHashSupplier.get(),
                         LogMessageKeys.PLAN, planStringSupplier.get());
-                logger.error(message.toString());
+                logger.error("comparison failure: {}", message);
             }
         }
     }

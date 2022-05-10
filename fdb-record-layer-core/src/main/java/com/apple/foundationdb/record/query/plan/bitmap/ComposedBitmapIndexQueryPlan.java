@@ -99,7 +99,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
                 // Composers can return null bitmaps when empty, which is then left out of the result set.
                 .filter(indexEntry -> indexEntry.getValue().get(0) != null)
                 .map(indexPlans.get(0).indexEntryToQueriedRecord(store))
-                .map(QueryResult::of);
+                .map(QueryResult::fromQueriedRecord);
     }
 
     @Override

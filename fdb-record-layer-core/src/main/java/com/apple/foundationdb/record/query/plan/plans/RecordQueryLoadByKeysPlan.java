@@ -95,7 +95,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
                 .filter(Objects::nonNull)
                 .map(store::queriedRecord)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(QueryResult::of);
+                .map(QueryResult::fromQueriedRecord);
     }
 
     @Override

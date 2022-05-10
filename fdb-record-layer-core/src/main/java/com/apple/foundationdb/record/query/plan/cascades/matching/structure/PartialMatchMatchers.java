@@ -39,7 +39,7 @@ public class PartialMatchMatchers {
      */
     @Nonnull
     public static BindingMatcher<PartialMatch> completeMatch() {
-        return new TypedMatcher<PartialMatch>(PartialMatch.class) {
+        return new TypedMatcher<>(PartialMatch.class) {
             @Nonnull
             @Override
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
@@ -61,7 +61,7 @@ public class PartialMatchMatchers {
      */
     @Nonnull
     public static BindingMatcher<PartialMatch> incompleteMatch() {
-        return new TypedMatcher<PartialMatch>(PartialMatch.class) {
+        return new TypedMatcher<>(PartialMatch.class) {
             @Nonnull
             @Override
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {

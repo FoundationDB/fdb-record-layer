@@ -87,14 +87,6 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
         this.maxNumberOfValuesAllowed = maxNumberOfValuesAllowed;
     }
 
-    private RecordQueryInUnionPlan(@Nonnull final RecordQueryPlan inner,
-                                   @Nonnull final List<? extends InSource> inSources,
-                                   @Nonnull final ComparisonKeyFunction comparisonKeyFunction,
-                                   final boolean reverse,
-                                   final int maxNumberOfValuesAllowed) {
-        this(Quantifier.physical(GroupExpressionRef.of(inner)), inSources, comparisonKeyFunction, reverse, maxNumberOfValuesAllowed);
-    }
-
     @Nonnull
     public ComparisonKeyFunction getComparisonKeyFunction() {
         return comparisonKeyFunction;

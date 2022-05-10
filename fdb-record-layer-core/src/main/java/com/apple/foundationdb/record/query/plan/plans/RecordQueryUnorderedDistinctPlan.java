@@ -96,7 +96,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final Set<Key.Evaluated> seen = new HashSet<>();
         return getInner().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
-                .filterInstrumented(result -> seen.add(getComparisonKey().evaluateSingleton(result.getQueriedRecord())),
+                .filterInstrumented(result -> seen.add(getComparisonKey().evaluateMessageSingleton(null, result.getMessage())),
                         store.getTimer(), Collections.emptySet(), duringEvents, uniqueCounts, duplicateCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }

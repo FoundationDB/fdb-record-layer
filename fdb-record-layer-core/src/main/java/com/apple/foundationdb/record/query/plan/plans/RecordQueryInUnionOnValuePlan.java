@@ -37,33 +37,22 @@ import java.util.function.Function;
 /**
  * Union plan that compares using a {@link Value}.
  */
+@SuppressWarnings("java:S2160")
 public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
     @Nonnull
     private final CorrelationIdentifier baseAlias;
 
-    public RecordQueryInUnionOnValuePlan(@Nonnull final Quantifier.Physical inner,
-                                         @Nonnull final List<? extends InSource> inSources,
-                                         @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
-                                         final boolean reverse,
-                                         final int maxNumberOfValuesAllowed) {
-        this(inner,
-                inSources,
-                CorrelationIdentifier.uniqueID(),
-                comparisonKeyValueFunction,
-                reverse,
-                maxNumberOfValuesAllowed);
-    }
-
     private RecordQueryInUnionOnValuePlan(@Nonnull final Quantifier.Physical inner,
                                           @Nonnull final List<? extends InSource> inSources,
                                           @Nonnull final CorrelationIdentifier baseAlias,
-                                          @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
+                                          @Nonnull final Value comparisonKeyValue,
                                           final boolean reverse,
                                           final int maxNumberOfValuesAllowed) {
         super(inner,
                 inSources,
-                RecordQuerySetPlan.comparisonKeyValueFunction(baseAlias,
-                        comparisonKeyValueFunction.apply(baseAlias)), reverse, maxNumberOfValuesAllowed);
+                new ComparisonKeyFunction.OnValue(baseAlias, comparisonKeyValue),
+                reverse,
+                maxNumberOfValuesAllowed);
         this.baseAlias = baseAlias;
     }
 
@@ -91,7 +80,7 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
         return new RecordQueryInUnionOnValuePlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
                 getInSources(),
                 baseAlias,
-                alias -> getComparisonKeyValue(),
+                getComparisonKeyValue(),
                 reverse,
                 maxNumberOfValuesAllowed);
     }
@@ -102,7 +91,22 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
         return new RecordQueryInUnionOnValuePlan(Quantifier.physical(GroupExpressionRef.of(child)),
                 getInSources(),
                 baseAlias,
-                alias -> getComparisonKeyValue(),
+                getComparisonKeyValue(),
+                reverse,
+                maxNumberOfValuesAllowed);
+    }
+
+    @Nonnull
+    public static RecordQueryInUnionOnValuePlan inUnion(@Nonnull final Quantifier.Physical inner,
+                                                        @Nonnull final List<? extends InSource> inSources,
+                                                        @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
+                                                        final boolean reverse,
+                                                        final int maxNumberOfValuesAllowed) {
+        final var baseAlias = CorrelationIdentifier.uniqueID();
+        return new RecordQueryInUnionOnValuePlan(inner,
+                inSources,
+                CorrelationIdentifier.uniqueID(),
+                comparisonKeyValueFunction.apply(baseAlias),
                 reverse,
                 maxNumberOfValuesAllowed);
     }
