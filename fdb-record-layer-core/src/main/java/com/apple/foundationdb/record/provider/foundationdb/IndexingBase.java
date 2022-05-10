@@ -775,7 +775,7 @@ public abstract class IndexingBase {
         return common.runAsync(
                 (context, startingLimit) -> {
                     common.loadConfig();
-                    int limit = Math.max(startingLimit, common.config.getMaxLimit());
+                    int limit = Math.min(startingLimit, common.config.getMaxLimit());
                     AtomicBoolean hasMoreForHook = new AtomicBoolean(true);
                     AtomicLong recordsScanned = new AtomicLong(0);
                     context.addPostCommit(() -> {

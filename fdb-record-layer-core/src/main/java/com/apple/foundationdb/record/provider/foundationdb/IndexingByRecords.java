@@ -393,7 +393,7 @@ public class IndexingByRecords extends IndexingBase {
                         return AsyncUtil.READY_FALSE; // We're done.
                     }
                     common.loadConfig();
-                    int limit = Math.max(startingLimit, common.config.getMaxLimit());
+                    int limit = Math.min(startingLimit, common.config.getMaxLimit());
                     Range toBuild = rangeDeque.peek();
 
                     // This only works if the things included within the rangeSet are serialized Tuples.
