@@ -203,7 +203,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     @Nonnull
     @Override
     public MatchableSortExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                         @Nonnull final List<Quantifier> translatedQuantifiers) {
+                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new MatchableSortExpression(getSortParameterIds(),
                 isReverse(),
                 Iterables.getOnlyElement(translatedQuantifiers));

@@ -140,7 +140,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Nonnull
     @Override
-    public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         List<QueryPredicate> translatedPredicates = predicates.stream().map(p -> p.translateCorrelations(translationMap)).collect(Collectors.toList());
         final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
         return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates);

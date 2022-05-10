@@ -91,7 +91,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    public RecordQueryExplodePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public RecordQueryExplodePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap);
         if (translatedCollectionValue != collectionValue) {
             return new RecordQueryExplodePlan(translatedCollectionValue);

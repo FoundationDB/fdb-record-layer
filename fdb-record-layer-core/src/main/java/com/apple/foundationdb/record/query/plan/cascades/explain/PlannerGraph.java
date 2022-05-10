@@ -20,16 +20,19 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.graph.Network;
 
 import javax.annotation.Nonnull;
@@ -48,16 +51,61 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
 
     public static PlannerGraph fromNodeAndChildGraphs(@Nonnull final Node node,
                                                       @Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final List<? extends Quantifier> quantifiers = tryGetQuantifiers(node);
+        if (quantifiers.isEmpty() || quantifiers.size() != childGraphs.size()) {
+            return fromNodeAndChildGraphsWithoutQuantifiers(node, childGraphs);
+        }
+
+        final List<? extends Quantifier> sortedQuantifiers = Quantifiers.anyTopologicalOrderPermutation(quantifiers);
+
+        final InternalPlannerGraphBuilder plannerGraphBuilder =
+                builder(node);
+
+        final Map<CorrelationIdentifier, Edge> aliasToEdgeMap = Maps.newHashMap();
+        for (final Quantifier quantifier : sortedQuantifiers) {
+            final int index = quantifiers.indexOf(quantifier); // not great, not terrible
+
+            final Set<? extends AbstractEdge> dependsOn =
+                    quantifier.getCorrelatedTo()
+                            .stream()
+                            .filter(aliasToEdgeMap::containsKey)
+                            .map(aliasToEdgeMap::get)
+                            .collect(ImmutableSet.toImmutableSet());
+
+            final PlannerGraph childGraph = childGraphs.get(index);
+            @Nullable final String label =
+                    Debugger.mapDebugger(debugger -> quantifier.getAlias().getId()).orElse(null);
+
+            final GroupExpressionRefEdge edge;
+            if (quantifier instanceof Quantifier.Existential) {
+                edge = new ExistentialQuantifierEdge(label, dependsOn);
+            } else if (quantifier instanceof Quantifier.ForEach) {
+                edge = new ForEachQuantifierEdge(label, dependsOn);
+            } else if (quantifier instanceof Quantifier.Physical) {
+                edge = new PhysicalQuantifierEdge(label, dependsOn);
+            } else {
+                edge = new GroupExpressionRefEdge(label, dependsOn);
+            }
+
+            plannerGraphBuilder
+                    .addGraph(childGraph)
+                    .addEdge(childGraph.getRoot(), plannerGraphBuilder.getRoot(), edge);
+
+            aliasToEdgeMap.put(quantifier.getAlias(), edge);
+        }
+
+        return plannerGraphBuilder.build();
+    }
+
+    public static PlannerGraph fromNodeAndChildGraphsWithoutQuantifiers(@Nonnull final Node node,
+                                                                        @Nonnull final List<? extends PlannerGraph> childGraphs) {
         final InternalPlannerGraphBuilder plannerGraphBuilder =
                 builder(node);
 
         // Traverse results from children and create graph edges. Hand in the directly preceding edge
         // in the dependsOn set. That in turn causes the dot exporter to render the graph left to right which
         // is important for join order, among other things.
-        final List<? extends Quantifier> quantifiers = tryGetQuantifiers(node);
-
         Edge previousEdge = null;
-        int i = 0;
         for (final PlannerGraph childGraph : childGraphs) {
             final GroupExpressionRefEdge edge;
             final Set<? extends AbstractEdge> dependsOn =
@@ -65,29 +113,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     ? ImmutableSet.of()
                     : ImmutableSet.of(previousEdge);
 
-            if (i < quantifiers.size()) {
-                @Nullable final String label;
-                final Quantifier quantifier = quantifiers.get(i);
-                label = Debugger.mapDebugger(debugger -> quantifier.getAlias().getId()).orElse(null);
-
-                if (quantifier instanceof Quantifier.Existential) {
-                    edge = new ExistentialQuantifierEdge(label, dependsOn);
-                } else if (quantifier instanceof Quantifier.ForEach) {
-                    edge = new ForEachQuantifierEdge(label, dependsOn);
-                } else if (quantifier instanceof Quantifier.Physical) {
-                    edge = new PhysicalQuantifierEdge(label, dependsOn);
-                } else {
-                    edge = new GroupExpressionRefEdge(label, dependsOn);
-                }
-            } else {
-                edge = new GroupExpressionRefEdge(null, dependsOn);
-            }
+            edge = new GroupExpressionRefEdge(null, dependsOn);
 
             plannerGraphBuilder
                     .addGraph(childGraph)
                     .addEdge(childGraph.getRoot(), plannerGraphBuilder.getRoot(), edge);
             previousEdge = edge;
-            i += 1;
         }
         return plannerGraphBuilder.build();
     }

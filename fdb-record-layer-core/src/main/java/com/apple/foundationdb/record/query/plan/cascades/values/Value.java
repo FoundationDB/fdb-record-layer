@@ -262,6 +262,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 final var sourceAlias = Iterables.getOnlyElement(correlatedTo);
                 if (translationMap.containsSourceAlias(sourceAlias)) {
                     return translationMap.applyTranslationFunction(sourceAlias, leafValue);
+                }  else {
+                    return leafValue;
                 }
             }
             throw new RecordCoreException("leaf value does not implement LeafValue");

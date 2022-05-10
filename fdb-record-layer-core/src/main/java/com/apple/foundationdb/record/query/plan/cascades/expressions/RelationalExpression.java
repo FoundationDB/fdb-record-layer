@@ -731,16 +731,17 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     @Override
     default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
-        final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
-        final var rebasedQuantifiers = getQuantifiers()
-                .stream()
-                .map(quantifier -> quantifier.rebase(aliasMap))
-                .collect(ImmutableList.toImmutableList());
-        return translateCorrelations(translationMap, rebasedQuantifiers);
+        if (getCorrelatedTo().stream().anyMatch(aliasMap::containsSource)) {
+            final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
+            final var newQuantifiers =  Quantifiers.translateCorrelations(getQuantifiers(), translationMap);
+            return translateCorrelations(translationMap, newQuantifiers);
+        } else {
+            return this;
+        }
     }
 
     @Nonnull
-    RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers);
+    RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers);
 
     /**
      * Compute the semantic hash code of this expression. The logic computing the hash code is agnostic to the order

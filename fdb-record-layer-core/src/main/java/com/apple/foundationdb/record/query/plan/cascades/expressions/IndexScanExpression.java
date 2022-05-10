@@ -121,7 +121,7 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
 
     @Nonnull
     @Override
-    public IndexScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public IndexScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         // TODO this may or may not need to be translated depending on the correlations this expression is correlated
         //      to.
         return this;

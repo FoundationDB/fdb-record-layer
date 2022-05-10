@@ -189,7 +189,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     @Override
     public ComposedBitmapIndexQueryPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                              @Nonnull final List<Quantifier> translatedQuantifiers) {
+                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedIndexPlansBuilder = ImmutableList.<RecordQueryCoveringIndexPlan>builder();
         boolean allAreSame = true;
         for (final var indexPlan : indexPlans) {

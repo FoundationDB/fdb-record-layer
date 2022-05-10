@@ -94,7 +94,7 @@ public class FieldValue implements ValueWithChild {
     @Nonnull
     @Override
     public FieldValue withNewChild(@Nonnull final Value child) {
-        return new FieldValue((QuantifiedValue)child, fieldPath);
+        return new FieldValue(child, fieldPath);
     }
 
     @Override

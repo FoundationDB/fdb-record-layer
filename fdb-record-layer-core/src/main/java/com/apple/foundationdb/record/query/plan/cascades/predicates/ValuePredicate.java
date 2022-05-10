@@ -90,13 +90,18 @@ public class ValuePredicate implements PredicateWithValue {
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        final var rebasedValue = value.translateCorrelations(translationMap);
-        final var aliasMap = translationMap.getAliasMapMaybe()
-                .orElseThrow(() -> new RecordCoreException("unsupported translate of a comparison"));
+        final var translatedValue = value.translateCorrelations(translationMap);
+        final Comparison newComparison;
+        if (comparison.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
+            final var aliasMap = translationMap.getAliasMapMaybe()
+                    .orElseThrow(() -> new RecordCoreException("unsupported translate of a comparison"));
 
-        final var rebasedComparison = comparison.rebase(aliasMap);
-        if (value != rebasedValue || rebasedComparison != comparison) { // reference comparison intended
-            return new ValuePredicate(rebasedValue, rebasedComparison);
+            newComparison = comparison.rebase(aliasMap);
+        } else {
+            newComparison = comparison;
+        }
+        if (value != translatedValue || newComparison != comparison) { // reference comparison intended
+            return new ValuePredicate(translatedValue, newComparison);
         }
         return this;
     }

@@ -120,7 +120,7 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     @Nonnull
     @Override
     public RecordQueryUnorderedUnionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                               @Nonnull final List<Quantifier> translatedQuantifiers) {
+                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnorderedUnionPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 isReverse());
     }

@@ -98,7 +98,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     @Nonnull
     @Override
     public LogicalSortExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                       @Nonnull final List<Quantifier> translatedQuantifiers) {
+                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalSortExpression(getSort(),
                 isReverse(),
                 Iterables.getOnlyElement(translatedQuantifiers));

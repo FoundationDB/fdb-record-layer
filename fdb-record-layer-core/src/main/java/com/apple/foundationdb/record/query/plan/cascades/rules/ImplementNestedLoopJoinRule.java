@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -116,7 +117,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
 
         if (outerQuantifier instanceof Quantifier.Existential &&
                 innerQuantifier instanceof Quantifier.Existential) {
-            return;
+            // return;
         }
 
         final var outerAlias = outerQuantifier.getAlias();
@@ -236,16 +237,6 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                         .build(GroupExpressionRef.of(
                                 new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, joinedResultValue)));
 
-        final var newQuantifiers =
-                ImmutableList.<Quantifier>builder()
-                        .addAll(() -> selectExpression.getQuantifiers()
-                                .stream()
-                                .filter(quantifier -> quantifier != innerQuantifier && quantifier != outerQuantifier)
-                                .map(quantifier -> (Quantifier)quantifier)
-                                .iterator())
-                        .add(joinedQuantifier)
-                        .build();
-
         //
         // Translate all the references to inner and outer to the joined alias
         //
@@ -255,6 +246,21 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                                 replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), outerFieldName, leafValue))
                         .when(innerAlias).then(joinedAlias, (sourceAlias, targetAlias, leafValue) ->
                                 replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), innerFieldName, leafValue))
+                        .build();
+
+        final var remainingQuantifiers =
+                selectExpression.getQuantifiers()
+                        .stream()
+                        .filter(quantifier -> quantifier != innerQuantifier && quantifier != outerQuantifier)
+                        .map(quantifier -> (Quantifier)quantifier)
+                        .collect(ImmutableList.toImmutableList());
+
+        final var translatedQuantifiers = Quantifiers.translateCorrelations(remainingQuantifiers, translationMap);
+
+        final var newQuantifiers =
+                ImmutableList.<Quantifier>builder()
+                        .addAll(translatedQuantifiers)
+                        .add(joinedQuantifier)
                         .build();
 
         final var newPredicates =
@@ -267,7 +273,9 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         final var newResultValue =
                 resultValue.translateCorrelations(translationMap);
 
-        call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates)));
+        final var of = GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates));
+        of.show(true);
+        call.yield(of);
     }
 
     @Nonnull

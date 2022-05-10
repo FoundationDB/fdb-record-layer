@@ -75,7 +75,7 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
 
     @Nonnull
     @Override
-    public RecordQueryInUnionOnValuePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public RecordQueryInUnionOnValuePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInUnionOnValuePlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getInSources(),
                 baseAlias,

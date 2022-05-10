@@ -24,12 +24,15 @@ import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * This property establishes a partial order over the expressions contained in a subgraph.
@@ -55,11 +58,12 @@ public class ReferencesAndDependenciesProperty implements ExpressionProperty<Par
         final var dependencyMapBuilder = ImmutableSetMultimap.<ExpressionRef<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>>builder();
 
         setBuilder.addAll(membersSet);
+        setBuilder.add(ref);
         dependencyMapBuilder.putAll(membersDependencyMap.entries());
 
         for (final var member : ref.getMembers()) {
             for (final var quantifier : member.getQuantifiers()) {
-                dependencyMapBuilder.put(quantifier.getRangesOver(), ref);
+                dependencyMapBuilder.put(ref, quantifier.getRangesOver());
             }
         }
 
@@ -83,6 +87,16 @@ public class ReferencesAndDependenciesProperty implements ExpressionProperty<Par
     public static PartialOrder<ExpressionRef<? extends RelationalExpression>> evaluate(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         @Nullable final var nullableResult =
                 ref.acceptPropertyVisitor(new ReferencesAndDependenciesProperty());
-        return nullableResult == null ? PartialOrder.empty() : nullableResult;
+        return Objects.requireNonNull(nullableResult);
+    }
+
+    @Nonnull
+    public static PartialOrder<ExpressionRef<? extends RelationalExpression>> evaluate(@Nonnull Iterable<? extends ExpressionRef<? extends RelationalExpression>> refs) {
+        final var property = new ReferencesAndDependenciesProperty();
+        final var refResults = Streams.stream(refs)
+                .map(ref -> Objects.requireNonNull(ref.acceptPropertyVisitor(property)))
+                .collect(ImmutableList.toImmutableList());
+
+        return property.mergePartialOrders(refResults);
     }
 }

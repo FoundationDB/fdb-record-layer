@@ -220,7 +220,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Nonnull
     @Override
     public RecordQueryScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                     @Nonnull final List<Quantifier> translatedQuantifiers) {
+                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         // TODO make return this dependent on whether the index scan is correlated according to the translation map
         return this;
     }

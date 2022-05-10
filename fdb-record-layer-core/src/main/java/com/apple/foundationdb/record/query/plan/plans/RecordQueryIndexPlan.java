@@ -309,15 +309,10 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public RecordQueryIndexPlan rebase(@Nonnull final AliasMap translationMap) {
-        return new RecordQueryIndexPlan(getIndexName(),
-                getCommonPrimaryKey(),
-                getScanParameters(),
-                getIndexFetchMethod(),
-                isReverse(),
-                isStrictlySorted(),
-                matchCandidateOptional,
-                resultType);
+    public RecordQueryIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        // TODO make return this dependent on whether the index scan is correlated according to the translation map
+        return this;
     }
 
     @Nonnull

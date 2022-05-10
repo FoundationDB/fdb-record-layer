@@ -117,7 +117,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
 
     @Nonnull
     @Override
-    public RecordQueryInValuesJoinPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public RecordQueryInValuesJoinPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInValuesJoinPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 inValuesSource(),
                 internal);

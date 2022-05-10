@@ -83,7 +83,7 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     @Override
-    public LogicalDistinctExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public LogicalDistinctExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalDistinctExpression(Iterables.getOnlyElement(translatedQuantifiers));
     }
 

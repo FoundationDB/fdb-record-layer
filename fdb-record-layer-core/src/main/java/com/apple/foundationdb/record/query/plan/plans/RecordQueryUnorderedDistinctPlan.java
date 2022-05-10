@@ -142,7 +142,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     @Override
-    public RecordQueryUnorderedDistinctPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public RecordQueryUnorderedDistinctPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnorderedDistinctPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getComparisonKey());
     }

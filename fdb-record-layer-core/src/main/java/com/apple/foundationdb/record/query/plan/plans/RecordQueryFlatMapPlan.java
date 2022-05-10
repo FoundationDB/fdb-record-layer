@@ -107,6 +107,11 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
         return 2;
     }
 
+    @Override
+    public boolean canCorrelate() {
+        return true;
+    }
+
     @Nonnull
     @Override
     public List<RecordQueryPlan> getChildren() {
@@ -127,7 +132,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
 
     @Nonnull
     @Override
-    public RecordQueryFlatMapPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public RecordQueryFlatMapPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
         return new RecordQueryFlatMapPlan(translatedQuantifiers.get(0).narrow(Quantifier.Physical.class),

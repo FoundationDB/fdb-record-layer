@@ -140,7 +140,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
-    public RecordQueryPredicatesFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public RecordQueryPredicatesFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedPredicates = predicates.stream().map(queryPredicate -> queryPredicate.translateCorrelations(translationMap)).collect(ImmutableList.toImmutableList());
         return new RecordQueryPredicatesFilterPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),

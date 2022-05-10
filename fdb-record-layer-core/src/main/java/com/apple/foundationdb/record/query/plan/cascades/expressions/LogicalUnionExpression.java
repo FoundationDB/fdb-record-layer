@@ -69,7 +69,7 @@ public class LogicalUnionExpression implements RelationalExpressionWithChildren 
 
     @Nonnull
     @Override
-    public LogicalUnionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public LogicalUnionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalUnionExpression(translatedQuantifiers);
     }
 

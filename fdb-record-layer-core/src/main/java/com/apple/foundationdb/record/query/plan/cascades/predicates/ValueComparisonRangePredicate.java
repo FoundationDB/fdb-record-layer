@@ -230,12 +230,17 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Sargable translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-            final var rebasedValue = getValue().translateCorrelations(translationMap);
-            final var aliasMap = translationMap.getAliasMapMaybe()
-                    .orElseThrow(() -> new RecordCoreException("unsupported translate of a comparison"));
-            final var rebasedComparisonRange = comparisonRange.rebase(aliasMap);
-            if (rebasedValue != getValue() || rebasedComparisonRange != comparisonRange) {
-                return new Sargable(rebasedValue, rebasedComparisonRange);
+            final var translatedValue = getValue().translateCorrelations(translationMap);
+            final ComparisonRange newComparisonRange;
+            if (comparisonRange.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
+                final var aliasMap = translationMap.getAliasMapMaybe()
+                        .orElseThrow(() -> new RecordCoreException("unsupported translate of a comparison"));
+                newComparisonRange = comparisonRange.rebase(aliasMap);
+            } else {
+                newComparisonRange = comparisonRange;
+            }
+            if (translatedValue != getValue() || newComparisonRange != comparisonRange) {
+                return new Sargable(translatedValue, newComparisonRange);
             }
             return this;
         }

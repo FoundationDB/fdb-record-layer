@@ -101,7 +101,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
 
     @Nonnull
     @Override
-    public LogicalIntersectionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public LogicalIntersectionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalIntersectionExpression(
                 Quantifiers.narrow(Quantifier.ForEach.class, translatedQuantifiers),
                 getComparisonKey());

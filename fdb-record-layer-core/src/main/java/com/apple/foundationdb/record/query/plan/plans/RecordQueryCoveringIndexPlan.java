@@ -196,7 +196,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    public RecordQueryCoveringIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<Quantifier> translatedQuantifiers) {
+    public RecordQueryCoveringIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
         if (translatedIndexPlan != indexPlan) {
             return new RecordQueryCoveringIndexPlan(translatedIndexPlan, recordTypeName, availableFields, toRecord);
