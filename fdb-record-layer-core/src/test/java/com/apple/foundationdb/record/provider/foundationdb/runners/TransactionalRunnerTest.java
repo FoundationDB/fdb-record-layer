@@ -53,6 +53,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -287,17 +288,19 @@ class TransactionalRunnerTest extends FDBTestBase {
     void closesContextsSynchronous() {
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         try {
+            final ForkJoinPool forkJoinPool = new ForkJoinPool(10);
             closesContext((runner, contextFuture, completed) ->
                     // You shouldn't be doing this, but maybe I haven't thought of something similar, but reasonable, where
                     // the executable for `run` does not complete, but the runner is closed
                     CompletableFuture.runAsync(() ->
                             runner.run(false, context -> {
-                                contextFuture.complete(context);
                                 final CompletableFuture<Void> future = new CompletableFuture<>();
                                 futures.add(future);
+                                contextFuture.complete(context);
                                 future.join(); // never joins
                                 return completed.incrementAndGet();
-                            }))
+                            }),
+                            forkJoinPool)
             );
         } finally {
             // cleanup the futures, so that the executor used by runAsync doesn't have a bunch of garbage sitting around
