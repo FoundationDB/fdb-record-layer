@@ -136,14 +136,18 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(final TupleRange range, final byte[] hopInfo, final byte[] continuation, final ScanProperties scanProperties) {
-        final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, hopInfo)
+    @Nonnull
+    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(@Nonnull final TupleRange range,
+                                                               @Nonnull final byte[] mapper,
+                                                               @Nullable final byte[] continuation,
+                                                               @Nonnull ScanProperties scanProperties) {
+        final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, mapper)
                 .setContext(state.context)
                 .setRange(range)
                 .setContinuation(continuation)
                 .setScanProperties(scanProperties)
                 .build();
-        // Hard cast - this needs to be changed - make IndexPrefetchRangeKeyValueCursor  return ? extends KeyValue and narrow().
+        // Hard cast - Not ideal but likely needed to avoid complex implementation of specific cursor
         RecordCursor<MappedKeyValue> mappedResults = keyValues.map(kv -> (MappedKeyValue)kv);
         return mappedResults.map(mappedResult -> unpackIndexPrefetchRecord(state.index, mappedResult));
     }
@@ -170,7 +174,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Nonnull
-    protected FDBIndexedRawRecord unpackIndexPrefetchRecord(@Nonnull final Index index, MappedKeyValue indexKeyValue) {
+    protected FDBIndexedRawRecord unpackIndexPrefetchRecord(@Nonnull final Index index, @Nonnull MappedKeyValue indexKeyValue) {
         IndexEntry indexEntry = new IndexEntry(index, unpackKey(state.indexSubspace, indexKeyValue), decodeValue(indexKeyValue.getValue()));
         return new FDBIndexedRawRecord(indexEntry, indexKeyValue);
     }

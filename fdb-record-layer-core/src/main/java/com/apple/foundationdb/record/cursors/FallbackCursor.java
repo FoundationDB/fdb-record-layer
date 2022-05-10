@@ -40,7 +40,7 @@ import java.util.function.Supplier;
  * done in order to prevent the case where a few records are returned, then a failure happens and the fallback cursor
  * starts again from the beginning, resulting in duplicate records being returned.
  * In practice, since many errors are observed when the request is sent to FDB (which coincide with the cursor's
- * first <code>onNext()</code> call, many such failures weill be caught by that first result.
+ * first <code>onNext()</code> call, many such failures will be caught by that first result.
  *
  * @param <T> the type of cursor result returned by the cursor
  */
@@ -85,7 +85,7 @@ public class FallbackCursor<T> implements RecordCursor<T> {
             return CompletableFuture.completedFuture(nextResult);
         }
         // The first stage (whenComplete) will calculate the result of the operation if successful, or replace the inner
-        // with the fallback cursor if failed, and store s future to the result in the atomic reference.
+        // with the fallback cursor if failed, and store future to the result in the atomic reference.
         // The second stage (thenCompose) will return the content of the atomic reference once the first stage is done.
         return inner.onNext().handle((result, throwable) -> {
             if (result != null) {
@@ -96,6 +96,7 @@ public class FallbackCursor<T> implements RecordCursor<T> {
                 if (alreadyFailed || !allowedToFail) {
                     nextResultFuture = CompletableFuture.failedFuture(throwable);
                 } else {
+                    inner.close();
                     inner = fallbackCursorSupplier.get();
                     nextResultFuture = inner.onNext();
                 }

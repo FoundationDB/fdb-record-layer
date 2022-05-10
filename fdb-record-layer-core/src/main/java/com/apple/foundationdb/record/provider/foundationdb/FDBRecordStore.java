@@ -1212,16 +1212,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, result);
     }
 
+    @Nonnull
     @Override
-    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, TupleRange range, final KeyExpression commonPrimaryKey,
-                                                                     byte[] continuation, ScanProperties scanProperties,
+    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(@Nonnull Index index,
+                                                                     @Nonnull TupleRange range,
+                                                                     @Nullable final KeyExpression commonPrimaryKey,
+                                                                     @Nullable byte[] continuation,
+                                                                     @Nonnull ScanProperties scanProperties,
                                                                      @Nonnull final IndexOrphanBehavior orphanBehavior) {
-        return scanIndexPrefetchInternal(index, range, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
+        return scanIndexPrefetchInternal(index, range, commonPrimaryKey, continuation, serializer, scanProperties, orphanBehavior);
     }
 
-    protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final TupleRange range,
-                                                                                final KeyExpression commonPrimaryKey, final byte[] continuation,
-                                                                                final ScanProperties scanProperties,
+    @Nonnull
+    protected <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetchInternal(@Nonnull final Index index,
+                                                                                @Nonnull final TupleRange range,
+                                                                                @Nullable final KeyExpression commonPrimaryKey,
+                                                                                @Nullable final byte[] continuation,
+                                                                                @Nonnull RecordSerializer<M> typedSerializer,
+                                                                                @Nonnull final ScanProperties scanProperties,
                                                                                 @Nonnull final IndexOrphanBehavior orphanBehavior) {
         if (!isIndexReadable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
@@ -1234,21 +1242,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final Tuple hopInfo = createHopInfo(indexMaintainer.getIndexSubspace(), recordSubspace, commonPrimaryKey, index);
         // Get the cursor with the index entries and the records from FDB
         RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanIndexPrefetch(range, hopInfo.pack(), continuation, scanProperties);
-        RecordCursor<FDBIndexedRecord<Message>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries);
+        // Parse the index entries and payload and build records
+        RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries, typedSerializer);
 
         return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, indexedRecordCursor);
     }
 
     @VisibleForTesting
-    // Make the method package protected
-    public RecordCursor<FDBIndexedRecord<Message>> indexEntriesToIndexRecords(final ScanProperties scanProperties,
-                                                                       final @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                                       final Subspace recordSubspace,
-                                                                       final RecordCursor<FDBIndexedRawRecord> indexEntries) {
-        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo(); // ??
+    @Nonnull
+    <M extends Message> RecordCursor<FDBIndexedRecord<M>> indexEntriesToIndexRecords(@Nonnull final ScanProperties scanProperties,
+                                                                                     @Nonnull final IndexOrphanBehavior orphanBehavior,
+                                                                                     @Nonnull final Subspace recordSubspace,
+                                                                                     @Nonnull final RecordCursor<FDBIndexedRawRecord> indexEntries,
+                                                                                     @Nonnull RecordSerializer<M> typedSerializer) {
+        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         ExecuteState executeState = scanProperties.getExecuteProperties().getState();
 
-        RecordCursor<FDBIndexedRecord<Message>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
+        RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
             // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
             FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties, useOldVersionFormat());
             if (fdbRawRecord == null) {
@@ -1261,10 +1271,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
                 final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
                 // TODO: Should we add the index entry bytes to the scanned bytes count?
-                byteScanLimiter.registerScannedBytes(sizeInfo.getKeySize() + sizeInfo.getValueSize());
+                // TODO: Since the prefetched bytes are already brought in, shouldn't this even be considered here? Stopping the iteration will just ignore bytes that were already read
+                byteScanLimiter.registerScannedBytes((long)sizeInfo.getKeySize() + (long)sizeInfo.getValueSize());
 
                 // Deserialize the raw record
-                CompletableFuture<FDBStoredRecord<Message>> storedRecord = deserializeRecord(serializer, fdbRawRecord, metaDataProvider.getRecordMetaData(), versionFutureOptional);
+                CompletableFuture<FDBStoredRecord<M>> storedRecord = deserializeRecord(typedSerializer, fdbRawRecord, metaDataProvider.getRecordMetaData(), versionFutureOptional);
                 return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
             }
         }, 1);
@@ -1275,7 +1286,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return indexedRecordCursor;
     }
 
-    private CompletableFuture<FDBIndexedRecord<Message>> handleOrphanEntry(final IndexEntry indexEntry, final IndexOrphanBehavior orphanBehavior) {
+
+    private <M extends Message> CompletableFuture<FDBIndexedRecord<M>> handleOrphanEntry(final IndexEntry indexEntry, final IndexOrphanBehavior orphanBehavior) {
         switch (orphanBehavior) {
             case SKIP:
                 return CompletableFuture.completedFuture(null);
@@ -1326,7 +1338,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (omitUnsplitRecordSuffix) {
                 rawRecords = rangeCursor.map(kv -> {
                     sizeInfo.set(kv);
-                    Tuple primaryKey = SplitHelper.unpackKey(recordSubspace, kv); // TODO: Can this be taken from the index entry in the mappedresult?
+                    Tuple primaryKey = SplitHelper.unpackKey(recordSubspace, kv);
                     return new FDBRawRecord(primaryKey, kv.getValue(), null, sizeInfo);
                 });
             } else {
@@ -1341,7 +1353,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Create the list of index key-references that would allow the DB to prefetch the records pointed to by the index entries.
-     * The commonPrimaryKey is the representation of the primary key for the referenced records
+     * The commonPrimaryKey is the representation of the primary key for the referenced records.
      * The index structure is: [P1...Pn, I1...In, K1...Kn] where Px are the prefix elements, Ix are the index fields and Kx are the primary keys of the indexed record.
      * Since {@link Index#trimPrimaryKey(List)} remove redundant key entries, we need to construct the list of locations of the primary key
      * elements by using the keyLocations (if there are any), followed by the remaining key elements.

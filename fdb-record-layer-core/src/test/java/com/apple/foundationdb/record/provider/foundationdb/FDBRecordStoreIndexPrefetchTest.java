@@ -1,9 +1,9 @@
 /*
- * FDBRecordStoreQueryTest.java
+ * FDBRecordStoreIndexPrefetchTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.query;
+package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MappedKeyValue;
@@ -34,13 +34,7 @@ import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
@@ -344,7 +338,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         List<FDBIndexedRawRecord> mappedKeyValues = buildIndexedRawRecordWithOrphanIndexEntry();
         RecordCursor<FDBIndexedRawRecord> recordCursor = new ListCursor<>(mappedKeyValues, null);
         Subspace recordSubspace = new Subspace(new byte[] {21, 8, 20, 21, 17, 21, 1});
-        RecordCursor<FDBIndexedRecord<Message>> result = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR, recordSubspace, recordCursor);
+        RecordCursor<FDBIndexedRecord<Message>> result = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR, recordSubspace, recordCursor, recordStore.getSerializer());
         assertThrows(ExecutionException.class, () -> result.getCount().get());
     }
 
@@ -353,7 +347,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         List<FDBIndexedRawRecord> mappedKeyValues = buildIndexedRawRecordWithOrphanIndexEntry();
         RecordCursor<FDBIndexedRawRecord> recordCursor = new ListCursor<>(mappedKeyValues, null);
         Subspace recordSubspace = new Subspace(new byte[] {21, 8, 20, 21, 17, 21, 1});
-        RecordCursor<FDBIndexedRecord<Message>> resultFuture = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.SKIP, recordSubspace, recordCursor);
+        RecordCursor<FDBIndexedRecord<Message>> resultFuture = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.SKIP, recordSubspace, recordCursor, recordStore.getSerializer());
         List<FDBIndexedRecord<Message>> result = resultFuture.asList().get();
         assertEquals(2, result.size());
         assertRecord(FDBQueriedRecord.indexed(result.get(0)), 9, "odd", 991, "MyIndex", 991L, 9);
@@ -365,7 +359,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         List<FDBIndexedRawRecord> mappedKeyValues = buildIndexedRawRecordWithOrphanIndexEntry();
         RecordCursor<FDBIndexedRawRecord> recordCursor = new ListCursor<>(mappedKeyValues, null);
         Subspace recordSubspace = new Subspace(new byte[] {21, 8, 20, 21, 17, 21, 1});
-        RecordCursor<FDBIndexedRecord<Message>> resultFuture = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.RETURN, recordSubspace, recordCursor);
+        RecordCursor<FDBIndexedRecord<Message>> resultFuture = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.RETURN, recordSubspace, recordCursor, recordStore.getSerializer());
         List<FDBIndexedRecord<Message>> result = resultFuture.asList().get();
         assertEquals(3, result.size());
         assertRecord(FDBQueriedRecord.indexed(result.get(0)), 9, "odd", 991, "MyIndex", (long)991, 9);

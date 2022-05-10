@@ -266,7 +266,20 @@ public abstract class IndexMaintainer {
      */
     public abstract CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation);
 
-    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(final TupleRange range, final byte[] hopInfo, final byte[] continuation, final ScanProperties scanProperties) {
+    /**
+     * Use the index prefetch scan method to return a range scan with the dereferenced record for each index entry.
+     * @param range the index range to scan
+     * @param mapper the mapper construct that is used to build a record primary key from an index entry
+     * @param continuation the continuation to use
+     * @param scanProperties the scan properties to use
+     * @return a cursor of the index prefetch call result: will contain both index entries and dereferenced records
+     */
+    @Nonnull
+    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(@Nonnull final TupleRange range,
+                                                               @Nonnull final byte[] mapper,
+                                                               @Nullable final byte[] continuation,
+                                                               @Nonnull final ScanProperties scanProperties) {
+        // Not implemented by default - needs to be overridden by individual maintainers
         throw new RecordCoreException("scanReferences operation is not supported by this index maintainer for Index " + state.index.getName());
     }
 }

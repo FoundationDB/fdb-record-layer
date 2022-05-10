@@ -192,7 +192,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                                                                     @Nullable final byte [] continuation, @Nonnull final ExecuteProperties executeProperties) {
         final TupleRange range = getComparisons().toTupleRange(store, context);
         return store.scanIndexPrefetch(getIndexName(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
-                .map(store::queriedRecordOfMessage)
+                .map(store::queriedRecord)
                 .map(QueryResult::of);
     }
 

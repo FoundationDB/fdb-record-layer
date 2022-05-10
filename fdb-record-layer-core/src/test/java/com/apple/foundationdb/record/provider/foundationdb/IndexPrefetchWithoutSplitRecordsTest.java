@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.query;
+package com.apple.foundationdb.record.provider.foundationdb;
 
 import org.junit.jupiter.api.BeforeEach;
 

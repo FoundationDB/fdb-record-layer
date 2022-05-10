@@ -921,7 +921,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
-    default RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(@Nonnull final String indexName,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(@Nonnull final String indexName,
                                                                       @Nonnull final TupleRange range,
                                                                       @Nullable final KeyExpression commonPrimaryKey,
                                                                       @Nullable byte[] continuation,
@@ -942,8 +942,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
-    RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, TupleRange range, final KeyExpression commonPrimaryKey,
-                                                              byte[] continuation, ScanProperties scanProperties,
+    RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(@Nonnull Index index,
+                                                              @Nonnull TupleRange range,
+                                                              @Nullable final KeyExpression commonPrimaryKey,
+                                                              @Nullable byte[] continuation,
+                                                              @Nonnull ScanProperties scanProperties,
                                                               @Nonnull final IndexOrphanBehavior orphanBehavior);
 
     /**
@@ -1001,7 +1004,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor of the records pointed to by the index
      */
     @Nonnull
-    default RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchRecordsEqual(@Nonnull final String indexName, KeyExpression primaryKey, @Nonnull final Object... values) {
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetchRecordsEqual(@Nonnull final String indexName, KeyExpression primaryKey, @Nonnull final Object... values) {
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
         return scanIndexPrefetch(indexName, range, primaryKey, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
@@ -1700,11 +1703,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     default FDBQueriedRecord<M> queriedRecord(@Nonnull FDBIndexedRecord<M> indexedRecord) {
-        return FDBQueriedRecord.indexed(indexedRecord);
-    }
-
-    @Nonnull
-    default FDBQueriedRecord<Message> queriedRecordOfMessage(@Nonnull FDBIndexedRecord<Message> indexedRecord) {
         return FDBQueriedRecord.indexed(indexedRecord);
     }
 
