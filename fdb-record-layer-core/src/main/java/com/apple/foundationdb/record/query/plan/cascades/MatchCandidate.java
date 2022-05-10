@@ -55,7 +55,6 @@ import java.util.Set;
  * that can be matched against a query graph. The match candidate does not keep the root to the graph to be matched but
  * rather an instance of {@link ExpressionRefTraversal} to allow for navigation of references within the candidate.
  *
- * <p>
  * Match candidates also allow for creation of scans over the materialized data, e.g. the index for an
  * {@link ValueIndexScanMatchCandidate} or the primary range for a {@link PrimaryScanMatchCandidate}, given appropriate
  * {@link ComparisonRange}s which usually are the direct result of graph matching.
@@ -114,15 +113,12 @@ public interface MatchCandidate {
      * would be the scan over the index.
      * As matching progresses it finds mappings from parameters to corresponding comparison ranges. Matching, however,
      * is not sensitive to whether such a binding could actually be used in an index scan. In fact, in a different maybe
-     * future record layer with improved physical operators this method should be revised to account for those
-     * improvements.
+     * future record layer with improved physical operators this method should be revised to account for those improvements.
      * For now, we only consider a prefix of said mappings that consist of n equality-bound mappings and stops either
      * at an inequality bound parameter or before a unbound parameter.
-     *
      * @param matchInfo match info
-     *
      * @return a map containing parameter to comparison range mappings for a prefix of parameters that is compatible
-     * with a physical scan over the materialized view (of the candidate)
+     *         with a physical scan over the materialized view (of the candidate)
      */
     default Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap(@Nonnull final MatchInfo matchInfo) {
         final var prefixMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
@@ -165,7 +161,7 @@ public interface MatchCandidate {
      * @param isReverse reversed-ness of the order
      *
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
-     * between query and match candidate
+     *         between query and match candidate
      */
     @Nonnull
     List<BoundKeyPart> computeBoundKeyParts(@Nonnull MatchInfo matchInfo,
@@ -209,11 +205,9 @@ public interface MatchCandidate {
     /**
      * Creates a logical expression that represents a scan over the materialized candidate data. This method is expected
      * to be implemented by specific implementations of {@link MatchCandidate}.
-     *
      * @param recordMetaData the metadata available to the planner
      * @param partialMatch the {@link PartialMatch} that matched th query and the candidate
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
-     *
      * @return a new {@link RelationalExpression}
      */
     @Nonnull
