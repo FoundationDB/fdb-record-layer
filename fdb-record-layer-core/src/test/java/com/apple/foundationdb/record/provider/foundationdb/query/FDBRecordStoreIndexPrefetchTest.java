@@ -174,6 +174,41 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         assertNull(continuation);
     }
 
+    /*
+     * Test continuation where the continued plan uses a different prefetch mode than the original plan.
+     */
+    @Test
+    void indexPrefetchWithMixedContinuationTest() throws Exception {
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE);
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setReturnedRowLimit(4)
+                .build();
+
+        // First iteration - first 4 records
+        byte[] continuation = executeAndVerifyData(planWithPrefetch, null, executeProperties, 4, (rec, i) -> {
+            int primaryKey = 9 - i;
+            String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+            int numValue = 1000 - primaryKey;
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+        });
+        // Second iteration - second 4 records
+        continuation = executeAndVerifyData(planWithScan, continuation, executeProperties, 4, (rec, i) -> {
+            int primaryKey = 5 - i;
+            String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+            int numValue = 1000 - primaryKey;
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+        });
+        // Third iteration - last 2 records
+        continuation = executeAndVerifyData(planWithPrefetch, continuation, executeProperties, 2, (rec, i) -> {
+            int primaryKey = 1 - i;
+            String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+            int numValue = 1000 - primaryKey;
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+        });
+        assertNull(continuation);
+    }
+
     @ParameterizedTest(name = "indexPrefetchByteLimitContinuation(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     @Disabled // This test is inconsistently failing (for the NONE case)
