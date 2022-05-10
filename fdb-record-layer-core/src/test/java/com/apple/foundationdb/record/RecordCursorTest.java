@@ -88,7 +88,7 @@ public class RecordCursorTest {
     Timer timer;
 
     @BeforeEach
-    public void setup() throws Exception {
+    void setup() {
         timer = new Timer("RecordCursorTest");
     }
 
@@ -143,7 +143,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void mapPipelinedReuseTest() throws Exception {
+    void mapPipelinedReuseTest() {
         AsyncCountdown cursor = new AsyncCountdown(100);
         RecordCursor<Integer> map = cursor.mapPipelined(i -> delayedFuture(i, 10), 10);
         assertEquals(IntStream.range(0, 100).mapToObj(i -> 100 - i).collect(Collectors.toList()), map.asList().join());
@@ -151,7 +151,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void forEachAsyncTest() {
+    void forEachAsyncTest() {
         RecordCursor<Integer> cursor = RecordCursor.fromList(Arrays.asList(1, 2, 3, 4, 5, 6, 7));
         long start = System.currentTimeMillis();
         cursor.forEachAsync(i -> MoreAsyncUtil.delayedFuture(10L, TimeUnit.MILLISECONDS), 2).join();
@@ -169,7 +169,7 @@ public class RecordCursorTest {
         }), 1).join();
         end = System.currentTimeMillis();
         assertEquals(integer.get(), 36);
-        assertThat(end  - start, Matchers.greaterThanOrEqualTo(40L));
+        assertThat(end - start, Matchers.greaterThanOrEqualTo(40L));
 
         // It should be fine if they all complete immediately.
         integer.set(0);
@@ -184,7 +184,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void orElseTest() throws Exception {
+    void orElseTest() {
         List<Integer> ints = Arrays.asList(1, 2, 3);
         BiFunction<Executor, byte[], RecordCursor<Integer>> elseZero = (executor, cont) -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(0), cont);
         assertEquals(ints, RecordCursor.fromList(ints).asList().join());
@@ -196,7 +196,7 @@ public class RecordCursorTest {
 
     //@Test @Slow
     // Will get either NPE or NoSuchElementException after a while.
-    public void orElseTimingErrorTest() throws Exception {
+    void orElseTimingErrorTest() {
         BiFunction<Executor, byte[], RecordCursor<Integer>> elseZero = (executor, cont) -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(0), cont);
         for (int i = 0; i < 100000; i++) {
             RecordCursorIterator<Integer> cursor = RecordCursor.orElse(cont -> RecordCursor.fromList(Collections.<Integer>emptyList(), cont), elseZero, null).asIterator();
@@ -212,7 +212,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void asListWithContinuationTest() throws Exception {
+    void asListWithContinuationTest() throws Exception {
         final List<Integer> ints = IntStream.range(0, 50).boxed().collect(Collectors.toList());
 
         final AtomicReference<RecordCursorResult<Integer>> finalResult = new AtomicReference<>();
@@ -236,52 +236,52 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void limitTest() {
-        List<Integer> ints = Arrays.asList(1,2,3,4);
+    void limitTest() {
+        List<Integer> ints = Arrays.asList(1, 2, 3, 4);
 
         // Make sure that if the limit is less than the size, we get the thing suppose.
         RecordCursor<Integer> cursor = RecordCursor.fromList(ints).limitRowsTo(3);
         assertTrue(cursor instanceof RowLimitedCursor, "Setting limit should create a LimitCursor");
         List<Integer> newInts = cursor.asList().join();
-        assertEquals(Arrays.asList(1,2,3), newInts);
+        assertEquals(Arrays.asList(1, 2, 3), newInts);
 
         // Make sure that if the limit is greater than the size, we get everything.
         cursor = RecordCursor.fromList(ints).limitRowsTo(5);
         assertTrue(cursor instanceof RowLimitedCursor, "Setting limit should create a LimitCursor");
         newInts = cursor.asList().join();
-        assertEquals(Arrays.asList(1,2,3,4), newInts);
+        assertEquals(Arrays.asList(1, 2, 3, 4), newInts);
 
         cursor = RecordCursor.fromList(ints).limitRowsTo(Integer.MAX_VALUE);
         assertFalse(cursor instanceof RowLimitedCursor, "Setting max limit shouldn't actually create a LimitCursor");
     }
 
     @Test
-    public void skipTest() {
-        List<Integer> ints = Arrays.asList(1,2,3,4);
+    void skipTest() {
+        List<Integer> ints = Arrays.asList(1, 2, 3, 4);
 
         RecordCursor<Integer> cursor = RecordCursor.fromList(ints).skip(2);
         assertTrue(cursor instanceof SkipCursor, "Setting skip should create a SkipCursor");
         List<Integer> newInts = cursor.asList().join();
-        assertEquals(Arrays.asList(3,4), newInts);
+        assertEquals(Arrays.asList(3, 4), newInts);
 
         cursor = RecordCursor.fromList(ints).skip(0);
         assertFalse(cursor instanceof SkipCursor, "Setting skip 0 shouldn't actually create a SkipCursor");
     }
 
     @Test
-    public void filterTest() {
-        List<Integer> ints = Arrays.asList(1,2,3,4,5,6,7);
+    void filterTest() {
+        List<Integer> ints = Arrays.asList(1, 2, 3, 4, 5, 6, 7);
         RecordCursor<Integer> cursor = RecordCursor.fromList(ints).filter(i -> i % 2 == 0);
         assertTrue(cursor instanceof FilterCursor, "Creating a filter should create a filter cursor");
         List<Integer> newInts = cursor.asList().join();
-        assertEquals(Arrays.asList(2,4,6), newInts);
+        assertEquals(Arrays.asList(2, 4, 6), newInts);
 
         cursor = RecordCursor.fromList(ints).filterAsync(i -> CompletableFuture.completedFuture(i % 2 != 0), 1);
         assertTrue(cursor instanceof MapResultCursor, "Creating an async filter should create a map cursor");
         newInts = cursor.asList().join();
-        assertEquals(Arrays.asList(1,3,5,7), newInts);
+        assertEquals(Arrays.asList(1, 3, 5, 7), newInts);
 
-        ints = Arrays.asList(1,2,3, null, 4, 5, 6, 7);
+        ints = Arrays.asList(1, 2, 3, null, 4, 5, 6, 7);
 
         cursor = RecordCursor.fromList(ints).filter(i -> {
             if (i == null) {
@@ -292,7 +292,7 @@ public class RecordCursorTest {
         });
         assertTrue(cursor instanceof FilterCursor, "Creating a filter should create a filter cursor");
         newInts = cursor.asList().join();
-        assertEquals(Arrays.asList(1,3,5,7), newInts);
+        assertEquals(Arrays.asList(1, 3, 5, 7), newInts);
 
         cursor = RecordCursor.fromList(ints).filterAsync(i -> {
             if (i == null) {
@@ -303,12 +303,12 @@ public class RecordCursorTest {
         }, 1);
         newInts = cursor.asList().join();
         assertTrue(cursor instanceof MapResultCursor, "Creating an async filter should create a map cursor");
-        assertEquals(Arrays.asList(2,4,6), newInts);
+        assertEquals(Arrays.asList(2, 4, 6), newInts);
     }
 
     @Test
-    public void firstTest() throws Exception {
-        List<Integer> ints = Arrays.asList(1,2,3,4);
+    void firstTest() throws Exception {
+        List<Integer> ints = Arrays.asList(1, 2, 3, 4);
         RecordCursor<Integer> cursor = RecordCursor.fromList(ints);
         assertEquals(Optional.of(1), cursor.first().get());
 
@@ -318,8 +318,8 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void pipelineContinuationTest() throws Exception {
-        List<Integer> ints = Lists.newArrayList(1,2,3,4,5);
+    void pipelineContinuationTest() throws Exception {
+        List<Integer> ints = Lists.newArrayList(1, 2, 3, 4, 5);
         List<Integer> expected = ints.stream().flatMap(o -> ints.stream().map(i -> o * 100 + i)).collect(Collectors.toList());
 
         Function<byte[], RecordCursor<Integer>> outerFunc = cont -> RecordCursor.fromList(ints, cont);
@@ -422,8 +422,8 @@ public class RecordCursorTest {
 
     @ParameterizedTest(name = "pipelineWithInnerLimits [outOfBand = {0}]")
     @BooleanSource
-    public void pipelineWithInnerLimits(boolean outOfBand) {
-        final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[]{
+    void pipelineWithInnerLimits(boolean outOfBand) {
+        final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[] {
                 RecordCursor.NoNextReason.SOURCE_EXHAUSTED,
                 outOfBand ? RecordCursor.NoNextReason.TIME_LIMIT_REACHED : RecordCursor.NoNextReason.RETURN_LIMIT_REACHED
         };
@@ -454,8 +454,8 @@ public class RecordCursorTest {
 
     @ParameterizedTest(name = "pipelineWithOuterLimits [outOfBand = {0}]")
     @BooleanSource
-    public void pipelineWithOuterLimits(boolean outOfBand) {
-        final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[]{
+    void pipelineWithOuterLimits(boolean outOfBand) {
+        final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[] {
                 RecordCursor.NoNextReason.SOURCE_EXHAUSTED,
                 outOfBand ? RecordCursor.NoNextReason.TIME_LIMIT_REACHED : RecordCursor.NoNextReason.RETURN_LIMIT_REACHED
         };
@@ -504,7 +504,7 @@ public class RecordCursorTest {
 
     @ParameterizedTest(name = "pipelineWithOuterLimitsWithSomeDelay [outOfBand = {0}]")
     @BooleanSource
-    public void pipelineWithOuterLimitsWithSomeDelay(boolean outOfBand) {
+    void pipelineWithOuterLimitsWithSomeDelay(boolean outOfBand) {
         final RecordCursor.NoNextReason limitReason = outOfBand ? RecordCursor.NoNextReason.TIME_LIMIT_REACHED : RecordCursor.NoNextReason.RETURN_LIMIT_REACHED;
         final List<Integer> ints = IntStream.range(0, 10).boxed().collect(Collectors.toList());
 
@@ -572,7 +572,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void flatMapPipelineErrorPropagation() throws ExecutionException, InterruptedException {
+    void flatMapPipelineErrorPropagation() throws ExecutionException, InterruptedException {
         FirableCursor<String> firableCursor1 = new FirableCursor<>(RecordCursor.fromList(Collections.singletonList("hello")));
         FirableCursor<String> firableCursor2 = new FirableCursor<>(new BrokenCursor());
         List<FirableCursor<String>> firableCursors = Arrays.asList(firableCursor1, firableCursor2);
@@ -610,7 +610,7 @@ public class RecordCursorTest {
      * @throws InterruptedException from futures joined in the test
      */
     @Test
-    public void mapPipelinedErrorAtConcurrentCompletion() throws ExecutionException, InterruptedException {
+    void mapPipelinedErrorAtConcurrentCompletion() throws ExecutionException, InterruptedException {
         final RuntimeException runtimeEx = new RuntimeException("some random exception");
 
         List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
@@ -649,7 +649,7 @@ public class RecordCursorTest {
      * @throws InterruptedException from futures joined in the test
      */
     @Test
-    public void mapPipelinedErrorPropagationInPipeline() throws ExecutionException, InterruptedException {
+    void mapPipelinedErrorPropagationInPipeline() throws ExecutionException, InterruptedException {
         final RuntimeException runtimeEx = new RuntimeException("some random exception");
         List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
         RecordCursor<Integer> cursor = RecordCursor.fromList(Arrays.asList(0, 1, 2)).mapPipelined(futures::get, 2);
@@ -681,7 +681,7 @@ public class RecordCursorTest {
      * @throws InterruptedException from futures joined in the test
      */
     @Test
-    public void mapPipelinedContinuationWithTimeLimit() throws ExecutionException, InterruptedException {
+    void mapPipelinedContinuationWithTimeLimit() throws ExecutionException, InterruptedException {
         List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
         RecordCursor<Integer> cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(0, 1, 2, 3)), 3).mapPipelined(futures::get, 3);
         futures.get(2).complete(1415); // complete a future that is not immediately returned
@@ -715,7 +715,7 @@ public class RecordCursorTest {
      * @throws InterruptedException from futures joined in the test
      */
     @Test
-    public void mapPipelinedContinuationWithTimeLimitWithMoreToReturn() throws ExecutionException, InterruptedException {
+    void mapPipelinedContinuationWithTimeLimitWithMoreToReturn() throws ExecutionException, InterruptedException {
         List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
         RecordCursor<Integer> cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(0, 1, 2, 3, 4)), 4).mapPipelined(futures::get, 4);
         futures.get(1).complete(1415);
@@ -757,7 +757,7 @@ public class RecordCursorTest {
      * @throws InterruptedException from futures joined in the test
      */
     @Test
-    public void mapPipelinedContinuationWithTimeLimitBeforeFirstEntry() throws ExecutionException, InterruptedException {
+    void mapPipelinedContinuationWithTimeLimitBeforeFirstEntry() throws ExecutionException, InterruptedException {
         List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
         futures.get(1).complete(1415);
         RecordCursor<Integer> cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(0, 1, 2)), 2).mapPipelined(futures::get, 3);
@@ -788,26 +788,29 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void lazyCursorTest() {
+    void lazyCursorTest() {
         RecordCursorIterator<Integer> cursor = new LazyCursor<>(
                 CompletableFuture.completedFuture(RecordCursor.fromList(Lists.newArrayList(1, 2, 3, 4, 5)))).asIterator();
         int i = 1;
         while (i <= 5 && cursor.hasNext()) {
-            assertEquals(i, (int) cursor.next());
+            assertEquals(i, (int)cursor.next());
             ++i;
         }
         assertEquals(6, i);
     }
 
     @Test
-    public void lazyCursorExceptionTest() {
+    void lazyCursorExceptionTest() {
         LazyCursor<Integer> cursor = new LazyCursor<>(
-                CompletableFuture.supplyAsync( () -> { throw new IllegalArgumentException("Uh oh"); }));
+                CompletableFuture.supplyAsync(() -> {
+                    throw new IllegalArgumentException("Uh oh");
+                }));
         assertThrows(RecordCoreException.class, () -> cursor.getNext());
     }
 
     /**
      * A cursor that simulates out of band stopping by actually counting in band records returned.
+     *
      * @param <T> type of elements of the cursor
      */
     public static class FakeOutOfBandCursor<T> extends RowLimitedCursor<T> {
@@ -836,7 +839,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void testFakeTimeLimitReasons() throws Exception {
+    void testFakeTimeLimitReasons() {
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
         RecordCursor<Integer> cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(list), 3);
         assertEquals(Arrays.asList(1, 2, 3), cursor.asList().join());
@@ -847,7 +850,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void testMapAsyncTimeLimitReasons() throws Exception {
+    void testMapAsyncTimeLimitReasons() {
         // If stopped for a timeout, we additionally don't wait for incomplete items in the pipeline.
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
         final Function<Integer, CompletableFuture<Integer>> map = i -> i != 2 ? CompletableFuture.completedFuture(i) : new CompletableFuture<>();
@@ -868,7 +871,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void testMapAsyncScanLimitReasons() throws Exception {
+    void testMapAsyncScanLimitReasons() {
         // If stopped for a scan limit, no special handling.
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
         final Function<Integer, CompletableFuture<Integer>> map = CompletableFuture::completedFuture;
@@ -885,7 +888,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void testFilteredMapAsyncReasons1() throws Exception {
+    void testFilteredMapAsyncReasons1() {
         // May need continuation before the first record in the pipeline.
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
         final Function<Integer, CompletableFuture<Integer>> map = CompletableFuture::completedFuture;
@@ -924,7 +927,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void testFilteredMapAsyncReasons2() throws Exception {
+    void testFilteredMapAsyncReasons2() {
         // May need continuation before the first record in the pipeline.
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
         final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(1);
@@ -953,7 +956,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void testFilteredMapAsyncReasons3() throws Exception {
+    void testFilteredMapAsyncReasons3() {
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
         final Function<Integer, CompletableFuture<Integer>> map = CompletableFuture::completedFuture;
         final Function<Integer, Boolean> filter = i -> i % 2 == 0;
@@ -970,7 +973,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void testFlatMapReasons() throws Exception {
+    void testFlatMapReasons() {
         // If the inside stops prematurely, the whole pipeline shuts down.
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
         final Function<byte[], RecordCursor<Integer>> outer = continuation -> RecordCursor.fromList(list, continuation);
@@ -1004,7 +1007,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void testOrElseReasons() throws Exception {
+    void testOrElseReasons() {
         // Don't take else path if inside stops prematurely.
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
         final BiFunction<Executor, byte[], RecordCursor<Integer>> orElse = (x, cont) -> RecordCursor.fromList(Collections.singletonList(0), cont);
@@ -1022,7 +1025,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void orElseWithEventuallyNonEmptyInner() {
+    void orElseWithEventuallyNonEmptyInner() {
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
         RecordCursor<Integer> cursor = getOrElseOfFilteredFakeOutOfBandCursor(list, 3, 4, null);
         assertEquals(Collections.emptyList(), cursor.asList().join());
@@ -1037,7 +1040,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void orElseContinueWithInnerBranchAfterDecision() {
+    void orElseContinueWithInnerBranchAfterDecision() {
         final List<Integer> longList = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
         RecordCursor<Integer> cursor = getOrElseOfFilteredFakeOutOfBandCursor(longList, 3, 10, null);
 
@@ -1068,7 +1071,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void orElseContinueWithElseBranchAfterDecision() {
+    void orElseContinueWithElseBranchAfterDecision() {
         final List<Integer> innerList = Arrays.asList(1, 2, 3, 4, 5);
         final List<Integer> elseList = Arrays.asList(-1, -2, -3, -4, -5);
         final BiFunction<Executor, byte[], RecordCursor<Integer>> orElse = (x, cont) ->
@@ -1098,7 +1101,7 @@ public class RecordCursorTest {
 
     @Nonnull
     private static RecordCursor<Integer> getOrElseOfFilteredFakeOutOfBandCursor(@Nonnull List<Integer> list, int limit, int threshold,
-                                                               @Nullable byte[] continuation) {
+                                                                                @Nullable byte[] continuation) {
         final BiFunction<Executor, byte[], RecordCursor<Integer>> orElse = (x, cont) -> RecordCursor.fromList(Collections.singletonList(0), cont);
         return RecordCursor.orElse(cont -> new FakeOutOfBandCursor<>(RecordCursor.fromList(list, cont), limit)
                 .filter(i -> i > threshold), orElse, continuation);
@@ -1131,7 +1134,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void hasNextErrorStack() throws Exception {
+    void hasNextErrorStack() {
         final Iterator<String> erring = new BrokenCursor().asIterator();
         try {
             Iterators.getLast(erring, null);
@@ -1146,7 +1149,7 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void reduceTest() throws Exception {
+    void reduceTest() throws Exception {
         RecordCursor<Integer> cursor = RecordCursor.fromList(Arrays.asList(1, 2, 3, 4, 5, 6, 7));
         CompletableFuture<Integer> sum = cursor.reduce(0, Integer::sum);
         assertEquals(28, sum.get());
@@ -1161,14 +1164,14 @@ public class RecordCursorTest {
     }
 
     @Test
-    public void asStreamTest() throws Exception {
+    void asStreamTest() {
         assertEquals(7, RecordCursor.fromList(Arrays.asList(1, 2, 3, 4, 5, 6, 7)).asStream().count());
         assertEquals(2, RecordCursor.fromList(Arrays.asList(2, 3)).asStream().findFirst().get());
         assertEquals(3, RecordCursor.fromList(Arrays.asList(2, 3)).map(x -> x + 1).asStream().findFirst().get());
         assertThrows(RuntimeException.class, () -> RecordCursor.fromList(Arrays.asList(2, 3)).asStream(
-                        () -> {
-                            throw new RuntimeException("on close");
-                        }).close());
+                () -> {
+                    throw new RuntimeException("on close");
+                }).close());
 
     }
 
