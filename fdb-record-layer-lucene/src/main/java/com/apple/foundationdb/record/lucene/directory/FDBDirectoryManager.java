@@ -96,7 +96,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         final Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
         return createdDirectories.computeIfAbsent(mapKey, key -> {
             final Subspace directorySubspace = state.indexSubspace.subspace(key);
-            return new FDBDirectoryWrapper(state, new FDBDirectory(directorySubspace, state.context));
+            return new FDBDirectoryWrapper(state, new FDBDirectory(directorySubspace, state.context, state.index.getName()));
         });
     }
 

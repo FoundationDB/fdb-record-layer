@@ -133,16 +133,22 @@ public class FDBDirectory extends Directory {
     private final boolean compressionEnabled;
     private final boolean encryptionEnabled;
 
+    private final String indexName;
+
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
-        this(subspace, context, NoLockFactory.INSTANCE);
+        this(subspace, context, NoLockFactory.INSTANCE, "unknown");
     }
 
-    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory) {
-        this(subspace, context, lockFactory, DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL);
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String indexName) {
+        this(subspace, context, NoLockFactory.INSTANCE, indexName);
+    }
+
+    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory, @Nonnull String indexName) {
+        this(subspace, context, lockFactory, DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, indexName);
     }
 
     FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory,
-                 int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel) {
+                 int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel, @Nonnull String indexName) {
         Verify.verify(subspace != null);
         Verify.verify(context != null);
         Verify.verify(lockFactory != null);
@@ -165,6 +171,7 @@ public class FDBDirectory extends Directory {
         this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
         this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
+        this.indexName = indexName;
     }
 
     private long deserializeFileSequenceCounter(@Nullable byte[] value) {
@@ -422,6 +429,7 @@ public class FDBDirectory extends Directory {
                     actualTotalSize += entry.getValue().getActualSize();
                 }
                 LOGGER.debug(getLogMessage("listAllFiles",
+                        "index_name", indexName,
                         LuceneLogMessageKeys.FILE_COUNT, displayList.size(),
                         LuceneLogMessageKeys.FILE_LIST, displayList,
                         LuceneLogMessageKeys.FILE_TOTAL_SIZE, totalSize,

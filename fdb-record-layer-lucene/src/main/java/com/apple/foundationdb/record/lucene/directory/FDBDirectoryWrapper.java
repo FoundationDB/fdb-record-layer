@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
@@ -32,6 +34,7 @@ import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
@@ -96,10 +99,46 @@ class FDBDirectoryWrapper implements AutoCloseable {
                             .setUseCompoundFile(true)
                             .setMergePolicy(tieredMergePolicy)
                             .setMergeScheduler(new ConcurrentMergeScheduler() {
+
                                 @Override
                                 public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
-                                    LOGGER.trace("mergeSource={}", mergeSource);
-                                    super.merge(mergeSource, trigger);
+                                    if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.MERGE_OPTIMIZATION) && trigger == MergeTrigger.FULL_FLUSH) {
+                                        final String currentLock = state.context.luceneMergeLock.compareAndExchange("available", state.index.getName() + "_basic");
+                                        if (currentLock.equals("available") || currentLock.equals(state.index.getName() + "_basic")) {
+                                            String logMsg = KeyValueLogMessage.of("Basic index mergeSource with checking Lock",
+                                                    "current_lock", currentLock,
+                                                    LuceneLogMessageKeys.MERGE_SOURCE, mergeSource,
+                                                    LuceneLogMessageKeys.MERGE_TRIGGER, trigger,
+                                                    LuceneLogMessageKeys.INDEX_NAME, state.index.getName(),
+                                                    LuceneLogMessageKeys.INDEX_SUBSPACE, state.indexSubspace);
+                                            LOGGER.trace(logMsg);
+                                            super.merge(mergeSource, trigger);
+                                        } else {
+                                            String logMsg = KeyValueLogMessage.of("Basic index merge aborted due to CAS lock acquired by other directory: " + currentLock,
+                                                    LuceneLogMessageKeys.MERGE_SOURCE, mergeSource,
+                                                    LuceneLogMessageKeys.MERGE_TRIGGER, trigger,
+                                                    LuceneLogMessageKeys.INDEX_NAME, state.index.getName(),
+                                                    LuceneLogMessageKeys.INDEX_SUBSPACE, state.indexSubspace);
+                                            LOGGER.trace(logMsg);
+                                            synchronized (mergeSource) {
+                                                MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
+                                                while (nextMerge != null) {
+                                                    nextMerge.setAborted();
+                                                    mergeSource.onMergeFinished(nextMerge);
+                                                    nextMerge = mergeSource.getNextMerge();
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        String logMsg = KeyValueLogMessage.of("Basic index mergeSource",
+                                                LuceneLogMessageKeys.MERGE_SOURCE, mergeSource,
+                                                LuceneLogMessageKeys.MERGE_TRIGGER, trigger,
+                                                LuceneLogMessageKeys.INDEX_NAME, state.index.getName(),
+                                                LuceneLogMessageKeys.INDEX_SUBSPACE, state.indexSubspace);
+                                        LOGGER.trace(logMsg);
+                                        super.merge(mergeSource, trigger);
+                                        return;
+                                    }
                                 }
                             })
                             .setCodec(new LuceneOptimizedCodec())

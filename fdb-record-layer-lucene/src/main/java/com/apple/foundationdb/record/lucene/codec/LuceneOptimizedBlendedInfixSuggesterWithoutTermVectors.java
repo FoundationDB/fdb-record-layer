@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -35,6 +37,7 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.MultiDocValues;
 import org.apache.lucene.index.Term;
@@ -260,8 +263,43 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
 
             @Override
             public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
-                LOGGER.trace("Auto-complete index mergeSource={}", mergeSource);
-                super.merge(mergeSource, trigger);
+                if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.MERGE_OPTIMIZATION) && trigger == MergeTrigger.FULL_FLUSH) {
+                    final String currentLock = state.context.luceneMergeLock.compareAndExchange("available", state.index.getName() + "_auto");
+                    if (currentLock.equals("available") || currentLock.equals(state.index.getName() + "_auto")) {
+                        String logMsg = KeyValueLogMessage.of("Auto-complete index mergeSource with checking lock",
+                                "current_lock", currentLock,
+                                LuceneLogMessageKeys.MERGE_SOURCE, mergeSource,
+                                LuceneLogMessageKeys.MERGE_TRIGGER, trigger,
+                                LuceneLogMessageKeys.INDEX_NAME, state.index.getName(),
+                                LuceneLogMessageKeys.INDEX_SUBSPACE, state.indexSubspace);
+                        LOGGER.trace(logMsg);
+                        super.merge(mergeSource, trigger);
+                    } else {
+                        String logMsg = KeyValueLogMessage.of("Auto-complete merge aborted due to CAS lock acquired by other directory: " + currentLock,
+                                LuceneLogMessageKeys.MERGE_SOURCE, mergeSource,
+                                LuceneLogMessageKeys.MERGE_TRIGGER, trigger,
+                                LuceneLogMessageKeys.INDEX_NAME, state.index.getName(),
+                                LuceneLogMessageKeys.INDEX_SUBSPACE, state.indexSubspace);
+                        LOGGER.trace(logMsg);
+                        synchronized (mergeSource) {
+                            MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
+                            while (nextMerge != null) {
+                                nextMerge.setAborted();
+                                mergeSource.onMergeFinished(nextMerge);
+                                nextMerge = mergeSource.getNextMerge();
+                            }
+                        }
+                    }
+                } else {
+                    String logMsg = KeyValueLogMessage.of("Auto-complete index mergeSource",
+                            LuceneLogMessageKeys.MERGE_SOURCE, mergeSource,
+                            LuceneLogMessageKeys.MERGE_TRIGGER, trigger,
+                            LuceneLogMessageKeys.INDEX_NAME, state.index.getName(),
+                            LuceneLogMessageKeys.INDEX_SUBSPACE, state.indexSubspace);
+                    LOGGER.trace(logMsg);
+                    super.merge(mergeSource, trigger);
+                    return;
+                }
             }
         });
         iwc.setCodec(new LuceneOptimizedCodec());
