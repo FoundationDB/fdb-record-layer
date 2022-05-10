@@ -45,6 +45,7 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
+import java.util.Collection;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
@@ -119,6 +120,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testCannotPlanWithIndexHintGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
+
+        final Optional<Collection<String>> recordTypeNamesOptional = Optional.of(ImmutableSet.of("RestaurantRecord"));
+        final Optional<Collection<String>> allowedIndexesOptional = Optional.empty();
+        final ParameterRelationshipGraph parameterRelationshipGraph = ParameterRelationshipGraph.empty();
+
         // with index hints ("review_rating"), cannot plan a query
         Exception exception = Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
                 () -> {
@@ -146,11 +152,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(null, false, qun));
                 },
-                Optional.of(ImmutableSet.of("RestaurantRecord")),
-                Optional.empty(),
+                recordTypeNamesOptional,
+                allowedIndexesOptional,
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty()));
+                parameterRelationshipGraph));
         Assertions.assertEquals("Cascades planner could not plan query", exception.getMessage());
     }
 
