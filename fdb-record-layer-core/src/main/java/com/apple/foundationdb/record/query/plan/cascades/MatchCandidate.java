@@ -54,6 +54,7 @@ import java.util.Set;
  * Interface to represent a match candidate. A match candidate on code level is just a name and a data flow graph
  * that can be matched against a query graph. The match candidate does not keep the root to the graph to be matched but
  * rather an instance of {@link ExpressionRefTraversal} to allow for navigation of references within the candidate.
+ *
  * <p>
  * Match candidates also allow for creation of scans over the materialized data, e.g. the index for an
  * {@link ValueIndexScanMatchCandidate} or the primary range for a {@link PrimaryScanMatchCandidate}, given appropriate
@@ -77,7 +78,6 @@ public interface MatchCandidate {
      * the candidate is created or lazily when this method is invoked. It is, however, necessary that the traversal
      * once computed is stable, meaning the object returned by implementors of this method must always return the
      * same object.
-     *
      * @return the traversal associated for this match candidate
      */
     @Nonnull
@@ -85,7 +85,6 @@ public interface MatchCandidate {
 
     /**
      * Returns a list of parameter names for sargable parameters that can to be bound during matching.
-     *
      * @return a list of {@link CorrelationIdentifier}s for all sargable parameters in this match candidate
      */
     @Nonnull
@@ -94,7 +93,6 @@ public interface MatchCandidate {
     /**
      * Returns the parameter names for the resulting order for parameters that can be bound during matching
      * (sargable and residual).
-     *
      * @return a list of {@link CorrelationIdentifier}s describing the ordering of the result set of this match candidate
      */
     @Nonnull
@@ -105,7 +103,6 @@ public interface MatchCandidate {
      * given record.
      * The current expression hierarchy cannot be evaluated at runtime (in general). This key expression helps
      * representing compensation or part of compensation if needed.
-     *
      * @return a key expression that can be evaluated based on a base record
      */
     @Nonnull
@@ -113,12 +110,10 @@ public interface MatchCandidate {
 
     /**
      * Computes a map from {@link CorrelationIdentifier} to {@link ComparisonRange} that is physically compatible with
-     * a scan over the materialized version of the match candidate, so e.g. for an {@link ValueIndexScanMatchCandidate}
-     * that
+     * a scan over the materialized version of the match candidate, so e.g. for an {@link ValueIndexScanMatchCandidate} that
      * would be the scan over the index.
      * As matching progresses it finds mappings from parameters to corresponding comparison ranges. Matching, however,
-     * is not sensitive to whether such a binding could actually be used in an index scan. In fact, in a different
-     * maybe
+     * is not sensitive to whether such a binding could actually be used in an index scan. In fact, in a different maybe
      * future record layer with improved physical operators this method should be revised to account for those
      * improvements.
      * For now, we only consider a prefix of said mappings that consist of n equality-bound mappings and stops either
@@ -184,10 +179,8 @@ public interface MatchCandidate {
 
     /**
      * Creates a logical expression that represents a scan over the materialized candidate data.
-     *
      * @param recordMetaData the metadata used by the planner
      * @param partialMatch the match to be used
-     *
      * @return a new {@link RelationalExpression}
      */
     @SuppressWarnings("java:S135")

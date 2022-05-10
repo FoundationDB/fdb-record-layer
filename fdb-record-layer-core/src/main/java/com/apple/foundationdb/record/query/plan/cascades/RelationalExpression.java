@@ -62,24 +62,19 @@ import java.util.function.Function;
 import java.util.stream.StreamSupport;
 
 /**
- * A relational expression is a {@link RelationalExpression} that represents a stream of records. At all times, the
- * root
+ * A relational expression is a {@link RelationalExpression} that represents a stream of records. At all times, the root
  * expression being planned must be relational. This interface acts as a common tag interface for
- * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}s, which can actually produce a stream of
- * records,
- * and various logical relational expressions (not yet introduced), which represent an abstract stream of records but
- * can't
+ * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}s, which can actually produce a stream of records,
+ * and various logical relational expressions (not yet introduced), which represent an abstract stream of records but can't
  * be executed directly (such as an unimplemented sort). Other planner expressions such as {@link
  * com.apple.foundationdb.record.query.expressions.QueryComponent}
  * and {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression} do not represent streams of records.
- * <p>
  * The basic type that represents a part of the planner expression tree. An expression is generally an immutable
  * object with two different kinds of fields: regular Java fields and reference fields. The regular fields represent
  * "node information", which pertains only to this specific node in the tree. In contrast, the reference fields
  * represent
  * this expression's children in the tree, such as its inputs and filter/sort expressions, and are always hidden behind
  * an {@link ExpressionRef}.
- * <p>
  * Deciding whether certain fields constitute "node information" (and should therefore be a regular field) or
  * "hierarchical information" (and therefore should not be) is subtle and more of an art than a science. There are two
  * reasonable tests that can help make this decision:
@@ -88,13 +83,11 @@ import java.util.stream.StreamSupport;
  *     or access it as a getter on the matched operator? Will you ever want to match to just this field?</li>
  *     <li>Should the planner memoize (and therefore optimize) this field separately from its parent?</li>
  * </ol>
- * <p>
  * For example, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} has only regular fields, including the
  * index name and the comparisons to use when scanning it.
  * Applying the first rule, it wouldn't really make sense to match the index name or the comparisons being performed on
  * their own: they're what define an index scan, after all!
  * Applying the second rule, they're relatively small immutable objects that don't need to be memoized.
- * <p>
  * In contrast, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} has no regular fields.
  * A filter plan has two important fields: the <code>Query.Component</code> used for the filter and a child plan that
  * provides input. Both of these might be matched by rules directly, in order to optimize them without regard for the
@@ -196,27 +189,22 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Returns if this expression can be the anchor of a correlation.
-     * <p>
      * A correlation is always formed between three entities:
      * <ol>
      * <li>the {@link Quantifier} that flows data</li>
      * <li>2. the anchor (which is a {@link RelationalExpression}) that ranges directly over the source</li>
      * <li>3. the consumers (or dependents) of the correlation which must be a descendant of the anchor.</li>
      * </ol>
-     * <p>
      * In order for a correlation to be meaningful, the anchor must define how data is bound and used by all
      * dependents. For most expressions it is not meaningful or even possible to define correlation in such a way.
-     * <p>
      * For instance, a {@link LogicalUnionExpression}
      * cannot correlate (this method returns {@code false}) because it is not meaningful to bind a record from one child
      * of the union while providing bound values to another.
-     * <p>
      * In another example, a logical select expression can correlate which means that one child of the SELECT expression
      * can be evaluated and the resulting records can bound individually one after another. For each bound record
      * flowing along that quantifier the other children of the SELECT expression can be evaluated, potentially causing
      * more correlation values to be bound, etc. These concepts follow closely to the mechanics of what SQL calls a query
      * block.
-     * <p>
      * The existence of a correlation between source, anchor, and dependents may adversely affect planning because
      * a correlation always imposes order between the evaluated of children of an expression. This may or may
      * not tie the hands of the planner to produce an optimal plan. In certain cases, queries written in a correlated
