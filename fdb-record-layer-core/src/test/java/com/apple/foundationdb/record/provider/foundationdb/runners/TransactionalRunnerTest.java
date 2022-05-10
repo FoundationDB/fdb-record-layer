@@ -58,6 +58,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -282,15 +284,15 @@ class TransactionalRunnerTest extends FDBTestBase {
     }
 
     @Test
-    void closesContextsSynchronous() throws InterruptedException {
+    void closesContextsSynchronous() {
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         try {
-            closesContext((runner, contexts, completed) ->
+            closesContext((runner, contextFuture, completed) ->
                     // You shouldn't be doing this, but maybe I haven't thought of something similar, but reasonable, where
                     // the executable for `run` does not complete, but the runner is closed
                     CompletableFuture.runAsync(() ->
                             runner.run(false, context -> {
-                                contexts.add(context);
+                                contextFuture.complete(context);
                                 final CompletableFuture<Void> future = new CompletableFuture<>();
                                 futures.add(future);
                                 future.join(); // never joins
@@ -306,10 +308,10 @@ class TransactionalRunnerTest extends FDBTestBase {
     }
 
     @Test
-    void closesContexts() throws InterruptedException {
-        closesContext((runner, contexts, completed) ->
+    void closesContexts() {
+        closesContext((runner, contextFuture, completed) ->
                 runner.runAsync(false, context -> {
-                    contexts.add(context);
+                    contextFuture.complete(context);
                     // the first future will never complete
                     return new CompletableFuture<Void>()
                             .thenApply(vignore -> completed.incrementAndGet());
@@ -317,18 +319,17 @@ class TransactionalRunnerTest extends FDBTestBase {
         );
     }
 
-    private <T> void closesContext(TriFunction<TransactionalRunner, List<FDBRecordContext>, AtomicInteger, T> run)
-            throws InterruptedException {
-        List<FDBRecordContext> contexts = new ArrayList<>();
+    private <T> void closesContext(TriFunction<TransactionalRunner, CompletableFuture<FDBRecordContext>, AtomicInteger, T> run) {
+        List<FDBRecordContext> contexts;
         AtomicInteger completed = new AtomicInteger();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
-            for (int i = 0; i < 10; i++) {
-                run.apply(runner, contexts, completed);
-            }
+            final List<CompletableFuture<FDBRecordContext>> contextFutures = IntStream.range(0, 10).mapToObj(i -> {
+                CompletableFuture<FDBRecordContext> contextFuture = new CompletableFuture<>();
+                run.apply(runner, contextFuture, completed);
+                return contextFuture;
+            }).collect(Collectors.toList());
             // make sure that the contexts have been created
-            while (contexts.size() < 10) {
-                Thread.sleep(100);
-            }
+            contexts = contextFutures.stream().map(CompletableFuture::join).collect(Collectors.toList());
             assertEquals(0, completed.get());
             for (final FDBRecordContext context : contexts) {
                 assertFalse(context.isClosed());
