@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.cursors.FlatMapPipelinedCursor;
 import com.apple.foundationdb.record.cursors.FutureCursor;
 import com.apple.foundationdb.record.cursors.IteratorCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
-import com.apple.foundationdb.record.cursors.MapCursor;
 import com.apple.foundationdb.record.cursors.MapPipelinedCursor;
+import com.apple.foundationdb.record.cursors.MapResultCursor;
 import com.apple.foundationdb.record.cursors.OrElseCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.cursors.SkipCursor;
@@ -59,6 +59,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -327,12 +328,44 @@ public interface RecordCursor<T> extends AutoCloseable {
     /**
      * Get a new cursor by applying the given function to the records in this cursor.
      * @param func the function to apply
-     * @param <V> the type of the record elements
+     * @param <V> the type of the elements of the new cursor
      * @return a new cursor that applies the given function
+     * @see #mapResult(Function) if the continuation also needs to be mapped
      */
     @Nonnull
     default <V> RecordCursor<V> map(@Nonnull Function<T, V> func) {
-        return new MapCursor<>(this, func);
+        return mapResult(result -> result.map(func));
+    }
+
+    /**
+     * Get a new cursor by applying the given function to the continuations returned by this cursor.
+     * The results returned by the new cursor will be the same as the original cursor, but the given
+     * transformation will be applied to the results' continuations.
+     *
+     * @param func the function to apply
+     * @return a new cursor that applies the given function to each continuation
+     * @see #mapResult(Function) if the result values also need to be mapped
+     */
+    @Nonnull
+    default RecordCursor<T> mapContinuation(@Nonnull UnaryOperator<RecordCursorContinuation> func) {
+        return mapResult(result -> result.withContinuation(func.apply(result.getContinuation())));
+    }
+
+    /**
+     * Get a new cursor by applying the given function to the results returned by this cursor.
+     * This allows the caller to change both the values and the continuations returned by
+     * this cursor. There are alternative methods available if only one or the other needs to
+     * be adjusted.
+     *
+     * @param func the function to apply
+     * @param <V> the type of the elements of the new cursor
+     * @return a new cursor that applies the given function to each result of this cursor
+     * @see #map(Function) to change only the values returned by the cursor
+     * @see #mapContinuation(UnaryOperator) to change only the continuations returned by the cursor
+     */
+    @Nonnull
+    default <V> RecordCursor<V> mapResult(@Nonnull Function<RecordCursorResult<T>, RecordCursorResult<V>> func) {
+        return new MapResultCursor<>(this, func);
     }
 
     /**
@@ -342,9 +375,9 @@ public interface RecordCursor<T> extends AutoCloseable {
      */
     @Nonnull
     default RecordCursor<T> mapEffect(@Nonnull Consumer<T> consumer) {
-        return new MapCursor<>(this, record -> {
-            consumer.accept(record);
-            return record;
+        return map(rec -> {
+            consumer.accept(rec);
+            return rec;
         });
     }
 
@@ -355,9 +388,9 @@ public interface RecordCursor<T> extends AutoCloseable {
      */
     @Nonnull
     default RecordCursor<T> mapEffect(@Nonnull Runnable runnable) {
-        return new MapCursor<>(this, record -> {
+        return mapResult(result -> {
             runnable.run();
-            return record;
+            return result;
         });
     }
 

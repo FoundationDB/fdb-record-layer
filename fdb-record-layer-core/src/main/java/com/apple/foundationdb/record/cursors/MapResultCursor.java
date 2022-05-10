@@ -1,9 +1,9 @@
 /*
- * MapCursor.java
+ * MapResultCursor.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,25 +30,35 @@ import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /**
  * A cursor that applies a function to the elements of another cursor.
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor after applying the function
- * @deprecated Use {@link RecordCursor#map} or {@link MapResultCursor} instead
  */
-@API(API.Status.DEPRECATED)
-@Deprecated
-public class MapCursor<T, V> implements RecordCursor<V> {
+@API(API.Status.MAINTAINED)
+public class MapResultCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private final RecordCursor<T> inner;
     @Nonnull
-    private final Function<T, V> func;
+    private final Function<RecordCursorResult<T>, RecordCursorResult<V>> func;
 
     @Nullable
     private RecordCursorResult<V> nextResult;
 
-    public MapCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, V> func) {
+    /**
+     * Internal constructor. Adopters of the library should call {@link RecordCursor#mapResult(Function) inner.mapResult()}
+     * or one of its variants instead.
+     *
+     * @param inner the inner cursor to apply the function on
+     * @param func the function to apply
+     * @see RecordCursor#mapResult(Function)
+     * @see RecordCursor#map(Function)
+     * @see RecordCursor#mapContinuation(UnaryOperator)
+     */
+    @API(API.Status.INTERNAL)
+    public MapResultCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<RecordCursorResult<T>, RecordCursorResult<V>> func) {
         this.inner = inner;
         this.func = func;
     }
@@ -59,7 +69,7 @@ public class MapCursor<T, V> implements RecordCursor<V> {
         if (nextResult != null && !nextResult.hasNext()) {
             return CompletableFuture.completedFuture(nextResult);
         }
-        return inner.onNext().thenApply(result -> result.map(func))
+        return inner.onNext().thenApply(func)
                 .thenApply(result -> {
                     nextResult = result;
                     return result;
@@ -78,7 +88,7 @@ public class MapCursor<T, V> implements RecordCursor<V> {
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }

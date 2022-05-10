@@ -25,7 +25,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.cursors.FilterCursor;
 import com.apple.foundationdb.record.cursors.FirableCursor;
 import com.apple.foundationdb.record.cursors.LazyCursor;
-import com.apple.foundationdb.record.cursors.MapCursor;
+import com.apple.foundationdb.record.cursors.MapResultCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.cursors.SkipCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -277,7 +277,7 @@ public class RecordCursorTest {
         assertEquals(Arrays.asList(2,4,6), newInts);
 
         cursor = RecordCursor.fromList(ints).filterAsync(i -> CompletableFuture.completedFuture(i % 2 != 0), 1);
-        assertTrue(cursor instanceof MapCursor, "Creating an async filter should create a map cursor");
+        assertTrue(cursor instanceof MapResultCursor, "Creating an async filter should create a map cursor");
         newInts = cursor.asList().join();
         assertEquals(Arrays.asList(1,3,5,7), newInts);
 
@@ -302,7 +302,7 @@ public class RecordCursorTest {
             }
         }, 1);
         newInts = cursor.asList().join();
-        assertTrue(cursor instanceof MapCursor, "Creating an async filter should create a map cursor");
+        assertTrue(cursor instanceof MapResultCursor, "Creating an async filter should create a map cursor");
         assertEquals(Arrays.asList(2,4,6), newInts);
     }
 
