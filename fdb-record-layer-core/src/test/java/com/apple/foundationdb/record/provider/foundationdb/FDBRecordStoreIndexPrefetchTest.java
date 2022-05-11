@@ -73,7 +73,6 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PL
  */
 @Tag(Tags.RequiresFDB)
 class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
-
     private static RecordQuery NUM_VALUES_LARGER_THAN_990 = RecordQuery.newBuilder()
             .setRecordType("MySimpleRecord")
             .setFilter(Query.field("num_value_unique").greaterThan(990))
