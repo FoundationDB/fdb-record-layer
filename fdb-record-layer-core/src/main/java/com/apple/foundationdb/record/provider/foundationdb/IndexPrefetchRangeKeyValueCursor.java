@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
@@ -69,13 +70,12 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
             return new Builder(indexSubspace, hopInfo);
         }
 
-        @SuppressWarnings({"rawtypes", "unchecked"})
         @Override
-        protected AsyncIterator<? extends KeyValue> scanRange(@Nonnull ReadTransaction transaction,
-                                                    @Nonnull KeySelector begin,
-                                                    @Nonnull KeySelector end,
-                                                    int limit, boolean reverse,
-                                                    @Nonnull StreamingMode streamingMode) {
+        protected AsyncIterator<MappedKeyValue> scanRange(@Nonnull ReadTransaction transaction,
+                                                          @Nonnull KeySelector begin,
+                                                          @Nonnull KeySelector end,
+                                                          int limit, boolean reverse,
+                                                          @Nonnull StreamingMode streamingMode) {
             return transaction
                     .getMappedRange(begin, end, hopInfo, limit, reverse, streamingMode)
                     .iterator();

@@ -141,21 +141,27 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this.resultType = resultType;
         if (useIndexPrefetch != RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE) {
             if (commonPrimaryKey == null) {
-                KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch cannot be used without a primary key. Falling back to regular scan.",
-                        LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-                LOGGER.error(message.toString());
+                if (LOGGER.isErrorEnabled()) {
+                    KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch cannot be used without a primary key. Falling back to regular scan.",
+                            LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                    LOGGER.error(message.toString());
+                }
                 this.useIndexPrefetch = RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE;
             }
             if (scanParameters.getScanType() != IndexScanType.BY_VALUE) {
-                KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch can only be used with VALUE index scan. Falling back to regular scan.",
-                        LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-                LOGGER.error(message.toString());
+                if (LOGGER.isErrorEnabled()) {
+                    KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch can only be used with VALUE index scan. Falling back to regular scan.",
+                            LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                    LOGGER.error(message.toString());
+                }
                 this.useIndexPrefetch = RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE;
             }
             if (!FDBDatabaseFactory.instance().getDatabase().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
-                KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch can only be used with API_VERSION of at least 7.1. Falling back to regular scan.",
-                        LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-                LOGGER.error(message.toString());
+                if (LOGGER.isErrorEnabled()) {
+                    KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch can only be used with API_VERSION of at least 7.1. Falling back to regular scan.",
+                            LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                    LOGGER.error(message.toString());
+                }
                 this.useIndexPrefetch = RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE;
             }
         }

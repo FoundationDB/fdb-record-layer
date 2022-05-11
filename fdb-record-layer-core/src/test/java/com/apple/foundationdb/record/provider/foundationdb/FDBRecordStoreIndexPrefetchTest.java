@@ -63,6 +63,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PLACEHOLDER;
@@ -242,7 +243,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
                 // Will throw exception if plans do not match
                 // This only compares the primary key and not all values
-                List<FDBQueriedRecord<Message>> result = cursor.asList().get();
+                assertNotNull(cursor.asList().get());
             }
         }
     }
@@ -282,7 +283,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
             // This should fail when index prefetch is fully supported. Since for now the API_VERSION is 630, prefetch mode
             // will fall back to index scan, which would not fail in this case.
-            cursor.getNext();
+            assertNotNull(cursor.getNext());
             // assertThrows(RecordCoreException.class, () -> cursor.getNext());
         }
     }
@@ -304,7 +305,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH_WITH_FALLBACK);
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
             RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
-            cursor.getNext();
+            assertNotNull(cursor.getNext());
         }
     }
 
@@ -332,7 +333,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, simpleMetadataHook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(comparatorPlan, null, executeProperties)) {
                 // Will throw exception if plans do not match
-                List<FDBQueriedRecord<Message>> result = cursor.asList().get();
+                assertNotNull(cursor.asList().get());
             }
         }
     }
