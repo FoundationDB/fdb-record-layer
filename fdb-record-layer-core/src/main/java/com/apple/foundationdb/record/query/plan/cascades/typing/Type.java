@@ -714,6 +714,9 @@ public interface Type extends Narrowable<Type> {
          */
         private final boolean isNullable;
 
+        @Nullable
+        private final String name;
+
         /**
          * list of {@link Field} types.
          */
@@ -721,7 +724,7 @@ public interface Type extends Narrowable<Type> {
         private final List<Field> fields;
 
         /**
-         * function that returns a mapping betweeen field names and their {@link Type}s.
+         * function that returns a mapping between field names and their {@link Type}s.
          */
         @Nonnull
         private final Supplier<Map<String, Type>> fieldTypeMapSupplier;
@@ -747,8 +750,21 @@ public interface Type extends Narrowable<Type> {
          * @param isNullable True if the record type is nullable, otherwise false.
          * @param fields The list of {@link Record} {@link Field}s.
          */
-        private Record(final boolean isNullable,
+        protected Record(final boolean isNullable,
                        @Nullable final List<Field> fields) {
+            this(null, isNullable, fields);
+        }
+
+        /**
+         * Constructs a new {@link Record} using a list of {@link Field}s and an explicit name.
+         * @param name The name of the record, used only for pretty-printing purposes.
+         * @param isNullable True if the record type is nullable, otherwise false.
+         * @param fields The list of {@link Record} {@link Field}s.
+         */
+        protected Record(@Nonnull String name,
+                       final boolean isNullable,
+                       @Nullable final List<Field> fields) {
+            this.name = name;
             this.isNullable = isNullable;
             this.fields = fields == null ? null : normalizeFields(fields);
             this.fieldTypeMapSupplier = Suppliers.memoize(this::computeFieldTypeMap);
@@ -769,6 +785,11 @@ public interface Type extends Narrowable<Type> {
         @Override
         public boolean isNullable() {
             return isNullable;
+        }
+
+        @Nullable
+        public String getName() {
+            return name;
         }
 
         /**
@@ -834,7 +855,7 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
             Objects.requireNonNull(fields);
-            final var typeName = uniqueCompliantTypeName();
+            final var typeName = name == null ? uniqueCompliantTypeName() : name;
             final var recordMsgBuilder = DescriptorProto.newBuilder();
             recordMsgBuilder.setName(typeName);
 
@@ -938,6 +959,11 @@ public interface Type extends Narrowable<Type> {
         @Nonnull
         public static Record fromFields(final boolean isNullable, @Nonnull final List<Field> fields) {
             return new Record(isNullable, fields);
+        }
+
+        @Nonnull
+        public static Record fromFieldsWithName(@Nonnull String name, final boolean isNullable, @Nonnull final List<Field> fields) {
+            return new Record(name, isNullable, fields);
         }
 
         /**
@@ -1086,7 +1112,7 @@ public interface Type extends Narrowable<Type> {
              * @param fieldNameOptional The field name.
              * @param fieldIndexOptional The field index.
              */
-            private Field(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
+            protected Field(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
                 this.fieldType = fieldType;
                 this.fieldNameOptional = fieldNameOptional;
                 this.fieldIndexOptional = fieldIndexOptional;
@@ -1264,7 +1290,7 @@ public interface Type extends Narrowable<Type> {
          *
          * @return <code>true</code> if the stream type is erased, otherwise <code>false</code>.
          */
-        boolean isErased() {
+        public boolean isErased() {
             return getInnerType() == null;
         }
 
