@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDe
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -75,7 +76,6 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
                                 for (int i = 0; i < l; i++) {
                                     runState.getContext().ensureActive().set(prefix.add(starting + i).pack(), value);
                                 }
-                                System.out.println(starting + " " + runState.getLimit());
                                 return starting + l < 1_000;
                             }), List.of("loggingKey", "aConstantValue")).join();
         }
@@ -158,7 +158,41 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
 
     @Test
     void postCommitHookUsage() {
-        // TODO add a test where the runnable uses a postCommit hook to do something only for success
+        // the size of the value is small enough to be inserted, but large enough that it quickly exceeds max transaction
+        // size (~100 key/value pairs)
+        byte[] value = new byte[100_000];
+        List<Pair<Long, Long>> attempted = new ArrayList<>();
+        List<Pair<Long, Long>> committed = new ArrayList<>();
+        try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(
+                fdb, FDBRecordContextConfig.newBuilder().build(), 500, mockDelay())
+                .setIncreaseLimitAfter(4)
+                .setDecreaseLimitAfter(2)) {
+            runner.runAsync(runState ->
+                    runState.getContext().ensureActive().getRange(prefix.range(), 1, true)
+                            .asList().thenApply(keyValues -> {
+                                long starting = 0;
+                                if (!keyValues.isEmpty()) {
+                                    starting = ((long)Tuple.fromBytes(keyValues.get(0).getKey()).get(1)) + 1;
+                                }
+                                long l = Math.min(runState.getLimit(), 1_000 - starting);
+                                for (int i = 0; i < l; i++) {
+                                    runState.getContext().ensureActive().set(prefix.add(starting + i).pack(), value);
+                                }
+                                final long finalStarting = starting;
+                                attempted.add(Pair.of(finalStarting, l));
+                                runState.getContext().addPostCommit(() -> {
+                                    committed.add(Pair.of(finalStarting, l));
+                                    return AsyncUtil.DONE;
+                                });
+                                return starting + l < 1_000;
+                            }), List.of("loggingKey", "aConstantValue")).join();
+        }
+        assertThat(committed, Matchers.hasSize(Matchers.greaterThan(0)));
+        assertEquals(committed.stream().sorted().collect(Collectors.toList()),
+                committed.stream().sorted().distinct().collect(Collectors.toList()));
+        assertThat(attempted,
+                Matchers.containsInRelativeOrder(committed.stream().map(Matchers::equalTo).collect(Collectors.toList())));
+        assertThat(attempted, Matchers.hasSize(Matchers.greaterThan(committed.size())));
     }
 
     @Test
