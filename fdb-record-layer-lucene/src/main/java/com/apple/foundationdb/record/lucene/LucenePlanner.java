@@ -48,6 +48,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,12 +65,14 @@ import java.util.Map;
  * plan created and from there into the record cursor which creates a Lucene sort object.
  */
 public class LucenePlanner extends RecordQueryPlanner {
+    private static final Logger logger = LoggerFactory.getLogger(LucenePlanner.class);
 
     public LucenePlanner(@Nonnull final RecordMetaData metaData, @Nonnull final RecordStoreState recordStoreState, final PlannableIndexTypes indexTypes, final FDBStoreTimer timer) {
         super(metaData, recordStoreState, indexTypes, timer);
     }
 
     @Override
+    @Nullable
     protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
                                    @Nonnull Index index, @Nonnull QueryComponent filter,
                                    @Nullable KeyExpression sort, boolean sortReverse) {
@@ -79,6 +83,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
     }
 
+    @Nullable
     private ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
                                   @Nonnull Index index, @Nonnull QueryComponent filter,
                                   @Nullable KeyExpression sort, boolean sortReverse) {
@@ -154,6 +159,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
     }
 
+    @Nullable
     private LuceneScanParameters getSpecialScan(@Nonnull LucenePlanState state, @Nonnull FilterSatisfiedMask filterMask) {
         QueryComponent queryComponent = state.groupingComparisons.isEmpty() ? state.filter : filterMask.getUnsatisfiedFilter();
         if (queryComponent instanceof LuceneQueryComponent) {
@@ -188,6 +194,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         return null;
     }
 
+    @Nullable
     private LuceneQueryClause getQueryForFilter(@Nonnull LucenePlanState state, @Nonnull QueryComponent filter,
                                                 @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterMask) {
         if (filter instanceof LuceneQueryComponent) {
@@ -204,6 +211,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         return null;
     }
 
+    @Nullable
     private LuceneQueryClause getQueryForLuceneComponent(@Nonnull LucenePlanState state, @Nonnull LuceneQueryComponent filter,
                                                          @Nullable FilterSatisfiedMask filterMask) {
         //TODO figure out how to take into account the parentField name here. Or maybe disallow this if its contained within a
@@ -224,6 +232,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
     }
 
+    @Nullable
     @SuppressWarnings("java:S3776")
     private LuceneQueryClause getQueryForAndOr(@Nonnull LucenePlanState state, @Nonnull AndOrComponent filter,
                                                @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterMask) {
@@ -254,6 +263,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         return new LuceneBooleanQuery(childClauses, occur);
     }
 
+    @Nullable
     private LuceneQueryClause getQueryForFieldWithComparison(@Nonnull LucenePlanState state, @Nonnull FieldWithComparison filter,
                                                              @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterSatisfiedMask) {
         if (filterSatisfiedMask != null && filterSatisfiedMask.isSatisfied()) {
@@ -270,9 +280,17 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (filterSatisfiedMask != null) {
             filterSatisfiedMask.setSatisfied(true);
         }
-        return LuceneQueryFieldComparisonClause.create(completeFieldName, fieldType, filter.getComparison());
+        try {
+            return LuceneQueryFieldComparisonClause.create(completeFieldName, fieldType, filter.getComparison());
+        } catch (RecordCoreException ex) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("no query for comparison " + filter, ex);
+            }
+            return null;
+        }
     }
 
+    @Nullable
     // TODO Better implementation of nesting that actually takes into account
     //  positioning of the fields in relation to each other
     // This should use the multiField query parser. Very much a TODO
