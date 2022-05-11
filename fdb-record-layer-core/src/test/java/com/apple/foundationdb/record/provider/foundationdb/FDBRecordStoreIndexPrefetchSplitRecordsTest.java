@@ -44,6 +44,7 @@ import java.util.function.BiConsumer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PLACEHOLDER;
 
 /**
  * A test for the Index Prefetch FDB API.
@@ -73,7 +74,7 @@ class FDBRecordStoreIndexPrefetchSplitRecordsTest extends FDBRecordStoreQueryTes
         complexQuerySetup(simpleMetadataHook);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "indexPrefetchSplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void indexPrefetchSplitRecordTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
         saveLargeRecord(1, 200, 2000);
@@ -92,7 +93,7 @@ class FDBRecordStoreIndexPrefetchSplitRecordsTest extends FDBRecordStoreQueryTes
         });
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "indexPrefetchSplitRecordReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void indexPrefetchSplitRecordReverseTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
         saveLargeRecord(1, 200, 2000);
@@ -111,7 +112,7 @@ class FDBRecordStoreIndexPrefetchSplitRecordsTest extends FDBRecordStoreQueryTes
         });
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "indexPrefetchManySplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void indexPrefetchManySplitRecordTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
         // TODO: This test actually runs the API in a way that returns results that are too large: Over 50MB

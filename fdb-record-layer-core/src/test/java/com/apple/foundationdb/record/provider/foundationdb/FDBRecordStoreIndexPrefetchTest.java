@@ -25,7 +25,6 @@ import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
@@ -97,8 +96,6 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             .build();
 
     private boolean useSplitRecords = true;
-
-    //TODO: Add tests with split records, and with unsplit records...
 
     @BeforeEach
     void setup() throws Exception {
@@ -282,7 +279,11 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
             RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
-            assertThrows(RecordCoreException.class, () -> cursor.getNext());
+
+            // This should fail when index prefetch is fully supported. Since for now the API_VERSION is 630, prefetch mode
+            // will fall back to index scan, which would not fail in this case.
+            cursor.getNext();
+            // assertThrows(RecordCoreException.class, () -> cursor.getNext());
         }
     }
 
@@ -321,7 +322,10 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         // This will throw an exception since SNAPSHOT is not supported
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, simpleMetadataHook);
-            assertThrows(UnsupportedOperationException.class, () -> recordStore.executeQuery(planWithPrefetch, null, executeProperties));
+            // This should fail when index prefetch is fully supported. Since for now the API_VERSION is 630, prefetch mode
+            // will fall back to index scan, which would not fail in this case.
+            recordStore.executeQuery(planWithPrefetch, null, executeProperties);
+            // assertThrows(UnsupportedOperationException.class, () -> recordStore.executeQuery(planWithPrefetch, null, executeProperties));
         }
         // This will compare the plans successfully since fallback resorts to the scan plan
         try (FDBRecordContext context = openContext()) {

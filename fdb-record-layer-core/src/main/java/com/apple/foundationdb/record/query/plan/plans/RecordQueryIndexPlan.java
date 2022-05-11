@@ -37,6 +37,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -146,6 +148,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
             }
             if (scanParameters.getScanType() != IndexScanType.BY_VALUE) {
                 KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch can only be used with VALUE index scan. Falling back to regular scan.",
+                        LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                LOGGER.error(message.toString());
+                this.useIndexPrefetch = RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE;
+            }
+            if (!FDBDatabaseFactory.instance().getDatabase().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
+                KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch can only be used with API_VERSION of at least 7.1. Falling back to regular scan.",
                         LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
                 LOGGER.error(message.toString());
                 this.useIndexPrefetch = RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE;
@@ -368,11 +376,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                     planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, getScanType(), getComparisons(), reverse, strictlySorted);
                 } else {
                     planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
-                }
-                // Backwards compatible calculation to keep previous (non-prefetch) plan hashes the same
-                // TODO: This will likely get removed since it is not a change to the plan
-                if (useIndexPrefetch != RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE) {
-                    planHash = Objects.hash(planHash, useIndexPrefetch.name());
                 }
                 return planHash;
             default:
