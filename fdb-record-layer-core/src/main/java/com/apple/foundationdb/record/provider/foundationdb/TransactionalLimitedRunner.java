@@ -40,12 +40,13 @@ public class TransactionalLimitedRunner implements AutoCloseable {
     private final LimitedRunner limitedRunner;
     private boolean closed;
 
-    public TransactionalLimitedRunner(@Nonnull FDBDatabase database,
+    public TransactionalLimitedRunner(@Nonnull final FDBDatabase database,
                                       // TODO can this not be a builder
-                                      FDBRecordContextConfig.Builder contextConfigBuilder,
-                                      int maxLimit) {
+                                      @Nonnull final FDBRecordContextConfig.Builder contextConfigBuilder,
+                                      final int maxLimit,
+                                      @Nonnull final ExponentialDelay exponentialDelay) {
         this.limitedRunner = new LimitedRunner(database.newContextExecutor(contextConfigBuilder.getMdcContext()),
-                maxLimit, new ExponentialDelay(3, 10)); // TODO make these literals come from somewhere
+                maxLimit, exponentialDelay);
         this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
     }
 

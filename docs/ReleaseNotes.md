@@ -10,6 +10,9 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 This version of the Record Layer changes the Java source and target compatibility to version 11.  Downstream projects need to be aware that the byte code produced is of class file version `55.0` going forward.
 
+`OnlineIndexer` no longer supports changing the initial delay & max delay used when retrying, in the middle of an ongoing
+index build.
+
 <!--
 // begin next release
 ### NEXT_RELEASE

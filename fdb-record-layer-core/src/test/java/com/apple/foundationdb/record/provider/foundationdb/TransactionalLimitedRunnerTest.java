@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
+import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -57,7 +60,8 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
         // the size of the value is small enough to be inserted, but large enough that it quickly exceeds max transaction
         // size (~100 key/value pairs)
         byte[] value = new byte[100_000];
-        try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(fdb, FDBRecordContextConfig.newBuilder(), 500)
+        try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(
+                fdb, FDBRecordContextConfig.newBuilder(), 500, mockDelay())
                 .setIncreaseLimitAfter(4)
                 .setDecreaseLimitAfter(2)) {
             runner.runAsync(runState ->
@@ -108,7 +112,7 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
 
             AtomicLong newValue = new AtomicLong(1);
             List<Long> readVersions = new ArrayList<>();
-            try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(fdb, contextConfigBuilder, 20)
+            try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(fdb, contextConfigBuilder, 20, mockDelay())
                     .setDecreaseLimitAfter(1)) {
                 runner.runAsync(runState -> {
                     // will not conflict if we clear weak read semantics
@@ -140,6 +144,15 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
             fdb.setTrackLastSeenVersionOnRead(tracksReadVersions);
             fdb.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
         }
+    }
+
+    private ExponentialDelay mockDelay() {
+        return new ExponentialDelay(3, 10) {
+            @Override
+            public CompletableFuture<Void> delay() {
+                return AsyncUtil.DONE;
+            }
+        };
     }
 
     @Test

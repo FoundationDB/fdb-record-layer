@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 
@@ -115,7 +116,8 @@ public class IndexingCommon {
         this.allRecordTypes = new HashSet<>();
 
         limitedRunner = new TransactionalLimitedRunner(
-                this.runner.getDatabase(), this.runner.getContextConfigBuilder(), this.config.getMaxLimit());
+                this.runner.getDatabase(), this.runner.getContextConfigBuilder(), this.config.getMaxLimit(),
+                new ExponentialDelay(this.runner.getInitialDelayMillis(), this.runner.getMaxDelayMillis()));
         limitedRunner.setIncreaseLimitAfter(this.config.getIncreaseLimitAfter())
                 .setDecreaseLimitAfter(getRunner().getMaxAttempts())
                 .setMaxDecreaseRetries(this.config.getMaxRetries());
