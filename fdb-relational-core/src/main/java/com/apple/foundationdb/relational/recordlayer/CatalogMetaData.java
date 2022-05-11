@@ -36,9 +36,10 @@ import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedExce
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
-
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.InvalidProtocolBufferException;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -47,8 +48,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 public class CatalogMetaData implements RelationalDatabaseMetaData {
     private final StoreCatalog catalog;
@@ -129,7 +128,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             List<Row> rows = new ArrayList<>();
             for (CatalogData.Table tbl : schemaInfo.getTablesList()) {
                 if (tbl.getName().equalsIgnoreCase(table)) {
-                    RecordMetaDataProto.KeyExpression pk = tbl.getPrimaryKey();
+                    RecordMetaDataProto.KeyExpression pk = RecordMetaDataProto.KeyExpression.parseFrom(tbl.getPrimaryKey());
                     String[] pkInfo = keyExpressionToPrimaryKey(pk);
                     for (int i = 0; i < pkInfo.length; i++) {
                         rows.add(new ArrayRow(new Object[]{
@@ -146,6 +145,8 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             return new IteratorResultSet(new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "KEY_SEQ", "PK_NAME"}, rows.iterator(), 0);
         } catch (RelationalException e) {
             throw e.toSqlException();
+        } catch (InvalidProtocolBufferException e) {
+            throw new SQLException(e);
         }
     }
 
