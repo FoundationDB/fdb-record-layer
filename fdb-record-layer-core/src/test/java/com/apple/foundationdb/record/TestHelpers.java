@@ -30,12 +30,14 @@ import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.function.Executable;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -68,22 +70,24 @@ public class TestHelpers {
         };
     }
 
-    public static void assertLogs(Class<?> loggingClass, Pattern pattern, Callable<?> callable) {
-        assertLogs(loggingClass.getName(), pattern, callable);
+    public static MatchingAppender assertLogs(Class<?> loggingClass, Pattern pattern, Callable<?> callable) {
+        return assertLogs(loggingClass.getName(), pattern, callable);
     }
 
-    public static void assertLogs(String loggerName, Pattern pattern, Callable<?> callable) {
+    public static MatchingAppender assertLogs(String loggerName, Pattern pattern, Callable<?> callable) {
         MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), pattern);
         assertLogs(loggerName, appender, callable);
+        return appender;
     }
 
-    public static void assertLogs(Class<?> loggingClass, String messagePrefix, Callable<?> callable) {
-        assertLogs(loggingClass.getName(), messagePrefix, callable);
+    public static MatchingAppender assertLogs(Class<?> loggingClass, String messagePrefix, Callable<?> callable) {
+        return assertLogs(loggingClass.getName(), messagePrefix, callable);
     }
 
-    public static void assertLogs(String loggerName, String messagePrefix, Callable<?> callable) {
+    public static MatchingAppender assertLogs(String loggerName, String messagePrefix, Callable<?> callable) {
         MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), messagePrefix);
         assertLogs(loggerName, appender, callable);
+        return appender;
     }
 
     private static void assertLogs(String loggerName, MatchingAppender appender, Callable<?> callable) {
@@ -207,6 +211,23 @@ public class TestHelpers {
         }
     }
 
+    @Nonnull
+    public static <T> Matcher<List<T>> containsInAnyOrderIgnoringDuplicates(final Matcher<T> first,
+                                                                            final Matcher<T> second) {
+        return Matchers.allOf(
+                Matchers.hasItems(first, second),
+                Matchers.everyItem(Matchers.anyOf(first, second)));
+    }
+
+    @Nonnull
+    public static <T> Matcher<List<T>> containsInAnyOrderIgnoringDuplicates(final Matcher<T> first,
+                                                                            final Matcher<T> second,
+                                                                            final Matcher<T> third) {
+        return Matchers.allOf(
+                Matchers.hasItems(first, second, third),
+                Matchers.everyItem(Matchers.anyOf(first, second, third)));
+    }
+
     /**
      * A matcher that an exception's message contains a given string.
      */
@@ -302,14 +323,17 @@ public class TestHelpers {
         assertTrue(discarded == 0, "discarded records unnecessarily\nExpected: 0\nActual: " + discarded);
     }
 
+    /**
+     * Appender that gathers all the matching events in a list, for further assertions.
+     */
     @SuppressWarnings("serial")
-    private static class MatchingAppender extends AbstractAppender {
+    public static class MatchingAppender extends AbstractAppender {
         @Nullable
         private final Pattern pattern;
         @Nullable
         private final String messagePrefix;
 
-        private List<LogEvent> matchedEvents = new ArrayList<>();
+        private List<String> matchedEvents = new ArrayList<>();
 
         protected MatchingAppender(@Nonnull String name, @Nonnull Pattern pattern) {
             super(name, null, null, true, null);
@@ -328,15 +352,18 @@ public class TestHelpers {
         }
 
         @Nonnull
-        public List<LogEvent> getMatchedEvents() {
-            return matchedEvents;
+        public List<String> getFormattedEvents() {
+            return Collections.unmodifiableList(matchedEvents);
         }
 
         @Override
         public void append(@Nonnull LogEvent event) {
-            if ((pattern != null && pattern.matcher(event.getMessage().getFormattedMessage()).matches())
-                    || (messagePrefix != null && event.getMessage().getFormattedMessage().startsWith(messagePrefix)))  {
-                matchedEvents.add(event);
+            final String formattedMessage = event.getMessage().getFormattedMessage();
+            if ((pattern != null && pattern.matcher(formattedMessage).matches())
+                    || (messagePrefix != null && formattedMessage.startsWith(messagePrefix)))  {
+                // log4j uses mutable events, and will reuse the object, so we store the formatted message,
+                // otherwise we'll just end up with the last message we saw
+                matchedEvents.add(formattedMessage);
             }
         }
 

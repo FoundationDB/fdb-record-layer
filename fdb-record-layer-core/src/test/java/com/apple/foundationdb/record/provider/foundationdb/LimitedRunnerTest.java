@@ -24,6 +24,7 @@ import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,7 +37,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -44,8 +48,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -53,12 +60,17 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 // if any of these tests take longer than 2 seconds, it almost certainly indicates a bug resulting in the future
 // never completing
 @Timeout(value = 2, unit = TimeUnit.SECONDS)
 class LimitedRunnerTest {
 
+    public static final String RETRIABLE_NON_LESSEN_WORK_MESSAGE = "A retriable";
+    public static final String RETRY_AND_LESSEN_WORK_MESSAGE = "A retriable that could indicate the transaction is too large";
+    public static final String LESSEN_WORK_MESSAGE = "Transaction too large";
+    public static final String NON_RETRIABLE_MESSAGE = "Non Retriable";
     private final Executor executor = ForkJoinPool.commonPool();
 
     @BeforeAll
@@ -78,6 +90,12 @@ class LimitedRunnerTest {
         return Stream.concat(allRetriableCauseTypes(),
                 Stream.of(nonRetriableException())
                         .map(Arguments::of));
+    }
+
+    public static Stream<Arguments> retriableCausesCrossExceptionStyle() {
+        return allRetriableCauseTypes()
+                .flatMap(exceptionArgs -> Arrays.stream(ExceptionStyle.values()).map(
+                        exceptionStyle -> Arguments.of(exceptionArgs.get()[0], exceptionStyle)));
     }
 
     @Test
@@ -429,10 +447,11 @@ class LimitedRunnerTest {
         List<Integer> limits = new ArrayList<>();
         final MockDelay mockDelay = mockDelay();
         final CompletionException completionException = assertThrows(CompletionException.class,
-                () -> run(mockDelay, 10, ignored -> { }, runState -> {
-                    limits.add(runState.getLimit());
-                    return exceptionStyle.hasMore(wrappedCause);
-                }));
+                () -> run(mockDelay, 10, ignored -> { },
+                        runState -> {
+                            limits.add(runState.getLimit());
+                            return exceptionStyle.hasMore(wrappedCause);
+                        }));
         assertEquals(wrappedCause, completionException.getCause());
         assertEquals(limits.size() - 1, mockDelay.delays.size());
     }
@@ -489,7 +508,7 @@ class LimitedRunnerTest {
         LimitedRunner limitedRunner = new LimitedRunner(executor, 10, infiniteDelay);
         try {
             future = limitedRunner.runAsync(runState -> exceptionStyle.hasMore(wrappedCause)
-                    .whenComplete((ignoredResult, ignoredError) -> limitedRunner.close()),
+                            .whenComplete((ignoredResult, ignoredError) -> limitedRunner.close()),
                     List.of());
         } finally {
             limitedRunner.close();
@@ -501,6 +520,69 @@ class LimitedRunnerTest {
 
         completionException = assertThrows(CompletionException.class, future::join);
         assertThat(completionException.getCause(), Matchers.instanceOf(FDBDatabaseRunner.RunnerClosed.class));
+    }
+
+    @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
+    @MethodSource("retriableCausesCrossExceptionStyle")
+    void canAddToLoggingDetails(FDBException cause, ExceptionStyle exceptionStyle) {
+        final RuntimeException wrappedCause = exceptionStyle.wrap(cause);
+        AtomicInteger externalState = new AtomicInteger(0);
+        Map<Integer, Boolean> hasFailed = new HashMap<>();
+        final String decreasingLimitTitle = "Decreasing limit";
+        final String increasingLimitTitle = "Increasing limit";
+        final String retryingTitle = "Retrying with same limit";
+        final TestHelpers.MatchingAppender matchingAppender = TestHelpers.assertLogs(LimitedRunner.class,
+                Pattern.compile("(" + decreasingLimitTitle + "|" + increasingLimitTitle + "|" + retryingTitle + ") .*"),
+                () -> {
+                    try (LimitedRunner limitedRunner = new LimitedRunner(executor, 10, mockDelay())
+                            .setDecreaseLimitAfter(cause.getMessage().equals(RETRIABLE_NON_LESSEN_WORK_MESSAGE) ? 10 : 1)
+                            .setIncreaseLimitAfter(1)) {
+                        limitedRunner.runAsync(runState -> {
+                            final int startingState = externalState.get();
+                            System.out.println(startingState + "@" + runState.getLimit());
+                            runState.addLogMessageKeyValue("externalState", startingState);
+                            if (!hasFailed.getOrDefault(startingState, false)) {
+                                hasFailed.put(startingState, true);
+                                return exceptionStyle.hasMore(wrappedCause);
+                            } else {
+                                return CompletableFuture.completedFuture(externalState.addAndGet(runState.getLimit()) < 30);
+                            }
+                        }, List.of("aConstantDetail", "fishes")).join();
+                        return null;
+                    }
+                });
+        assertThat(externalState.get(), Matchers.greaterThanOrEqualTo(30));
+        final List<String> formattedEvents = matchingAppender.getFormattedEvents();
+        if (cause.getMessage().equals(RETRIABLE_NON_LESSEN_WORK_MESSAGE)) {
+            assertThat(formattedEvents, Matchers.everyItem(Matchers.startsWith(retryingTitle + " ")));
+        } else if (cause.getMessage().equals(RETRY_AND_LESSEN_WORK_MESSAGE)) {
+            assertThat(formattedEvents, TestHelpers.containsInAnyOrderIgnoringDuplicates(
+                    Matchers.startsWith(decreasingLimitTitle + " "),
+                    Matchers.startsWith(increasingLimitTitle + " ")));
+        } else if (cause.getMessage().equals(LESSEN_WORK_MESSAGE)) {
+            assertThat(formattedEvents, TestHelpers.containsInAnyOrderIgnoringDuplicates(
+                    Matchers.startsWith(decreasingLimitTitle + " "),
+                    Matchers.startsWith(increasingLimitTitle + " ")));
+        } else {
+            fail("Unexpected cause", cause);
+        }
+        assertThat(formattedEvents, Matchers.everyItem(Matchers.containsString("aConstantDetail=\"fishes\"")));
+        Pattern externalStateDetailMatcher = Pattern.compile(".*externalState=\"(\\d+)\".*");
+        assertThat(formattedEvents, Matchers.everyItem(Matchers.anyOf(
+                // it doesn't really make sense to add state when increasing, but if we did, that wouldn't be a big deal
+                Matchers.startsWith(increasingLimitTitle),
+                Matchers.matchesRegex(externalStateDetailMatcher))));
+
+        final List<Integer> externalStates = formattedEvents.stream()
+                .map(externalStateDetailMatcher::matcher)
+                .filter(Matcher::find)
+                .map(eventMatch -> Integer.parseInt(eventMatch.group(1)))
+                .collect(Collectors.toList());
+
+        for (int i = 1; i < externalStates.size(); i++) {
+            assertThat(buildPointerMessage(externalStates, i, 2),
+                    externalStates.get(i), Matchers.greaterThan(externalStates.get(i - 1)));
+        }
     }
 
     @Nonnull
@@ -522,23 +604,23 @@ class LimitedRunnerTest {
 
     @Nonnull
     private static FDBException retriableNonLessenWorkException() {
-        return new FDBException("A retriable", FDBError.FUTURE_VERSION.code());
+        return new FDBException(RETRIABLE_NON_LESSEN_WORK_MESSAGE, FDBError.FUTURE_VERSION.code());
     }
 
     @Nonnull
     private static FDBException retryAndLessenWorkException() {
-        return new FDBException("A retriable that could indicate the transaction is too large",
+        return new FDBException(RETRY_AND_LESSEN_WORK_MESSAGE,
                 FDBError.TRANSACTION_TOO_OLD.code());
     }
 
     @Nonnull
     private static FDBException lessenWorkException() {
-        return new FDBException("Transaction too large", FDBError.TRANSACTION_TOO_LARGE.code());
+        return new FDBException(LESSEN_WORK_MESSAGE, FDBError.TRANSACTION_TOO_LARGE.code());
     }
 
     @Nonnull
     private static FDBException nonRetriableException() {
-        return new FDBException("Non Retriable", FDBError.INTERNAL_ERROR.code());
+        return new FDBException(NON_RETRIABLE_MESSAGE, FDBError.INTERNAL_ERROR.code());
     }
 
     private void run(final Function<Integer, CompletableFuture<Boolean>> runner) {
