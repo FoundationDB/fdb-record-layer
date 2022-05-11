@@ -399,6 +399,8 @@ public class IndexingByRecords extends IndexingBase {
                     // This only works if the things included within the rangeSet are serialized Tuples.
                     Tuple startTuple = Tuple.fromBytes(toBuild.begin);
                     Tuple endTuple = RangeSet.isFinalKey(toBuild.end) ? null : Tuple.fromBytes(toBuild.end);
+                    runState.addLogMessageKeyValue(LogMessageKeys.RANGE_START, startTuple);
+                    runState.addLogMessageKeyValue(LogMessageKeys.RANGE_END, endTuple);
 
                     AtomicReference<Tuple> postCommitRealEnd = new AtomicReference<>(startTuple);
                     AtomicLong recordsScanned = new AtomicLong(0);
