@@ -1216,7 +1216,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(@Nonnull Index index,
                                                                      @Nonnull TupleRange range,
-                                                                     @Nullable final KeyExpression commonPrimaryKey,
+                                                                     @Nonnull final KeyExpression commonPrimaryKey,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ScanProperties scanProperties,
                                                                      @Nonnull final IndexOrphanBehavior orphanBehavior) {
@@ -1226,7 +1226,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     protected <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetchInternal(@Nonnull final Index index,
                                                                                 @Nonnull final TupleRange range,
-                                                                                @Nullable final KeyExpression commonPrimaryKey,
+                                                                                @Nonnull final KeyExpression commonPrimaryKey,
                                                                                 @Nullable final byte[] continuation,
                                                                                 @Nonnull RecordSerializer<M> typedSerializer,
                                                                                 @Nonnull final ScanProperties scanProperties,

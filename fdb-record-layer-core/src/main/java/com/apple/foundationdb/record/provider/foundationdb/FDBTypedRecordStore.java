@@ -173,7 +173,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Override
     public RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(@Nonnull Index index,
                                                                      @Nonnull TupleRange range,
-                                                                     @Nullable final KeyExpression commonPrimaryKey,
+                                                                     @Nonnull final KeyExpression commonPrimaryKey,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ScanProperties scanProperties,
                                                                      @Nonnull final IndexOrphanBehavior orphanBehavior) {

@@ -923,7 +923,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @Nonnull
     default RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(@Nonnull final String indexName,
                                                                       @Nonnull final TupleRange range,
-                                                                      @Nullable final KeyExpression commonPrimaryKey,
+                                                                      @Nonnull final KeyExpression commonPrimaryKey,
                                                                       @Nullable byte[] continuation,
                                                                       @Nonnull ScanProperties scanProperties,
                                                                       @Nonnull final IndexOrphanBehavior orphanBehavior) {
@@ -944,7 +944,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @Nonnull
     RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(@Nonnull Index index,
                                                               @Nonnull TupleRange range,
-                                                              @Nullable final KeyExpression commonPrimaryKey,
+                                                              @Nonnull final KeyExpression commonPrimaryKey,
                                                               @Nullable byte[] continuation,
                                                               @Nonnull ScanProperties scanProperties,
                                                               @Nonnull final IndexOrphanBehavior orphanBehavior);

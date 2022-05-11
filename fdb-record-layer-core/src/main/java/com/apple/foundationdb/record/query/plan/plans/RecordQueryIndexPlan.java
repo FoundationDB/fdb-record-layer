@@ -199,7 +199,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private <M extends Message> RecordCursor<QueryResult> executeUsingIndexPrefetch(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
                                                                                     @Nullable final byte [] continuation, @Nonnull final ExecuteProperties executeProperties) {
         final TupleRange range = getComparisons().toTupleRange(store, context);
-        return store.scanIndexPrefetch(getIndexName(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
+        // CommonPrimaryKey is nullable but is protected by the constructor in the case pf index prefetch
+        return store.scanIndexPrefetch(getIndexName(), range, Objects.requireNonNull(getCommonPrimaryKey()), continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
                 .map(QueryResult::of);
     }
