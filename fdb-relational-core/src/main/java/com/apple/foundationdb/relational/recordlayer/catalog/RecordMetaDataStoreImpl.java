@@ -55,11 +55,13 @@ public final class RecordMetaDataStoreImpl {
 
     private static void setPrimaryKey(CatalogData.Table table, RecordMetaDataBuilder recordMetaDataBuilder) throws RelationalException {
         try {
-            recordMetaDataBuilder.getRecordType(table.getName()).setPrimaryKey(KeyExpression.fromProto(table.getPrimaryKey()));
+            recordMetaDataBuilder.getRecordType(table.getName()).setPrimaryKey(KeyExpression.fromProto(RecordMetaDataProto.KeyExpression.parseFrom(table.getPrimaryKey())));
         } catch (MetaDataException ex) {
             throw new RelationalException(ErrorCode.UNDEFINED_TABLE, ex);
         } catch (RecordCoreException ex) {
             throw new RelationalException(ErrorCode.INVALID_PARAMETER, ex);
+        } catch (InvalidProtocolBufferException e) {
+            throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
         }
     }
 

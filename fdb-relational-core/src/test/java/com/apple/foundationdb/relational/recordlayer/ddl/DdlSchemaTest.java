@@ -94,7 +94,7 @@ public class DdlSchemaTest {
                         Object tbl = tableInfo.stream().findFirst().orElseThrow();
                         CatalogData.Table correctData = CatalogData.Table.newBuilder()
                                 .setName("FOO_TBL")
-                                .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("col0")).toKeyExpression())
+                                .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("col0")).toKeyExpression().toByteString())
                                 .build();
                         Assertions.assertEquals(correctData, tbl, "Incorrect table info!");
                     }
@@ -144,7 +144,7 @@ public class DdlSchemaTest {
                         Object tbl = tableInfo.stream().findFirst().orElseThrow();
                         CatalogData.Table correctData = CatalogData.Table.newBuilder()
                                 .setName("FOO_TBL")
-                                .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("col0")).toKeyExpression())
+                                .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("col0")).toKeyExpression().toByteString())
                                 .build();
                         Assertions.assertEquals(correctData, tbl, "Incorrect table info!");
                     }

@@ -54,7 +54,7 @@ public class RecordMetaDataStoreImplTest {
         // add 1 table with a wrong name
         CatalogData.Table badTable = CatalogData.Table.newBuilder()
                 .setName("wrong_table_name")
-                .setPrimaryKey(RecordMetaDataProto.KeyExpression.newBuilder().setField(RecordMetaDataProto.Field.newBuilder().setFieldName("rest_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR).build()).build())
+                .setPrimaryKey(RecordMetaDataProto.KeyExpression.newBuilder().setField(RecordMetaDataProto.Field.newBuilder().setFieldName("rest_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR).build()).build().toByteString())
                 .build();
         CatalogData.Schema badSchema = goodSchema.toBuilder().addTables(badTable).build();
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
@@ -79,14 +79,14 @@ public class RecordMetaDataStoreImplTest {
         // primary key = 1 scalar field
         CatalogData.Table table1 = CatalogData.Table.newBuilder()
                 .setName("RestaurantRecord")
-                .setPrimaryKey(RecordMetaDataProto.KeyExpression.newBuilder().setField(RecordMetaDataProto.Field.newBuilder().setFieldName("rest_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR).build()).build())
+                .setPrimaryKey(RecordMetaDataProto.KeyExpression.newBuilder().setField(RecordMetaDataProto.Field.newBuilder().setFieldName("rest_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR).build()).build().toByteString())
                 .build();
         // primary key = concat of 2 scalar fields
         RecordMetaDataProto.KeyExpression key1 = RecordMetaDataProto.KeyExpression.newBuilder().setField(RecordMetaDataProto.Field.newBuilder().setFieldName("id").setFanType(RecordMetaDataProto.Field.FanType.SCALAR)).build();
         RecordMetaDataProto.KeyExpression key2 = RecordMetaDataProto.KeyExpression.newBuilder().setField(RecordMetaDataProto.Field.newBuilder().setFieldName("name").setFanType(RecordMetaDataProto.Field.FanType.SCALAR)).build();
         CatalogData.Table table2 = CatalogData.Table.newBuilder()
                 .setName("RestaurantReviewer")
-                .setPrimaryKey(RecordMetaDataProto.KeyExpression.newBuilder().setThen(RecordMetaDataProto.Then.newBuilder().addChild(key1).addChild(key2).build()).build())
+                .setPrimaryKey(RecordMetaDataProto.KeyExpression.newBuilder().setThen(RecordMetaDataProto.Then.newBuilder().addChild(key1).addChild(key2).build()).build().toByteString())
                 .build();
         return CatalogData.Schema.newBuilder()
                 .setSchemaName("restaurant")

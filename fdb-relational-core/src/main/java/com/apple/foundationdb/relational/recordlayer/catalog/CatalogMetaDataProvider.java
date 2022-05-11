@@ -34,6 +34,9 @@ import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.catalog.systables.DatabaseInfoSystemTable;
+import com.apple.foundationdb.relational.recordlayer.catalog.systables.SchemaSystemTable;
+import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -44,6 +47,8 @@ import java.net.URI;
 import java.util.Locale;
 
 import javax.annotation.Nonnull;
+
+import static com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl.SYS_DB;
 
 public class CatalogMetaDataProvider implements RecordMetaDataProvider {
     //TODO(bfines) there should probably be a cleaner way to deal with this
@@ -82,18 +87,16 @@ public class CatalogMetaDataProvider implements RecordMetaDataProvider {
                 int typeKey = 0;
                 final CatalogData.Schema schema = storeCatalog.loadSchema(txn, dbUri, schemaName);
                 DescriptorProtos.FileDescriptorProto fdProto = DescriptorProtos.FileDescriptorProto.parseFrom(schema.getRecord(), DEFAULT_EXTENSION_REGISTRY);
-
                 Descriptors.FileDescriptor fileDesc = Descriptors.FileDescriptor.buildFrom(fdProto,
                         new Descriptors.FileDescriptor[]{RecordMetaDataOptionsProto.getDescriptor()});
                 final RecordMetaDataBuilder recordMetaDataBuilder = RecordMetaData.newBuilder().setRecords(fileDesc);
-                recordMetaDataBuilder.setVersion(schema.getSchemaVersion());
                 //add in the primary keys for each table
                 for (CatalogData.Table tbl : schema.getTablesList()) {
                     final RecordTypeBuilder recordType = recordMetaDataBuilder.getRecordType(tbl.getName());
-                    recordType.setPrimaryKey(KeyExpression.fromProto(tbl.getPrimaryKey()));
-                    recordType.setRecordTypeKey(typeKey);
+                    recordType.setPrimaryKey(KeyExpression.fromProto(RecordMetaDataProto.KeyExpression.parseFrom(tbl.getPrimaryKey())));
+                    setRecordTypeKey(recordType, schema.getDatabaseId(), schema.getSchemaName(), tbl.getName(), typeKey);
                     for (CatalogData.Index idx : tbl.getIndexesList()) {
-                        RecordMetaDataProto.Index indexDef = idx.getIndexDef();
+                        RecordMetaDataProto.Index indexDef = RecordMetaDataProto.Index.parseFrom(idx.getIndexDef());
                         //RecordLayer wants lower-case values for type, and just in case the parser doesn't
                         // obey that, we don't want to break because of it. So here we are double-checking it.
                         indexDef = indexDef.toBuilder().setType(indexDef.getType().toLowerCase(Locale.ROOT)).build();
@@ -113,5 +116,29 @@ public class CatalogMetaDataProvider implements RecordMetaDataProvider {
             }
         }
         return metaData;
+    }
+
+    /**
+     * This is a temporary solution until we have a more reliable way of setting the record type keys in a deterministic
+     * way.
+     *
+     * @param recordTypeBuilder The record type build.
+     * @param databaseId The database id.
+     * @param schemaName The schema name.
+     * @param tableName The table name.
+     * @param typeKey The type key to use for user tables.
+     */
+    private void setRecordTypeKey(@Nonnull RecordTypeBuilder recordTypeBuilder,
+                                  @Nonnull final String databaseId,
+                                  @Nonnull final String schemaName,
+                                  @Nonnull final String tableName,
+                                  int typeKey) {
+        if (databaseId.equals(SYS_DB) && "catalog".equals(schemaName) && tableName.equals(SchemaSystemTable.TABLE_NAME)) {
+            recordTypeBuilder.setRecordTypeKey(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY);
+        } else if (databaseId.equals(SYS_DB) && "catalog".equals(schemaName) && tableName.equals(DatabaseInfoSystemTable.TABLE_NAME)) {
+            recordTypeBuilder.setRecordTypeKey(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY);
+        } else {
+            recordTypeBuilder.setRecordTypeKey(typeKey);
+        }
     }
 }

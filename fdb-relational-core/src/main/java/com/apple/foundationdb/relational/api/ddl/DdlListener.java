@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.api.ddl;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.TableInfo;
@@ -46,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -55,7 +57,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-class DdlListener extends DdlParserBaseListener {
+public class DdlListener extends DdlParserBaseListener {
     private SchemaTemplateBuilder templateBuilder;
     private CustomTypeBuilder typeBuilder;
     private TableBuilder tableBuilder;
@@ -395,7 +397,7 @@ class DdlListener extends DdlParserBaseListener {
         }
     }
 
-    private static class SchemaDef {
+    static class SchemaDef {
         private final URI db;
         private final String schemaName;
 
@@ -422,19 +424,20 @@ class DdlListener extends DdlParserBaseListener {
         return new SchemaDef(dbUri, schemaName);
     }
 
-    private static class SchemaTemplateBuilder {
+    // todo: refactor and move to its own package
+    public static class SchemaTemplateBuilder {
         private final String templateName;
         private final Map<String, TypeInfo> customTypes = new HashMap<>();
-        private final Map<String, TableBuilder> tables = new HashMap<>();
+        private final Map<String, TableBuilder> tables = new LinkedHashMap<>();
 
         public SchemaTemplateBuilder(String templateName) {
             this.templateName = templateName;
         }
 
-        SchemaTemplate build() throws RelationalException {
+        public SchemaTemplate build() throws RelationalException {
             Set<TypeInfo> types = Collections.newSetFromMap(new IdentityHashMap<>());
             types.addAll(customTypes.values());
-            Set<TableInfo> tbls = Collections.newSetFromMap(new IdentityHashMap<>());
+            Set<TableInfo> tbls = new LinkedIdentitySet<>();
             for (TableBuilder tb : tables.values()) {
                 tbls.add(tb.buildTable());
             }
@@ -465,7 +468,8 @@ class DdlListener extends DdlParserBaseListener {
         }
     }
 
-    private static class CustomTypeBuilder {
+    // todo: refactor and move to its own package
+    public static class CustomTypeBuilder {
         private final Map<String, TypeInfo> customTypes;
         private final String typeName;
         private final DescriptorProtos.DescriptorProto.Builder typeBuilder = DescriptorProtos.DescriptorProto.newBuilder();
@@ -500,7 +504,8 @@ class DdlListener extends DdlParserBaseListener {
         }
     }
 
-    private static class TableBuilder extends CustomTypeBuilder {
+    // todo: refactor and move to its own package
+    public static class TableBuilder extends CustomTypeBuilder {
         //TODO(bfines) we'll need to add features for different types of primary keys here
         private List<String> primaryKeyColumns = new LinkedList<>();
         private List<CatalogData.Index> indexes = new LinkedList<>();
@@ -522,7 +527,7 @@ class DdlListener extends DdlParserBaseListener {
             KeyExpression ke = fieldKeys.size() == 1 ? fieldKeys.get(0) : Key.Expressions.concat(fieldKeys);
 
             CatalogData.Table tbl = CatalogData.Table.newBuilder().setName(getTypeName())
-                    .setPrimaryKey(ke.toKeyExpression())
+                    .setPrimaryKey(ke.toKeyExpression().toByteString())
                     .addAllIndexes(indexes)
                     .build();
             return new TableInfo(getTypeName(), tbl, buildDescriptor());
@@ -538,12 +543,18 @@ class DdlListener extends DdlParserBaseListener {
             return this;
         }
 
+        public TableBuilder addPrimaryKeyColumns(final List<String> primaryKeyColumns) {
+            this.primaryKeyColumns = primaryKeyColumns;
+            return this;
+        }
+
         public void forceRecordTypeKey() {
             this.forceRecordTypeKey = true;
         }
     }
 
-    private static class IndexBuilder {
+    // todo: refactor and move to its own package
+    public static class IndexBuilder {
         private RecordMetaDataProto.Index.Builder indexBuilder = RecordMetaDataProto.Index.newBuilder();
         private List<String> includedFields;
         private List<String> indexedFields;
@@ -584,7 +595,7 @@ class DdlListener extends DdlParserBaseListener {
             }
             indexBuilder.setRootExpression(rootExpression.toKeyExpression());
             return CatalogData.Index.newBuilder().setName(indexBuilder.getName())
-                    .setIndexDef(indexBuilder)
+                    .setIndexDef(indexBuilder.build().toByteString())
                     .build();
         }
 

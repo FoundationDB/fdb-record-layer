@@ -40,14 +40,13 @@ message Schema {
 
 message Table {
   string name = 1;
-  // should we have Record layer dependency here?
-  com.apple.foundationdb.record.KeyExpression primary_key = 2;
+  bytes primary_key = 2;
   repeated Index indexes = 3;
 }
 
 message Index {
   string name = 1;
-  com.apple.foundationdb.record.Index indexDef = 2;
+  bytes indexDef = 2;
 }
 
 message DatabaseInfo {

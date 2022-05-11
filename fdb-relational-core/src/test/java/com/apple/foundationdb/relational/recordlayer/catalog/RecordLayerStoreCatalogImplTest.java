@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -36,6 +34,8 @@ import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
+import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalAssertions;
 
@@ -43,6 +43,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
@@ -55,10 +56,13 @@ public class RecordLayerStoreCatalogImplTest {
     private FDBDatabase fdb;
     private StoreCatalog storeCatalog;
 
+    @RegisterExtension
+    public static final KeySpaceExtension keySpaceExt = new KeySpaceExtension();
+
     @BeforeEach
     void setUpCatalog() throws RelationalException {
         fdb = FDBDatabaseFactory.instance().getDatabase();
-        storeCatalog = new RecordLayerStoreCatalogImpl(new KeySpace(new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL)));
+        storeCatalog = new RecordLayerStoreCatalogImpl(keySpaceExt.getKeySpace());
         // create a FDBRecordStore
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
@@ -66,7 +70,7 @@ public class RecordLayerStoreCatalogImplTest {
             builder.getRecordType("DatabaseInfo").setRecordTypeKey("DatabaseInfo").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("database_id")));
 
             FDBRecordStore.newBuilder()
-                    .setKeySpacePath(new KeySpace(new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL)).path("catalog"))
+                    .setKeySpacePath(KeySpaceUtils.uriToPath(URI.create("/__SYS/catalog"), keySpaceExt.getKeySpace()))
                     .setMetaDataProvider(builder)
                     .setContext(txn.unwrap(FDBRecordContext.class))
                     .createOrOpen();
@@ -82,7 +86,7 @@ public class RecordLayerStoreCatalogImplTest {
             builder.getRecordType("DatabaseInfo").setPrimaryKey(Key.Expressions.field("database_id"));
 
             FDBRecordStore recordStore = FDBRecordStore.newBuilder()
-                    .setKeySpacePath(new KeySpace(new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL)).path("catalog"))
+                    .setKeySpacePath(KeySpaceUtils.uriToPath(URI.create("/__SYS/catalog"), keySpaceExt.getKeySpace()))
                     .setMetaDataProvider(builder)
                     .setContext(txn.unwrap(FDBRecordContext.class))
                     .open();

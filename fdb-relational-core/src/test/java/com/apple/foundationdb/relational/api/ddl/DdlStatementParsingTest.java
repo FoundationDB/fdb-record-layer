@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -257,7 +258,12 @@ public class DdlStatementParsingTest {
                 final CatalogData.Index index = info.getTable().getIndexes(0);
                 Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
-                var actualKe = index.getIndexDef().getRootExpression();
+                RecordMetaDataProto.KeyExpression actualKe = null;
+                try {
+                    actualKe = RecordMetaDataProto.Index.parseFrom(index.getIndexDef()).getRootExpression();
+                } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                }
                 List<RecordMetaDataProto.KeyExpression> keys = null;
                 if (actualKe.hasThen()) {
                     keys = new ArrayList<>(actualKe.getThen().getChildList());
@@ -309,7 +315,12 @@ public class DdlStatementParsingTest {
                 final CatalogData.Index index = info.getTable().getIndexes(0);
                 Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
-                var actualKe = index.getIndexDef().getRootExpression();
+                RecordMetaDataProto.KeyExpression actualKe = null;
+                try {
+                    actualKe = RecordMetaDataProto.Index.parseFrom(index.getIndexDef()).getRootExpression();
+                } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                }
                 Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
                 final RecordMetaDataProto.KeyWithValue keyWithValue = actualKe.getKeyWithValue();
 
