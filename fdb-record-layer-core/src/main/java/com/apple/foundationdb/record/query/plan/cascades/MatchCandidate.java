@@ -215,6 +215,7 @@ public interface MatchCandidate {
                                                 @Nonnull final List<ComparisonRange> comparisonRanges);
 
     @Nonnull
+    @SuppressWarnings("java:S1452")
     default SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references) {
         final var traversal = getTraversal();
 

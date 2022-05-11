@@ -261,6 +261,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     }
 
     @Nonnull
+    @SuppressWarnings("java:S1452")
     protected abstract ExpressionRef<? extends RelationalExpression> inject(@Nonnull R expression,
                                                                             @Nonnull List<? extends PartialMatch> completeMatches,
                                                                             @Nonnull final ExpressionRef<? extends RelationalExpression> compensatedScanGraph);

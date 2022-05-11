@@ -330,6 +330,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
          * @param streamingMode the streaming mode
          * @return an iterator over the range or key/values from the DB
          */
+        @SuppressWarnings("java:S1452")
         protected AsyncIterator<? extends KeyValue> scanRange(@Nonnull ReadTransaction transaction,
                                                     @Nonnull KeySelector begin,
                                                     @Nonnull KeySelector end,
