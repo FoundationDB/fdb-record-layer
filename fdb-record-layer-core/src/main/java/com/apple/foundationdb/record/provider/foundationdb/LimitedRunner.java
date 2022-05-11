@@ -48,6 +48,12 @@ import java.util.function.Function;
  *     fails due to an error that indicates that it tried to do too much, it will retry with a lower limit. If previous
  *     success rates indicate that perhaps a higher limit could be used, the limit may be increased for future attempts.
  * </p>
+ * <p>
+ *     Right now this is not designed for multiple workers concurrently using the same {@link LimitedRunner}, it is
+ *     intended to be used more as a one-off, or sequentially. If used sequentially, later calls to {@link #runAsync}
+ *     will start with the limit that the previous call ended with. Most likely, you only want to call {@link #runAsync}
+ *     once per instance of {@link LimitedRunner}.
+ * </p>
  *
  * @see TransactionalLimitedRunner for code that connects this to opening/committing transactions
  * @see FDBDatabaseRunner if limit management does not make sense
@@ -91,6 +97,14 @@ public class LimitedRunner implements AutoCloseable {
         futuresToCompleteExceptionally = new ArrayList<>();
     }
 
+    /**
+     * Run the {@code runner} code, retrying, and adjusting the limits depending on failures/successes.
+     * @param runner some code to run with a given limit
+     * @param additionalLogMessageKeyValues additional log keys and values to be included in logs about retries and
+     * increasing/decreasing the limit. See also: {@link RunState#addLogMessageKeyValue(Object, Object)}.
+     * @return a future that will be completed when the future returned by {@code runner.runAsync} returns {@code false},
+     * or the retries are exhausted
+     */
     public CompletableFuture<Void> runAsync(Runner runner, final List<Object> additionalLogMessageKeyValues) {
         final CompletableFuture<Void> overallResult = new CompletableFuture<>();
         addFutureToCompleteExceptionally(overallResult);
@@ -268,7 +282,6 @@ public class LimitedRunner implements AutoCloseable {
     }
 
     public LimitedRunner setMaxLimit(final int maxLimit) {
-        // TODO does this need to protect for multiple threads
         this.maxLimit = maxLimit;
         if (currentLimit > maxLimit) {
             currentLimit = maxLimit;
@@ -277,7 +290,6 @@ public class LimitedRunner implements AutoCloseable {
     }
 
     public LimitedRunner setIncreaseLimitAfter(final int increaseLimitAfter) {
-        // TODO does this need to protect for multiple threads
         this.increaseLimitAfter = increaseLimitAfter;
         return this;
     }
