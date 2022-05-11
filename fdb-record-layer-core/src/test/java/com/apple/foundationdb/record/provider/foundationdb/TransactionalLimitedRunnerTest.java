@@ -61,7 +61,7 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
         // size (~100 key/value pairs)
         byte[] value = new byte[100_000];
         try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(
-                fdb, FDBRecordContextConfig.newBuilder(), 500, mockDelay())
+                fdb, FDBRecordContextConfig.newBuilder().build(), 500, mockDelay())
                 .setIncreaseLimitAfter(4)
                 .setDecreaseLimitAfter(2)) {
             runner.runAsync(runState ->
@@ -107,12 +107,13 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
             });
             FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(
                     firstReadVersion, Long.MAX_VALUE, true);
-            final FDBRecordContextConfig.Builder contextConfigBuilder = FDBRecordContextConfig.newBuilder()
-                    .setWeakReadSemantics(weakReadSemantics);
+            final FDBRecordContextConfig contextConfig = FDBRecordContextConfig.newBuilder()
+                    .setWeakReadSemantics(weakReadSemantics)
+                    .build();
 
             AtomicLong newValue = new AtomicLong(1);
             List<Long> readVersions = new ArrayList<>();
-            try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(fdb, contextConfigBuilder, 20, mockDelay())
+            try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(fdb, contextConfig, 20, mockDelay())
                     .setDecreaseLimitAfter(1)) {
                 runner.runAsync(runState -> {
                     // will not conflict if we clear weak read semantics

@@ -40,8 +40,37 @@ public class TransactionalLimitedRunner implements AutoCloseable {
     private final LimitedRunner limitedRunner;
     private boolean closed;
 
+    /**
+     * Create a new {@link TransactionalLimitedRunner} that can be used to run limited code within a transaction.
+     * @param database the database to run against
+     * @param contextConfig the config to use when opening the transaction
+     * @param maxLimit the maximum limit to apply when running code
+     * @param exponentialDelay delay to be used between failures
+     */
     public TransactionalLimitedRunner(@Nonnull final FDBDatabase database,
-                                      // TODO can this not be a builder
+                                      @Nonnull final FDBRecordContextConfig contextConfig,
+                                      final int maxLimit,
+                                      @Nonnull final ExponentialDelay exponentialDelay) {
+        this.limitedRunner = new LimitedRunner(database.newContextExecutor(contextConfig.getMdcContext()),
+                maxLimit, exponentialDelay);
+        this.transactionalRunner = new TransactionalRunner(database, contextConfig);
+    }
+
+
+    /**
+     * Create a new {@link TransactionalLimitedRunner} with a <em>mutable</em> {@link FDBRecordContextConfig.Builder}.
+     * <p>
+     *     You probably don't want to call this, and should probably call
+     *     {@link #TransactionalLimitedRunner(FDBDatabase, FDBRecordContextConfig, int, ExponentialDelay)} instead.
+     * </p>
+     * @param database the database to run against
+     * @param contextConfigBuilder the config to use when opening the transaction
+     * Note: The same as FDBDatabaseRunnerImpl, this maintains mutability, but that mutability is not thread safe, so
+     * there is risk if it is changed while, while simultaneously calling {@link #runAsync}.
+     * @param maxLimit the maximum limit to apply when running code
+     * @param exponentialDelay delay to be used between failures
+     */
+    public TransactionalLimitedRunner(@Nonnull final FDBDatabase database,
                                       @Nonnull final FDBRecordContextConfig.Builder contextConfigBuilder,
                                       final int maxLimit,
                                       @Nonnull final ExponentialDelay exponentialDelay) {

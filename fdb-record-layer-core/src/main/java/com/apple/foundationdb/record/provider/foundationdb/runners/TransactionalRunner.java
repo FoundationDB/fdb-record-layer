@@ -48,7 +48,7 @@ public class TransactionalRunner implements AutoCloseable {
 
     /**
      * Creates a new runner for operating against a given database.
-     * @param database the underlying databse to open contexts against
+     * @param database the underlying database to open contexts against
      * @param contextConfig configuration for how to open contexts
      */
     public TransactionalRunner(@Nonnull FDBDatabase database,
@@ -66,7 +66,7 @@ public class TransactionalRunner implements AutoCloseable {
      * @param database the underlying database to open contexts against
      * @param contextConfigBuilder configuration for how to open contexts.
      * Note: The same as FDBDatabaseRunnerImpl, this maintains mutability, but that mutability is not thread safe, so
-     * you shouldn't change it, while simultaneously calling {@link #runAsync(boolean, Function)}.
+     * there is risk if it is changed while, while simultaneously calling {@link #runAsync(boolean, Function)}.
      */
     public TransactionalRunner(@Nonnull FDBDatabase database,
                                @Nonnull FDBRecordContextConfig.Builder contextConfigBuilder) {
