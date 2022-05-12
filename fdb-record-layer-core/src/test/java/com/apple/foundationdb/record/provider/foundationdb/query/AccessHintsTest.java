@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test the class AccessHints and interface AccessHint.
  */
-public class AccessHintsTest {
+class AccessHintsTest {
 
     @Test
     void testAccessHint() {
