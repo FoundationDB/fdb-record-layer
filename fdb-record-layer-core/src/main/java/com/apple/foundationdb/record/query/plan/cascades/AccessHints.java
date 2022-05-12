@@ -31,11 +31,9 @@ import java.util.Set;
 public class AccessHints {
     @Nonnull
     private final Set<AccessHint> accessHintSet = new HashSet<>();
-    private final boolean noAccessHint;
 
     public AccessHints(AccessHint... accessHints) {
         this.accessHintSet.addAll(Arrays.asList(accessHints));
-        this.noAccessHint = this.accessHintSet.isEmpty();
     }
 
     @Nonnull
@@ -43,10 +41,18 @@ public class AccessHints {
         return accessHintSet;
     }
 
+    public int size() {
+        return accessHintSet.size();
+    }
+
     public boolean containsAll(AccessHints other) {
-        // if accessHint is not set, it's considered to include all possible hints
-        if (noAccessHint) {
+        // if no hint is set, it's considered to include all possible hints
+        if (size() == 0) {
             return true;
+        }
+        // if other is empty, this does not include other
+        if (other.size() == 0) {
+            return false;
         }
         // check that all hints in other exist in this
         for (AccessHint hint: other.accessHintSet) {

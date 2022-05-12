@@ -66,5 +66,6 @@ public class AccessHintsTest {
         Assertions.assertTrue(hints1.containsAll(hints2));
         Assertions.assertTrue(hints2.containsAll(hints3));
         Assertions.assertFalse(hints3.containsAll(hints2));
+        Assertions.assertFalse(hints3.containsAll(hints1));
     }
 }
