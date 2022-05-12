@@ -43,21 +43,21 @@ public class AccessHints {
         return accessHintSet;
     }
 
-    public boolean contains(AccessHints other) {
+    public boolean containsAll(AccessHints other) {
         // if accessHint is not set, it's considered to include all possible hints
         if (noAccessHint) {
             return true;
         }
         // check that all hints in other exist in this
         for (AccessHint hint: other.accessHintSet) {
-            if (!containsOneHint(hint)) {
+            if (!contains(hint)) {
                 return false;
             }
         }
         return true;
     }
 
-    private boolean containsOneHint(AccessHint hint) {
+    private boolean contains(AccessHint hint) {
         for (AccessHint accessHint: accessHintSet) {
             if (accessHint.equals(hint)) {
                 return true;
