@@ -26,6 +26,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -348,12 +349,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
      */
     @Test
     public void runWithWeakReadSemantics() {
-        final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
-        final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
-        try {
-            database.setTrackLastSeenVersionOnRead(true);
-            database.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
-
+        TestHelpers.runWithVersionTrackingOnRead(database, () -> {
             final byte[] key = Tuple.from(UUID.randomUUID()).pack(); // not actually modified, so value doesn't matter
 
             // Commit something and cache just the read version
@@ -387,10 +383,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
                 assertEquals(2, attempts.get());
             }
 
-        } finally {
-            database.setTrackLastSeenVersionOnRead(tracksReadVersions);
-            database.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
-        }
+        });
     }
 
     @Test

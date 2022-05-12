@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.util.LoggableException;
@@ -321,6 +322,34 @@ public class TestHelpers {
         assertNotNull(context.getTimer());
         int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded == 0, "discarded records unnecessarily\nExpected: 0\nActual: " + discarded);
+    }
+
+    /**
+     * Enable version tracking only for reads, and not for commits; by doing this we can commit changes, and have follow
+     * up transactions use the stale read version.
+     * @param database a database to run against
+     * @param runnable code to run
+     */
+    public static void runWithVersionTrackingOnRead(@Nonnull FDBDatabase database, Runnable runnable) {
+        runWithVersionTracking(database, false, runnable);
+    }
+
+    public static void runWithVersionTracking(@Nonnull FDBDatabase database, Runnable runnable) {
+        runWithVersionTracking(database, true, runnable);
+    }
+
+    public static void runWithVersionTracking(@Nonnull FDBDatabase database, final boolean trackOnCommit, Runnable runnable) {
+        final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
+        final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
+        try {
+            database.setTrackLastSeenVersionOnRead(true);
+            database.setTrackLastSeenVersionOnCommit(trackOnCommit);
+
+            runnable.run();
+        } finally {
+            database.setTrackLastSeenVersionOnRead(tracksReadVersions);
+            database.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
+        }
     }
 
     /**

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -652,11 +653,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void runWithWeakReadSemantics() throws InterruptedException, ExecutionException {
-        boolean dbTracksReadVersionOnRead = fdb.isTrackLastSeenVersionOnRead();
-        boolean dbTracksReadVersionOnCommit = fdb.isTrackLastSeenVersionOnCommit();
-        try {
-            fdb.setTrackLastSeenVersion(true);
+    public void runWithWeakReadSemantics() {
+        TestHelpers.runWithVersionTracking(fdb, () -> {
             Index index = runAsyncSetup();
 
             FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true);
@@ -668,17 +666,14 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     assertSame(weakReadSemantics, recordStore.getContext().getWeakReadSemantics());
                     assertTrue(recordStore.getContext().hasReadVersion());
                     return recordStore.getContext().getReadVersionAsync();
-                }).get();
+                }).join();
                 long readVersion2 = runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
                     assertTrue(recordStore.getContext().hasReadVersion());
                     return recordStore.getContext().getReadVersionAsync();
-                }).get();
+                }).join();
                 assertEquals(readVersion, readVersion2, "weak read semantics did not preserve read version");
             }
-        } finally {
-            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
-            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
-        }
+        });
     }
 
     @Test

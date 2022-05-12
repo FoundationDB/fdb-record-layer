@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.runners;
 
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
@@ -245,13 +246,7 @@ class TransactionalRunnerTest extends FDBTestBase {
             BiFunction<TransactionalRunner, Boolean, String> conflicting,
             Class<T> exceptionClass,
             Consumer<T> assertConflicts) {
-        final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
-        final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
-        try {
-            // Enable version tracking so that the database will use the latest version seen if we have weak read semantics
-            database.setTrackLastSeenVersionOnRead(true);
-            database.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
-
+        TestHelpers.runWithVersionTrackingOnRead(database, () -> {
             // Commit something and cache just the read version
             long firstReadVersion;
             try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -274,10 +269,7 @@ class TransactionalRunnerTest extends FDBTestBase {
 
                 assertConflicts.accept(assertThrows(exceptionClass, () -> conflicting.apply(runner, false)));
             }
-        } finally {
-            database.setTrackLastSeenVersionOnRead(tracksReadVersions);
-            database.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
-        }
+        });
     }
 
     @Test
@@ -382,12 +374,7 @@ class TransactionalRunnerTest extends FDBTestBase {
                 return context.getReadVersionAsync();
             };
 
-            final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
-            final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
-            try {
-                // Enable version tracking so that the database will use the latest version seen if we have weak read semantics
-                database.setTrackLastSeenVersionOnRead(true);
-                database.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
+            TestHelpers.runWithVersionTrackingOnRead(database, () -> {
                 final Long readVersion = runner.runAsync(false,
                         FDBRecordContext::getReadVersionAsync).join();
                 final FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(
@@ -400,10 +387,7 @@ class TransactionalRunnerTest extends FDBTestBase {
                         .join());
                 // clearing the weak read semantics should not clear it on the config builder passed in
                 assertEquals(weakReadSemantics, contextConfigBuilder.getWeakReadSemantics());
-            } finally {
-                database.setTrackLastSeenVersionOnRead(tracksReadVersions);
-                database.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
-            }
+            });
         }
     }
 

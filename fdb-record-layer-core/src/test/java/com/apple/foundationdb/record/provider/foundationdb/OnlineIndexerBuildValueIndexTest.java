@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -217,19 +218,13 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
     @Test
     @Tag(Tags.Slow)
     public void oneHundredElementsWithWeakReads() {
-        boolean dbTracksReadVersionOnRead = fdb.isTrackLastSeenVersionOnRead();
-        boolean dbTracksReadVersionOnCommit = fdb.isTrackLastSeenVersionOnCommit();
-        try {
-            fdb.setTrackLastSeenVersion(true);
+        TestHelpers.runWithVersionTracking(fdb, () -> {
             Random r = new Random(0x5ca1ab1e);
             List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                     TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
             ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
             valueRebuild(records);
-        } finally {
-            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
-            fdb.setTrackLastSeenVersionOnCommit(dbTracksReadVersionOnCommit);
-        }
+        });
     }
 
     @Test
@@ -245,19 +240,13 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
     @Test
     @Tag(Tags.Slow)
     public void oneHundredElementsParallelWithWeakReads() {
-        boolean dbTracksReadVersionOnRead = fdb.isTrackLastSeenVersionOnRead();
-        boolean dbTracksReadVersionOnCommit = fdb.isTrackLastSeenVersionOnCommit();
-        try {
-            fdb.setTrackLastSeenVersion(true);
+        TestHelpers.runWithVersionTracking(fdb, () -> {
             Random r = new Random(0x5ca1ab1e);
             List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                     TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
             ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
             valueRebuild(records, null, 5, false);
-        } finally {
-            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
-            fdb.setTrackLastSeenVersionOnCommit(dbTracksReadVersionOnCommit);
-        }
+        });
     }
 
     @Test

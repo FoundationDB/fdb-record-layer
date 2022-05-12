@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
@@ -449,12 +450,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
      */
     @Test
     public void testResolveWithWeakReadSemantics() {
-        final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
-        final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
-        try {
-            database.setTrackLastSeenVersionOnRead(true);
-            database.setTrackLastSeenVersionOnCommit(false); // disable commit version tracking so that stale read version is cached
-
+        TestHelpers.runWithVersionTrackingOnRead(database, () -> {
             final String key = "hello " + UUID.randomUUID();
             long resolvedValue;
             try (FDBRecordContext context = database.openContext()) {
@@ -472,10 +468,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
                 long resolvedAgainValue = globalScope.resolve(context, key).join();
                 assertEquals(resolvedValue, resolvedAgainValue, "resolved value changed between transactions");
             }
-        } finally {
-            database.setTrackLastSeenVersionOnRead(tracksReadVersions);
-            database.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
-        }
+        });
     }
 
     @Test

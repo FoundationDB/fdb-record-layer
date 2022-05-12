@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.subspace.Subspace;
@@ -90,13 +91,7 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
 
     @Test
     void weakReadSemantics() {
-        // TODO extract this into something reusable across test fixtures
-        final boolean tracksReadVersions = fdb.isTrackLastSeenVersionOnRead();
-        final boolean tracksCommitVersions = fdb.isTrackLastSeenVersionOnCommit();
-        try {
-            // Enable version tracking so that the database will use the latest version seen if we have weak read semantics
-            fdb.setTrackLastSeenVersionOnRead(true);
-            fdb.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
+        TestHelpers.runWithVersionTrackingOnRead(fdb, () -> {
             final byte[] conflictingKey = prefix.add(0).pack();
             final Long firstReadVersion = fdb.run(context -> {
                 context.ensureActive().addWriteConflictKey(conflictingKey);
@@ -138,10 +133,7 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
                     .asList().join();
             assertThat(resultingValues, Matchers.hasSize(Matchers.lessThan(20)));
             assertThat(resultingValues, Matchers.everyItem(Matchers.greaterThan(1L)));
-        } finally {
-            fdb.setTrackLastSeenVersionOnRead(tracksReadVersions);
-            fdb.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
-        }
+        });
     }
 
     @Test
