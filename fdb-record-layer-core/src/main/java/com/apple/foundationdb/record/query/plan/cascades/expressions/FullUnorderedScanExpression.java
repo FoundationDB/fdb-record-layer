@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -55,10 +56,10 @@ import java.util.Set;
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}, a {@code FullUnorderedScanExpression}
  * is not implicitly ordered by the primary key.
  *
- * <p>
+ *
  * This expression is useful as the source of records for the initial planner expression produced from a
  * {@link com.apple.foundationdb.record.query.RecordQuery}.
- * </p>
+ *
  */
 @API(API.Status.EXPERIMENTAL)
 public class FullUnorderedScanExpression implements RelationalExpression, PlannerGraphRewritable {
@@ -66,11 +67,11 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     private final Set<String> recordTypes;
 
     @Nonnull
-    private final Set<String> indexSet;
+    final AccessHints accessHints;
 
-    public FullUnorderedScanExpression(final Set<String> recordTypes, final Set<String> indexSet) {
+    public FullUnorderedScanExpression(final Set<String> recordTypes, @Nonnull final AccessHints accessHints) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
-        this.indexSet = ImmutableSet.copyOf(indexSet);
+        this.accessHints = accessHints;
     }
 
     @Nonnull
@@ -79,8 +80,8 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     }
 
     @Nonnull
-    public Set<String> getIndexSet() {
-        return indexSet;
+    public AccessHints getAccessHints() {
+        return accessHints;
     }
 
     @Nonnull
@@ -146,8 +147,8 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         if (getClass() != candidateExpression.getClass()) {
             return ImmutableList.of();
         }
-        // if 1) query contains candidate's indexes; AND 2) the query can be exactly subsumed by the candidate, the query can be subsumed by the candidate
-        if (getIndexSet().isEmpty() || getIndexSet().containsAll(((FullUnorderedScanExpression)candidateExpression).getIndexSet())) {
+        // if query doesnot contain candidate's indexes, the query cannot be subsumed by the candidate
+        if (getAccessHints().contains(((FullUnorderedScanExpression)candidateExpression).getAccessHints())) {
             return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
         } else {
             return ImmutableList.of();

@@ -43,7 +43,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -293,7 +292,7 @@ public interface MatchCandidate {
                                                                       final boolean isReverse,
                                                                       @Nullable final KeyExpression commonPrimaryKeyForIndex,
                                                                       @Nonnull final ExpansionVisitor<?> expansionVisitor) {
-        final var baseRef = createBaseRef(recordMetaData, availableRecordTypes, recordTypeNamesForIndex, index.getName());
+        final var baseRef = createBaseRef(recordMetaData, availableRecordTypes, recordTypeNamesForIndex, new IndexAccessHint(index.getName()));
         try {
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
         } catch (final UnsupportedOperationException uOE) {
@@ -316,7 +315,7 @@ public interface MatchCandidate {
                                                           final boolean isReverse) {
         if (commonPrimaryKey != null) {
             final var availableRecordTypes = metaData.getRecordTypes().keySet();
-            final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes, "");
+            final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes, new PrimaryAccessHint(commonPrimaryKey));
             final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, isReverse));
         }
@@ -325,9 +324,9 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex, @Nonnull String indexName) {
+    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex, @Nonnull AccessHint accessHint) {
         final var quantifier =
-                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, Collections.singleton(indexName))));
+                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, new AccessHints(accessHint))));
         return GroupExpressionRef.of(
                 new LogicalTypeFilterExpression(recordTypesForIndex,
                         quantifier,

@@ -26,10 +26,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -82,7 +84,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     var qun =
                             Quantifier.forEach(GroupExpressionRef.of(
                                     new FullUnorderedScanExpression(ImmutableSet.of("RestaurantRecord",
-                                            "RestaurantReviewer"), ImmutableSet.of())));
+                                            "RestaurantReviewer"), new AccessHints())));
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(
                             new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
@@ -131,7 +133,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     var qun =
                             Quantifier.forEach(GroupExpressionRef.of(
                                     new FullUnorderedScanExpression(ImmutableSet.of("RestaurantRecord",
-                                            "RestaurantReviewer"), ImmutableSet.of("review_rating"))));
+                                            "RestaurantReviewer"), new AccessHints(new IndexAccessHint("review_rating")))));
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(
                             new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
@@ -170,7 +172,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     var qun =
                             Quantifier.forEach(GroupExpressionRef.of(
                                     new FullUnorderedScanExpression(ImmutableSet.of("RestaurantRecord",
-                                            "RestaurantReviewer"), ImmutableSet.of("RestaurantRecord$name"))));
+                                            "RestaurantReviewer"), new AccessHints(new IndexAccessHint("RestaurantRecord$name")))));
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(
                             new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),

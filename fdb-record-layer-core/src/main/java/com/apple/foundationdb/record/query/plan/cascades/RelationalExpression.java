@@ -50,7 +50,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -108,10 +107,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         final GroupExpressionRef<? extends RelationalExpression> baseRef;
         Quantifier.ForEach quantifier;
         if (recordTypes.isEmpty()) {
-            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), Collections.emptySet()));
+            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), new AccessHints()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
-            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), Collections.emptySet()));
+            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), new AccessHints()));
             baseRef = GroupExpressionRef.of(
                     new LogicalTypeFilterExpression(
                             new HashSet<>(recordTypes),
