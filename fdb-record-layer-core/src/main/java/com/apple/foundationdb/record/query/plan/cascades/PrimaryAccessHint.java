@@ -32,7 +32,7 @@ public class PrimaryAccessHint implements AccessHint {
     @Nonnull
     private final KeyExpression primaryKey;
 
-    public PrimaryAccessHint(@Nonnull KeyExpression primaryKey) {
+    public PrimaryAccessHint(@Nonnull final KeyExpression primaryKey) {
         this.primaryKey = primaryKey;
     }
 

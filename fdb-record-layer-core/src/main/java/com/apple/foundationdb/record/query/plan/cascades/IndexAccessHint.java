@@ -30,7 +30,7 @@ public class IndexAccessHint implements AccessHint {
     @Nonnull
     private final String indexName;
 
-    public IndexAccessHint(@Nonnull String indexName) {
+    public IndexAccessHint(@Nonnull final String indexName) {
         this.indexName = indexName;
     }
 

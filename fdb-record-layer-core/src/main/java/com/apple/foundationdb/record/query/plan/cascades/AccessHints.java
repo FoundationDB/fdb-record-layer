@@ -45,7 +45,7 @@ public class AccessHints {
         return accessHintSet.size();
     }
 
-    public boolean containsAll(AccessHints other) {
+    public boolean containsAll(@Nonnull AccessHints other) {
         // if no hint is set, it's considered to include all possible hints
         if (size() == 0) {
             return true;
@@ -54,21 +54,6 @@ public class AccessHints {
         if (other.size() == 0) {
             return false;
         }
-        // check that all hints in other exist in this
-        for (AccessHint hint: other.accessHintSet) {
-            if (!contains(hint)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean contains(AccessHint hint) {
-        for (AccessHint accessHint: accessHintSet) {
-            if (accessHint.equals(hint)) {
-                return true;
-            }
-        }
-        return false;
+        return accessHintSet.containsAll(other.getAccessHintSet());
     }
 }
