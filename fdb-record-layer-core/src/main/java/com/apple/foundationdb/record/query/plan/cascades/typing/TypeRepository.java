@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,16 +70,16 @@ public class TypeRepository {
     private final FileDescriptorSet fileDescSet;
 
     @Nonnull
-    private final Map<String, Descriptor> msgDescriptorMapFull = new HashMap<>();
+    private final Map<String, Descriptor> msgDescriptorMapFull = new LinkedHashMap<>();
 
     @Nonnull
-    private final Map<String, Descriptor> msgDescriptorMapShort = new HashMap<>();
+    private final Map<String, Descriptor> msgDescriptorMapShort = new LinkedHashMap<>();
 
     @Nonnull
-    private final Map<String, EnumDescriptor> enumDescriptorMapFull = new HashMap<>();
+    private final Map<String, EnumDescriptor> enumDescriptorMapFull = new LinkedHashMap<>();
 
     @Nonnull
-    private final Map<String, EnumDescriptor> enumDescriptorMapShort = new HashMap<>();
+    private final Map<String, EnumDescriptor> enumDescriptorMapShort = new LinkedHashMap<>();
 
     @Nonnull
     private final Map<Type, String> typeToNameMap;

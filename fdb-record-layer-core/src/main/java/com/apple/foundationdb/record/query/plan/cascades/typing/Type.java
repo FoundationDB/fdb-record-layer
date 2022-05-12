@@ -750,20 +750,17 @@ public interface Type extends Narrowable<Type> {
          * @param isNullable True if the record type is nullable, otherwise false.
          * @param fields The list of {@link Record} {@link Field}s.
          */
-        protected Record(final boolean isNullable,
-                       @Nullable final List<Field> fields) {
+        protected Record(final boolean isNullable, @Nullable final List<Field> fields) {
             this(null, isNullable, fields);
         }
 
         /**
          * Constructs a new {@link Record} using a list of {@link Field}s and an explicit name.
-         * @param name The name of the record, used only for pretty-printing purposes.
+         * @param name The name of the record.
          * @param isNullable True if the record type is nullable, otherwise false.
          * @param fields The list of {@link Record} {@link Field}s.
          */
-        protected Record(@Nonnull String name,
-                       final boolean isNullable,
-                       @Nullable final List<Field> fields) {
+        protected Record(@Nullable final String name, final boolean isNullable, @Nullable final List<Field> fields) {
             this.name = name;
             this.isNullable = isNullable;
             this.fields = fields == null ? null : normalizeFields(fields);
