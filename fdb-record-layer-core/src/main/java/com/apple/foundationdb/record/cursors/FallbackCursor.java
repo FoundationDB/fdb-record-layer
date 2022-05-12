@@ -32,7 +32,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
 /**
- * provide an alternative cursor in case the primary cursor fails. This cursor has an <code>inner</code> cursor that is
+ * Provide an alternative cursor in case the primary cursor fails. This cursor has an <code>inner</code> cursor that is
  * used to return the results in the sunny day scenarios, and an alternative provider of a <code>fallback</code> cursor
  * that will be used if the primary cursor encounters an error.
  * Note that there are business rules around when a fallback may happen. For example, because of the way records are
