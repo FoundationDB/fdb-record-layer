@@ -104,7 +104,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSimpleIndexTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+    void indexPrefetchSimpleIndexTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
         executeAndVerifyData(plan, 10, (rec, i) -> {
             int primaryKey = 9 - i;
@@ -116,7 +116,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSimpleIndexReverseTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+    void indexPrefetchSimpleIndexReverseTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990_REVERSE, useIndexPrefetch);
         executeAndVerifyData(plan, 10, (rec, i) -> {
             int primaryKey = i;
@@ -128,7 +128,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "indexPrefetchComplexIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchComplexIndexTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+    void indexPrefetchComplexIndexTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(STR_VALUE_EVEN, useIndexPrefetch);
         executeAndVerifyData(plan, 50, (rec, i) -> {
             int primaryKey = i * 2;
@@ -139,7 +139,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "indexPrefetchWithContinuationTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchWithContinuationTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+    void indexPrefetchWithContinuationTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(5)
@@ -170,8 +170,8 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
      */
     @Test
     void indexPrefetchWithMixedContinuationTest() throws Exception {
-        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE);
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(4)
                 .build();
@@ -203,10 +203,10 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "indexPrefetchByteLimitContinuation(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     @Disabled // This test is inconsistently failing (for the NONE case)
-    void indexPrefetchByteLimitContinuation(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+    void indexPrefetchByteLimitContinuation(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
         // TODO: Why should the index prefetch take so many more bytes to scan the same number of records? Maybe the index scan counts the records and the fetch does not?
-        int scanBytesLimit = (useIndexPrefetch == RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE) ? 350 : 1300;
+        int scanBytesLimit = (useIndexPrefetch == RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) ? 350 : 1300;
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setScannedBytesLimit(scanBytesLimit)
                 .build();
@@ -232,8 +232,8 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void testIndexPrefetchWithComparatorPlan() throws Exception {
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE);
-        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
         ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
         RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
 
@@ -249,8 +249,8 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void testIndexPrefetchWithComparatorPlanFails() throws Exception {
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE);
-        RecordQueryPlan planWithPrefetch = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
+        RecordQueryPlan planWithPrefetch = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
         ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
         RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
 
@@ -276,7 +276,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             recordStore.saveRecord(recBuilder.build());
 
             // Execute the query (will fail because a record in memory cannot be processed by index prefetch)
-            RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
+            RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
             RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
 
@@ -301,7 +301,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             recordStore.saveRecord(recBuilder.build());
 
             // Execute the query (will fail because a record in memory cannot be processed by index prefetch)
-            RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH_WITH_FALLBACK);
+            RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
             RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
             assertNotNull(cursor.getNext());
@@ -310,9 +310,9 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void indexPrefetchSimpleIndexFallbackTest() throws Exception {
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.NONE);
-        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH);
-        RecordQueryPlan planWithFallback = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexPrefetchUse.USE_INDEX_PREFETCH_WITH_FALLBACK);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
+        RecordQueryPlan planWithFallback = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
         RecordQueryPlan comparatorPlan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithFallback), primaryKey(), 0, true);
 
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
@@ -415,10 +415,10 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
     };
 
     @Nonnull
-    private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) {
+    private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
-                .setUseIndexPrefetch(useIndexPrefetch)
+                .setIndexFetchMethod(useIndexPrefetch)
                 .build());
         return planner.plan(query);
     }

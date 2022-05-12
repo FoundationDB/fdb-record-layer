@@ -341,7 +341,7 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
     }
 
     protected static Function<FDBRecordStore, CompletableFuture<?>> indexRecordPrefetchScanNum3Equals(int num3) {
-        return store -> store.scanIndexPrefetchRecordsEqual("MySimpleRecord$num_value_3_indexed", Key.Expressions.field("rec_no"), num3).asList();
+        return store -> store.scanIndexRemoteFetchRecordsEqual("MySimpleRecord$num_value_3_indexed", Key.Expressions.field("rec_no"), num3).asList();
     }
 
     protected static Function<FDBRecordStore, CompletableFuture<?>> scanAndJoinNum3Equals(int num3) {

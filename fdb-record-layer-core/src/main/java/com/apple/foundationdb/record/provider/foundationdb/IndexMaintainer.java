@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
@@ -267,19 +268,21 @@ public abstract class IndexMaintainer {
     public abstract CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation);
 
     /**
-     * Use the index prefetch scan method to return a range scan with the dereferenced record for each index entry.
-     * @param range the index range to scan
-     * @param mapper the mapper construct that is used to build a record primary key from an index entry
+     * Use the getMappedRange scan method to return a range scan with the dereferenced record for each index entry.
+     * @param scanBounds the index range to scan
      * @param continuation the continuation to use
      * @param scanProperties the scan properties to use
+     * @param recordSubspace the record subspace: The prefix of the keyspace to use for the derefenced records
+     * @param commonPrimaryKey the common primary key for the derefenced records
      * @return a cursor of the index prefetch call result: will contain both index entries and dereferenced records
      */
     @Nonnull
-    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(@Nonnull final TupleRange range,
-                                                               @Nonnull final byte[] mapper,
-                                                               @Nullable final byte[] continuation,
-                                                               @Nonnull final ScanProperties scanProperties) {
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+                                                             @Nullable final byte[] continuation,
+                                                             @Nonnull final ScanProperties scanProperties,
+                                                             @Nonnull final Subspace recordSubspace,
+                                                             @Nonnull final KeyExpression commonPrimaryKey) {
         // Not implemented by default - needs to be overridden by individual maintainers
-        throw new RecordCoreException("scanReferences operation is not supported by this index maintainer for Index " + state.index.getName());
+        throw new RecordCoreException("scanRemoteFetch operation is not supported by this index maintainer for Index " + state.index.getName());
     }
 }

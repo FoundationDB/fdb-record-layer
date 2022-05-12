@@ -76,7 +76,7 @@ class FDBRecordStoreIndexPrefetchSplitRecordsTest extends FDBRecordStoreQueryTes
 
     @ParameterizedTest(name = "indexPrefetchSplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSplitRecordTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+    void indexPrefetchSplitRecordTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         saveLargeRecord(1, 200, 2000);
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
 
@@ -95,7 +95,7 @@ class FDBRecordStoreIndexPrefetchSplitRecordsTest extends FDBRecordStoreQueryTes
 
     @ParameterizedTest(name = "indexPrefetchSplitRecordReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSplitRecordReverseTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+    void indexPrefetchSplitRecordReverseTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         saveLargeRecord(1, 200, 2000);
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990_REVERSE, useIndexPrefetch);
 
@@ -114,7 +114,7 @@ class FDBRecordStoreIndexPrefetchSplitRecordsTest extends FDBRecordStoreQueryTes
 
     @ParameterizedTest(name = "indexPrefetchManySplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchManySplitRecordTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+    void indexPrefetchManySplitRecordTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         // TODO: This test actually runs the API in a way that returns results that are too large: Over 50MB
         // FDB will fix the issue to limit the bytes returned and then this test would need to adjust accordingly.
         int numTransactions = 10;
@@ -187,10 +187,10 @@ class FDBRecordStoreIndexPrefetchSplitRecordsTest extends FDBRecordStoreQueryTes
     };
 
     @Nonnull
-    private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) {
+    private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
-                .setUseIndexPrefetch(useIndexPrefetch)
+                .setIndexFetchMethod(useIndexPrefetch)
                 .build());
         return planner.plan(query);
     }

@@ -53,7 +53,7 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
     /**
      * A Builder for the cursor. Note that this builder actually extends the superclass' builder, and does not create
      * a {@link IndexPrefetchRangeKeyValueCursor} but rather a {@link KeyValueCursor}, by virtue of the fact that it
-     * only extends teh {@link #scanRange} method. This is by design and the created cursor is a {@link KeyValueCursor}
+     * only extends the {@link #scanRange} method. This is by design and the created cursor is a {@link KeyValueCursor}
      * with no behavior differences from the default.
      */
     @API(API.Status.EXPERIMENTAL)

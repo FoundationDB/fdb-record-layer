@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
@@ -63,6 +64,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilte
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
@@ -137,19 +140,25 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     @Override
     @Nonnull
-    public RecordCursor<FDBIndexedRawRecord> scanIndexPrefetch(@Nonnull final TupleRange range,
-                                                               @Nonnull final byte[] mapper,
-                                                               @Nullable final byte[] continuation,
-                                                               @Nonnull ScanProperties scanProperties) {
-        final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, mapper)
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+                                                             @Nullable final byte[] continuation,
+                                                             @Nonnull final ScanProperties scanProperties,
+                                                             @Nonnull final Subspace recordSubspace,
+                                                             @Nonnull final KeyExpression commonPrimaryKey) {
+        if ((scanBounds.getScanType() != IndexScanType.BY_VALUE) || (!(scanBounds instanceof IndexScanRange))) {
+            throw new RecordCoreArgumentException("scanRemoteFetch can only be used with VALUE index scan type and Range Scan");
+        }
+        IndexScanRange scanRange = (IndexScanRange)scanBounds;
+        Tuple mapper = createRemoteFetchMapper(state.indexSubspace, state.index, recordSubspace, commonPrimaryKey);
+        final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, mapper.pack())
                 .setContext(state.context)
-                .setRange(range)
+                .setRange(scanRange.getScanRange())
                 .setContinuation(continuation)
                 .setScanProperties(scanProperties)
                 .build();
         // Hard cast - Not ideal but likely needed to avoid complex implementation of specific cursor
         RecordCursor<MappedKeyValue> mappedResults = keyValues.map(kv -> (MappedKeyValue)kv);
-        return mappedResults.map(mappedResult -> unpackIndexPrefetchRecord(state.index, mappedResult));
+        return mappedResults.map(this::unpackRemoteFetchRecord);
     }
 
     /**
@@ -174,8 +183,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Nonnull
-    protected FDBIndexedRawRecord unpackIndexPrefetchRecord(@Nonnull final Index index, @Nonnull MappedKeyValue indexKeyValue) {
-        IndexEntry indexEntry = new IndexEntry(index, unpackKey(state.indexSubspace, indexKeyValue), decodeValue(indexKeyValue.getValue()));
+    protected FDBIndexedRawRecord unpackRemoteFetchRecord(@Nonnull MappedKeyValue indexKeyValue) {
+        IndexEntry indexEntry = new IndexEntry(state.index, unpackKey(state.indexSubspace, indexKeyValue), decodeValue(indexKeyValue.getValue()));
         return new FDBIndexedRawRecord(indexEntry, indexKeyValue);
     }
 
@@ -695,5 +704,30 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
 
         return indexKeys.stream().map(key -> new IndexEntry(state.index, key)).collect(Collectors.toList());
+    }
+
+    /**
+     * Create the list of index key-references that would allow the DB to prefetch the records pointed to by the index entries.
+     * The commonPrimaryKey is the representation of the primary key for the referenced records.
+     * The index structure is: [P1...Pn, I1...In, K1...Kn] where Px are the prefix elements, Ix are the index fields and Kx are the primary keys of the indexed record.
+     * Since {@link Index#trimPrimaryKey(List)} removes redundant key entries, we need to construct the list of locations of the primary key
+     * elements by using the keyLocations (if there are any), followed by the remaining key elements.
+     * @param indexSubspace the Index subspace (the prefix for the index entries)
+     * @param index the index being referenced
+     * @param recordSubspace the Record subspace (the prefix for the record entries)
+     * @param commonPrimaryKey the metadata of the primary key (used to construct the PK locations in teh dereferenced record)
+     * @return A Tuple representing the Mapper structure required by the FDB getMappedRange call
+     */
+    @Nonnull
+    private Tuple createRemoteFetchMapper(@Nonnull Subspace indexSubspace, @Nonnull final Index index, @Nonnull Subspace recordSubspace, @Nonnull KeyExpression commonPrimaryKey) {
+        int prefixLength = Tuple.fromBytes(indexSubspace.pack()).size();
+        List<Integer> keyLocations = index.getEntryPrimaryKeyPositions(commonPrimaryKey.getColumnSize());
+
+        Tuple result =  Tuple.fromBytes(recordSubspace.pack());
+        for (int i: keyLocations) {
+            result = result.add("{K[" + (i + prefixLength) + "]}");
+        }
+        result = result.add("{...}");
+        return result;
     }
 }

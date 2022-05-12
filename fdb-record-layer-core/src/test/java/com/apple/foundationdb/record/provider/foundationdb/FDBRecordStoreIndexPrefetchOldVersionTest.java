@@ -72,7 +72,7 @@ public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQue
 
     @ParameterizedTest
     @EnumSource()
-    void oldVersionFormatTest(RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) throws Exception {
+    void oldVersionFormatTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
 
         int count = 0;
@@ -167,10 +167,10 @@ public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQue
     };
 
     @Nonnull
-    private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexPrefetchUse useIndexPrefetch) {
+    private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
-                .setUseIndexPrefetch(useIndexPrefetch)
+                .setIndexFetchMethod(useIndexPrefetch)
                 .build());
         return planner.plan(query);
     }

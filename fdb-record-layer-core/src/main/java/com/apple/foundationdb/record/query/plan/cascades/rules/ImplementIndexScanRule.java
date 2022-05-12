@@ -55,7 +55,7 @@ public class ImplementIndexScanRule extends PlannerRule<IndexScanExpression> {
                 logical.getIndexName()),
                 call.getContext().getCommonPrimaryKey(),
                 scan,
-                call.getContext().getPlannerConfiguration().getUseIndexPrefetch(),
+                call.getContext().getPlannerConfiguration().getIndexFetchMethod(),
                 logical.isReverse(),
                 false)));
     }

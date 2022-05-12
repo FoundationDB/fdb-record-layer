@@ -914,40 +914,40 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
      * @param indexName the name of the index
-     * @param range the range of the index to scan
+     * @param scanBounds the range of the index to scan
      * @param commonPrimaryKey the common primary key for the records that would be returned
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(@Nonnull final String indexName,
-                                                                      @Nonnull final TupleRange range,
-                                                                      @Nonnull final KeyExpression commonPrimaryKey,
-                                                                      @Nullable byte[] continuation,
-                                                                      @Nonnull ScanProperties scanProperties,
-                                                                      @Nonnull final IndexOrphanBehavior orphanBehavior) {
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull final String indexName,
+                                                                   @Nonnull final IndexScanBounds scanBounds,
+                                                                   @Nonnull final KeyExpression commonPrimaryKey,
+                                                                   @Nullable byte[] continuation,
+                                                                   @Nonnull ScanProperties scanProperties,
+                                                                   @Nonnull final IndexOrphanBehavior orphanBehavior) {
 
         final Index index = getRecordMetaData().getIndex(indexName);
-        return scanIndexPrefetch(index, range, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
+        return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
     }
 
     /**
      * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
      * @param index the index to scan
-     * @param range the range of the index to scan
+     * @param scanBounds the range for the index to scan
      * @param commonPrimaryKey the common primary key for the records that would be returned
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
-    RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(@Nonnull Index index,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull final KeyExpression commonPrimaryKey,
-                                                              @Nullable byte[] continuation,
-                                                              @Nonnull ScanProperties scanProperties,
-                                                              @Nonnull final IndexOrphanBehavior orphanBehavior);
+    RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull Index index,
+                                                           @Nonnull IndexScanBounds scanBounds,
+                                                           @Nonnull final KeyExpression commonPrimaryKey,
+                                                           @Nullable byte[] continuation,
+                                                           @Nonnull ScanProperties scanProperties,
+                                                           @Nonnull final IndexOrphanBehavior orphanBehavior);
 
     /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
@@ -1004,10 +1004,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor of the records pointed to by the index
      */
     @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetchRecordsEqual(@Nonnull final String indexName, KeyExpression primaryKey, @Nonnull final Object... values) {
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchRecordsEqual(@Nonnull final String indexName, KeyExpression primaryKey, @Nonnull final Object... values) {
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
-        return scanIndexPrefetch(indexName, range, primaryKey, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
+        final IndexScanBounds bounds = new IndexScanRange(IndexScanType.BY_VALUE, range);
+        return scanIndexRemoteFetch(indexName, bounds, primaryKey, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
     }
 
     /**

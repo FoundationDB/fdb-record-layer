@@ -30,7 +30,7 @@ import java.util.Objects;
 
 /**
  * A raw record that has been loaded via an index. This is the case where the record was loaded via the
- * {@link IndexMaintainer#scanIndexPrefetch}. The raw record may contain versions, splits and other raw record data.
+ * {@link IndexMaintainer#scanRemoteFetch}. The raw record may contain versions, splits and other raw record data.
  */
 @API(API.Status.EXPERIMENTAL)
 public class FDBIndexedRawRecord {
