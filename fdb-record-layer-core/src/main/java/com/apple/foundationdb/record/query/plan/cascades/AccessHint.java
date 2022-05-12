@@ -25,7 +25,7 @@ import javax.annotation.Nonnull;
 /**
  * Interface to represent an access hint. An access hint can be of type INDEX and PRIMARY_KEY.
  */
-public abstract class AccessHint {
+public class AccessHint {
 
     /**
      * Gets the type of the access hint.
