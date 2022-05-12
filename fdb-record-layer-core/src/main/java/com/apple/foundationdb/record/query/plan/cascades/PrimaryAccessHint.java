@@ -28,18 +28,12 @@ import java.util.Objects;
 /**
  * Represents a primary key hint.
  */
-public class PrimaryAccessHint implements AccessHint {
+public class PrimaryAccessHint extends AccessHint {
     @Nonnull
     private final KeyExpression primaryKey;
 
     public PrimaryAccessHint(@Nonnull final KeyExpression primaryKey) {
         this.primaryKey = primaryKey;
-    }
-
-    @Override
-    @Nonnull
-    public String getAccessHintType() {
-        return "PRIMARY_KEY";
     }
 
     @Override

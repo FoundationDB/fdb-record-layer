@@ -50,8 +50,8 @@ public class AccessHintsTest {
         Assertions.assertNotEquals(indexHint1, primaryHint1);
 
         // test get type
-        Assertions.assertEquals("INDEX", indexHint1.getAccessHintType());
-        Assertions.assertEquals("PRIMARY_KEY", primaryHint1.getAccessHintType());
+        Assertions.assertEquals("IndexAccessHint", indexHint1.getAccessHintType());
+        Assertions.assertEquals("PrimaryAccessHint", primaryHint1.getAccessHintType());
     }
 
     @Test
