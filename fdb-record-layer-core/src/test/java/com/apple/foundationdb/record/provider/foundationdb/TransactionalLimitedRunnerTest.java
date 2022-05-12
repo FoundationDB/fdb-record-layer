@@ -33,13 +33,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +52,9 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
 
     private FDBDatabase fdb;
     private Tuple prefix;
+    // the size of the value is small enough to be inserted, but large enough that it quickly exceeds max transaction
+    // size (~100 key/value pairs)
+    private final byte[] largeValue = new byte[100_000];
 
     @BeforeEach
     public void runBefore() {
@@ -58,26 +64,17 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
 
     @Test
     void basicTest() {
-        // the size of the value is small enough to be inserted, but large enough that it quickly exceeds max transaction
-        // size (~100 key/value pairs)
-        byte[] value = new byte[100_000];
         try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(
                 fdb, FDBRecordContextConfig.newBuilder().build(), 500, mockDelay())
                 .setIncreaseLimitAfter(4)
                 .setDecreaseLimitAfter(2)) {
             runner.runAsync(runState ->
-                    runState.getContext().ensureActive().getRange(prefix.range(), 1, true)
-                            .asList().thenApply(keyValues -> {
-                                long starting = 0;
-                                if (!keyValues.isEmpty()) {
-                                    starting = ((long)Tuple.fromBytes(keyValues.get(0).getKey()).get(1)) + 1;
-                                }
-                                long l = Math.min(runState.getLimit(), 1_000 - starting);
-                                for (int i = 0; i < l; i++) {
-                                    runState.getContext().ensureActive().set(prefix.add(starting + i).pack(), value);
-                                }
-                                return starting + l < 1_000;
-                            }), List.of("loggingKey", "aConstantValue")).join();
+                    getStartingKey(runState.getContext())
+                            .thenApply(starting -> {
+                                long actualLimit = writeMoreData(runState, starting, 1_000);
+                                return starting + actualLimit < 1_000;
+                            }),
+                    List.of("loggingKey", "aConstantValue")).join();
         }
         final List<Long> resultingKeys = new AutoContinuingCursor<>(fdb.newRunner(),
                 (context, continuation) ->
@@ -147,20 +144,8 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
         }
     }
 
-    private ExponentialDelay mockDelay() {
-        return new ExponentialDelay(3, 10) {
-            @Override
-            public CompletableFuture<Void> delay() {
-                return AsyncUtil.DONE;
-            }
-        };
-    }
-
     @Test
     void postCommitHookUsage() {
-        // the size of the value is small enough to be inserted, but large enough that it quickly exceeds max transaction
-        // size (~100 key/value pairs)
-        byte[] value = new byte[100_000];
         List<Pair<Long, Long>> attempted = new ArrayList<>();
         List<Pair<Long, Long>> committed = new ArrayList<>();
         try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(
@@ -168,24 +153,16 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
                 .setIncreaseLimitAfter(4)
                 .setDecreaseLimitAfter(2)) {
             runner.runAsync(runState ->
-                    runState.getContext().ensureActive().getRange(prefix.range(), 1, true)
-                            .asList().thenApply(keyValues -> {
-                                long starting = 0;
-                                if (!keyValues.isEmpty()) {
-                                    starting = ((long)Tuple.fromBytes(keyValues.get(0).getKey()).get(1)) + 1;
-                                }
-                                long l = Math.min(runState.getLimit(), 1_000 - starting);
-                                for (int i = 0; i < l; i++) {
-                                    runState.getContext().ensureActive().set(prefix.add(starting + i).pack(), value);
-                                }
-                                final long finalStarting = starting;
-                                attempted.add(Pair.of(finalStarting, l));
+                    writeMoreData(runState.getContext(), runState.getLimit(), 1_000)
+                            .thenApply(pair -> {
+                                attempted.add(pair);
                                 runState.getContext().addPostCommit(() -> {
-                                    committed.add(Pair.of(finalStarting, l));
+                                    committed.add(pair);
                                     return AsyncUtil.DONE;
                                 });
-                                return starting + l < 1_000;
-                            }), List.of("loggingKey", "aConstantValue")).join();
+                                return pair.getKey() + pair.getValue() < 1_000;
+                            }),
+                    List.of("loggingKey", "aConstantValue")).join();
         }
         assertThat(committed, Matchers.hasSize(Matchers.greaterThan(0)));
         assertEquals(committed.stream().sorted().collect(Collectors.toList()),
@@ -197,18 +174,150 @@ class TransactionalLimitedRunnerTest extends FDBTestBase {
 
     @Test
     void eachAttemptUsesNewTransaction() {
-        // TODO make sure it's creating a fresh transaction for every attempt
+        // Here we want to make sure that we're using new commits between attempts,
+        // in addition to the failed ones that try to write too much, we have a post-commit that will write other data
+        // causing the next run to skip some data, as that got written out of band
+        List<Pair<Long, Long>> mainTransaction = new ArrayList<>();
+        List<Pair<Long, Long>> otherTransaction = new ArrayList<>();
+        final int endValue = 1_000;
+        try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(
+                fdb, FDBRecordContextConfig.newBuilder().build(), 500, mockDelay())
+                .setIncreaseLimitAfter(10)
+                .setDecreaseLimitAfter(1);
+                FDBDatabaseRunner fdbDatabaseRunner = fdb.newRunner()) {
+            runner.runAsync(runState ->
+                    writeMoreData(runState.getContext(), runState.getLimit(), endValue)
+                            .thenApply(pair -> {
+                                runState.getContext().addPostCommit(() -> {
+                                    mainTransaction.add(pair);
+                                    return fdbDatabaseRunner.runAsync(context ->
+                                            writeMoreData(context, 10, endValue).thenApply(otherPair -> {
+                                                otherTransaction.add(otherPair);
+                                                return null;
+                                            }));
+                                });
+                                return pair.getKey() + pair.getValue() < endValue;
+                            }),
+                    List.of("loggingKey", "aConstantValue")).join();
+        }
+        assertThat(otherTransaction, Matchers.hasSize(Matchers.allOf(
+                Matchers.greaterThanOrEqualTo(mainTransaction.size() - 1),
+                Matchers.lessThanOrEqualTo(mainTransaction.size() + 1))));
+        assertFullSequence(mainTransaction, otherTransaction, endValue);
     }
 
+    /**
+     * Prep doing something before touching the transaction.
+     * <p>
+     *     Primarily the need for this is to support time-consuming activities without risking the time-limit.
+     *     In order to avoid making these tests take many seconds, instead, before touching the context provided by the
+     *     runner, we modify the state, and make sure the transaction picks that up.
+     * </p>
+     */
     @Test
     void prepBeforeTransaction() {
-        // TODO test of doing something before the transaction starts
-        // The primary reason for having a prep method before the transaction starts is to load some sort of buffer
-        // without affecting risking hitting the 5 second timeout.
-        // To avoid writing a test that depends on that, which would be both slow, and brittle, this test opens another
-        // transaction in prep, and does something that would conflict if the other transaction had already been opened
-        // TODO I think the `prep` method itself is unnecessary to achieve this because openContext doesn't do anything,
-        //      but the prep would have to be done before the first action, or anything that results in getReadVersion,
-        //      which is what starts the clock
+        List<Pair<Long, Long>> mainTransaction = new ArrayList<>();
+        List<Pair<Long, Long>> otherTransaction = new ArrayList<>();
+        final int endValue = 1_000;
+        try (TransactionalLimitedRunner runner = new TransactionalLimitedRunner(
+                fdb, FDBRecordContextConfig.newBuilder().build(), 200, mockDelay())
+                .setIncreaseLimitAfter(10)
+                .setDecreaseLimitAfter(1);
+                FDBDatabaseRunner fdbDatabaseRunner = fdb.newRunner()) {
+            runner.runAsync(runState ->
+                            fdbDatabaseRunner
+                                    .runAsync(context ->
+                                            writeMoreData(context, 10, endValue).thenApply(pair -> {
+                                                otherTransaction.add(pair);
+                                                return null;
+                                            }))
+                            .thenCompose(vignored ->
+                                    writeMoreData(runState.getContext(), runState.getLimit(), endValue)
+                                            .thenApply(pair -> {
+                                                runState.getContext().addPostCommit(() -> {
+                                                    mainTransaction.add(pair);
+                                                    return AsyncUtil.DONE;
+                                                });
+                                                return pair.getKey() + pair.getValue() < endValue;
+                                            })),
+                    List.of("loggingKey", "aConstantValue")).join();
+        }
+        assertFullSequence(otherTransaction, mainTransaction, endValue);
     }
+
+    /**
+     * Asserts that two lists of pairs alternate, and cover the entire span between 0 and {@code endValue}.
+     * <p>
+     *     For example:
+     *     <code>
+     *         first = [(0,10), (17, 8), (33, 7)]
+     *         second = [(10, 7), (25, 8)]
+     *         endValue = 40
+     *     </code>
+     * </p>
+     * @param firstList first list of pairs of (start, count)
+     * @param secondList second list of pairs of (start, count)
+     * @param endValue max value covered by both lists
+     */
+    private void assertFullSequence(@Nonnull final List<Pair<Long, Long>> firstList,
+                                    @Nonnull final List<Pair<Long, Long>> secondList,
+                                    final int endValue) {
+        System.out.println(firstList);
+        System.out.println(secondList);
+        System.out.println(endValue);
+
+        assertThat(firstList, Matchers.hasSize(Matchers.greaterThan(0)));
+        assertThat(secondList, Matchers.hasSize(Matchers.greaterThan(0)));
+        assertEquals(0, firstList.get(0).getKey());
+        final List<Pair<Long, Long>> all = Stream.concat(firstList.stream(), secondList.stream())
+                .sorted(Comparator.comparing(Pair::getKey))
+                .collect(Collectors.toList());
+        for (int i = 1; i < all.size(); i++) {
+            final Pair<Long, Long> previous = all.get(i - 1);
+            assertEquals(previous.getKey() + previous.getValue(), all.get(i).getKey());
+        }
+        final Pair<Long, Long> last = all.get(all.size() - 1);
+        assertEquals(endValue, last.getKey() + last.getValue());
+    }
+
+    private ExponentialDelay mockDelay() {
+        return new ExponentialDelay(3, 10) {
+            @Override
+            public CompletableFuture<Void> delay() {
+                return AsyncUtil.DONE;
+            }
+        };
+    }
+
+    private CompletableFuture<Long> getStartingKey(final FDBRecordContext context) {
+        return context.ensureActive().getRange(prefix.range(), 1, true)
+                .asList().thenApply(keyValues -> {
+                    long starting = 0;
+                    if (!keyValues.isEmpty()) {
+                        starting = ((long)Tuple.fromBytes(keyValues.get(0).getKey()).get(1)) + 1;
+                    }
+                    return starting;
+                });
+    }
+
+    private CompletableFuture<Pair<Long, Long>> writeMoreData(final FDBRecordContext context, final int limit, final int end) {
+        return getStartingKey(context).thenApply(starting -> {
+            long actualLimit = writeMoreData(starting, limit, end, context);
+            return Pair.of(starting, actualLimit);
+        });
+    }
+
+    private long writeMoreData(final TransactionalLimitedRunner.RunState runState,
+                               final long starting, final int end) {
+        return writeMoreData(starting, runState.getLimit(), end, runState.getContext());
+    }
+
+    private long writeMoreData(final long starting, final int limit, final int end, final FDBRecordContext context) {
+        long actualLimit = Math.min(limit, end - starting);
+        for (int i = 0; i < actualLimit; i++) {
+            context.ensureActive().set(prefix.add(starting + i).pack(), largeValue);
+        }
+        return actualLimit;
+    }
+
 }
