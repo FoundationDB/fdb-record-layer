@@ -221,7 +221,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         return scanParameters;
     }
 
-    @Override
     @Nullable
     public KeyExpression getCommonPrimaryKey() {
         return commonPrimaryKey;

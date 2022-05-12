@@ -64,10 +64,6 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
     @Nonnull
     IndexScanType getScanType();
 
-    default KeyExpression getCommonPrimaryKey() {
-        return null;
-    }
-
     @Nonnull
     Optional<? extends MatchCandidate> getMatchCandidateOptional();
 
