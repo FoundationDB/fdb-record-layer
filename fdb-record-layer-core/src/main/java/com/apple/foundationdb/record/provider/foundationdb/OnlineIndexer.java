@@ -2311,6 +2311,7 @@ public class OnlineIndexer implements AutoCloseable {
         public final IndexingPolicy.DesiredAction ifWriteOnly;
         public final IndexingPolicy.DesiredAction ifMismatchPrevious;
         public final IndexingPolicy.DesiredAction ifReadable;
+
         IndexStatePrecondition(IndexingPolicy.DesiredAction ifDisabled, IndexingPolicy.DesiredAction ifWriteOnly, IndexingPolicy.DesiredAction ifMismatchPrevious, IndexingPolicy.DesiredAction ifReadable) {
             this.ifDisabled = ifDisabled;
             this.ifWriteOnly = ifWriteOnly;

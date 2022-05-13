@@ -91,7 +91,7 @@ public class LuceneIndexExpressions {
      * @param recordType Protobuf meta-data for record type
      */
     public static void validate(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
-        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, overriddeKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
+        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, sorted, overriddeKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
         }, null);
     }
 
@@ -107,12 +107,15 @@ public class LuceneIndexExpressions {
         @Nonnull
         private final DocumentFieldType type;
         private final boolean stored;
+        private final boolean sorted;
 
-        public DocumentFieldDerivation(@Nonnull final String documentField, @Nonnull final List<String> recordFieldPath, @Nonnull final DocumentFieldType type, final boolean stored) {
+        public DocumentFieldDerivation(@Nonnull String documentField, @Nonnull List<String> recordFieldPath,
+                                       @Nonnull DocumentFieldType type, boolean stored, boolean sorted) {
             this.documentField = documentField;
             this.recordFieldPath = recordFieldPath;
             this.type = type;
             this.stored = stored;
+            this.sorted = sorted;
         }
 
         @Nonnull
@@ -133,6 +136,10 @@ public class LuceneIndexExpressions {
         public boolean isStored() {
             return stored;
         }
+
+        public boolean isSorted() {
+            return sorted;
+        }
     }
 
     /**
@@ -145,7 +152,7 @@ public class LuceneIndexExpressions {
         final Map<String, DocumentFieldDerivation> fields = new HashMap<>();
         getFields(root,
                 new MetaDataSource(recordType),
-                (source, fieldName, value, type, stored, overriddenKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
+                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
                     List<String> path = new ArrayList<>();
                     for (MetaDataSource metaDataSource = source; metaDataSource != null; metaDataSource = metaDataSource.getParent()) {
                         if (metaDataSource.getField() != null) {
@@ -153,7 +160,7 @@ public class LuceneIndexExpressions {
                         }
                     }
                     path.add((String)value);
-                    DocumentFieldDerivation derivation = new DocumentFieldDerivation(fieldName, path, type, stored);
+                    DocumentFieldDerivation derivation = new DocumentFieldDerivation(fieldName, path, type, stored, sorted);
                     fields.put(fieldName, derivation);
                 }, null);
         return fields;
@@ -179,8 +186,9 @@ public class LuceneIndexExpressions {
      * @param <T> the actual type of the source
      */
     public interface DocumentDestination<T extends RecordSource<T>> {
+        @SuppressWarnings("java:S107")
         void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable Object value, @Nonnull DocumentFieldType type,
-                      boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs);
+                      boolean stored, boolean sorted, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs);
     }
 
     /**
@@ -258,11 +266,16 @@ public class LuceneIndexExpressions {
             return;
         }
 
+        boolean fieldSorted = false;
         boolean fieldStored = false;
         boolean fieldText = false;
         Map<String, Object> configs = Collections.emptyMap();
         while (true) {
-            if (expression instanceof LuceneFunctionKeyExpression.LuceneStored) {
+            if (expression instanceof LuceneFunctionKeyExpression.LuceneSorted) {
+                LuceneFunctionKeyExpression.LuceneSorted sortedExpression = (LuceneFunctionKeyExpression.LuceneSorted)expression;
+                fieldSorted = true;
+                expression = sortedExpression.getSortedExpression();
+            } else if (expression instanceof LuceneFunctionKeyExpression.LuceneStored) {
                 LuceneFunctionKeyExpression.LuceneStored storedExpression = (LuceneFunctionKeyExpression.LuceneStored)expression;
                 fieldStored = true;
                 expression = storedExpression.getStoredExpression();
@@ -321,7 +334,7 @@ public class LuceneIndexExpressions {
                 }
             }
             for (Object value : source.getValues(fieldExpression)) {
-                destination.addField(source, fieldName, value, fieldType, fieldStored,
+                destination.addField(source, fieldName, value, fieldType, fieldStored, fieldSorted,
                         overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1, configs);
             }
             if (suffixOverride) {
@@ -335,12 +348,13 @@ public class LuceneIndexExpressions {
     }
 
     private static void addOverriddenKeyRange(@Nonnull List<Integer> overriddenKeyRanges, @Nullable String fieldNamePrefix, @Nullable String fieldNameSuffix) {
-        overriddenKeyRanges.add(fieldNamePrefix == null
-                                ? 0
-                                : fieldNamePrefix.length() + 1);
-        overriddenKeyRanges.add(fieldNamePrefix == null
-                                ? ((fieldNameSuffix == null || fieldNameSuffix.isEmpty()) ? 0 : fieldNameSuffix.length())
-                                : (fieldNameSuffix == null || fieldNameSuffix.isEmpty()) ? fieldNamePrefix.length() + 1 : fieldNamePrefix.length() + fieldNameSuffix.length() + 1);
+        if (fieldNamePrefix == null) {
+            overriddenKeyRanges.add(0);
+            overriddenKeyRanges.add((fieldNameSuffix == null || fieldNameSuffix.isEmpty()) ? 0 : fieldNameSuffix.length());
+        } else {
+            overriddenKeyRanges.add(fieldNamePrefix.length() + 1);
+            overriddenKeyRanges.add((fieldNameSuffix == null || fieldNameSuffix.isEmpty()) ? fieldNamePrefix.length() + 1 : fieldNamePrefix.length() + fieldNameSuffix.length() + 1);
+        }
     }
 
     private static void removedLastOverriddenKeyRange(@Nonnull List<Integer> overriddenKeyRanges) {

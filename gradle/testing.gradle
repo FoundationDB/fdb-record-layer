@@ -70,8 +70,11 @@ def configureTestTask = { propertyPrefix, task ->
     task.systemProperties['java.io.tmpdir'] = tmpdir.absolutePath
 
     // configure test logging
-    task.systemProperties['log4j.configuration'] = rootProject.file('gradle/scripts/log4j-test.properties').toURI()
+    task.systemProperties['log4j2.configurationFile'] = rootProject.file('gradle/scripts/log4j-test.properties').toURI()
     task.systemProperties['mme.app.useLog4jPropertyConfigurator'] = 'false'
+
+    // JUnit configuration parameters
+    task.systemProperties['junit.jupiter.execution.timeout.default'] = '5 m'
 
     task.maxParallelForks = Integer.getInteger(propertyPrefix + '.maxParallelForks', 1)
     task.forkEvery = Integer.getInteger(propertyPrefix + '.forkEvery', 0)

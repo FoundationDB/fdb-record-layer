@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -151,6 +152,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+    private static final Index TEXT_AND_GROUP = new Index("text_and_group", concat(
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            function(LuceneFunctionNames.LUCENE_STORED, function(LuceneFunctionNames.LUCENE_SORTED, field("group")))),
+            LuceneIndexTypes.LUCENE, ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
     private static final List<KeyExpression> keys = List.of(field("key"), function(LuceneFunctionNames.LUCENE_TEXT, field("value")));
     private static final KeyExpression mainExpression = field("entry", KeyExpression.FanType.FanOut).nest(concat(keys));
 
@@ -198,6 +203,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         openRecordStore(context, store -> { }, ngramIndex);
     }
 
+    protected void openRecordStoreWithGroup(FDBRecordContext context) {
+        openRecordStore(context, store -> { }, TEXT_AND_GROUP);
+    }
+
     protected void openRecordStore(FDBRecordContext context) {
         openRecordStore(context, store -> { }, SIMPLE_TEXT_SUFFIXES);
     }
@@ -219,6 +228,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     private void initializeFlat() {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
+            DOCUMENTS.forEach(recordStore::saveRecord);
+            commit(context);
+        }
+    }
+
+    private void initializeWithGroup() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithGroup(context);
             DOCUMENTS.forEach(recordStore::saveRecord);
             commit(context);
         }
@@ -447,20 +464,20 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "delayFetchOnFilterWithSort[shouldDeferFetch={0}]")
     @BooleanSource
     void delayFetchOnLuceneFilterWithSort(boolean shouldDeferFetch) throws Exception {
-        initializeFlat();
+        initializeWithGroup();
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean", Lists.newArrayList("text"), true);
+            openRecordStoreWithGroup(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("parents", Lists.newArrayList("text"), true);
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
                     .setFilter(filter1)
-                    .setSort(field("doc_id"))
+                    .setSort(field("group"), true)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(2L, 4L), Set.copyOf(primaryKeys));
+            assertEquals(List.of(5L, 2L, 4L), primaryKeys);
             if (shouldDeferFetch) {
                 assertLoadRecord(5, context);
             } else {
@@ -841,7 +858,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "longFieldQuery[shouldDeferFetch={0}]")
     @BooleanSource
-    public void longFieldQuery(boolean shouldDeferFetch) throws Exception {
+    void longFieldQuery(boolean shouldDeferFetch) throws Exception {
         initializeNested();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -859,6 +876,32 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Set.of(2L), Set.copyOf(primaryKeys));
+        }
+    }
+
+    @Test
+    void covering() throws Exception {
+        initializeWithGroup();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithGroup(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("parents", Lists.newArrayList("text"), true);
+            // Query partial full record
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(filter1)
+                    .setRequiredResults(List.of(field("group")))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            List<Pair<Long, Long>> results = recordStore.executeQuery(plan).map(qr -> {
+                long pk = qr.getPrimaryKey().getLong(0);
+                TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
+                builder.mergeFrom(qr.getRecord());
+                long gr = builder.getGroup();
+                return Pair.of(pk, gr);
+            }).asList().get();
+            assertEquals(Set.of(Pair.of(2L, 0L), Pair.of(4L, 0L), Pair.of(5L, 1L)), Set.copyOf(results));
+            // TODO: AvailableFields doesn't know about stored fields, so not really covering.
+            //assertLoadRecord(0, context);
         }
     }
 

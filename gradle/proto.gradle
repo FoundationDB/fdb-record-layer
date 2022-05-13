@@ -43,6 +43,14 @@ protobuf {
     }
     protoc {
         artifact = "com.google.protobuf:protoc:${protobufVersion}"
+        def osName = providers.systemProperty("os.name").forUseAtConfigurationTime().getOrElse("")
+        def osArch = providers.systemProperty("os.arch").forUseAtConfigurationTime().getOrElse("")
+        if ((osName == "macOS" || osName == "Mac OS X") && osArch == "aarch64" && protobufVersion == protobuf2Version) {
+            // There is not a macOS aarch64 build of the proto2 compiler. Download the x86_64 version instead, which
+            // will be run in emulation on that architecture. This is fine because this is used only to generate Java
+            // code; it is not directly linked against.
+            artifact = "com.google.protobuf:protoc:${protobufVersion}:osx-x86_64"
+        }
     }
     generateProtoTasks {
         all().each { task ->

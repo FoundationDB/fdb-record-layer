@@ -153,7 +153,10 @@ public class FDBDatabase {
     private String datacenterId;
 
     @Nonnull
-    private FDBLocalityProvider localityProvider;
+    private final FDBLocalityProvider localityProvider;
+
+    @Nonnull
+    private final APIVersion apiVersion;
 
     @Nonnull
     private static ImmutablePair<Long, Long> initialVersionPair = new ImmutablePair<>(null, null);
@@ -184,6 +187,7 @@ public class FDBDatabase {
         this.latencyInjector = factory.getLatencyInjector();
         this.datacenterId = factory.getDatacenterId();
         this.localityProvider = factory.getLocalityProvider();
+        this.apiVersion = factory.getAPIVersion();
     }
 
     /**
@@ -236,6 +240,23 @@ public class FDBDatabase {
     @Nonnull
     public synchronized FDBLocalityProvider getLocalityProvider() {
         return localityProvider;
+    }
+
+    /**
+     * Get the FDB API version that this database was created with. This can be used by calling
+     * code to determine what methods are safe to call, and for compatibility code to know how to
+     * properly execute operations that may require differently depending on the API. This is an
+     * internal method that should only be called by internal modules, as higher level Record
+     * Layer APIs should shield adopters from needing to know this configuration value except
+     * possibly during application initialization.
+     *
+     * @return the API version of this database
+     * @see APIVersion
+     * @see FDBDatabaseFactory#setAPIVersion(APIVersion)
+     */
+    @API(API.Status.INTERNAL)
+    public APIVersion getAPIVersion() {
+        return apiVersion;
     }
 
     public synchronized void setTrackLastSeenVersionOnRead(boolean trackLastSeenVersion) {
@@ -1266,7 +1287,7 @@ public class FDBDatabase {
                                            boolean isComplete,
                                            @Nonnull StackTraceElement stackElement,
                                            @Nonnull String title) {
-        final RuntimeException exception = new BlockingInAsyncException(title)
+        final RecordCoreException exception = new BlockingInAsyncException(title)
                 .addLogInfo(
                         LogMessageKeys.FUTURE_COMPLETED, isComplete,
                         LogMessageKeys.CALLING_CLASS, stackElement.getClassName(),
@@ -1276,12 +1297,9 @@ public class FDBDatabase {
         if (!isComplete && behavior.throwExceptionOnBlocking()) {
             throw exception;
         } else {
-            LOGGER.warn(KeyValueLogMessage.of(title,
-                    LogMessageKeys.FUTURE_COMPLETED, isComplete,
-                    LogMessageKeys.CALLING_CLASS, stackElement.getClassName(),
-                    LogMessageKeys.CALLING_METHOD, stackElement.getMethodName(),
-                    LogMessageKeys.CALLING_LINE, stackElement.getLineNumber()),
-                    exception);
+            KeyValueLogMessage logMessage = KeyValueLogMessage.build(title)
+                    .addKeysAndValues(exception.getLogInfo());
+            LOGGER.warn(logMessage.toString(), exception);
         }
     }
 

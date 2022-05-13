@@ -78,6 +78,34 @@ public class FDBTransactionContext {
         return transaction.getApproximateSize();
     }
 
+    /**
+     * Get the FDB API version associated with this transaction. This is an internal
+     * method that should be used within the Record Layer to accommodate changes in
+     * underlying FDB behavior that are dictated by the API version.
+     *
+     * @return the transaction's associated FDB API version
+     * @see APIVersion
+     */
+    @API(API.Status.INTERNAL)
+    public APIVersion getAPIVersion() {
+        return database.getAPIVersion();
+    }
+
+    /**
+     * Determine whether the API version of this transaction is at least as new as
+     * the provided API version. This is an internal method that should be used
+     * to gate features requiring certain FDB API versions for support from the database.
+     *
+     * @param apiVersion the FDB API version to compare against
+     * @return whether the transaction's API version is at least as new as the provided API version
+     * @see #getAPIVersion()
+     * @see APIVersion
+     */
+    @API(API.Status.INTERNAL)
+    public boolean isAPIVersionAtLeast(@Nonnull APIVersion apiVersion) {
+        return getAPIVersion().isAtLeast(apiVersion);
+    }
+
     @Nullable
     public FDBStoreTimer getTimer() {
         return timer;

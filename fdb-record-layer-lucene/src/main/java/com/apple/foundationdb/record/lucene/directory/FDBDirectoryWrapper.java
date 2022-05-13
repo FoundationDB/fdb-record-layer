@@ -121,15 +121,9 @@ class FDBDirectoryWrapper implements AutoCloseable {
     public AnalyzingInfixSuggester getAutocompleteSuggester(@Nonnull LuceneAnalyzerWrapper indexAnalyzerWrapper,
                                                             @Nonnull LuceneAnalyzerWrapper queryAnalyzerWrapper,
                                                             boolean highlight, @Nullable IndexOptions indexOptions) throws IOException {
-        if (suggester == null
-                || !suggesterIndexAnalyzerId.equals(indexAnalyzerWrapper.getUniqueIdentifier())
-                || !suggesterQueryAnalyzerId.equals(queryAnalyzerWrapper.getUniqueIdentifier())
-                || indexOptions != null && indexOptions.equals(suggesterFieldIndexOptions)) {
+        if (suggesterRenewNeeded(indexAnalyzerWrapper, queryAnalyzerWrapper, indexOptions)) {
             synchronized (this) {
-                if (suggester == null
-                        || !suggesterIndexAnalyzerId.equals(indexAnalyzerWrapper.getUniqueIdentifier())
-                        || !suggesterQueryAnalyzerId.equals(queryAnalyzerWrapper.getUniqueIdentifier())
-                        || indexOptions != null && indexOptions.equals(suggesterFieldIndexOptions)) {
+                if (suggesterRenewNeeded(indexAnalyzerWrapper, queryAnalyzerWrapper, indexOptions)) {
                     AnalyzingInfixSuggester oldSuggester = suggester;
                     if (oldSuggester != null) {
                         oldSuggester.close();
@@ -147,6 +141,15 @@ class FDBDirectoryWrapper implements AutoCloseable {
             }
         }
         return suggester;
+    }
+
+    private boolean suggesterRenewNeeded(@Nonnull LuceneAnalyzerWrapper indexAnalyzerWrapper,
+                                         @Nonnull LuceneAnalyzerWrapper queryAnalyzerWrapper,
+                                         @Nullable IndexOptions indexOptions) {
+        return suggester == null
+               || !suggesterIndexAnalyzerId.equals(indexAnalyzerWrapper.getUniqueIdentifier())
+               || !suggesterQueryAnalyzerId.equals(queryAnalyzerWrapper.getUniqueIdentifier())
+               || (indexOptions != null && !indexOptions.equals(suggesterFieldIndexOptions));
     }
 
     @Override
