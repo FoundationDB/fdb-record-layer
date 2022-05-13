@@ -25,17 +25,13 @@ import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
-import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -57,7 +53,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
-import java.util.function.BiConsumer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -69,37 +64,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PLACEHOLDER;
 
 /**
- * A test for the Index Prefetch FDB API.
+ * A test for the remote fetch feature.
  */
 @Tag(Tags.RequiresFDB)
-class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
-    private static RecordQuery NUM_VALUES_LARGER_THAN_990 = RecordQuery.newBuilder()
-            .setRecordType("MySimpleRecord")
-            .setFilter(Query.field("num_value_unique").greaterThan(990))
-            .build();
-
-    private static RecordQuery NUM_VALUES_LARGER_THAN_1000_REVERSE = RecordQuery.newBuilder()
-            .setRecordType("MySimpleRecord")
-            .setFilter(Query.field("num_value_unique").greaterThan(1000))
-            .setSort(Key.Expressions.field("num_value_unique"), true)
-            .build();
-
-    private static RecordQuery NUM_VALUES_LARGER_THAN_990_REVERSE = RecordQuery.newBuilder()
-            .setRecordType("MySimpleRecord")
-            .setFilter(Query.field("num_value_unique").greaterThan(990))
-            .setSort(Key.Expressions.field("num_value_unique"), true)
-            .build();
-
-    private static RecordQuery STR_VALUE_EVEN = RecordQuery.newBuilder()
-            .setRecordType("MySimpleRecord")
-            .setFilter(Query.field("str_value_indexed").equalsValue("even"))
-            .build();
-
+class FDBRecordStoreRemoteFetchTest extends FDBRecordStoreRemoteFetchTestBase {
     private boolean useSplitRecords = true;
 
     @BeforeEach
     void setup() throws Exception {
-        complexQuerySetup(simpleMetadataHook);
+        complexQuerySetup(splitRecordsHook);
     }
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -111,7 +84,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
-        });
+        }, splitRecordsHook);
     }
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -123,7 +96,26 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
-        });
+        }, splitRecordsHook);
+    }
+
+    /**
+     * Unlike the other tests in this class that are using the "MySimpleRecord$num_value_unique" index (and its 2 index
+     * entries), this test uses a different index ("PrimaryKeyIndex"). The test runs through a scenario where the primary
+     * key component is also present in the index entry and is therefore removed from the actual index key primary key
+     * location (since it is duplicate) - see {@link Index#getEntryPrimaryKeyPositions(int)}
+     * @param useIndexPrefetch the fetch method mode to use
+     */
+    @ParameterizedTest(name = "indexPrefetchPrimaryKeyIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void indexPrefetchPrimaryKeyIndexTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+        RecordQueryPlan plan = plan(PRIMARY_KEY_EQUAL, useIndexPrefetch);
+        executeAndVerifyData(plan, 1, (rec, i) -> {
+            int primaryKey = 1;
+            String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+            int numValue = 1000 - primaryKey;
+            assertRecordWithPrimaryKeyIndex(rec, primaryKey, strValue, numValue, "PrimaryKeyIndex", (long)numValue);
+        }, splitRecordsHook);
     }
 
     @ParameterizedTest(name = "indexPrefetchComplexIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -134,7 +126,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             int primaryKey = i * 2;
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$str_value_indexed", "even", primaryKey); // we are filtering out all odd entries, so count*2 are the keys of the even ones
-        });
+        }, splitRecordsHook);
     }
 
     @ParameterizedTest(name = "indexPrefetchWithContinuationTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -151,17 +143,17 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
-        });
+        }, splitRecordsHook);
         // Second iteration - last 5 records
         continuation = executeAndVerifyData(plan, continuation, executeProperties, 5, (rec, i) -> {
             int primaryKey = 4 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
-        });
+        }, splitRecordsHook);
         // Third iteration - no more values to read
         continuation = executeAndVerifyData(plan, continuation, executeProperties, 0, (rec, i) -> {
-        });
+        }, splitRecordsHook);
         assertNull(continuation);
     }
 
@@ -182,27 +174,27 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
-        });
+        }, splitRecordsHook);
         // Second iteration - second 4 records
         continuation = executeAndVerifyData(planWithScan, continuation, executeProperties, 4, (rec, i) -> {
             int primaryKey = 5 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
-        });
+        }, splitRecordsHook);
         // Third iteration - last 2 records
         continuation = executeAndVerifyData(planWithPrefetch, continuation, executeProperties, 2, (rec, i) -> {
             int primaryKey = 1 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
-        });
+        }, splitRecordsHook);
         assertNull(continuation);
     }
 
     @ParameterizedTest(name = "indexPrefetchByteLimitContinuation(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    @Disabled // This test is inconsistently failing (for the NONE case)
+    @Disabled // This test is inconsistently failing when running as part of the larger suite
     void indexPrefetchByteLimitContinuation(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
         // TODO: Why should the index prefetch take so many more bytes to scan the same number of records? Maybe the index scan counts the records and the fetch does not?
@@ -216,7 +208,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
-        });
+        }, splitRecordsHook);
         executeProperties = ExecuteProperties.newBuilder()
                 .setScannedBytesLimit(500)
                 .build();
@@ -226,7 +218,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
-        });
+        }, splitRecordsHook);
         assertNull(continuation);
     }
 
@@ -238,7 +230,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, simpleMetadataHook);
+            openSimpleRecordStore(context, splitRecordsHook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
                 // Will throw exception if plans do not match
                 // This only compares the primary key and not all values
@@ -255,7 +247,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, simpleMetadataHook);
+            openSimpleRecordStore(context, splitRecordsHook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
                 assertThrows(ExecutionException.class, () -> cursor.asList().get());
             }
@@ -265,7 +257,7 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
     @Test
     void testIndexPrefetchReadYourWriteFails() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, simpleMetadataHook);
+            openSimpleRecordStore(context, splitRecordsHook);
             // Save record (don't commit)
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1000);
@@ -280,17 +272,20 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
             RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
 
-            // This should fail when index prefetch is fully supported. Since for now the API_VERSION is 630, prefetch mode
-            // will fall back to index scan, which would not fail in this case.
-            assertNotNull(cursor.getNext());
-            // assertThrows(RecordCoreException.class, () -> cursor.getNext());
+            // When the API_VERSION is too low (remote fetch not supported) the plan will fallback to regular scan and
+            // no exception is thrown.
+            if (context.isAPIVersionAtLeast(APIVersion.API_VERSION_7_1)) {
+                assertThrows(RecordCoreException.class, () -> cursor.getNext());
+            } else {
+                assertNotNull(cursor.getNext());
+            }
         }
     }
 
     @Test
     void testIndexPrefetchReadYourWriteFallbackSucceeds() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, simpleMetadataHook);
+            openSimpleRecordStore(context, splitRecordsHook);
             // Save record (don't commit)
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1000);
@@ -321,15 +316,18 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
 
         // This will throw an exception since SNAPSHOT is not supported
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, simpleMetadataHook);
-            // This should fail when index prefetch is fully supported. Since for now the API_VERSION is 630, prefetch mode
-            // will fall back to index scan, which would not fail in this case.
-            recordStore.executeQuery(planWithPrefetch, null, executeProperties);
-            // assertThrows(UnsupportedOperationException.class, () -> recordStore.executeQuery(planWithPrefetch, null, executeProperties));
+            openSimpleRecordStore(context, splitRecordsHook);
+            // When the API_VERSION is too low (remote fetch not supported) the plan will fallback to regular scan and
+            // no exception is thrown.
+            if (context.isAPIVersionAtLeast(APIVersion.API_VERSION_7_1)) {
+                assertThrows(UnsupportedOperationException.class, () -> recordStore.executeQuery(planWithPrefetch, null, executeProperties));
+            } else {
+                recordStore.executeQuery(planWithPrefetch, null, executeProperties);
+            }
         }
         // This will compare the plans successfully since fallback resorts to the scan plan
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, simpleMetadataHook);
+            openSimpleRecordStore(context, splitRecordsHook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(comparatorPlan, null, executeProperties)) {
                 // Will throw exception if plans do not match
                 assertNotNull(cursor.asList().get());
@@ -383,68 +381,12 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         return recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
     }
 
-    private void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, Object indexedValue, final int localVersion) {
-        IndexEntry indexEntry = rec.getIndexEntry();
-        assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
-        List<Object> indexElements = indexEntry.getKey().getItems();
-        assertThat(indexElements.size(), equalTo(2));
-        assertThat(indexElements.get(0), equalTo(indexedValue));
-        assertThat(indexElements.get(1), equalTo(primaryKey));
-        List<Object> indexPrimaryKey = indexEntry.getPrimaryKey().getItems();
-        assertThat(indexPrimaryKey.size(), equalTo(1));
-        assertThat(indexPrimaryKey.get(0), equalTo(primaryKey));
-
-        FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
-        assertThat(storedRecord.getPrimaryKey().get(0), equalTo(primaryKey));
-        assertThat(storedRecord.getRecordType().getName(), equalTo("MySimpleRecord"));
-
-        TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-        myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
-        assertThat(myrec.getRecNo(), equalTo(primaryKey));
-        assertThat(myrec.getStrValueIndexed(), equalTo(strValue));
-        assertThat(myrec.getNumValueUnique(), equalTo(numValue));
-
-        FDBRecordVersion version = storedRecord.getVersion();
-        assertThat(version.getLocalVersion(), equalTo(localVersion));
-    }
-
     @Nonnull
-    private final RecordMetaDataHook simpleMetadataHook = metaDataBuilder -> {
+    private final RecordMetaDataHook splitRecordsHook = metaDataBuilder -> {
         // UseSplitRecords can be set to different values to impact the way the store is opened
         metaDataBuilder.setSplitLongRecords(isUseSplitRecords());
+        metaDataBuilder.addIndex("MySimpleRecord", "PrimaryKeyIndex", "rec_no");
     };
-
-    @Nonnull
-    private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) {
-        planner.setConfiguration(planner.getConfiguration()
-                .asBuilder()
-                .setIndexFetchMethod(useIndexPrefetch)
-                .build());
-        return planner.plan(query);
-    }
-
-    private byte[] executeAndVerifyData(RecordQueryPlan plan, int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) throws Exception {
-        return executeAndVerifyData(plan, null, ExecuteProperties.SERIAL_EXECUTE, expectedRecords, recordVerifier);
-    }
-
-    private byte[] executeAndVerifyData(RecordQueryPlan plan, byte[] continuation, ExecuteProperties executeProperties, int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) throws Exception {
-        int count = 0;
-        byte[] lastContinuation;
-
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, simpleMetadataHook);
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
-                while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> record = cursor.next();
-                    recordVerifier.accept(record, count);
-                    count++;
-                }
-                lastContinuation = cursor.getContinuation();
-            }
-        }
-        assertThat(count, equalTo(expectedRecords));
-        return lastContinuation;
-    }
 
     private List<FDBIndexedRawRecord> buildIndexedRawRecordWithOrphanIndexEntry() throws Exception {
         long i = 9;
@@ -480,4 +422,26 @@ class FDBRecordStoreIndexPrefetchTest extends FDBRecordStoreQueryTestBase {
         constructor.setAccessible(true);
         return constructor.newInstance(indexKey, indexValue, null, null, recordSplits);
     }
+
+    private void assertRecordWithPrimaryKeyIndex(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, final Object indexedValue) {
+        IndexEntry indexEntry = rec.getIndexEntry();
+        assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
+        List<Object> indexElements = indexEntry.getKey().getItems();
+        assertThat(indexElements.size(), equalTo(1));
+        assertThat(indexElements.get(0), equalTo(primaryKey));
+        List<Object> indexPrimaryKey = indexEntry.getPrimaryKey().getItems();
+        assertThat(indexPrimaryKey.size(), equalTo(1));
+        assertThat(indexPrimaryKey.get(0), equalTo(primaryKey));
+
+        FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
+        assertThat(storedRecord.getPrimaryKey().get(0), equalTo(primaryKey));
+        assertThat(storedRecord.getRecordType().getName(), equalTo("MySimpleRecord"));
+
+        TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+        myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
+        assertThat(myrec.getRecNo(), equalTo(primaryKey));
+        assertThat(myrec.getStrValueIndexed(), equalTo(strValue));
+        assertThat(myrec.getNumValueUnique(), equalTo(numValue));
+    }
+
 }

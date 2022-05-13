@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
- * Extends {@link FDBRecordStoreIndexPrefetchTest} and change the configurartion to run all tests with split=false.
+ * Extends {@link FDBRecordStoreRemoteFetchTest} and change the configurartion to run all tests with split=false.
  */
-public class IndexPrefetchWithoutSplitRecordsTest extends FDBRecordStoreIndexPrefetchTest {
+public class RemoteFetchWithoutSplitRecordsTest extends FDBRecordStoreRemoteFetchTest {
     @BeforeEach
     @Override
     void setup() throws Exception {

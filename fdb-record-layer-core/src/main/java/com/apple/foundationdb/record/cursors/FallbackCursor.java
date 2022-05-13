@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -97,8 +98,12 @@ public class FallbackCursor<T> implements RecordCursor<T> {
                 // Cannot fail after the first result was delivered
                 allowedToFail = false;
             } else {
-                if (alreadyFailed || !allowedToFail) {
-                    nextResultFuture = CompletableFuture.failedFuture(throwable);
+                if (alreadyFailed) {
+                    nextResultFuture = CompletableFuture.failedFuture(
+                            new FallbackExecutionFailedException("Fallback cursor failed, cannot fallback again", throwable));
+                } else if (!allowedToFail) {
+                    nextResultFuture = CompletableFuture.failedFuture(
+                            new FallbackExecutionFailedException("Cannot fallback to alternate cursor since inner already produced a record", throwable));
                 } else {
                     inner.close();
                     inner = fallbackCursorSupplier.get();
@@ -132,4 +137,16 @@ public class FallbackCursor<T> implements RecordCursor<T> {
         }
         return visitor.visitLeave(this);
     }
+
+    /**
+     * Exception thrown when the fallback cursor fails.
+     */
+    public static class FallbackExecutionFailedException extends RecordCoreException {
+        public static final long serialVersionUID = 1;
+
+        public FallbackExecutionFailedException(@Nonnull final String msg, @Nullable final Throwable cause) {
+            super(msg, cause);
+        }
+    }
+
 }

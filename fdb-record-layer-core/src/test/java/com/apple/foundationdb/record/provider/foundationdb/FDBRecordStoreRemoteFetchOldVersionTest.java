@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -31,9 +30,6 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
-import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -46,8 +42,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
-import java.util.Objects;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -55,15 +49,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 /**
- * A test for the Index Prefetch FDB API.
+ * Test Remote Fetch with old version format.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQueryTestBase {
-
-    private static RecordQuery NUM_VALUES_LARGER_THAN_990 = RecordQuery.newBuilder()
-            .setRecordType("MySimpleRecord")
-            .setFilter(Query.field("num_value_unique").greaterThan(990))
-            .build();
+public class FDBRecordStoreRemoteFetchOldVersionTest extends FDBRecordStoreRemoteFetchTestBase {
 
     @BeforeEach
     void setup() throws Exception {
@@ -92,31 +81,14 @@ public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQue
         assertThat(count, equalTo(10));
     }
 
-    private void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, Object indexedValue) {
-        IndexEntry indexEntry = rec.getIndexEntry();
-        assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
-        List<Object> indexElements = indexEntry.getKey().getItems();
-        assertThat(indexElements.size(), equalTo(2));
-        assertThat(indexElements.get(0), equalTo(indexedValue));
-        assertThat(indexElements.get(1), equalTo(primaryKey));
-        List<Object> indexPrimaryKey = indexEntry.getPrimaryKey().getItems();
-        assertThat(indexPrimaryKey.size(), equalTo(1));
-        assertThat(indexPrimaryKey.get(0), equalTo(primaryKey));
-
-        FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
-        assertThat(storedRecord.getPrimaryKey().get(0), equalTo(primaryKey));
-        assertThat(storedRecord.getRecordType().getName(), equalTo("MySimpleRecord"));
-
-        TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-        myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
-        assertThat(myrec.getRecNo(), equalTo(primaryKey));
-        assertThat(myrec.getStrValueIndexed(), equalTo(strValue));
-        assertThat(myrec.getNumValueUnique(), equalTo(numValue));
-
-        FDBRecordVersion version = storedRecord.getVersion();
-        assertThat(version.toBytes().length, equalTo(12));
-        assertThat(version.toBytes()[11], equalTo((byte)primaryKey));
-    }
+    @Nonnull
+    protected final RecordMetaDataHook simpleVersionHook = metaDataBuilder -> {
+        metaDataBuilder.setSplitLongRecords(false);
+        metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$num2-version", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
+        metaDataBuilder.addUniversalIndex(
+                new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
+    };
 
     protected void complexQuerySetupWithVersion(RecordMetaDataHook hook, int formatVersion) throws Exception {
         try (FDBRecordContext context = openContext()) {
@@ -140,7 +112,7 @@ public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQue
     }
 
     // TODO: This can be combined with the existing openStore such that it takes a version (and resets it in @AfterEach).
-    private void openStoreWithVersion(final FDBRecordContext context, @Nullable RecordMetaDataHook hook, int formatVersion) {
+    protected void openStoreWithVersion(final FDBRecordContext context, @Nullable RecordMetaDataHook hook, int formatVersion) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         if (hook != null) {
             hook.apply(metaDataBuilder);
@@ -155,23 +127,5 @@ public class FDBRecordStoreIndexPrefetchOldVersionTest extends FDBRecordStoreQue
                 .createOrOpen();
         RecordMetaData metaData = recordStore.getRecordMetaData();
         planner = new RecordQueryPlanner(metaData, recordStore.getRecordStoreState());
-    }
-
-    @Nonnull
-    private final RecordMetaDataHook simpleVersionHook = metaDataBuilder -> {
-        metaDataBuilder.setSplitLongRecords(false);
-        metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
-        metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$num2-version", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
-        metaDataBuilder.addUniversalIndex(
-                new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
-    };
-
-    @Nonnull
-    private RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) {
-        planner.setConfiguration(planner.getConfiguration()
-                .asBuilder()
-                .setIndexFetchMethod(useIndexPrefetch)
-                .build());
-        return planner.plan(query);
     }
 }

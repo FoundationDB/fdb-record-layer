@@ -921,6 +921,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
+    @API(API.Status.EXPERIMENTAL)
     default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull final String indexName,
                                                                    @Nonnull final IndexScanBounds scanBounds,
                                                                    @Nonnull final KeyExpression commonPrimaryKey,
@@ -942,6 +943,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
+    @API(API.Status.EXPERIMENTAL)
     RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull Index index,
                                                            @Nonnull IndexScanBounds scanBounds,
                                                            @Nonnull final KeyExpression commonPrimaryKey,

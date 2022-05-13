@@ -448,6 +448,7 @@ public class RecordQueryPlannerConfiguration {
          * @param indexFetchMethod whether to use IndexFetch in the scan plans
          * @return this builder
          */
+        @API(API.Status.EXPERIMENTAL)
         public Builder setIndexFetchMethod(@Nonnull final IndexFetchMethod indexFetchMethod) {
             this.indexFetchMethod = indexFetchMethod;
             return this;

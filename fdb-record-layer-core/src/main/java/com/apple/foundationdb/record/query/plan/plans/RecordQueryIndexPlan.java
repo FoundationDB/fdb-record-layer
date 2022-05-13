@@ -155,7 +155,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                                                      @Nullable final byte[] continuation, @Nonnull final ExecuteProperties executeProperties) {
         RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod = indexFetchMethod;
         // Check here to allow for the store API_VERSION to change
-        if (!store.getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
+        if ((indexFetchMethod != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) &&
+                !store.getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
             logWarning("Index remote fetch can only be used with API_VERSION of at least 7.1. Falling back to regular scan.");
             fetchMethod = RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH;
         }
