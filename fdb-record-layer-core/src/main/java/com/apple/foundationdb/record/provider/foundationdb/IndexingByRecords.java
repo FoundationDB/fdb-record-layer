@@ -239,9 +239,9 @@ public class IndexingByRecords extends IndexingBase {
      */
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints() {
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(
-                LogMessageKeys.CALLING_METHOD, "buildEndpoints");
-        additionalLogMessageKeyValues.addAll(common.indexLogMessageKeyValues());
+        final List<Object> additionalLogMessageKeyValues = common.indexLogMessageKeyValues();
+        additionalLogMessageKeyValues.add(LogMessageKeys.CALLING_METHOD);
+        additionalLogMessageKeyValues.add("buildEndpoints");
         common.loadConfig();
         return common.getRunner().runAsync(
                 context -> {
