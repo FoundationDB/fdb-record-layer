@@ -281,6 +281,10 @@ public class LimitedRunner implements AutoCloseable {
         futuresToCompleteExceptionally.add(future);
     }
 
+    public int getMaxLimit() {
+        return this.maxLimit;
+    }
+
     public LimitedRunner setMaxLimit(final int maxLimit) {
         this.maxLimit = maxLimit;
         if (currentLimit > maxLimit) {

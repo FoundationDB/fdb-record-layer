@@ -47,6 +47,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -832,7 +833,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
     @Test
     public void testConfigLoader() throws Exception {
-        // TODO this test needs to be reworked a bit, since we can't assert about the limit in the indexer anymore
+        // This test should be expanded to more accurately, and reliably assert about all config parameters,
+        // see testConfigLoaderLimit
+        // Note: this test tests IndexingByRecords.buildRanges, which does not use `iterateAllRanges` like the other
+        // indexers use, so there is a lack of coverage here
         final Index index = new Index("newIndex", field("num_value_unique"));
         final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
             metaDataBuilder.addIndex("MySimpleRecord", index);
@@ -886,20 +890,17 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testConfigLoaderDecreaseMaxLimit() {
-        // If the config loader decreases the limit, that should affect the next step in the build range
-        // even if the limit was previously higher
-        // TODO this test tests IndexingByRecords.buildRanges. Either that should be updated to use iterateAllRanges
-        //      or a different test is needed to execute that
+    public void testConfigLoaderLimit() {
+        // Note: this test tests IndexingByRecords.buildRanges, which does not use `iterateAllRanges` like the other
+        // indexers use, so there is a lack of coverage here
         final Index index = new Index("newIndex", field("num_value_unique"));
         final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
             metaDataBuilder.addIndex("MySimpleRecord", index);
         };
         openSimpleMetaData(hook);
 
-        final int recordCount = 1000;
         try (FDBRecordContext context = openContext()) {
-            for (int i = 0; i < recordCount; i++) {
+            for (int i = 0; i < 1000; i++) {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValueUnique(i).build();
                 recordStore.saveRecord(record);
             }
@@ -908,44 +909,68 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
 
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int startingLimit = 105;
-        final int decreaseBy = 1;
+        final List<Pair<Integer, Integer>> limitInfo = new ArrayList<>();
+        final AtomicInteger rangesIndexedAt2 = new AtomicInteger(0);
+        final AtomicInteger rangesIndexedAt11 = new AtomicInteger(0);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
-                .setLimit(startingLimit)
                 .setTimer(timer)
-                .setConfigLoader(old ->
-                        old.toBuilder()
-                                .setMaxLimit(old.getMaxLimit() > startingLimit - 9 ?
-                                             old.getMaxLimit() - decreaseBy :
-                                             2)
-                                .setMaxRetries(3)
-                                .setRecordsPerSecond(10000)
-                                .build())
+                .setConfigLoader(old -> {
+                    final int recordsIndexed = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+                    limitInfo.add(Pair.of(old.getMaxLimit(),
+                            recordsIndexed));
+                    // once we've indexed some records, drop the limit to 1
+                    if (limitInfo.size() > 0 && limitInfo.get(limitInfo.size() - 1).getRight() > 0) {
+                        if (rangesIndexedAt11.getAndIncrement() < 10) {
+                            return old.toBuilder().setMaxLimit(11).build();
+                        }
+                        if (rangesIndexedAt2.getAndIncrement() < 10) {
+                            return old.toBuilder().setMaxLimit(2).build();
+                        }
+                        return old.toBuilder().setMaxLimit(100).build();
+                    } else {
+                        return old.toBuilder()
+                                .setMaxLimit(11)
+                                // otherwise once the limit changes to 100 it won't increase to 100, it will stay at 2
+                                .setIncreaseLimitAfter(1)
+                                .build();
+                    }
+                })
+                .setMaxAttempts(2)
                 .build()) {
             indexBuilder.buildIndex();
-            assertThat(timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT), Matchers.greaterThan(50));
+            assertThat(limitInfo, Matchers.hasSize(Matchers.greaterThan(20)));
+            // 100 is the default max limit, so that's what we see first
+            assertEquals(Pair.of(100, 0), limitInfo.get(0));
+            // endpoints are one transaction
+            assertEquals(Pair.of(11, 1), limitInfo.get(1));
+            // the first 13 or so should have limit 11, and index 11 records
+            int switchToLimit11 = 2;
+            int switchToLimit2 = switchToLimit11 + 10;
+            int switchToLimit100 = switchToLimit2 + 10;
+            // avoid asserting directly about how quickly it increases, just that increases fast enough so that we get a
+            // couple transactions at 100, if we don't we can change 100 to something lower
+            int fullyIncreased = limitInfo.size() - 3;
+            for (int i = 2; i < limitInfo.size(); i++) {
+                String message = String.format("At %03d => %4d %4d",
+                        i, limitInfo.get(i).getLeft(), limitInfo.get(i).getRight());
+                if (i < switchToLimit2) {
+                    assertEquals(Pair.of(11, limitInfo.get(i - 1).getRight() + 11), limitInfo.get(i), message);
+                } else if (i < switchToLimit100) {
+                    assertEquals(Pair.of(2, limitInfo.get(i - 1).getRight() + 2), limitInfo.get(i), message);
+                } else if (i == switchToLimit100) {
+                    assertEquals(Pair.of(100, limitInfo.get(i - 1).getRight() + 2), limitInfo.get(i), message);
+                } else {
+                    assertEquals(100, limitInfo.get(i).getLeft(), message);
+                    if (i < fullyIncreased) {
+                        assertThat(message, limitInfo.get(i).getRight(), Matchers.allOf(
+                                Matchers.greaterThan(limitInfo.get(i - 1).getRight() + 2),
+                                Matchers.lessThanOrEqualTo(limitInfo.get(i - 1).getRight() + 100)));
+                    }
+                }
+            }
         }
-
-        timer.reset();
-
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
-                .setLimit(startingLimit)
-                .setTimer(timer)
-                .setConfigLoader(old ->
-                        old.toBuilder()
-                                .setMaxLimit(old.getMaxLimit())
-                                .setMaxRetries(3)
-                                .setRecordsPerSecond(10000)
-                                .build())
-                .build()) {
-            indexBuilder.buildIndex();
-            assertThat(timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT), Matchers.lessThan(30));
-        }
-
     }
-
 
     @Test
     public void testOnlineIndexerBuilderWriteLimitBytes() throws Exception {

@@ -111,6 +111,10 @@ public class TransactionalLimitedRunner implements AutoCloseable {
         return this;
     }
 
+    public int getMaxLimit() {
+        return limitedRunner.getMaxLimit();
+    }
+
     public TransactionalLimitedRunner setMaxLimit(final int maxLimit) {
         limitedRunner.setMaxLimit(maxLimit);
         return this;
