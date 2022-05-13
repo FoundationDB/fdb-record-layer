@@ -307,35 +307,57 @@ public class RecordCursorTest {
         assertEquals(Arrays.asList(2, 4, 6), newInts);
     }
 
+    private static class PrefixAddingContinuationConvertor implements RecordCursor.ContinuationConvertor {
+        private final ByteString prefix;
+
+        private PrefixAddingContinuationConvertor(ByteString prefix) {
+            this.prefix = prefix;
+        }
+
+        @Nullable
+        @Override
+        public byte[] unwrapContinuation(@Nullable final byte[] continuation) {
+            if (continuation == null) {
+                return null;
+            }
+            ByteString wrappedBytes = ByteString.copyFrom(continuation);
+            assertTrue(wrappedBytes.startsWith(prefix), "continuation should begin with expected prefix");
+            return wrappedBytes.substring(prefix.size()).toByteArray();
+        }
+
+        @Override
+        public RecordCursorContinuation wrapContinuation(@Nonnull final RecordCursorContinuation continuation) {
+            if (continuation.isEnd()) {
+                return RecordCursorEndContinuation.END;
+            }
+            return new RecordCursorContinuation() {
+                @Nonnull
+                @Override
+                public ByteString toByteString() {
+                    return prefix.concat(continuation.toByteString());
+                }
+
+                @Nullable
+                @Override
+                public byte[] toBytes() {
+                    return toByteString().toByteArray();
+                }
+
+                @Override
+                public boolean isEnd() {
+                    return false;
+                }
+            };
+        }
+    }
+
     @Test
     void mapContinuationsTest() {
         final List<Integer> ints = Arrays.asList(1, 2, 3, 4, 5, 6);
         final ByteString prefix = ByteString.copyFromUtf8("prefix+");
-        RecordCursor<Integer> cursor = RecordCursor.fromList(ints)
-                .mapContinuation(continuation -> {
-                    if (continuation.isEnd()) {
-                        return RecordCursorEndContinuation.END;
-                    }
+        final PrefixAddingContinuationConvertor continuationConvertor = new PrefixAddingContinuationConvertor(prefix);
 
-                    return new RecordCursorContinuation() {
-                        @Nonnull
-                        @Override
-                        public ByteString toByteString() {
-                            return prefix.concat(continuation.toByteString());
-                        }
-
-                        @Nullable
-                        @Override
-                        public byte[] toBytes() {
-                            return toByteString().toByteArray();
-                        }
-
-                        @Override
-                        public boolean isEnd() {
-                            return false;
-                        }
-                    };
-                });
+        RecordCursor<Integer> cursor = RecordCursor.mapContinuation(continuation -> RecordCursor.fromList(ints, continuation), continuationConvertor, null);
 
         List<Integer> soFar = new ArrayList<>();
         RecordCursorResult<Integer> result;
@@ -353,7 +375,7 @@ public class RecordCursorTest {
                 // Stripping away the prefix and resuming the cursor should produce the rest of the list
                 byte[] continuation = result.getContinuation().toBytes();
                 assertNotNull(continuation);
-                RecordCursor<Integer> tailCursor = RecordCursor.fromList(ints, Arrays.copyOfRange(continuation, prefix.size(), continuation.length));
+                RecordCursor<Integer> tailCursor = RecordCursor.mapContinuation(innerContinuation -> RecordCursor.fromList(ints, innerContinuation), continuationConvertor, continuation);
                 final List<Integer> resultList = new ArrayList<>(soFar);
                 tailCursor.forEach(resultList::add).join();
                 assertEquals(ints, resultList);

@@ -30,7 +30,6 @@ import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 
 /**
  * A cursor that applies a function to the elements of another cursor.
@@ -53,9 +52,9 @@ public class MapResultCursor<T, V> implements RecordCursor<V> {
      *
      * @param inner the inner cursor to apply the function on
      * @param func the function to apply
-     * @see RecordCursor#mapResult(Function)
      * @see RecordCursor#map(Function)
-     * @see RecordCursor#mapContinuation(UnaryOperator)
+     * @see RecordCursor#mapContinuation(Function, ContinuationConvertor, byte[])
+     * @see RecordCursor#mapResult(Function)
      */
     @API(API.Status.INTERNAL)
     public MapResultCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<RecordCursorResult<T>, RecordCursorResult<V>> func) {
