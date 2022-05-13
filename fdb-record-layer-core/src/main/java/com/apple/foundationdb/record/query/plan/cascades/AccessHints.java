@@ -45,7 +45,7 @@ public class AccessHints {
         return accessHintSet.size();
     }
 
-    public boolean containsAll(@Nonnull AccessHints other) {
+    public boolean satisfies(@Nonnull AccessHints other) {
         // if no hint is set, it's considered to include all possible hints
         if (size() == 0) {
             return true;

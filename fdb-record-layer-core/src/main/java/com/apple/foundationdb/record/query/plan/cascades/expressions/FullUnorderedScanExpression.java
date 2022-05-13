@@ -148,7 +148,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
             return ImmutableList.of();
         }
         // if query doesnot contain candidate's indexes, the query cannot be subsumed by the candidate
-        if (getAccessHints().containsAll(((FullUnorderedScanExpression)candidateExpression).getAccessHints())) {
+        if (getAccessHints().satisfies(((FullUnorderedScanExpression)candidateExpression).getAccessHints())) {
             return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
         } else {
             return ImmutableList.of();

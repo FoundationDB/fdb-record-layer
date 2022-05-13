@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
@@ -38,20 +37,16 @@ class AccessHintsTest {
         AccessHint indexHint1 = new IndexAccessHint("index1");
         AccessHint indexHint2 = new IndexAccessHint("index1");
         AccessHint indexHint3 = new IndexAccessHint("index2");
-        AccessHint primaryHint1 = new PrimaryAccessHint(Key.Expressions.field("name1"));
-        AccessHint primaryHint2 = new PrimaryAccessHint(Key.Expressions.field("name1"));
-        AccessHint primaryHint3 = new PrimaryAccessHint(Key.Expressions.field("name2"));
+        AccessHint primaryHint = new PrimaryAccessHint();
 
         // test equals method
         Assertions.assertEquals(indexHint1, indexHint2);
-        Assertions.assertEquals(primaryHint1, primaryHint2);
         Assertions.assertNotEquals(indexHint1, indexHint3);
-        Assertions.assertNotEquals(primaryHint1, primaryHint3);
-        Assertions.assertNotEquals(indexHint1, primaryHint1);
+        Assertions.assertNotEquals(indexHint1, primaryHint);
 
         // test get type
-        Assertions.assertEquals("IndexAccessHint", indexHint1.getAccessHintType());
-        Assertions.assertEquals("PrimaryAccessHint", primaryHint1.getAccessHintType());
+        Assertions.assertEquals("INDEX", indexHint1.getAccessHintType());
+        Assertions.assertEquals("PRIMARY", primaryHint.getAccessHintType());
     }
 
     @Test
@@ -63,9 +58,9 @@ class AccessHintsTest {
         AccessHints hints2 = new AccessHints(indexHint1, indexHint2);
         AccessHints hints3 = new AccessHints(indexHint1);
 
-        Assertions.assertTrue(hints1.containsAll(hints2));
-        Assertions.assertTrue(hints2.containsAll(hints3));
-        Assertions.assertFalse(hints3.containsAll(hints2));
-        Assertions.assertFalse(hints3.containsAll(hints1));
+        Assertions.assertTrue(hints1.satisfies(hints2));
+        Assertions.assertTrue(hints2.satisfies(hints3));
+        Assertions.assertFalse(hints3.satisfies(hints2));
+        Assertions.assertFalse(hints3.satisfies(hints1));
     }
 }

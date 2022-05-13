@@ -26,12 +26,18 @@ import java.util.Objects;
 /**
  * Represents an index hint.
  */
-public class IndexAccessHint extends AccessHint {
+public class IndexAccessHint implements AccessHint {
     @Nonnull
     private final String indexName;
 
     public IndexAccessHint(@Nonnull final String indexName) {
         this.indexName = indexName;
+    }
+
+    @Override
+    @Nonnull
+    public String getAccessHintType() {
+        return "INDEX";
     }
 
     @Override

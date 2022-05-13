@@ -20,40 +20,20 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
 /**
- * Represents a primary key hint.
+ * Represents reading a table directly without using an index plus fetch.
  */
-public class PrimaryAccessHint extends AccessHint {
-    @Nonnull
-    private final KeyExpression primaryKey;
+public class PrimaryAccessHint implements AccessHint {
 
-    public PrimaryAccessHint(@Nonnull final KeyExpression primaryKey) {
-        this.primaryKey = primaryKey;
+    public PrimaryAccessHint() {
+
     }
 
     @Override
-    public boolean equals(Object other) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
-            return false;
-        }
-        return primaryKey.equals(((PrimaryAccessHint)other).getPrimaryKey());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(primaryKey);
-    }
-
     @Nonnull
-    public KeyExpression getPrimaryKey() {
-        return primaryKey;
+    public String getAccessHintType() {
+        return "PRIMARY";
     }
 }
