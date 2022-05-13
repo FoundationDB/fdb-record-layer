@@ -52,7 +52,8 @@ import java.util.function.Function;
  *     Right now this is not designed for multiple workers concurrently using the same {@link LimitedRunner}, it is
  *     intended to be used more as a one-off, or sequentially. If used sequentially, later calls to {@link #runAsync}
  *     will start with the limit that the previous call ended with. Most likely, you only want to call {@link #runAsync}
- *     once per instance of {@link LimitedRunner}.
+ *     once per instance of {@link LimitedRunner}. Similarly, the setters are only valid to be called before calling
+ *     {@link #runAsync}, or within the {@code runner}.
  * </p>
  *
  * @see TransactionalLimitedRunner for code that connects this to opening/committing transactions
@@ -285,6 +286,16 @@ public class LimitedRunner implements AutoCloseable {
         return this.maxLimit;
     }
 
+    /**
+     * Set the maximum limit for individual attempts.
+     * <p>
+     *     Note: this will decrease the current limit if it is lower, but it will not increase the current limit, that
+     *     will increase based on {@link #setIncreaseLimitAfter}. This includes if this is called after construction,
+     *     but before calling {@link #runAsync}.
+     * </p>
+     * @param maxLimit a new maximum limit
+     * @return this runner
+     */
     public LimitedRunner setMaxLimit(final int maxLimit) {
         this.maxLimit = maxLimit;
         if (currentLimit > maxLimit) {
@@ -293,16 +304,39 @@ public class LimitedRunner implements AutoCloseable {
         return this;
     }
 
+    /**
+     * After the given number of consecutive successes, the runner will increase the limit up to the max limit,
+     * if this is greater than 0.
+     * @param increaseLimitAfter after this many successes the runner will increase the limit up to the max limit.
+     * If this is less than 0, the limit will never increase.
+     * @return this runner
+     */
     public LimitedRunner setIncreaseLimitAfter(final int increaseLimitAfter) {
         this.increaseLimitAfter = increaseLimitAfter;
         return this;
     }
 
+    /**
+     * For exceptions that are retriable, this is the number of times the given limit will be retried before decreasing.
+     * @param decreaseLimitAfter the number of retries to do without decreasing the limit
+     * @return this runner
+     */
     public LimitedRunner setDecreaseLimitAfter(final int decreaseLimitAfter) {
         this.decreaseLimitAfter = decreaseLimitAfter;
         return this;
     }
 
+    /**
+     * Every time the runner goes to decrease the limit (based on {@link #setDecreaseLimitAfter}, if the runner has
+     * failed more than this many times since its last success, the overall run will fail.
+     * <p>
+     *     Note: this is not checked while retrying with a given limit, so if {@link #setDecreaseLimitAfter} is 10, and
+     *     this is 5, and the runner fails with an exception that is retriable and can lessen work codes, it will fail
+     *     the overall run after retrying with the same limit 10 times.
+     * </p>
+     * @param maxDecreases the new value for max number of retries
+     * @return this runner
+     */
     public LimitedRunner setMaxDecreaseRetries(final int maxDecreases) {
         this.maxDecreaseRetries = maxDecreases;
         return this;

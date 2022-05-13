@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -389,7 +390,6 @@ class LimitedRunnerTest {
         }
     }
 
-
     @ParameterizedTest(name = "{displayName} ({argumentsWithNames})")
     @EnumSource(ExceptionStyle.class)
     void doNotIncreaseAfter(ExceptionStyle exceptionStyle) {
@@ -583,6 +583,188 @@ class LimitedRunnerTest {
             assertThat(buildPointerMessage(externalStates, i, 2),
                     externalStates.get(i), Matchers.greaterThan(externalStates.get(i - 1)));
         }
+    }
+
+    @Test
+    void changeLimitMidRun() {
+        List<Integer> limits = new ArrayList<>();
+        int initial = 13;
+        int middle = 3;
+        int end = 40;
+        try (LimitedRunner limitedRunner = new LimitedRunner(executor, initial, mockDelay())) {
+            limitedRunner.setIncreaseLimitAfter(2)
+                    .runAsync(runState -> {
+                        limits.add(runState.getLimit());
+                        if (limits.size() < 10) {
+                            limitedRunner.setMaxLimit(initial);
+                        } else if (limits.size() < 20) {
+                            limitedRunner.setMaxLimit(middle);
+                        } else {
+                            limitedRunner.setMaxLimit(end);
+                        }
+                        return limits.size() < 50 ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+                    }, List.of()).join();
+        }
+        assertEquals(50, limits.size());
+        for (int i = 0; i < limits.size(); i++) {
+            String message = buildPointerMessage(limits, i);
+            if (i < 10) {
+                assertEquals(initial, limits.get(i), message);
+            } else if (i < 20) {
+                assertEquals(middle, limits.get(i), message);
+            } else if (i < 40) {
+                assertThat(message, limits.get(i),
+                        Matchers.allOf(Matchers.greaterThan(middle), Matchers.lessThan(end)));
+            } else {
+                assertEquals(end, limits.get(i), message);
+            }
+        }
+    }
+
+    @Test
+    void changeDecreaseLimitMidRun() {
+        final ExceptionStyle exceptionStyle = ExceptionStyle.WrappedAsFuture;
+        final RuntimeException cause = exceptionStyle.wrap(retryAndLessenWorkException());
+        List<Integer> limits = new ArrayList<>();
+        IntFunction<Integer> getDecreaseLimitAfter = index -> {
+            if (index < 10) {
+                return 3;
+            } else if (index < 40) {
+                return 7;
+            } else {
+                return 4;
+            }
+        };
+        try (LimitedRunner limitedRunner = new LimitedRunner(executor, 100_000, mockDelay())) {
+            limitedRunner
+                    .setDecreaseLimitAfter(1000)
+                    .runAsync(runState -> {
+                        limits.add(runState.getLimit());
+                        limitedRunner.setDecreaseLimitAfter(getDecreaseLimitAfter.apply(limits.size()));
+
+                        if (limits.size() < 60) {
+                            return exceptionStyle.hasMore(cause);
+                        } else {
+                            return AsyncUtil.READY_FALSE;
+                        }
+                    }, List.of()).join();
+        }
+
+        assertEquals(60, limits.size());
+        assertEquals(100_000, limits.get(0));
+        int lastDecrease = 0;
+        for (int i = 1; i < limits.size(); i++) {
+            final String message = buildPointerMessage(limits, i, 6);
+            if ((i - lastDecrease) % getDecreaseLimitAfter.apply(i) == 0) {
+                assertThat(message, limits.get(i), Matchers.lessThan(limits.get(i - 1)));
+                lastDecrease = i;
+            } else {
+                assertEquals(limits.get(i - 1), limits.get(i));
+            }
+        }
+    }
+
+    @Test
+    void changeIncreaseLimitMidRun() {
+        final ExceptionStyle exceptionStyle = ExceptionStyle.WrappedAsFuture;
+        final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
+        List<Integer> limits = new ArrayList<>();
+        IntFunction<Integer> getIncreaseLimitAfter = index -> {
+            if (index < 10) {
+                return 3;
+            } else if (index < 40) {
+                return 7;
+            } else {
+                return 4;
+            }
+        };
+        try (LimitedRunner limitedRunner = new LimitedRunner(executor, 100_000, mockDelay())) {
+            limitedRunner
+                    .setDecreaseLimitAfter(1)
+                    .runAsync(runState -> {
+                        // setup, start by getting the current limit much lower than the max limit
+                        if (limits.size() == 0 && runState.getLimit() > 1) {
+                            return exceptionStyle.hasMore(cause);
+                        }
+                        limits.add(runState.getLimit());
+                        limitedRunner.setIncreaseLimitAfter(getIncreaseLimitAfter.apply(limits.size()));
+
+                        if (limits.size() < 60) {
+                            return AsyncUtil.READY_TRUE;
+                        } else {
+                            return AsyncUtil.READY_FALSE;
+                        }
+                    }, List.of()).join();
+        }
+
+        assertEquals(60, limits.size());
+        assertEquals(1, limits.get(0));
+        int lastIncrease = 0;
+        for (int i = 1; i < limits.size(); i++) {
+            final String message = buildPointerMessage(limits, i, 6);
+            if ((i - lastIncrease) % getIncreaseLimitAfter.apply(i) == 0) {
+                assertThat(message, limits.get(i), Matchers.greaterThan(limits.get(i - 1)));
+                lastIncrease = i;
+            } else {
+                assertEquals(limits.get(i - 1), limits.get(i));
+            }
+        }
+    }
+
+    @Test
+    void decreaseMaxDecreaseRetries() {
+        final ExceptionStyle exceptionStyle = ExceptionStyle.WrappedAsFuture;
+        final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
+        List<Integer> limits = new ArrayList<>();
+        try (LimitedRunner limitedRunner = new LimitedRunner(executor, 100_000, mockDelay())) {
+            final CompletionException completionException = assertThrows(CompletionException.class,
+                    () -> limitedRunner
+                            .setDecreaseLimitAfter(1)
+                            .setMaxDecreaseRetries(100)
+                            .runAsync(runState -> {
+                                limits.add(runState.getLimit());
+                                if (limits.size() < 100) {
+                                    return exceptionStyle.hasMore(cause);
+                                } else if (limits.size() == 100) {
+                                    return AsyncUtil.READY_TRUE;
+                                } else if (limits.size() < 110) {
+                                    limitedRunner.setMaxDecreaseRetries(10);
+                                    return AsyncUtil.READY_TRUE;
+                                } else {
+                                    return exceptionStyle.hasMore(cause);
+                                }
+                            }, List.of()).join());
+            assertEquals(cause, completionException.getCause());
+        }
+        assertEquals(120, limits.size());
+    }
+
+    @Test
+    void increaseMaxDecreaseRetries() {
+        final ExceptionStyle exceptionStyle = ExceptionStyle.WrappedAsFuture;
+        final RuntimeException cause = exceptionStyle.wrap(lessenWorkException());
+        List<Integer> limits = new ArrayList<>();
+        try (LimitedRunner limitedRunner = new LimitedRunner(executor, 100_000, mockDelay())) {
+            final CompletionException completionException = assertThrows(CompletionException.class,
+                    () -> limitedRunner
+                            .setDecreaseLimitAfter(1)
+                            .setMaxDecreaseRetries(10)
+                            .runAsync(runState -> {
+                                limits.add(runState.getLimit());
+                                if (limits.size() < 10) {
+                                    return exceptionStyle.hasMore(cause);
+                                } else if (limits.size() == 10) {
+                                    return AsyncUtil.READY_TRUE;
+                                } else if (limits.size() < 20) {
+                                    limitedRunner.setMaxDecreaseRetries(99);
+                                    return AsyncUtil.READY_TRUE;
+                                } else {
+                                    return exceptionStyle.hasMore(cause);
+                                }
+                            }, List.of()).join());
+            assertEquals(cause, completionException.getCause());
+        }
+        assertEquals(119, limits.size());
     }
 
     @Nonnull
