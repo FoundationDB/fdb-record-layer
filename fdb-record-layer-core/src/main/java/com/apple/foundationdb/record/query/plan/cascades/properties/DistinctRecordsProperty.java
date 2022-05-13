@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
@@ -177,6 +178,12 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
             final var matchCandidate = matchCandidateOptional.get();
 
             return !matchCandidate.getAlternativeKeyExpression().createsDuplicates();
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
+            return true;
         }
 
         @Nonnull

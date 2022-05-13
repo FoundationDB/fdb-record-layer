@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
@@ -254,6 +255,14 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             return indexPlan.getMatchCandidateOptional()
                     .map(matchCandidate -> matchCandidate.computeOrderingFromScanComparisons(scanComparisons, indexPlan.isReverse(), indexPlan.isStrictlySorted()))
                     .orElse(Ordering.emptyOrder());
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
+            // TODO This plan is sorted by anything it's flowing as its max cardinality is one.
+            //      We cannot express that as of yet.
+            return Ordering.emptyOrder();
         }
 
         @Nonnull

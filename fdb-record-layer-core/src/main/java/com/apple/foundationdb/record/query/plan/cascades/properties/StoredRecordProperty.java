@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
@@ -165,6 +166,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitIndexPlan(@Nonnull final RecordQueryIndexPlan element) {
             return true;
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
+            return false;
         }
 
         @Nonnull

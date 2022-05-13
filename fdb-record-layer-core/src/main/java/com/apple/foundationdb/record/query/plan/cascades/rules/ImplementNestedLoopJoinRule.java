@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -35,13 +36,17 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -49,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -117,7 +123,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
 
         if (outerQuantifier instanceof Quantifier.Existential &&
                 innerQuantifier instanceof Quantifier.Existential) {
-            // return;
+            //return;
         }
 
         final var outerAlias = outerQuantifier.getAlias();
@@ -172,8 +178,8 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
             }
         }
 
-        final var outerPredicates = outerPredicatesBuilder.build();
-        final var outerInnerPredicates = outerInnerPredicatesBuilder.build();
+        var outerPredicates = outerPredicatesBuilder.build();
+        var outerInnerPredicates = outerInnerPredicatesBuilder.build();
         final var otherPredicates = otherPredicatesBuilder.build();
 
         //
@@ -210,6 +216,19 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         var newOuterQuantifier =
                 Quantifier.physicalBuilder().withAlias(outerAlias).build(GroupExpressionRef.from(outerPartition.getPlans()));
         if (!outerPredicates.isEmpty()) {
+            if (outerQuantifier instanceof Quantifier.Existential) {
+                Verify.verify(outerPredicates.size() == 1);
+                final QueryPredicate outerPredicate = Iterables.getOnlyElement(outerPredicates);
+                Verify.verify(outerPredicate instanceof ExistsPredicate);
+                final var existsPredicate = (ExistsPredicate)outerPredicate;
+
+                newOuterQuantifier =
+                        Quantifier.physical(GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(newOuterQuantifier, new NullValue(outerQuantifier.getFlowedObjectType()))));
+
+                outerPredicates = ImmutableList.of(new ValuePredicate(QuantifiedObjectValue.of(newOuterQuantifier.getAlias(), newOuterQuantifier.getFlowedObjectType()),
+                        new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
+            }
+
             newOuterQuantifier =
                     Quantifier.physical(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newOuterQuantifier, outerPredicates)));
         }
@@ -217,6 +236,19 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         var newInnerQuantifier =
                 Quantifier.physicalBuilder().withAlias(innerAlias).build(GroupExpressionRef.from(innerPartition.getPlans()));
         if (!outerInnerPredicates.isEmpty()) {
+            if (innerQuantifier instanceof Quantifier.Existential) {
+                Verify.verify(outerInnerPredicates.size() == 1);
+                final QueryPredicate outerInnerPredicate = Iterables.getOnlyElement(outerInnerPredicates);
+                Verify.verify(outerInnerPredicate instanceof ExistsPredicate);
+                final var existsPredicate = (ExistsPredicate)outerInnerPredicate;
+
+                newInnerQuantifier =
+                        Quantifier.physical(GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(newInnerQuantifier, new NullValue(innerQuantifier.getFlowedObjectType()))));
+
+                outerInnerPredicates = ImmutableList.of(new ValuePredicate(QuantifiedObjectValue.of(newInnerQuantifier.getAlias(), newInnerQuantifier.getFlowedObjectType()),
+                        new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
+            }
+            
             newInnerQuantifier =
                     Quantifier.physical(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newInnerQuantifier, outerInnerPredicates)));
         }
@@ -274,7 +306,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                 resultValue.translateCorrelations(translationMap);
 
         final var of = GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates));
-        of.show(true);
+        of.show(false);
         call.yield(of);
     }
 
