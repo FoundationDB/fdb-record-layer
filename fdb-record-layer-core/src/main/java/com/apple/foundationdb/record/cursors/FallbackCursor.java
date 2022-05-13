@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.util.LoggableException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -99,11 +100,9 @@ public class FallbackCursor<T> implements RecordCursor<T> {
                 allowedToFail = false;
             } else {
                 if (alreadyFailed) {
-                    nextResultFuture = CompletableFuture.failedFuture(
-                            new FallbackExecutionFailedException("Fallback cursor failed, cannot fallback again", throwable));
+                    nextResultFuture = CompletableFuture.failedFuture(wrapException("Fallback cursor failed, cannot fallback again", throwable));
                 } else if (!allowedToFail) {
-                    nextResultFuture = CompletableFuture.failedFuture(
-                            new FallbackExecutionFailedException("Cannot fallback to alternate cursor since inner already produced a record", throwable));
+                    nextResultFuture = CompletableFuture.failedFuture(wrapException("Cannot fallback to alternate cursor since inner already produced a record", throwable));
                 } else {
                     inner.close();
                     inner = fallbackCursorSupplier.get();
@@ -138,6 +137,18 @@ public class FallbackCursor<T> implements RecordCursor<T> {
         return visitor.visitLeave(this);
     }
 
+    private Throwable wrapException(final String msg, final Throwable ex) {
+        if ((ex.getCause() != null) && (ex.getCause() instanceof LoggableException)) {
+            // in the case of loggable exception, maintain the original exception to simplify exception handling across
+            // fallback and non-fallback executions
+            LoggableException loggableException = (LoggableException)(ex.getCause());
+            loggableException.addLogInfo("FallBackFailed", msg);
+            return ex;
+        } else {
+            return new FallbackExecutionFailedException(msg, ex);
+        }
+    }
+
     /**
      * Exception thrown when the fallback cursor fails.
      */
@@ -149,5 +160,4 @@ public class FallbackCursor<T> implements RecordCursor<T> {
             super(msg, cause);
         }
     }
-
 }
