@@ -476,5 +476,4 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
             }
         }
     }
-
 }
