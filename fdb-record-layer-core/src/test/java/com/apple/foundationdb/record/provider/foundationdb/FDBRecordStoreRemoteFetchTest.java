@@ -194,7 +194,7 @@ class FDBRecordStoreRemoteFetchTest extends FDBRecordStoreRemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchByteLimitContinuation(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    @Disabled // This test is inconsistently failing when running as part of the larger suite
+    @Disabled("This test is inconsistently failing when running as part of the larger suite")
     void indexPrefetchByteLimitContinuation(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
         // TODO: Why should the index prefetch take so many more bytes to scan the same number of records? Maybe the index scan counts the records and the fetch does not?

@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
@@ -82,11 +81,12 @@ public class FallbackCursor<T> implements RecordCursor<T> {
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         try {
-            if (nextResultFuture != null && nextResultFuture.isDone() && !nextResultFuture.get().hasNext()) {
+            if (nextResultFuture != null && nextResultFuture.isDone() && !nextResultFuture.join().hasNext()) {
+                // This is needed to ensure we return the same terminal value once the cursor is exhausted
                 return nextResultFuture;
             }
-        } catch (InterruptedException | ExecutionException ignored) {
-            // This will happen if the future finished exceptionally or interrupted - just keep going (client will get
+        } catch (Exception ignored) {
+            // This will happen if the future finished exceptionally - just keep going (client will get
             // the exception when they observe the future).
         }
         // The first stage (handle) will calculate the result of the operation if successful, or replace the inner
@@ -141,6 +141,7 @@ public class FallbackCursor<T> implements RecordCursor<T> {
     /**
      * Exception thrown when the fallback cursor fails.
      */
+    @SuppressWarnings("java:S110")
     public static class FallbackExecutionFailedException extends RecordCoreException {
         public static final long serialVersionUID = 1;
 

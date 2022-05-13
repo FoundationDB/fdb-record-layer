@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * Exception thrown when a call is made for an API that is unsupported by the current {@link APIVersion}.
  *
  */
-@SuppressWarnings("serial")
+@SuppressWarnings({"serial", "java:S110"})
 @API(API.Status.EXPERIMENTAL)
 public class UnsupportedMethodException extends RecordCoreException {
     public UnsupportedMethodException(@Nonnull String msg, @Nullable Object ... keyValues) {
