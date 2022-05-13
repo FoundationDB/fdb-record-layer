@@ -392,15 +392,15 @@ public class StoreTimer {
             this(counter.getCount(), counter.getTimeNanos(), immutable);
         }
 
-        private Counter(boolean immutable) {
+        public Counter(boolean immutable) {
             this(0, 0L, immutable);
         }
 
-        private Counter(int count, long timeNanos) {
+        public Counter(int count, long timeNanos) {
             this(count, timeNanos, false);
         }
 
-        private Counter(int count, long timeNanos, boolean immutable) {
+        public Counter(int count, long timeNanos, boolean immutable) {
             this.count = new AtomicInteger(count);
             this.timeNanos = new AtomicLong(timeNanos);
             this.immutable = immutable;

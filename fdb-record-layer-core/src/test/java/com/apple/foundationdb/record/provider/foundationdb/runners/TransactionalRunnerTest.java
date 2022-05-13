@@ -54,11 +54,14 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -274,24 +277,35 @@ class TransactionalRunnerTest extends FDBTestBase {
 
     @Test
     void closesContextsSynchronous() {
-        closesContext((runner, contexts, completed) ->
-                // You shouldn't be doing this, but maybe I haven't thought of something similar, but reasonable, where
-                // the executable for `run` does not complete, but the runner is closed
-                CompletableFuture.runAsync(() -> {
-                    runner.run(false, context -> {
-                        contexts.add(context);
-                        new CompletableFuture<Void>().join(); // never joins
-                        return completed.incrementAndGet();
-                    });
-                })
-        );
+        final List<CompletableFuture<Void>> futures = new ArrayList<>();
+        try {
+            final ForkJoinPool forkJoinPool = new ForkJoinPool(10);
+            closesContext((runner, contextFuture, completed) ->
+                    // You shouldn't be doing this, but maybe I haven't thought of something similar, but reasonable, where
+                    // the executable for `run` does not complete, but the runner is closed
+                    CompletableFuture.runAsync(() ->
+                            runner.run(false, context -> {
+                                final CompletableFuture<Void> future = new CompletableFuture<>();
+                                futures.add(future);
+                                contextFuture.complete(context);
+                                future.join(); // never joins
+                                return completed.incrementAndGet();
+                            }),
+                            forkJoinPool)
+            );
+        } finally {
+            // cleanup the futures, so that the executor used by runAsync doesn't have a bunch of garbage sitting around
+            // Note: if you remove this, and change the test to @RepeatedTest(100), after 28 repetitions, it fails
+            // consistently.
+            futures.forEach(future -> future.complete(null));
+        }
     }
 
     @Test
     void closesContexts() {
-        closesContext((runner, contexts, completed) ->
+        closesContext((runner, contextFuture, completed) ->
                 runner.runAsync(false, context -> {
-                    contexts.add(context);
+                    contextFuture.complete(context);
                     // the first future will never complete
                     return new CompletableFuture<Void>()
                             .thenApply(vignore -> completed.incrementAndGet());
@@ -299,13 +313,18 @@ class TransactionalRunnerTest extends FDBTestBase {
         );
     }
 
-    private <T> void closesContext(TriFunction<TransactionalRunner, List<FDBRecordContext>, AtomicInteger, T> run) {
-        List<FDBRecordContext> contexts = new ArrayList<>();
+    private <T> void closesContext(TriFunction<TransactionalRunner, CompletableFuture<FDBRecordContext>, AtomicInteger, T> run) {
+        List<FDBRecordContext> contexts;
         AtomicInteger completed = new AtomicInteger();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
-            for (int i = 0; i < 10; i++) {
-                run.apply(runner, contexts, completed);
-            }
+            final List<CompletableFuture<FDBRecordContext>> contextFutures = IntStream.range(0, 10).mapToObj(i -> {
+                CompletableFuture<FDBRecordContext> contextFuture = new CompletableFuture<>();
+                run.apply(runner, contextFuture, completed);
+                return contextFuture;
+            }).collect(Collectors.toList());
+            // make sure that the contexts have been created
+            contexts = contextFutures.stream().map(CompletableFuture::join).collect(Collectors.toList());
+            assertEquals(0, completed.get());
             for (final FDBRecordContext context : contexts) {
                 assertFalse(context.isClosed());
             }
