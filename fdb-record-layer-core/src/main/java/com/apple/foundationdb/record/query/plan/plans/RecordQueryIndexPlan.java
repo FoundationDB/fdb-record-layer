@@ -139,11 +139,11 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this.resultType = resultType;
         if (indexFetchMethod != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) {
             if (commonPrimaryKey == null) {
-                logWarning("Index remote fetch cannot be used without a primary key. Falling back to regular scan.");
+                logDebug("Index remote fetch cannot be used without a primary key. Falling back to regular scan.");
                 this.indexFetchMethod = RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH;
             }
             if (scanParameters.getScanType() != IndexScanType.BY_VALUE) {
-                logWarning("Index remote fetch can only be used with VALUE index scan. Falling back to regular scan.");
+                logDebug("Index remote fetch can only be used with VALUE index scan. Falling back to regular scan.");
                 this.indexFetchMethod = RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH;
             }
         }
@@ -157,7 +157,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         // Check here to allow for the store API_VERSION to change
         if ((indexFetchMethod != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) &&
                 !store.getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
-            logWarning("Index remote fetch can only be used with API_VERSION of at least 7.1. Falling back to regular scan.");
+            LOGGER.warn(KeyValueLogMessage.of("Index remote fetch can only be used with API_VERSION of at least 7.1. Falling back to regular scan.",
+                    LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)));
             fetchMethod = RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH;
         }
 
@@ -178,9 +179,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                             executeUsingRemoteFetch(store, context, continuation, executeProperties),
                             () -> RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties));
                 } catch (Exception ex) {
-                    KeyValueLogMessage message = KeyValueLogMessage.build("Index Prefetch plan failed, falling back to Index scan",
-                            LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-                    LOGGER.error(message.toString(), ex);
+                    LOGGER.warn(KeyValueLogMessage.of("Remote Fetch execution failed, falling back to Index scan",
+                            LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)), ex);
                     return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
                 }
             default:
@@ -460,9 +460,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                 ImmutableList.of())));
     }
 
-    private void logWarning(final String staticMessage) {
-        if (LOGGER.isWarnEnabled()) {
-            LOGGER.warn(KeyValueLogMessage.of(staticMessage,
+    private void logDebug(final String staticMessage) {
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.of(staticMessage,
                     LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)));
         }
     }

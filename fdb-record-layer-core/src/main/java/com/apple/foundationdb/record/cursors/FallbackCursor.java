@@ -138,11 +138,16 @@ public class FallbackCursor<T> implements RecordCursor<T> {
     }
 
     private Throwable wrapException(final String msg, final Throwable ex) {
-        if ((ex.getCause() != null) && (ex.getCause() instanceof LoggableException)) {
-            // in the case of loggable exception, maintain the original exception to simplify exception handling across
+        if (ex instanceof LoggableException) {
+            // In the case of loggable exception, maintain the original exception to simplify exception handling across
             // fallback and non-fallback executions
+            LoggableException loggableException = (LoggableException)ex;
+            loggableException.addLogInfo("fallback_failed", msg);
+            return ex;
+        } else if ((ex.getCause() != null) && (ex.getCause() instanceof LoggableException)) {
+            // Same but in case the throwable is already wrapping the LoggableException
             LoggableException loggableException = (LoggableException)(ex.getCause());
-            loggableException.addLogInfo("FallBackFailed", msg);
+            loggableException.addLogInfo("fallback_failed", msg);
             return ex;
         } else {
             return new FallbackExecutionFailedException(msg, ex);

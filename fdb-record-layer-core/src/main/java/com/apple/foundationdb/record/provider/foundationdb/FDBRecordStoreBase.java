@@ -1006,6 +1006,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor of the records pointed to by the index
      */
     @Nonnull
+    @API(API.Status.EXPERIMENTAL)
     default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchRecordsEqual(@Nonnull final String indexName, KeyExpression primaryKey, @Nonnull final Object... values) {
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);

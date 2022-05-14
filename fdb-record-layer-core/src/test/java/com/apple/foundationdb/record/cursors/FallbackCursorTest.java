@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.util.LoggableException;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,7 @@ import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link FallbackCursor}.
@@ -78,7 +80,10 @@ public class FallbackCursorTest extends FDBTestBase {
         RecordCursor<Integer> fallbackCursor = new ListCursor<>(integers, null);
         FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
 
-        assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+        Exception ex = assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+        assertTrue(ex.getCause() instanceof RecordCoreException);
+        assertEquals("Cannot fallback to alternate cursor since inner already produced a record",
+                ((LoggableException)(ex.getCause())).getLogInfo().get("fallback_failed"));
     }
 
     @Test
@@ -87,7 +92,10 @@ public class FallbackCursorTest extends FDBTestBase {
         RecordCursor<Integer> fallbackCursor = new FailingCursor(0);
         FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
 
-        assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+        Exception ex = assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+        assertTrue(ex.getCause() instanceof RecordCoreException);
+        // in this case, the cursor returns the faallback cursor's onNext() directly, which, if calling get() on,
+        // will fail immediately, not going through the wrapping mechanism of teh cursor.
     }
 
     @Test
@@ -96,7 +104,10 @@ public class FallbackCursorTest extends FDBTestBase {
         RecordCursor<Integer> fallbackCursor = new FailingCursor(3);
         FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
 
-        assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+        Exception ex = assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+        assertTrue(ex.getCause() instanceof RecordCoreException);
+        assertEquals("Fallback cursor failed, cannot fallback again",
+                ((LoggableException)(ex.getCause())).getLogInfo().get("fallback_failed"));
     }
 
     /**

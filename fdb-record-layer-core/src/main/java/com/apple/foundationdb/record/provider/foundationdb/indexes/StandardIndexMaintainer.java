@@ -143,13 +143,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
                                                              @Nonnull final ScanProperties scanProperties,
-                                                             @Nonnull final Subspace recordSubspace,
                                                              @Nonnull final KeyExpression commonPrimaryKey) {
         if ((scanBounds.getScanType() != IndexScanType.BY_VALUE) || (!(scanBounds instanceof IndexScanRange))) {
             throw new RecordCoreArgumentException("scanRemoteFetch can only be used with VALUE index scan type and Range Scan");
         }
         IndexScanRange scanRange = (IndexScanRange)scanBounds;
-        Tuple mapper = createRemoteFetchMapper(recordSubspace, commonPrimaryKey);
+        Tuple mapper = createRemoteFetchMapper(commonPrimaryKey);
         final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, mapper.pack())
                 .setContext(state.context)
                 .setRange(scanRange.getScanRange())
@@ -712,16 +711,15 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * The index structure is: [P1...Pn, I1...In, K1...Kn] where Px are the prefix elements, Ix are the index fields and Kx are the primary keys of the indexed record.
      * Since {@link Index#trimPrimaryKey(List)} removes redundant key entries, we need to construct the list of locations of the primary key
      * elements by using the keyLocations (if there are any), followed by the remaining key elements.
-     * @param recordSubspace the Record subspace (the prefix for the record entries)
      * @param commonPrimaryKey the metadata of the primary key (used to construct the PK locations in teh dereferenced record)
      * @return A Tuple representing the Mapper structure required by the FDB getMappedRange call
      */
     @Nonnull
-    private Tuple createRemoteFetchMapper(@Nonnull Subspace recordSubspace, @Nonnull KeyExpression commonPrimaryKey) {
+    private Tuple createRemoteFetchMapper(@Nonnull KeyExpression commonPrimaryKey) {
         int prefixLength = Tuple.fromBytes(state.indexSubspace.pack()).size();
         List<Integer> keyLocations = state.index.getEntryPrimaryKeyPositions(commonPrimaryKey.getColumnSize());
 
-        Tuple result =  Tuple.fromBytes(recordSubspace.pack());
+        Tuple result =  Tuple.fromBytes(state.store.recordsSubspace().pack());
         for (int i: keyLocations) {
             result = result.add("{K[" + (i + prefixLength) + "]}");
         }

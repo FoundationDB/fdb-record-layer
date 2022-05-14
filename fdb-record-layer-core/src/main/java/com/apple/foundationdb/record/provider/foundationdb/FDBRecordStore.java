@@ -1249,7 +1249,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Subspace recordSubspace = recordsSubspace();
         IndexMaintainer indexMaintainer = getIndexMaintainer(index);
         // Get the cursor with the index entries and the records from FDB
-        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanRemoteFetch(scanBounds, continuation, scanProperties, recordSubspace, commonPrimaryKey);
+        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanRemoteFetch(scanBounds, continuation, scanProperties, commonPrimaryKey);
         // Parse the index entries and payload and build records
         RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries, typedSerializer);
 

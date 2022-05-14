@@ -46,7 +46,7 @@ import static org.hamcrest.Matchers.equalTo;
  * Base class for RemoteFetch tests.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBRecordStoreRemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
+public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
 
     protected static final RecordQuery NUM_VALUES_LARGER_THAN_990 = RecordQuery.newBuilder()
             .setRecordType("MySimpleRecord")

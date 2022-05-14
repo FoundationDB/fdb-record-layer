@@ -52,7 +52,7 @@ import static org.hamcrest.Matchers.equalTo;
  * Test Remote Fetch with old version format.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBRecordStoreRemoteFetchOldVersionTest extends FDBRecordStoreRemoteFetchTestBase {
+public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
 
     @BeforeEach
     void setup() throws Exception {

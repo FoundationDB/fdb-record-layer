@@ -20,22 +20,21 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
-import com.apple.foundationdb.record.cursors.ListCursor;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -47,9 +46,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
-import java.lang.reflect.Constructor;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -61,13 +57,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PLACEHOLDER;
 
 /**
  * A test for the remote fetch feature.
  */
 @Tag(Tags.RequiresFDB)
-class FDBRecordStoreRemoteFetchTest extends FDBRecordStoreRemoteFetchTestBase {
+class RemoteFetchTest extends RemoteFetchTestBase {
     private boolean useSplitRecords = true;
 
     @BeforeEach
@@ -255,20 +253,17 @@ class FDBRecordStoreRemoteFetchTest extends FDBRecordStoreRemoteFetchTestBase {
     }
 
     @Test
-    void testIndexPrefetchReadYourWriteFails() throws Exception {
+    void testReadYourWriteInRangeFails() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
-            // Save record (don't commit)
+            // Save record in range (don't commit)
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1000);
-            recBuilder.setStrValueIndexed("even");
-            recBuilder.setNumValueUnique(1000);
-            recBuilder.setNumValue2(3);
-            recBuilder.setNumValue3Indexed(5);
+            recBuilder.setRecNo(1);
+            recBuilder.setStrValueIndexed("blah");
             recordStore.saveRecord(recBuilder.build());
 
-            // Execute the query (will fail because a record in memory cannot be processed by index prefetch)
-            RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
+            // Execute the query (will fail because a record in memory cannot be processed by fdb)
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
             RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
 
@@ -283,20 +278,36 @@ class FDBRecordStoreRemoteFetchTest extends FDBRecordStoreRemoteFetchTestBase {
     }
 
     @Test
+    void testReadYourWriteOutOfRangeSucceeds() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, splitRecordsHook);
+            // Save record out of range (don't commit)
+            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+            recBuilder.setRecNo(20);
+            recBuilder.setStrValueIndexed("blah");
+            recordStore.saveRecord(recBuilder.build());
+
+            // Execute the query (will fail because a record in memory cannot be processed by fdb)
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
+            ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
+            RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
+
+            assertNotNull(cursor.getNext());
+        }
+    }
+
+    @Test
     void testIndexPrefetchReadYourWriteFallbackSucceeds() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             // Save record (don't commit)
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1000);
-            recBuilder.setStrValueIndexed("even");
-            recBuilder.setNumValueUnique(1000);
-            recBuilder.setNumValue2(3);
-            recBuilder.setNumValue3Indexed(5);
+            recBuilder.setRecNo(1);
+            recBuilder.setStrValueIndexed("blah");
             recordStore.saveRecord(recBuilder.build());
 
             // Execute the query (will fail because a record in memory cannot be processed by index prefetch)
-            RecordQueryPlan plan = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
             RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
             assertNotNull(cursor.getNext());
@@ -337,36 +348,78 @@ class FDBRecordStoreRemoteFetchTest extends FDBRecordStoreRemoteFetchTestBase {
 
     @Test
     void testOrphanPolicyError() throws Exception {
-        List<FDBIndexedRawRecord> mappedKeyValues = buildIndexedRawRecordWithOrphanIndexEntry();
-        RecordCursor<FDBIndexedRawRecord> recordCursor = new ListCursor<>(mappedKeyValues, null);
-        Subspace recordSubspace = new Subspace(new byte[] {21, 8, 20, 21, 17, 21, 1});
-        RecordCursor<FDBIndexedRecord<Message>> result = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR, recordSubspace, recordCursor, recordStore.getSerializer());
-        assertThrows(ExecutionException.class, () -> result.getCount().get());
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
+        createOrphanEntry();
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, splitRecordsHook);
+            Exception ex = assertThrows(ExecutionException.class, () -> scanIndex(IndexOrphanBehavior.ERROR));
+            assertTrue(ex.getCause() instanceof RecordCoreStorageException);
+        }
     }
 
     @Test
     void testOrphanPolicySkip() throws Exception {
-        List<FDBIndexedRawRecord> mappedKeyValues = buildIndexedRawRecordWithOrphanIndexEntry();
-        RecordCursor<FDBIndexedRawRecord> recordCursor = new ListCursor<>(mappedKeyValues, null);
-        Subspace recordSubspace = new Subspace(new byte[] {21, 8, 20, 21, 17, 21, 1});
-        RecordCursor<FDBIndexedRecord<Message>> resultFuture = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.SKIP, recordSubspace, recordCursor, recordStore.getSerializer());
-        List<FDBIndexedRecord<Message>> result = resultFuture.asList().get();
-        assertEquals(2, result.size());
-        assertRecord(FDBQueriedRecord.indexed(result.get(0)), 9, "odd", 991, "MyIndex", 991L, 9);
-        assertRecord(FDBQueriedRecord.indexed(result.get(1)), 7, "odd", 993, "MyIndex", 991L, 7);
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
+        createOrphanEntry();
+
+        List<FDBIndexedRecord<Message>> records;
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, splitRecordsHook);
+            records = scanIndex(IndexOrphanBehavior.SKIP);
+        }
+        assertEquals(99, records.size());
+        long c = 99;
+        for (FDBIndexedRecord<Message> rec : records) {
+            if (c != 2) {
+                assertEquals(c, rec.getStoredRecord().getPrimaryKey().get(0));
+            } else {
+                // skip the missing record
+                c--;
+            }
+            c--;
+        }
     }
 
     @Test
     void testOrphanPolicyReturn() throws Exception {
-        List<FDBIndexedRawRecord> mappedKeyValues = buildIndexedRawRecordWithOrphanIndexEntry();
-        RecordCursor<FDBIndexedRawRecord> recordCursor = new ListCursor<>(mappedKeyValues, null);
-        Subspace recordSubspace = new Subspace(new byte[] {21, 8, 20, 21, 17, 21, 1});
-        RecordCursor<FDBIndexedRecord<Message>> resultFuture = recordStore.indexEntriesToIndexRecords(ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.RETURN, recordSubspace, recordCursor, recordStore.getSerializer());
-        List<FDBIndexedRecord<Message>> result = resultFuture.asList().get();
-        assertEquals(3, result.size());
-        assertRecord(FDBQueriedRecord.indexed(result.get(0)), 9, "odd", 991, "MyIndex", (long)991, 9);
-        assertFalse(result.get(1).hasStoredRecord());
-        assertRecord(FDBQueriedRecord.indexed(result.get(2)), 7, "odd", 993, "MyIndex", (long)991, 7);
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
+        createOrphanEntry();
+
+        List<FDBIndexedRecord<Message>> records;
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, splitRecordsHook);
+            records = scanIndex(IndexOrphanBehavior.RETURN);
+        }
+        assertEquals(100, records.size());
+        long c = 99;
+        for (FDBIndexedRecord<Message> rec : records) {
+            if (c != 2) {
+                assertEquals(c, rec.getStoredRecord().getPrimaryKey().get(0));
+            } else {
+                assertFalse(rec.hasStoredRecord());
+            }
+            c--;
+        }
+    }
+
+    private List<FDBIndexedRecord<Message>> scanIndex(final IndexOrphanBehavior orphanBehavior) throws InterruptedException, ExecutionException {
+        return recordStore.scanIndexRemoteFetch("MySimpleRecord$num_value_unique", new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL),
+                primaryKey(), null, ScanProperties.FORWARD_SCAN, orphanBehavior).asList().get();
+    }
+
+    private void createOrphanEntry() throws Exception {
+        // Unchecked open the store, remove the index and then delete a record. This will create an orphan entry in the index.
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, builder -> {
+                builder.removeIndex("MySimpleRecord$num_value_unique");
+            });
+            recordStore.deleteRecord(Tuple.from(2L));
+            commit(context);
+        }
     }
 
     public boolean isUseSplitRecords() {
@@ -388,41 +441,6 @@ class FDBRecordStoreRemoteFetchTest extends FDBRecordStoreRemoteFetchTestBase {
         metaDataBuilder.addIndex("MySimpleRecord", "PrimaryKeyIndex", "rec_no");
     };
 
-    private List<FDBIndexedRawRecord> buildIndexedRawRecordWithOrphanIndexEntry() throws Exception {
-        long i = 9;
-        Index index = new Index("MyIndex", "a");
-        List<MappedKeyValue> mappedKeyValues = buildMappedResultWithOrphanIndexEntry();
-        List<FDBIndexedRawRecord> result = new ArrayList<>();
-        for (MappedKeyValue mappedKeyValue : mappedKeyValues) {
-            Tuple key = Tuple.from(991L, i--);
-            Tuple value = Tuple.from();
-            result.add(new FDBIndexedRawRecord(new IndexEntry(index, key, value), mappedKeyValue));
-        }
-        return result;
-    }
-
-    private List<MappedKeyValue> buildMappedResultWithOrphanIndexEntry() throws Exception {
-        List<MappedKeyValue> result = new ArrayList<>();
-        // Fully populated record
-        result.add(buildMappedKeyValue(new byte[] {21, 8, 20, 21, 17, 21, 2, 9}, new byte[0],
-                List.of(new KeyValue(new byte[] {21, 8, 20, 21, 17, 21, 1, 21, 9, 19, -2}, new byte[] {51, 0, 0, 1, -46, -35, 49, 113, 85, 0, 0, 0, 9}),
-                        new KeyValue(new byte[] {21, 8, 20, 21, 17, 21, 1, 21, 9, 20}, new byte[] {10, 32, 8, 9, 18, 3, 111, 100, 100, 24, -33, 7, 32, 0, 40, 4, 48, 0, 48, 1, 48, 2, 48, 3, 48, 4, 48, 5, 48, 6, 48, 7, 48, 8}))));
-        // Orphan index entry
-        result.add(buildMappedKeyValue(new byte[] {21, 8, 20, 21, 17, 21, 2, 8}, new byte[0],
-                Collections.emptyList()));
-        // Fully populated record
-        result.add(buildMappedKeyValue(new byte[] {21, 8, 20, 21, 17, 21, 2, 7}, new byte[0],
-                List.of(new KeyValue(new byte[] {21, 8, 20, 21, 17, 21, 1, 21, 7, 19, -2}, new byte[] {51, 0, 0, 1, -46, -35, 49, 113, 85, 0, 0, 0, 7}),
-                        new KeyValue(new byte[] {21, 8, 20, 21, 17, 21, 1, 21, 7, 20}, new byte[] {10, 28, 8, 7, 18, 3, 111, 100, 100, 24, -31, 7, 32, 1, 40, 2, 48, 0, 48, 1, 48, 2, 48, 3, 48, 4, 48, 5, 48, 6}))));
-        return result;
-    }
-
-    private MappedKeyValue buildMappedKeyValue(byte[] indexKey, byte[] indexValue, List<KeyValue> recordSplits) throws Exception {
-        Constructor<MappedKeyValue> constructor = MappedKeyValue.class.getDeclaredConstructor(byte[].class, byte[].class, byte[].class, byte[].class, List.class);
-        constructor.setAccessible(true);
-        return constructor.newInstance(indexKey, indexValue, null, null, recordSplits);
-    }
-
     private void assertRecordWithPrimaryKeyIndex(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, final Object indexedValue) {
         IndexEntry indexEntry = rec.getIndexEntry();
         assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
@@ -443,5 +461,4 @@ class FDBRecordStoreRemoteFetchTest extends FDBRecordStoreRemoteFetchTestBase {
         assertThat(myrec.getStrValueIndexed(), equalTo(strValue));
         assertThat(myrec.getNumValueUnique(), equalTo(numValue));
     }
-
 }

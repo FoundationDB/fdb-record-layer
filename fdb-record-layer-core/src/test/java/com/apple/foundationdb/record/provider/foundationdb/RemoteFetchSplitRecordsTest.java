@@ -37,7 +37,7 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PL
  * A test for the Remote Fetch with large records that are split (more than just hte version split).
  */
 @Tag(Tags.RequiresFDB)
-class FDBRecordStoreRemoteFetchSplitRecordsTest extends FDBRecordStoreRemoteFetchTestBase {
+class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
 
     @BeforeEach
     void setup() throws Exception {
