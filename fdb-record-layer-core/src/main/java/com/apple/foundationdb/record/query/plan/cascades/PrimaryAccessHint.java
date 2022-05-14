@@ -26,11 +26,6 @@ import javax.annotation.Nonnull;
  * Represents reading a table directly without using an index plus fetch.
  */
 public class PrimaryAccessHint implements AccessHint {
-
-    public PrimaryAccessHint() {
-
-    }
-
     @Override
     @Nonnull
     public String getAccessHintType() {
