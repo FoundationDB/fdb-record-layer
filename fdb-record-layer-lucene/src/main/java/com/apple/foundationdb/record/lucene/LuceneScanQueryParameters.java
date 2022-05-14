@@ -30,8 +30,12 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.lucene.search.Sort;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Scan parameters for making a {@link LuceneScanQuery}.
@@ -42,10 +46,25 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
 
     @Nonnull
     final LuceneQueryClause query;
+    @Nullable
+    final Sort sort;
+    @Nullable
+    final List<String> storedFields;
+    @Nullable
+    final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
-    protected LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query) {
+    public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query) {
+        this(groupComparisons, query, null, null, null);
+    }
+
+    public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query,
+                                     @Nullable Sort sort,
+                                     @Nullable List<String> storedFields, @Nullable List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes) {
         super(LuceneScanTypes.BY_LUCENE, groupComparisons);
         this.query = query;
+        this.sort = sort;
+        this.storedFields = storedFields;
+        this.storedFieldTypes = storedFieldTypes;
     }
 
     @Nonnull
@@ -53,15 +72,31 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
         return query;
     }
 
+    @Nullable
+    public Sort getSort() {
+        return sort;
+    }
+
+    @Nullable
+    public List<String> getStoredFields() {
+        return storedFields;
+    }
+
+    @Nullable
+    public List<LuceneIndexExpressions.DocumentFieldType> getStoredFieldTypes() {
+        return storedFieldTypes;
+    }
+
     @Override
     public int planHash(@Nonnull PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, scanType, groupComparisons, query);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, scanType, groupComparisons, query, sort, storedFields, storedFieldTypes);
     }
 
     @Nonnull
     @Override
     public LuceneScanQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-        return new LuceneScanQuery(scanType, getGroupKey(store, context), query.bind(store, index, context));
+        return new LuceneScanQuery(scanType, getGroupKey(store, context), query.bind(store, index, context),
+                sort, storedFields, storedFieldTypes);
     }
 
     @Nonnull
@@ -74,6 +109,21 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
     public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         super.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
         query.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
+        if (sort != null) {
+            detailsBuilder.add("sort: {{sort}}");
+            attributeMapBuilder.put("sort", Attribute.gml(sort.toString()));
+        }
+        if (storedFields != null) {
+            StringBuilder stored = new StringBuilder();
+            for (int i = 0; i < storedFields.size(); i++) {
+                if (i > 0) {
+                    stored.append(", ");
+                }
+                stored.append(storedFields.get(i) + ":" + storedFieldTypes.get(i));
+            }
+            detailsBuilder.add("stored: {{stored}}");
+            attributeMapBuilder.put("stored", Attribute.gml(stored.toString()));
+        }
     }
 
     @Override
@@ -92,13 +142,16 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
 
         final LuceneScanQueryParameters that = (LuceneScanQueryParameters)o;
 
-        return query.equals(that.query);
+        return query.equals(that.query) && Objects.equals(sort, that.sort);
     }
 
     @Override
     public int hashCode() {
         int result = super.hashCode();
         result = 31 * result + query.hashCode();
+        if (sort != null) {
+            result = 31 * result + sort.hashCode();
+        }
         return result;
     }
 }

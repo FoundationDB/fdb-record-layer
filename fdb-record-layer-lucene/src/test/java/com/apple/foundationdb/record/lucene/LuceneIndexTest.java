@@ -54,6 +54,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -76,6 +78,8 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.index.IndexFileNames;
+import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
+import org.apache.lucene.util.BytesRef;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -1604,6 +1608,30 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .getCount().join());
             assertEquals(1, recordStore.scanIndex(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, fullTextSearch(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, "motivatio"), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
+        }
+    }
+
+    @Test
+    void suggesterRenewTest() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_WITH_AUTO_COMPLETE);
+            FDBDirectoryManager manager = FDBDirectoryManager.getManager(new IndexMaintainerState(recordStore, SIMPLE_TEXT_WITH_AUTO_COMPLETE, IndexMaintenanceFilter.NORMAL));
+
+            // Get the first suggester
+            AnalyzingInfixSuggester suggester = manager.getAutocompleteSuggester(null, LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(), LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(), false, org.apache.lucene.index.IndexOptions.DOCS);
+            suggester.add(new BytesRef("test1"), Collections.emptySet(), 1, new BytesRef("payload"));
+
+            // Get the suggester with same parameters, so FDBDirectoryWrapper uses the existing one
+            manager.getAutocompleteSuggester(null, LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(), LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(), false, org.apache.lucene.index.IndexOptions.DOCS);
+            // The suggester is not closed, so refresh() works
+            suggester.refresh();
+            suggester.add(new BytesRef("test2"), Collections.emptySet(), 1, new BytesRef("payload"));
+
+            // Get the suggester with different IndexOptions, so the FDBDirectoryWrapper renews its suggester
+            manager.getAutocompleteSuggester(null, LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(), LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(), false, org.apache.lucene.index.IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
+            // The old suggester is closed by FDBDirectoryWrapper
+            assertThrows(IllegalStateException.class,
+                    () -> suggester.refresh());
         }
     }
 

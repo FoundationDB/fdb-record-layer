@@ -24,8 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.Sort;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * Scan a {@code LUCENE} index using a Lucene {@link Query}.
@@ -33,16 +36,42 @@ import javax.annotation.Nonnull;
 @API(API.Status.UNSTABLE)
 public class LuceneScanQuery extends LuceneScanBounds {
     @Nonnull
-    final Query query;
+    private final Query query;
+    @Nullable
+    private final Sort sort;
+    @Nullable
+    private final List<String> storedFields;
+    @Nullable
+    private final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
-    public LuceneScanQuery(@Nonnull IndexScanType scanType, @Nonnull Tuple groupKey, @Nonnull Query query) {
+    public LuceneScanQuery(@Nonnull IndexScanType scanType, @Nonnull Tuple groupKey,
+                           @Nonnull Query query, @Nullable Sort sort,
+                           @Nullable List<String> storedFields, @Nullable List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes) {
         super(scanType, groupKey);
         this.query = query;
+        this.sort = sort;
+        this.storedFields = storedFields;
+        this.storedFieldTypes = storedFieldTypes;
     }
 
     @Nonnull
     public Query getQuery() {
         return query;
+    }
+
+    @Nullable
+    public Sort getSort() {
+        return sort;
+    }
+
+    @Nullable
+    public List<String> getStoredFields() {
+        return storedFields;
+    }
+
+    @Nullable
+    public List<LuceneIndexExpressions.DocumentFieldType> getStoredFieldTypes() {
+        return storedFieldTypes;
     }
 
     @Override

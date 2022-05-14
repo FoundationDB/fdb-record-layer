@@ -82,31 +82,43 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     final IndexMaintainerState state;
     private IndexReader indexReader;
     private final Query query;
+    private final Sort sort;
     private IndexSearcher searcher;
     private TopDocs topDocs;
     private int currentPosition;
     private final List<KeyExpression> fields;
-    private Sort sort = null;
     private ScoreDoc searchAfter = null;
     private boolean exhausted = false;
     @Nullable
     private final Tuple groupingKey;
+    @Nullable
+    private final List<String> storedFields;
+    @Nullable
+    private final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
+    @SuppressWarnings("squid:S107")
     LuceneRecordCursor(@Nonnull Executor executor,
                        @Nullable ExecutorService executorService,
                        @Nonnull ScanProperties scanProperties,
-                       @Nonnull final IndexMaintainerState state, Query query,
+                       @Nonnull final IndexMaintainerState state,
+                       @Nonnull Query query,
+                       @Nullable Sort sort,
                        byte[] continuation,
-                       @Nullable Tuple groupingKey) {
+                       @Nullable Tuple groupingKey,
+                       @Nullable final List<String> storedFields,
+                       @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes) {
         this.state = state;
         this.executor = executor;
         this.executorService = executorService;
+        this.storedFields = storedFields;
+        this.storedFieldTypes = storedFieldTypes;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
         this.timer = state.context.getTimer();
         this.query = query;
+        this.sort = sort;
         if (continuation != null) {
             try {
                 LuceneContinuationProto.LuceneIndexContinuation luceneIndexContinuation = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(continuation);
@@ -175,6 +187,31 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                         // Grouping keys are at the front.
                         for (int i = 0; i < groupingKey.size(); i++) {
                             fieldValues.set(i, groupingKey.get(i));
+                        }
+                    }
+                    if (storedFields != null) {
+                        for (int i = 0; i < storedFields.size(); i++) {
+                            if (storedFieldTypes.get(i) == null) {
+                                continue;
+                            }
+                            Object value = null;
+                            IndexableField docField = document.getField(storedFields.get(i));
+                            switch (storedFieldTypes.get(i)) {
+                                case STRING:
+                                    value = docField.stringValue();
+                                    break;
+                                case BOOLEAN:
+                                    value = Boolean.valueOf(docField.stringValue());
+                                    break;
+                                case INT:
+                                case LONG:
+                                case DOUBLE:
+                                    value = docField.numericValue();
+                                    break;
+                                default:
+                                    break;
+                            }
+                            fieldValues.set(i, value);
                         }
                     }
                     int[] keyPos = state.index.getPrimaryKeyComponentPositions();

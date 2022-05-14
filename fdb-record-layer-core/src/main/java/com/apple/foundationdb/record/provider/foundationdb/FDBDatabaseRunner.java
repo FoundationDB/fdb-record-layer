@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
@@ -199,6 +200,15 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      */
     default void setTransactionTimeoutMillis(long transactionTimeoutMillis) {
         getContextConfigBuilder().setTransactionTimeoutMillis(transactionTimeoutMillis);
+    }
+
+    /**
+     * Set the properties configured by adopter of Record-Layer for transactions opened by this runner.
+     * @param propertyStorage the storage of properties
+     * @see FDBRecordContext#getPropertyStorage()
+     */
+    default void setRecordLayerPropertyStorage(@Nonnull RecordLayerPropertyStorage propertyStorage) {
+        getContextConfigBuilder().setRecordContextProperties(propertyStorage);
     }
 
     /**

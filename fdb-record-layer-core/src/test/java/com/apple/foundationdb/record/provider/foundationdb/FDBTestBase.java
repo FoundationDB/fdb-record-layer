@@ -37,10 +37,20 @@ public abstract class FDBTestBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBTestBase.class);
 
     public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
+    public static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
+
+    public static APIVersion getAPIVersion() {
+        String apiVersionStr = System.getProperty(API_VERSION_PROPERTY);
+        if (apiVersionStr == null) {
+            return APIVersion.getDefault();
+        }
+        return APIVersion.fromVersionNumber(Integer.parseInt(apiVersionStr));
+    }
 
     @BeforeAll
     public static void initFDB() {
         FDBDatabaseFactoryImpl factory = FDBDatabaseFactory.instance();
+        factory.setAPIVersion(getAPIVersion());
         factory.setUnclosedWarning(true);
         factory.initFDB();
     }

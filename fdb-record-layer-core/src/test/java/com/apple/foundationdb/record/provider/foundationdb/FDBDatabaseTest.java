@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -35,6 +36,7 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
@@ -55,6 +57,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -66,12 +69,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBDatabase}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBDatabaseTest extends FDBTestBase {
+class FDBDatabaseTest extends FDBTestBase {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseTest.class);
 
     @Test
-    public void cachedVersionMaintenanceOnReadsTest() throws Exception {
+    void cachedVersionMaintenanceOnReadsTest() throws Exception {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setTrackLastSeenVersion(true);
         FDBDatabase database = factory.getDatabase();
@@ -118,7 +121,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void cachedVersionMaintenanceOnCommitTest() {
+    void cachedVersionMaintenanceOnCommitTest() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setTrackLastSeenVersion(true);
         FDBDatabase database = factory.getDatabase();
@@ -140,7 +143,7 @@ public class FDBDatabaseTest extends FDBTestBase {
 
     @ParameterizedTest(name = "cachedReadVersionWithRetryLoops [async = {0}]")
     @BooleanSource
-    public void cachedReadVersionWithRetryLoops(boolean async) throws InterruptedException, ExecutionException {
+    void cachedReadVersionWithRetryLoops(boolean async) throws InterruptedException, ExecutionException {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setTrackLastSeenVersion(true);
         FDBDatabase database = factory.getDatabase();
@@ -177,7 +180,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testBlockingInAsyncException() {
+    void testBlockingInAsyncException() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.IGNORE_COMPLETE_EXCEPTION_BLOCKING);
 
@@ -190,7 +193,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testBlockingInAsyncWarning() {
+    void testBlockingInAsyncWarning() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.IGNORE_COMPLETE_WARN_BLOCKING);
         factory.clear();
@@ -204,7 +207,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testCompletedBlockingInAsyncWarning() {
+    void testCompletedBlockingInAsyncWarning() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
@@ -217,7 +220,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testBlockingCreatingAsyncDetection() throws Exception {
+    void testBlockingCreatingAsyncDetection() throws Exception {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
@@ -228,7 +231,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testCompletedBlockingCreatingAsyncDetection() {
+    void testCompletedBlockingCreatingAsyncDetection() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
@@ -240,7 +243,7 @@ public class FDBDatabaseTest extends FDBTestBase {
 
     @ParameterizedTest(name = "testJoinNowOnCompletedFuture (behavior = {0})")
     @EnumSource(BlockingInAsyncDetection.class)
-    public void testJoinNowOnCompletedFuture(BlockingInAsyncDetection behavior) {
+    void testJoinNowOnCompletedFuture(BlockingInAsyncDetection behavior) {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(behavior);
         factory.clear();
@@ -255,7 +258,7 @@ public class FDBDatabaseTest extends FDBTestBase {
 
     @ParameterizedTest(name = "testJoinNowOnNonCompletedFuture (behavior = {0})")
     @EnumSource(BlockingInAsyncDetection.class)
-    public void testJoinNowOnNonCompletedFuture(BlockingInAsyncDetection behavior) {
+    void testJoinNowOnNonCompletedFuture(BlockingInAsyncDetection behavior) {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(behavior);
         factory.clear();
@@ -275,7 +278,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void loggableTimeoutException() {
+    void loggableTimeoutException() {
         CompletableFuture<Void> delayed = new CompletableFuture<Void>();
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         FDBDatabase database = factory.getDatabase();
@@ -297,12 +300,12 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testGetReadVersionLatencyInjection() throws Exception {
+    void testGetReadVersionLatencyInjection() throws Exception {
         testLatencyInjection(FDBLatencySource.GET_READ_VERSION, 300L, FDBRecordContext::getReadVersion);
     }
 
     @Test
-    public void testCommitLatencyInjection() throws Exception {
+    void testCommitLatencyInjection() throws Exception {
         testLatencyInjection(FDBLatencySource.COMMIT_ASYNC, 300L, context -> {
             final Transaction tr = context.ensureActive();
             tr.clear(new byte[] { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef });
@@ -310,7 +313,7 @@ public class FDBDatabaseTest extends FDBTestBase {
         });
     }
 
-    public void testLatencyInjection(FDBLatencySource latencySource, long expectedLatency, Consumer<FDBRecordContext> thingToDo) throws Exception {
+    private void testLatencyInjection(FDBLatencySource latencySource, long expectedLatency, Consumer<FDBRecordContext> thingToDo) throws Exception {
         final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
 
         // Databases only pick up the latency injector upon creation, so clear out any cached database
@@ -339,7 +342,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testPostCommitHooks() throws Exception {
+    void testPostCommitHooks() throws Exception {
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         final AtomicInteger counter = new AtomicInteger(0);
 
@@ -409,7 +412,7 @@ public class FDBDatabaseTest extends FDBTestBase {
         }
     }
 
-    public static void testStoreAndRetrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData) {
+    static void testStoreAndRetrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData) {
         TestRecords1Proto.MySimpleRecord simpleRecord = storeSimpleRecord(database, metaData, 1066L);
         TestRecords1Proto.MySimpleRecord retrieved = retrieveSimpleRecord(database, metaData, 1066L);
         assertNotNull(retrieved);
@@ -451,7 +454,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void performNoOp() {
+    void performNoOp() {
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         FDBStoreTimer timer = new FDBStoreTimer();
         database.performNoOp(timer);
@@ -466,7 +469,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void performNoOpAgainstFakeCluster() throws IOException {
+    void performNoOpAgainstFakeCluster() throws IOException {
         final String clusterFile = FDBTestBase.createFakeClusterFile("perform_no_op_");
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
 
@@ -491,14 +494,14 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testAssertionsOnKeySize() {
+    void testAssertionsOnKeySize() {
         testSizeAssertion(context ->
                         context.ensureActive().set(Tuple.from(1, new byte[InstrumentedTransaction.MAX_KEY_LENGTH]).pack(), Tuple.from(1).pack()),
                 FDBExceptions.FDBStoreKeySizeException.class);
     }
 
     @Test
-    public void testAssertionsOnValueSize() {
+    void testAssertionsOnValueSize() {
         testSizeAssertion(context ->
                         context.ensureActive().set(Tuple.from(1).pack(), Tuple.from(2, new byte[InstrumentedTransaction.MAX_VALUE_LENGTH]).pack()),
                 FDBExceptions.FDBStoreValueSizeException.class);
@@ -517,6 +520,36 @@ public class FDBDatabaseTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext(
                 FDBRecordContextConfig.newBuilder().setEnableAssertions(true).build())) {
             assertThrows(exception, () -> consumer.accept(context));
+        }
+    }
+
+    @Test
+    void apiVersionIsSet() {
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        assertEquals(FDBTestBase.getAPIVersion(), database.getAPIVersion());
+        assertEquals(FDB.instance().getAPIVersion(), database.getAPIVersion().getVersionNumber());
+        try (FDBRecordContext context = database.openContext()) {
+            assertEquals(database.getAPIVersion(), context.getAPIVersion());
+            assertTrue(context.isAPIVersionAtLeast(context.getAPIVersion()));
+            assertTrue(context.isAPIVersionAtLeast(APIVersion.API_VERSION_6_3));
+        }
+    }
+
+    @Test
+    void cannotChangeAPIVersionAfterInit() {
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        final APIVersion initApiVersion = database.getAPIVersion();
+
+        for (APIVersion newApiVersion : APIVersion.values()) {
+            Executable setVersion = () -> database.getFactory().setAPIVersion(newApiVersion);
+            if (newApiVersion == initApiVersion) {
+                assertDoesNotThrow(setVersion,
+                        "should be able to set the API version to the same value it was already set to");
+            } else {
+                assertThrows(RecordCoreException.class, setVersion, "should not be able to change the API version after it has been set");
+            }
+            assertEquals(initApiVersion, database.getFactory().getAPIVersion());
+            assertEquals(initApiVersion, database.getAPIVersion());
         }
     }
 }
