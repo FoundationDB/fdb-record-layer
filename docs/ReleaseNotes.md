@@ -31,6 +31,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** The FDB API version can now be configured through the `FDBDatabaseFactory` [(Issue #1639)](https://github.com/FoundationDB/fdb-record-layer/issues/1639)
+* **Feature** Match index hints in a query [(Issue #1671)](https://github.com/FoundationDB/fdb-record-layer/issues/1671)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

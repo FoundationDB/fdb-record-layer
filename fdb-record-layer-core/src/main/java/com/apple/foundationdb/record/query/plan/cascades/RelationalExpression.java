@@ -107,10 +107,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         final GroupExpressionRef<? extends RelationalExpression> baseRef;
         Quantifier.ForEach quantifier;
         if (recordTypes.isEmpty()) {
-            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet()));
+            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), new AccessHints()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
-            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet()));
+            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), new AccessHints()));
             baseRef = GroupExpressionRef.of(
                     new LogicalTypeFilterExpression(
                             new HashSet<>(recordTypes),
@@ -330,7 +330,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     /**
      * A functional interface to combine the matches computed over pairs of quantifiers during matching into a
      * boolean result (for the bound correlatedTo set handed into {@link #combine}).
-     *
      */
     @FunctionalInterface
     interface CombinePredicate {

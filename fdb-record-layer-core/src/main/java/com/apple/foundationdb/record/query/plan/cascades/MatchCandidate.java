@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,7 +64,8 @@ public interface MatchCandidate {
     Logger LOGGER = LoggerFactory.getLogger(MatchCandidate.class);
 
     /**
-     * Returns the name of the match candidate. If this candidate represents and index, it will be the name of the index.
+     * Returns the name of the match candidate. If this candidate represents an index, it will be the name of the index.
+     *
      * @return the name of this match candidate
      */
     @Nonnull
@@ -291,7 +292,7 @@ public interface MatchCandidate {
                                                                       final boolean isReverse,
                                                                       @Nullable final KeyExpression commonPrimaryKeyForIndex,
                                                                       @Nonnull final ExpansionVisitor<?> expansionVisitor) {
-        final var baseRef = createBaseRef(recordMetaData, availableRecordTypes, recordTypeNamesForIndex);
+        final var baseRef = createBaseRef(recordMetaData, availableRecordTypes, recordTypeNamesForIndex, new IndexAccessHint(index.getName()));
         try {
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
         } catch (final UnsupportedOperationException uOE) {
@@ -314,7 +315,7 @@ public interface MatchCandidate {
                                                           final boolean isReverse) {
         if (commonPrimaryKey != null) {
             final var availableRecordTypes = metaData.getRecordTypes().keySet();
-            final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes);
+            final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes, new PrimaryAccessHint());
             final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, isReverse));
         }
@@ -323,9 +324,9 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
+    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex, @Nonnull AccessHint accessHint) {
         final var quantifier =
-                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
+                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, new AccessHints(accessHint))));
         return GroupExpressionRef.of(
                 new LogicalTypeFilterExpression(recordTypesForIndex,
                         quantifier,

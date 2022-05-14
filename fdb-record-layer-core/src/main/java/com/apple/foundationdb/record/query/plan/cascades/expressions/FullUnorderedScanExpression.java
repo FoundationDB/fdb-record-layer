@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -30,11 +31,11 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -55,23 +56,32 @@ import java.util.Set;
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}, a {@code FullUnorderedScanExpression}
  * is not implicitly ordered by the primary key.
  *
- * <p>
+ *
  * This expression is useful as the source of records for the initial planner expression produced from a
  * {@link com.apple.foundationdb.record.query.RecordQuery}.
- * </p>
+ *
  */
 @API(API.Status.EXPERIMENTAL)
 public class FullUnorderedScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
     private final Set<String> recordTypes;
 
-    public FullUnorderedScanExpression(final Set<String> recordTypes) {
+    @Nonnull
+    final AccessHints accessHints;
+
+    public FullUnorderedScanExpression(final Set<String> recordTypes, @Nonnull final AccessHints accessHints) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
+        this.accessHints = accessHints;
     }
 
     @Nonnull
     public Set<String> getRecordTypes() {
         return recordTypes;
+    }
+
+    @Nonnull
+    public AccessHints getAccessHints() {
+        return accessHints;
     }
 
     @Nonnull
@@ -134,7 +144,15 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     @Override
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
-        return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
+        if (getClass() != candidateExpression.getClass()) {
+            return ImmutableList.of();
+        }
+        // if query doesnot contain candidate's indexes, the query cannot be subsumed by the candidate
+        if (getAccessHints().satisfies(((FullUnorderedScanExpression)candidateExpression).getAccessHints())) {
+            return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
+        } else {
+            return ImmutableList.of();
+        }
     }
 
     @Override
