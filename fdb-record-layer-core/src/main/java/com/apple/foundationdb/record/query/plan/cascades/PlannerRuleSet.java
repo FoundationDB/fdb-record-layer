@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.FullUnorderedExpressionToScanPlanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementExistentialNestedLoopJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementExplodeRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInJoinRule;
@@ -143,7 +144,8 @@ public class PlannerRuleSet {
             new ImplementInUnionRule(),
             new ImplementSimpleSelectRule(),
             new ImplementExplodeRule(),
-            new ImplementNestedLoopJoinRule()
+            new ImplementNestedLoopJoinRule(),
+            new ImplementExistentialNestedLoopJoinRule()
     );
 
     private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =

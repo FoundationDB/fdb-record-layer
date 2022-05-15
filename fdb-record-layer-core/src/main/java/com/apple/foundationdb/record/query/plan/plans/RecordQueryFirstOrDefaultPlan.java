@@ -208,7 +208,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
-                        ImmutableList.of("FIRST {{inner}} OR DEFAULT {{expr}}"),
+                        ImmutableList.of("FIRST {{inner}} OR {{expr}}"),
                         ImmutableMap.of("inner", Attribute.gml("$" + inner.getAlias()),
                                 "expr", Attribute.gml(onEmptyResultValue.toString()))),
                 childGraphs);
