@@ -181,13 +181,7 @@ public class ExistsPredicate implements LeafQueryPredicate {
         }
         return Optional.empty();
     }
-
-    @Nonnull
-    @Override
-    public QueryPredicate toResidualPredicate() {
-        return new QueryComponentPredicate(getAlternativeComponent(), getAlternativeBaseAlias());
-    }
-
+    
     @Override
     public String toString() {
         return "∃" + existentialAlias;

@@ -124,7 +124,7 @@ public class QueryResult {
         } else if (datum instanceof Message) {
             return (M)datum;
         }
-        throw new RecordCoreException("cannot be retrieve message from flowed object");
+        throw new RecordCoreException("cannot retrieve message from flowed object");
     }
 
     @SuppressWarnings("unchecked")

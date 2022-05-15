@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 
@@ -103,7 +104,9 @@ public class ImplementSimpleSelectRule extends PlannerRule<SelectExpression> {
                     Quantifier.physicalBuilder()
                             .withAlias(quantifier.getAlias())
                             .build(reference),
-                    predicates));
+                    predicates.stream()
+                            .map(QueryPredicate::toResidualPredicate)
+                            .collect(ImmutableList.toImmutableList())));
         }
 
         if (!isSimpleResultValue) {

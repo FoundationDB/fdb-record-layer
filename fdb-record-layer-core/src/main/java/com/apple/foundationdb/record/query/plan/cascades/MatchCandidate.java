@@ -243,6 +243,10 @@ public interface MatchCandidate {
         final var recordTypesForIndex = metaData.recordTypesForIndex(index);
         final var commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
 
+        if (true) {
+            return resultBuilder.build();
+        }
+
         final var recordTypeNamesForIndex =
                 recordTypesForIndex
                         .stream()
@@ -317,7 +321,7 @@ public interface MatchCandidate {
                                                           @Nonnull final Set<String> recordTypes,
                                                           @Nullable KeyExpression commonPrimaryKey,
                                                           final boolean isReverse) {
-        if (commonPrimaryKey != null) {
+        if (false && commonPrimaryKey != null) {
             final var availableRecordTypes = metaData.getRecordTypes().keySet();
             final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes, new PrimaryAccessHint());
             final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);

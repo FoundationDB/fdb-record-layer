@@ -167,11 +167,12 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                             .allMatch(alias -> alias.equals(outerAlias) ||
                                                alias.equals(innerAlias));
             if (isEligible) {
+                final var residualPredicate = predicate.toResidualPredicate();
                 if (correlatedToInExpression.contains(innerAlias)) {
-                    outerInnerPredicatesBuilder.add(predicate);
+                    outerInnerPredicatesBuilder.add(residualPredicate);
                 } else {
                     Verify.verify(correlatedToInExpression.contains(outerAlias) || correlatedToInExpression.isEmpty());
-                    outerPredicatesBuilder.add(predicate);
+                    outerPredicatesBuilder.add(residualPredicate);
                 }
             } else {
                 otherPredicatesBuilder.add(predicate);
@@ -220,8 +221,6 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                 Verify.verify(outerPredicates.size() == 1);
                 final QueryPredicate outerPredicate = Iterables.getOnlyElement(outerPredicates);
                 Verify.verify(outerPredicate instanceof ExistsPredicate);
-                final var existsPredicate = (ExistsPredicate)outerPredicate;
-
                 newOuterQuantifier =
                         Quantifier.physical(GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(newOuterQuantifier, new NullValue(outerQuantifier.getFlowedObjectType()))));
 
@@ -240,7 +239,6 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                 Verify.verify(outerInnerPredicates.size() == 1);
                 final QueryPredicate outerInnerPredicate = Iterables.getOnlyElement(outerInnerPredicates);
                 Verify.verify(outerInnerPredicate instanceof ExistsPredicate);
-                final var existsPredicate = (ExistsPredicate)outerInnerPredicate;
 
                 newInnerQuantifier =
                         Quantifier.physical(GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(newInnerQuantifier, new NullValue(innerQuantifier.getFlowedObjectType()))));
@@ -254,7 +252,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         }
 
         final var outerValue = QuantifiedObjectValue.of(newOuterQuantifier.getAlias(), outerQuantifier.getFlowedObjectType());
-        final var innerValue = QuantifiedObjectValue.of(newInnerQuantifier.getAlias(), outerQuantifier.getFlowedObjectType());
+        final var innerValue = QuantifiedObjectValue.of(newInnerQuantifier.getAlias(), innerQuantifier.getFlowedObjectType());
 
         final var joinedResultValue =
                 RecordConstructorValue.ofColumns(
