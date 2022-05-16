@@ -466,6 +466,7 @@ public class IndexingByRecords extends IndexingBase {
             if (cause instanceof OnlineIndexer.RecordBuiltRangeException) {
                 return rangeSet.missingRanges(getRunner().getDatabase().database(), startTuple.pack(), endTuple.pack())
                         .thenCompose(list -> {
+                            rangeDeque.clear();
                             rangeDeque.addAll(list);
                             return throttleDelayAndMaybeLogProgress(limit, subspaceProvider, Arrays.asList(
                                     LogMessageKeys.REASON, "RecordBuiltRangeException",
