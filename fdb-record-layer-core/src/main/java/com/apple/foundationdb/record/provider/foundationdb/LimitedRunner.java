@@ -63,8 +63,10 @@ public class LimitedRunner implements AutoCloseable {
 
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(LimitedRunner.class);
 
-    // These error codes represent a list of errors that can occur if there is too much work to be done
-    // in a single transaction.
+    /**
+     * These error codes represent a list of errors that can occur if there is too much work to be done
+     * in a single transaction.
+     */
     private static final Set<Integer> lessenWorkCodes = Set.of(
             FDBError.TIMED_OUT.code(),
             FDBError.TRANSACTION_TOO_OLD.code(),
