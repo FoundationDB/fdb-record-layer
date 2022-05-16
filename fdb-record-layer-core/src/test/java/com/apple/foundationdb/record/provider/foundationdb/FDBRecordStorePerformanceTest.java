@@ -238,16 +238,16 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
         final List<Long> times = new ArrayList<>();
         if (parameters.parallelCount == 0) {
             final Function<FDBRecordStore, CompletableFuture<?>> singleTest = test.apply(parameters.startValue);
-            try (FDBRecordContext context = fdb.openContext()) {
-                context.setTimer(timer);
-                if (databaseParameters.disableReadYourWrites) {
-                    context.ensureActive().options().setReadYourWritesDisable();
-                }
-                FDBRecordStore store = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
-                        .setPipelineSizer(parameters)
-                        .uncheckedOpen();
-                for (int j = 0; j < parameters.repeatCount; j++) {
+            for (int j = 0; j < parameters.repeatCount; j++) {
+                try (FDBRecordContext context = fdb.openContext()) {
+                    context.setTimer(timer);
+                    if (databaseParameters.disableReadYourWrites) {
+                        context.ensureActive().options().setReadYourWritesDisable();
+                    }
+                    FDBRecordStore store = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
+                            .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
+                            .setPipelineSizer(parameters)
+                            .uncheckedOpen();
                     long startTime = System.nanoTime();
                     try {
                         singleTest.apply(store).get();
@@ -340,12 +340,8 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
         return store -> store.scanIndexRecordsEqual("MySimpleRecord$num_value_3_indexed", num3).getCount();
     }
 
-    protected static Function<FDBRecordStore, CompletableFuture<?>> indexRecordDeferredScanNum3Equals(int num3) {
-        return store -> store.fetchIndexRecords(
-                        store.scanIndex(store.getRecordMetaData().getIndex("MySimpleRecord$num_value_3_indexed"),
-                                IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(num3)), null, ScanProperties.FORWARD_SCAN),
-                        IndexOrphanBehavior.ERROR)
-                .getCount();
+    protected static Function<FDBRecordStore, CompletableFuture<?>> indexRecordPrefetchScanNum3Equals(int num3) {
+        return store -> store.scanIndexRemoteFetchRecordsEqual("MySimpleRecord$num_value_3_indexed", Key.Expressions.field("rec_no"), num3).asList();
     }
 
     protected static Function<FDBRecordStore, CompletableFuture<?>> scanAndJoinNum3Equals(int num3) {
@@ -390,8 +386,8 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
     }
 
     @Test
-    public void indexRecordDeferredScanNum3EqualsTest() throws Exception {
-        runTest("index record scan", FDBRecordStorePerformanceTest::indexRecordDeferredScanNum3Equals, new TestParameters());
+    public void indexRecordPrefetchScanNum3EqualsTest() throws Exception {
+        runTest("index record scan", FDBRecordStorePerformanceTest::indexRecordPrefetchScanNum3Equals, new TestParameters());
     }
 
     @Test
@@ -445,8 +441,8 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
                 testFunction = FDBRecordStorePerformanceTest::indexScanNum3Equals;
             } else if ("indexRecord".equals(testName)) {
                 testFunction = FDBRecordStorePerformanceTest::indexRecordScanNum3Equals;
-            } else if ("indexRecordDeferred".equals(testName)) {
-                testFunction = FDBRecordStorePerformanceTest::indexRecordDeferredScanNum3Equals;
+            } else if ("indexRecordPrefetch".equals(testName)) {
+                testFunction = FDBRecordStorePerformanceTest::indexRecordPrefetchScanNum3Equals;
             } else if ("join".equals(testName)) {
                 testFunction = FDBRecordStorePerformanceTest::scanAndJoinNum3Equals;
             } else if ("rank".equals(testName)) {
@@ -480,5 +476,4 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
             }
         }
     }
-
 }

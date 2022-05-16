@@ -63,11 +63,11 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
     @Nullable
     private byte[] lastKey;
 
-    private KeyValueCursor(@Nonnull final FDBRecordContext context,
-                           @Nonnull final AsyncIterator<KeyValue> iterator,
-                           int prefixLength,
-                           @Nonnull final CursorLimitManager limitManager,
-                           int valuesLimit) {
+    protected KeyValueCursor(@Nonnull final FDBRecordContext context,
+                             @Nonnull final AsyncIterator<KeyValue> iterator,
+                             int prefixLength,
+                             @Nonnull final CursorLimitManager limitManager,
+                             int valuesLimit) {
         super(context.getExecutor(), iterator);
 
         this.context = context;
@@ -183,7 +183,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
         private EndpointType lowEndpoint = null;
         private EndpointType highEndpoint = null;
 
-        private Builder(@Nonnull Subspace subspace) {
+        protected Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;
         }
 
@@ -191,6 +191,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             return new Builder(subspace);
         }
 
+        @SuppressWarnings("unchecked")
         public KeyValueCursor build() throws RecordCoreException {
             if (subspace == null) {
                 throw new RecordCoreException("record subspace must be supplied");
@@ -219,12 +220,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
 
             // Handle the continuation and then turn the endpoints into one byte array on the
             // left (inclusive) and another on the right (exclusive).
-            int prefixLength = subspace.pack().length;
-            while ((prefixLength < lowBytes.length) &&
-                   (prefixLength < highBytes.length) &&
-                   (lowBytes[prefixLength] == highBytes[prefixLength])) {
-                prefixLength++;
-            }
+            int prefixLength = calculatePrefixLength();
 
             final boolean reverse = scanProperties.isReverse();
             if (continuation != null) {
@@ -264,14 +260,14 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
                 streamingMode = StreamingMode.EXACT;
             }
 
-            final AsyncIterator<KeyValue> iterator = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot())
-                    .getRange(begin, end, limit, reverse, streamingMode)
-                    .iterator();
+            final AsyncIterator<? extends KeyValue> iterator;
+            ReadTransaction transaction = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
+            iterator = scanRange(transaction, begin, end, limit, reverse, streamingMode);
 
             final CursorLimitManager limitManager = new CursorLimitManager(context, scanProperties);
             final int valuesLimit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
 
-            return new KeyValueCursor(context, iterator, prefixLength, limitManager, valuesLimit);
+            return new KeyValueCursor(context, (AsyncIterator<KeyValue>)iterator, prefixLength, limitManager, valuesLimit);
         }
 
         public Builder setContext(FDBRecordContext context) {
@@ -322,6 +318,42 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             this.highBytes = highBytes;
             this.highEndpoint = highEndpoint;
             return this;
+        }
+
+        /**
+         * Perform the actual operation that generates the cursor that scans the range.
+         * @param transaction the transaction to operate on
+         * @param begin the start of the scan range
+         * @param end the end of the scan range
+         * @param limit the scan limit
+         * @param reverse whether the scan is in reverse order
+         * @param streamingMode the streaming mode
+         * @return an iterator over the range or key/values from the DB
+         */
+        @SuppressWarnings("java:S1452")
+        protected AsyncIterator<? extends KeyValue> scanRange(@Nonnull ReadTransaction transaction,
+                                                    @Nonnull KeySelector begin,
+                                                    @Nonnull KeySelector end,
+                                                    int limit, boolean reverse,
+                                                    @Nonnull StreamingMode streamingMode) {
+            return transaction
+                    .getRange(begin, end, limit, reverse, streamingMode)
+                    .iterator();
+        }
+
+        /**
+         * Calculate the key prefix length for the returned values. This will be used to derive the primary key used in
+         * the calculated continuation.
+         * @return the length of the key prefix
+         */
+        protected int calculatePrefixLength() {
+            int prefixLength = subspace.pack().length;
+            while ((prefixLength < lowBytes.length) &&
+                   (prefixLength < highBytes.length) &&
+                   (lowBytes[prefixLength] == highBytes[prefixLength])) {
+                prefixLength++;
+            }
+            return prefixLength;
         }
     }
 }

@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingAttribute;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
@@ -87,7 +88,7 @@ import java.util.stream.StreamSupport;
  * </ul>
  *
  * The logic that this rules delegates to to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch)}.
+ * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch, PlanContext)}.
  * @param <R> sub type of {@link RelationalExpression}
  */
 @API(API.Status.EXPERIMENTAL)
@@ -221,7 +222,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         // create scans for all best matches
         final var bestMatchToExpressionMap =
-                createScansForMatches(planContext.getMetaData(), bestMaximumCoverageMatches);
+                createScansForMatches(planContext.getMetaData(), bestMaximumCoverageMatches, call.getContext());
 
         final var toBeInjectedReference = GroupExpressionRef.empty();
 
@@ -260,6 +261,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     }
 
     @Nonnull
+    @SuppressWarnings("java:S1452")
     protected abstract ExpressionRef<? extends RelationalExpression> inject(@Nonnull R expression,
                                                                             @Nonnull List<? extends PartialMatch> completeMatches,
                                                                             @Nonnull final ExpressionRef<? extends RelationalExpression> compensatedScanGraph);
@@ -380,13 +382,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @Nonnull
     private static Map<PartialMatch, RelationalExpression> createScansForMatches(@Nonnull RecordMetaData recordMetaData,
-                                                                                 @Nonnull final Collection<PartialMatch> matches) {
+                                                                                 @Nonnull final Collection<PartialMatch> matches, @Nonnull final PlanContext planContext) {
         return matches
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
                         Function.identity(),
                         partialMatch -> partialMatch.getMatchCandidate()
-                                .toEquivalentExpression(recordMetaData, partialMatch)));
+                                .toEquivalentExpression(recordMetaData, partialMatch, planContext)));
     }
 
     /**

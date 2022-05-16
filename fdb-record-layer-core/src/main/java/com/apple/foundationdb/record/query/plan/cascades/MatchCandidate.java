@@ -178,7 +178,8 @@ public interface MatchCandidate {
      */
     @SuppressWarnings("java:S135")
     default RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
-                                                        @Nonnull final PartialMatch partialMatch) {
+                                                        @Nonnull final PartialMatch partialMatch,
+                                                        @Nonnull final PlanContext planContext) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
@@ -196,7 +197,7 @@ public interface MatchCandidate {
             comparisonRangesForScanBuilder.add(prefixMap.get(parameterAlias));
         }
 
-        return toEquivalentExpression(recordMetaData, partialMatch, comparisonRangesForScanBuilder.build());
+        return toEquivalentExpression(recordMetaData, partialMatch, planContext, comparisonRangesForScanBuilder.build());
     }
 
     /**
@@ -210,9 +211,11 @@ public interface MatchCandidate {
     @Nonnull
     RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
                                                 @Nonnull PartialMatch partialMatch,
+                                                @Nonnull final PlanContext planContext,
                                                 @Nonnull final List<ComparisonRange> comparisonRanges);
 
     @Nonnull
+    @SuppressWarnings("java:S1452")
     default SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references) {
         final var traversal = getTraversal();
 

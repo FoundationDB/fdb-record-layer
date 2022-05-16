@@ -273,6 +273,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Override
     public RelationalExpression toEquivalentExpression(@Nonnull final RecordMetaData recordMetaData,
                                                        @Nonnull final PartialMatch partialMatch,
+                                                       @Nonnull final PlanContext planContext,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
@@ -281,10 +282,12 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
 
-        return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, reverseScanOrder, baseRecordType)
+        return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
+                                planContext.getCommonPrimaryKey(),
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
+                                planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 reverseScanOrder,
                                 false,
                                 (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate(),
@@ -293,6 +296,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final PlanContext planContext,
                                                                      @Nonnull final List<ComparisonRange> comparisonRanges,
                                                                      final boolean isReverse,
                                                                      @Nonnull final Type.Record baseRecordType) {
@@ -319,7 +323,9 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         final IndexScanParameters scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges));
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
+                        planContext.getCommonPrimaryKey(),
                         scanParameters,
+                        planContext.getPlannerConfiguration().getIndexFetchMethod(),
                         isReverse,
                         false,
                         (WindowedIndexScanMatchCandidate)partialMatch.getMatchCandidate(),

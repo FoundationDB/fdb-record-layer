@@ -127,6 +127,11 @@ public class FDBStoreTimer extends StoreTimer {
          */
         SCAN_INDEX_KEYS("scan index"),
         /**
+         * The amount of time taken performing an index prefetch operation.
+         * Index prefetch operation is an index scan followed by record fetches, all done at the FDB level.
+         */
+        SCAN_INDEX_REMOTE_FETCH("index remote fetch"),
+        /**
          * The amount of time taken deleting records.
          * This time includes secondary index maintenance as well as writing to the current transaction
          * for later committing.

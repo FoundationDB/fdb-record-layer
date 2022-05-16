@@ -912,6 +912,46 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     /**
+     * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
+     * @param indexName the name of the index
+     * @param scanBounds the range of the index to scan
+     * @param commonPrimaryKey the common primary key for the records that would be returned
+     * @param continuation any continuation from a previous scan
+     * @param scanProperties skip, limit and other scan properties
+     * @return a cursor that return records pointed to by the index
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull final String indexName,
+                                                                   @Nonnull final IndexScanBounds scanBounds,
+                                                                   @Nonnull final KeyExpression commonPrimaryKey,
+                                                                   @Nullable byte[] continuation,
+                                                                   @Nonnull ScanProperties scanProperties,
+                                                                   @Nonnull final IndexOrphanBehavior orphanBehavior) {
+
+        final Index index = getRecordMetaData().getIndex(indexName);
+        return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
+    }
+
+    /**
+     * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
+     * @param index the index to scan
+     * @param scanBounds the range for the index to scan
+     * @param commonPrimaryKey the common primary key for the records that would be returned
+     * @param continuation any continuation from a previous scan
+     * @param scanProperties skip, limit and other scan properties
+     * @return a cursor that return records pointed to by the index
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull Index index,
+                                                           @Nonnull IndexScanBounds scanBounds,
+                                                           @Nonnull final KeyExpression commonPrimaryKey,
+                                                           @Nullable byte[] continuation,
+                                                           @Nonnull ScanProperties scanProperties,
+                                                           @Nonnull final IndexOrphanBehavior orphanBehavior);
+
+    /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
      *
      * @param indexCursor a cursor iterating over entries in the index
@@ -957,6 +997,21 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
         return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN);
+    }
+
+    /**
+     * Scan the records pointed to by an index equal to indexed values using the Index Prefetch method.
+     * @param indexName the name of the index
+     * @param values a left-subset of values of indexed fields
+     * @return a cursor of the records pointed to by the index
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchRecordsEqual(@Nonnull final String indexName, KeyExpression primaryKey, @Nonnull final Object... values) {
+        final Tuple tuple = Tuple.from(values);
+        final TupleRange range = TupleRange.allOf(tuple);
+        final IndexScanBounds bounds = new IndexScanRange(IndexScanType.BY_VALUE, range);
+        return scanIndexRemoteFetch(indexName, bounds, primaryKey, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
     }
 
     /**
