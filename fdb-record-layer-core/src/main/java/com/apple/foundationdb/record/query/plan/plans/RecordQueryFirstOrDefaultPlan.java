@@ -89,7 +89,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
                             if (resultOptional.isPresent()) {
                                 return resultOptional.get();
                             } else {
-                                return QueryResult.of(onEmptyResultValue.eval(store, context));
+                                return QueryResult.ofComputed(onEmptyResultValue.eval(store, context));
                             }
                         }));
     }

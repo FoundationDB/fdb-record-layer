@@ -143,13 +143,18 @@ public class QueryResult {
     }
 
     @Nullable
-    Tuple getPrimaryKey() {
+    public Tuple getPrimaryKey() {
         return primaryKey;
     }
 
     @Nullable
-    RecordType getRecordType() {
+    public RecordType getRecordType() {
         return recordType;
+    }
+
+    @Nonnull
+    public QueryResult withComputed(@Nullable final Object computed) {
+        return new QueryResult(computed, queriedRecord, indexEntry, primaryKey, recordType);
     }
 
     /**

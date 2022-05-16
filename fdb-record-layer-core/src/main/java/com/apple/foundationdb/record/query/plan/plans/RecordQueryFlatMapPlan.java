@@ -51,6 +51,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A query plan that applies the values it contains over the incoming ones. In a sense, this is similar to the {@code Stream.map()}
@@ -66,13 +67,30 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     private final Quantifier.Physical inner;
     @Nonnull
     private final Value resultValue;
+    private final boolean inheritOuterRecordProperties;
 
-    public RecordQueryFlatMapPlan(@Nonnull Quantifier.Physical outer,
-                                  @Nonnull Quantifier.Physical inner,
-                                  @Nonnull Value resultValue) {
+    public RecordQueryFlatMapPlan(@Nonnull final Quantifier.Physical outer,
+                                  @Nonnull final Quantifier.Physical inner,
+                                  @Nonnull final Value resultValue,
+                                  final boolean inheritOuterRecordProperties) {
         this.outer = outer;
         this.inner = inner;
         this.resultValue = resultValue;
+        this.inheritOuterRecordProperties = inheritOuterRecordProperties;
+    }
+
+    @Nonnull
+    public Quantifier.Physical getOuter() {
+        return outer;
+    }
+
+    @Nonnull
+    public Quantifier.Physical getInner() {
+        return inner;
+    }
+
+    public boolean isInheritOuterRecordProperties() {
+        return inheritOuterRecordProperties;
     }
 
     @SuppressWarnings("resource")
@@ -94,12 +112,14 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                             innerResult -> {
                                 final EvaluationContext nestedContext =
                                         fromOuterContext.withBinding(inner.getAlias(), innerResult);
-                                return resultValue.eval(store, nestedContext);
+                                final var computed = resultValue.eval(store, nestedContext);
+                                return inheritOuterRecordProperties
+                                       ? outerResult.withComputed(computed)
+                                       : QueryResult.ofComputed(computed);
                             });
                 },
                 continuation,
-                5)
-                .map(QueryResult::of);
+                5);
     }
 
     @Override

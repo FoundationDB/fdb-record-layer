@@ -80,7 +80,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         return RecordCursor.fromList((List<?>)Objects.requireNonNull(collectionValue.eval(store, context)))
-                        .map(QueryResult::of);
+                        .map(QueryResult::ofComputed);
     }
 
     @Nonnull

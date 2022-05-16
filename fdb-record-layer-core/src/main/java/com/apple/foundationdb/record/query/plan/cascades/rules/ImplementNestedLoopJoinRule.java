@@ -226,7 +226,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                 Quantifier.forEachBuilder()
                         .withAlias(joinedAlias)
                         .build(GroupExpressionRef.of(
-                                new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, joinedResultValue)));
+                                new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, joinedResultValue, false)));
 
         //
         // Translate all the references to inner and outer to the joined alias

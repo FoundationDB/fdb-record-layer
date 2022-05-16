@@ -122,8 +122,8 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitMapPlan(@Nonnull final RecordQueryMapPlan element) {
-            return false;
+        public Boolean visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
+            return storedRecordsFromChildren(mapPlan).stream().allMatch(s -> s);
         }
 
         @Nonnull
@@ -230,7 +230,10 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
-            return storedRecordsFromChildren(flatMapPlan).stream().allMatch(s -> s);
+            if (flatMapPlan.isInheritOuterRecordProperties()) {
+                return storedRecordsFromSingleQuantifier(flatMapPlan.getOuter());
+            }
+            return false;
         }
 
         @Nonnull
@@ -284,9 +287,13 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         private boolean storedRecordsFromSingleChild(@Nonnull final RelationalExpression expression) {
             final var quantifiers = expression.getQuantifiers();
             if (quantifiers.size() == 1) {
-                return evaluateForReference(Iterables.getOnlyElement(quantifiers).getRangesOver());
+                return storedRecordsFromSingleQuantifier(Iterables.getOnlyElement(quantifiers));
             }
             throw new RecordCoreException("cannot compute property for expression");
+        }
+
+        private boolean storedRecordsFromSingleQuantifier(@Nonnull final Quantifier quantifier) {
+            return evaluateForReference(quantifier.getRangesOver());
         }
 
         @Nonnull
