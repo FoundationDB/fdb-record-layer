@@ -94,6 +94,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexS
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorderedUnion;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -902,6 +903,41 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(Set.of(Pair.of(2L, 0L), Pair.of(4L, 0L), Pair.of(5L, 1L)), Set.copyOf(results));
             // TODO: AvailableFields doesn't know about stored fields, so not really covering.
             //assertLoadRecord(0, context);
+        }
+    }
+
+    @Test
+    void fullGroupScan() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, md -> {
+                md.removeIndex(MAP_AND_FIELD_ON_LUCENE_INDEX.getName());
+            }, SIMPLE_TEXT_SUFFIXES);
+            QueryComponent groupFilter = Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue("a"));
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(groupFilter)
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = filter(groupFilter, typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.MAP_DOC)), scan(unbounded())));
+            assertThat(plan, matcher);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, md -> {
+                md.removeIndex(MAP_AND_FIELD_ON_LUCENE_INDEX.getName());
+                md.removeIndex(MAP_ON_LUCENE_INDEX.getName());
+                md.addIndex(MAP_DOC, new Index("GroupedMap", new GroupingKeyExpression(concat(field("group"), mainExpression), 1), LuceneIndexTypes.LUCENE));
+            }, SIMPLE_TEXT_SUFFIXES);
+            QueryComponent groupFilter = Query.and(
+                    Query.field("group").equalsValue(1L),
+                    Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue("a")));
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(groupFilter)
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = filter(groupFilter, typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.MAP_DOC)), scan(unbounded())));
+            assertThat(plan, matcher);
         }
     }
 

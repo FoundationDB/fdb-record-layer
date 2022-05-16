@@ -100,6 +100,10 @@ public class LucenePlanner extends RecordQueryPlanner {
             if (!groupingMatch.getType().equals((QueryToKeyMatcher.MatchType.EQUALITY))) {
                 return null;
             }
+            if (filterMask.allSatisfied()) {
+                // If filter is only group predicates, can skip trying to find non-trivial Lucene scan.
+                return null;
+            }
             groupingComparisons = new ScanComparisons(groupingMatch.getEqualityComparisons(), Collections.emptySet());
         } else {
             groupingComparisons = ScanComparisons.EMPTY;
@@ -257,6 +261,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (filterMask != null && filterMask.getUnsatisfiedFilters().isEmpty()) {
             filterMask.setSatisfied(true);
         }
+        // Don't do Lucene scan if none are satisfied, though.
         if (childClauses.isEmpty()) {
             return null;
         }
