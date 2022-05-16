@@ -1,5 +1,5 @@
 /*
- * PlannerProperty.java
+ * ExpressionProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,7 +22,10 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -31,12 +34,12 @@ import java.util.Objects;
 
 /**
  * An interface for certain Cascades-style properties, which are measurable features of an expression other than the
- * structure of the expression tree. In particular, a {@code PlannerProperty} is a property that depends on (much of)
+ * structure of the expression tree. In particular, a {@code ExpressionProperty} is a property that depends on (much of)
  * the contents of the subtree rooted at the expression on which it is evaluated, rather than just a finite depth set
  * of paths as a {@link BindingMatcher} would. For example,
  * the sort order and set of record types produced by a
  * {@link RelationalExpression} could be a
- * {@code PlannerProperty}.
+ * {@code ExpressionProperty}.
  *
  * <p>
  * To avoid littering {@link RelationalExpression} classes with methods for various properties, properties are implemented
@@ -66,7 +69,7 @@ import java.util.Objects;
  * @param <T> the result type of the property
  */
 @API(API.Status.EXPERIMENTAL)
-public interface PlannerProperty<T> {
+public interface ExpressionProperty<T> extends RelationalExpressionVisitorWithDefaults<T> {
     /**
      * Return whether the property should visit the subgraph rooted at the given expression.
      * Called on nodes in the expression graph in visit pre-order of the depth-first traversal of the graph.
@@ -152,5 +155,17 @@ public interface PlannerProperty<T> {
     default T evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable T rangesOverResult) {
         // since we visit the expression reference under the quantifier, we can insist that rangesOverResult is never null
         return Objects.requireNonNull(rangesOverResult);
+    }
+
+    @Nonnull
+    @Override
+    default T visitDefault(@Nonnull RelationalExpression relationalExpression) {
+        final List<? extends Quantifier> quantifiers = relationalExpression.getQuantifiers();
+        final var quantifierResults = Lists.<T>newArrayListWithCapacity(quantifiers.size());
+        for (final Quantifier quantifier : quantifiers) {
+            quantifierResults.add(quantifier.acceptPropertyVisitor(this));
+        }
+
+        return evaluateAtExpression(relationalExpression, quantifierResults);
     }
 }

@@ -28,7 +28,7 @@ import java.util.stream.Stream;
 
 /**
  * A matcher that matches an optional if the object is present.
- * @param <T> the bindable type that this matcher binds to
+ * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
 public class OptionalIfPresentMatcher<T> implements BindingMatcher<Optional<T>> {
@@ -46,15 +46,6 @@ public class OptionalIfPresentMatcher<T> implements BindingMatcher<Optional<T>> 
         return (Class<Optional<T>>)(Class<?>)Optional.class;
     }
 
-    /**
-     * Attempt to match this matcher against the given expression reference.
-     * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
-     * expression or attempt to access the members of the given reference.
-     *
-     * @param outerBindings preexisting bindings to be used by the matcher
-     * @param in the bindable we attempt to match
-     * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
-     */
     @SuppressWarnings("OptionalIsPresent")
     @Nonnull
     @Override

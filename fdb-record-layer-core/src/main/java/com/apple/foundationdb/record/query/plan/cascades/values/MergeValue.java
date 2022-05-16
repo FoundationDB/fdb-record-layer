@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -77,11 +76,7 @@ public class MergeValue implements Value {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        if (message == null) {
-            return null;
-        }
-
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         // TODO For now we'll just go through all the quantifiers and see if they have been bound by the caller.
         //      If they are set, we happily use their value in the merge. If they are unset, we just skip that reference.
         //      This can happen in the context of a set operation as the cursors over the e.g. union may only be
@@ -94,7 +89,7 @@ public class MergeValue implements Value {
         final ImmutableList<Message> childrenResults =
                 children.stream()
                         .flatMap(child -> {
-                            final Object childResult = child.eval(store, context, record, message);
+                            final Object childResult = child.eval(store, context);
                             if (!(childResult instanceof Message)) {
                                 return Stream.of();
                             }
@@ -111,8 +106,8 @@ public class MergeValue implements Value {
     }
 
     @Override
-    public int semanticHashCode() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, children);
+    public int hashCodeWithoutChildren() {
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
     }
     
     @Override

@@ -52,13 +52,6 @@ public class AnyMatcher<T> implements ContainerMatcher<T, Iterable<? extends T>>
         this.downstream = downstream;
     }
 
-    /**
-     * Attempt to match this matcher against the given object.
-     *
-     * @param outerBindings preexisting bindings to be used by the matcher
-     * @param in the object we attempt to match
-     * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
-     */
     @Nonnull
     @Override
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Iterable<? extends T> in) {
@@ -82,7 +75,7 @@ public class AnyMatcher<T> implements ContainerMatcher<T, Iterable<? extends T>>
         return new CollectionMatcher<T>() {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<? extends T> in) {
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
                 return anyMatcher.bindMatchesSafely(outerBindings, in);
             }
 

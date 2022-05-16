@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
 
 import javax.annotation.Nonnull;
@@ -55,7 +55,7 @@ import java.util.List;
  * The {@code UnmatchedFieldsCountProperty} on such a planner expression is 2.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UnmatchedFieldsCountProperty implements PlannerProperty<Integer> {
+public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer> {
     @Nonnull
     private final PlanContext planContext;
 

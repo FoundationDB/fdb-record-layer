@@ -33,6 +33,7 @@ configurations {
 
 dependencies {
     compile project(':fdb-extensions')
+    annotationProcessor project(':fdb-extensions')
 
     compile "com.google.protobuf:protobuf-java:${protobufVersion}"
     compile "org.slf4j:slf4j-api:${slf4jVersion}"
@@ -64,6 +65,7 @@ dependencies {
 sourceSets {
     main {
         java.srcDir "src/main/java-proto${protoMajorVersion}"
+        java.srcDir ".out/generated/sources/annotationProcessor/java/main/"
     }
     test {
         java.srcDir "src/test/java-proto${protoMajorVersion}"

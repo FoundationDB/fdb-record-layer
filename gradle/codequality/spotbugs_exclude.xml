@@ -5,4 +5,8 @@
     <Match>
         <Source name="~.*/protogen/.*" />
     </Match>
+
+    <Match>
+        <Source name="~.*/generated/.*" />
+    </Match>
 </FindBugsFilter>

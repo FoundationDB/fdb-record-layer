@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.graph;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
@@ -43,7 +44,7 @@ public class BoundMatch<R> {
 
     /**
      * An optional match result. We opted to use an optional here in order to give the match combiner
-     * {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression.CombineFunction} the opportunity
+     * {@link RelationalExpression.CombineFunction} the opportunity
      * to produce a meaningful result when the matching sets are empty.
      */
     @Nonnull

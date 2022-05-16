@@ -25,12 +25,12 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -62,16 +62,17 @@ public class RecordTypeValue implements QuantifiedValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        if (message == null) {
-            return null;
-        }
-        final Object binding = context.getBinding(alias);
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        final QueryResult binding = (QueryResult)context.getBinding(alias);
+
+        final var messageOptional = binding.getMessageMaybe();
         if (!(binding instanceof Message)) {
             return null;
         }
 
-        return store.getRecordMetaData().getRecordType(((Message)binding).getDescriptorForType().getName()).getRecordTypeKey();
+        return messageOptional.map(message ->
+                        store.getRecordMetaData().getRecordType(message.getDescriptorForType().getName()).getRecordTypeKey())
+                .orElse(null);
     }
 
     @Override
@@ -81,7 +82,7 @@ public class RecordTypeValue implements QuantifiedValue {
     }
 
     @Override
-    public int semanticHashCode() {
+    public int hashCodeWithoutChildren() {
         return PlanHashable.objectPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
     }
 

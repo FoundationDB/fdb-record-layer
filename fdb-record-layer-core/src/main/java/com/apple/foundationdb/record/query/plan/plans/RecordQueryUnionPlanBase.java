@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -34,8 +33,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.MergeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -71,10 +69,6 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     @Nonnull
     private final Value resultValue;
 
-    protected RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
-        this(Quantifiers.fromPlans(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right))), reverse);
-    }
-
     protected RecordQueryUnionPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers,
                                        final boolean reverse) {
         Verify.verify(!quantifiers.isEmpty());
@@ -84,10 +78,12 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     }
 
     @Nonnull
-    abstract <M extends Message> RecordCursor<FDBQueriedRecord<M>> createUnionCursor(@Nonnull FDBRecordStoreBase<M> store,
-                                                                                     @Nonnull List<Function<byte[], RecordCursor<FDBQueriedRecord<M>>>> childCursorFunctions,
-                                                                                     @Nullable byte[] continuation);
+    abstract <M extends Message> RecordCursor<QueryResult> createUnionCursor(@Nonnull FDBRecordStoreBase<M> store,
+                                                                             @Nonnull EvaluationContext context,
+                                                                             @Nonnull List<Function<byte[], RecordCursor<QueryResult>>> childCursorFunctions,
+                                                                             @Nullable byte[] continuation);
 
+    @SuppressWarnings("resource")
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -101,14 +97,12 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         } else {
             childExecuteProperties = executeProperties;
         }
-        final List<Function<byte[], RecordCursor<FDBQueriedRecord<M>>>> childCursorFunctions = getChildStream()
-                .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
+        final List<Function<byte[], RecordCursor<QueryResult>>> childCursorFunctions = getChildStream()
+                .map(childPlan -> (Function<byte[], RecordCursor<QueryResult>>)
                         ((byte[] childContinuation) -> childPlan
-                                .executePlan(store, context, childContinuation, childExecuteProperties)
-                                .map(QueryResult::getQueriedRecord)))
+                                .executePlan(store, context, childContinuation, childExecuteProperties)))
                 .collect(Collectors.toList());
-        return createUnionCursor(store, childCursorFunctions, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(QueryResult::of);
+        return createUnionCursor(store, context, childCursorFunctions, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override
@@ -241,17 +235,4 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         return withChildrenReferences(getChildren().stream().map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList()));
     }
 
-    public static boolean isReversed(@Nonnull List<Quantifier.Physical> quantifiers) {
-        return quantifiers
-                .stream()
-                .map(Quantifier.Physical::getRangesOver)
-                .flatMap(reference -> reference.getMembers().stream())
-                .map(expression -> {
-                    Verify.verify(expression instanceof RecordQueryPlan);
-                    return (RecordQueryPlan)expression;
-                })
-                .map(QueryPlan::isReverse)
-                .findAny()
-                .orElseThrow(() -> new RecordCoreException("unable to determine reversed-ness"));
-    }
 }

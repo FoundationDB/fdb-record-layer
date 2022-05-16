@@ -25,15 +25,14 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -67,11 +66,14 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     private final Supplier<List<? extends Value>> childrenSupplier;
     @Nonnull
     private final Supplier<Type.Record> resultTypeSupplier;
+    @Nonnull
+    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
     private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns) {
         this.columns = ImmutableList.copyOf(columns);
         this.childrenSupplier = Suppliers.memoize(this::computeChildren);
         this.resultTypeSupplier = Suppliers.memoize(this::computeResultType);
+        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
     @Nonnull
@@ -104,14 +106,14 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var resultMessageBuilder = newMessageBuilderForType(context.getTypeRepository());
         final var descriptorForType = resultMessageBuilder.getDescriptorForType();
 
         final var fields = Objects.requireNonNull(getResultType().getFields());
         var i = 0;
         for (final var child : getChildren()) {
-            final var childResultElement = child.eval(store, context, record, message);
+            final var childResultElement = child.eval(store, context);
             if (childResultElement != null) {
                 resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), childResultElement);
             }
@@ -127,8 +129,16 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     }
 
     @Override
-    public int semanticHashCode() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, columns);
+    public int hashCodeWithoutChildren() {
+        return hashCodeWithoutChildrenSupplier.get();
+    }
+
+    private int computeHashCodeWithoutChildren() {
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION,
+                BASE_HASH,
+                columns.stream()
+                        .map(column -> column.getField().hashCode())
+                        .collect(ImmutableList.toImmutableList()));
     }
     
     @Override
@@ -194,11 +204,11 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
 
     @Nullable
     @Override
-    public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+    public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final List<Object> listOfPartials = Lists.newArrayList();
         for (final var child : getChildren()) {
             Verify.verify(child instanceof AggregateValue);
-            final Object childResultElement = ((AggregateValue)child).evalToPartial(store, context, record, message);
+            final Object childResultElement = ((AggregateValue)child).evalToPartial(store, context);
             listOfPartials.add(childResultElement);
         }
         return Collections.unmodifiableList(listOfPartials);

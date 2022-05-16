@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
@@ -41,10 +40,10 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.MergeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -68,7 +67,7 @@ import java.util.stream.Stream;
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren, RecordQuerySetPlan {
+public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren, RecordQuerySetPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Intersection-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIntersectionPlan.class);
@@ -82,24 +81,29 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     @Nonnull
     private final List<Quantifier.Physical> quantifiers;
     @Nonnull
-    private final KeyExpression comparisonKey;
+    private final ComparisonKeyFunction comparisonKeyFunction;
 
-    private final boolean reverse;
+    protected final boolean reverse;
 
     @Nonnull
     private final Value resultValue;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    private RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
-                                        @Nonnull KeyExpression comparisonKey,
-                                        boolean reverse,
-                                        boolean ignoredTemporaryFlag) {
+    protected RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
+                                          @Nonnull ComparisonKeyFunction comparisonKeyFunction,
+                                          boolean reverse) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
-        this.comparisonKey = comparisonKey;
+        this.comparisonKeyFunction = comparisonKeyFunction;
         this.reverse = reverse;
         this.resultValue = MergeValue.pivotAndMergeValues(quantifiers);
     }
 
+    @Nonnull
+    public ComparisonKeyFunction getComparisonKeyFunction() {
+        return comparisonKeyFunction;
+    }
+
+    @SuppressWarnings("resource")
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -107,17 +111,18 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final ExecuteProperties childExecuteProperties = executeProperties.clearSkipAndLimit();
-        return IntersectionCursor.create(store, getComparisonKey(), reverse,
-                quantifiers.stream()
-                        .map(Quantifier.Physical::getRangesOverPlan)
-                        .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
-                                ((byte[] childContinuation) -> childPlan
-                                        .executePlan(store, context, childContinuation, childExecuteProperties)
-                                        .map(QueryResult::getQueriedRecord)))
-                        .collect(Collectors.toList()),
-                continuation)
-                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(QueryResult::of);
+        return IntersectionCursor.create(
+                        comparisonKeyFunction.apply(store, context),
+                        reverse,
+                        quantifiers.stream()
+                                .map(Quantifier.Physical::getRangesOverPlan)
+                                .map(childPlan -> (Function<byte[], RecordCursor<QueryResult>>)
+                                        ((byte[] childContinuation) -> childPlan
+                                                .executePlan(store, context, childContinuation, childExecuteProperties)))
+                                .collect(Collectors.toList()),
+                        continuation,
+                        store.getTimer())
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override
@@ -134,11 +139,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     @Override
     public List<RecordQueryPlan> getChildren() {
         return quantifiers.stream().map(Quantifier.Physical::getRangesOverPlan).collect(Collectors.toList());
-    }
-
-    @Nonnull
-    public KeyExpression getComparisonKey() {
-        return comparisonKey;
     }
 
     @Nonnull
@@ -161,17 +161,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    public RecordQueryIntersectionPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                    @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryIntersectionPlan(
-                Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
-                getComparisonKey(),
-                isReverse(),
-                false);
-    }
-
-    @Nonnull
-    @Override
     public Value getResultValue() {
         return resultValue;
     }
@@ -187,7 +176,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         }
         final RecordQueryIntersectionPlan other = (RecordQueryIntersectionPlan) otherExpression;
         return reverse == other.reverse &&
-               comparisonKey.equals(other.comparisonKey);
+               comparisonKeyFunction.equals(other.comparisonKeyFunction);
     }
 
     @Nonnull
@@ -211,17 +200,17 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getComparisonKey(), reverse);
+        return Objects.hash(comparisonKeyFunction, reverse);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + getComparisonKey().planHash(hashKind) + (reverse ? 1 : 0);
+                return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + comparisonKeyFunction.planHash(hashKind) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getQueryPlanChildren(), getComparisonKey(), reverse);
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getQueryPlanChildren(), comparisonKeyFunction, reverse);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
@@ -245,12 +234,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         return quantifiers.size();
     }
 
-    @Nonnull
-    @Override
-    public Set<KeyExpression> getRequiredFields() {
-        return ImmutableSet.copyOf(getComparisonKey().normalizeKeyForPositions());
-    }
-
     @Override
     public int maxCardinality(@Nonnull RecordMetaData metaData) {
         return getChildStream().map(p -> p.maxCardinality(metaData)).min(Integer::compare).orElse(UNKNOWN_MAX_CARDINALITY);
@@ -261,32 +244,23 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         return getChildren().stream().allMatch(RecordQueryPlan::isStrictlySorted);
     }
 
-    @Override
-    public RecordQueryIntersectionPlan strictlySorted() {
-        return new RecordQueryIntersectionPlan(Quantifiers.fromPlans(getChildren().stream().map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList())), comparisonKey, reverse, true);
-    }
-
-    @Nonnull
-    @Override
-    public RecordQueryIntersectionPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
-        return new RecordQueryIntersectionPlan(
-                newChildren.stream()
-                        .map(Quantifier::physical)
-                        .collect(ImmutableList.toImmutableList()),
-                comparisonKey,
-                reverse,
-                false);
-    }
-
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.INTERSECTION_OPERATOR,
-                        ImmutableList.of("COMPARE BY {{comparisonKey}}"),
-                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString()))),
+                        ImmutableList.of("COMPARE BY {{comparisonKeyFunction}}"),
+                        ImmutableMap.of("comparisonKeyFunction", Attribute.gml(comparisonKeyFunction.toString()))),
                 childGraphs);
+    }
+
+    @Nonnull
+    public static RecordQueryIntersectionOnKeyExpressionPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
+                                                                             @Nonnull final KeyExpression comparisonKey) {
+        return new RecordQueryIntersectionOnKeyExpressionPlan(quantifiers,
+                comparisonKey,
+                Quantifiers.isReversed(quantifiers));
     }
 
     /**
@@ -302,13 +276,14 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
      * @return a new plan that will return the intersection of all results from both child plans
      */
     @Nonnull
-    public static RecordQueryIntersectionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
-                                                   @Nonnull KeyExpression comparisonKey) {
+    public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull RecordQueryPlan left,
+                                                                  @Nonnull RecordQueryPlan right,
+                                                                  @Nonnull KeyExpression comparisonKey) {
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
         final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right));
-        return new RecordQueryIntersectionPlan(Quantifiers.fromPlans(childRefs), comparisonKey, left.isReverse(), false);
+        return new RecordQueryIntersectionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefs), comparisonKey, left.isReverse());
     }
 
     /**
@@ -323,7 +298,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
      * @return a new plan that will return the intersection of all results from both child plans
      */
     @Nonnull
-    public static RecordQueryIntersectionPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull KeyExpression comparisonKey) {
+    public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull KeyExpression comparisonKey) {
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to union plan");
         }
@@ -335,6 +310,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         for (RecordQueryPlan child : children) {
             childRefsBuilder.add(GroupExpressionRef.of(child));
         }
-        return new RecordQueryIntersectionPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, firstReverse, false);
+        return new RecordQueryIntersectionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, firstReverse);
     }
 }

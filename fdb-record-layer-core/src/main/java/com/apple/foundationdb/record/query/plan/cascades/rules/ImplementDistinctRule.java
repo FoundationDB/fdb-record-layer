@@ -21,28 +21,29 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.properties.CreatesDuplicatesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverPlans;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
 
 /**
  * A rule that implements a distinct expression by adding a {@link RecordQueryUnorderedPrimaryKeyDistinctPlan}
@@ -59,11 +60,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression> {
     @Nonnull
-    private static final CollectionMatcher<RecordQueryPlan> innerPlansMatcher = some(RecordQueryPlanMatchers.anyPlan());
+    private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
+
     @Nonnull
-    private static final BindingMatcher<LogicalDistinctExpression> root = logicalDistinctExpression(exactly(forEachQuantifierOverPlans(innerPlansMatcher)));
+    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
+            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
+                    any(innerPlanPartitionMatcher)));
+
+    @Nonnull
+    private static final BindingMatcher<LogicalDistinctExpression> root =
+            logicalDistinctExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
 
     public ImplementDistinctRule() {
         super(root);
@@ -71,23 +80,15 @@ public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final Collection<? extends RecordQueryPlan> innerPlans = call.get(innerPlansMatcher);
+        final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
 
-        final Map<Boolean, ? extends List<? extends RecordQueryPlan>> partitionedByDuplicates = innerPlans
-                .stream()
-                .collect(Collectors.partitioningBy(innerPlan -> CreatesDuplicatesProperty.evaluate(innerPlan, call.getContext())));
-
-        final List<? extends RecordQueryPlan> innerPlansWithoutDuplicates = partitionedByDuplicates.get(false);
-        if (!innerPlansWithoutDuplicates.isEmpty()) {
-            // these don't create duplicates
-            call.yield(GroupExpressionRef.from(innerPlansWithoutDuplicates));
-        }
-        final List<? extends RecordQueryPlan> innerPlansWithDuplicates = partitionedByDuplicates.get(true);
-        if (!innerPlansWithDuplicates.isEmpty()) {
+        if (innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)) {
+            call.yield(GroupExpressionRef.from(innerPlanPartition.getPlans()));
+        } else {
             // these create duplicates
             call.yield(call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(
                     Quantifier.physical(
-                            GroupExpressionRef.from(innerPlansWithDuplicates)))));
+                            GroupExpressionRef.from(innerPlanPartition.getPlans())))));
         }
     }
 }

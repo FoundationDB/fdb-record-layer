@@ -1,5 +1,5 @@
 /*
- * InterestingPropertiesMap.java
+ * ConstraintsMap.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -31,33 +32,33 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * A map to keep track of interesting physical properties for an expression reference. References ({@link ExpressionRef})
+ * A map to keep track of constraining attributes for an expression reference. References ({@link ExpressionRef})
  * are a central part of the memoization effort within the {@link CascadesPlanner}. Member expressions contained in
  * a reference all yield the same final result not taking into account physical properties such as sorted-ness,
  * existence of duplicates, etc. A set of plan members of a reference can be partitioned into subsets by physical
- * property in order to be used by conscious rules that are dependent on a particular set of properties. Many times
+ * attributes in order to be used by conscious rules that are dependent on a particular set of properties. Many times
  * we need to create all possible plans in the anticipation that these plans are all consumed by other implementation
  * rules later on. That is not guaranteed, though, and in reality a large set of plans does not get used due to an
- * incompatible physical property. In any case, the planner must explore plan variations once created even though
+ * incompatible physical attribute. In any case, the planner must explore plan variations once created even though
  * the resulting structures may not get used at all. In essence, we would like to avoid the creation of useless plans
  * if at all possible.
  *
- * A map of interesting properties is used by a reference to "push down" such an interesting property through the data
+ * A map of interesting constraints is used by a reference to "push down" such a constraint through the data
  * flow graph. The "pushing down" is facilitated by rules that are executed by the {@link CascadesPlanner} much like
  * other rules yielding new {@link RelationalExpression}s or {@link PartialMatch}es. The only, and very important,
  * difference in concept is that the information is passed downwards instead of bubbling up like all the other structures.
  *
  * The planner needs to make sure that expression references are explored, and if necessary, re-explored if new
  * interesting properties are declared through the execution of other planner tasks.
- * Planner rules ({@link CascadesRuleCall}) can declare to interest in the change of a property which then signals to the
- * planner to trigger a re-exploration using that rule if an interesting property changes on that reference.
+ * Planner rules ({@link CascadesRuleCall}) can declare to interest in the change of a constraint which then signals to
+ * the planner to trigger a re-exploration using that rule if an constraint changes on that reference.
  *
  * The map implementation uses a logical clock and a watermark system to understand if a re-exploration becomes
  * necessary.
  */
-public class InterestingPropertiesMap {
+public class ConstraintsMap {
     /**
-     * Current tick of the map. Gets updated though {@link #bumpTick()} and indicates that a change in the properties
+     * Current tick of the map. Gets updated through {@link #bumpTick()} and indicates that a change in the properties
      * map needs to trigger (re-)exploration of appropriate rules.
      */
     private long currentTick;
@@ -77,18 +78,18 @@ public class InterestingPropertiesMap {
     private long watermarkCommittedTick;
 
     /**
-     * The map for the interesting properties of a reference. Note that this map is stable with respect to iteration.
+     * The map for the constraints of a reference. Note that this map is stable with respect to iteration.
      */
-    private final Map<PlannerAttribute<?>, AttributeEntry> attributeToInterestingPropertiesMap;
+    private final Map<PlannerConstraint<?>, ConstraintEntry> attributeToConstraintMap;
 
     /**
      * Default constructor.
      */
-    public InterestingPropertiesMap() {
+    public ConstraintsMap() {
         this.currentTick = 0L;
         this.watermarkGoalTick = -1L;
         this.watermarkCommittedTick = -1L;
-        this.attributeToInterestingPropertiesMap = Maps.newLinkedHashMap();
+        this.attributeToConstraintMap = Maps.newLinkedHashMap();
     }
 
     /**
@@ -97,89 +98,89 @@ public class InterestingPropertiesMap {
      * @param <T> the type of the attribute
      * @return {@code true} is the attribute is contained in this map, {@code false} otherwise.
      */
-    public <T> boolean containsAttribute(@Nonnull final PlannerAttribute<T> attribute) {
-        return attributeToInterestingPropertiesMap.containsKey(attribute);
+    public <T> boolean containsAttribute(@Nonnull final PlannerConstraint<T> attribute) {
+        return attributeToConstraintMap.containsKey(attribute);
     }
 
     /**
-     * Method to return an optional interesting property given an attribute key passed in.
+     * Method to return an optional constraint given the kind of constraint attribute key passed in.
      * @param attribute the attribute key
      * @param <T> the type of the attribute
      * @return {@code Optional.of(property)} if this map contains the property selected by the attribute key handed in,
      *         {@code Optional.empty()} otherwise
      */
     @Nonnull
-    public <T> Optional<T> getPropertyOptional(@Nonnull final PlannerAttribute<T> attribute) {
+    public <T> Optional<T> getConstraintOptional(@Nonnull final PlannerConstraint<T> attribute) {
         if (containsAttribute(attribute)) {
-            return Optional.of(attribute.narrow(attributeToInterestingPropertiesMap.get(attribute).property));
+            return Optional.of(attribute.narrowConstraint(attributeToConstraintMap.get(attribute).property));
         } else {
             return Optional.empty();
         }
     }
 
     /**
-     * Method to return an interesting property given an attribute key passed in or to throw an exception.
+     * Method to return a constraint given an attribute key passed in or to throw an exception.
      * @param attribute the attribute key
      * @param exceptionSupplier a supplier to be called if an attribute could not be found
      * @param <T> the type of the attribute
      * @param <X> the type of throwable to throw if an attribute cannot be found
-     * @return the property if this map contains the attribute given by the key handed in
+     * @return the constraint if this map contains the attribute given by the key handed in
      * @throws X the exception generated by the supplier passed in
      */
     @Nonnull
-    public <T, X extends Throwable> T getPropertyOrThrow(@Nonnull final PlannerAttribute<T> attribute, @Nonnull final Supplier<? extends X> exceptionSupplier) throws X {
+    public <T, X extends Throwable> T getPropertyOrThrow(@Nonnull final PlannerConstraint<T> attribute, @Nonnull final Supplier<? extends X> exceptionSupplier) throws X {
         if (containsAttribute(attribute)) {
-            return attribute.narrow(attributeToInterestingPropertiesMap.get(attribute).property);
+            return attribute.narrowConstraint(attributeToConstraintMap.get(attribute).property);
         } else {
             throw exceptionSupplier.get();
         }
     }
 
     /**
-     * Method to return an optional interesting property given an attribute key passed in or an alternative default
-     * property.
+     * Method to return an optional constraint given an attribute key passed in or an alternative default
+     * constraint.
      * @param attribute the attribute key
-     * @param defaultProperty a property to be returned if an attribute could not be found
+     * @param defaultConstraint a constraint to be returned if an attribute could not be found
      * @param <T> the type of the attribute
-     * @return the property contained in this map if there is such a property as addressed by the attribute key passed
-     *         in or {@code defaultProperty} if this map does not contain the attribute.
+     * @return the constraint contained in this map if there is such a constraint as addressed by the attribute key passed
+     *         in or {@code defaultConstraint} if this map does not contain the attribute.
      */
     @Nonnull
-    public <T> T getPropertyOrElse(@Nonnull final PlannerAttribute<T> attribute, @Nonnull final T defaultProperty) {
+    public <T> T getPropertyOrElse(@Nonnull final PlannerConstraint<T> attribute, @Nonnull final T defaultConstraint) {
         if (containsAttribute(attribute)) {
-            return attribute.narrow(attributeToInterestingPropertiesMap.get(attribute).property);
+            return attribute.narrowConstraint(attributeToConstraintMap.get(attribute).property);
         } else {
-            return defaultProperty;
+            return defaultConstraint;
         }
     }
 
     /**
-     * Push an interesting property into this map. The new property may get added to the interesting properties map as is
-     * if this is the first time a property of that kind was added. If there is a pre-existing property (wit respect to
-     * the attribute key) already contained in the map, we delegate to {@link PlannerAttribute#combine(Object, Object)}
-     * to properly combine the existing and the new property. If the new property is distinct from the old one
-     * (or there is no prior property determined the given attribnute key), we update the internal state in order to
+     * Push a constraint into this map. The new constraint may get added to the constraints map as is
+     * if this is the first time a constraint of that kind was added. If there is a pre-existing constraint (with
+     * respect to the attribute key) already contained in the map, we delegate to {@link PlannerConstraint#combine(Object, Object)}
+     * to properly combine the existing and the new constraint. If the new constraint is distinct from the old one
+     * (or there is no prior constraint determined the given attribute key), we update the internal state in order to
      * cause (re-)exploration of the current reference.
      * @param attribute the attribute key
-     * @param property the new property to be pushed
+     * @param constraint the new constraint to be pushed
      * @param <T> the type of the attribute
-     * @return an optional containing the combined property if the push operation was successful, or
+     * @return an optional containing the combined constraint if the push operation was successful, or
      *         {@code Optional.empty()} otherwise.
      */
-    public <T> Optional<T> pushProperty(@Nonnull final PlannerAttribute<T> attribute, @Nonnull T property) {
+    public <T> Optional<T> pushProperty(@Nonnull final PlannerConstraint<T> attribute, @Nonnull T constraint) {
         if (containsAttribute(attribute)) {
-            final AttributeEntry attributeEntry = attributeToInterestingPropertiesMap.get(attribute);
-            return attribute.combine(attribute.narrow(attributeEntry.property), property)
+            final ConstraintEntry constraintEntry = attributeToConstraintMap.get(attribute);
+            return attribute.combine(attribute.narrowConstraint(constraintEntry.property), constraint)
                     .map(combinedProperty -> {
                         bumpTick();
-                        attributeEntry.property = combinedProperty;
-                        attributeEntry.lastUpdatedTick = currentTick;
+                        constraintEntry.property = combinedProperty;
+                        constraintEntry.lastUpdatedTick = currentTick;
                         return combinedProperty;
                     });
         } else {
             bumpTick();
-            attributeToInterestingPropertiesMap.put(attribute, new AttributeEntry(property));
-            return Optional.of(property);
+            attributeToConstraintMap.put(attribute, new ConstraintEntry(constraint));
+            return Optional.of(constraint);
         }
     }
 
@@ -212,20 +213,20 @@ public class InterestingPropertiesMap {
 
     /**
      * This method indicates whether the reference containing this map is currently being explored because of a change to
-     * a properties as defined by a set of attributes passed in. That means that the reference has started exploration
+     * a property as defined by a set of attributes passed in. That means that the reference has started exploration
      * but has not yet finished it.
      * @param attributes a set of attribute keys
      * @return {@code true} if the associated reference is currently being fully explored, {@code false} otherwise.
      */
-    public boolean isExploredForAttributes(@Nonnull final Set<PlannerAttribute<?>> attributes) {
+    public boolean isExploredForAttributes(@Nonnull final Set<PlannerConstraint<?>> attributes) {
         if (watermarkCommittedTick < 0) {
             // never been planned
             return false;
         } else {
-            for (final PlannerAttribute<?> interestingKey : attributes) {
+            for (final PlannerConstraint<?> interestingKey : attributes) {
                 if (containsAttribute(interestingKey)) {
-                    final AttributeEntry attributeEntry = attributeToInterestingPropertiesMap.get(interestingKey);
-                    if (attributeEntry.lastUpdatedTick > watermarkCommittedTick) {
+                    final ConstraintEntry constraintEntry = attributeToConstraintMap.get(interestingKey);
+                    if (constraintEntry.lastUpdatedTick > watermarkCommittedTick) {
                         return false;
                     }
                 }
@@ -253,12 +254,12 @@ public class InterestingPropertiesMap {
         return ++currentTick;
     }
 
-    private class AttributeEntry {
+    private class ConstraintEntry {
         private long lastUpdatedTick;
         @Nonnull
         private Object property;
 
-        public AttributeEntry(@Nonnull final Object property) {
+        public ConstraintEntry(@Nonnull final Object property) {
             this.lastUpdatedTick = currentTick;
             this.property = property;
         }

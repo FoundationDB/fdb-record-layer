@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -50,6 +50,7 @@ class State {
     @Nonnull private final List<Debugger.Event> events;
 
     private int currentTick;
+    private long startTs;
 
     public static State initial() {
         return new State();
@@ -77,7 +78,8 @@ class State {
                 copyQuantifierCache,
                 copyInvertedQuantifierCache,
                 Lists.newArrayList(source.getEvents()),
-                source.getCurrentTick());
+                source.getCurrentTick(),
+                source.getStartTs());
     }
 
     private State() {
@@ -89,7 +91,8 @@ class State {
                 CacheBuilder.newBuilder().weakValues().build(),
                 CacheBuilder.newBuilder().weakKeys().build(),
                 Lists.newArrayList(),
-                -1);
+                -1,
+                System.nanoTime());
     }
 
     private State(@Nonnull final Map<Class<?>, Integer> classToIndexMap,
@@ -100,7 +103,8 @@ class State {
                   @Nonnull final Cache<Integer, Quantifier> quantifierCache,
                   @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
                   @Nonnull final List<Debugger.Event> events,
-                  @Nonnull final int currentTick) {
+                  final int currentTick,
+                  final long startTs) {
         this.classToIndexMap = Maps.newHashMap(classToIndexMap);
         this.expressionCache = expressionCache;
         this.invertedExpressionsCache = invertedExpressionsCache;
@@ -110,6 +114,7 @@ class State {
         this.invertedQuantifierCache = invertedQuantifierCache;
         this.events = events;
         this.currentTick = currentTick;
+        this.startTs = startTs;
     }
 
     @Nonnull
@@ -154,6 +159,10 @@ class State {
 
     public int getCurrentTick() {
         return currentTick;
+    }
+
+    public long getStartTs() {
+        return startTs;
     }
 
     public int getIndex(final Class<?> clazz) {

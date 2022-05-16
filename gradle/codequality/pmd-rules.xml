@@ -15,6 +15,7 @@
         <!-- This rule is perfectly fine but SpotBugs handles it for us. -->
         <exclude name="MethodReturnsInternalArray" />
         <exclude name="UseVarargs" />
+        <exclude name="UnusedImports" />
     </rule>
 
     <rule ref="category/java/codestyle.xml">

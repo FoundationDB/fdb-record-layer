@@ -55,7 +55,6 @@ public class ReplRunner {
         }
 
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                //.selectors(selectClass(FDBOrQueryToUnionTest.class))
                 .selectors(methodSelector)
                 .build();
         Launcher launcher = LauncherFactory.create();

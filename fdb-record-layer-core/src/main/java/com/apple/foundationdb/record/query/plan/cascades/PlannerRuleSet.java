@@ -21,12 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
@@ -67,6 +62,12 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveRedundantTy
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SelectDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SplitSelectExtractIndependentQuantifiersRule;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -118,10 +119,10 @@ public class PlannerRuleSet {
             new PushInJoinThroughFetchRule<>(RecordQueryInParameterJoinPlan.class),
             new PushFilterThroughFetchRule(),
             new PushDistinctThroughFetchRule(),
-            new PushSetOperationThroughFetchRule<>(RecordQueryIntersectionPlan.class),
-            new PushSetOperationThroughFetchRule<>(RecordQueryUnionPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryIntersectionOnKeyExpressionPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryUnionOnKeyExpressionPlan.class),
             new PushSetOperationThroughFetchRule<>(RecordQueryUnorderedUnionPlan.class),
-            new PushSetOperationThroughFetchRule<>(RecordQueryInUnionPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryInUnionOnKeyExpressionPlan.class),
             new RemoveProjectionRule(),
             new MergeProjectionAndFetchRule(),
             new PushReferencedFieldsThroughDistinctRule(),

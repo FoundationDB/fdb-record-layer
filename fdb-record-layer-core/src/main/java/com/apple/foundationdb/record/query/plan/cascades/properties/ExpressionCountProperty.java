@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -44,7 +44,7 @@ import java.util.function.BinaryOperator;
  * This property provides some heuristic sense of how much work is being done by a plan.
  * </p>
  */
-public class ExpressionCountProperty implements PlannerProperty<Map<Class<? extends RelationalExpression>, Integer>> {
+public class ExpressionCountProperty implements ExpressionProperty<Map<Class<? extends RelationalExpression>, Integer>> {
     private final Set<Class<? extends RelationalExpression>> expressionClasses;
 
     public ExpressionCountProperty(final Set<Class<? extends RelationalExpression>> expressionClasses) {
@@ -116,7 +116,7 @@ public class ExpressionCountProperty implements PlannerProperty<Map<Class<? exte
     }
 
     public static int count(@Nonnull Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull RelationalExpression expression) {
-        final Map<Class<? extends RelationalExpression>, Integer> expressionClassToCountMap = expression.acceptPropertyVisitor(new ExpressionCountProperty(expressionClasses));
+        final Map<Class<? extends RelationalExpression>, Integer> expressionClassToCountMap = new ExpressionCountProperty(expressionClasses).visit(expression);
         if (expressionClassToCountMap == null) {
             return 0;
         }

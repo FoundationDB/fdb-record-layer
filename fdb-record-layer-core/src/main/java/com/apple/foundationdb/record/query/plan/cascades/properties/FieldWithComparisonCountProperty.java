@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -40,7 +40,7 @@ import java.util.List;
  * indexes.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FieldWithComparisonCountProperty implements PlannerProperty<Integer> {
+public class FieldWithComparisonCountProperty implements ExpressionProperty<Integer> {
     private static final FieldWithComparisonCountProperty INSTANCE = new FieldWithComparisonCountProperty();
 
     @Nonnull

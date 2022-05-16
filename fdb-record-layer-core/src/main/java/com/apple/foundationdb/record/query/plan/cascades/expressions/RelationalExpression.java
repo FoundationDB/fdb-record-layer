@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,32 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.GenerateVisitor;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.Compensation;
+import com.apple.foundationdb.record.query.plan.cascades.Correlated;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchPredicate;
@@ -48,7 +60,6 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -96,6 +107,7 @@ import java.util.stream.StreamSupport;
  * implementations of each.
  */
 @API(API.Status.EXPERIMENTAL)
+@GenerateVisitor
 public interface RelationalExpression extends Correlated<RelationalExpression>, Typed, Narrowable<RelationalExpression> {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
@@ -263,6 +275,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         }
 
         final RelationalExpression otherExpression = (RelationalExpression)other;
+
+        if (hashCodeWithoutChildren() != otherExpression.hashCodeWithoutChildren()) {
+            return false;
+        }
 
         // use matching logic to establish equality
         final Iterable<AliasMap> boundMatchIterable =
@@ -726,28 +742,22 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Apply the given property visitor to this planner expression and its children. Returns {@code null} if
-     * {@link PlannerProperty#shouldVisit(RelationalExpression)} called on this expression returns {@code false}.
-     * @param visitor a {@link PlannerProperty} visitor to evaluate
+     * {@link ExpressionProperty#shouldVisit(RelationalExpression)} called on this expression returns {@code false}.
+     * @param visitor a {@link ExpressionProperty} visitor to evaluate
      * @param <U> the type of the evaluated property
      * @return the result of evaluating the property on the subtree rooted at this expression
      */
     @Nullable
-    default <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> visitor) {
+    default <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> visitor) {
         if (visitor.shouldVisit(this)) {
-            final List<U> quantifierResults = new ArrayList<>();
-            final List<? extends Quantifier> quantifiers = getQuantifiers();
-            for (final Quantifier quantifier : quantifiers) {
-                quantifierResults.add(quantifier.acceptPropertyVisitor(visitor));
-            }
-
-            return visitor.evaluateAtExpression(this, quantifierResults);
+            return visitor.visit(this);
         }
         return null;
     }
 
     /**
      * This is needed for graph integration into IntelliJ as IntelliJ only ever evaluates selfish methods. Add this
-     * method as a custom renderer for the type {@link RelationalExpression}. During debugging you can then for instance
+     * method as a custom renderer for the type {@link RelationalExpression}. While debugging, you can then
      * click show() on an instance and enjoy the query graph it represents rendered in your standard browser.
      * @param renderSingleGroups whether to render group references with just one member
      * @return the String "done"

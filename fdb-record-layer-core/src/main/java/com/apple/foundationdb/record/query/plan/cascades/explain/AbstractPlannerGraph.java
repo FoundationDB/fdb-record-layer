@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -167,7 +167,7 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
         final List<String> details;
 
         @SuppressWarnings("unused") // used in clients
-        public AbstractNode(@Nonnull final Object identity, @Nonnull final String name) {
+        protected AbstractNode(@Nonnull final Object identity, @Nonnull final String name) {
             this(identity, name, null);
         }
 
@@ -180,7 +180,7 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
          *        to construct the label of the node depending on the exporter. This parameter is {@code Nullable}. If
          *        null, the label is omitted. If empty, it creates an empty list if the target format supports lists.
          */
-        public AbstractNode(@Nonnull final Object identity, @Nonnull final String name, @Nullable final List<String> details) {
+        protected AbstractNode(@Nonnull final Object identity, @Nonnull final String name, @Nullable final List<String> details) {
             this.identity = identity;
             this.name = name;
             this.details = details == null
@@ -241,11 +241,12 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
         @Nonnull
         private final ImmutableSet<? extends AbstractEdge> dependsOn;
 
-        public AbstractEdge(@Nonnull final Set<? extends AbstractEdge> dependsOn) {
+        @SuppressWarnings("unused")
+        protected AbstractEdge(@Nonnull final Set<? extends AbstractEdge> dependsOn) {
             this(null, dependsOn);
         }
 
-        public AbstractEdge(@Nullable final String label, @Nonnull final Set<? extends AbstractEdge> dependsOn) {
+        protected AbstractEdge(@Nullable final String label, @Nonnull final Set<? extends AbstractEdge> dependsOn) {
             this.label = label;
             this.dependsOn = ImmutableSet.copyOf(dependsOn);
         }

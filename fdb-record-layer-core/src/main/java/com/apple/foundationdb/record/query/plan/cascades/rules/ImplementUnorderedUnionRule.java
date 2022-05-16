@@ -21,28 +21,32 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 import java.util.List;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.references;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
 
 /**
  * A rule that implements an unordered union of its (already implemented) children. This will extract the
@@ -53,11 +57,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnionExpression> {
     @Nonnull
-    private static final CollectionMatcher<RecordQueryPlan> unionLegPlansMatcher = some(RecordQueryPlanMatchers.anyPlan());
+    private static final BindingMatcher<PlanPartition> unionLegPlanPartitionsMatcher = anyPlanPartition();
+
+    @Nonnull
+    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> unionLegReferenceMatcher =
+            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
+                    rollUp(any(unionLegPlanPartitionsMatcher))));
 
     @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> root =
-            logicalUnionExpression(all(forEachQuantifierOverRef(references(unionLegPlansMatcher))));
+            logicalUnionExpression(all(forEachQuantifierOverRef(unionLegReferenceMatcher)));
 
     public ImplementUnorderedUnionRule() {
         super(root);
@@ -66,11 +75,12 @@ public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnionExpress
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
-        final List<? extends Collection<? extends RecordQueryPlan>> groupedPlansByLeg = bindings.getAll(unionLegPlansMatcher);
+        final List<? extends PlanPartition> planPartitions = bindings.getAll(unionLegPlanPartitionsMatcher);
 
         final ImmutableList<Quantifier.Physical> quantifiers =
-                groupedPlansByLeg
+                planPartitions
                         .stream()
+                        .map(PlanPartition::getPlans)
                         .map(GroupExpressionRef::from)
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());

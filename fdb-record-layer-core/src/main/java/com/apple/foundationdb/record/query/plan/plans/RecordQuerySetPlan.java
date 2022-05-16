@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
@@ -29,12 +32,15 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -112,7 +118,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
 
                 final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseAlias);
 
-                if (!pushedValueOptional.isPresent()) {
+                if (pushedValueOptional.isEmpty()) {
                     candidatesAliases.remove(quantifier.getAlias());
                     continue;
                 }
@@ -151,5 +157,136 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      */
     default boolean isDynamic() {
         return false;
+    }
+
+    /**
+     * A comparison key function that extracts a comparison key for binary comparison by some set operations which
+     * also provides a stable plan hash and hash code.
+     */
+    interface ComparisonKeyFunction extends PlanHashable {
+
+        @Nonnull
+        <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext evaluationContext);
+
+        /**
+         * Class to encapsulate the functionality of extracting a comparison key from a {@link QueryResult} while
+         * also providing comparability and the ability to compute a stable plan hash.
+         */
+        class OnKeyExpression implements ComparisonKeyFunction {
+            @Nonnull
+            private final KeyExpression comparisonKeyExpression;
+
+            protected OnKeyExpression(@Nonnull final KeyExpression comparisonKeyExpression) {
+                this.comparisonKeyExpression = comparisonKeyExpression;
+            }
+
+            @Nonnull
+            @Override
+            public final <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
+                return queryResult -> comparisonKeyExpression.evaluateMessageSingleton(null, queryResult.getMessage()).toTupleAppropriateList();
+            }
+
+            @Nonnull
+            public KeyExpression getComparisonKey() {
+                return comparisonKeyExpression;
+            }
+
+            @Override
+            public int hashCode() {
+                return comparisonKeyExpression.hashCode();
+            }
+
+            @Override
+            public boolean equals(final Object o) {
+                if (o == null) {
+                    return false;
+                }
+
+                if (o == this) {
+                    return true;
+                }
+
+                if (o.getClass() != getClass()) {
+                    return false;
+                }
+
+                final var other = (OnKeyExpression)o;
+                return comparisonKeyExpression.equals(other.comparisonKeyExpression);
+            }
+
+            @Override
+            public String toString() {
+                return comparisonKeyExpression.toString();
+            }
+
+            @Override
+            public int planHash(@Nonnull final PlanHashKind hashKind) {
+                return comparisonKeyExpression.planHash(hashKind);
+            }
+        }
+
+        /**
+         * Class to encapsulate the functionality of extracting a comparison key from a {@link QueryResult} while
+         * also providing comparability and the ability to compute a stable plan hash.
+         */
+        class OnValue implements ComparisonKeyFunction {
+            @Nonnull
+            private final CorrelationIdentifier baseAlias;
+            @Nonnull
+            private final Value comparisonKeyValue;
+
+            protected OnValue(@Nonnull final CorrelationIdentifier baseAlias,
+                              @Nonnull final Value comparisonKeyValue) {
+                this.baseAlias = baseAlias;
+                this.comparisonKeyValue = comparisonKeyValue;
+            }
+
+            @Nonnull
+            public Value getComparisonKeyValue() {
+                return comparisonKeyValue;
+            }
+
+            @Nonnull
+            @Override
+            public final <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
+                return queryResult -> {
+                    final var nestedContext = evaluationContext.withBinding(baseAlias, queryResult);
+                    return Lists.newArrayList(comparisonKeyValue.eval(store, nestedContext));
+                };
+            }
+
+            @Override
+            public int hashCode() {
+                return comparisonKeyValue.hashCode();
+            }
+
+            @Override
+            public boolean equals(final Object o) {
+                if (o == null) {
+                    return false;
+                }
+
+                if (o == this) {
+                    return true;
+                }
+
+                if (o.getClass() != getClass()) {
+                    return false;
+                }
+
+                final var other = (OnValue)o;
+                return comparisonKeyValue.equals(other.comparisonKeyValue);
+            }
+
+            @Override
+            public String toString() {
+                return comparisonKeyValue.toString();
+            }
+
+            @Override
+            public int planHash(@Nonnull final PlanHashKind hashKind) {
+                return comparisonKeyValue.planHash(hashKind);
+            }
+        }
     }
 }

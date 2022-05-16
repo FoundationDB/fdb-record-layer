@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.google.protobuf.Message;
@@ -48,5 +47,5 @@ public interface AggregateValue extends Value {
     Accumulator createAccumulator(@Nonnull final TypeRepository typeRepository);
 
     @Nullable
-    <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
+    <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context);
 }

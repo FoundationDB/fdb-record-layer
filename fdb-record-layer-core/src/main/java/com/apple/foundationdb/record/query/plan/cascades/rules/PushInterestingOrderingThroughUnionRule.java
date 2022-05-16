@@ -22,12 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingAttribute;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -45,7 +45,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 
 /**
- * A rule that pushes an interesting {@link OrderingAttribute} through a {@link LogicalUnionExpression}.
+ * A rule that pushes an ordering {@link OrderingConstraint} through a {@link LogicalUnionExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -56,13 +56,13 @@ public class PushInterestingOrderingThroughUnionRule extends PlannerRule<Logical
             logicalUnionExpression(all(innerQuantifierMatcher));
 
     public PushInterestingOrderingThroughUnionRule() {
-        super(root, ImmutableSet.of(OrderingAttribute.ORDERING));
+        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final Optional<Set<RequestedOrdering>> interestingOrderingOptional = call.getInterestingProperty(OrderingAttribute.ORDERING);
-        if (interestingOrderingOptional.isEmpty()) {
+        final Optional<Set<RequestedOrdering>> requestedOrderingOptional = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
+        if (requestedOrderingOptional.isEmpty()) {
             return;
         }
 
@@ -73,8 +73,8 @@ public class PushInterestingOrderingThroughUnionRule extends PlannerRule<Logical
                 .stream()
                 .map(Quantifier.ForEach::getRangesOver)
                 .forEach(lowerReference ->
-                        call.pushRequirement(lowerReference,
-                                OrderingAttribute.ORDERING,
-                                interestingOrderingOptional.get()));
+                        call.pushConstraint(lowerReference,
+                                OrderingConstraint.REQUESTED_ORDERING,
+                                requestedOrderingOptional.get()));
     }
 }

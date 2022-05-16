@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ComparatorCursor;
@@ -38,10 +37,10 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -137,7 +136,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      */
     @Nonnull
     @Override
-    @SuppressWarnings("squid:S2095")
+    @SuppressWarnings({"squid:S2095", "resource"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
@@ -145,31 +144,30 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
         // The child plans all keep their skip and limit - this way we can ensure that they all handle their skip and
         // limit correctly. The parent plan adds no skip and limit of its own - the reference plan is handling that.
         final ExecuteProperties parentExecuteProperties = executeProperties.clearSkipAndLimit();
-        return ComparatorCursor.create(store, getComparisonKey(),
+        return ComparatorCursor.create(store,
+                        getComparisonKey(),
                         getChildren().stream()
                                 .map(childPlan -> childCursorFunction(store, context, executeProperties, childPlan))
                                 .collect(Collectors.toList()),
                         continuation,
                         referencePlanIndex,
                         abortOnComparisonFailure,
-                        () -> toString(),
+                        this::toString,
                         () -> planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS))
-                .skipThenLimit(parentExecuteProperties.getSkip(), parentExecuteProperties.getReturnedRowLimit())
-                .map(QueryResult::of);
+                .skipThenLimit(parentExecuteProperties.getSkip(), parentExecuteProperties.getReturnedRowLimit());
     }
 
     /*
      * Return a function that creates a cursor for the given child plan using the provided continuation
      */
     @Nonnull
-    private <M extends Message> Function<byte[], RecordCursor<FDBQueriedRecord<M>>> childCursorFunction(
+    private <M extends Message> Function<byte[], RecordCursor<QueryResult>> childCursorFunction(
             final @Nonnull FDBRecordStoreBase<M> store,
             final @Nonnull EvaluationContext context,
             final ExecuteProperties childExecuteProperties,
             final RecordQueryPlan childPlan) {
         return ((byte[] childContinuation) -> childPlan
-                .executePlan(store, context, childContinuation, childExecuteProperties)
-                .map(QueryResult::getQueriedRecord));
+                .executePlan(store, context, childContinuation, childExecuteProperties));
     }
 
     @Nonnull

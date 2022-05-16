@@ -89,8 +89,8 @@ public abstract class WindowedValue implements Value {
     public abstract String getName();
 
     @Override
-    public int semanticHashCode() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getName(), partitioningValues, argumentValues);
+    public int hashCodeWithoutChildren() {
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getName());
     }
 
     /**

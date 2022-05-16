@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.google.common.cache.Cache;
@@ -37,6 +37,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.IntUnaryOperator;
 
 /**
@@ -129,6 +130,8 @@ public class DebuggerWithSymbolTables implements Debugger {
         getCurrentState().addCurrentEvent(event);
     }
 
+
+
     @Nullable
     private static <T> T lookupInCache(final Cache<Integer, T> cache, final String identifier, final String prefix) {
         @Nullable final Integer refId = getIdFromIdentifier(identifier, prefix);
@@ -164,7 +167,6 @@ public class DebuggerWithSymbolTables implements Debugger {
         return getIdFromIdentifier(identifier, identifier.substring(0, 3)) != null;
     }
 
-
     @Nullable
     public String nameForObject(@Nonnull final Object object) {
         final State state = getCurrentState();
@@ -184,6 +186,11 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public void onDone() {
+        final var state = Objects.requireNonNull(stateStack.peek());
+        logger.debug(KeyValueLogMessage.of("planning done",
+                "query", Objects.requireNonNull(queryAsString).substring(0, 30),
+                "duration-in-ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - state.getStartTs()),
+                "ticks", state.getCurrentTick()));
         reset();
     }
 

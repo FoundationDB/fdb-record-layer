@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
@@ -101,7 +101,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
         } else {
             sorted = FileSortCursor.create(adapter, innerCursor, timer, continuation, skip, limit);
         }
-        return sorted.map(QueryResult::of);
+        return sorted.map(QueryResult::fromQueriedRecord);
     }
 
     @Override

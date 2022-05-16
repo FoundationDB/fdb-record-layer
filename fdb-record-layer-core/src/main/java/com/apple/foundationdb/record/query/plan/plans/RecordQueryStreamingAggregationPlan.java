@@ -35,15 +35,16 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.OrdinalFieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -292,7 +293,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 final var groupingResultRecordType = (Type.Record)groupingResultType;
                 List<Type.Record.Field> fields = groupingResultRecordType.getFields();
                 for (var i = 0; i < fields.size(); i++) {
-                    valuesBuilder.add(QuantifiedColumnValue.of(groupingKeyAlias, i, groupingResultRecordType));
+                    valuesBuilder.add(OrdinalFieldValue.of(ObjectValue.of(groupingKeyAlias, groupingResultRecordType), i));
                 }
             } else {
                 valuesBuilder.add(groupingKeyValue);
@@ -305,7 +306,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
             final var aggregateResultRecordType = (Type.Record)aggregateResultType;
             List<Type.Record.Field> fields = aggregateResultRecordType.getFields();
             for (var i = 0; i < fields.size(); i++) {
-                valuesBuilder.add(QuantifiedColumnValue.of(aggregateAlias, i, aggregateResultRecordType));
+                valuesBuilder.add(OrdinalFieldValue.of(ObjectValue.of(aggregateAlias, aggregateResultRecordType), i));
             }
         } else {
             valuesBuilder.add(aggregateValue);
@@ -321,8 +322,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                       @Nonnull final CorrelationIdentifier aggregateAlias) {
         if (groupingKeyValue != null) {
             return RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                    QuantifiedObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
-                    QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
+                    ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
+                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
         } else {
             return RecordConstructorValue.ofUnnamed(ImmutableList.of(
                     RecordConstructorValue.ofUnnamed(ImmutableList.of()),

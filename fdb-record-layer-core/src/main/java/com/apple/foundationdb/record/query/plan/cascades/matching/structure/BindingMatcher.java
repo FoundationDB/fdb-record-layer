@@ -34,11 +34,11 @@ import java.util.stream.Stream;
 /**
  * A binding matcher is an object that can be matched against a complex object tree, while binding certain
  * references in the tree to matcher objects. The bindings can be retrieved from the {@link PlannerBindings} once one
- * ore more bindings are established.
+ * or more bindings are established.
  *
  * Extreme care should be taken when implementing binding matchers, since it can be very delicate.
  * In particular, binding matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of must use the (default) reference equals for any binding matcher as the
+ * Additionally, implementors must use the (default) reference equals for any binding matcher as the
  * class {@link PlannerBindings} keeps an association between a matcher and the matched object(s) in a
  * multimap.
  * @param <T> the type that this matcher binds to
@@ -61,7 +61,7 @@ public interface BindingMatcher<T> {
     Class<T> getRootClass();
 
     /**
-     * Attempt to match this matcher against the given expression reference.
+     * Attempt to match this matcher against the given object.
      * Note that implementations should only attempt to match the given object with this matcher and delegate
      * all other matching activity to other matchers.
      *
@@ -195,6 +195,39 @@ public interface BindingMatcher<T> {
         } catch (final RecordCoreException e) {
             return Object.class;
         }
+    }
+
+    /**
+     * Create a unique instance that can be used to manually set a binding in a {@link PlannerBindings}. Normally
+     * matchers match a pattern which (if matching is successful) causes a binding to be created between a matcher
+     * and its matched data structure. This particular kind of instance of a matcher this method returns can be used to
+     * pre-set a binding to be conveniently be picked up by other matchers. For instance, it can be useful to
+     * communicate state information to the matching process (via the {@code outerBindings} parameter). Some rules
+     * would like to e.g. match an expression if that expression also happens to be the root of the graph, which is
+     * not matched but can be preset by the planner for the other matchers to be picked up.
+     * @param <T> type parameter
+     * @return a new instance of a matcher that can be used to manually set a binding in a {@link PlannerBindings}
+     *         object
+     */
+    static <T> BindingMatcher<T> instance() {
+        return new BindingMatcher<T>() {
+            @Nonnull
+            @Override
+            public Class<T> getRootClass() {
+                throw new RecordCoreException("getRootClass() should not be called");
+            }
+
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+                throw new RecordCoreException("bindMatchesSafely() should not be called");
+            }
+
+            @Override
+            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+                throw new RecordCoreException("explainMatcher() should not be called");
+            }
+        };
     }
 
     static String newLine(@Nonnull final String indent) {

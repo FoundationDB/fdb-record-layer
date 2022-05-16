@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -76,6 +77,27 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     @Nonnull
     default <M extends Message> Key.Evaluated evaluateSingleton(@Nullable FDBRecord<M> record) {
         final List<Key.Evaluated> keys = evaluate(record);
+        if (keys.size() != 1) {
+            throw new RecordCoreException("Should evaluate to single key only");
+        }
+        return keys.get(0);
+    }
+
+    /**
+     * Evaluate against a given record producing a list of evaluated keys. These are extracted from the
+     * fields within the record according to the rules of each implementing class.
+     *
+     * Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
+     * Protobuf messages, so that they interact properly with expressions that do.
+     * @param <M> the type of record
+     * @param record the record
+     * @return the list of evaluated keys for the given record
+     * @throws InvalidResultException if any returned result has some number of columns other
+     *         than the return value of {@link #getColumnSize()}
+     */
+    @Nonnull
+    default <M extends Message> Key.Evaluated evaluateMessageSingleton(@Nullable FDBRecord<M> record, @Nullable Message message) {
+        final List<Key.Evaluated> keys = evaluateMessage(record, message);
         if (keys.size() != 1) {
             throw new RecordCoreException("Should evaluate to single key only");
         }
@@ -210,7 +232,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     /**
      * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
      * of the key expression as composition of relational expressions and operators
-     * ({@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}s). Note that implementors should
+     * ({@link RelationalExpression}s). Note that implementors should
      * defer to the visitation methods in the supplied visitor rather than encoding actual logic in an overriding
      * method.
      * @param <S> a type that represents the state that {@code visitor} uses

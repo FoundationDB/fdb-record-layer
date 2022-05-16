@@ -25,7 +25,6 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -95,11 +94,14 @@ public class OrdinalFieldValue implements ValueWithChild {
     @SuppressWarnings("ConstantConditions")
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> fdbRecord, @Nullable final M message) {
-        final Message childTuple = (Message)child.eval(store, context, fdbRecord, message);
-        final Descriptors.Descriptor descriptorForType = childTuple.getDescriptorForType();
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        final Message childMessage = (Message)child.eval(store, context);
+        if (childMessage == null) {
+            return null;
+        }
+        final Descriptors.Descriptor descriptorForType = childMessage.getDescriptorForType();
         final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
-        return childTuple.getField(fieldDescriptor);
+        return childMessage.getField(fieldDescriptor);
     }
 
     @Override
@@ -112,7 +114,7 @@ public class OrdinalFieldValue implements ValueWithChild {
     }
 
     @Override
-    public int semanticHashCode() {
+    public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, ordinalPosition);
     }
 

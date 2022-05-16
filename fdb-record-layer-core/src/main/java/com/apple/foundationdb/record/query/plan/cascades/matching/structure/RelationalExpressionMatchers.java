@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.getTopExpressionReferenceMatcher;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
@@ -51,6 +52,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class RelationalExpressionMatchers {
     private RelationalExpressionMatchers() {
         // do not instantiate
+    }
+
+    @Nonnull
+    public static BindingMatcher<RelationalExpression> isTopExpression() {
+        return ContainsExpressionInReferenceMatcher.containsExpressionInReference(getTopExpressionReferenceMatcher());
     }
 
     public static BindingMatcher<RelationalExpression> anyExpression() {

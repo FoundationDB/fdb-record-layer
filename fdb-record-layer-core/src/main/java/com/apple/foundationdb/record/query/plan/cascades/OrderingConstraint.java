@@ -1,5 +1,5 @@
 /*
- * OrderingAttribute.java
+ * OrderingConstraint.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,21 +27,21 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * An attribute giving a set of sort orderings.
+ * A constraint requesting a set of sort orderings.
  */
-public class OrderingAttribute implements PlannerAttribute<Set<RequestedOrdering>> {
-    public static final PlannerAttribute<Set<RequestedOrdering>> ORDERING = new OrderingAttribute();
+public class OrderingConstraint implements PlannerConstraint<Set<RequestedOrdering>> {
+    public static final PlannerConstraint<Set<RequestedOrdering>> REQUESTED_ORDERING = new OrderingConstraint();
 
     @Nonnull
     @Override
-    public Optional<Set<RequestedOrdering>> combine(@Nonnull final Set<RequestedOrdering> currentProperty, @Nonnull final Set<RequestedOrdering> newProperty) {
-        if (currentProperty.containsAll(newProperty)) {
+    public Optional<Set<RequestedOrdering>> combine(@Nonnull final Set<RequestedOrdering> currentConstraint, @Nonnull final Set<RequestedOrdering> newConstraint) {
+        if (currentConstraint.containsAll(newConstraint)) {
             return Optional.empty();
         }
 
         return Optional.of(ImmutableSet.<RequestedOrdering>builder()
-                .addAll(currentProperty)
-                .addAll(newProperty)
+                .addAll(currentConstraint)
+                .addAll(newConstraint)
                 .build());
     }
 }

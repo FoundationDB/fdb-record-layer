@@ -29,16 +29,16 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -95,7 +95,8 @@ public class OrToLogicalUnionRule extends PlannerRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<OrPredicate> orMatcher = QueryPredicateMatchers.ofTypeWithChildren(OrPredicate.class, all(orTermPredicateMatcher));
     @Nonnull
-    private static final BindingMatcher<SelectExpression> root = RelationalExpressionMatchers.selectExpression(exactly(orMatcher), all(qunMatcher)); // TODO make this better to include other predicates
+    private static final BindingMatcher<SelectExpression> root =
+            RelationalExpressionMatchers.selectExpression(exactly(orMatcher), all(qunMatcher));
 
     public OrToLogicalUnionRule() {
         super(root);

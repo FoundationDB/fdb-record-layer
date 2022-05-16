@@ -1,5 +1,5 @@
 /*
- * ReferencedFieldsAttribute.java
+ * ReferencedFieldsConstraint.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,10 +28,10 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * An attribute giving a set of referenced field value.
+ * A constraint holding a set of referenced field values.
  */
-public class ReferencedFieldsAttribute implements PlannerAttribute<ReferencedFieldsAttribute.ReferencedFields> {
-    public static final PlannerAttribute<ReferencedFields> REFERENCED_FIELDS = new ReferencedFieldsAttribute();
+public class ReferencedFieldsConstraint implements PlannerConstraint<ReferencedFieldsConstraint.ReferencedFields> {
+    public static final PlannerConstraint<ReferencedFields> REFERENCED_FIELDS = new ReferencedFieldsConstraint();
 
     /**
      * A set of referenced field values.
@@ -52,14 +52,14 @@ public class ReferencedFieldsAttribute implements PlannerAttribute<ReferencedFie
 
     @Nonnull
     @Override
-    public Optional<ReferencedFields> combine(@Nonnull final ReferencedFields currentProperty, @Nonnull final ReferencedFields newProperty) {
+    public Optional<ReferencedFields> combine(@Nonnull final ReferencedFields currentConstraint, @Nonnull final ReferencedFields newConstraint) {
         final ImmutableSet<FieldValue> referencedFields =
                 ImmutableSet.<FieldValue>builder()
-                        .addAll(currentProperty.getReferencedFieldValues())
-                        .addAll(newProperty.getReferencedFieldValues())
+                        .addAll(currentConstraint.getReferencedFieldValues())
+                        .addAll(newConstraint.getReferencedFieldValues())
                         .build();
 
-        if (referencedFields.size() > currentProperty.getReferencedFieldValues().size()) {
+        if (referencedFields.size() > currentConstraint.getReferencedFieldValues().size()) {
             return Optional.of(new ReferencedFields(referencedFields));
         }
 

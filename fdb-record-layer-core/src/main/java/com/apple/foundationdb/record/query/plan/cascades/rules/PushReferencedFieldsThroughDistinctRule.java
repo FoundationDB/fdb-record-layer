@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsAttribute;
-import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsAttribute.ReferencedFields;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint.ReferencedFields;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -43,7 +43,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 
 /**
- * A rule that pushes an interesting {@link ReferencedFields} through a {@link LogicalDistinctExpression}.
+ * A rule that pushes a {@link ReferencedFieldsConstraint} through a {@link LogicalDistinctExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -54,21 +54,21 @@ public class PushReferencedFieldsThroughDistinctRule extends PlannerRule<Logical
             logicalDistinctExpression(exactly(innerQuantifierMatcher));
 
     public PushReferencedFieldsThroughDistinctRule() {
-        super(root, ImmutableSet.of(ReferencedFieldsAttribute.REFERENCED_FIELDS));
+        super(root, ImmutableSet.of(ReferencedFieldsConstraint.REFERENCED_FIELDS));
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
-        final Optional<ReferencedFields> referencedFieldsOptional = call.getInterestingProperty(ReferencedFieldsAttribute.REFERENCED_FIELDS);
+        final Optional<ReferencedFields> referencedFieldsOptional = call.getPlannerConstraint(ReferencedFieldsConstraint.REFERENCED_FIELDS);
 
         if (!referencedFieldsOptional.isPresent()) {
             return;
         }
 
-        call.pushRequirement(lowerRef,
-                ReferencedFieldsAttribute.REFERENCED_FIELDS,
+        call.pushConstraint(lowerRef,
+                ReferencedFieldsConstraint.REFERENCED_FIELDS,
                 referencedFieldsOptional.get());
     }
 }
