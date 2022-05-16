@@ -35,7 +35,9 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
@@ -129,4 +131,9 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
                 .thenApply(kvo -> kvo.map(kv -> TupleHelpers.subTuple(kv.getKey(), groupSize, totalSize)).orElse(null));
     }
 
+    @Nonnull
+    @Override
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties, @Nonnull final KeyExpression commonPrimaryKey) {
+        return scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKey);
+    }
 }

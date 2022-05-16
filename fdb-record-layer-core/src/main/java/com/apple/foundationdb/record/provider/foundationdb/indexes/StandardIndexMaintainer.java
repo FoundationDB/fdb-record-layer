@@ -138,9 +138,13 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         });
     }
 
-    @Override
     @Nonnull
-    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+    /**
+     * An implementation of the {@link #scanRemoteFetch} method for the {@link IndexScanType.BY_VALUE} case.
+     * Index Maintainers that support the {@link #scanRemoteFetch} method can use this implementation. Note that this
+     * method is not supported by default by an index maintainer.
+     */
+    protected RecordCursor<FDBIndexedRawRecord> scanRemoteFetchByValue(@Nonnull final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
                                                              @Nonnull final ScanProperties scanProperties,
                                                              @Nonnull final KeyExpression commonPrimaryKey) {

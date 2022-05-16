@@ -252,24 +252,25 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         }
     }
 
-    @Test
-    void testReadYourWriteInRangeFails() throws Exception {
+    @ParameterizedTest(name = "testReadYourWriteInRange(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void testReadYourWriteInRange(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             // Save record in range (don't commit)
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
+            recBuilder.setNumValueUnique(991);
             recBuilder.setStrValueIndexed("blah");
             recordStore.saveRecord(recBuilder.build());
 
-            // Execute the query (will fail because a record in memory cannot be processed by fdb)
-            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
             RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
 
             // When the API_VERSION is too low (remote fetch not supported) the plan will fallback to regular scan and
-            // no exception is thrown.
-            if (context.isAPIVersionAtLeast(APIVersion.API_VERSION_7_1)) {
+            // no exception is thrown. When in fallback mode, same thing, no exception.
+            if (context.isAPIVersionAtLeast(APIVersion.API_VERSION_7_1) && (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH)) {
                 assertThrows(RecordCoreException.class, () -> cursor.getNext());
             } else {
                 assertNotNull(cursor.getNext());
@@ -277,39 +278,23 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         }
     }
 
-    @Test
-    void testReadYourWriteOutOfRangeSucceeds() throws Exception {
+    @ParameterizedTest(name = "testReadYourWriteOutOfRangeSucceeds(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void testReadYourWriteOutOfRangeSucceeds(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             // Save record out of range (don't commit)
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(20);
+            recBuilder.setNumValueUnique(980);
             recBuilder.setStrValueIndexed("blah");
             recordStore.saveRecord(recBuilder.build());
 
             // Execute the query (will fail because a record in memory cannot be processed by fdb)
-            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
             RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
 
-            assertNotNull(cursor.getNext());
-        }
-    }
-
-    @Test
-    void testIndexPrefetchReadYourWriteFallbackSucceeds() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, splitRecordsHook);
-            // Save record (don't commit)
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1);
-            recBuilder.setStrValueIndexed("blah");
-            recordStore.saveRecord(recBuilder.build());
-
-            // Execute the query (will fail because a record in memory cannot be processed by index prefetch)
-            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
-            ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
-            RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
             assertNotNull(cursor.getNext());
         }
     }
