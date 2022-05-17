@@ -388,7 +388,7 @@ public interface RecordCursor<T> extends AutoCloseable {
     }
 
     /**
-     * Get a new cursor by applying transforming the continuation of each result. This function creates
+     * Get a new cursor by applying a transformation to the continuation of each result. This function creates
      * a new cursor by unwrapping the passed in {@code continuation} parameter (using the
      * {@link ContinuationConvertor#unwrapContinuation(byte[]) unwrapContinuation} method on the supplied
      * {@code convertor}) and passing that to the given {@code cursorFunction}. It then will modify
