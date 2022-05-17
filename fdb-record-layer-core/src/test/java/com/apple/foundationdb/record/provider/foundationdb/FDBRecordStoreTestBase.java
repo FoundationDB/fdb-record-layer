@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
@@ -55,6 +56,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -142,7 +145,22 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     public void getFDB() {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = getDatabase();
+    }
+
+    @Override
+    protected <T> void runWithModifiedFactory(final Function<FDBDatabaseFactory, T> getter,
+                                              final BiConsumer<FDBDatabaseFactory, T> setter,
+                                              final T value,
+                                              final TestHelpers.DangerousRunnable testCode) throws Exception {
+        super.runWithModifiedFactory(getter, setter, value, () -> {
+            try {
+                getFDB();
+                testCode.run();
+            } finally {
+                getFDB();
+            }
+        });
     }
 
     @Nonnull

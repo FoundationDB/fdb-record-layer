@@ -70,8 +70,8 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
     private FDBDatabase database;
 
     @BeforeEach
-    public void getDatabase() {
-        database = FDBDatabaseFactory.instance().getDatabase();
+    public void setDatabase() {
+        database = getDatabase();
     }
 
     @Test

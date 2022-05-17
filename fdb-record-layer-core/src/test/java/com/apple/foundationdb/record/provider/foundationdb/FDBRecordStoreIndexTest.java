@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestNoIndexesProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -108,8 +109,10 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.indexEntryKey;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
@@ -2563,13 +2566,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testBoundaryPrimaryKeys() {
-        runLocalityTest(() -> testBoundaryPrimaryKeysImpl());
+    public void testBoundaryPrimaryKeys() throws Exception {
+        runWithMockedLocalityUtil(this::testBoundaryPrimaryKeysImpl);
     }
 
     public void testBoundaryPrimaryKeysImpl() {
-        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setLocalityProvider(MockedLocalityUtil.instance());
         FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
 
         final String indexName = "MySimpleRecord$num_value_unique";
@@ -2613,11 +2614,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        int boundaryPrimaryKeysSize = boundaryPrimaryKeys.size();
-        assertTrue(boundaryPrimaryKeysSize > 2,
-                "the test is meaningless if the records are not across boundaries");
-        assertThat( boundaryPrimaryKeys.get(0), greaterThanOrEqualTo(Tuple.from(-25L * 39)));
-        assertThat( boundaryPrimaryKeys.get(boundaryPrimaryKeysSize - 1), lessThanOrEqualTo(Tuple.from(24L * 39)));
+        assertThat("the test is meaningless if the records are not across boundaries",
+                boundaryPrimaryKeys, hasSize(greaterThan(2)));
+        final int boundaryPrimaryKeysSize = boundaryPrimaryKeys.size();
+        assertThat(boundaryPrimaryKeys.get(0), greaterThanOrEqualTo(Tuple.from(-25L * 39)));
+        assertThat(boundaryPrimaryKeys.get(boundaryPrimaryKeysSize - 1), lessThanOrEqualTo(Tuple.from(24L * 39)));
         assertEquals(boundaryPrimaryKeys.stream().sorted().distinct().collect(Collectors.toList()), boundaryPrimaryKeys,
                 "the list should be sorted without duplication.");
         for (Tuple boundaryPrimaryKey : boundaryPrimaryKeys) {
@@ -2641,13 +2642,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testNoBoundaryPrimaryKeys() {
-        runLocalityTest(() -> testNoBoundaryPrimaryKeysImpl());
+    public void testNoBoundaryPrimaryKeys() throws Exception {
+        runWithMockedLocalityUtil(this::testNoBoundaryPrimaryKeysImpl);
     }
 
     public void testNoBoundaryPrimaryKeysImpl() {
-        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setLocalityProvider(MockedLocalityUtil.instance());
         FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
 
         final String indexName = "MySimpleRecord$num_value_unique";
@@ -2738,7 +2737,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testMockedLocalityUtil() {
-        runLocalityTest(() -> testMockedLocalityUtilImpl());
+        testMockedLocalityUtilImpl();
     }
 
     public void testMockedLocalityUtilImpl() {
@@ -2777,12 +2776,20 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         cursor.close();
     }
 
+    private void runWithMockedLocalityUtil(final TestHelpers.DangerousRunnable testCode) throws Exception {
+        runWithModifiedFactory(FDBDatabaseFactory::getLocalityProvider,
+                FDBDatabaseFactory::setLocalityProvider,
+                MockedLocalityUtil.instance(),
+                testCode);
+    }
+
     private void runLocalityTest(Runnable test) {
         final FDBLocalityProvider origProvider = FDBDatabaseFactory.instance().getLocalityProvider();
         try {
             test.run();
         } finally {
             FDBDatabaseFactory.instance().setLocalityProvider(origProvider);
+            FDBDatabaseFactory.instance().clear();
         }
     }
 }
