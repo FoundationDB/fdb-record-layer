@@ -1656,7 +1656,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private static void assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment, boolean cleanFiles) {
-        assertEntriesAndSegmentInfoStoredInCompoundFile(subspace.subspace(FDBDirectoryManager.AUTO_COMPLETE_SUFFIX), context, segment, cleanFiles);
+        assertEntriesAndSegmentInfoStoredInCompoundFile(subspace, context, segment, cleanFiles);
     }
 
     private static void assertEntriesAndSegmentInfoStoredInCompoundFile(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment, boolean cleanFiles) {
@@ -1709,25 +1709,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Assert the suggestions' keys
             List<String> suggestions = results.stream().map(i -> i.getKey().getString(i.getKeySize() - 1)).collect(Collectors.toList());
             if (highlight) {
-                assertEquals(ImmutableList.of("<b>good</b> evening", "<b>Good</b> night", "<b>Good</b> morning", "<b>Good</b> afternoon", "I'm <b>good</b>", "That's really <b>good</b>!"), suggestions);
+                assertEquals(ImmutableList.of("<b>Good</b> morning", "<b>Good</b> afternoon", "<b>good</b> evening", "<b>Good</b> night", "That's really <b>good</b>!", "I'm <b>good</b>"), suggestions);
             } else {
-                assertEquals(ImmutableList.of("good evening", "Good night", "Good morning", "Good afternoon", "I'm good", "That's really good!"), suggestions);
+                assertEquals(ImmutableList.of("Good morning", "Good afternoon", "good evening", "Good night", "That's really good!", "I'm good"), suggestions);
             }
 
             // Assert the corresponding field for the suggestions
             List<String> fields = results.stream().map(i -> i.getKey().getString(i.getKeySize() - 2)).collect(Collectors.toList());
             assertEquals(ImmutableList.of("text", "text", "text", "text", "text", "text"), fields);
-
-            // Assert the suggestions are sorted according to their values, which are determined by the position of the term into the indexed text
-            List<Long> values = results.stream().map(i -> (Long) i.getValue().get(0)).collect(Collectors.toList());
-            List<Long> valuesSorted = new ArrayList<>(values);
-            Collections.sort(valuesSorted, Collections.reverseOrder());
-            assertEquals(valuesSorted, values);
-            assertEquals(values.get(0), values.get(1));
-            assertEquals(values.get(1), values.get(2));
-            assertEquals(values.get(2), values.get(3));
-            assertTrue(values.get(3) > values.get(4));
-            assertTrue(values.get(4) > values.get(5));
 
             results.stream().forEach(i -> assertDocumentPartialRecordFromIndexEntry(recordType, i,
                     (String) i.getKey().get(i.getKeySize() - 1),
