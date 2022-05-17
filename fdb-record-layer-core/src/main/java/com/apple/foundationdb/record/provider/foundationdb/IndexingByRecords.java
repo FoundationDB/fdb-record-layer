@@ -408,7 +408,7 @@ public class IndexingByRecords extends IndexingBase {
                         final Tuple realEnd = postCommitRealEnd.get();
                         common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
                         // this will add back realEnd->END if realEnd is not already at the end
-                        final Range removed = rangeDeque.remove();// remove the successfully built range
+                        rangeDeque.remove();// remove the successfully built range
                         return handleBuiltRange(subspaceProvider, rangeDeque, startTuple, endTuple, realEnd, limit)
                                 .thenApply(vignore -> null);
                     });
