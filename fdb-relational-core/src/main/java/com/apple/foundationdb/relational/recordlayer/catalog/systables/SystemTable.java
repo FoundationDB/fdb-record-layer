@@ -41,6 +41,7 @@ public interface SystemTable {
 
     /**
      * Returns the definition of the system table.
+     * @param schemaTemplateBuilder a DdlListener.SchemaTemplateBuilder
      * @return The definition of the system table.
      */
     @Nonnull

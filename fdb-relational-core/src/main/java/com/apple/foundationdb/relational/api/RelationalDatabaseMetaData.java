@@ -41,8 +41,8 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      * Equivalent to calling {@code getSchemas(currentDatabase(),null)}.
      *
      * The returned columns are:
-     * 1. <em>TABLE_SCHEM</em> String => schema name
-     * 2. <em>TABLE_CATALOG</em> String => The path of the database.
+     * 1. <em>TABLE_SCHEM</em> String -- schema name
+     * 2. <em>TABLE_CATALOG</em> String -- The path of the database.
      *
      * Unlike in the superinterface definition, the returned results for this method are not required to be ordered.
      *
@@ -60,8 +60,8 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      * ignored.
      *
      * The returned columns are:
-     * 1. <em>TABLE_SCHEM</em> String => schema name
-     * 2. <em>TABLE_CATALOG</em> String => The path of the database.
+     * 1. <em>TABLE_SCHEM</em> String -- schema name
+     * 2. <em>TABLE_CATALOG</em> String -- The path of the database.
      *
      * Unlike in the superinterface definition, the returned results for this method are not required to be ordered.
      *

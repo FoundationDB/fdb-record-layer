@@ -22,4 +22,4 @@
  * A collection of testing systems which are based on comparing results to equivalent queries in an embedded
  * SQL database.
  */
-package com.apple.foundationdb.relational.compare;
+package com.apple.foundationdb.relational.transactionbound;
