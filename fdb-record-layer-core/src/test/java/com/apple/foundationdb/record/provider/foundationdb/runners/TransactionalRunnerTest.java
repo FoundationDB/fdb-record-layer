@@ -118,13 +118,13 @@ class TransactionalRunnerTest extends FDBTestBase {
     void aborts() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final Exception cause = new Exception("ABORT");
-            final CompletionException exception = assertThrows(CompletionException.class,
-                    () -> runner.runAsync(false, context -> {
-                        context.ensureActive().set(key, value);
-                        CompletableFuture<String> future = new CompletableFuture<>();
-                        future.completeExceptionally(cause);
-                        return future;
-                    }).join());
+            final CompletableFuture<String> runFuture = runner.runAsync(false, context -> {
+                context.ensureActive().set(key, value);
+                CompletableFuture<String> future = new CompletableFuture<>();
+                future.completeExceptionally(cause);
+                return future;
+            });
+            final CompletionException exception = assertThrows(CompletionException.class, runFuture::join);
             assertEquals(cause, exception.getCause());
 
             assertValue(runner, key, null);

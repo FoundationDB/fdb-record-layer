@@ -58,6 +58,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -459,8 +460,10 @@ public class IndexingByRecords extends IndexingBase {
                                                               final @Nonnull Queue<Range> rangeDeque,
                                                               final Tuple startTuple,
                                                               final Tuple endTuple,
-                                                              final Throwable ex, final int limit) {
-        final RuntimeException unwrappedEx = ex == null ? null : getRunner().getDatabase().mapAsyncToSyncException(ex);
+                                                              final @Nonnull Throwable ex,
+                                                              final int limit) {
+        final RuntimeException unwrappedEx = Objects.requireNonNull(getRunner().getDatabase().mapAsyncToSyncException(ex),
+                "mapAsyncToSyncException returned null");
         Throwable cause = unwrappedEx;
         while (cause != null) {
             if (cause instanceof OnlineIndexer.RecordBuiltRangeException) {
