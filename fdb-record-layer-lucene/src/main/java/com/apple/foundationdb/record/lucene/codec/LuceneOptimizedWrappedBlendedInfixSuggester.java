@@ -25,11 +25,13 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
@@ -41,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Optimized suggester based on {@link BlendedInfixSuggester} to override the {@link IndexWriterConfig} for index writer.
@@ -53,12 +56,15 @@ public class LuceneOptimizedWrappedBlendedInfixSuggester extends BlendedInfixSug
     @Nonnull
     private final IndexMaintainerState state;
 
+    private final int mergeDirectoryCount;
+
     @SuppressWarnings("squid:S107")
     private LuceneOptimizedWrappedBlendedInfixSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir, @Nonnull Analyzer indexAnalyzer,
                                                         @Nonnull Analyzer queryAnalyzer, int minPrefixChars, BlenderType blenderType, int numFactor,
-                                                        @Nullable Double exponent, boolean highlight) throws IOException {
+                                                        @Nullable Double exponent, boolean highlight, int mergeDirectoryCount) throws IOException {
         super(dir, indexAnalyzer, queryAnalyzer, minPrefixChars, blenderType, numFactor, exponent, false, true, highlight);
         this.state = state;
+        this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
     @Override
@@ -73,8 +79,31 @@ public class LuceneOptimizedWrappedBlendedInfixSuggester extends BlendedInfixSug
 
             @Override
             public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
-                LOGGER.trace("Auto-complete index mergeSource={}", mergeSource);
-                super.merge(mergeSource, trigger);
+                if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
+                    if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
+                        if (LOGGER.isTraceEnabled()) {
+                            LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Auto-complete index merge based on probability"));
+                        }
+                        super.merge(mergeSource, trigger);
+                    } else {
+                        if (LOGGER.isTraceEnabled()) {
+                            LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Auto-complete index merge aborted based on probability"));
+                        }
+                        synchronized (this) {
+                            MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
+                            while (nextMerge != null) {
+                                nextMerge.setAborted();
+                                mergeSource.onMergeFinished(nextMerge);
+                                nextMerge = mergeSource.getNextMerge();
+                            }
+                        }
+                    }
+                } else {
+                    if (LOGGER.isTraceEnabled()) {
+                        LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Auto-complete index merge"));
+                    }
+                    super.merge(mergeSource, trigger);
+                }
             }
         });
         iwc.setCodec(new LuceneOptimizedCodec());
@@ -85,7 +114,7 @@ public class LuceneOptimizedWrappedBlendedInfixSuggester extends BlendedInfixSug
     @Nonnull
     public static AnalyzingInfixSuggester getSuggester(@Nonnull IndexMaintainerState state, @Nonnull Directory dir,
                                                        @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer,
-                                                       boolean highlight, @Nonnull IndexOptions indexOptions) {
+                                                       boolean highlight, @Nonnull IndexOptions indexOptions, int mergeDirectoryCount) {
         final String autoCompleteBlenderType = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_TYPE);
         final String autoCompleteBlenderNumFactor = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_BLENDER_NUM_FACTOR);
         final String autoCompleteMinPrefixSize = state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE);
@@ -99,9 +128,9 @@ public class LuceneOptimizedWrappedBlendedInfixSuggester extends BlendedInfixSug
 
         try {
             return useTermVectors
-                   ? new LuceneOptimizedWrappedBlendedInfixSuggester(state, dir, indexAnalyzer, queryAnalyzer, minPrefixChars, blenderType, numFactor, exponent, highlight)
+                   ? new LuceneOptimizedWrappedBlendedInfixSuggester(state, dir, indexAnalyzer, queryAnalyzer, minPrefixChars, blenderType, numFactor, exponent, highlight, mergeDirectoryCount)
                    : new LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors(state, dir, indexAnalyzer, queryAnalyzer, minPrefixChars, blenderType,
-                    numFactor, exponent, highlight, indexOptions);
+                    numFactor, exponent, highlight, indexOptions, mergeDirectoryCount);
         } catch (IllegalArgumentException iae) {
             throw new RecordCoreArgumentException("Invalid parameter for auto complete suggester", iae)
                     .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());

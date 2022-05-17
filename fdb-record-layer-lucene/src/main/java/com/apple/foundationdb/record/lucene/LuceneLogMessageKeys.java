@@ -59,6 +59,8 @@ public enum LuceneLogMessageKeys {
     INPUT,
     LENGTH,
     LOCK_NAME,
+    MERGE_SOURCE,
+    MERGE_TRIGGER,
     OFFSET,
     ORIGINAL_DATA_SIZE,
     POINTER,

@@ -32,6 +32,7 @@ import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
@@ -41,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Wrapper containing an {@link FDBDirectory} and cached accessor objects (like {@link IndexWriter}s). This object
@@ -53,6 +55,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
 
     private final IndexMaintainerState state;
     private final FDBDirectory directory;
+    private final int mergeDirectoryCount;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile IndexWriter writer;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
@@ -66,9 +69,10 @@ class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile IndexOptions suggesterFieldIndexOptions;
 
-    FDBDirectoryWrapper(IndexMaintainerState state, FDBDirectory directory) {
+    FDBDirectoryWrapper(IndexMaintainerState state, FDBDirectory directory, int mergeDirectoryCount) {
         this.state = state;
         this.directory = directory;
+        this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
     public FDBDirectory getDirectory() {
@@ -98,8 +102,31 @@ class FDBDirectoryWrapper implements AutoCloseable {
                             .setMergeScheduler(new ConcurrentMergeScheduler() {
                                 @Override
                                 public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
-                                    LOGGER.trace("mergeSource={}", mergeSource);
-                                    super.merge(mergeSource, trigger);
+                                    if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
+                                        if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
+                                            if (LOGGER.isTraceEnabled()) {
+                                                LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Basic Lucene index merge based on probability"));
+                                            }
+                                            super.merge(mergeSource, trigger);
+                                        } else {
+                                            if (LOGGER.isTraceEnabled()) {
+                                                LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Basic Lucene index merge aborted based on probability"));
+                                            }
+                                            synchronized (this) {
+                                                MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
+                                                while (nextMerge != null) {
+                                                    nextMerge.setAborted();
+                                                    mergeSource.onMergeFinished(nextMerge);
+                                                    nextMerge = mergeSource.getNextMerge();
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        if (LOGGER.isTraceEnabled()) {
+                                            LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Basic Lucene index merge"));
+                                        }
+                                        super.merge(mergeSource, trigger);
+                                    }
                                 }
                             })
                             .setCodec(new LuceneOptimizedCodec())
@@ -131,7 +158,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
 
                     suggester = LuceneOptimizedWrappedBlendedInfixSuggester.getSuggester(state, directory,
                             indexAnalyzerWrapper.getAnalyzer(), queryAnalyzerWrapper.getAnalyzer(),
-                            highlight, indexOptions == null ? suggesterFieldIndexOptions : indexOptions);
+                            highlight, indexOptions == null ? suggesterFieldIndexOptions : indexOptions,
+                            mergeDirectoryCount);
                     suggesterIndexAnalyzerId = indexAnalyzerWrapper.getUniqueIdentifier();
                     suggesterQueryAnalyzerId = queryAnalyzerWrapper.getUniqueIdentifier();
                     if (indexOptions != null) {

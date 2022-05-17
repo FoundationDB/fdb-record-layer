@@ -104,4 +104,9 @@ public final class LuceneRecordContextProperties {
      * False to use a {@link com.apple.foundationdb.record.lucene.codec.LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors} that does not store term vectors, and sort matches based on positions detection in memory.
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoComplete.withTermVectors", true);
+
+    /**
+     * This controls whether Lucene indexes' directories (and their directories for auto-complete) should be merged based on probability to reduce multiple merges per transaction.
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.multipleMerge.optimizationEnabled", true);
 }

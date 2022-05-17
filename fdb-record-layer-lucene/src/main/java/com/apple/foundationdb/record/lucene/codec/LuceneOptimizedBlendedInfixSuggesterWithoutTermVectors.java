@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.analysis.Analyzer;
@@ -35,6 +36,7 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.MultiDocValues;
 import org.apache.lucene.index.Term;
@@ -79,6 +81,7 @@ import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Optimized {@link BlendedInfixSuggester} that does not rely on term vectors persisted in DB.
@@ -120,18 +123,21 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
      */
     private final int minPrefixCharsCopy;
 
+    private final int mergeDirectoryCount;
+
     private Double exponent = 2.0;
 
     @SuppressWarnings("squid:S107")
     LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors(@Nonnull IndexMaintainerState state, @Nonnull Directory dir, @Nonnull Analyzer indexAnalyzer,
                                                            @Nonnull Analyzer queryAnalyzer, int minPrefixChars, BlendedInfixSuggester.BlenderType blenderType, int numFactor,
-                                                           @Nullable Double exponent, boolean highlight, @Nonnull IndexOptions indexOptions) throws IOException {
+                                                           @Nullable Double exponent, boolean highlight, @Nonnull IndexOptions indexOptions, int mergeDirectoryCount) throws IOException {
         super(dir, indexAnalyzer, queryAnalyzer, minPrefixChars, false, true, highlight);
         this.state = state;
         this.blenderType = blenderType;
         this.indexOptions = indexOptions;
         this.numFactor = numFactor;
         this.minPrefixCharsCopy = minPrefixChars;
+        this.mergeDirectoryCount = mergeDirectoryCount;
         if (exponent != null) {
             this.exponent = exponent;
         }
@@ -260,8 +266,31 @@ public class LuceneOptimizedBlendedInfixSuggesterWithoutTermVectors extends Anal
 
             @Override
             public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
-                LOGGER.trace("Auto-complete index mergeSource={}", mergeSource);
-                super.merge(mergeSource, trigger);
+                if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
+                    if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
+                        if (LOGGER.isTraceEnabled()) {
+                            LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Auto-complete index merge based on probability"));
+                        }
+                        super.merge(mergeSource, trigger);
+                    } else {
+                        if (LOGGER.isTraceEnabled()) {
+                            LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Auto-complete index merge aborted based on probability"));
+                        }
+                        synchronized (this) {
+                            MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
+                            while (nextMerge != null) {
+                                nextMerge.setAborted();
+                                mergeSource.onMergeFinished(nextMerge);
+                                nextMerge = mergeSource.getNextMerge();
+                            }
+                        }
+                    }
+                } else {
+                    if (LOGGER.isTraceEnabled()) {
+                        LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Auto-complete index merge"));
+                    }
+                    super.merge(mergeSource, trigger);
+                }
             }
         });
         iwc.setCodec(new LuceneOptimizedCodec());

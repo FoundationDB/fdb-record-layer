@@ -23,7 +23,12 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
+import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
@@ -33,6 +38,8 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.MergeScheduler;
+import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 
 import javax.annotation.Nonnull;
@@ -41,6 +48,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A transaction-scoped manager of {@link FDBDirectory} objects. For a single transaction, all {@link FDBDirectory}
@@ -58,10 +66,12 @@ public class FDBDirectoryManager implements AutoCloseable {
     private final IndexMaintainerState state;
     @Nonnull
     private final Map<Tuple, FDBDirectoryWrapper> createdDirectories;
+    private final int mergeDirectoryCount;
 
     private FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
         this.createdDirectories = new ConcurrentHashMap<>();
+        this.mergeDirectoryCount = getMergeDirectoryCount(state);
     }
 
     @Override
@@ -96,7 +106,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         final Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
         return createdDirectories.computeIfAbsent(mapKey, key -> {
             final Subspace directorySubspace = state.indexSubspace.subspace(key);
-            return new FDBDirectoryWrapper(state, new FDBDirectory(directorySubspace, state.context));
+            return new FDBDirectoryWrapper(state, new FDBDirectory(directorySubspace, state.context), mergeDirectoryCount);
         });
     }
 
@@ -148,5 +158,27 @@ public class FDBDirectoryManager implements AutoCloseable {
             });
             return newManager;
         }
+    }
+
+    private int getMergeDirectoryCount(@Nonnull IndexMaintainerState state) {
+        final AtomicInteger luceneMergeCount = new AtomicInteger();
+        state.store.getRecordMetaData().getAllIndexes().stream().filter(i -> i.getType().equals(LuceneIndexTypes.LUCENE)).forEach(i -> {
+            if (i.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false)) {
+                // Auto-complete has its separate directory to merge
+                luceneMergeCount.getAndAdd(2);
+            } else {
+                luceneMergeCount.incrementAndGet();
+            }
+        });
+        return luceneMergeCount.get();
+    }
+
+    public static String getMergeLogMessage(@Nonnull MergeScheduler.MergeSource mergeSource, @Nonnull MergeTrigger trigger,
+                                            @Nonnull IndexMaintainerState state, @Nonnull String logMessage) {
+        return KeyValueLogMessage.of(logMessage,
+                LuceneLogMessageKeys.MERGE_SOURCE, mergeSource,
+                LuceneLogMessageKeys.MERGE_TRIGGER, trigger,
+                LogMessageKeys.INDEX_NAME, state.index.getName(),
+                LogMessageKeys.INDEX_SUBSPACE, state.indexSubspace);
     }
 }
