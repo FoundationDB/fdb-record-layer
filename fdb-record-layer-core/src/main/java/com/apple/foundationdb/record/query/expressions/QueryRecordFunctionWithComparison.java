@@ -182,7 +182,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                 withPrefix = Query.field(fieldName).matches(withPrefix);
             }
 
-            return GraphExpansion.ofExists(rankComparisonQuantifier, baseQuantifier, withPrefix);
+            return GraphExpansion.ofExists(rankComparisonQuantifier);
         }
 
         throw new UnsupportedOperationException();

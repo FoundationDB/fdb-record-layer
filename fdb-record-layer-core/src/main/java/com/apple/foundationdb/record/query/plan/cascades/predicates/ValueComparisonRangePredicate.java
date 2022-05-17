@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.InjectCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -269,12 +271,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
                 // parameter placeholder in the candidate
                 return Optional.of(new PredicateMapping(this,
                         candidatePredicate,
-                        ((matchInfo, boundParameterPrefixMap) -> reapplyPredicateMaybe(boundParameterPrefixMap, placeHolderPredicate)),
+                        ((partialMatch, boundParameterPrefixMap) -> reapplyPredicateMaybe(boundParameterPrefixMap, placeHolderPredicate)),
                         placeHolderPredicate.getAlias()));
             } else if (candidatePredicate.isTautology()) {
                 return Optional.of(new PredicateMapping(this,
                         candidatePredicate,
-                        ((matchInfo, boundParameterPrefixMap) -> Optional.of(reapplyPredicate()))));
+                        ((partialMatch, boundParameterPrefixMap) -> Optional.of(reapplyPredicate()))));
 
             }
 
@@ -294,8 +296,8 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             return Optional.empty();
         }
 
-        private Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                               @Nonnull final Placeholder placeholderPredicate) {
+        private Optional<InjectCompensationFunction> reapplyPredicateMaybe(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                           @Nonnull final Placeholder placeholderPredicate) {
             if (boundParameterPrefixMap.containsKey(placeholderPredicate.getAlias())) {
                 return Optional.empty();
             }
@@ -303,8 +305,8 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             return Optional.of(reapplyPredicate());
         }
 
-        private QueryPredicate reapplyPredicate() {
-            return toResidualPredicate();
+        private InjectCompensationFunction reapplyPredicate() {
+            return translationMap -> GraphExpansion.ofPredicate(toResidualPredicate().translateCorrelations(translationMap));
         }
 
         @Override

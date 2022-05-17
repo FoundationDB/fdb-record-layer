@@ -20,15 +20,14 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -270,10 +269,8 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     }
 
     @Nonnull
-    public static GraphExpansion ofExists(@Nonnull final Quantifier.Existential existentialQuantifier,
-                                          @Nonnull final Quantifier.ForEach baseQuantifier,
-                                          @Nonnull final QueryComponent alternativeComponent) {
-        final var existsPredicate = new ExistsPredicate(existentialQuantifier.getAlias(), baseQuantifier.getAlias(), alternativeComponent);
+    public static GraphExpansion ofExists(@Nonnull final Quantifier.Existential existentialQuantifier) {
+        final var existsPredicate = new ExistsPredicate(existentialQuantifier.getAlias());
         return of(ImmutableList.of(), ImmutableList.of(existsPredicate), ImmutableList.of(existentialQuantifier), ImmutableList.of());
     }
 

@@ -125,7 +125,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
             withPrefix = Query.field(fieldName).matches(withPrefix);
         }
 
-        return GraphExpansion.ofExists(childQuantifier, baseQuantifier, withPrefix);
+        return GraphExpansion.ofExists(childQuantifier);
     }
 
     @Override

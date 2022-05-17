@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithCom
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithOneOfComparison;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithComparison;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.planning.InExtractor;
@@ -1398,7 +1399,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             } else {
                 possibleTypes = metaData.getRecordTypes().keySet();
             }
-            plan = new RecordQueryScanPlan(possibleTypes, candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted);
+            plan = new RecordQueryScanPlan(possibleTypes, new Type.Any(), candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted);
         } else {
             plan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanComparisons, getConfiguration().getIndexFetchMethod(), candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);

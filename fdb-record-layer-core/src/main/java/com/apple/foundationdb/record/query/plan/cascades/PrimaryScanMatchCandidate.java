@@ -129,6 +129,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of can"));
         return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
                 new PrimaryScanExpression(getAvailableRecordTypes(),
+                        Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(getAvailableRecordTypes())),
                         comparisonRanges,
                         reverseScanOrder),
                 Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(getQueriedRecordTypes())));

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
@@ -145,7 +146,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull AliasMap aliasMap,
                                                                  @Nonnull final QueryPredicate candidatePredicate) {
         if (candidatePredicate.isTautology()) {
-            return Optional.of(new PredicateMapping(this, candidatePredicate, ((matchInfo, boundParameterPrefixMap) -> Optional.of(toResidualPredicate()))));
+            return Optional.of(new PredicateMapping(this,
+                    candidatePredicate,
+                    ((matchInfo, boundParameterPrefixMap) ->
+                             Optional.of(translationMap -> GraphExpansion.ofPredicate(toResidualPredicate().translateCorrelations(translationMap))))));
         }
         
         return Optional.empty();

@@ -115,20 +115,25 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                                 @Nonnull RecordQuery query) {
         final var recordMetaData = context.getMetaData();
         query.validate(recordMetaData);
-        final var recordTypes = context.getRecordTypes();
+        final var allRecordTypes = context.getMetaData().getRecordTypes().keySet();
+        final var queriedRecordTypes = context.getRecordTypes();
 
         final GroupExpressionRef<? extends RelationalExpression> baseRef;
         Quantifier.ForEach quantifier;
-        if (recordTypes.isEmpty()) {
-            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), new AccessHints()));
+        if (queriedRecordTypes.isEmpty()) {
+            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(allRecordTypes,
+                    Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(allRecordTypes)),
+                    new AccessHints()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
-            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), new AccessHints()));
+            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(allRecordTypes,
+                    Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(allRecordTypes)),
+                    new AccessHints()));
             baseRef = GroupExpressionRef.of(
                     new LogicalTypeFilterExpression(
-                            new HashSet<>(recordTypes),
+                            new HashSet<>(queriedRecordTypes),
                             Quantifier.forEach(fuseRef),
-                            Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(recordTypes))));
+                            Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(queriedRecordTypes))));
             quantifier = Quantifier.forEach(baseRef);
         }
 

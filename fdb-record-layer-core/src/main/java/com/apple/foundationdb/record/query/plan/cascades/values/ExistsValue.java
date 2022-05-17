@@ -62,7 +62,7 @@ public class ExistsValue implements BooleanValue, ValueWithChild, Value.CompileT
     @SuppressWarnings({"java:S2637", "ConstantConditions"}) // TODO the alternative component should not be null
     @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
     public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
-        return Optional.of(new ExistsPredicate(child.getAlias(), null, null));
+        return Optional.of(new ExistsPredicate(child.getAlias()));
     }
 
     @Nonnull

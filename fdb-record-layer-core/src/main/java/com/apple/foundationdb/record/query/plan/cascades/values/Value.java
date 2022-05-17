@@ -266,7 +266,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                     return leafValue;
                 }
             }
-            throw new RecordCoreException("leaf value does not implement LeafValue");
+            Verify.verify(value.getCorrelatedTo().isEmpty());
+            return value;
         }).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 

@@ -94,7 +94,7 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
         final MatchInfo matchInfo = partialMatch.getMatchInfo();
         final Set<Quantifier.ForEach> unmappedForEachQuantifiers = new LinkedIdentitySet<>();
         for (final Quantifier quantifier : getQuantifiers()) {
-            if (quantifier instanceof Quantifier.ForEach && !matchInfo.getChildPartialMatch(quantifier.getAlias()).isPresent()) {
+            if (quantifier instanceof Quantifier.ForEach && matchInfo.getChildPartialMatch(quantifier.getAlias()).isEmpty()) {
                 unmappedForEachQuantifiers.add((Quantifier.ForEach)quantifier);
             }
         }

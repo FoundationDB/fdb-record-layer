@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.InjectCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -294,7 +295,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         //
         // Go through all matched existential quantifiers. Make sure that there is a top level exists() predicate
-        // corresponding to  each  one.
+        // corresponding to each one.
         //
         if (getQuantifiers()
                 .stream()
@@ -516,7 +517,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     @SuppressWarnings({"java:S135", "java:S1066"})
     public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        final var toBeReappliedPredicatesMap = Maps.<QueryPredicate, QueryPredicate>newIdentityHashMap();
+        final var toBeReappliedPredicatesMap = Maps.<QueryPredicate, InjectCompensationFunction>newIdentityHashMap();
         final var matchInfo = partialMatch.getMatchInfo();
         final var predicateMap = matchInfo.getPredicateMap();
 
@@ -558,12 +559,12 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
             final var predicateMapping = predicateMappingOptional.get();
 
-            final Optional<QueryPredicate> reappliedPredicateOptional =
+            final Optional<InjectCompensationFunction> injectCompensationFunctionOptional =
                     predicateMapping
-                            .reapplyPredicateFunction()
-                            .reapplyPredicateMaybe(matchInfo, boundParameterPrefixMap);
+                            .compensatePredicateFunction()
+                            .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
 
-            reappliedPredicateOptional.ifPresent(reappliedPredicate -> toBeReappliedPredicatesMap.put(predicate, reappliedPredicate));
+            injectCompensationFunctionOptional.ifPresent(injectCompensationFunction -> toBeReappliedPredicatesMap.put(predicate, injectCompensationFunction));
         }
 
         return Compensation.ofChildCompensationAndPredicateMap(childCompensation,

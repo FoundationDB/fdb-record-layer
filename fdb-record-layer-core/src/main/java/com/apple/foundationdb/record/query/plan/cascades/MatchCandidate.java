@@ -243,10 +243,6 @@ public interface MatchCandidate {
         final var recordTypesForIndex = metaData.recordTypesForIndex(index);
         final var commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
 
-        if (true) {
-            return resultBuilder.build();
-        }
-
         final var recordTypeNamesForIndex =
                 recordTypesForIndex
                         .stream()
@@ -321,7 +317,7 @@ public interface MatchCandidate {
                                                           @Nonnull final Set<String> recordTypes,
                                                           @Nullable KeyExpression commonPrimaryKey,
                                                           final boolean isReverse) {
-        if (false && commonPrimaryKey != null) {
+        if (commonPrimaryKey != null) {
             final var availableRecordTypes = metaData.getRecordTypes().keySet();
             final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes, new PrimaryAccessHint());
             final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
@@ -334,7 +330,11 @@ public interface MatchCandidate {
     @Nonnull
     static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex, @Nonnull AccessHint accessHint) {
         final var quantifier =
-                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, new AccessHints(accessHint))));
+                Quantifier.forEach(
+                        GroupExpressionRef.of(
+                                new FullUnorderedScanExpression(allAvailableRecordTypes,
+                                        Type.Record.fromFieldDescriptorsMap(metaData.getFieldDescriptorMapFromNames(allAvailableRecordTypes)),
+                                        new AccessHints(accessHint))));
         return GroupExpressionRef.of(
                 new LogicalTypeFilterExpression(recordTypesForIndex,
                         quantifier,

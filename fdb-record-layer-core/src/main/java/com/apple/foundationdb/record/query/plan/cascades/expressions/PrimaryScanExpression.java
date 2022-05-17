@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysicalScanRule;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -52,15 +53,18 @@ import java.util.Set;
 public class PrimaryScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
     private final Set<String> recordTypes;
-
+    @Nonnull
+    private final Type.Record flowedType;
     @Nonnull
     private final List<ComparisonRange> comparisonRanges;
     private final boolean reverse;
 
     public PrimaryScanExpression(@Nonnull final Set<String> recordTypes,
+                                 @Nonnull final Type.Record flowedType,
                                  @Nonnull final List<ComparisonRange> comparisonRanges,
                                  final boolean reverse) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
+        this.flowedType = flowedType;
         this.comparisonRanges = ImmutableList.copyOf(comparisonRanges);
         this.reverse = reverse;
     }
@@ -111,7 +115,7 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
     @Nonnull
     @Override
     public Value getResultValue() {
-        return new QueriedValue();
+        return new QueriedValue(flowedType);
     }
 
     @Override
@@ -126,6 +130,7 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
         }
         final PrimaryScanExpression otherPrimaryScanExpression = (PrimaryScanExpression) otherExpression;
         return recordTypes.equals(otherPrimaryScanExpression.recordTypes) &&
+               flowedType.equals(otherPrimaryScanExpression.getResultValue().getResultType()) &&
                comparisonRanges.equals(otherPrimaryScanExpression.comparisonRanges) &&
                reverse == otherPrimaryScanExpression.reverse;
     }

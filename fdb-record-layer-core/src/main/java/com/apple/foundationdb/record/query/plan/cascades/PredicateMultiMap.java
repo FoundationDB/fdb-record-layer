@@ -39,7 +39,7 @@ import java.util.Set;
  * The each mapping itself has other pieces of information associated with it:
  *
  * <ul>
- *     <li> a {@link ReapplyPredicateFunction} which can be used to compensate the implied candidate predicate or</li>
+ *     <li> a {@link CompensatePredicateFunction} which can be used to compensate the implied candidate predicate or</li>
  *     <li> a {@link CorrelationIdentifier} which denotes that this mapping binds the respective parameter in
  *          the match candidate </li>
  * </ul>
@@ -55,9 +55,19 @@ public class PredicateMultiMap {
      * Functional interface to reapply a predicate if necessary.
      */
     @FunctionalInterface
-    public interface ReapplyPredicateFunction {
-        Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull MatchInfo matchInfo,
-                                                       @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap);
+    public interface CompensatePredicateFunction {
+        @Nonnull
+        Optional<InjectCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                             @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap);
+    }
+
+    /**
+     * Functional interface to reapply a predicate if necessary.
+     */
+    @FunctionalInterface
+    public interface InjectCompensationFunction {
+        @Nonnull
+        GraphExpansion injectCompensation(@Nonnull final TranslationMap translationMap);
     }
 
     /**
@@ -70,30 +80,30 @@ public class PredicateMultiMap {
         @Nonnull
         private final QueryPredicate candidatePredicate;
         @Nonnull
-        private final ReapplyPredicateFunction reapplyPredicateFunction;
+        private final CompensatePredicateFunction compensatePredicateFunction;
         @Nonnull
         private final Optional<CorrelationIdentifier> parameterAliasOptional;
 
         public PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                 @Nonnull final QueryPredicate candidatePredicate,
-                                @Nonnull final ReapplyPredicateFunction reapplyPredicateFunction) {
-            this(queryPredicate, candidatePredicate, reapplyPredicateFunction, Optional.empty());
+                                @Nonnull final CompensatePredicateFunction compensatePredicateFunction) {
+            this(queryPredicate, candidatePredicate, compensatePredicateFunction, Optional.empty());
         }
 
         public PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                 @Nonnull final QueryPredicate candidatePredicate,
-                                @Nonnull final ReapplyPredicateFunction reapplyPredicateFunction,
+                                @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                 @Nonnull final CorrelationIdentifier parameterAlias) {
-            this(queryPredicate, candidatePredicate, reapplyPredicateFunction, Optional.of(parameterAlias));
+            this(queryPredicate, candidatePredicate, compensatePredicateFunction, Optional.of(parameterAlias));
         }
 
         private PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                  @Nonnull final QueryPredicate candidatePredicate,
-                                 @Nonnull final ReapplyPredicateFunction reapplyPredicateFunction,
+                                 @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                  @Nonnull final Optional<CorrelationIdentifier> parameterAlias) {
             this.queryPredicate = queryPredicate;
             this.candidatePredicate = candidatePredicate;
-            this.reapplyPredicateFunction = reapplyPredicateFunction;
+            this.compensatePredicateFunction = compensatePredicateFunction;
             this.parameterAliasOptional = parameterAlias;
         }
 
@@ -108,8 +118,8 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        public ReapplyPredicateFunction reapplyPredicateFunction() {
-            return reapplyPredicateFunction;
+        public CompensatePredicateFunction compensatePredicateFunction() {
+            return compensatePredicateFunction;
         }
 
         @Nonnull
@@ -181,15 +191,15 @@ public class PredicateMultiMap {
 
         public boolean put(@Nonnull final QueryPredicate queryPredicate,
                            @Nonnull final QueryPredicate candidatePredicate,
-                           @Nonnull final ReapplyPredicateFunction reapplyPredicateFunction) {
-            return put(queryPredicate, new PredicateMapping(queryPredicate, candidatePredicate, reapplyPredicateFunction));
+                           @Nonnull final CompensatePredicateFunction compensatePredicateFunction) {
+            return put(queryPredicate, new PredicateMapping(queryPredicate, candidatePredicate, compensatePredicateFunction));
         }
 
         public boolean put(@Nonnull final QueryPredicate queryPredicate,
                            @Nonnull final QueryPredicate candidatePredicate,
-                           @Nonnull final ReapplyPredicateFunction reapplyPredicateFunction,
+                           @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                            @Nonnull final CorrelationIdentifier parameterAlias) {
-            return put(queryPredicate, new PredicateMapping(queryPredicate, candidatePredicate, reapplyPredicateFunction, parameterAlias));
+            return put(queryPredicate, new PredicateMapping(queryPredicate, candidatePredicate, compensatePredicateFunction, parameterAlias));
         }
 
         public boolean put(@Nonnull final QueryPredicate queryPredicate,

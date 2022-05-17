@@ -275,8 +275,6 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
         final var newResultValue =
                 resultValue.translateCorrelations(translationMap);
 
-        final var of = GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates));
-        of.show(false);
-        call.yield(of);
+        call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates)));
     }
 }

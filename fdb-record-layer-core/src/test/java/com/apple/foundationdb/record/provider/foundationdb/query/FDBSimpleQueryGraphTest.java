@@ -63,7 +63,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.result;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapResult;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
@@ -81,10 +81,13 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // no index hints, plan a query
         final var plan = cascadesPlanner.planGraph(
                 () -> {
+                    final var allRecordTypes =
+                            ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
                     var qun =
                             Quantifier.forEach(GroupExpressionRef.of(
-                                    new FullUnorderedScanExpression(ImmutableSet.of("RestaurantRecord",
-                                            "RestaurantReviewer"), new AccessHints())));
+                                    new FullUnorderedScanExpression(allRecordTypes,
+                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new AccessHints())));
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(
                             new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
@@ -116,7 +119,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         typeFilterPlan(
                                 scanPlan()
                                         .where(scanComparisons(range("([1],>")))))
-                        .where(result(recordConstructorValue(exactly(fieldValue("name"), fieldValue("rest_no"))))));
+                        .where(mapResult(recordConstructorValue(exactly(fieldValue("name"), fieldValue("rest_no"))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -130,10 +133,14 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // with index hints ("review_rating"), cannot plan a query
         Exception exception = Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
                 () -> {
+                    final var allRecordTypes =
+                            ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+
                     var qun =
                             Quantifier.forEach(GroupExpressionRef.of(
-                                    new FullUnorderedScanExpression(ImmutableSet.of("RestaurantRecord",
-                                            "RestaurantReviewer"), new AccessHints(new IndexAccessHint("review_rating")))));
+                                    new FullUnorderedScanExpression(allRecordTypes,
+                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new AccessHints(new IndexAccessHint("review_rating")))));
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(
                             new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
@@ -169,10 +176,14 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // with index hints (RestaurantRecord$name), plan a different query
         final var plan = cascadesPlanner.planGraph(
                 () -> {
+                    final var allRecordTypes =
+                            ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+
                     var qun =
                             Quantifier.forEach(GroupExpressionRef.of(
-                                    new FullUnorderedScanExpression(ImmutableSet.of("RestaurantRecord",
-                                            "RestaurantReviewer"), new AccessHints(new IndexAccessHint("RestaurantRecord$name")))));
+                                    new FullUnorderedScanExpression(allRecordTypes,
+                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new AccessHints(new IndexAccessHint("RestaurantRecord$name")))));
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(
                             new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),

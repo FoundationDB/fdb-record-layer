@@ -51,7 +51,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * A query plan that applies the values it contains over the incoming ones. In a sense, this is similar to the {@code Stream.map()}
@@ -157,7 +156,8 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
         final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
         return new RecordQueryFlatMapPlan(translatedQuantifiers.get(0).narrow(Quantifier.Physical.class),
                 translatedQuantifiers.get(1).narrow(Quantifier.Physical.class),
-                translatedResultValue);
+                translatedResultValue,
+                inheritOuterRecordProperties);
     }
 
     @Override
@@ -212,7 +212,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValue());
+        return Objects.hash(getResultValue(), inheritOuterRecordProperties);
     }
 
     @Override
@@ -231,7 +231,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
             case LEGACY:
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, outer, inner, getResultValue());
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren(), inheritOuterRecordProperties, getResultValue());
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

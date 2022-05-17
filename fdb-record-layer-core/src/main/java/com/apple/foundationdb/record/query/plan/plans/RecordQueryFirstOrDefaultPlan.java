@@ -76,6 +76,11 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
         this.resultValue = new DerivedValue(ImmutableList.of(inner.getFlowedObjectValue(), onEmptyResultValue), inner.getFlowedObjectType());
     }
 
+    @Nonnull
+    public Value getOnEmptyResultValue() {
+        return onEmptyResultValue;
+    }
+
     @SuppressWarnings("resource")
     @Nonnull
     @Override

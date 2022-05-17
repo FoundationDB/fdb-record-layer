@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -33,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import com.google.common.graph.Network;
 
 import javax.annotation.Nonnull;
@@ -63,7 +65,11 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
 
         final Map<CorrelationIdentifier, Edge> aliasToEdgeMap = Maps.newHashMap();
         for (final Quantifier quantifier : sortedQuantifiers) {
-            final int index = quantifiers.indexOf(quantifier); // not great, not terrible
+            final int index = Streams.mapWithIndex(quantifiers.stream(),
+                    (q, i) -> q == quantifier ? (int)i : -1)
+                    .filter(i -> i >= 0)
+                    .findFirst()
+                    .orElseThrow(() -> new RecordCoreException("should have found the quantifier")); // not great, not terrible
 
             final Set<? extends AbstractEdge> dependsOn =
                     quantifier.getCorrelatedTo()
