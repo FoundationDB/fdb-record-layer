@@ -44,6 +44,9 @@ This release also updates downstream dependency versions. Most notably, the prot
 // end next release
 -->
 
+### 3.2.260.0
+
+
 ### 3.2.259.0
 
 * **Bug fix** Synchronize TransactionalRunner.close [(Issue #1659)](https://github.com/FoundationDB/fdb-record-layer/issues/1659)
