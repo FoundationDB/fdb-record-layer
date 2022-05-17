@@ -298,8 +298,8 @@ public class FDBDirectory extends Directory {
         final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(reference.getBytes(), compressionEnabled, encryptionEnabled));
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("Write lucene file reference",
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(getLogMessage("Write lucene file reference",
                     LuceneLogMessageKeys.FILE_NAME, name,
                     LuceneLogMessageKeys.DATA_SIZE, fileReferenceBytes.length,
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length,

@@ -473,12 +473,12 @@ class LuceneDocumentFromRecordTest {
 
     private static LuceneDocumentFromRecord.DocumentField documentField(String name, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
                                                                         boolean stored, boolean sorted,
-                                                                        @Nonnull Map<String, Object> fieldConfigs) {
-        return new LuceneDocumentFromRecord.DocumentField(name, value, type, stored, sorted, fieldConfigs);
+                                                                        @Nonnull Map<String, Object> fieldConfigs, boolean nested) {
+        return new LuceneDocumentFromRecord.DocumentField(name, value, type, stored, sorted, fieldConfigs, nested);
     }
 
     private static LuceneDocumentFromRecord.DocumentField stringField(String name, String value) {
-        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.STRING, false, false, Collections.emptyMap());
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.STRING, false, false, Collections.emptyMap(), false);
     }
 
     private static LuceneDocumentFromRecord.DocumentField textField(String name, String value) {
@@ -486,12 +486,12 @@ class LuceneDocumentFromRecordTest {
     }
 
     private static LuceneDocumentFromRecord.DocumentField textField(String name, String value, Map<String, Object> fieldConfigs) {
-        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.TEXT, false, false, fieldConfigs);
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.TEXT, false, false, fieldConfigs, false);
     }
 
 
     private static LuceneDocumentFromRecord.DocumentField intField(String name, int value) {
-        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.INT, false, false, Collections.emptyMap());
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.INT, false, false, Collections.emptyMap(), false);
     }
 
 }
