@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -167,6 +168,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Override
     public RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
                                                        @Nonnull final PartialMatch partialMatch,
+                                                       @Nonnull final PlanContext planContext,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
@@ -175,10 +177,12 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
 
-        return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, reverseScanOrder, baseRecordType)
+        return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
+                                planContext.getCommonPrimaryKey(),
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
+                                planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 reverseScanOrder,
                                 false,
                                 (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
@@ -187,6 +191,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final PlanContext planContext,
                                                                      @Nonnull final List<ComparisonRange> comparisonRanges,
                                                                      final boolean isReverse,
                                                                      @Nonnull Type.Record baseRecordType) {
@@ -222,7 +227,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
+                        planContext.getCommonPrimaryKey(),
                         scanParameters,
+                        planContext.getPlannerConfiguration().getIndexFetchMethod(),
                         isReverse,
                         false,
                         (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate(),

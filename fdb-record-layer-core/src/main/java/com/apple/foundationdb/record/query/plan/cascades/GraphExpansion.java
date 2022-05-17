@@ -271,8 +271,9 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
 
     @Nonnull
     public static GraphExpansion ofExists(@Nonnull final Quantifier.Existential existentialQuantifier,
+                                          @Nonnull final Quantifier.ForEach baseQuantifier,
                                           @Nonnull final QueryComponent alternativeComponent) {
-        final var existsPredicate = new ExistsPredicate(existentialQuantifier.getAlias(), alternativeComponent);
+        final var existsPredicate = new ExistsPredicate(existentialQuantifier.getAlias(), baseQuantifier.getAlias(), alternativeComponent);
         return of(ImmutableList.of(), ImmutableList.of(existsPredicate), ImmutableList.of(existentialQuantifier), ImmutableList.of());
     }
 

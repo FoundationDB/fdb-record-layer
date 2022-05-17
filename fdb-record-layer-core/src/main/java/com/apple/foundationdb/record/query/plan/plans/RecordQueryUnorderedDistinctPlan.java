@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -96,7 +96,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final Set<Key.Evaluated> seen = new HashSet<>();
         return getInner().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
-                .filterInstrumented(result -> seen.add(getComparisonKey().evaluateSingleton(result.getQueriedRecord())),
+                .filterInstrumented(result -> seen.add(getComparisonKey().evaluateMessageSingleton(null, result.getMessage())),
                         store.getTimer(), Collections.emptySet(), duringEvents, uniqueCounts, duplicateCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }

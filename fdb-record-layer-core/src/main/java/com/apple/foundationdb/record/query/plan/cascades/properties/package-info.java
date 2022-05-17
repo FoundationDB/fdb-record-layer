@@ -22,7 +22,7 @@
  * A package for planner properties (in the sense that Cascades uses them).
  *
  * <p>
- * In Cascades, a property is an attribute of {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}
+ * In Cascades, a property is an attribute of {@link com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression}
  * that cannot be described from the structure of the expression tree alone. For example, the set of record types that
  * a relational planner expression produces is a property, but whether or not it has a filter that contains an AND
  * clause is not a property. Properties generally need to be evaluated against an expression, instead of arising from
@@ -38,7 +38,7 @@
  * </p>
  *
  * <p>
- * This package contains various implementations of {@link com.apple.foundationdb.record.query.plan.cascades.PlannerProperty}.
+ * This package contains various implementations of {@link com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty}.
  * </p>
  */
 package com.apple.foundationdb.record.query.plan.cascades.properties;

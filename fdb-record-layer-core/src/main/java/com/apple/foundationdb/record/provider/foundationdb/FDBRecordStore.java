@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.MutableRecordStoreState;
@@ -58,6 +60,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
@@ -117,6 +120,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -163,7 +167,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // instead of a transactional rebuild.
     public static final int MAX_RECORDS_FOR_REBUILD = 200;
 
-    // The maximum number of index rebuilds to run in parellel
+    // The maximum number of index rebuilds to run in parallel
     // TODO: This should probably be configured through the PipelineSizer
     public static final int MAX_PARALLEL_INDEX_REBUILD = 10;
 
@@ -1207,6 +1211,150 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         RecordCursor<IndexEntry> result = getIndexMaintainer(index)
                 .scan(scanBounds, continuation, scanProperties);
         return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, result);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<FDBIndexedRecord<Message>> scanIndexRemoteFetch(@Nonnull Index index,
+                                                                        @Nonnull IndexScanBounds scanBounds,
+                                                                        @Nonnull final KeyExpression commonPrimaryKey,
+                                                                        @Nullable byte[] continuation,
+                                                                        @Nonnull ScanProperties scanProperties,
+                                                                        @Nonnull final IndexOrphanBehavior orphanBehavior) {
+        return scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKey, continuation, serializer, scanProperties, orphanBehavior);
+    }
+
+    @Nonnull
+    protected <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchInternal(@Nonnull final Index index,
+                                                                                                 @Nonnull final IndexScanBounds scanBounds,
+                                                                                                 @Nonnull final KeyExpression commonPrimaryKey,
+                                                                                                 @Nullable final byte[] continuation,
+                                                                                                 @Nonnull RecordSerializer<M> typedSerializer,
+                                                                                                 @Nonnull final ScanProperties scanProperties,
+                                                                                                 @Nonnull final IndexOrphanBehavior orphanBehavior) {
+        if (!isIndexReadable(index)) {
+            throw new ScanNonReadableIndexException("Cannot scan non-readable index",
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    subspaceProvider.logKey(), subspaceProvider.toString(context));
+        }
+        if (scanBounds.getScanType() != IndexScanType.BY_VALUE) {
+            throw new RecordCoreArgumentException("Index remote fetch can only be used with VALUE index scan.",
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    subspaceProvider.logKey(), subspaceProvider.toString(context));
+        }
+        if (!getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
+            throw new UnsupportedMethodException("Index Remote Fetch can only be used with API_VERSION of at least 7.1.");
+        }
+
+        Subspace recordSubspace = recordsSubspace();
+        IndexMaintainer indexMaintainer = getIndexMaintainer(index);
+        // Get the cursor with the index entries and the records from FDB
+        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanRemoteFetch(scanBounds, continuation, scanProperties, commonPrimaryKey);
+        // Parse the index entries and payload and build records
+        RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries, typedSerializer);
+
+        return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_REMOTE_FETCH, indexedRecordCursor);
+    }
+
+    @VisibleForTesting
+    @Nonnull
+    <M extends Message> RecordCursor<FDBIndexedRecord<M>> indexEntriesToIndexRecords(@Nonnull final ScanProperties scanProperties,
+                                                                                     @Nonnull final IndexOrphanBehavior orphanBehavior,
+                                                                                     @Nonnull final Subspace recordSubspace,
+                                                                                     @Nonnull final RecordCursor<FDBIndexedRawRecord> indexEntries,
+                                                                                     @Nonnull RecordSerializer<M> typedSerializer) {
+        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        ExecuteState executeState = scanProperties.getExecuteProperties().getState();
+
+        RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
+            // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
+            FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties, useOldVersionFormat());
+            if (fdbRawRecord == null) {
+                return handleOrphanEntry(indexedRawRecord.getIndexEntry(), orphanBehavior);
+            } else {
+                Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
+                // The version future will be ignored in case the record already has a version
+                if (useOldVersionFormat() && !fdbRawRecord.hasVersion()) {
+                    versionFutureOptional = loadRecordVersionAsync(indexedRawRecord.getIndexEntry().getPrimaryKey());
+                }
+                final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
+                byteScanLimiter.registerScannedBytes(indexedRawRecord.getIndexEntry().getKeySize());
+                byteScanLimiter.registerScannedBytes((long)sizeInfo.getKeySize() + (long)sizeInfo.getValueSize());
+
+                // Deserialize the raw record
+                CompletableFuture<FDBStoredRecord<M>> storedRecord = deserializeRecord(typedSerializer, fdbRawRecord, metaDataProvider.getRecordMetaData(), versionFutureOptional);
+                return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
+            }
+        }, 1);
+
+        if (orphanBehavior == IndexOrphanBehavior.SKIP) {
+            indexedRecordCursor = indexedRecordCursor.filter(Objects::nonNull);
+        }
+        return indexedRecordCursor;
+    }
+
+    private <M extends Message> CompletableFuture<FDBIndexedRecord<M>> handleOrphanEntry(final IndexEntry indexEntry, final IndexOrphanBehavior orphanBehavior) {
+        switch (orphanBehavior) {
+            case SKIP:
+                return CompletableFuture.completedFuture(null);
+            case RETURN:
+                return CompletableFuture.completedFuture(new FDBIndexedRecord<>(indexEntry, null));
+            case ERROR:
+                if (getTimer() != null) {
+                    getTimer().increment(FDBStoreTimer.Counts.BAD_INDEX_ENTRY);
+                }
+                throw new RecordCoreStorageException("record not found for prefetched index entry").addLogInfo(
+                        LogMessageKeys.INDEX_NAME, indexEntry.getIndex().getName(),
+                        LogMessageKeys.PRIMARY_KEY, indexEntry.getPrimaryKey(),
+                        LogMessageKeys.INDEX_KEY, indexEntry.getKey(),
+                        getSubspaceProvider().logKey(), getSubspaceProvider().toString(getContext()));
+            default:
+                throw new RecordCoreException("Unexpected index orphan behavior: " + orphanBehavior);
+        }
+    }
+
+    /**
+     * Create and return an instance of {@link FDBRawRecord} from a given {@link MappedKeyValue}. The given
+     * parameter represents a series of record splits (and optional version), that the method will "unsplit" and reconstruct
+     * into a single raw record.
+     * @param recordSubspace the subspace for the record to allow the record keys to be identified from the splits
+     * @param sizeInfo Size Info to collect metrics
+     * @param mappedResult the record splits, packed into a KeyValueAndMappedReqAndResult
+     * @param scanProperties the scam properties to use
+     * @param oldVersionFormat whether to use the old version record format when reading the records
+     * @return an instance of {@link FDBRawRecord} reconstructed from the given record splits, null if no record entries found
+     */
+    @Nullable
+    private FDBRawRecord reconstructSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo,
+                                                 final MappedKeyValue mappedResult, final ScanProperties scanProperties,
+                                                 final boolean oldVersionFormat) {
+        List<KeyValue> scannedRange = mappedResult.getRangeResult();
+        if ((scannedRange == null) || scannedRange.isEmpty()) {
+            return null;
+        }
+
+        ListCursor<KeyValue> rangeCursor = new ListCursor<>(scannedRange, null);
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+        final RecordCursor<FDBRawRecord> rawRecords;
+        if (metaData.isSplitLongRecords()) {
+            // Note that we always set "reverse" to false since regardless of the index scan direction, the MappedKeyValue is in non-reverse order
+            rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, rangeCursor, oldVersionFormat,
+                    sizeInfo, false, new CursorLimitManager(scanProperties));
+        } else {
+            if (omitUnsplitRecordSuffix) {
+                rawRecords = rangeCursor.map(kv -> {
+                    sizeInfo.set(kv);
+                    Tuple primaryKey = SplitHelper.unpackKey(recordSubspace, kv);
+                    return new FDBRawRecord(primaryKey, kv.getValue(), null, sizeInfo);
+                });
+            } else {
+                // Note that we always set "reverse" to false since regardless of the index scan direction, the MappedKeyValue is in non-reverse order
+                rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, rangeCursor, oldVersionFormat,
+                        sizeInfo, false, new CursorLimitManager(scanProperties));
+            }
+        }
+        // Everything is synchronous, just get the only value from the cursor
+        return rawRecords.getNext().get();
     }
 
     @Override

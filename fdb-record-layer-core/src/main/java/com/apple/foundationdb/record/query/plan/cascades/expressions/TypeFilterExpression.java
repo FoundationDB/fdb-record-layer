@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;

@@ -96,8 +96,8 @@ public class ValuePickerValue implements Value.CompileTimeValue {
     }
 
     @Override
-    public int semanticHashCode() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getChildren());
+    public int hashCodeWithoutChildren() {
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
     }
 
     @Override

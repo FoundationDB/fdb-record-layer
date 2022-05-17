@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
@@ -42,6 +44,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
@@ -51,6 +54,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -59,6 +63,9 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
+import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
@@ -131,6 +138,32 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         });
     }
 
+    @Nonnull
+    /**
+     * An implementation of the {@link #scanRemoteFetch} method for the {@link IndexScanType.BY_VALUE} case.
+     * Index Maintainers that support the {@link #scanRemoteFetch} method can use this implementation. Note that this
+     * method is not supported by default by an index maintainer.
+     */
+    protected RecordCursor<FDBIndexedRawRecord> scanRemoteFetchByValue(@Nonnull final IndexScanBounds scanBounds,
+                                                             @Nullable final byte[] continuation,
+                                                             @Nonnull final ScanProperties scanProperties,
+                                                             @Nonnull final KeyExpression commonPrimaryKey) {
+        if ((scanBounds.getScanType() != IndexScanType.BY_VALUE) || (!(scanBounds instanceof IndexScanRange))) {
+            throw new RecordCoreArgumentException("scanRemoteFetch can only be used with VALUE index scan type and Range Scan");
+        }
+        IndexScanRange scanRange = (IndexScanRange)scanBounds;
+        Tuple mapper = createRemoteFetchMapper(commonPrimaryKey);
+        final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, mapper.pack())
+                .setContext(state.context)
+                .setRange(scanRange.getScanRange())
+                .setContinuation(continuation)
+                .setScanProperties(scanProperties)
+                .build();
+        // Hard cast - Not ideal but likely needed to avoid complex implementation of specific cursor
+        RecordCursor<MappedKeyValue> mappedResults = keyValues.map(kv -> (MappedKeyValue)kv);
+        return mappedResults.map(this::unpackRemoteFetchRecord);
+    }
+
     /**
      * Convert stored key value pair into an index entry.
      * @param kv a raw key-value from the database
@@ -150,6 +183,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Nonnull
     protected IndexEntry unpackKeyValue(@Nonnull final Subspace subspace, @Nonnull final KeyValue kv) {
         return new IndexEntry(state.index, unpackKey(subspace, kv), decodeValue(kv.getValue()));
+    }
+
+    @Nonnull
+    protected FDBIndexedRawRecord unpackRemoteFetchRecord(@Nonnull MappedKeyValue indexKeyValue) {
+        IndexEntry indexEntry = new IndexEntry(state.index, unpackKey(state.indexSubspace, indexKeyValue), decodeValue(indexKeyValue.getValue()));
+        return new FDBIndexedRawRecord(indexEntry, indexKeyValue);
     }
 
     /**
@@ -668,5 +707,27 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
 
         return indexKeys.stream().map(key -> new IndexEntry(state.index, key)).collect(Collectors.toList());
+    }
+
+    /**
+     * Create the list of index key-references that would allow the DB to prefetch the records pointed to by the index entries.
+     * The commonPrimaryKey is the representation of the primary key for the referenced records.
+     * The index structure is: [P1...Pn, I1...In, K1...Kn] where Px are the prefix elements, Ix are the index fields and Kx are the primary keys of the indexed record.
+     * Since {@link Index#trimPrimaryKey(List)} removes redundant key entries, we need to construct the list of locations of the primary key
+     * elements by using the keyLocations (if there are any), followed by the remaining key elements.
+     * @param commonPrimaryKey the metadata of the primary key (used to construct the PK locations in teh dereferenced record)
+     * @return A Tuple representing the Mapper structure required by the FDB getMappedRange call
+     */
+    @Nonnull
+    private Tuple createRemoteFetchMapper(@Nonnull KeyExpression commonPrimaryKey) {
+        int prefixLength = Tuple.fromBytes(state.indexSubspace.pack()).size();
+        List<Integer> keyLocations = state.index.getEntryPrimaryKeyPositions(commonPrimaryKey.getColumnSize());
+
+        Tuple result =  Tuple.fromBytes(state.store.recordsSubspace().pack());
+        for (int i: keyLocations) {
+            result = result.add("{K[" + (i + prefixLength) + "]}");
+        }
+        result = result.add("{...}");
+        return result;
     }
 }

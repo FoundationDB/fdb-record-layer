@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.base.Verify;
@@ -64,7 +65,8 @@ public interface MatchCandidate {
     Logger LOGGER = LoggerFactory.getLogger(MatchCandidate.class);
 
     /**
-     * Returns the name of the match candidate. If this candidate represents and index, it will be the name of the index.
+     * Returns the name of the match candidate. If this candidate represents an index, it will be the name of the index.
+     *
      * @return the name of this match candidate
      */
     @Nonnull
@@ -96,10 +98,10 @@ public interface MatchCandidate {
     List<CorrelationIdentifier> getOrderingAliases();
 
     /**
-     * This method returns a key expression that can be used to actually compute the the keys of this candidate for a
+     * This method returns a key expression that can be used to actually compute the keys of this candidate for a
      * given record.
      * The current expression hierarchy cannot be evaluated at runtime (in general). This key expression helps
-     * representing compensation or part of compensation if needed.
+     * represent compensation or part of compensation if needed.
      * @return a key expression that can be evaluated based on a base record
      */
     @Nonnull
@@ -177,7 +179,8 @@ public interface MatchCandidate {
      */
     @SuppressWarnings("java:S135")
     default RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
-                                                        @Nonnull final PartialMatch partialMatch) {
+                                                        @Nonnull final PartialMatch partialMatch,
+                                                        @Nonnull final PlanContext planContext) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
@@ -195,7 +198,7 @@ public interface MatchCandidate {
             comparisonRangesForScanBuilder.add(prefixMap.get(parameterAlias));
         }
 
-        return toEquivalentExpression(recordMetaData, partialMatch, comparisonRangesForScanBuilder.build());
+        return toEquivalentExpression(recordMetaData, partialMatch, planContext, comparisonRangesForScanBuilder.build());
     }
 
     /**
@@ -209,9 +212,11 @@ public interface MatchCandidate {
     @Nonnull
     RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
                                                 @Nonnull PartialMatch partialMatch,
+                                                @Nonnull final PlanContext planContext,
                                                 @Nonnull final List<ComparisonRange> comparisonRanges);
 
     @Nonnull
+    @SuppressWarnings("java:S1452")
     default SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references) {
         final var traversal = getTraversal();
 
@@ -291,7 +296,7 @@ public interface MatchCandidate {
                                                                       final boolean isReverse,
                                                                       @Nullable final KeyExpression commonPrimaryKeyForIndex,
                                                                       @Nonnull final ExpansionVisitor<?> expansionVisitor) {
-        final var baseRef = createBaseRef(recordMetaData, availableRecordTypes, recordTypeNamesForIndex);
+        final var baseRef = createBaseRef(recordMetaData, availableRecordTypes, recordTypeNamesForIndex, new IndexAccessHint(index.getName()));
         try {
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
         } catch (final UnsupportedOperationException uOE) {
@@ -314,7 +319,7 @@ public interface MatchCandidate {
                                                           final boolean isReverse) {
         if (commonPrimaryKey != null) {
             final var availableRecordTypes = metaData.getRecordTypes().keySet();
-            final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes);
+            final var baseRef = createBaseRef(metaData, availableRecordTypes, recordTypes, new PrimaryAccessHint());
             final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, isReverse));
         }
@@ -323,9 +328,9 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
+    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex, @Nonnull AccessHint accessHint) {
         final var quantifier =
-                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
+                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, new AccessHints(accessHint))));
         return GroupExpressionRef.of(
                 new LogicalTypeFilterExpression(recordTypesForIndex,
                         quantifier,

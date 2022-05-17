@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.match;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -51,7 +52,7 @@ public class UnionMatcher extends PlanMatcherWithChildren {
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
         return plan instanceof RecordQueryUnionPlan &&
                 super.matchesSafely(plan) &&
-                comparisonKeyMatcher.matches(((RecordQueryUnionPlan) plan).getComparisonKey());
+                comparisonKeyMatcher.matches(((RecordQueryUnionOnKeyExpressionPlan) plan).getComparisonKeyExpression());
     }
 
     @Override

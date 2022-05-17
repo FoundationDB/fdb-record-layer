@@ -515,6 +515,28 @@ public class Index {
     }
 
     /**
+     * Get the primary key positions of an index entry.
+     * @param primaryKeyLength the number of elements in the primary key for the record
+     * @return a list of the primary key positions for an entry of this index
+     */
+    @Nonnull
+    public List<Integer> getEntryPrimaryKeyPositions(int primaryKeyLength) {
+        List<Integer> primaryKeys = new ArrayList<>(primaryKeyLength);
+        int columnSize = getColumnSize();
+        if (primaryKeyComponentPositions == null) {
+            for (int i = columnSize; i < (columnSize + primaryKeyLength); i++ ) {
+                primaryKeys.add(i);
+            }
+        } else {
+            int after = columnSize;
+            for (int position : primaryKeyComponentPositions) {
+                primaryKeys.add((position < 0) ? after++ : position);
+            }
+        }
+        return primaryKeys;
+    }
+
+    /**
      * Get the version at which the index was first added.
      * @return the added version
      */

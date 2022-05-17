@@ -21,8 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -30,39 +33,49 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 
 /**
- * QueryResult is the general result that encapsulates the data that is flowed up from plan to consumer. The datum
- * flowed is opaque to some extent but does adhere to a very limited set of common API. For instance,
- * many flowed items intrinsically carry a record, either directly fetched from disk or created as part of a query.
- * Most of the accessors to the wrapped datum cast the datum before returning it. It is the responsibility of the planner
- * to ensure that these casts cannot fail during the execution time of a query.
+ * QueryResult is the general result that encapsulates the data that is flowed up from plan to plan as well as from
+ * plan to consumer. The datum flowed is opaque to some extent but does adhere to a very limited set of common API.
+ * For instance, many flowed items intrinsically carry a record, either directly fetched from disk or created as
+ * part of a query. Most of the accessors to the wrapped datum cast the datum before returning it. It is the
+ * responsibility of the planner to ensure that these casts cannot fail during the execution time of a query.
  */
 @API(API.Status.EXPERIMENTAL)
 public class QueryResult {
     @Nullable
     private final Object datum;
 
-    private QueryResult(@Nullable Object datum) {
-        this.datum = datum;
-    }
+    @Nullable
+    private final FDBQueriedRecord<?> queriedRecord;
 
-    /**
-     * Create a new result with the given element.
-     * @param result the given result
-     * @return the newly created query result
-     */
-    @Nonnull
-    public static QueryResult of(@Nullable Object result) {
-        return new QueryResult(result);
+    @Nullable
+    private final IndexEntry indexEntry;
+
+    @Nullable
+    private final Tuple primaryKey;
+
+    @Nullable
+    private final RecordType recordType;
+
+    private QueryResult(@Nullable final Object datum,
+                        @Nullable final FDBQueriedRecord<?> queriedRecord,
+                        @Nullable final IndexEntry indexEntry,
+                        @Nullable final Tuple primaryKey,
+                        @Nullable final RecordType recordType) {
+        this.datum = datum;
+        this.queriedRecord = queriedRecord;
+        this.indexEntry = indexEntry;
+        this.primaryKey = primaryKey;
+        this.recordType = recordType;
     }
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
      * @return the object narrowed to the requested class
      */
-    @Nonnull
+    @Nullable
     @SuppressWarnings("unchecked")
     public <M extends Message> FDBQueriedRecord<M> getQueriedRecord() {
-        return get(FDBQueriedRecord.class);
+        return (FDBQueriedRecord<M>)queriedRecord;
     }
 
     /**
@@ -71,10 +84,7 @@ public class QueryResult {
      */
     @Nonnull
     public <M extends Message> Optional<FDBQueriedRecord<M>> getQueriedRecordMaybe() {
-        if (datum instanceof FDBQueriedRecord) {
-            return Optional.of(getQueriedRecord());
-        }
-        return Optional.empty();
+        return Optional.ofNullable(getQueriedRecord());
     }
 
     /**
@@ -84,27 +94,6 @@ public class QueryResult {
     @Nullable
     public Object getDatum() {
         return datum;
-    }
-
-    /**
-     * Retrieve the wrapped result by attempting it to cast it to the giving class.
-     * @return the object narrowed to the requested class
-     */
-    @Nonnull
-    public <T> T get(@Nonnull final Class<? extends T> clazz) {
-        return clazz.cast(datum);
-    }
-
-    /**
-     * Retrieve the wrapped result by attempting it to cast it to the giving class.
-     * @return an optional that potentially contains the object narrowed to the requested class
-     */
-    @Nonnull
-    public <T> Optional<T> getMaybe(@Nonnull final Class<? extends T> clazz) {
-        if (clazz.isInstance(datum)) {
-            return Optional.of(get(clazz));
-        }
-        return Optional.empty();
     }
 
     @SuppressWarnings("unchecked")
@@ -117,12 +106,55 @@ public class QueryResult {
         throw new RecordCoreException("cannot be retrieve message from flowed object");
     }
 
-    @Nullable
     @SuppressWarnings("unchecked")
-    public <M extends Message> Object getObject() {
+    public <M extends Message> Optional<M> getMessageMaybe() {
         if (datum instanceof FDBQueriedRecord) {
-            return ((FDBQueriedRecord<M>)datum).getRecord();
+            return Optional.of(((FDBQueriedRecord<M>)datum).getRecord());
+        } else if (datum instanceof Message) {
+            return Optional.of((M)datum);
         }
-        return datum;
+        return Optional.empty();
+    }
+
+    @Nullable
+    public IndexEntry getIndexEntry() {
+        return indexEntry;
+    }
+
+    @Nullable
+    Tuple getPrimaryKey() {
+        return primaryKey;
+    }
+
+    @Nullable
+    RecordType getRecordType() {
+        return recordType;
+    }
+
+    /**
+     * Create a new result with the given element.
+     * @param computed the given computed result
+     * @return the newly created query result
+     */
+    @Nonnull
+    public static QueryResult ofComputed(@Nullable Object computed) {
+        return new QueryResult(computed, null, null, null, null);
+    }
+
+    /**
+     * Create a new queriedRecord with the given element.
+     * @param queriedRecord the given queriedRecord
+     * @return the newly created query queriedRecord
+     */
+    @Nonnull
+    public static QueryResult fromQueriedRecord(@Nullable FDBQueriedRecord<?> queriedRecord) {
+        if (queriedRecord == null) {
+            return new QueryResult(null, null, null, null, null);
+        }
+        return new QueryResult(queriedRecord.getRecord(),
+                queriedRecord,
+                queriedRecord.getIndexEntry(),
+                queriedRecord.getPrimaryKey(),
+                queriedRecord.getRecordType());
     }
 }

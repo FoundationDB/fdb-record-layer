@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +44,7 @@ public class QueryPredicateTest {
     }
 
     private Boolean evaluate(@Nonnull QueryPredicate predicate, @Nonnull Bindings bindings) {
-        return predicate.eval(null, EvaluationContext.forBindings(bindings), null, null);
+        return predicate.eval(null, EvaluationContext.forBindings(bindings));
     }
 
     private QueryPredicate and(@Nonnull QueryPredicate... predicates) {
@@ -86,7 +85,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate TRUE = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
             return Boolean.TRUE;
         }
     };
@@ -94,7 +93,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate FALSE = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
             return Boolean.FALSE;
         }
     };
@@ -102,7 +101,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate NULL = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
             return null;
         }
     };

@@ -23,9 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -34,11 +31,13 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
 import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -74,12 +73,7 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
             return;
         }
 
-        final Optional<Ordering> orderingOptional = OrderingProperty.evaluate(innerPlan, call.getContext());
-        if (orderingOptional.isEmpty()) {
-            return;
-        }
-
-        final Ordering ordering = orderingOptional.get();
+        final Ordering ordering = OrderingProperty.OrderingVisitor.evaluate(innerPlan);
         final Set<KeyExpression> equalityBoundKeys = ordering.getEqualityBoundKeys();
         int equalityBoundUnsorted = equalityBoundKeys.size();
         final List<KeyPart> orderingKeys = ordering.getOrderingKeyParts();

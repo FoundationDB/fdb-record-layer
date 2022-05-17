@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -43,6 +42,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -52,14 +52,19 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class ExistsPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Predicate");
+
     @Nonnull
     private final CorrelationIdentifier existentialAlias;
-
-    @Nonnull
+    @Nullable
     private final QueryComponent alternativeComponent;
+    @Nullable
+    private final CorrelationIdentifier alternativeBaseAlias;
 
-    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias, @Nonnull final QueryComponent alternativeComponent) {
+    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias,
+                           @Nullable final CorrelationIdentifier alternativeBaseAlias,
+                           @Nullable final QueryComponent alternativeComponent) {
         this.existentialAlias = existentialAlias;
+        this.alternativeBaseAlias = alternativeBaseAlias;
         this.alternativeComponent = alternativeComponent;
     }
 
@@ -71,26 +76,38 @@ public class ExistsPredicate implements LeafQueryPredicate {
 
     @Nonnull
     public QueryComponent getAlternativeComponent() {
-        return alternativeComponent;
+        return Objects.requireNonNull(alternativeComponent);
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getAlternativeBaseAlias() {
+        return Objects.requireNonNull(alternativeBaseAlias);
     }
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         throw new RecordCoreException("this predicate cannot be evaluated per record");
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of(existentialAlias);
+        final var resultBuilder = ImmutableSet.<CorrelationIdentifier>builder();
+        resultBuilder.add(existentialAlias);
+        if (alternativeBaseAlias != null) {
+            resultBuilder.add(alternativeBaseAlias);
+        }
+        return resultBuilder.build();
     }
 
     @Nonnull
     @Override
     public ExistsPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(existentialAlias)) {
-            return new ExistsPredicate(translationMap.getTargetOrThrow(existentialAlias), alternativeComponent);
+        if (translationMap.containsSource(existentialAlias) || translationMap.containsSource(alternativeBaseAlias)) {
+            return new ExistsPredicate(translationMap.getTargetOrDefault(existentialAlias, existentialAlias),
+                    alternativeBaseAlias == null ? null : translationMap.getTargetOrDefault(alternativeBaseAlias, alternativeBaseAlias),
+                    alternativeComponent);
         } else {
             return this;
         }
@@ -109,7 +126,9 @@ public class ExistsPredicate implements LeafQueryPredicate {
             return false;
         }
         final ExistsPredicate that = (ExistsPredicate)other;
-        return equivalenceMap.containsMapping(existentialAlias, that.existentialAlias);
+        return equivalenceMap.containsMapping(existentialAlias, that.existentialAlias) &&
+               ((alternativeBaseAlias == null && that.alternativeBaseAlias == null) ||
+               equivalenceMap.containsMapping(alternativeBaseAlias, that.alternativeBaseAlias));
     }
 
     @Override
@@ -154,7 +173,7 @@ public class ExistsPredicate implements LeafQueryPredicate {
     public Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull final MatchInfo matchInfo, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         final Optional<PartialMatch> childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
         final Optional<Compensation> compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
-        if (!compensationOptional.isPresent() || compensationOptional.get().isNeededForFiltering()) {
+        if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
             // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
             //      make a predicate that can evaluate a QueryComponent
             return Optional.of(toResidualPredicate());
@@ -165,7 +184,7 @@ public class ExistsPredicate implements LeafQueryPredicate {
     @Nonnull
     @Override
     public QueryPredicate toResidualPredicate() {
-        return new QueryComponentPredicate(getAlternativeComponent(), existentialAlias);
+        return new QueryComponentPredicate(getAlternativeComponent(), getAlternativeBaseAlias());
     }
 
     @Override

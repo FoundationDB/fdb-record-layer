@@ -20,14 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+
 import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * Interface to allow {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}s to rewrite their own
+ * Interface to allow {@link RelationalExpression}s to rewrite their own
  * internal graph representation. Please see {@link PlannerGraphRewritable} for a more comprehensive explanation.
  *
- * This particular class allows {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}s to specify
+ * This particular class allows {@link RelationalExpression}s to specify
  * how a {@link PlannerGraph} is modified when we compute the {@link PlannerGraphProperty} for developers working
  * on the query planner.
  * @see PlannerGraphRewritable for a more comprehensive explanation of graph rewriting.

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -55,10 +54,10 @@ public class AndPredicate extends AndOrPredicate {
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable final M message) {
+    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
         Boolean defaultValue = Boolean.TRUE;
         for (QueryPredicate child : getChildren()) {
-            final Boolean val = child.eval(store, context, record, message);
+            final Boolean val = child.eval(store, context);
             if (val == null) {
                 defaultValue = null;
             } else if (!val) {

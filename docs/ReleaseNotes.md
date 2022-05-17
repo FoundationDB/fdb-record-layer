@@ -24,7 +24,7 @@ index build.
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Synchronize TransactionalRunner.close [(Issue #1659)](https://github.com/FoundationDB/fdb-record-layer/issues/1659)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -33,7 +33,7 @@ index build.
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The FDB API version can now be configured through the `FDBDatabaseFactory` [(Issue #1639)](https://github.com/FoundationDB/fdb-record-layer/issues/1639)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Extract auto-throttling runner [(Issue #720)](https://github.com/FoundationDB/fdb-record-layer/issues/720)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -46,6 +46,17 @@ index build.
 
 // end next release
 -->
+
+### 3.2.260.0
+
+
+### 3.2.259.0
+
+* **Bug fix** Synchronize TransactionalRunner.close [(Issue #1659)](https://github.com/FoundationDB/fdb-record-layer/issues/1659)
+* **Feature** The FDB API version can now be configured through the `FDBDatabaseFactory` [(Issue #1639)](https://github.com/FoundationDB/fdb-record-layer/issues/1639)
+* **Feature** Match index hints in a query [(Issue #1671)](https://github.com/FoundationDB/fdb-record-layer/issues/1671)
+* **Feature** Remote Fetch feature using FDB's getMappedRange new API [(Issue #1560)](https://github.com/FoundationDB/fdb-record-layer/issues/1560)
+* **Breaking change** Extenders of StandardIndexMaintainers will inherit the scanRemoteFetch implementation. If this is not suppoted for the subclass, override the method [(Issue #1560)](https://github.com/FoundationDB/fdb-record-layer/issues/1560)
 
 ### 3.2.258.0
 

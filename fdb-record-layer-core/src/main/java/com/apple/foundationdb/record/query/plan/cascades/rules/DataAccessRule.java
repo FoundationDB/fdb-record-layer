@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
@@ -59,7 +59,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </ul>
  *
  * The logic that this rules delegates to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch)}
+ * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch, com.apple.foundationdb.record.query.plan.cascades.PlanContext)}
  *
  */
 @API(API.Status.EXPERIMENTAL)

@@ -143,8 +143,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, scan(bounds(hasTupleString("[[photos],[photos]]"))));
         assertEquals(1063779424, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-623055281, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(568511736, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1287546551, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1291292608, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(Arrays.asList(12, 11), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
                 this::openHierarchicalRecordStore,
                 TestHelpers::assertDiscardedNone));
@@ -158,8 +158,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         plan = planner.plan(query);
         assertThat(plan, scan(bounds(hasTupleString("{[photos],[photos]}"))));
         assertEquals(224213141, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1663787616, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(1347957217, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(885106520, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-315701257, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(Arrays.asList(12, 11, 112, 111, 1111), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
                 this::openHierarchicalRecordStore,
                 TestHelpers::assertDiscardedNone));
@@ -832,8 +832,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, scan(bounds(hasTupleString("[[a, 2],[a, 2]]"))));
         assertEquals(1265534819, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(136710600, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1817343447, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(551409817, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(105276504, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {

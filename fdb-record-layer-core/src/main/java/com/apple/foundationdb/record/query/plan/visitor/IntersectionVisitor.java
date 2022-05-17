@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.visitor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -70,7 +71,7 @@ public class IntersectionVisitor extends RecordQueryPlannerSubstitutionVisitor {
     @Override
     public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryIntersectionPlan) {
-            RecordQueryIntersectionPlan intersectionPlan = (RecordQueryIntersectionPlan) recordQueryPlan;
+            RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan = (RecordQueryIntersectionOnKeyExpressionPlan) recordQueryPlan;
             Set<KeyExpression> requiredFields = intersectionPlan.getRequiredFields();
 
             List<RecordQueryPlan> newChildren = new ArrayList<>(intersectionPlan.getChildren().size());
@@ -82,7 +83,7 @@ public class IntersectionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 newChildren.add(newPlan);
             }
             return new RecordQueryFetchFromPartialRecordPlan(
-                    RecordQueryIntersectionPlan.from(newChildren, intersectionPlan.getComparisonKey()),
+                    RecordQueryIntersectionPlan.from(newChildren, intersectionPlan.getComparisonKeyExpression()),
                     TranslateValueFunction.unableToTranslate(),
                     new Type.Any());
         }

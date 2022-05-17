@@ -205,16 +205,16 @@ public class AliasMap {
         return map.toString();
     }
 
-    public boolean containsSource(@Nonnull final CorrelationIdentifier alias) {
+    public boolean containsSource(@Nullable final CorrelationIdentifier alias) {
         return map.containsKey(alias);
     }
 
-    public boolean containsTarget(@Nonnull final CorrelationIdentifier alias) {
+    public boolean containsTarget(@Nullable final CorrelationIdentifier alias) {
         return map.containsValue(alias);
     }
 
-    public boolean containsMapping(@Nonnull final CorrelationIdentifier source,
-                                   @Nonnull final CorrelationIdentifier target) {
+    public boolean containsMapping(@Nullable final CorrelationIdentifier source,
+                                   @Nullable final CorrelationIdentifier target) {
         return containsSource(source) && containsTarget(target) && getTargetOrThrow(source).equals(target);
     }
 
@@ -332,7 +332,7 @@ public class AliasMap {
      *         from {@code source} in this alias map
      */
     @Nonnull
-    public CorrelationIdentifier getTargetOrDefault(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier defaultValue) {
+    public CorrelationIdentifier getTargetOrDefault(@Nullable final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier defaultValue) {
         @Nullable final CorrelationIdentifier target = getTarget(source);
         if (target == null) {
             return defaultValue;
@@ -347,7 +347,7 @@ public class AliasMap {
      *         from {@code source} in this alias map
      */
     @Nonnull
-    public CorrelationIdentifier getTargetOrThrow(@Nonnull final CorrelationIdentifier source) {
+    public CorrelationIdentifier getTargetOrThrow(@Nullable final CorrelationIdentifier source) {
         @Nullable final CorrelationIdentifier target = getTarget(source);
         return Objects.requireNonNull(target);
     }

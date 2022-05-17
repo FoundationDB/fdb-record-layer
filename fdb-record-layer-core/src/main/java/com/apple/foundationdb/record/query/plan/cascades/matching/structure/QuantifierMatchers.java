@@ -24,12 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.references;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.members;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 
 /**
@@ -100,7 +100,7 @@ public class QuantifierMatchers {
 
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverPlans(@Nonnull final CollectionMatcher<RecordQueryPlan> downstream) {
-        return forEachQuantifierOverRef(references(downstream));
+        return forEachQuantifierOverRef(members(downstream));
     }
 
     @Nonnull

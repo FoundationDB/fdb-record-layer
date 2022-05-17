@@ -29,8 +29,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -210,11 +208,7 @@ class OrderingTest {
 
         final var commonOrderingKeysOptional =
                 Ordering.commonOrderingKeys(
-                        ImmutableList.of(
-                                Optional.of(one),
-                                Optional.of(two),
-                                Optional.of(three),
-                                Optional.of(four)),
+                        ImmutableList.of(one, two, three, four),
                         requestedOrdering);
 
         commonOrderingKeysOptional
@@ -245,9 +239,7 @@ class OrderingTest {
 
         var commonOrderingKeysOptional =
                 Ordering.commonOrderingKeys(
-                        ImmutableList.of(
-                                Optional.of(one),
-                                Optional.of(two)),
+                        ImmutableList.of(one, two),
                         requestedOrdering);
 
         commonOrderingKeysOptional
@@ -278,9 +270,7 @@ class OrderingTest {
 
         final var commonOrderingKeysOptional =
                 Ordering.commonOrderingKeys(
-                        ImmutableList.of(
-                                Optional.of(one),
-                                Optional.of(two)),
+                        ImmutableList.of(one, two),
                         requestedOrdering);
 
         commonOrderingKeysOptional
@@ -311,9 +301,7 @@ class OrderingTest {
 
         final var commonOrderingKeysOptional =
                 Ordering.commonOrderingKeys(
-                        ImmutableList.of(
-                                Optional.of(one),
-                                Optional.of(two)),
+                        ImmutableList.of(one, two),
                         requestedOrdering);
 
         assertFalse(commonOrderingKeysOptional.isPresent());

@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import javax.annotation.Nonnull;
 
 /**
- * Interface for the unapply function using in a variety of matchers.
+ * Interface for the unapply function used in a variety of matchers.
  * @param <T> the type that is extracted from
  * @param <U> the type that is extracted into
  */

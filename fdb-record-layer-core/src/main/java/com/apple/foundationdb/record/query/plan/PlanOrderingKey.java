@@ -27,12 +27,12 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -146,10 +146,10 @@ public class PlanOrderingKey {
             return new PlanOrderingKey(primaryKey.normalizeKeyForPositions(),
                                        scanPlan.getComparisons().getEqualitySize(),
                                        0, 0);
-        } else if (queryPlan instanceof RecordQueryIntersectionPlan) {
-            return forComparisonKey(((RecordQueryIntersectionPlan)queryPlan).getComparisonKey(), primaryKey);
-        } else if (queryPlan instanceof RecordQueryUnionPlan) {
-            return forComparisonKey(((RecordQueryUnionPlan)queryPlan).getComparisonKey(), primaryKey);
+        } else if (queryPlan instanceof RecordQueryIntersectionOnKeyExpressionPlan) {
+            return forComparisonKey(((RecordQueryIntersectionOnKeyExpressionPlan)queryPlan).getComparisonKeyExpression(), primaryKey);
+        } else if (queryPlan instanceof RecordQueryUnionOnKeyExpressionPlan) {
+            return forComparisonKey(((RecordQueryUnionOnKeyExpressionPlan)queryPlan).getComparisonKeyExpression(), primaryKey);
         } else {
             return null;
         }

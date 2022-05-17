@@ -39,6 +39,19 @@ import java.util.stream.Stream;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryPlannerConfiguration {
+    /**
+     * An indicator for the index fetch method to use for a query.
+     * Possible values are:
+     * <UL>
+     *     <LI>{@link IndexFetchMethod#SCAN_AND_FETCH} use regular index scan followed by fetch</LI>
+     *     <LI>{@link IndexFetchMethod#USE_REMOTE_FETCH} use remote fetch feature from FDB</LI>
+     *     <LI>{@link IndexFetchMethod#USE_REMOTE_FETCH_WITH_FALLBACK} use remote fetch ability with fallback to regular
+     *     scan and fetch in case of failure. This is a safety measure meant to be used while the
+     *     remote fetch mechanism is being tested</LI>
+     * </UL>
+     */
+    public enum IndexFetchMethod { SCAN_AND_FETCH, USE_REMOTE_FETCH, USE_REMOTE_FETCH_WITH_FALLBACK }
+
     @Nonnull
     private final QueryPlanner.IndexScanPreference indexScanPreference;
     private final boolean attemptFailedInJoinAsOr;
@@ -55,6 +68,7 @@ public class RecordQueryPlannerConfiguration {
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
     @Nonnull
     private final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules;
+    private final IndexFetchMethod indexFetchMethod;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -68,7 +82,8 @@ public class RecordQueryPlannerConfiguration {
                                             boolean useFullKeyForValueIndex,
                                             int maxNumMatchesPerRuleCall,
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
-                                            @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules) {
+                                            @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules,
+                                            @Nonnull final IndexFetchMethod indexFetchMethod) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -82,6 +97,7 @@ public class RecordQueryPlannerConfiguration {
         this.maxNumMatchesPerRuleCall = maxNumMatchesPerRuleCall;
         this.sortConfiguration = sortConfiguration;
         this.disabledTransformationRules = ImmutableSet.copyOf(disabledTransformationRules);
+        this.indexFetchMethod = indexFetchMethod;
     }
 
     /**
@@ -219,6 +235,17 @@ public class RecordQueryPlannerConfiguration {
         return !disabledTransformationRules.contains(rule.getClass());
     }
 
+    /**
+     * Whether the planner should use IndexPrefetch operations for the index scan plans. IndexPrefetch operations
+     * use the DB's API to fetch records from the index, rather than return the index entries, followed
+     * by record fetches.
+     * @return Whether the planner should use index prefetch in the plans
+     */
+    @Nonnull
+    public IndexFetchMethod getIndexFetchMethod() {
+        return indexFetchMethod;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -249,6 +276,8 @@ public class RecordQueryPlannerConfiguration {
         private RecordQueryPlannerSortConfiguration sortConfiguration;
         @Nonnull
         private Set<Class<? extends PlannerRule<?>>> disabledTransformationRules = Sets.newHashSet();
+        @Nonnull
+        private IndexFetchMethod indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -264,6 +293,7 @@ public class RecordQueryPlannerConfiguration {
             this.maxNumMatchesPerRuleCall = configuration.maxNumMatchesPerRuleCall;
             this.sortConfiguration = configuration.sortConfiguration;
             this.disabledTransformationRules = configuration.disabledTransformationRules;
+            this.indexFetchMethod = configuration.indexFetchMethod;
         }
 
         public Builder() {
@@ -410,6 +440,20 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+
+        /**
+         * Set whether the planner should use FDB remote fetch operations for the index scan plans. Remote fetch operations
+         * use the DB's API to fetch records from the index, rather than return the index entries, followed
+         * by record fetches.
+         * @param indexFetchMethod whether to use IndexFetch in the scan plans
+         * @return this builder
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public Builder setIndexFetchMethod(@Nonnull final IndexFetchMethod indexFetchMethod) {
+            this.indexFetchMethod = indexFetchMethod;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
             return new RecordQueryPlannerConfiguration(indexScanPreference,
                     attemptFailedInJoinAsOr,
@@ -423,7 +467,8 @@ public class RecordQueryPlannerConfiguration {
                     useFullKeyForValueIndex,
                     maxNumMatchesPerRuleCall,
                     sortConfiguration,
-                    disabledTransformationRules);
+                    disabledTransformationRules,
+                    indexFetchMethod);
         }
     }
 }

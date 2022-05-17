@@ -21,25 +21,28 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverPlans;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -47,9 +50,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * {@link RecordQueryMapPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementMapRule extends PlannerRule<SelectExpression> {
-    private static final CollectionMatcher<RecordQueryPlan> innerPlansMatcher = some(RecordQueryPlanMatchers.anyPlan());
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverPlans(innerPlansMatcher);
+    @Nonnull
+    private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
+
+    @Nonnull
+    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
+            planPartitions(rollUp(any(innerPlanPartitionMatcher)));
+
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(CollectionMatcher.empty(), exactly(innerQuantifierMatcher));
 
@@ -59,12 +69,9 @@ public class ImplementMapRule extends PlannerRule<SelectExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final PlannerBindings bindings = call.getBindings();
-        final SelectExpression selectExpression = bindings.get(root);
-        final Collection<? extends RecordQueryPlan> innerPlans = bindings.get(innerPlansMatcher);
-        if (innerPlans.isEmpty()) {
-            return;
-        }
+        final var bindings = call.getBindings();
+        final var selectExpression = bindings.get(root);
+        final var planPartition = bindings.get(innerPlanPartitionMatcher);
 
         final Quantifier.ForEach innerQuantifier = bindings.get(innerQuantifierMatcher);
         final var resultValue = selectExpression.getResultValue();
@@ -73,7 +80,7 @@ public class ImplementMapRule extends PlannerRule<SelectExpression> {
             return;
         }
         
-        final GroupExpressionRef<? extends RecordQueryPlan> referenceOverPlans = GroupExpressionRef.from(innerPlans);
+        final GroupExpressionRef<? extends RecordQueryPlan> referenceOverPlans = GroupExpressionRef.from(planPartition.getPlans());
 
         call.yield(GroupExpressionRef.of(
                 new RecordQueryMapPlan(

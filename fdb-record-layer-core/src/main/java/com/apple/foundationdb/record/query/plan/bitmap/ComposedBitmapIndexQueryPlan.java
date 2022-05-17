@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
@@ -99,7 +99,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
                 // Composers can return null bitmaps when empty, which is then left out of the result set.
                 .filter(indexEntry -> indexEntry.getValue().get(0) != null)
                 .map(indexPlans.get(0).indexEntryToQueriedRecord(store))
-                .map(QueryResult::of);
+                .map(QueryResult::fromQueriedRecord);
     }
 
     @Override

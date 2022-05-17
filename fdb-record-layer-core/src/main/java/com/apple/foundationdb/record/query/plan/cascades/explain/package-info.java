@@ -19,7 +19,7 @@
  */
 
 /**
- * This package implements a visualization of a {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}
+ * This package implements a visualization of a {@link com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression}
  * as a graph for both internal debugging purposes and for consumption by end-users.
  */
 package com.apple.foundationdb.record.query.plan.cascades.explain;

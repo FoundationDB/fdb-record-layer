@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingAttribute;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
@@ -46,7 +46,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * A rule that pushes an interesting {@link OrderingAttribute} through a specific {@link SelectExpression}.
+ * A rule that pushes an {@link OrderingConstraint} through a specific {@link SelectExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -58,12 +58,12 @@ public class PushInterestingOrderingThroughInLikeSelectRule extends PlannerRule<
             selectExpression(explodeQuantifiersMatcher);
 
     public PushInterestingOrderingThroughInLikeSelectRule() {
-        super(root, ImmutableSet.of(OrderingAttribute.ORDERING));
+        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final var requestedOrderingsOptional = call.getInterestingProperty(OrderingAttribute.ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -92,8 +92,8 @@ public class PushInterestingOrderingThroughInLikeSelectRule extends PlannerRule<
         // Push down the existing requested orderings verbatim. This is both applicable for possible in-joins
         // and in-unions.
         //
-        call.pushRequirement(lowerReference,
-                OrderingAttribute.ORDERING,
+        call.pushConstraint(lowerReference,
+                OrderingConstraint.REQUESTED_ORDERING,
                 requestedOrderings);
     }
 

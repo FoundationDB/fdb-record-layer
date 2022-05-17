@@ -132,11 +132,6 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return Objects.hash(super.hashCodeWithoutChildren());
-    }
-
-    @Override
     @SuppressWarnings("fallthrough")
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {

@@ -21,29 +21,29 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
-import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverPlans;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalFilterExpression;
 
 /**
@@ -52,11 +52,22 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final CollectionMatcher<RecordQueryPlan> innerPlansMatcher = some(RecordQueryPlanMatchers.anyPlan());
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverPlans(innerPlansMatcher);
-    private static final BindingMatcher<QueryPredicate> filterMatcher = anyPredicate();
+    @Nonnull
+    private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
+
+    @Nonnull
+    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
+            planPartitions(any(innerPlanPartitionMatcher));
+
+    @Nonnull
+    private static final BindingMatcher<QueryPredicate> predicateMatcher = anyPredicate();
+
+    @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> quantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
+
+    @Nonnull
     private static final BindingMatcher<LogicalFilterExpression> root =
-            logicalFilterExpression(all(filterMatcher), exactly(innerQuantifierMatcher));
+            logicalFilterExpression(all(predicateMatcher), only(quantifierMatcher));
 
     public ImplementFilterRule() {
         super(root);
@@ -64,12 +75,12 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final PlannerBindings bindings = call.getBindings();
-        final Collection<? extends RecordQueryPlan> innerPlans = bindings.get(innerPlansMatcher);
-        final Quantifier.ForEach innerQuantifier = bindings.get(innerQuantifierMatcher);
-        final List<? extends QueryPredicate> queryPredicates = bindings.getAll(filterMatcher);
+        final var bindings = call.getBindings();
+        final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
+        final var queryPredicates = bindings.getAll(predicateMatcher);
+        final var innerQuantifier = bindings.get(quantifierMatcher);
 
-        final GroupExpressionRef<? extends RecordQueryPlan> referenceOverPlans = GroupExpressionRef.from(innerPlans);
+        final GroupExpressionRef<? extends RecordQueryPlan> referenceOverPlans = GroupExpressionRef.from(innerPlanPartition.getPlans());
 
         if (queryPredicates.stream().allMatch(QueryPredicate::isTautology)) {
             call.yield(referenceOverPlans);

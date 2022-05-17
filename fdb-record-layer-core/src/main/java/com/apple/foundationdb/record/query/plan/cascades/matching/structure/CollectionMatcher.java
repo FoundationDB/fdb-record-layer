@@ -27,24 +27,24 @@ import java.util.Collection;
 import java.util.stream.Stream;
 
 /**
- * Tag interface used for overloads for matchers.
+ * Tag interface used for overloads for matchers that bind to collections of values/objects.
  * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
-public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<? extends T>> {
+public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>> {
     @Nonnull
     @Override
     @SuppressWarnings("unchecked")
-    default Class<Collection<? extends T>> getRootClass() {
+    default Class<Collection<T>> getRootClass() {
         // the usual Java shenanigans to get a properly typed class object out of the class object
-        return (Class<Collection<? extends T>>)(Class<?>)Collection.class;
+        return (Class<Collection<T>>)(Class<?>)Collection.class;
     }
 
     static <T> CollectionMatcher<T> empty() {
         return new CollectionMatcher<T>() {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<? extends T> in) {
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
                 return in.isEmpty() ? Stream.of(PlannerBindings.from(this, in)) : Stream.empty();
             }
 

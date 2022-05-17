@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Existential;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach;
@@ -450,6 +453,20 @@ public class Quantifiers {
                 }
             };
         };
+    }
+
+    public static boolean isReversed(@Nonnull List<Physical> quantifiers) {
+        return quantifiers
+                .stream()
+                .map(Physical::getRangesOver)
+                .flatMap(reference -> reference.getMembers().stream())
+                .map(expression -> {
+                    Verify.verify(expression instanceof RecordQueryPlan);
+                    return (RecordQueryPlan)expression;
+                })
+                .map(QueryPlan::isReverse)
+                .findAny()
+                .orElseThrow(() -> new RecordCoreException("unable to determine reversed-ness"));
     }
 
     /**

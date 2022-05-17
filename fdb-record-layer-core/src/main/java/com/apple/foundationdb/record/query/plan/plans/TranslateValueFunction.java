@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -37,7 +38,7 @@ public interface TranslateValueFunction {
     /**
      * Translate a value to an equivalent value that can be evaluated prior to the operation that we are trying to push
      * through. That operation normally is a {@link RecordQueryFetchFromPartialRecordPlan} but could potentially be
-     * any {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}.
+     * any {@link RelationalExpression}.
      * @param value a value that is correlated to a quantifier ranging over the current expression or that is
      *        only externally correlated. External correlations do not matter for translations as they are still
      *        valid after pushing the value though the current operation.

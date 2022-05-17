@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.match;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import org.hamcrest.Description;
@@ -52,7 +53,7 @@ public class IntersectionMatcher extends PlanMatcherWithChildren {
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
         return plan instanceof RecordQueryIntersectionPlan &&
                 super.matchesSafely(plan) &&
-                comparisonKeyMatcher.matches(((RecordQueryIntersectionPlan) plan).getComparisonKey());
+               comparisonKeyMatcher.matches(((RecordQueryIntersectionOnKeyExpressionPlan) plan).getComparisonKeyExpression());
     }
 
     @Override

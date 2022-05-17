@@ -520,7 +520,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 return null;
             }
             final List<InSource> valuesSources = inExtractor.unionSources();
-            final RecordQueryPlan union = new RecordQueryInUnionPlan(scoredPlan.plan, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize());
+            final RecordQueryPlan union = RecordQueryInUnionPlan.from(scoredPlan.plan, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize());
             return new ScoredPlan(scoredPlan.score, union);
         }
         return null;
@@ -1394,9 +1394,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             } else {
                 possibleTypes = metaData.getRecordTypes().keySet();
             }
-            plan = new RecordQueryScanPlan(possibleTypes, scanComparisons, candidateScan.reverse, strictlySorted);
+            plan = new RecordQueryScanPlan(possibleTypes, candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted);
         } else {
-            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), indexScanComparisons, candidateScan.reverse, strictlySorted);
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanComparisons, getConfiguration().getIndexFetchMethod(), candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);
         }
         // Add a type filter if the query plan might return records of more types than the query specified

@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -39,6 +41,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -71,7 +74,10 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Nonnull
     private final SetMultimap<MatchCandidate, PartialMatch> partialMatchMap;
     @Nonnull
-    private final InterestingPropertiesMap interestingPropertiesMap;
+    private final ConstraintsMap constraintsMap;
+
+    @Nonnull
+    private final PropertiesMap propertiesMap;
 
     private GroupExpressionRef() {
         this(new LinkedIdentitySet<>());
@@ -80,7 +86,8 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     private GroupExpressionRef(@Nonnull LinkedIdentitySet<T> members) {
         this.members = members;
         this.partialMatchMap = LinkedHashMultimap.create();
-        this.interestingPropertiesMap = new InterestingPropertiesMap();
+        this.constraintsMap = new ConstraintsMap();
+        this.propertiesMap = new PropertiesMap(members);
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);
     }
@@ -96,8 +103,8 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @Nonnull
     @Override
-    public InterestingPropertiesMap getRequirementsMap() {
-        return interestingPropertiesMap;
+    public ConstraintsMap getRequirementsMap() {
+        return constraintsMap;
     }
 
     public synchronized boolean replace(@Nonnull T newValue) {
@@ -111,6 +118,9 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
             // Call debugger hook to potentially register this new expression.
             Debugger.registerExpression(newValue);
             members.add(newValue);
+            if (newValue instanceof RecordQueryPlan) {
+                Verify.verify(propertiesMap.insert(newValue)); // this must return true
+            }
             return true;
         }
         return false;
@@ -158,6 +168,10 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
             return false;
         }
 
+        if (member.hashCodeWithoutChildren() != otherMember.hashCodeWithoutChildren()) {
+            return false;
+        }
+
         // We know member and otherMember are of the same class. canCorrelate() needs to match as well.
         Verify.verify(member.canCorrelate() == otherMember.canCorrelate());
 
@@ -167,7 +181,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
         // Use match the contained quantifier list against the quantifier list of other in order to find
         // a correspondence between quantifiers and otherQuantifiers. While we match we recursively call
-        // containsAllInMemo() and early out on that map if such such a correspondence cannot be established
+        // containsAllInMemo() and early out on that map if such a correspondence cannot be established
         // on the given pair of quantifiers. The result of this method is an iterable of matches. While it's
         // possible that there is more than one match, this iterable should mostly contain at most one
         // match.
@@ -231,31 +245,32 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     public void clear() {
+        propertiesMap.clear();
         members.clear();
     }
 
     public void startExploration() {
-        interestingPropertiesMap.startExploration();
+        constraintsMap.startExploration();
     }
 
     public void commitExploration() {
-        interestingPropertiesMap.commitExploration();
+        constraintsMap.commitExploration();
     }
 
     public boolean needsExploration() {
-        return !interestingPropertiesMap.isExploring() && !interestingPropertiesMap.isExplored();
+        return !constraintsMap.isExploring() && !constraintsMap.isExplored();
     }
 
     public boolean isExploring() {
-        return interestingPropertiesMap.isExploring();
+        return constraintsMap.isExploring();
     }
 
     public boolean isFullyExploring() {
-        return interestingPropertiesMap.isFullyExploring();
+        return constraintsMap.isFullyExploring();
     }
 
-    public boolean isExploredForAttributes(@Nonnull final Set<PlannerAttribute<?>> dependencies) {
-        return interestingPropertiesMap.isExploredForAttributes(dependencies);
+    public boolean isExploredForAttributes(@Nonnull final Set<PlannerConstraint<?>> dependencies) {
+        return constraintsMap.isExploredForAttributes(dependencies);
     }
 
     @Nonnull
@@ -264,13 +279,25 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return members;
     }
 
+    @Nonnull
+    @Override
+    public <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty) {
+        return propertiesMap.getPlannerAttributeForAllPlans(planProperty);
+    }
+
+    @Nonnull
+    @Override
+    public List<PlanPartition> getPlanPartitions() {
+        return propertiesMap.getPlanPartitions();
+    }
+
     @Nullable
     @Override
-    public <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> property) {
+    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> property) {
         if (property.shouldVisit(this)) {
             final List<U> memberResults = new ArrayList<>(members.size());
             for (T member : members) {
-                final U result = member.acceptPropertyVisitor(property);
+                final U result = property.shouldVisit(member) ? property.visit(member) : null;
                 if (result == null) {
                     return null;
                 }
@@ -283,7 +310,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @Override
     public String toString() {
-        return "ExpressionRef@" + hashCode() + "(" + "isExplored=" + interestingPropertiesMap.isExplored() + ")";
+        return "ExpressionRef@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")";
     }
 
     public static <T extends RelationalExpression> GroupExpressionRef<T> empty() {

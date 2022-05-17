@@ -23,9 +23,12 @@ apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
     compile "org.foundationdb:fdb-java:${fdbVersion}"
-    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compile "com.google.guava:guava:${guavaVersion}"
     compile "org.slf4j:slf4j-api:${slf4jVersion}"
+    compile "com.squareup:javapoet:${javaPoetVersion}"
+    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
+    compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
+    annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"

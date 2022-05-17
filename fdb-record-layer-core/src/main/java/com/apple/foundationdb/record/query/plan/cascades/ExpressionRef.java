@@ -22,11 +22,15 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -54,12 +58,19 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
     T get();
 
     @Nullable
-    <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> property);
+    <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> property);
 
     boolean containsAllInMemo(@Nonnull ExpressionRef<? extends RelationalExpression> otherRef,
                               @Nonnull AliasMap equivalenceMap);
 
+    @Nonnull
     LinkedIdentitySet<T> getMembers();
+
+    @Nonnull
+    <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty);
+
+    @Nonnull
+    List<PlanPartition> getPlanPartitions();
 
     /**
      * Return all match candidates that partially match this reference. This set must be a subset of all {@link MatchCandidate}s
@@ -98,7 +109,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
     boolean addPartialMatchForCandidate(final MatchCandidate candidate, final PartialMatch partialMatch);
 
     @Nonnull
-    InterestingPropertiesMap getRequirementsMap();
+    ConstraintsMap getRequirementsMap();
 
     /**
      * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.

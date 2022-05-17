@@ -22,20 +22,27 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
-import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
+import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
@@ -43,15 +50,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
-import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -351,38 +352,38 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryUnionPlan> union(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(RecordQueryUnionPlan.class, any(downstream));
+    public static BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> union(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryUnionOnKeyExpressionPlan.class, any(downstream));
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryUnionPlan> union(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(RecordQueryUnionPlan.class, downstream);
+    public static BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> union(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryUnionOnKeyExpressionPlan.class, downstream);
     }
 
     @Nonnull
     @SafeVarargs
     @SuppressWarnings("varargs")
-    public static BindingMatcher<RecordQueryUnionPlan> unionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
-        return childrenPlans(RecordQueryUnionPlan.class, exactlyPlansInAnyOrder(downstreams));
+    public static BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> unionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
+        return childrenPlans(RecordQueryUnionOnKeyExpressionPlan.class, exactlyPlansInAnyOrder(downstreams));
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryUnionPlan> unionPlan(@Nonnull final Collection<? extends BindingMatcher<? extends RecordQueryPlan>> downstreams) {
-        return childrenPlans(RecordQueryUnionPlan.class, exactlyPlansInAnyOrder(downstreams));
+    public static BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> unionPlan(@Nonnull final Collection<? extends BindingMatcher<? extends RecordQueryPlan>> downstreams) {
+        return childrenPlans(RecordQueryUnionOnKeyExpressionPlan.class, exactlyPlansInAnyOrder(downstreams));
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryUnionPlan> comparisonKey(@Nonnull BindingMatcher<KeyExpression> comparisonKeyMatcher) {
-        return typedWithDownstream(RecordQueryUnionPlan.class,
-                Extractor.of(RecordQueryUnionPlan::getComparisonKey, name -> "comparisonKey(" + name + ")"),
+    public static BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> comparisonKey(@Nonnull BindingMatcher<KeyExpression> comparisonKeyMatcher) {
+        return typedWithDownstream(RecordQueryUnionOnKeyExpressionPlan.class,
+                Extractor.of(RecordQueryUnionOnKeyExpressionPlan::getComparisonKeyExpression, name -> "comparisonKey(" + name + ")"),
                 comparisonKeyMatcher);
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryUnionPlan> comparisonKey(@Nonnull KeyExpression probe) {
-        return typedWithDownstream(RecordQueryUnionPlan.class,
-                Extractor.of(RecordQueryUnionPlan::getComparisonKey, name -> "comparisonKey(" + name + ")"),
+    public static BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> comparisonKey(@Nonnull KeyExpression probe) {
+        return typedWithDownstream(RecordQueryUnionOnKeyExpressionPlan.class,
+                Extractor.of(RecordQueryUnionOnKeyExpressionPlan::getComparisonKeyExpression, name -> "comparisonKey(" + name + ")"),
                 PrimitiveMatchers.equalsObject(probe));
     }
 
@@ -403,8 +404,8 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     @SafeVarargs
     @SuppressWarnings("varargs")
-    public static BindingMatcher<RecordQueryIntersectionPlan> intersectionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
-        return childrenPlans(RecordQueryIntersectionPlan.class, exactlyPlansInAnyOrder(downstreams));
+    public static BindingMatcher<RecordQueryIntersectionOnKeyExpressionPlan> intersectionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
+        return childrenPlans(RecordQueryIntersectionOnKeyExpressionPlan.class, exactlyPlansInAnyOrder(downstreams));
     }
 
     @Nonnull
@@ -444,26 +445,26 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionPlan> inUnion(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(RecordQueryInUnionPlan.class, any(downstream));
+    public static BindingMatcher<RecordQueryInUnionOnKeyExpressionPlan> inUnion(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryInUnionOnKeyExpressionPlan.class, any(downstream));
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionPlan> inUnionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
-        return childrenPlans(RecordQueryInUnionPlan.class, all(downstream));
+    public static BindingMatcher<RecordQueryInUnionOnKeyExpressionPlan> inUnionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryInUnionOnKeyExpressionPlan.class, all(downstream));
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionPlan> inUnionComparisonKey(@Nonnull BindingMatcher<KeyExpression> comparisonKeyMatcher) {
-        return typedWithDownstream(RecordQueryInUnionPlan.class,
-                Extractor.of(RecordQueryInUnionPlan::getComparisonKey, name -> "comparisonKey(" + name + ")"),
+    public static BindingMatcher<RecordQueryInUnionOnKeyExpressionPlan> inUnionComparisonKey(@Nonnull BindingMatcher<KeyExpression> comparisonKeyMatcher) {
+        return typedWithDownstream(RecordQueryInUnionOnKeyExpressionPlan.class,
+                Extractor.of(RecordQueryInUnionOnKeyExpressionPlan::getComparisonKeyExpression, name -> "comparisonKeyExpression(" + name + ")"),
                 comparisonKeyMatcher);
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionPlan> inUnionComparisonKey(@Nonnull KeyExpression probe) {
-        return typedWithDownstream(RecordQueryInUnionPlan.class,
-                Extractor.of(RecordQueryInUnionPlan::getComparisonKey, name -> "comparisonKey(" + name + ")"),
+    public static BindingMatcher<RecordQueryInUnionOnKeyExpressionPlan> inUnionComparisonKey(@Nonnull KeyExpression probe) {
+        return typedWithDownstream(RecordQueryInUnionOnKeyExpressionPlan.class,
+                Extractor.of(RecordQueryInUnionOnKeyExpressionPlan::getComparisonKeyExpression, name -> "comparisonKeyExpression(" + name + ")"),
                 PrimitiveMatchers.equalsObject(probe));
     }
 

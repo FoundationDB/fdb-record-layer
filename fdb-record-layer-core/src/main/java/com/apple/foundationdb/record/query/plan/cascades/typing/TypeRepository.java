@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.protobuf.DescriptorProtos;
@@ -42,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -67,16 +70,16 @@ public class TypeRepository {
     private final FileDescriptorSet fileDescSet;
 
     @Nonnull
-    private final Map<String, Descriptor> msgDescriptorMapFull = new HashMap<>();
+    private final Map<String, Descriptor> msgDescriptorMapFull = new LinkedHashMap<>();
 
     @Nonnull
-    private final Map<String, Descriptor> msgDescriptorMapShort = new HashMap<>();
+    private final Map<String, Descriptor> msgDescriptorMapShort = new LinkedHashMap<>();
 
     @Nonnull
-    private final Map<String, EnumDescriptor> enumDescriptorMapFull = new HashMap<>();
+    private final Map<String, EnumDescriptor> enumDescriptorMapFull = new LinkedHashMap<>();
 
     @Nonnull
-    private final Map<String, EnumDescriptor> enumDescriptorMapShort = new HashMap<>();
+    private final Map<String, EnumDescriptor> enumDescriptorMapShort = new LinkedHashMap<>();
 
     @Nonnull
     private final Map<Type, String> typeToNameMap;
@@ -396,12 +399,12 @@ public class TypeRepository {
     public static class Builder {
         private @Nonnull final FileDescriptorProto.Builder fileDescProtoBuilder;
         private @Nonnull final FileDescriptorSet.Builder fileDescSetBuilder;
-        private @Nonnull final Map<Type, String> typeToNameMap;
+        private @Nonnull final BiMap<Type, String> typeToNameMap;
 
         private Builder() {
             fileDescProtoBuilder = FileDescriptorProto.newBuilder();
             fileDescSetBuilder = FileDescriptorSet.newBuilder();
-            typeToNameMap = Maps.newHashMap();
+            typeToNameMap = HashBiMap.create();
         }
 
         @Nonnull
@@ -439,6 +442,11 @@ public class TypeRepository {
         @Nonnull
         public Optional<String> getTypeName(@Nonnull final Type type) {
             return Optional.ofNullable(typeToNameMap.get(type));
+        }
+
+        @Nonnull
+        public Optional<Type> getTypeByName(@Nonnull final String name) {
+            return Optional.ofNullable(typeToNameMap.inverse().get(name));
         }
 
         @Nonnull

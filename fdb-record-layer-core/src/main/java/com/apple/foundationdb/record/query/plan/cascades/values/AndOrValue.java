@@ -25,18 +25,17 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -111,8 +110,8 @@ public class AndOrValue implements BooleanValue {
     }
 
     @Override
-    public int semanticHashCode() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, functionName, leftChild, rightChild);
+    public int hashCodeWithoutChildren() {
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, functionName);
     }
 
     @Override
@@ -140,17 +139,15 @@ public class AndOrValue implements BooleanValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context,
-                                           @Nullable final FDBRecord<M> fdbRecord,
-                                           @Nullable final M message) {
-        final Object leftResult = leftChild.eval(store, context, fdbRecord, message);
+                                           @Nonnull final EvaluationContext context) {
+        final Object leftResult = leftChild.eval(store, context);
         if (operator == Operator.AND && Boolean.FALSE.equals(leftResult)) {
             return false;
         }
         if (operator == Operator.OR && Boolean.TRUE.equals(leftResult)) {
             return true;
         }
-        final Object rightResult = rightChild.eval(store, context, fdbRecord, message);
+        final Object rightResult = rightChild.eval(store, context);
         if (operator == Operator.AND && Boolean.FALSE.equals(rightResult)) {
             return false;
         }

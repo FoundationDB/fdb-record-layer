@@ -25,12 +25,12 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -92,14 +92,17 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        final var childMessage = (Message)context.getBinding(alias);
-        if (childMessage == null) {
-            return null;
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        final var queryResult = (QueryResult)context.getBinding(alias);
+        if (queryResult.getDatum() == null) {
+            return null; // NULL OUT ON NULL IN
         }
-        final var descriptorForType = childMessage.getDescriptorForType();
+
+        final var message = queryResult.getMessage(); // we must be able to distill a message from the result
+        
+        final var descriptorForType = message.getDescriptorForType();
         final var fieldDescriptor = descriptorForType.findFieldByNumber(getFieldForOrdinal().getFieldIndex());
-        return childMessage.getField(fieldDescriptor);
+        return message.getField(fieldDescriptor);
     }
 
     @Nonnull
@@ -118,7 +121,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     }
 
     @Override
-    public int semanticHashCode() {
+    public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, ordinalPosition);
     }
 

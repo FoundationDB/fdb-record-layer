@@ -44,7 +44,7 @@ import java.util.concurrent.CompletableFuture;
  * A base class for all query plans that filter based on predicates.
  */
 @API(API.Status.INTERNAL)
-abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
+public abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
     @Nonnull
     private final Quantifier.Physical inner;
 
