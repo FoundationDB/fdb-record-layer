@@ -36,10 +36,10 @@ import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedExce
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -48,6 +48,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
 
 public class CatalogMetaData implements RelationalDatabaseMetaData {
     private final StoreCatalog catalog;
