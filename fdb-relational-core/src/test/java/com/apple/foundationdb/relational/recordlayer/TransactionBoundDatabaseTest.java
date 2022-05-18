@@ -61,9 +61,9 @@ public class TransactionBoundDatabaseTest {
     @Test
     void simpleSelect() throws RelationalException, SQLException {
         // First create a transaction object out of the connection and the statement
-        RecordLayerSchema schema = ((RecordStoreConnection) connRule.getUnderlying()).frl.loadSchema("testSchema", Options.create());
+        RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("testSchema", Options.create());
         FDBRecordStore store = schema.loadStore();
-        try (FDBRecordContext context = ((RecordStoreConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction().unwrap(FDBRecordContext.class)) {
+        try (FDBRecordContext context = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction().unwrap(FDBRecordContext.class)) {
             try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context)) {
 
                 // Then, once we have a transaction that contains both an FDBRecordStore and an FDBRecordContext,

@@ -20,13 +20,8 @@
 
 package com.apple.foundationdb.relational.cli;
 
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-
-import java.sql.SQLException;
 
 class TestCreateDbCommand {
 
@@ -34,20 +29,17 @@ class TestCreateDbCommand {
     CliRule cli = new CliRule();
 
     @Test
-    void testCreateDb() throws RelationalException, SQLException {
+    void testCreateDb() throws Exception {
         try {
             TestUtils.createRestaurantSchemaTemplate(cli);
-
-            String createDb = "CREATE DATABASE /test_create_db; CREATE SCHEMA /test_create_db/test_create_db_schema WITH TEMPLATE restaurant_template";
-            int exitCode = cli.getCmd().execute("ddl", "-c", createDb);
-            System.out.println(cli.getOutput());
-            System.out.println(cli.getError());
-            Assertions.assertEquals(0, exitCode);
-
+            TestUtils.runCommand("connect jdbc:embed:/__SYS", cli);
+            TestUtils.runCommand("setschema catalog", cli);
+            TestUtils.runQuery("CREATE DATABASE '/test_create_db'", cli);
+            TestUtils.runQuery("CREATE SCHEMA '/test_create_db/test_create_db_schema' WITH TEMPLATE restaurant_template", cli);
             TestUtils.databaseHasSchemas("test_create_db", "test_create_db_schema");
             TestUtils.schemaHasTables("test_create_db", "test_create_db_schema", "RestaurantRecord", "RestaurantReviewer");
         } finally {
-            TestUtils.deleteDb("test_create_db", cli);
+            TestUtils.dropDb("test_create_db", cli);
         }
     }
 }

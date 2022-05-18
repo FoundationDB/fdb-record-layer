@@ -20,17 +20,22 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.AbstractRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.List;
 
 import javax.annotation.Nonnull;
 
@@ -47,70 +52,124 @@ public class CatalogQueryFactory implements DdlQueryFactory {
     @Override
     public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
         //TODO(bfines) make use of this prefix
-        return txn -> catalog.listDatabases(txn, Continuation.BEGIN);
+        return new DdlQuery() {
+            @Override
+            @Nonnull
+            public Type getResultSetMetadata() {
+                return Type.Record.fromDescriptor(CatalogData.DatabaseInfo.getDescriptor());
+            }
+
+            @Override
+            public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
+                return catalog.listDatabases(txn, Continuation.BEGIN);
+            }
+        };
     }
 
     @Override
     public DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath) {
-        return txn -> catalog.listSchemas(txn, dbPath, Continuation.BEGIN);
+        return new DdlQuery() {
+            @Override
+            @Nonnull
+            public Type getResultSetMetadata() {
+                return Type.Record.fromDescriptor(CatalogData.Schema.getDescriptor());
+            }
+
+            @Override
+            public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
+                return catalog.listSchemas(txn, Continuation.BEGIN);
+            }
+        };
     }
 
     @Override
     public DdlQuery getListSchemaTemplatesQueryAction() {
-        return templateCatalog::listTemplates;
+        final var columns = List.of("TEMPLATE_NAME");
+        return new DdlQuery() {
+            @Override
+            @Nonnull
+            public Type getResultSetMetadata() {
+                return DdlQuery.constructTypeFrom(columns);
+            }
+
+            @Override
+            public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
+                return templateCatalog.listTemplates(txn);
+            }
+        };
     }
 
     @Override
     public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
-        return txn -> {
-            final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, schemaId);
 
-            Object[] fields = new Object[]{
-                    schemaTemplate.getUniqueId(),
-                    schemaTemplate.getTables(),
-                    schemaTemplate.getTypes()
-            };
+        final var columns = List.of("TEMPLATE_NAME", "TYPES", "TABLES");
+        return new DdlQuery() {
+            @Override
+            @Nonnull
+            public Type getResultSetMetadata() {
+                return DdlQuery.constructTypeFrom(columns);
+            }
 
-            Row tuple = new AbstractRow() {
-                @Override
-                public int getNumFields() {
-                    return 3;
-                }
+            @Override
+            public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
+                final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, schemaId);
+                final Object[] fields = new Object[]{
+                        schemaTemplate.getUniqueId(),
+                        schemaTemplate.getTables(),
+                        schemaTemplate.getTypes()
+                };
 
-                @Override
-                public Object getObject(int position) {
-                    return fields[position];
-                }
-            };
-            return new IteratorResultSet(new String[]{"TEMPLATE_NAME", "TYPES", "TABLES"}, Collections.singleton(tuple).iterator(), 0);
+                final Row tuple = new AbstractRow() {
+                    @Override
+                    public int getNumFields() {
+                        return 3;
+                    }
+
+                    @Override
+                    public Object getObject(int position) {
+                        return fields[position];
+                    }
+                };
+                return new IteratorResultSet(columns.toArray(String[]::new), Collections.singleton(tuple).iterator(), 0);
+            }
         };
     }
 
     @Override
     public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbId, @Nonnull String schemaId) {
-        return txn -> {
-            final CatalogData.Schema schema = catalog.loadSchema(txn, dbId, schemaId);
+        final var columns = List.of("DATABASE_PATH", "SCHEMA_NAME", "TABLES", "INDEXES");
+        return new DdlQuery() {
 
-            Object[] fields = new Object[]{
-                    schema.getDatabaseId(),
-                    schema.getSchemaName(),
-                    schema.getTablesList(),
-                    Collections.emptyList()
-            };
+            @Override
+            @Nonnull
+            public Type getResultSetMetadata() {
+                return DdlQuery.constructTypeFrom(columns);
+            }
 
-            Row tuple = new AbstractRow() {
-                @Override
-                public int getNumFields() {
-                    return 3;
-                }
+            @Override
+            public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
+                final CatalogData.Schema schema = catalog.loadSchema(txn, dbId, schemaId);
 
-                @Override
-                public Object getObject(int position) {
-                    return fields[position];
-                }
-            };
-            return new IteratorResultSet(new String[]{"DATABASE_PATH", "SCHEMA_NAME", "TABLES", "INDEXES"},
-                    Collections.singleton(tuple).iterator(), 0);
+                Object[] fields = new Object[]{
+                        schema.getDatabaseId(),
+                        schema.getSchemaName(),
+                        schema.getTablesList(),
+                        Collections.emptyList()
+                };
+
+                final Row tuple = new AbstractRow() {
+                    @Override
+                    public int getNumFields() {
+                        return 3;
+                    }
+
+                    @Override
+                    public Object getObject(int position) {
+                        return fields[position];
+                    }
+                };
+                return new IteratorResultSet(columns.toArray(String[]::new), Collections.singleton(tuple).iterator(), 0);
+            }
         };
     }
 }

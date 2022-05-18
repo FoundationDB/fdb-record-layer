@@ -34,11 +34,6 @@ root
     : sqlStatements? (MINUS MINUS)? EOF
     ;
 
-// Base64 encode byte array to a string
-withContinuationStatement
-    : (WITH CONTINUATION) stringLiteral
-    ;
-
 sqlStatements
     : (sqlStatement (MINUS MINUS)? SEMI? | emptyStatement_)*
     (sqlStatement ((MINUS MINUS)? SEMI)? | emptyStatement_)
@@ -55,22 +50,12 @@ emptyStatement_
     ;
 
 ddlStatement
-    : createDatabase | createEvent | createIndex
-    | createProcedure | createFunction
-    | createServer | createTable
-    | createTrigger | createView
-    | alterDatabase | alterEvent | alterFunction
-    | alterInstance | alterProcedure
-    | alterServer | alterTable | alterTablespace | alterView
-    | dropDatabase | dropEvent | dropIndex
-    | dropProcedure | dropFunction
-    | dropServer | dropTable | dropTablespace
-    | dropTrigger | dropView
-    | renameTable | truncateTable
+    : createStatement
+    | dropStatement
     ;
 
 dmlStatement
-    : (selectStatement withContinuationStatement?) | insertStatement | updateStatement
+    : selectStatementWithContinuation | insertStatement | updateStatement
     | deleteStatement | replaceStatement | callStatement
     | loadDataStatement | loadXmlStatement | doStatement
     | handlerStatement
@@ -125,133 +110,57 @@ utilityStatement
 
 // Data Definition Language
 
-//    Create statements
+createStatement
+   : CREATE SCHEMA schemaId WITH TEMPLATE templateId                           #createSchemaStatement
+   | CREATE SCHEMA TEMPLATE schemaTemplateId AS '{'
+        (CREATE ( structOrTableDefinition | indexDefinition ))
+             (SEMI (CREATE (structOrTableDefinition | indexDefinition))?)* '}' #createSchemaTemplateStatement
+   | CREATE DATABASE path                                                      #createDatabaseStatement
+   ;
 
-createDatabase
-    : CREATE dbFormat=(DATABASE | SCHEMA)
-      ifNotExists? uid createDatabaseOption*
-    ;
-
-createEvent
-    : CREATE ownerStatement? EVENT ifNotExists? fullId
-      ON SCHEDULE scheduleExpression
-      (ON COMPLETION NOT? PRESERVE)? enableType?
-      (COMMENT STRING_LITERAL)?
-      DO routineBody
-    ;
-
-createIndex
-    : CREATE (OR REPLACE)?                                        // OR is MariaDB-specific only
-      intimeAction=(ONLINE | OFFLINE)?
-      indexCategory=(UNIQUE | FULLTEXT | SPATIAL)? INDEX
-      (IF NOT EXISTS)?                                            // MariaDB-specific only
-      uid indexType?
-      ON tableName indexColumnNames
-      (WAIT decimalLiteral | NOWAIT)?                             // MariaDB-specific only
-      indexOption*
-      (
-        ALGORITHM EQUAL_SYMBOL? algType=(DEFAULT | INPLACE | COPY | NOCOPY | INSTANT)  // NOCOPY, INSTANT are MariaDB-specific only
-        | LOCK EQUAL_SYMBOL? lockType=(DEFAULT | NONE | SHARED | EXCLUSIVE)
-      )*
-    ;
-
-createProcedure
-    : CREATE ownerStatement?
-    PROCEDURE fullId
-      '(' procedureParameter? (',' procedureParameter)* ')'
-      routineOption*
-    routineBody
-    ;
-
-createFunction
-    : CREATE ownerStatement?
-    FUNCTION fullId
-      '(' functionParameter? (',' functionParameter)* ')'
-      RETURNS dataType
-      routineOption*
-    (routineBody | returnStatement)
-    ;
-
-createServer
-    : CREATE SERVER uid
-    FOREIGN DATA WRAPPER wrapperName=(MYSQL | STRING_LITERAL)
-    OPTIONS '(' serverOption (',' serverOption)* ')'
-    ;
-
-createTable
-    : CREATE TEMPORARY? TABLE ifNotExists?
-       tableName
-       (
-         LIKE tableName
-         | '(' LIKE parenthesisTable=tableName ')'
-       )                                                            #copyCreateTable
-    | CREATE TEMPORARY? TABLE ifNotExists?
-       tableName createDefinitions?
-       ( tableOption (','? tableOption)* )?
-       keyViolate=(IGNORE | REPLACE)?
-       AS? selectStatement                                          #queryCreateTable
-    ;
-
-createTrigger
-    : CREATE ownerStatement?
-      TRIGGER thisTrigger=fullId
-      triggerTime=(BEFORE | AFTER)
-      triggerEvent=(INSERT | UPDATE | DELETE)
-      ON tableName FOR EACH ROW
-      (triggerPlace=(FOLLOWS | PRECEDES) otherTrigger=fullId)?
-      routineBody
-    ;
-
-createView
-    : CREATE (OR REPLACE)?
-      (
-        ALGORITHM '=' algType=(UNDEFINED | MERGE | TEMPTABLE)
-      )?
-      ownerStatement?
-      (SQL SECURITY secContext=(DEFINER | INVOKER))?
-      VIEW fullId ('(' uidList ')')? AS selectStatement
-      (WITH checkOption=(CASCADED | LOCAL)? CHECK OPTION)?
-    ;
+dropStatement
+   : DROP DATABASE path       #dropDatabaseStatement
+   | DROP SCHEMA TEMPLATE uid #dropSchemaTemplateStatement
+   | DROP SCHEMA uid          #dropSchemaStatement
+   ;
 
 // details
 
-createDatabaseOption
-    : DEFAULT? charSet '='? (charsetName | DEFAULT)
-    | DEFAULT? COLLATE '='? collationName
+structOrTableDefinition
+    : (STRUCT | TABLE) uid '(' columnDefinition (COMMA columnDefinition)* (primaryKeyDefinition)? ')'
+    ;
+
+columnDefinition
+    : colName=uid columnType ARRAY?
+    ;
+
+columnType
+    : BOOLEAN | INT64 | DOUBLE | STRING | TIMESTAMP | BYTES| customType=uid;
+
+primaryKeyDefinition
+    : PRIMARY KEY '(' (RECORD TYPE | uid) (COMMA uid)* ')'
+    ;
+
+indexDefinition // TODO: add more index types
+    : valueIndexDefinition
+    ;
+
+valueIndexDefinition
+    : UNIQUE? VALUE INDEX idxName=uid ON tblName=uid '(' ( idxField (COMMA idxField)*) ')' ( INCLUDE '(' (incField (COMMA incField)*) ')' )?
+    ;
+
+idxField
+    : uid
+    ;
+
+incField
+    : uid
     ;
 
 charSet
     : CHARACTER SET
     | CHARSET
     | CHAR SET
-    ;
-
-ownerStatement
-    : DEFINER '=' (userName | CURRENT_USER ( '(' ')')?)
-    ;
-
-scheduleExpression
-    : AT timestampValue intervalExpr*                               #preciseSchedule
-    | EVERY (decimalLiteral | expression) intervalType
-        (
-          STARTS startTimestamp=timestampValue
-          (startIntervals+=intervalExpr)*
-        )?
-        (
-          ENDS endTimestamp=timestampValue
-          (endIntervals+=intervalExpr)*
-        )?                                                          #intervalSchedule
-    ;
-
-timestampValue
-    : CURRENT_TIMESTAMP
-    | stringLiteral
-    | decimalLiteral
-    | expression
-    ;
-
-intervalExpr
-    : '+' INTERVAL (decimalLiteral | expression) intervalType
     ;
 
 intervalType
@@ -262,387 +171,23 @@ intervalType
     | HOUR_MICROSECOND | DAY_MICROSECOND
     ;
 
-enableType
-    : ENABLE | DISABLE | DISABLE ON SLAVE
-    ;
+schemaId:
+   path;
 
-indexType
-    : USING (BTREE | HASH | RTREE)  // RTREE is MariaDB-specific only
-    ;
+path:
+   uid; // matching happens in parser
 
-indexOption
-    : KEY_BLOCK_SIZE EQUAL_SYMBOL? fileSizeLiteral
-    | indexType
-    | WITH PARSER uid
-    | COMMENT STRING_LITERAL
-    | (VISIBLE | INVISIBLE)
-    | ENGINE_ATTRIBUTE EQUAL_SYMBOL? STRING_LITERAL
-    | SECONDARY_ENGINE_ATTRIBUTE EQUAL_SYMBOL? STRING_LITERAL
-    | CLUSTERING EQUAL_SYMBOL (YES | NO)                       // MariaDB-specific only
-    | (IGNORED | NOT IGNORED)                                  // MariaDB-specific only
-    ;
+templateId:
+   uid;
 
-procedureParameter
-    : direction=(IN | OUT | INOUT)? uid dataType
-    ;
-
-functionParameter
-    : uid dataType
-    ;
-
-routineOption
-    : COMMENT STRING_LITERAL                                        #routineComment
-    | LANGUAGE SQL                                                  #routineLanguage
-    | NOT? DETERMINISTIC                                            #routineBehavior
-    | (
-        CONTAINS SQL | NO SQL | READS SQL DATA
-        | MODIFIES SQL DATA
-      )                                                             #routineData
-    | SQL SECURITY context=(DEFINER | INVOKER)                      #routineSecurity
-    ;
-
-serverOption
-    : HOST STRING_LITERAL
-    | DATABASE STRING_LITERAL
-    | USER STRING_LITERAL
-    | PASSWORD STRING_LITERAL
-    | SOCKET STRING_LITERAL
-    | OWNER STRING_LITERAL
-    | PORT decimalLiteral
-    ;
-
-createDefinitions
-    : '(' createDefinition (',' createDefinition)* ')'
-    ;
-
-createDefinition
-    : uid columnDefinition                                          #columnDeclaration
-    | tableConstraint                                               #constraintDeclaration
-    | indexColumnDefinition                                         #indexDeclaration
-    ;
-
-columnDefinition
-    : dataType columnConstraint*
-    ;
-
-columnConstraint
-    : NOT? nullLiteral                                              #nullColumnConstraint
-    | DEFAULT defaultValue                                          #defaultColumnConstraint
-    | VISIBLE                                                       #visibilityColumnConstraint
-    | INVISIBLE                                                     #visibilityColumnConstraint
-    | (AUTO_INCREMENT | ON UPDATE currentTimestamp)                 #autoIncrementColumnConstraint
-    | PRIMARY? KEY                                                  #primaryKeyColumnConstraint
-    | UNIQUE KEY?                                                   #uniqueKeyColumnConstraint
-    | COMMENT STRING_LITERAL                                        #commentColumnConstraint
-    | COLUMN_FORMAT colformat=(FIXED | DYNAMIC | DEFAULT)           #formatColumnConstraint
-    | STORAGE storageval=(DISK | MEMORY | DEFAULT)                  #storageColumnConstraint
-    | referenceDefinition                                           #referenceColumnConstraint
-    | COLLATE collationName                                         #collateColumnConstraint
-    | (GENERATED ALWAYS)? AS '(' expression ')' (VIRTUAL | STORED)? #generatedColumnConstraint
-    | SERIAL DEFAULT VALUE                                          #serialDefaultColumnConstraint
-    | (CONSTRAINT name=uid?)?
-      CHECK '(' expression ')'                                      #checkColumnConstraint
-    ;
-
-tableConstraint
-    : (CONSTRAINT name=uid?)?
-      PRIMARY KEY index=uid? indexType?
-      indexColumnNames indexOption*                                 #primaryKeyTableConstraint
-    | (CONSTRAINT name=uid?)?
-      UNIQUE indexFormat=(INDEX | KEY)? index=uid?
-      indexType? indexColumnNames indexOption*                      #uniqueKeyTableConstraint
-    | (CONSTRAINT name=uid?)?
-      FOREIGN KEY index=uid? indexColumnNames
-      referenceDefinition                                           #foreignKeyTableConstraint
-    | (CONSTRAINT name=uid?)?
-      CHECK '(' expression ')'                                      #checkTableConstraint
-    ;
-
-referenceDefinition
-    : REFERENCES tableName indexColumnNames?
-      (MATCH matchType=(FULL | PARTIAL | SIMPLE))?
-      referenceAction?
-    ;
-
-referenceAction
-    : ON DELETE onDelete=referenceControlType
-      (
-        ON UPDATE onUpdate=referenceControlType
-      )?
-    | ON UPDATE onUpdate=referenceControlType
-      (
-        ON DELETE onDelete=referenceControlType
-      )?
-    ;
-
-referenceControlType
-    : RESTRICT | CASCADE | SET NULL_LITERAL | NO ACTION
-    ;
-
-indexColumnDefinition
-    : indexFormat=(INDEX | KEY) uid? indexType?
-      indexColumnNames indexOption*                                 #simpleIndexDeclaration
-    | (FULLTEXT | SPATIAL)
-      indexFormat=(INDEX | KEY)? uid?
-      indexColumnNames indexOption*                                 #specialIndexDeclaration
-    ;
-
-tableOption
-    : AUTO_INCREMENT '='? decimalLiteral                                            #tableOptionAutoIncrement
-    | AVG_ROW_LENGTH '='? decimalLiteral                                            #tableOptionAverage
-    | DEFAULT? charSet '='? (charsetName|DEFAULT)                                   #tableOptionCharset
-    | (CHECKSUM | PAGE_CHECKSUM) '='? boolValue=('0' | '1')                         #tableOptionChecksum
-    | DEFAULT? COLLATE '='? collationName                                           #tableOptionCollate
-    | COMMENT '='? STRING_LITERAL                                                   #tableOptionComment
-    | COMPRESSION '='? (STRING_LITERAL | ID)                                        #tableOptionCompression
-    | CONNECTION '='? STRING_LITERAL                                                #tableOptionConnection
-    | DATA DIRECTORY '='? STRING_LITERAL                                            #tableOptionDataDirectory
-    | DELAY_KEY_WRITE '='? boolValue=('0' | '1')                                    #tableOptionDelay
-    | ENCRYPTION '='? STRING_LITERAL                                                #tableOptionEncryption
-    | INDEX DIRECTORY '='? STRING_LITERAL                                           #tableOptionIndexDirectory
-    | INSERT_METHOD '='? insertMethod=(NO | FIRST | LAST)                           #tableOptionInsertMethod
-    | KEY_BLOCK_SIZE '='? fileSizeLiteral                                           #tableOptionKeyBlockSize
-    | MAX_ROWS '='? decimalLiteral                                                  #tableOptionMaxRows
-    | MIN_ROWS '='? decimalLiteral                                                  #tableOptionMinRows
-    | PACK_KEYS '='? extBoolValue=('0' | '1' | DEFAULT)                             #tableOptionPackKeys
-    | PASSWORD '='? STRING_LITERAL                                                  #tableOptionPassword
-    | ROW_FORMAT '='?
-        rowFormat=(
-          DEFAULT | DYNAMIC | FIXED | COMPRESSED
-          | REDUNDANT | COMPACT | ID
-        )                                                                           #tableOptionRowFormat
-    | STATS_AUTO_RECALC '='? extBoolValue=(DEFAULT | '0' | '1')                     #tableOptionRecalculation
-    | STATS_PERSISTENT '='? extBoolValue=(DEFAULT | '0' | '1')                      #tableOptionPersistent
-    | STATS_SAMPLE_PAGES '='? decimalLiteral                                        #tableOptionSamplePage
-    | TABLESPACE uid tablespaceStorage?                                             #tableOptionTablespace
-    | TABLE_TYPE '=' tableType                                                      #tableOptionTableType
-    | tablespaceStorage                                                             #tableOptionTablespace
-    | UNION '='? '(' tables ')'                                                     #tableOptionUnion
-    ;
-
-tableType
-    : MYSQL | ODBC
-    ;
-
-tablespaceStorage
-    : STORAGE (DISK | MEMORY | DEFAULT)
-    ;
-
-partitionFunctionDefinition
-    : LINEAR? HASH '(' expression ')'                               #partitionFunctionHash
-    | LINEAR? KEY (ALGORITHM '=' algType=('1' | '2'))?
-      '(' uidList ')'                                               #partitionFunctionKey
-    | RANGE ( '(' expression ')' | COLUMNS '(' uidList ')' )        #partitionFunctionRange
-    | LIST ( '(' expression ')' | COLUMNS '(' uidList ')' )         #partitionFunctionList
-    ;
-
-subpartitionFunctionDefinition
-    : LINEAR? HASH '(' expression ')'                               #subPartitionFunctionHash
-    | LINEAR? KEY (ALGORITHM '=' algType=('1' | '2'))?
-      '(' uidList ')'                                               #subPartitionFunctionKey
-    ;
-
-partitionDefinerAtom
-    : constant | expression | MAXVALUE
-    ;
-
-partitionDefinerVector
-    : '(' partitionDefinerAtom (',' partitionDefinerAtom)+ ')'
-    ;
+schemaTemplateId:
+   uid;
 
 //    Alter statements
 
-alterDatabase
-    : ALTER dbFormat=(DATABASE | SCHEMA) uid?
-      createDatabaseOption+                                         #alterSimpleDatabase
-    | ALTER dbFormat=(DATABASE | SCHEMA) uid
-      UPGRADE DATA DIRECTORY NAME                                   #alterUpgradeName
-    ;
-
-alterEvent
-    : ALTER ownerStatement?
-      EVENT fullId
-      (ON SCHEDULE scheduleExpression)?
-      (ON COMPLETION NOT? PRESERVE)?
-      (RENAME TO fullId)? enableType?
-      (COMMENT STRING_LITERAL)?
-      (DO routineBody)?
-    ;
-
-alterFunction
-    : ALTER FUNCTION fullId routineOption*
-    ;
-
-alterInstance
-    : ALTER INSTANCE ROTATE INNODB MASTER KEY
-    ;
-
-alterProcedure
-    : ALTER PROCEDURE fullId routineOption*
-    ;
-
-alterServer
-    : ALTER SERVER uid OPTIONS
-      '(' serverOption (',' serverOption)* ')'
-    ;
-
-alterTable
-    : ALTER intimeAction=(ONLINE | OFFLINE)?
-      IGNORE? TABLE tableName
-      (alterSpecification (',' alterSpecification)*)?
-    ;
-
-alterTablespace
-    : ALTER TABLESPACE uid
-      objectAction=(ADD | DROP) DATAFILE STRING_LITERAL
-      (INITIAL_SIZE '=' fileSizeLiteral)?
-      WAIT?
-    ;
-
-alterView
-    : ALTER
-      (
-        ALGORITHM '=' algType=(UNDEFINED | MERGE | TEMPTABLE)
-      )?
-      ownerStatement?
-      (SQL SECURITY secContext=(DEFINER | INVOKER))?
-      VIEW fullId ('(' uidList ')')? AS selectStatement
-      (WITH checkOpt=(CASCADED | LOCAL)? CHECK OPTION)?
-    ;
-
-// details
-
-alterSpecification
-    : tableOption (','? tableOption)*                               #alterByTableOption
-    | ADD COLUMN? uid columnDefinition (FIRST | AFTER uid)?         #alterByAddColumn
-    | ADD COLUMN?
-        '('
-          uid columnDefinition ( ',' uid columnDefinition)*
-        ')'                                                         #alterByAddColumns
-    | ADD indexFormat=(INDEX | KEY) uid? indexType?
-      indexColumnNames indexOption*                                 #alterByAddIndex
-    | ADD (CONSTRAINT name=uid?)? PRIMARY KEY index=uid?
-      indexType? indexColumnNames indexOption*                      #alterByAddPrimaryKey
-    | ADD (CONSTRAINT name=uid?)? UNIQUE
-      indexFormat=(INDEX | KEY)? indexName=uid?
-      indexType? indexColumnNames indexOption*                      #alterByAddUniqueKey
-    | ADD keyType=(FULLTEXT | SPATIAL)
-      indexFormat=(INDEX | KEY)? uid?
-      indexColumnNames indexOption*                                 #alterByAddSpecialIndex
-    | ADD (CONSTRAINT name=uid?)? FOREIGN KEY
-      indexName=uid? indexColumnNames referenceDefinition           #alterByAddForeignKey
-    | ADD (CONSTRAINT name=uid?)? CHECK '(' expression ')'          #alterByAddCheckTableConstraint
-    | ALGORITHM '='? algType=(DEFAULT | INSTANT | INPLACE | COPY)   #alterBySetAlgorithm
-    | ALTER COLUMN? uid
-      (SET DEFAULT defaultValue | DROP DEFAULT)                     #alterByChangeDefault
-    | CHANGE COLUMN? oldColumn=uid
-      newColumn=uid columnDefinition
-      (FIRST | AFTER afterColumn=uid)?                              #alterByChangeColumn
-    | RENAME COLUMN oldColumn=uid TO newColumn=uid                  #alterByRenameColumn
-    | LOCK '='? lockType=(DEFAULT | NONE | SHARED | EXCLUSIVE)      #alterByLock
-    | MODIFY COLUMN?
-      uid columnDefinition (FIRST | AFTER uid)?                     #alterByModifyColumn
-    | DROP COLUMN? uid RESTRICT?                                    #alterByDropColumn
-    | DROP (CONSTRAINT | CHECK) uid                                 #alterByDropConstraintCheck
-    | DROP PRIMARY KEY                                              #alterByDropPrimaryKey
-    | RENAME indexFormat=(INDEX | KEY) uid TO uid                   #alterByRenameIndex
-    | ALTER INDEX uid (VISIBLE | INVISIBLE)                         #alterByAlterIndexVisibility
-    | DROP indexFormat=(INDEX | KEY) uid                            #alterByDropIndex
-    | DROP FOREIGN KEY uid                                          #alterByDropForeignKey
-    | DISABLE KEYS                                                  #alterByDisableKeys
-    | ENABLE KEYS                                                   #alterByEnableKeys
-    | RENAME renameFormat=(TO | AS)? (uid | fullId)                 #alterByRename
-    | ORDER BY uidList                                              #alterByOrder
-    | CONVERT TO CHARACTER SET charsetName
-      (COLLATE collationName)?                                      #alterByConvertCharset
-    | DEFAULT? CHARACTER SET '=' charsetName
-      (COLLATE '=' collationName)?                                  #alterByDefaultCharset
-    | DISCARD TABLESPACE                                            #alterByDiscardTablespace
-    | IMPORT TABLESPACE                                             #alterByImportTablespace
-    | FORCE                                                         #alterByForce
-    | validationFormat=(WITHOUT | WITH) VALIDATION                  #alterByValidate
-    | DROP PARTITION uidList                                        #alterByDropPartition
-    | DISCARD PARTITION (uidList | ALL) TABLESPACE                  #alterByDiscardPartition
-    | IMPORT PARTITION (uidList | ALL) TABLESPACE                   #alterByImportPartition
-    | TRUNCATE PARTITION (uidList | ALL)                            #alterByTruncatePartition
-    | COALESCE PARTITION decimalLiteral                             #alterByCoalescePartition
-    | EXCHANGE PARTITION uid WITH TABLE tableName
-      (validationFormat=(WITH | WITHOUT) VALIDATION)?               #alterByExchangePartition
-    | ANALYZE PARTITION (uidList | ALL)                             #alterByAnalyzePartition
-    | CHECK PARTITION (uidList | ALL)                               #alterByCheckPartition
-    | OPTIMIZE PARTITION (uidList | ALL)                            #alterByOptimizePartition
-    | REBUILD PARTITION (uidList | ALL)                             #alterByRebuildPartition
-    | REPAIR PARTITION (uidList | ALL)                              #alterByRepairPartition
-    | REMOVE PARTITIONING                                           #alterByRemovePartitioning
-    | UPGRADE PARTITIONING                                          #alterByUpgradePartitioning
-    ;
-
-
 //    Drop statements
 
-dropDatabase
-    : DROP dbFormat=(DATABASE | SCHEMA) ifExists? uid
-    ;
-
-dropEvent
-    : DROP EVENT ifExists? fullId
-    ;
-
-dropIndex
-    : DROP INDEX intimeAction=(ONLINE | OFFLINE)?
-      uid ON tableName
-      (
-        ALGORITHM '='? algType=(DEFAULT | INPLACE | COPY)
-        | LOCK '='?
-          lockType=(DEFAULT | NONE | SHARED | EXCLUSIVE)
-      )*
-    ;
-
-dropProcedure
-    : DROP PROCEDURE ifExists? fullId
-    ;
-
-dropFunction
-    : DROP FUNCTION ifExists? fullId
-    ;
-
-dropServer
-    : DROP SERVER ifExists? uid
-    ;
-
-dropTable
-    : DROP TEMPORARY? TABLE ifExists?
-      tables dropType=(RESTRICT | CASCADE)?
-    ;
-
-dropTablespace
-    : DROP TABLESPACE uid
-    ;
-
-dropTrigger
-    : DROP TRIGGER ifExists? fullId
-    ;
-
-dropView
-    : DROP VIEW ifExists?
-      fullId (',' fullId)* dropType=(RESTRICT | CASCADE)?
-    ;
-
-
 //    Other DDL statements
-
-renameTable
-    : RENAME TABLE
-    renameTableClause (',' renameTableClause)*
-    ;
-
-renameTableClause
-    : tableName TO tableName
-    ;
-
-truncateTable
-    : TRUNCATE TABLE? tableName
-    ;
 
 
 // Data Manipulation Language
@@ -736,6 +281,10 @@ replaceStatement
           setFirst=updatedElement
           (',' setElements+=updatedElement)*
       )
+    ;
+
+selectStatementWithContinuation
+    : selectStatement (WITH CONTINUATION stringLiteral)?
     ;
 
 // done
@@ -1606,6 +1155,11 @@ uninstallPlugin
 
 //    Set and show statements
 
+showStatement
+    : SHOW DATABASES (WITH PREFIX path)? #showDatabasesStatement
+    | SHOW SCHEMA TEMPLATES              #showSchemaTemplatesStatement
+    ;
+
 setStatement
     : SET variableClause ('=' | ':=') expression
       (',' variableClause ('=' | ':=') expression)*                             #setVariable
@@ -1619,85 +1173,12 @@ setStatement
       (',' fullId ('=' | ':=') expression)*                                     #setNewValueInsideTrigger
     ;
 
-showStatement
-    : SHOW logFormat=(BINARY | MASTER) LOGS                         #showMasterLogs
-    | SHOW logFormat=(BINLOG | RELAYLOG)
-      EVENTS (IN filename=STRING_LITERAL)?
-        (FROM fromPosition=decimalLiteral)?
-        (LIMIT
-          (offset=decimalLiteral ',')?
-          rowCount=decimalLiteral
-        )?                                                          #showLogEvents
-    | SHOW showCommonEntity showFilter?                             #showObjectFilter
-    | SHOW FULL? columnsFormat=(COLUMNS | FIELDS)
-      tableFormat=(FROM | IN) tableName
-        (schemaFormat=(FROM | IN) uid)? showFilter?                 #showColumns
-    | SHOW CREATE schemaFormat=(DATABASE | SCHEMA)
-      ifNotExists? uid                                              #showCreateDb
-    | SHOW CREATE
-        namedEntity=(
-          EVENT | FUNCTION | PROCEDURE
-          | TABLE | TRIGGER | VIEW
-        )
-        fullId                                                      #showCreateFullIdObject
-    | SHOW CREATE USER userName                                     #showCreateUser
-    | SHOW showGlobalInfoClause                                     #showGlobalInfo
-    | SHOW errorFormat=(ERRORS | WARNINGS)
-        (LIMIT
-          (offset=decimalLiteral ',')?
-          rowCount=decimalLiteral
-        )?                                                          #showErrors
-    | SHOW COUNT '(' '*' ')' errorFormat=(ERRORS | WARNINGS)        #showCountErrors
-    | SHOW showSchemaEntity
-        (schemaFormat=(FROM | IN) uid)? showFilter?                 #showSchemaFilter
-    | SHOW routine=(FUNCTION | PROCEDURE) CODE fullId               #showRoutine
-    | SHOW GRANTS (FOR userName)?                                   #showGrants
-    | SHOW indexFormat=(INDEX | INDEXES | KEYS)
-      tableFormat=(FROM | IN) tableName
-        (schemaFormat=(FROM | IN) uid)? (WHERE expression)?         #showIndexes
-    | SHOW OPEN TABLES ( schemaFormat=(FROM | IN) uid)?
-      showFilter?                                                   #showOpenTables
-    | SHOW PROFILE showProfileType (',' showProfileType)*
-        (FOR QUERY queryCount=decimalLiteral)?
-        (LIMIT
-          (offset=decimalLiteral ',')?
-          rowCount=decimalLiteral
-        )                                                           #showProfile
-    | SHOW SLAVE STATUS (FOR CHANNEL STRING_LITERAL)?               #showSlaveStatus
-    ;
 
 // details
 
 variableClause
     : LOCAL_ID | GLOBAL_ID | ( ('@' '@')? (GLOBAL | SESSION | LOCAL)  )? uid
     ;
-
-showCommonEntity
-    : CHARACTER SET | COLLATION | DATABASES | SCHEMAS
-    | FUNCTION STATUS | PROCEDURE STATUS
-    | (GLOBAL | SESSION)? (STATUS | VARIABLES)
-    ;
-
-showFilter
-    : LIKE STRING_LITERAL
-    | WHERE expression
-    ;
-
-showGlobalInfoClause
-    : STORAGE? ENGINES | MASTER STATUS | PLUGINS
-    | PRIVILEGES | FULL? PROCESSLIST | PROFILES
-    | SLAVE HOSTS | AUTHORS | CONTRIBUTORS
-    ;
-
-showSchemaEntity
-    : EVENTS | TABLE STATUS | FULL? TABLES | TRIGGERS
-    ;
-
-showProfileType
-    : ALL | BLOCK IO | CONTEXT SWITCHES | CPU | IPC | MEMORY
-    | PAGE FAULTS | SOURCE | SWAPS
-    ;
-
 
 //    Other administrative statements
 
@@ -1772,10 +1253,11 @@ loadedTableIndexes
 
 
 simpleDescribeStatement
-    : command=(EXPLAIN | DESCRIBE | DESC) tableName
-      (column=uid | pattern=STRING_LITERAL)?
+    : command=(EXPLAIN | DESCRIBE | DESC) SCHEMA schemaId     #simpleDescribeSchemaStatement
+    | command=(EXPLAIN | DESCRIBE | DESC) SCHEMA TEMPLATE uid #simpleDescribeSchemaTemplateStatement
     ;
 
+// TODO: implement full describe for schema and schema template.
 fullDescribeStatement
     : command=(EXPLAIN | DESCRIBE | DESC)
       (
@@ -1931,9 +1413,7 @@ authPlugin
 // done
 uid
     : simpleId
-    //| DOUBLE_QUOTE_ID
-    //| REVERSE_QUOTE_ID
-    //| CHARSET_REVERSE_QOUTE_STRING
+    | STRING_LITERAL
     ;
 
 // done

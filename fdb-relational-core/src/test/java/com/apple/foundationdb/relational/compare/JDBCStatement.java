@@ -69,8 +69,8 @@ public class JDBCStatement implements RelationalStatement {
     }
 
     @Override
-    public RelationalResultSet executeQuery(@Nonnull String query, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException, SQLException {
-        return null;
+    public int executeUpdate(String sql) throws SQLException {
+        return statement.executeUpdate(sql);
     }
 
     @Nonnull

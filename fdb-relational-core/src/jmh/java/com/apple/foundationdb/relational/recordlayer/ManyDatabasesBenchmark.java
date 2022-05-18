@@ -21,10 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -49,6 +47,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.net.URI;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.List;
@@ -76,7 +75,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
     public void setUp(Driver driver, BenchmarkScopedDatabases databases) throws RelationalException {
         System.out.printf("Creating %s databases...%n", dbCount);
         long startTime = System.nanoTime();
-        databases.createMultipleDatabases(driver,
+        databases.createMultipleDatabases(
                 DatabaseTemplate.newBuilder()
                         .withSchema(schema, restaurantRecord)
                         .build(),
@@ -93,8 +92,8 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName(dbId), true), com.apple.foundationdb.relational.api.Options.create())) {
             dbConn.setSchema(schema);
             long restId = ThreadLocalRandom.current().nextInt(1, dbSize + 1);
-            try (RelationalStatement stmt = dbConn.createStatement()) {
-                RelationalResultSet resultSet = stmt.executeQuery("SELECT rest_no, name from RestaurantRecord where rest_no = " + restId, com.apple.foundationdb.relational.api.Options.create(), QueryProperties.DEFAULT);
+            try (RelationalStatement stmt = dbConn.createStatement();
+                    ResultSet resultSet = stmt.executeQuery("SELECT rest_no, name from RestaurantRecord where rest_no = " + restId)) {
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
                 bh.consume(resultSet.getString("name"));

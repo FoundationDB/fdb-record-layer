@@ -30,19 +30,22 @@ import com.apple.foundationdb.relational.api.generated.CatalogData;
 
 import com.google.protobuf.DescriptorProtos;
 
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
 
 public class SchemaTemplateDescriptor implements SchemaTemplate {
     private final String name;
-    private final Set<TableInfo> tables;
+    @SuppressWarnings("PMD.LooseCoupling")
+    private final LinkedHashSet<TableInfo> tables;
     private final Set<TypeInfo> customTypes;
     @SuppressWarnings("PMD.UnusedPrivateField") //this will be used eventually
     private final int version;
 
+    @SuppressWarnings("PMD.LooseCoupling")
     public SchemaTemplateDescriptor(String name,
-                                    Set<TableInfo> tables,
+                                    LinkedHashSet<TableInfo> tables,
                                     Set<TypeInfo> customTypes,
                                     int version) {
         this.name = name;
@@ -106,8 +109,9 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
         return fileBuilder.build();
     }
 
+    @SuppressWarnings("PMD.LooseCoupling")
     @Override
-    public Set<TableInfo> getTables() {
+    public LinkedHashSet<TableInfo> getTables() {
         return tables;
     }
 

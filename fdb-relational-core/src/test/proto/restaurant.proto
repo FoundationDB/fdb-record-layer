@@ -60,7 +60,7 @@ message RestaurantRecord {
   repeated RestaurantReview reviews = 4;
   repeated RestaurantTag tags = 5;
   repeated string customer = 6;
-  bytes blob = 7;
+  bytes encoded_bytes = 7;
 }
 
 message Location {

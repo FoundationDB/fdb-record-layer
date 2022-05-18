@@ -1,5 +1,5 @@
 /*
- * RecordStoreStatement.java
+ * EmbeddedRelationalStatement.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,13 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
@@ -38,56 +32,125 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.Plan;
+import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class RecordStoreStatement implements RelationalStatement {
+public class EmbeddedRelationalStatement implements RelationalStatement {
 
     @Nonnull
-    private final RecordStoreConnection conn;
+    private final EmbeddedRelationalConnection conn;
 
-    public RecordStoreStatement(@Nonnull final RecordStoreConnection conn) {
+    @Nullable
+    private RelationalResultSet currentResultSet;
+
+    public EmbeddedRelationalStatement(@Nonnull final EmbeddedRelationalConnection conn) {
         this.conn = conn;
     }
 
-    @Override
-    public RelationalResultSet executeQuery(@Nonnull String query, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException {
+    private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query,
+                                                             @Nonnull Options options) throws RelationalException, SQLException {
         ensureTransactionActive();
-        final String schemaName = conn.getSchema();
-        final RecordLayerSchema schema = conn.frl.loadSchema(schemaName, options);
-        final FDBRecordStore store = conn.frl.loadSchema(schemaName, options).loadStore();
-        final Pair<RelationalExpression, byte[]> logicalPlan = PlanGenerator.generateLogicalPlan(query, store.getRecordMetaData(), store.getRecordStoreState(), ignore -> {
-        });
-        final RelationalExpression relationalExpression = logicalPlan.getLeft();
-        final Type innerType = relationalExpression.getResultType().getInnerType();
-        Assert.notNull(innerType);
-        Assert.that(innerType instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", innerType.getTypeCode()));
-        final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
-        final TypeRepository.Builder builder = TypeRepository.newBuilder();
-        usedTypes.forEach(builder::addTypeIfNeeded);
-        final Pair<RecordQueryPlan, byte[]> recordQueryPlan = PlanGenerator.generatePlan(query, store.getRecordMetaData(), store.getRecordStoreState());
-        final String[] fieldNames = Objects.requireNonNull(((Type.Record) innerType).getFields()).stream().sorted(Comparator.comparingInt(Type.Record.Field::getFieldIndex)).map(Type.Record.Field::getFieldName).collect(Collectors.toUnmodifiableList()).toArray(String[]::new);
-        final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan.getLeft(), fieldNames, EvaluationContext.forTypeRepository(builder.build()), schema, false /* get this information from the query plan */);
-        return new RecordLayerResultSet(queryExecutor.getFieldNames(),
-                queryExecutor.execute(ContinuationImpl.fromBytes(recordQueryPlan.getRight())),
-                conn);
+        final FDBRecordStore store = conn.getRecordLayerDatabase().loadSchema(conn.getSchema(), Options.create()).loadStore();
+        final var planContext = PlanContext.Builder.create().fromRecordStore(store).fromDatabase(conn.getRecordLayerDatabase()).build();
+        final Plan<?> plan = Plan.generate(query, planContext);
+        final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
+        if (plan instanceof QueryPlan) {
+            return Optional.of(((QueryPlan) plan).execute(executionContext));
+        } else {
+            plan.execute(executionContext);
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public boolean execute(String sql) throws SQLException {
+        try {
+            Assert.notNull(sql);
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.create());
+            if (resultSet.isPresent()) {
+                currentResultSet = resultSet.get();
+                return true;
+            } else {
+                currentResultSet = null;
+                getConnection().commit();
+                return false;
+            }
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
+    }
+
+    @Override
+    public ResultSet executeQuery(String sql) throws SQLException {
+        try {
+            Assert.notNull(sql);
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.create());
+            if (resultSet.isPresent()) {
+                return resultSet.get();
+            } else {
+                throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql));
+            }
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
+    }
+
+    @Override
+    public int executeUpdate(String sql) throws SQLException {
+        try {
+            Assert.notNull(sql);
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.create());
+            if (resultSet.isEmpty()) {
+                if (getConnection().getAutoCommit()) {
+                    getConnection().commit();
+                }
+                return 0; // todo improve
+            } else {
+                throw new SQLException(String.format("query '%s' returns a result set, use JDBC executeQuery method instead", sql));
+            }
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
+    }
+
+    @Override
+    public ResultSet getResultSet() throws SQLException {
+        if (currentResultSet != null /*&& !currentResultSet.isClosed()  todo implement this*/) {
+            return currentResultSet;
+        }
+        throw new SQLException("no open result set available");
+    }
+
+    @Override
+    public int getUpdateCount() throws SQLException {
+        if (currentResultSet != null) {
+            return -1;
+        } else {
+            return 0; // current spec.
+        }
+    }
+
+    @Override
+    public Connection getConnection() throws SQLException {
+        return conn;
     }
 
     @Override

@@ -56,7 +56,7 @@ import javax.annotation.Nullable;
 public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message>> implements Table {
     private final RecordLayerSchema schema;
     private final String tableName;
-    private final RecordStoreConnection conn;
+    private final EmbeddedRelationalConnection conn;
 
     private RecordType currentTypeRef;
 

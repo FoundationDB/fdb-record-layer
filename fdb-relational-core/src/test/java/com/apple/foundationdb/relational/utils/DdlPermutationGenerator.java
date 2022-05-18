@@ -38,7 +38,8 @@ public final class DdlPermutationGenerator {
 
         final PermutationIterator<String> permutations = PermutationIterator.generatePermutations(items, numColumns);
         final AtomicInteger counter = new AtomicInteger(0);
-        return permutations.stream().map(cols -> new NamedPermutation(prefix + "-" + counter.getAndIncrement(), cols));
+        // generate valid unquoted identifiers.
+        return permutations.stream().map(cols -> new NamedPermutation(prefix + counter.getAndIncrement(), cols));
     }
 
     public static final class NamedPermutation {

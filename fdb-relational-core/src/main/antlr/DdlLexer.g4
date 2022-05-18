@@ -110,7 +110,7 @@ Identifier
     ;
 
 Path
-    : '/' (Letter | Digit) (Letter | Digit | '_' | '/')* (Letter | Digit | '_')
+    : '/' (Letter | Digit | '_') (Letter | Digit | '_' | '/')* (Letter | Digit | '_')
     | QuotedString
     ;
 

@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
@@ -48,6 +49,9 @@ public interface RelationalDatabase extends AutoCloseable {
      * @throws RelationalException if something goes wrong during load
      */
     DatabaseSchema loadSchema(@Nonnull String schemaId, @Nonnull Options options) throws RelationalException;
+
+    @Nonnull
+    ConstantActionFactory getDdlFactory();
 
     @Override
     void close() throws RelationalException;

@@ -40,7 +40,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     // needed until TODO is fixed
     @Nullable
-    private final RecordStoreConnection connection;
+    private final EmbeddedRelationalConnection connection;
 
     @Nonnull
     private final String[] fieldNames;
@@ -50,7 +50,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "internal implementation should have proper usage")
     public RecordLayerResultSet(@Nonnull String[] fieldNames,
                                 @Nonnull final ResumableIterator<Row> iterator,
-                                @Nullable final RecordStoreConnection connection) throws RelationalException {
+                                @Nullable final EmbeddedRelationalConnection connection) throws RelationalException {
         this.fieldNames = fieldNames;
         this.currentCursor = iterator;
         this.connection = connection;

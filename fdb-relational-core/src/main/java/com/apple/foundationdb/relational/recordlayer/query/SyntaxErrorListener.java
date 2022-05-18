@@ -85,7 +85,7 @@ public class SyntaxErrorListener extends BaseErrorListener
         }
 
         RelationalException toRelationalException() {
-            return new RelationalException(String.format("Syntax error at line %d position %d: %s", getLine(), getCharPositionInLine(), getMessage()), ErrorCode.INTERNAL_ERROR /*should be syntax error*/);
+            return new RelationalException(String.format("Syntax error at line %d position %d: %s", getLine(), getCharPositionInLine(), getMessage()), ErrorCode.SYNTAX_ERROR);
         }
     }
 

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.cli;
 
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -31,7 +30,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -50,9 +48,14 @@ class TestQueryCommand {
     CliRule cli = new CliRule();
 
     @BeforeEach
-    void setUp() throws SQLException, RelationalException {
+    void setUp() throws Exception {
         TestUtils.createRestaurantSchemaTemplate(cli);
-        TestUtils.executeDdl("CREATE DATABASE /test_select__command_db; CREATE SCHEMA /test_select_command_db/test_select_schema WITH TEMPLATE restaurant_template", cli);
+
+        TestUtils.runCommand("connect jdbc:embed:/__SYS", cli);
+        TestUtils.runCommand("setschema catalog", cli);
+        TestUtils.runQuery("CREATE DATABASE '/test_select_command_db'", cli);
+        TestUtils.runQuery("CREATE SCHEMA '/test_select_command_db/test_select_schema' WITH TEMPLATE restaurant_template", cli);
+
         TestUtils.runCommand("connect jdbc:embed:/test_select_command_db", cli);
         TestUtils.runCommand("config --no-pretty-print", cli);
         TestUtils.runCommand("config --delimiter ####", cli);
@@ -62,8 +65,10 @@ class TestQueryCommand {
     }
 
     @AfterEach
-    void tearDown() throws RelationalException {
-        TestUtils.deleteDb("test_select_command_db", cli);
+    void tearDown() throws Exception {
+        TestUtils.runCommand("connect jdbc:embed:/__SYS", cli);
+        TestUtils.runCommand("setschema catalog", cli);
+        TestUtils.runQuery("drop database '/test_select_command_db'", cli);
     }
 
     @Test

@@ -23,8 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.ddl.DdlConnection;
-import com.apple.foundationdb.relational.api.ddl.DdlStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.ImmutableList;
@@ -73,23 +71,24 @@ public class SystemCatalogQueryTest {
     }
 
     private static void runDdl(@Nonnull final String ddl) throws Exception {
-        try (DdlConnection ddlConnection = relationalExtension.getEngine().getDdlConnection();
-                DdlStatement statement = ddlConnection.createStatement()) {
-            statement.execute(ddl);
-            ddlConnection.commit();
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            conn.setSchema("catalog");
+            try (Statement statement = conn.createStatement()) {
+                statement.executeUpdate(ddl);
+            }
         }
     }
 
     private static void createDb(@Nonnull final String dbName) throws Exception {
-        runDdl(String.format("CREATE DATABASE %s", dbName));
+        runDdl(String.format("CREATE DATABASE '%s'", dbName));
     }
 
     private static void createSchema(@Nonnull final String dbName, @Nonnull final String schemaName) throws Exception {
-        runDdl(String.format("CREATE SCHEMA %s%s WITH TEMPLATE st", dbName, schemaName));
+        runDdl(String.format("CREATE SCHEMA '%s%s' WITH TEMPLATE st", dbName, schemaName));
     }
 
     private static void dropDb(@Nonnull final String dbName) throws Exception {
-        runDdl(String.format("DROP DATABASE %s", dbName));
+        runDdl(String.format("DROP DATABASE '%s'", dbName));
     }
 
     @Test

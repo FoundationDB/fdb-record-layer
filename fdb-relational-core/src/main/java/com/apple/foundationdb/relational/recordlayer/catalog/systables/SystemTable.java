@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.relational.api.ddl.DdlListener;
+import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
 import javax.annotation.Nonnull;
 
@@ -40,12 +40,17 @@ public interface SystemTable {
     String getName();
 
     /**
+     * Adds the definition of the system table to the <i>stateful</i> {@link TypingContext}.
+     *
+     * During bootstrapping, Relational will populate the {@code __SYS/catalog} with information
+     * about system tables such as {@link SchemaSystemTable}, during this process a single {@link TypingContext}
+     * instance is used to gather the structure of each of these tables by calling this method and asking each
+     * system table to contribute its definition to the typing context. In other words, it resembles a visitor.
      * Returns the definition of the system table.
-     * @param schemaTemplateBuilder a DdlListener.SchemaTemplateBuilder
-     * @return The definition of the system table.
+     *
+     * @param typingContext The context to write metadata information to.
      */
-    @Nonnull
-    DdlListener.TableBuilder getDefinition(@Nonnull final DdlListener.SchemaTemplateBuilder schemaTemplateBuilder);
+    void addDefinition(@Nonnull final TypingContext typingContext);
 
     /**
      * Returns the primary key definition of the system table. Each system table must have a primary key.

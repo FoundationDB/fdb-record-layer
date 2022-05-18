@@ -111,7 +111,8 @@ public enum ErrorCode {
     INVALID_TABLE_DEFINITION("42P14"),
     SCHEMA_EXISTS("42P15"),
     UNKNOWN_TYPE("42F16"),
-    INDEX_EXISTS("42P17")
+    INDEX_EXISTS("42P17"),
+    UNKNOWN_FIELD("42F18")
     ;
 
     private final String errorCode;

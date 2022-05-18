@@ -20,11 +20,52 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import javax.annotation.Nonnull;
 
 /**
- * Placeholder interface until we have a query engine that can support direct Catalog calls.
+ * Interface for executing administrative metadata queries.
  */
 public interface DdlQuery extends DdlPreparedAction<RelationalResultSet> {
 
+    @Nonnull
+    Type getResultSetMetadata();
+
+    @Nonnull
+    static Type constructTypeFrom(@Nonnull final List<String> columnNames) {
+        return Type.Record.fromFields(IntStream.range(0, columnNames.size())
+                .mapToObj(i ->
+                        Type.Record.Field.of(
+                                Type.primitiveType(Type.TypeCode.STRING, true),
+                                Optional.of(columnNames.get(i)),
+                                Optional.of(i))).collect(Collectors.toList()));
+    }
+
+    class NoOpDdlQuery implements DdlQuery {
+
+        public static final NoOpDdlQuery INSTANCE = new NoOpDdlQuery();
+
+        private NoOpDdlQuery() {
+        }
+
+        @Override
+        public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
+            return null;
+        }
+
+        @Nonnull
+        @Override
+        public Type getResultSetMetadata() {
+            return new Type.Any();
+        }
+    }
 }

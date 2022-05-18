@@ -35,7 +35,6 @@ import java.io.PrintWriter;
 @CommandLine.Command(name = "",
         subcommands = {
                 ConnectCommand.class,
-                DdlCommand.class,
                 DisconnectCommand.class,
                 SetSchemaCommand.class,
                 InsertInto.class,

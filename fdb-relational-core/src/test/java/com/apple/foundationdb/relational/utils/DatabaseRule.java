@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.ddl.DdlConnection;
-import com.apple.foundationdb.relational.api.ddl.DdlStatement;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterAllCallback;
@@ -31,6 +31,8 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.Statement;
 
 public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
     private final RelationalExtension relationalExtension;
@@ -62,21 +64,19 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
     }
 
     private void setup() throws Exception {
-        try (DdlConnection ddlConn = relationalExtension.getEngine().getDdlConnection()) {
-            ddlConn.begin();
-            try (DdlStatement statement = ddlConn.createStatement()) {
-                statement.execute("CREATE DATABASE " + databasePath.getPath());
-                ddlConn.commit();
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            connection.setSchema("catalog");
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("CREATE DATABASE '" + databasePath.getPath() + "'");
             }
         }
     }
 
     private void tearDown() throws Exception {
-        try (DdlConnection ddlConn = relationalExtension.getEngine().getDdlConnection()) {
-            ddlConn.begin();
-            try (DdlStatement statement = ddlConn.createStatement()) {
-                statement.execute("DROP DATABASE " + databasePath.getPath());
-                ddlConn.commit();
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            connection.setSchema("catalog");
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("DROP DATABASE '" + databasePath.getPath() + "'");
             }
         }
     }

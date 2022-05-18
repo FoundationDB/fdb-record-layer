@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.primitives.Ints;
 
@@ -31,7 +32,7 @@ import java.util.Arrays;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-final class ContinuationImpl implements Continuation {
+public final class ContinuationImpl implements Continuation {
     private final byte[] continuationBytes;
     // extra state needed since the continuation comprises three states (begin, middle, end).
     private final boolean atEnd;
@@ -46,6 +47,7 @@ final class ContinuationImpl implements Continuation {
         this.atEnd = atEnd;
     }
 
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "Intentionally exposed for performance reasons")
     @Nullable
     @Override
     public byte[] getBytes() {

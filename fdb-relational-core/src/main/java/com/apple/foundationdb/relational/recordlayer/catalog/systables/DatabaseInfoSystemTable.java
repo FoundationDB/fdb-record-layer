@@ -22,13 +22,11 @@ package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.relational.api.ddl.DdlListener;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
-import com.google.protobuf.DescriptorProtos;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 import javax.annotation.Nonnull;
 
@@ -48,19 +46,10 @@ public class DatabaseInfoSystemTable implements SystemTable {
         return TABLE_NAME;
     }
 
-    @Nonnull
     @Override
-    public DdlListener.TableBuilder getDefinition(@Nonnull final DdlListener.SchemaTemplateBuilder schemaTemplateBuilder) {
-
-        final DescriptorProtos.FieldDescriptorProto.Builder databaseIdField = DescriptorProtos.FieldDescriptorProto.newBuilder().setName(DATABASE_ID).setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
-        final DdlListener.TableBuilder result = new DdlListener.TableBuilder(Map.of(), getName());
-        result.addPrimaryKeyColumns(List.of(DATABASE_ID));
-        try {
-            result.registerField(databaseIdField, null);
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException(); // should never happen.
-        }
-        return result;
+    public void addDefinition(@Nonnull final TypingContext typingContext) {
+        final TypingContext.FieldDefinition f1 = new TypingContext.FieldDefinition(DATABASE_ID, Type.TypeCode.STRING, null, false);
+        typingContext.addType(new TypingContext.TypeDefinition(getName(), List.of(f1), true, Optional.of(List.of(DATABASE_ID))));
     }
 
     @Nonnull

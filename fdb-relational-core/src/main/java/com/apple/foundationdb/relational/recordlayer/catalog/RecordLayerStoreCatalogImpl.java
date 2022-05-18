@@ -43,7 +43,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
-import com.apple.foundationdb.relational.api.ddl.DdlListener;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -54,6 +53,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTable;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
+import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
@@ -138,11 +138,12 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
      */
     @Nonnull
     private static CatalogData.Schema getSysCatalogSchema() throws RelationalException {
-        final DdlListener.SchemaTemplateBuilder builder = new DdlListener.SchemaTemplateBuilder("catalog_template");
+        final var typingContext = TypingContext.create();
         for (final SystemTable table : SystemTableRegistry.getAllTables()) {
-            builder.registerTable(table.getName(), table.getDefinition(builder));
+            table.addDefinition(typingContext);
         }
-        final SchemaTemplate schemaTemplate = builder.build();
+        typingContext.addAllToTypeRepository();
+        final SchemaTemplate schemaTemplate = typingContext.generateSchemaTemplate("catalog_template");
         //map the schema to the template
         return schemaTemplate.generateSchema(SYS_DB, SCHEMA);
     }
@@ -193,7 +194,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
-        // RecordQuery query = RecordQuery.newBuilder().setRecordType("DatabaseInfo").build();
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY);
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);

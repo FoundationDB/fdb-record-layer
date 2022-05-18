@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundStorageCluster;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -45,10 +44,8 @@ public class TransactionBoundEmbeddedRelationalExtension implements RelationalEx
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
         engine = new EmbeddedRelationalEngine(
-                List.of(TransactionBoundStorageCluster.INSTANCE),
-                NoOpConstantActionFactory.INSTANCE,
-                null,
-                null);
+                List.of(TransactionBoundStorageCluster.INSTANCE)
+        );
         engine.registerDriver(); //register the engine driver
     }
 

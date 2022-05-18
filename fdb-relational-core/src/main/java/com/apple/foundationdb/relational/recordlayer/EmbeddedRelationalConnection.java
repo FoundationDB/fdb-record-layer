@@ -1,5 +1,5 @@
 /*
- * RecordStoreConnection.java
+ * EmbeddedRelationalConnection.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -37,7 +37,7 @@ import java.sql.SQLException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class RecordStoreConnection implements RelationalConnection {
+public class EmbeddedRelationalConnection implements RelationalConnection {
     private boolean isClosed;
     final AbstractDatabase frl;
     final StoreCatalog backingCatalog;
@@ -48,19 +48,19 @@ public class RecordStoreConnection implements RelationalConnection {
     private boolean usingAnExistingTransaction;
     private final TransactionManager txnManager;
 
-    public RecordStoreConnection(@Nonnull AbstractDatabase frl,
-                                 @Nonnull StoreCatalog backingCatalog,
-                                 @Nullable Transaction existingTransaction) {
+    public EmbeddedRelationalConnection(@Nonnull AbstractDatabase frl,
+                                      @Nonnull StoreCatalog backingCatalog,
+                                      @Nullable Transaction transaction) {
         this.frl = frl;
         this.txnManager = frl.getTransactionManager();
-        this.transaction = existingTransaction;
-        this.usingAnExistingTransaction = existingTransaction != null;
+        this.transaction = transaction;
+        this.usingAnExistingTransaction = transaction != null;
         this.backingCatalog = backingCatalog;
     }
 
     @Override
     public RelationalStatement createStatement() throws SQLException {
-        return new RecordStoreStatement(this);
+        return new EmbeddedRelationalStatement(this);
     }
 
     @Override
@@ -181,5 +181,10 @@ public class RecordStoreConnection implements RelationalConnection {
 
     void addCloseListener(@Nonnull Runnable closeListener) throws RelationalException {
         this.transaction.unwrap(RecordContextTransaction.class).addTerminationListener(closeListener);
+    }
+
+    @Nonnull
+    public AbstractDatabase getRecordLayerDatabase() {
+        return frl;
     }
 }

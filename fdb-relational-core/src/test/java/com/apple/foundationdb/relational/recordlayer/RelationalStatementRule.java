@@ -35,6 +35,7 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 
@@ -56,12 +57,6 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     @Override
     public void beforeEach(ExtensionContext context) throws SQLException {
         statement = connection.createStatement();
-    }
-
-    @Nonnull
-    @Override
-    public RelationalResultSet executeQuery(@Nonnull String query, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException, SQLException {
-        return statement.executeQuery(query, options, queryProperties);
     }
 
     @Nonnull
@@ -89,6 +84,16 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     @Override
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
         return statement.executeDelete(tableName, keys, options);
+    }
+
+    @Override
+    public ResultSet executeQuery(String sql) throws SQLException {
+        return statement.executeQuery(sql);
+    }
+
+    @Override
+    public int executeUpdate(String sql) throws SQLException {
+        return statement.executeUpdate(sql);
     }
 
     @Override

@@ -21,9 +21,6 @@
 package com.apple.foundationdb.relational.transactionbound;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
-import com.apple.foundationdb.relational.transactionbound.catalog.HollowSchemaTemplateCatalog;
-import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 
 import java.util.List;
 
@@ -34,9 +31,7 @@ import java.util.List;
 public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelationalEngine {
     public TransactionBoundEmbeddedRelationalEngine() {
         super(
-                List.of(TransactionBoundStorageCluster.INSTANCE),
-                NoOpConstantActionFactory.INSTANCE,
-                HollowStoreCatalog.INSTANCE,
-                HollowSchemaTemplateCatalog.INSTANCE);
+                List.of(TransactionBoundStorageCluster.INSTANCE)
+        );
     }
 }

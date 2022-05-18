@@ -25,10 +25,13 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.TransactionManager;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.ddl.CatalogQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataStore;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
 import java.net.URI;
 
@@ -43,16 +46,18 @@ public class RecordLayerStorageCluster implements StorageCluster {
     private final RecordLayerConfig rlConfiguration;
     private final FdbConnection fdb;
     private final KeySpace keySpace;
+    private final SchemaTemplateCatalog schemaTemplateCatalog;
 
     public RecordLayerStorageCluster(FdbConnection connection,
                                      KeySpace keySpace,
                                      RecordLayerConfig rlConfig,
-                                     StoreCatalog storeCatalog) {
+                                     StoreCatalog storeCatalog,
+                                     SchemaTemplateCatalog schemaTemplateCatalog) {
         //TODO(bfines) we shouldn't use FDBStoreTimer, we should use our own abstraction that can be easily disabled
         this.fdb = connection;
         this.keySpace = keySpace;
         this.catalog = storeCatalog;
-
+        this.schemaTemplateCatalog = schemaTemplateCatalog;
         this.rlConfiguration = rlConfig;
     }
 
@@ -70,12 +75,21 @@ public class RecordLayerStorageCluster implements StorageCluster {
         // to do that, we will want to use the Catalog to pull database information
         KeySpacePath ksPath = KeySpaceUtils.uriToPath(url, keySpace);
 
+        final var constantActionFactory = new RecordLayerConstantActionFactory.Builder()
+                .setRlConfig(rlConfiguration)
+                .setBaseKeySpace(keySpace)
+                .setTemplateCatalog(schemaTemplateCatalog)
+                .setStoreCatalog(catalog)
+                .build();
+
+        final var ddlQueryFactory = new CatalogQueryFactory(catalog, schemaTemplateCatalog);
+
         return new RecordLayerDatabase(fdb, new CatalogMetaDataStore(catalog),
                 catalog,
                 rlConfiguration.getUserVersionChecker(),
                 rlConfiguration.getFormatVersion(),
                 rlConfiguration.getSerializerRegistry(),
-                ksPath);
+                ksPath, constantActionFactory, ddlQueryFactory);
     }
 
     @Override

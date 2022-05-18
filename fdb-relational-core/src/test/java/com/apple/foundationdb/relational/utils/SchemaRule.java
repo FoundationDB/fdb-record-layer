@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.ddl.DdlConnection;
-import com.apple.foundationdb.relational.api.ddl.DdlStatement;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -29,6 +29,8 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.Statement;
 
 public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     private final String schemaName;
@@ -58,21 +60,19 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     }
 
     private void setup() throws Exception {
-        try (DdlConnection conn = relationalExtension.getEngine().getDdlConnection()) {
-            conn.begin();
-            try (DdlStatement statement = conn.createStatement()) {
-                statement.execute("CREATE SCHEMA " + dbUri.getPath() + "/" + schemaName + " WITH TEMPLATE " + templateName);
-                conn.commit();
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            connection.setSchema("catalog");
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("CREATE SCHEMA '" + dbUri.getPath() + "/" + schemaName + "' WITH TEMPLATE '" + templateName + "'");
             }
         }
     }
 
     private void tearDown() throws Exception {
-        try (DdlConnection conn = relationalExtension.getEngine().getDdlConnection()) {
-            conn.begin();
-            try (DdlStatement statement = conn.createStatement()) {
-                statement.execute("DROP SCHEMA " + dbUri.getPath() + "/" + schemaName);
-                conn.commit();
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            connection.setSchema("catalog");
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("DROP SCHEMA '" + dbUri.getPath() + "/" + schemaName + "'");
             }
         }
     }

@@ -21,10 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -46,6 +44,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -67,7 +66,6 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
     @Setup(Level.Iteration)
     public void setUp(Driver driver, ThreadScopedDatabases databases) throws RelationalException, SQLException {
         databases.createDatabase(
-                driver,
                 DatabaseTemplate.newBuilder()
                         .withSchema(singleReadSchema, restaurantRecord)
                         .withSchema(singleWriteSchema, restaurantRecord)
@@ -102,8 +100,9 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
     public void singlePkRead(Blackhole bh) throws SQLException, RelationalException {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
             dbConn.setSchema(singleReadSchema);
-            try (RelationalStatement stmt = dbConn.createStatement()) {
-                RelationalResultSet resultSet = stmt.executeQuery("SELECT rest_no FROM RestaurantRecord WHERE rest_no = 42", com.apple.foundationdb.relational.api.Options.create(), QueryProperties.DEFAULT);
+            try (RelationalStatement stmt = dbConn.createStatement();
+                    ResultSet resultSet = stmt.executeQuery("SELECT rest_no FROM RestaurantRecord WHERE rest_no = 42")) {
+
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
             }
@@ -114,8 +113,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
     public void singleNonPkRead(Blackhole bh) throws SQLException, RelationalException {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
             dbConn.setSchema(singleReadSchema);
-            try (RelationalStatement stmt = dbConn.createStatement()) {
-                RelationalResultSet resultSet = stmt.executeQuery("SELECT rest_no, name from RestaurantRecord WHERE name = 'testName'", com.apple.foundationdb.relational.api.Options.create(), QueryProperties.DEFAULT);
+            try (RelationalStatement stmt = dbConn.createStatement();
+                    ResultSet resultSet = stmt.executeQuery("SELECT rest_no, name from RestaurantRecord WHERE name = 'testName'")) {
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
             }

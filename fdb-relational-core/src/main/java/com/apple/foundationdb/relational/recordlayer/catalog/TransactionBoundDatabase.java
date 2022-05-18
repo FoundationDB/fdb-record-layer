@@ -26,12 +26,14 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.RecordStoreAndRecordContextTransaction;
-import com.apple.foundationdb.relational.recordlayer.RecordStoreConnection;
+import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 
 import java.net.URI;
@@ -46,13 +48,16 @@ import javax.annotation.Nullable;
  * if any of its methods are called.
  * A {@link RecordStoreAndRecordContextTransaction} object needs to be passed to {@link #connect(Transaction, TransactionConfig)}.
  * This object should contain a valid FDBRecordStore and a FDBRecordContext whose scope is larger than the scope of this class.
+ *
+ * Note: this database doesn't support DDL statements.
+ * Note: this is only a temporary workaround to finish the first step of integration with customers through direct API.
  */
 public class TransactionBoundDatabase extends AbstractDatabase {
     FDBRecordStore store;
     URI uri;
 
     public TransactionBoundDatabase(URI uri) {
-        super();
+        super(NoOpConstantActionFactory.INSTANCE, NoOpQueryFactory.INSTANCE);
         this.uri = uri;
     }
 
@@ -62,7 +67,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
             throw new RelationalException("TransactionBoundDatabase.connect expects a RecordStoreAndRecordContextTransaction", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
         }
         store = ((RecordStoreAndRecordContextTransaction) transaction).getRecordStore();
-        RecordStoreConnection connection = new RecordStoreConnection(this, HollowStoreCatalog.INSTANCE, ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction());
+        EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, HollowStoreCatalog.INSTANCE, ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction());
         setConnection(connection);
         return connection;
     }

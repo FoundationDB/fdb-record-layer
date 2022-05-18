@@ -77,11 +77,6 @@ public class ComparisonTest {
             catalog.loadSchema(schemaAction.getSchemaName(), schemaAction.getTables());
         }
 
-        //        final DdlStatement ddlEngine = rlRelationalEngine.getDdlEngine();
-        //        for(Workload.SchemaAction schemaAction: workload.getSchemaActions()){
-        //            ddlEngine.execute(schemaAction.getLoadSchemaStatement());
-        //        }
-
         //connect to H2
         //register the driver
         Class.forName("org.h2.Driver");

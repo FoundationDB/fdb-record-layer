@@ -23,7 +23,8 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.Plan;
+import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 
@@ -146,13 +147,14 @@ public class PlanGenerationStackTest {
     @ArgumentsSource(RandomQueryProvider.class)
     void queryTestHarness(@Nonnull final int index, @Nonnull final String query, @Nullable String error) throws Exception {
         final String schemaName = connection.getSchema();
-        final FDBRecordStore store = ((RecordStoreConnection) connection.connection).frl.loadSchema(schemaName, Options.create()).loadStore();
-
+        final AbstractDatabase database = ((EmbeddedRelationalConnection) connection.connection).frl;
+        final FDBRecordStore store = database.loadSchema(schemaName, Options.create()).loadStore();
+        final PlanContext planContext = PlanContext.Builder.create().fromDatabase(database).fromRecordStore(store).build();
         if (error == null) {
-            Assertions.assertDoesNotThrow(() -> PlanGenerator.generatePlan(query, store.getRecordMetaData(), store.getRecordStoreState()));
+            Assertions.assertDoesNotThrow(() -> Plan.generate(query, planContext));
         } else {
             try {
-                PlanGenerator.generatePlan(query, store.getRecordMetaData(), store.getRecordStoreState());
+                Plan.generate(query, planContext);
                 Assertions.fail("expected an exception to be thrown");
             } catch (RelationalException e) {
                 assertThat(e.getMessage()).contains(error);

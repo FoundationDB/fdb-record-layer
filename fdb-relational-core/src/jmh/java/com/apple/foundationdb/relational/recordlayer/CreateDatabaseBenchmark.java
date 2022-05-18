@@ -60,7 +60,7 @@ public class CreateDatabaseBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void createDatabase(Driver driver, ThreadScopedDatabases databases, DbNameGenerator dbNameGenerator) throws RelationalException, SQLException {
-        databases.createDatabase(driver,
+        databases.createDatabase(
                 DatabaseTemplate.newBuilder()
                         .withSchema(schema, restaurantRecord)
                         .build(),

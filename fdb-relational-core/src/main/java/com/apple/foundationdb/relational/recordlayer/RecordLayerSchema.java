@@ -45,7 +45,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 public class RecordLayerSchema implements DatabaseSchema {
     private final AbstractDatabase db;
     //could be accessed through the database, but this seems convenient
-    final RecordStoreConnection conn;
+    final EmbeddedRelationalConnection conn;
     @Nonnull
     private final String schemaName;
 
@@ -59,7 +59,7 @@ public class RecordLayerSchema implements DatabaseSchema {
      */
     private final Map<String, RecordTypeTable> loadedTables = new HashMap<>();
 
-    public RecordLayerSchema(@Nonnull String schemaName, AbstractDatabase database, RecordStoreConnection connection, @Nonnull Options options) throws RelationalException {
+    public RecordLayerSchema(@Nonnull String schemaName, AbstractDatabase database, EmbeddedRelationalConnection connection, @Nonnull Options options) throws RelationalException {
         this.schemaName = schemaName;
         this.db = database;
         this.conn = connection;
@@ -96,10 +96,8 @@ public class RecordLayerSchema implements DatabaseSchema {
         loadedTables.clear();
     }
 
-    /* ****************************************************************************************************************/
-    /*package-private helper methods*/
     @Nonnull
-    FDBRecordStore loadStore() throws RelationalException {
+    public FDBRecordStore loadStore() throws RelationalException {
         if (!this.conn.inActiveTransaction()) {
             if (this.conn.getAutoCommit()) {
                 this.conn.beginTransaction();

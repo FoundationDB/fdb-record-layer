@@ -20,14 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.ddl.DdlConnection;
-import com.apple.foundationdb.relational.api.ddl.DdlStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.DdlPermutationGenerator;
 
+import com.google.common.base.Strings;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -35,9 +36,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.net.URI;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
@@ -59,27 +66,26 @@ public class DdlSchemaTemplateTest {
                 "CREATE TABLE FOO_TBL (b double PRIMARY KEY(b))" +
                 "}";
 
-        try (DdlConnection conn = relational.getEngine().getDdlConnection()) {
-            try (DdlStatement statement = conn.createStatement()) {
-                statement.execute(createColumnStatement);
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            conn.setSchema("catalog");
+            try (Statement statement = conn.createStatement()) {
+                statement.executeUpdate(createColumnStatement);
 
                 //verify that it's there
-                Assertions.assertTrue(statement.execute("DESCRIBE SCHEMA TEMPLATE drop_template"));
-                try (RelationalResultSet rrs = statement.getNextResultSet()) {
-                    Assertions.assertTrue(rrs.next(), "Didn't find created template!");
-                    Assertions.assertEquals("drop_template", rrs.getString(1));
-                    Assertions.assertFalse(rrs.next(), "too many schema templates!");
+                try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template")) {
+                    Assertions.assertTrue(rs.next(), "Didn't find created template!");
+                    Assertions.assertEquals("drop_template", rs.getString(1));
+                    Assertions.assertFalse(rs.next(), "too many schema templates!");
                 }
-
                 //now drop it
-                statement.execute("DROP SCHEMA TEMPLATE drop_template");
+                statement.executeUpdate("DROP SCHEMA TEMPLATE drop_template");
 
                 //verify it's not there, and that means that there is an error trying to describe it
-                RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> statement.execute("DESCRIBE SCHEMA TEMPLATE drop_template"));
-                Assertions.assertEquals(ErrorCode.UNKNOWN_SCHEMA_TEMPLATE, ve.getErrorCode(), "Incorrect error code");
+                SQLException ve = Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template"));
+                Assertions.assertEquals(ErrorCode.UNKNOWN_SCHEMA_TEMPLATE.getErrorCode(), ve.getSQLState(), "Incorrect error code");
             }
-        }
 
+        }
     }
 
     @ParameterizedTest
@@ -89,16 +95,17 @@ public class DdlSchemaTemplateTest {
                 "CREATE STRUCT " + table.getTypeDefinition("TYP") + ";" +
                 "CREATE TABLE " + table.getTableDefinition("TBL") +
                 "}";
-        try (DdlConnection conn = relational.getEngine().getDdlConnection()) {
-            try (DdlStatement statement = conn.createStatement()) {
-                statement.execute(createColumnStatement);
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            conn.setSchema("catalog");
+            try (Statement statement = conn.createStatement()) {
+                statement.executeUpdate(createColumnStatement);
 
-                Assertions.assertTrue(statement.execute("DESCRIBE SCHEMA TEMPLATE " + table.getName()));
-                try (RelationalResultSet rrs = statement.getNextResultSet()) {
-                    Assertions.assertTrue(rrs.next(), "Missing schema template description!");
-
-                    String name = rrs.getString(1);
+                try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + table.getName())) {
+                    Assertions.assertTrue(rs.next(), "Missing schema template description!");
+                    String name = rs.getString(1);
                     Assertions.assertEquals(table.getName(), name, "Incorrect template name!");
+                    Assertions.assertTrue(rs instanceof RelationalResultSet);
+                    RelationalResultSet rrs = (RelationalResultSet) rs;
                     Collection<?> tables = rrs.getRepeated(2);
                     Collection<?> types = rrs.getRepeated(3);
                     Assertions.assertEquals(1, types.size(), "Incorrect number of types!");
@@ -123,38 +130,36 @@ public class DdlSchemaTemplateTest {
                 "CREATE STRUCT " + table.getTypeDefinition("FOO") +
                 "}";
 
-        try (DdlConnection conn = relational.getEngine().getDdlConnection()) {
-            try (DdlStatement statement = conn.createStatement()) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            conn.setSchema("catalog");
+            try (Statement statement = conn.createStatement()) {
                 //do a scan of template names first, to see if there are any in there. This is mostly a protection
                 // against test contamination
-                Assertions.assertTrue(statement.execute("SHOW SCHEMA TEMPLATES"), "Did not execute a ResultSet!");
                 Set<String> oldTemplateNames = new HashSet<>();
-                try (RelationalResultSet rrs = statement.getNextResultSet()) {
-                    while (rrs.next()) {
-                        oldTemplateNames.add(rrs.getString(1));
+                try (ResultSet rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
+                    while (rs.next()) {
+                        oldTemplateNames.add(rs.getString(1));
                     }
                 }
-                //now find ourselves a nice template name to use
-                int templateNum = oldTemplateNames.stream()
-                        .filter(name -> name.startsWith(table.getName()))
-                        .map(name -> name.substring(name.lastIndexOf("_" + 1)))
-                        .mapToInt(name -> Integer.parseInt(name.trim()))
-                        .max().orElse(0);
-                columnStatement = columnStatement.replace("<TEST_TEMPLATE>", (table.getName() + templateNum));
-                statement.execute(columnStatement);
-
-                Assertions.assertTrue(statement.execute("SHOW SCHEMA TEMPLATES"), "Did not execut a ResultSet!");
+                //now find ourselves a nice template name to use.
+                //apply Gödel's diagnolisation
+                final var namesAsList = oldTemplateNames
+                        .stream().map(s -> s.length() < oldTemplateNames.size() ? s = s + Strings.repeat(" ", oldTemplateNames.size() - s.length() + 1) : s)
+                        .collect(Collectors.toList());
+                final var unique = IntStream.range(0, namesAsList.size())
+                        .mapToObj(i -> namesAsList.get(i).charAt(i) == Character.MAX_VALUE ? (char) i : (char) (namesAsList.get(i).charAt(i) + 1))
+                        .map(Object::toString)
+                        .collect(Collectors.joining()).concat("NEW_TEMPLATE");
+                columnStatement = columnStatement.replace("<TEST_TEMPLATE>", unique);
+                statement.executeUpdate(columnStatement);
                 Set<String> templateNames = new HashSet<>();
-                try (RelationalResultSet rrs = statement.getNextResultSet()) {
-                    Assertions.assertTrue(rrs.next(), "No Templates in the returned result set!");
-                    boolean next = true;
-                    while (next) {
-                        templateNames.add(rrs.getString(1));
-                        next = rrs.next();
+                try (ResultSet rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
+                    while (rs.next()) {
+                        templateNames.add(rs.getString(1));
                     }
                 }
 
-                oldTemplateNames.add(table.getName() + templateNum);
+                oldTemplateNames.add(unique);
                 Assertions.assertEquals(oldTemplateNames, templateNames, "Incorrect returned Schema template list!");
             }
         }

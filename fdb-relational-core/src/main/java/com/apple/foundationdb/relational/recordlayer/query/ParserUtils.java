@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.Scopes;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -33,12 +32,17 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.commons.lang3.tuple.Pair;
 
+import java.net.URI;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
 
 import javax.annotation.Nonnull;
@@ -190,12 +194,48 @@ public final class ParserUtils {
     }
 
     @Nullable
-    public static <T> T safeCast(@Nonnull final Typed value, @Nonnull final Class<T> clazz) {
+    public static <T> T safeCastLiteral(@Nonnull final Object value, @Nonnull final Class<T> clazz) {
         Assert.thatUnchecked(value instanceof LiteralValue);
         final Object result = ((LiteralValue<?>) value).getLiteralValue();
         if (!clazz.isInstance(result)) {
             return null;
         }
         return clazz.cast(result);
+    }
+
+    @Nonnull
+    public static Pair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final String identifier) {
+        final var id = unquoteString(identifier);
+        Assert.notNullUnchecked(id);
+        if (id.startsWith("/")) {
+            Assert.thatUnchecked(isProperDbUri(id), String.format("invalid database path '%s'", id), ErrorCode.INVALID_PATH);
+            int separatorIdx = id.lastIndexOf("/");
+            Assert.thatUnchecked(separatorIdx < id.length() - 1);
+            return Pair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));
+        } else {
+            return Pair.of(Optional.empty(), id);
+        }
+    }
+
+    @Nonnull
+    public static Type.TypeCode toProtoType(@Nonnull final String text) {
+        switch (text.toUpperCase(Locale.ROOT)) {
+            case "STRING":
+                return Type.TypeCode.STRING;
+            case "INT64":
+                return Type.TypeCode.LONG;
+            case "DOUBLE":
+                return Type.TypeCode.DOUBLE;
+            case "BOOLEAN":
+                return Type.TypeCode.BOOLEAN;
+            case "BYTES":
+                return Type.TypeCode.BYTES;
+            default:
+                return Type.TypeCode.RECORD;
+        }
+    }
+
+    public static boolean isProperDbUri(@Nonnull final String path) {
+        return unquoteString(path).matches("/\\w[a-zA-Z0-9_/]*\\w");
     }
 }

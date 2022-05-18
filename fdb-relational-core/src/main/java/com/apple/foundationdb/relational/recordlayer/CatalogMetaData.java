@@ -53,9 +53,9 @@ import javax.annotation.Nonnull;
 
 public class CatalogMetaData implements RelationalDatabaseMetaData {
     private final StoreCatalog catalog;
-    private final RecordStoreConnection conn;
+    private final EmbeddedRelationalConnection conn;
 
-    public CatalogMetaData(RecordStoreConnection conn, StoreCatalog catalog) {
+    public CatalogMetaData(EmbeddedRelationalConnection conn, StoreCatalog catalog) {
         this.catalog = catalog;
         this.conn = conn;
     }

@@ -32,6 +32,7 @@ import org.assertj.core.api.IntegerAssert;
 import org.assertj.core.api.ObjectAssert;
 import org.assertj.core.api.ThrowableAssert;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
@@ -55,6 +56,16 @@ public final class RelationalAssertions {
         return new MessageAssert(m);
     }
 
+    public static RelationalResultSetAssert assertThat(ResultSet resultSet) {
+        if (!(resultSet instanceof RelationalResultSet)) {
+            Assertions.fail(String.format("expected result set to be of type %s, however it is of type %s",
+                    RelationalResultSet.class.getSimpleName(),
+                    resultSet.getClass().getSimpleName()));
+        }
+        assert resultSet instanceof RelationalResultSet;
+        return new RelationalResultSetAssert((RelationalResultSet) resultSet);
+    }
+
     public static RelationalResultSetAssert assertThat(RelationalResultSet resultSet) {
         return new RelationalResultSetAssert(resultSet);
     }
@@ -70,6 +81,9 @@ public final class RelationalAssertions {
 
     public static SQLExceptionAssert assertThrowsSqlException(ThrowableAssert.ThrowingCallable shouldThrow) {
         SQLException se = Assertions.catchThrowableOfType(shouldThrow, SQLException.class);
+        if (se == null) {
+            Assertions.fail(String.format("expected an exception of type %s to be thrown, but no exception was thrown", SQLException.class.getSimpleName()));
+        }
         return new SQLExceptionAssert(se);
     }
 

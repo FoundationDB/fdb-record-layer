@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.ddl.DdlConnection;
-import com.apple.foundationdb.relational.api.ddl.DdlStatement;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
@@ -29,6 +29,9 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import java.net.URI;
+import java.sql.Connection;
+import java.sql.Statement;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
@@ -67,25 +70,28 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
 
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE ").append(templateName);
+        final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE '").append(templateName).append("'");
 
-        try (DdlConnection conn = relationalExtension.getEngine().getDdlConnection();
-                DdlStatement statement = conn.createStatement()) {
-            statement.execute(dropStatement.toString());
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            connection.setSchema("catalog");
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate(dropStatement.toString());
+            }
         }
     }
 
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
-        StringBuilder createStatement = new StringBuilder("CREATE SCHEMA TEMPLATE ").append(templateName).append(" AS {");
+        final StringBuilder createStatement = new StringBuilder("CREATE SCHEMA TEMPLATE '").append(templateName).append("' AS {");
         createStatement.append(typeCreator.getTypeDefinition());
         createStatement.append(tableCreator.getTypeDefinition());
         createStatement.append("}");
 
-        try (DdlConnection conn = relationalExtension.getEngine().getDdlConnection();
-                DdlStatement statement = conn.createStatement()) {
-            statement.execute(createStatement.toString());
-            conn.commit();
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            connection.setSchema("catalog");
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate(createStatement.toString());
+            }
         }
     }
 

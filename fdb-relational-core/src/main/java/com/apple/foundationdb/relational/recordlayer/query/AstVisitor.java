@@ -21,6 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -28,9 +32,9 @@ import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -43,6 +47,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
@@ -50,8 +61,13 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.RuleContext;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.math.BigInteger;
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -60,15 +76,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Visits the abstract syntax tree of the query and generates a {@link com.apple.foundationdb.record.query.plan.cascades.RelationalExpression}
+ * Visits the abstract syntax tree of the query and generates a {@link com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression}
  * if the query is valid and supported.
  */
-public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
+public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     private final ParserContext parserContext;
@@ -84,22 +101,56 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
     @Nullable
     private byte[] continuation;
 
+    @Nonnull
+    private final String query;
+
+    @Nonnull
+    private final ConstantActionFactory constantActionFactory;
+
+    @Nonnull
+    private final URI dbUri;
+
+    @Nonnull
+    private final TypingContext typingContext;
+
     public static final String UNSUPPORTED_QUERY = "query is not supported";
+
+    @Nonnull
+    private final DdlQueryFactory ddlQueryFactory;
 
     /**
      * Creates a new instance of {@link AstVisitor}.
      *
-     * @param parserContext The parsing context.
+     * @param parserContext The parsing context used to maintain references.
+     * @param query The string representation of the SQL statement.
+     * @param constantActionFactory A factory used to run DDL statements with side-effects.
+     * @param ddlQueryFactory A factory used to query the metadata.
+     * @param dbUri The current database {@link URI}.
      */
-    public AstVisitor(@Nonnull final ParserContext parserContext) {
+    public AstVisitor(@Nonnull final ParserContext parserContext,
+                      @Nonnull final String query,
+                      @Nonnull final ConstantActionFactory constantActionFactory,
+                      @Nonnull final DdlQueryFactory ddlQueryFactory,
+                      @Nonnull final URI dbUri) {
+        this.query = query;
         this.parserContext = parserContext;
+        this.constantActionFactory = constantActionFactory;
+        this.ddlQueryFactory = ddlQueryFactory;
+        this.dbUri = dbUri;
         this.graphExpansionBuilder = GraphExpansion.builder();
         this.filteredRecords = new LinkedHashSet<>();
+        this.typingContext = TypingContext.create();
     }
 
     @Override
-    protected Typed aggregateResult(Typed aggregate, Typed nextResult) {
+    protected Object aggregateResult(Object aggregate, Object nextResult) {
         return nextResult != null ? nextResult : aggregate;
+    }
+
+    @Override
+    public QueryPlan.QpQueryplan visitDmlStatement(RelationalParser.DmlStatementContext ctx) {
+        Assert.notNullUnchecked(ctx.selectStatementWithContinuation(), UNSUPPORTED_QUERY);
+        return (QueryPlan.QpQueryplan) ctx.selectStatementWithContinuation().accept(this);
     }
 
     @Override // not supported yet
@@ -117,13 +168,16 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
     }
 
     @Override
-    public Typed visitWithContinuationStatement(RelationalParser.WithContinuationStatementContext ctx) {
-        // validate it is a valid continuation
-        // sets member variable continuation
-        String continuationStr = LiteralValue.ofScalar(ParserUtils.safeCast(visit(ctx.stringLiteral()), String.class)).getLiteralValue();
-        Assert.notNullUnchecked(continuationStr, "continuation can not be null");
-        continuation = Base64.getDecoder().decode(continuationStr);
-        return null;
+    public QueryPlan.QpQueryplan visitSelectStatementWithContinuation(RelationalParser.SelectStatementWithContinuationContext ctx) {
+        Assert.notNullUnchecked(ctx.selectStatement(), UNSUPPORTED_QUERY);
+        RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
+        if (ctx.CONTINUATION() != null) {
+            final String continuationStr = ParserUtils.safeCastLiteral(ctx.stringLiteral().accept(this), String.class);
+            Assert.notNullUnchecked(continuationStr, "continuation can not be null");
+            return QueryPlan.QpQueryplan.of(result, query, Base64.getDecoder().decode(continuationStr));
+        } else {
+            return QueryPlan.QpQueryplan.of(result, query);
+        }
     }
 
     @Override
@@ -271,21 +325,21 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
     public Typed visitAtomTableItem(RelationalParser.AtomTableItemContext ctx) {
         Assert.isNullUnchecked(ctx.PARTITION(), UNSUPPORTED_QUERY);
         Assert.thatUnchecked(ctx.indexHint().isEmpty(), UNSUPPORTED_QUERY);
-        final String recordTypeName = ParserUtils.safeCast(visit(ctx.tableName()), String.class);
+        final String recordTypeName = ParserUtils.safeCastLiteral(visit(ctx.tableName()), String.class);
         Assert.notNullUnchecked(recordTypeName);
         final ImmutableSet<String> recordTypeNameSet = ImmutableSet.<String>builder().add(recordTypeName).build();
         final RecordMetaData recordMetaData = parserContext.getRecordMetaData();
         final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap = recordMetaData.getFieldDescriptorMapFromNames(recordTypeNameSet);
         final Set<String> allAvailableRecordTypes = recordMetaData.getRecordTypes().keySet();
         RelationalExpression typeFilterExpression = new LogicalTypeFilterExpression(recordTypeNameSet,
-                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes))),
+                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, new AccessHints()))), // todo index hints.
                 Type.Record.fromFieldDescriptorsMap(fieldDescriptorMap));
 
         // improve
         final Quantifier.ForEach forEachQuantifier = Quantifier.forEachBuilder().build(GroupExpressionRef.of(typeFilterExpression));
         final QuantifiedObjectValue quantifiedObjectValue = forEachQuantifier.getFlowedObjectValue();
         graphExpansionBuilder.addQuantifier(forEachQuantifier);
-        final String alias = (ctx.AS() != null) ? ParserUtils.safeCast(visit(ctx.alias), String.class) : recordTypeName;
+        final String alias = (ctx.AS() != null) ? ParserUtils.safeCastLiteral(visit(ctx.alias), String.class) : recordTypeName;
         Assert.notNullUnchecked(alias);
         parserContext.pushScope(Map.of(CorrelationIdentifier.of(alias), quantifiedObjectValue));
         filteredRecords.addAll(recordTypeNameSet);
@@ -476,13 +530,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
 
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
-    public Value visitIntervalExpr(RelationalParser.IntervalExprContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
     public Value visitBitExpressionAtom(RelationalParser.BitExpressionAtomContext ctx) {
         Assert.failUnchecked(UNSUPPORTED_QUERY);
         return null;
@@ -509,35 +556,35 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
     @Override
     public Typed visitFullId(RelationalParser.FullIdContext ctx) {
         final StringBuilder result = new StringBuilder();
-        result.append(ParserUtils.safeCast(visit(ctx.uid(0)), String.class));
+        result.append(ParserUtils.safeCastLiteral(visit(ctx.uid(0)), String.class));
         if (ctx.DOT_ID() != null) {
             result.append(ParserUtils.unquoteString(ctx.DOT_ID().getText()));
         } else {
             Assert.thatUnchecked(!ctx.uid().isEmpty());
-            ctx.uid().stream().skip(1).forEach(d -> result.append(ParserUtils.safeCast(visit(d), String.class)));
+            ctx.uid().stream().skip(1).forEach(d -> result.append(ParserUtils.safeCastLiteral(visit(d), String.class)));
         }
         return LiteralValue.ofScalar(result.toString());
     }
 
     @Override
     public Typed visitTableName(RelationalParser.TableNameContext ctx) {
-        return (visit(ctx.fullId()));
+        return (Typed) ctx.fullId().accept(this);
     }
 
     @Override
     public Value visitFullColumnName(RelationalParser.FullColumnNameContext ctx) {
         if (!ctx.dottedId().isEmpty()) {
             Assert.thatUnchecked(ctx.dottedId().size() == 1, UNSUPPORTED_QUERY); // todo nesting
-            final String recordTypeName = ParserUtils.safeCast(visit(ctx.uid()), String.class);
+            final String recordTypeName = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
             Assert.notNullUnchecked(recordTypeName);
-            final String fieldName = ParserUtils.safeCast(visit(ctx.dottedId(0)), String.class);
+            final String fieldName = ParserUtils.safeCastLiteral(visit(ctx.dottedId(0)), String.class);
             Assert.notNullUnchecked(fieldName);
             Assert.thatUnchecked(fieldName.length() > 1);
             final FieldValue fieldValue = ParserUtils.getFieldValue(fieldName.substring(1), parserContext.resolveIdentifier(recordTypeName));
             Assert.notNullUnchecked(fieldValue, String.format("attempting to query non existing field %s%s", recordTypeName, fieldName));
             return fieldValue;
         } else {
-            final String fieldName = ParserUtils.safeCast(visit(ctx.uid()), String.class);
+            final String fieldName = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
             Assert.notNullUnchecked(fieldName);
             final FieldValue fieldValue = ParserUtils.getFieldValue(fieldName, parserContext);
             Assert.notNullUnchecked(fieldValue, String.format("attempting to query non existing field %s", fieldName));
@@ -611,7 +658,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
     @Override
     public Typed visitUid(RelationalParser.UidContext ctx) {
         if (ctx.simpleId() != null) {
-            return LiteralValue.ofScalar(ParserUtils.safeCast(visit(ctx.simpleId()), String.class));
+            return LiteralValue.ofScalar(ParserUtils.safeCastLiteral(visit(ctx.simpleId()), String.class));
         } else {
             return LiteralValue.ofScalar(ParserUtils.unquoteString(ctx.getText()));
         }
@@ -627,7 +674,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
         if (ctx.DOT_ID() != null) {
             return LiteralValue.ofScalar(ParserUtils.unquoteString(ctx.getText()));
         }
-        return LiteralValue.ofScalar("." + ParserUtils.safeCast(visit(ctx.uid()), String.class));
+        return LiteralValue.ofScalar("." + ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class));
     }
 
     //// Literals ////
@@ -686,6 +733,141 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
         return ParserUtils.parseDecimal(ctx.getText(), false);
     }
 
+    /////// DDL statements //////////////
+
+    @Override
+    public ProceduralPlan visitDdlStatement(RelationalParser.DdlStatementContext ctx) {
+        Assert.thatUnchecked(ctx.createStatement() != null || ctx.dropStatement() != null, UNSUPPORTED_QUERY);
+        return (ProceduralPlan) visitChildren(ctx);
+    }
+
+    @Override
+    public ProceduralPlan visitCreateSchemaStatement(RelationalParser.CreateSchemaStatementContext ctx) {
+        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(ctx.schemaId().getText());
+        final String templateId = ParserUtils.unquoteString(ctx.templateId().getText());
+        return ProceduralPlan.of(constantActionFactory.getCreateSchemaConstantAction(dbAndSchema.getLeft().orElse(dbUri),
+                dbAndSchema.getRight(), templateId, Options.create()));
+    }
+
+    @Override
+    public ProceduralPlan visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
+        final var schemaTemplateName = ParserUtils.unquoteString(ctx.schemaTemplateId().getText());
+        // collect all tables, their indices, and custom types definitions.
+        ctx.structOrTableDefinition().forEach(s -> s.accept(this));
+        ctx.indexDefinition().forEach(s -> s.accept(this));
+        typingContext.addAllToTypeRepository();
+        SchemaTemplate schemaTemplate = typingContext.generateSchemaTemplate(schemaTemplateName);
+        return ProceduralPlan.of(constantActionFactory.getCreateSchemaTemplateConstantAction(schemaTemplate, Options.create()));
+    }
+
+    @Override
+    public ProceduralPlan visitCreateDatabaseStatement(RelationalParser.CreateDatabaseStatementContext ctx) {
+        final var dbName = ParserUtils.unquoteString(ctx.path().getText());
+        Assert.notNullUnchecked(dbName);
+        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
+        return ProceduralPlan.of(constantActionFactory.getCreateDatabaseConstantAction(URI.create(dbName), Options.create()));
+    }
+
+    @Override
+    public Void visitStructOrTableDefinition(RelationalParser.StructOrTableDefinitionContext ctx) {
+        Assert.thatUnchecked(ctx.STRUCT() == null || ctx.primaryKeyDefinition() == null,
+                String.format("Illegal struct definition '%s'", ctx.uid().getText()), ErrorCode.SYNTAX_ERROR);
+        final var name = ctx.uid().getText();
+        final List<TypingContext.FieldDefinition> fields = ctx.columnDefinition().stream().map(c ->
+                (TypingContext.FieldDefinition) c.accept(this)).collect(Collectors.toList());
+        final var isTable = ctx.STRUCT() == null;
+        if (ctx.primaryKeyDefinition() != null) {
+            typingContext.addType(new TypingContext.TypeDefinition(name, fields, isTable, Optional.of(((List<String>) ctx.primaryKeyDefinition().accept(this)))));
+        } else {
+            typingContext.addType(new TypingContext.TypeDefinition(name, fields, isTable, Optional.empty()));
+        }
+        return null;
+    }
+
+    @Override
+    public TypingContext.FieldDefinition visitColumnDefinition(RelationalParser.ColumnDefinitionContext ctx) {
+        final var fieldType = ParserUtils.toProtoType(ctx.columnType().getText());
+        return new TypingContext.FieldDefinition(ctx.colName.getText(), fieldType, ctx.columnType().getText(), ctx.ARRAY() != null);
+    }
+
+    @Override
+    public List<String> visitPrimaryKeyDefinition(RelationalParser.PrimaryKeyDefinitionContext ctx) {
+        return ctx.uid().stream().map(RuleContext::getText).collect(Collectors.toList());
+    }
+
+    @Override
+    public Void visitValueIndexDefinition(RelationalParser.ValueIndexDefinitionContext ctx) {
+        final String tableName = ctx.tblName.getText();
+        final String indexName = ctx.idxName.getText();
+        final List<KeyExpression> fieldExpressions = ctx.idxField().stream().map(RuleContext::getText).map(Key.Expressions::field).collect(Collectors.toList());
+        final List<KeyExpression> includeExpressions = ctx.incField().stream().map(RuleContext::getText).map(Key.Expressions::field).collect(Collectors.toList());
+        fieldExpressions.add(0, Key.Expressions.recordType());
+        KeyExpression rootExpression;
+        if (includeExpressions.isEmpty()) {
+            rootExpression = Key.Expressions.concat(fieldExpressions);
+        } else {
+            List<KeyExpression> allFields = new ArrayList<>(fieldExpressions.size() + includeExpressions.size());
+            allFields.addAll(fieldExpressions);
+            allFields.addAll(includeExpressions);
+            rootExpression = Key.Expressions.keyWithValue(Key.Expressions.concat(allFields), fieldExpressions.size());
+        }
+        typingContext.addIndex(tableName, RecordMetaDataProto.Index.newBuilder().setRootExpression(rootExpression.toKeyExpression())
+                .setName(indexName).setType("value").build(), Stream.concat(ctx.idxField().stream().map(RuleContext::getText), ctx.incField().stream().map(RuleContext::getText)).collect(Collectors.toList()));
+        return null;
+    }
+
+    @Override
+    public ProceduralPlan visitDropDatabaseStatement(RelationalParser.DropDatabaseStatementContext ctx) {
+        final var dbName = ParserUtils.unquoteString(ctx.path().getText());
+        Assert.notNullUnchecked(dbName);
+        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
+        return ProceduralPlan.of(constantActionFactory.getDropDatabaseConstantAction(URI.create(dbName), Options.create()));
+    }
+
+    @Override
+    public ProceduralPlan visitDropSchemaTemplateStatement(RelationalParser.DropSchemaTemplateStatementContext ctx) {
+        return ProceduralPlan.of(constantActionFactory.getDropSchemaTemplateConstantAction(ctx.uid().getText(), Options.create()));
+    }
+
+    @Override
+    public ProceduralPlan visitDropSchemaStatement(RelationalParser.DropSchemaStatementContext ctx) {
+        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(ctx.uid().getText());
+        Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), String.format("invalid database identifier in '%s'", ctx.uid().getText()));
+        return ProceduralPlan.of(constantActionFactory.getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.create()));
+    }
+
+    /////// administration statements //////////////
+
+    @Override
+    public Object visitShowDatabasesStatement(RelationalParser.ShowDatabasesStatementContext ctx) {
+        if (ctx.path() != null) {
+            final var dbName = ParserUtils.unquoteString(ctx.path().getText());
+            Assert.notNullUnchecked(dbName);
+            Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
+            return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getListDatabasesQueryAction(URI.create(dbName)));
+        }
+        return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getListDatabasesQueryAction(dbUri));
+    }
+
+    @Override
+    public QueryPlan visitShowSchemaTemplatesStatement(RelationalParser.ShowSchemaTemplatesStatementContext ctx) {
+        return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getListSchemaTemplatesQueryAction());
+    }
+
+    /////// utility statements /////////////////////
+
+    @Override
+    public QueryPlan visitSimpleDescribeSchemaStatement(RelationalParser.SimpleDescribeSchemaStatementContext ctx) {
+        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(ctx.schemaId().getText());
+        return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getDescribeSchemaQueryAction(dbAndSchema.getLeft().orElse(dbUri), dbAndSchema.getRight()));
+    }
+
+    @Override
+    public QueryPlan visitSimpleDescribeSchemaTemplateStatement(RelationalParser.SimpleDescribeSchemaTemplateStatementContext ctx) {
+        final var schemaTemplateName = ctx.uid().getText();
+        return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getDescribeSchemaTemplateQueryAction(schemaTemplateName));
+    }
+
     @Nonnull
     public Set<String> getFilteredRecords() {
         return filteredRecords;
@@ -694,5 +876,24 @@ public class AstVisitor extends RelationalParserBaseVisitor<Typed> {
     @Nullable
     public byte[] getContinuation() {
         return continuation == null ? null : continuation.clone();
+    }
+
+    /**
+     * Parses a query generating an equivalent abstract syntax tree.
+     * @param query The query.
+     * @return The abstract syntax tree.
+     * @throws RelationalException if something goes wrong.
+     */
+    @Nonnull
+    public static RelationalParser.RootContext parseQuery(@Nonnull final String query) throws RelationalException {
+        final RelationalLexer tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
+        final RelationalParser parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        SyntaxErrorListener listener = new SyntaxErrorListener();
+        parser.addErrorListener(listener);
+        RelationalParser.RootContext rootContext = parser.root();
+        if (!listener.getSyntaxErrors().isEmpty()) {
+            throw listener.getSyntaxErrors().get(0).toRelationalException();
+        }
+        return rootContext;
     }
 }

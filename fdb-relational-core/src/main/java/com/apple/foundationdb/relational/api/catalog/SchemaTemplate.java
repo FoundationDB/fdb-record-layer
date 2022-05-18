@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.generated.CatalogData;
 
 import com.google.protobuf.DescriptorProtos;
 
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
@@ -63,7 +64,8 @@ public interface SchemaTemplate {
 
     DescriptorProtos.FileDescriptorProto toProtobufDescriptor();
 
-    Set<TableInfo> getTables();
+    @SuppressWarnings("PMD.LooseCoupling")
+    LinkedHashSet<TableInfo> getTables();
 
     Set<TypeInfo> getTypes();
 }

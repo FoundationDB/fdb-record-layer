@@ -27,11 +27,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.ddl.DdlConnection;
-import com.apple.foundationdb.relational.api.ddl.DdlStatement;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
@@ -42,6 +43,8 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
 import java.net.URI;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -74,9 +77,11 @@ public abstract class EmbeddedRelationalBenchmark {
         FdbConnection fdbDatabase;
 
         @Setup(Level.Trial)
-        public void up() throws RelationalException {
+        public void up() throws RelationalException, SQLException {
             KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
-            keySpace = new KeySpace(dbDirectory);
+            dbDirectory.addSubdirectory(new KeySpaceDirectory("schema", KeySpaceDirectory.KeyType.STRING));
+            KeySpaceDirectory catalogDir = new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL);
+            keySpace = new KeySpace(dbDirectory, catalogDir);
             final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
             fdbDatabase = new DirectFdbConnection(fdbDb, new TestStoreTimer(new HashMap<>()));
             RecordLayerConfig rlConfig = new RecordLayerConfig(
@@ -95,10 +100,13 @@ public abstract class EmbeddedRelationalBenchmark {
             createSchemaTemplate();
         }
 
-        private void createSchemaTemplate() throws RelationalException {
-            try (DdlConnection conn = engine.getDdlConnection(); DdlStatement statement = conn.createStatement()) {
-                statement.execute("CREATE SCHEMA TEMPLATE restaurant_template AS { " + restaurantSchema + "}");
-                conn.commit();
+        private void createSchemaTemplate() throws RelationalException, SQLException {
+            try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+                conn.setSchema("catalog");
+                try (Statement statement = conn.createStatement()) {
+                    statement.executeUpdate("CREATE SCHEMA TEMPLATE restaurant_template AS { " + restaurantSchema + "}");
+                    conn.commit();
+                }
             }
         }
 
@@ -117,8 +125,8 @@ public abstract class EmbeddedRelationalBenchmark {
             deleteDatabases(databases, driver);
         }
 
-        public void createDatabase(Driver driver, DatabaseTemplate dbTemplate, String dbName) throws RelationalException {
-            EmbeddedRelationalBenchmark.createDatabase(driver, dbTemplate, getUri(dbName, false));
+        public void createDatabase(DatabaseTemplate dbTemplate, String dbName) throws RelationalException, SQLException {
+            EmbeddedRelationalBenchmark.createDatabase(dbTemplate, getUri(dbName, false));
             databases.add(dbName);
         }
     }
@@ -133,7 +141,6 @@ public abstract class EmbeddedRelationalBenchmark {
         }
 
         public void createMultipleDatabases(
-                Driver driver,
                 DatabaseTemplate dbTemplate,
                 int dbCount,
                 Function<Integer, String> dbName,
@@ -142,10 +149,12 @@ public abstract class EmbeddedRelationalBenchmark {
                 IntStream.range(0, dbCount).parallel().forEach(i ->
                 {
                     try {
-                        EmbeddedRelationalBenchmark.createDatabase(driver, dbTemplate, getUri(dbName.apply(i), false));
+                        EmbeddedRelationalBenchmark.createDatabase(dbTemplate, getUri(dbName.apply(i), false));
                         populateDatabase.accept(getUri(dbName.apply(i), true));
                     } catch (RelationalException e) {
                         throw e.toUncheckedWrappedException();
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
                     }
                 });
             } catch (UncheckedRelationalException e) {
@@ -179,21 +188,24 @@ public abstract class EmbeddedRelationalBenchmark {
         }
     }
 
-    private static void createDatabase(Driver driver, DatabaseTemplate dbTemplate, URI dbUri) throws RelationalException {
-        try (DdlConnection conn = driver.engine.getDdlConnection(); DdlStatement statement = conn.createStatement()) {
-            statement.execute("CREATE DATABASE " + dbUri.getPath() + ";");
-            conn.setDatabase(dbUri);
-            for (Map.Entry<String, String> schemaTemplateEntry : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
-                statement.execute("CREATE SCHEMA " + schemaTemplateEntry.getKey() + " WITH TEMPLATE " + schemaTemplateEntry.getValue());
+    private static void createDatabase(DatabaseTemplate dbTemplate, URI dbUri) throws RelationalException, SQLException {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            conn.setSchema("catalog");
+            try (Statement statement = conn.createStatement()) {
+                statement.executeUpdate("CREATE DATABASE '" + dbUri.getPath() + "'");
+                for (Map.Entry<String, String> schemaTemplateEntry : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
+                    statement.executeUpdate("CREATE SCHEMA '" + schemaTemplateEntry.getKey() + "' WITH TEMPLATE " + schemaTemplateEntry.getValue());
+                }
             }
-            conn.commit();
         }
     }
 
-    private static void deleteDatabase(URI dbUri, Driver driver) throws RelationalException {
-        try (DdlConnection conn = driver.engine.getDdlConnection(); DdlStatement statement = conn.createStatement()) {
-            statement.execute("DROP DATABASE " + dbUri.getPath());
-            conn.commit();
+    private static void deleteDatabase(URI dbUri, Driver driver) throws RelationalException, SQLException {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            conn.setSchema("catalog");
+            try (Statement statement = conn.createStatement()) {
+                statement.executeUpdate("DROP DATABASE '" + dbUri.getPath() + "'");
+            }
         }
     }
 
@@ -204,6 +216,8 @@ public abstract class EmbeddedRelationalBenchmark {
                     deleteDatabase(getUri(dbName, false), driver);
                 } catch (RelationalException e) {
                     throw e.toUncheckedWrappedException();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
                 }
             });
         } catch (UncheckedRelationalException e) {

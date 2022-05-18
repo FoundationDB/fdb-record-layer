@@ -109,7 +109,10 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         for (Descriptors.FieldDescriptor field : destinationDescriptor.getFields()) {
             Descriptors.FieldDescriptor messageField = m.getDescriptorForType().findFieldByName(field.getName());
             if (messageField == null) {
-                throw new RelationalException("Field <" + field.getName() + "> is missing from passed object", ErrorCode.INVALID_PARAMETER);
+                if (!field.isOptional()) {
+                    throw new RelationalException("Field <" + field.getName() + "> is missing from passed object", ErrorCode.INVALID_PARAMETER);
+                }
+                continue;
             }
 
             if (!canCoerce(messageField.getJavaType(), field.getJavaType())) {

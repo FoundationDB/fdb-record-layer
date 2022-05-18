@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.net.URI;
@@ -35,13 +37,21 @@ import javax.annotation.Nonnull;
 
 public abstract class AbstractDatabase implements RelationalDatabase {
 
-    RecordStoreConnection connection;
+    @Nonnull
+    private final ConstantActionFactory constantActionFactory;
+
+    @Nonnull
+    private final DdlQueryFactory ddlQueryFactory;
+
+    EmbeddedRelationalConnection connection;
     final Map<String, RecordLayerSchema> schemas = new HashMap<>();
 
-    public AbstractDatabase() {
+    public AbstractDatabase(@Nonnull final ConstantActionFactory constantActionFactory, @Nonnull DdlQueryFactory ddlQueryFactory) {
+        this.constantActionFactory = constantActionFactory;
+        this.ddlQueryFactory = ddlQueryFactory;
     }
 
-    protected void setConnection(@Nonnull RecordStoreConnection conn) {
+    protected void setConnection(@Nonnull EmbeddedRelationalConnection conn) {
         this.connection = conn;
     }
 
@@ -70,6 +80,17 @@ public abstract class AbstractDatabase implements RelationalDatabase {
             });
         }
         return schema;
+    }
+
+    @Override
+    @Nonnull
+    public ConstantActionFactory getDdlFactory() {
+        return constantActionFactory;
+    }
+
+    @Nonnull
+    public DdlQueryFactory getDdlQueryFactory() {
+        return ddlQueryFactory;
     }
 
     public abstract FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException;

@@ -33,6 +33,8 @@ import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -65,8 +67,10 @@ public class RecordLayerDatabase extends AbstractDatabase {
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                int formatVersion,
                                SerializerRegistry serializerRegistry,
-                               KeySpacePath dbPathPrefix) {
-        super();
+                               KeySpacePath dbPathPrefix,
+                               @Nonnull final ConstantActionFactory constantActionFactory,
+                               @Nonnull final DdlQueryFactory ddlQueryFactory) {
+        super(constantActionFactory, ddlQueryFactory);
         this.fdbDb = fdbDb;
         this.metaDataStore = new CachedMetaDataStore(metaDataStore);
         this.storeCatalog = storeCatalog;
@@ -77,11 +81,11 @@ public class RecordLayerDatabase extends AbstractDatabase {
     }
 
     @Override
-    public RelationalConnection connect(@Nullable Transaction sharedTransaction, @Nonnull TransactionConfig txnConfig) throws RelationalException {
-        if (sharedTransaction != null && !(sharedTransaction instanceof RecordContextTransaction)) {
+    public RelationalConnection connect(@Nullable Transaction transaction, @Nonnull TransactionConfig txnConfig) throws RelationalException {
+        if (transaction != null && !(transaction instanceof RecordContextTransaction)) {
             throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
         }
-        RecordStoreConnection conn = new RecordStoreConnection(this, storeCatalog, sharedTransaction);
+        EmbeddedRelationalConnection conn = new EmbeddedRelationalConnection(this, storeCatalog, transaction);
         setConnection(conn);
         return conn;
     }

@@ -27,10 +27,8 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
-import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -59,20 +57,13 @@ public final class RecordLayerEngine {
         RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(baseKeySpace);
 
         List<StorageCluster> clusters = databases.stream().map(db ->
-                new RecordLayerStorageCluster(new DirectFdbConnection(db, timer), baseKeySpace, cfg, schemaCatalog)).collect(Collectors.toList());
+                new RecordLayerStorageCluster(new DirectFdbConnection(db, timer), baseKeySpace, cfg, schemaCatalog, templateCatalog)).collect(Collectors.toList());
         try (Transaction txn = clusters.get(0).getTransactionManager().createTransaction()) {
             schemaCatalog.initialize(txn);
             txn.commit();
         }
 
-        ConstantActionFactory constantActionFactory = new RecordLayerConstantActionFactory.Builder()
-                .setRlConfig(cfg)
-                .setBaseKeySpace(baseKeySpace)
-                .setTemplateCatalog(templateCatalog)
-                .setStoreCatalog(schemaCatalog)
-                .build();
-
-        return new EmbeddedRelationalEngine(clusters, constantActionFactory, schemaCatalog, templateCatalog);
+        return new EmbeddedRelationalEngine(clusters);
     }
 
     private RecordLayerEngine() {

@@ -45,7 +45,7 @@ class RecordLayerResultSetTest {
         resultSet = new RecordLayerResultSet(
                 new String[]{"a", "b"},
                 cursor,
-                Mockito.mock(RecordStoreConnection.class));
+                Mockito.mock(EmbeddedRelationalConnection.class));
     }
 
     private void mockNext(boolean next, Row keyValue) throws RelationalException {
