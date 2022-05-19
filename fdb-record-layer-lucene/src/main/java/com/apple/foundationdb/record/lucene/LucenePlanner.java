@@ -135,7 +135,8 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         // Wrap in plan.
-        LuceneIndexQueryPlan lucenePlan = new LuceneIndexQueryPlan(index.getName(), scanParameters, false, state.planOrderingKey);
+        LuceneIndexQueryPlan lucenePlan = new LuceneIndexQueryPlan(index.getName(), scanParameters, false,
+                state.planOrderingKey, state.storedFieldExpressions);
         RecordQueryPlan plan = lucenePlan;
         plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
         if (filterMask.allSatisfied()) {
@@ -158,6 +159,8 @@ public class LucenePlanner extends RecordQueryPlanner {
         List<String> storedFields;
         @Nullable
         List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
+        @Nullable
+        List<KeyExpression> storedFieldExpressions;
         @Nullable
         PlanOrderingKey planOrderingKey;
 
@@ -517,11 +520,14 @@ public class LucenePlanner extends RecordQueryPlanner {
                 if (state.storedFields == null) {
                     state.storedFields = new ArrayList<>(Collections.nCopies(fields.size(), null));
                     state.storedFieldTypes = new ArrayList<>(Collections.nCopies(fields.size(), null));
+                    state.storedFieldExpressions = new ArrayList<>();
                 }
                 for (int i = 0; i < fields.size(); i++) {
-                    if (recordFieldPathMatches(fields.get(i), documentField.getRecordFieldPath())) {
+                    final KeyExpression fieldExpression = fields.get(i);
+                    if (recordFieldPathMatches(fieldExpression, documentField.getRecordFieldPath())) {
                         state.storedFields.set(i, documentField.getDocumentField());
                         state.storedFieldTypes.set(i, documentField.getType());
+                        state.storedFieldExpressions.add(fieldExpression);
                         break;
                     }
                 }

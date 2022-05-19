@@ -699,7 +699,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             final RecordType recordType = Iterables.getOnlyElement(recordTypes);
             final List<QueryComponent> unsatisfiedFilters = new ArrayList<>(plan.unsatisfiedFilters);
             final AvailableFields availableFieldsFromIndex =
-                    AvailableFields.fromIndex(recordType, index, indexTypes, planContext.commonPrimaryKey);
+                    AvailableFields.fromIndex(recordType, index, indexTypes, planContext.commonPrimaryKey, indexPlan);
 
             final List<QueryComponent> indexFilters = Lists.newArrayListWithCapacity(unsatisfiedFilters.size());
             final List<QueryComponent> residualFilters = Lists.newArrayListWithCapacity(unsatisfiedFilters.size());

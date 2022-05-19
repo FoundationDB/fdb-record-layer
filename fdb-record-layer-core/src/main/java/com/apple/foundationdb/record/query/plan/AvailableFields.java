@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.planning.TextScanPlanner;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -94,10 +95,14 @@ public class AvailableFields {
     }
 
     @Nonnull
+    /**
+     * Get the fields that are available from just the index scan part of an index plan.
+     */
     public static AvailableFields fromIndex(@Nonnull RecordType recordType,
                                             @Nonnull Index index,
                                             @Nonnull PlannableIndexTypes indexTypes,
-                                            @Nullable KeyExpression commonPrimaryKey) {
+                                            @Nullable KeyExpression commonPrimaryKey,
+                                            @Nonnull RecordQueryPlanWithIndex indexPlan) {
         final KeyExpression rootExpression = index.getRootExpression();
 
         final List<KeyExpression> keyFields = new ArrayList<>();
@@ -111,14 +116,15 @@ public class AvailableFields {
             keyFields.addAll(KeyExpression.getKeyFields(rootExpression));
             valueFields.addAll(KeyExpression.getValueFields(rootExpression));
         } else if (indexTypes.getUnstoredNonPrimaryKeyTypes().contains(index.getType())) {
-            // Todo: Take into account stored non-primary-key fields.
-            //  Probably by replacing unstoredNonPrimaryKeyTypes with some callback to compute which are stored.
             keyFields.addAll(rootExpression.normalizeKeyForPositions());
             nonStoredFields.addAll(keyFields);
             nonStoredFields.removeAll(recordType.getPrimaryKey().normalizeKeyForPositions());
             if (rootExpression instanceof GroupingKeyExpression) {
                 GroupingKeyExpression groupingKeyExpression = (GroupingKeyExpression) rootExpression;
                 nonStoredFields.removeAll(groupingKeyExpression.getGroupingSubKey().normalizeKeyForPositions());
+            }
+            if (indexPlan instanceof PlanWithStoredFields) {
+                ((PlanWithStoredFields)indexPlan).getStoredFields(keyFields, nonStoredFields);
             }
         } else {
             // Aggregate index

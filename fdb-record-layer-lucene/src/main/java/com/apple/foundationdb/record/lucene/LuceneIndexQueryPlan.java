@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
+import com.apple.foundationdb.record.query.plan.PlanWithStoredFields;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlanUtils;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -46,19 +47,23 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 /**
  * Lucene query plan for including search-related scan parameters.
  */
-public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWithOrderingKey {
+public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWithOrderingKey, PlanWithStoredFields {
     @Nullable
     private final PlanOrderingKey planOrderingKey;
+    @Nullable
+    private final List<KeyExpression> storedFields;
 
     public LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters, boolean reverse,
-                                @Nullable PlanOrderingKey planOrderingKey) {
+                                @Nullable PlanOrderingKey planOrderingKey, @Nullable List<KeyExpression> storedFields) {
         super(indexName, scanParameters, reverse);
         this.planOrderingKey = planOrderingKey;
+        this.storedFields = storedFields;
     }
 
     /**
@@ -73,9 +78,9 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                                      @Nonnull EvaluationContext context,
-                                                                      @Nullable byte[] continuation,
-                                                                      @Nonnull ExecuteProperties executeProperties) {
+                                                                     @Nonnull EvaluationContext context,
+                                                                     @Nullable byte[] continuation,
+                                                                     @Nonnull ExecuteProperties executeProperties) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
@@ -143,6 +148,38 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public void getStoredFields(@Nonnull List<KeyExpression> keyFields, @Nonnull List<KeyExpression> nonStoredFields) {
+        int i = 0;
+        while (i < nonStoredFields.size()) {
+            KeyExpression field = nonStoredFields.get(i);
+            KeyExpression origField = field;
+            // Unwrap functions that are just annotations.
+            while (field instanceof LuceneFunctionKeyExpression) {
+                if (field instanceof LuceneFunctionKeyExpression.LuceneSorted) {
+                    field = ((LuceneFunctionKeyExpression.LuceneSorted)field).getSortedExpression();
+                } else if (field instanceof LuceneFunctionKeyExpression.LuceneStored) {
+                    field = ((LuceneFunctionKeyExpression.LuceneStored)field).getStoredExpression();
+                } else {
+                    break;
+                }
+            }
+            if (field != origField) {
+                nonStoredFields.set(i, field);
+                int j = keyFields.indexOf(origField);
+                if (j >= 0) {
+                    keyFields.set(j, field);
+                }
+            }
+            if (storedFields != null && storedFields.contains(origField)) {
+                nonStoredFields.remove(i);
+            } else {
+                i++;
+            }
+        }
+    }
+
+    @Override
     public boolean equals(final Object o) {
         if (this == o) {
             return true;
@@ -154,11 +191,12 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
             return false;
         }
         final LuceneIndexQueryPlan that = (LuceneIndexQueryPlan)o;
-        return Objects.equals(planOrderingKey, that.planOrderingKey);
+        return Objects.equals(planOrderingKey, that.planOrderingKey) &&
+               Objects.equals(storedFields, that.storedFields);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), planOrderingKey);
+        return Objects.hash(super.hashCode(), planOrderingKey, storedFields);
     }
 }

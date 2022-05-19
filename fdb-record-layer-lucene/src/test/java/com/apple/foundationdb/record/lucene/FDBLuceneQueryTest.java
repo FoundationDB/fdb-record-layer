@@ -916,6 +916,12 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRequiredResults(List.of(field("group")))
                     .build();
             RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = coveringIndexScan(indexScan(allOf(
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    indexName(TEXT_AND_GROUP.getName()),
+                    scanParams(query(hasToString("MULTI parents")))
+            )));
+            assertThat(plan, matcher);
             List<Pair<Long, Long>> results = recordStore.executeQuery(plan).map(qr -> {
                 long pk = qr.getPrimaryKey().getLong(0);
                 TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
@@ -924,8 +930,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 return Pair.of(pk, gr);
             }).asList().get();
             assertEquals(Set.of(Pair.of(2L, 0L), Pair.of(4L, 0L), Pair.of(5L, 1L)), Set.copyOf(results));
-            // TODO: AvailableFields doesn't know about stored fields, so not really covering.
-            //assertLoadRecord(0, context);
+            assertLoadRecord(0, context);
         }
     }
 
