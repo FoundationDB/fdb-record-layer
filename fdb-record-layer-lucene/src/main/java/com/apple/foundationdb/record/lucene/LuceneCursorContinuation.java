@@ -37,6 +37,7 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
     @Nonnull
     private final LuceneContinuationProto.LuceneIndexContinuation protoContinuation;
 
+    @SuppressWarnings("squid:S3077") // Byte array is immutable once created, so does not need to use atomic array
     private volatile byte[] byteContinuation;
 
     private LuceneCursorContinuation(@Nonnull LuceneContinuationProto.LuceneIndexContinuation protoContinuation) {
