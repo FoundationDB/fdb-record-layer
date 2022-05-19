@@ -184,8 +184,8 @@ public class LuceneDocumentFromRecord {
                              LuceneIndexExpressions.DocumentFieldType type,
                              boolean stored, boolean sorted,
                              @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex,
-                             @Nonnull Map<String, Object> fieldConfigs, boolean nested) {
-            fields.add(new DocumentField(fieldName, value, type, stored, sorted, fieldConfigs, nested));
+                             @Nonnull Map<String, Object> fieldConfigs) {
+            fields.add(new DocumentField(fieldName, value, type, stored, sorted, fieldConfigs));
         }
     }
 
@@ -197,19 +197,17 @@ public class LuceneDocumentFromRecord {
         private final LuceneIndexExpressions.DocumentFieldType type;
         private final boolean stored;
         private final boolean sorted;
-        private final boolean nested;
         @Nonnull
         private final Map<String, Object> fieldConfigs;
 
         public DocumentField(@Nonnull String fieldName, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
-                             boolean stored, boolean sorted, @Nonnull Map<String, Object> fieldConfigs, boolean nested) {
+                             boolean stored, boolean sorted, @Nonnull Map<String, Object> fieldConfigs) {
             this.fieldName = fieldName;
             this.value = value;
             this.type = type;
             this.stored = stored;
             this.sorted = sorted;
             this.fieldConfigs = fieldConfigs;
-            this.nested = nested;
         }
 
         @Nonnull
@@ -232,10 +230,6 @@ public class LuceneDocumentFromRecord {
 
         public boolean isSorted() {
             return sorted;
-        }
-
-        public boolean isNested() {
-            return nested;
         }
 
         @Nullable
@@ -278,7 +272,6 @@ public class LuceneDocumentFromRecord {
             result = 31 * result + type.hashCode();
             result = 31 * result + (stored ? 1 : 0);
             result = 31 * result + (sorted ? 1 : 0);
-            result = 31 * result + (nested ? 1 : 0);
             return result;
         }
 

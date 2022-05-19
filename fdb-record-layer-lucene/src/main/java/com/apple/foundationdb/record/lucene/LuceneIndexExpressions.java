@@ -91,7 +91,7 @@ public class LuceneIndexExpressions {
      * @param recordType Protobuf meta-data for record type
      */
     public static void validate(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
-        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, sorted, overriddeKeyRanges, groupingKeyIndex, fieldConfigsIgnored, nested) -> {
+        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, sorted, overriddeKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
         }, null);
     }
 
@@ -152,7 +152,7 @@ public class LuceneIndexExpressions {
         final Map<String, DocumentFieldDerivation> fields = new HashMap<>();
         getFields(root,
                 new MetaDataSource(recordType),
-                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, fieldConfigsIgnored, nested) -> {
+                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
                     List<String> path = new ArrayList<>();
                     for (MetaDataSource metaDataSource = source; metaDataSource != null; metaDataSource = metaDataSource.getParent()) {
                         if (metaDataSource.getField() != null) {
@@ -188,8 +188,7 @@ public class LuceneIndexExpressions {
     public interface DocumentDestination<T extends RecordSource<T>> {
         @SuppressWarnings("java:S107")
         void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable Object value, @Nonnull DocumentFieldType type,
-                      boolean stored, boolean sorted, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex,
-                      @Nonnull Map<String, Object> fieldConfigs, boolean nested);
+                      boolean stored, boolean sorted, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs);
     }
 
     /**
@@ -208,18 +207,18 @@ public class LuceneIndexExpressions {
             expression = root;
         }
         getFieldsRecursively(expression, source, destination, fieldNamePrefix, 0,
-                root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getGroupingCount() : 0, new ArrayList<>(), false);
+                root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getGroupingCount() : 0, new ArrayList<>());
     }
 
     @SuppressWarnings("squid:S3776")
     public static <T extends RecordSource<T>> void getFieldsRecursively(@Nonnull KeyExpression expression,
                                                                         @Nonnull T source, @Nonnull DocumentDestination<T> destination,
                                                                         @Nullable String fieldNamePrefix, int keyIndex, int groupingCount,
-                                                                        @Nonnull List<Integer> overriddenKeyRanges, boolean nested) {
+                                                                        @Nonnull List<Integer> overriddenKeyRanges) {
         if (expression instanceof ThenKeyExpression) {
             int count = 0;
             for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
-                getFieldsRecursively(child, source, destination, fieldNamePrefix, keyIndex + count, groupingCount, overriddenKeyRanges, nested);
+                getFieldsRecursively(child, source, destination, fieldNamePrefix, keyIndex + count, groupingCount, overriddenKeyRanges);
                 count += child.getColumnSize();
             }
             return;
@@ -258,7 +257,7 @@ public class LuceneIndexExpressions {
             }
             String fieldName = appendFieldName(fieldNamePrefix, fieldNameSuffix);
             for (T subsource : source.getChildren(parentExpression)) {
-                getFieldsRecursively(child, subsource, destination, fieldName, keyIndex, groupingCount, overriddenKeyRanges, true);
+                getFieldsRecursively(child, subsource, destination, fieldName, keyIndex, groupingCount, overriddenKeyRanges);
             }
             if (suffixOverride) {
                 // Remove the last 2 numbers added above
@@ -336,7 +335,7 @@ public class LuceneIndexExpressions {
             }
             for (Object value : source.getValues(fieldExpression)) {
                 destination.addField(source, fieldName, value, fieldType, fieldStored, fieldSorted,
-                        overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1, configs, nested);
+                        overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1, configs);
             }
             if (suffixOverride) {
                 // Remove the last 2 numbers added above

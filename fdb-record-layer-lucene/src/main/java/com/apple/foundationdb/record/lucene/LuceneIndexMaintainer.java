@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexE
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Joiner;
 import com.google.protobuf.Message;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
@@ -222,15 +221,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
                 .map(f -> (String) f.getValue()).collect(Collectors.toList());
         Document document = new Document();
-        if (autoCompleteEnabled) {
-            List<String> nestedFields = fields.stream()
-                    .filter(f -> f.isNested())
-                    .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
-                    .map(f -> (String) f.getValue()).collect(Collectors.toList());
-            if (nestedFields.size() > 0) {
-                document.add(new Field("TEXT_NESTED", Joiner.on(" ").join(nestedFields), getAutoCompleteTextFieldType()));
-            }
-        }
         final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey,
                 indexAnalyzerChooser.chooseAnalyzer(texts));
         BytesRef ref = new BytesRef(primaryKey);
@@ -330,23 +320,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             ft.setStoreTermVectors((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS), false));
             ft.setStoreTermVectorPositions((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS), false));
             ft.setOmitNorms((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_OMIT_NORMS), false));
-            ft.freeze();
-        } catch (ClassCastException ex) {
-            throw new RecordCoreArgumentException("Invalid value type for Lucene field config", ex);
-        }
-
-        return ft;
-    }
-
-    private FieldType getAutoCompleteTextFieldType() {
-        FieldType ft = new FieldType();
-
-        try {
-            ft.setIndexOptions(IndexOptions.DOCS);
-            ft.setTokenized(true);
-            ft.setStored(false);
-            ft.setStoreTermVectors(false);
-            ft.setOmitNorms(true);
             ft.freeze();
         } catch (ClassCastException ex) {
             throw new RecordCoreArgumentException("Invalid value type for Lucene field config", ex);
