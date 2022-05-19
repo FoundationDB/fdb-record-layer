@@ -177,6 +177,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
     }
 
+    @SuppressWarnings("squid:S3776") // Cognitive complexity is too high. Candidate for later refactoring
     @Nullable
     private String searchAllMaybeHighlight(String text, Set<String> matchedTokens, @Nullable String prefixToken, boolean highlight) {
         try (TokenStream ts = queryAnalyzer.tokenStream("text", new StringReader(text))) {
@@ -408,11 +409,10 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
 
     protected RecordCursor<IndexEntry> createResults(IndexSearcher searcher,
                                                      TopDocs topDocs,
-                                                     Set<String> matchedTokens,
-                                                     String prefixToken)
-            throws IOException {
+                                                     Set<String> queryTokens,
+                                                     @Nullable String prefixToken) {
         return RecordCursor.fromIterator(executor, Arrays.stream(topDocs.scoreDocs).iterator())
-                .mapPipelined(scoreDoc -> constructIndexEntryFromScoreDoc(searcher, scoreDoc, matchedTokens, prefixToken), state.store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
+                .mapPipelined(scoreDoc -> constructIndexEntryFromScoreDoc(searcher, scoreDoc, queryTokens, prefixToken), state.store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
                 .filter(Objects::nonNull)
                 .mapResult(wrappingResult -> {
                     if (wrappingResult.hasNext()) {
@@ -428,17 +428,18 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                 });
     }
 
+    @SuppressWarnings("squid:S3776") // Cognitive complexity is too high. Candidate for later refactoring
     private CompletableFuture<RecordCursorResult<IndexEntry>> constructIndexEntryFromScoreDoc(IndexSearcher searcher, ScoreDoc scoreDoc, Set<String> queryTokens, @Nullable String prefixToken) {
         try {
             IndexableField primaryKey = searcher.doc(scoreDoc.doc).getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
             BytesRef pk = primaryKey.binaryValue();
-            return state.store.loadRecordAsync(Tuple.fromBytes(pk.bytes)).thenApply(record -> {
-                if (record == null) {
+            return state.store.loadRecordAsync(Tuple.fromBytes(pk.bytes)).thenApply(rec -> {
+                if (rec == null) {
                     // No document found. Return original record.
                     return null;
                 }
                 // Extract the indexed fields from the document again
-                final List<LuceneDocumentFromRecord.DocumentField> documentFields = LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), record)
+                final List<LuceneDocumentFromRecord.DocumentField> documentFields = LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), rec)
                         .get(groupingKey == null ? TupleHelpers.EMPTY : groupingKey);
 
                 // Search each field to find the first match.
