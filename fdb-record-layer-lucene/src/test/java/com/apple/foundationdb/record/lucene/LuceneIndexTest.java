@@ -80,6 +80,7 @@ import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.apache.lucene.util.BytesRef;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -90,7 +91,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -117,6 +117,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexN
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -145,7 +146,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS = new Index("Simple_with_auto_complete",
             function(LuceneFunctionNames.LUCENE_TEXT, concat(field("text"),
-                    function(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS, value(LuceneFunctionNames.LuceneFieldIndexOptions.DOCS.name())))),
+                    function(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS, value(LuceneFunctionNames.LuceneFieldIndexOptions.DOCS.name())),
+                    function(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS, value(LuceneFunctionNames.LuceneFieldIndexOptions.DOCS.name())))),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
                     LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
@@ -1009,7 +1011,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
             assertTrue(results.isEmpty());
-            assertEquals(0, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEquals(0, context.getTimer().getCount(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS));
         }
     }
 
@@ -1052,22 +1054,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             // Assert the suggestions' keys
             List<String> suggestions = results.stream().map(i -> (String) i.getKey().get(i.getKeySize() - 1)).collect(Collectors.toList());
-            assertEquals(ImmutableList.of("good evening", "Good night", "Good morning", "Good afternoon", "I'm good", "That's really good!"), suggestions);
+            assertThat(suggestions, containsInAnyOrder("good evening", "Good night", "Good morning", "Good afternoon", "I'm good", "That's really good!"));
 
             // Assert the corresponding field for the suggestions
             List<String> fields = results.stream().map(i -> (String) i.getKey().get(i.getKeySize() - 2)).collect(Collectors.toList());
             assertEquals(ImmutableList.of("text", "text", "text", "text", "text2", "text2"), fields);
-
-            // Assert the suggestions are sorted according to their values, which are determined by the position of the term into the indexed text
-            List<Long> values = results.stream().map(i -> (Long) i.getValue().get(0)).collect(Collectors.toList());
-            List<Long> valuesSorted = new ArrayList<>(values);
-            Collections.sort(valuesSorted, Collections.reverseOrder());
-            assertEquals(valuesSorted, values);
-            assertEquals(values.get(0), values.get(1));
-            assertEquals(values.get(1), values.get(2));
-            assertEquals(values.get(2), values.get(3));
-            assertTrue(values.get(3) > values.get(4));
-            assertTrue(values.get(4) > values.get(5));
         }
     }
 
@@ -1153,7 +1144,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             "states united as a country",
                             "states have been united as a country",
                             "all the states united as a country",
-                            "all the states have been united as a country",
                             "welcome to the united states of america",
                             "The countries are united kingdom, france, the states"));
 
@@ -1211,7 +1201,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             "<b>states</b> <b>united</b> as a country",
                             "<b>states</b> have been <b>united</b> as a country",
                             "all the <b>states</b> <b>united</b> as a country",
-                            "all the <b>states</b> have been <b>united</b> as a country",
                             "welcome to the <b>united</b> <b>states</b> of america",
                             "The countries are <b>united</b> kingdom, france, the <b>states</b>"));
 
@@ -1558,7 +1547,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             commit(context);
         }
-        // Re-initialized the builder so the LUCENE_INDEX_COMPRESSION_ENABLED prop is not added twice
+        // Re-initialize the builder so the LUCENE_INDEX_COMPRESSION_ENABLED prop is not added twice
         storageBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS, withTermVectors);
         try (FDBRecordContext context = openContext(storageBuilder)) {
@@ -1567,9 +1556,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group), null, ScanProperties.FORWARD_SCAN)
                         .asList()
                         .join();
-                assertThat(autoCompleted, hasSize(1));
-                Tuple key = autoCompleted.get(0).getKey();
-                assertEquals(Tuple.from("text", String.format("hello there %d", group)), TupleHelpers.subTuple(key, key.size() - 2, key.size()));
+                assertThat(autoCompleted, hasSize(10));
+                for (IndexEntry entry : autoCompleted) {
+                    Tuple key = entry.getKey();
+                    assertEquals(Tuple.from("text", String.format("hello there %d", group)), TupleHelpers.subTuple(key, key.size() - 2, key.size()));
+                }
             }
 
             final int groupToDelete = maxGroup / 2;
@@ -1582,9 +1573,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 if (group == groupToDelete) {
                     assertThat(autoCompleted, empty());
                 } else {
-                    assertThat(autoCompleted, hasSize(1));
-                    Tuple key = autoCompleted.get(0).getKey();
-                    assertEquals(Tuple.from("text", String.format("hello there %d", group)), TupleHelpers.subTuple(key, key.size() - 2, key.size()));
+                    assertThat(autoCompleted, hasSize(10));
+                    for (IndexEntry entry : autoCompleted) {
+                        Tuple key = entry.getKey();
+                        assertEquals(Tuple.from("text", String.format("hello there %d", group)), TupleHelpers.subTuple(key, key.size() - 2, key.size()));
+                    }
                 }
             }
         }
@@ -1722,7 +1715,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     (String) i.getKey().get(i.getKeySize() - 1),
                     (String) i.getKey().get(i.getKeySize() - 2), LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE));
 
-            assertEquals(6, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEquals(6, context.getTimer().getCount(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS));
             assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE),
                     context, "_0.cfs", true);
         }
@@ -1809,7 +1802,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         assertEquals(expectedSuggestions.size(), results.size());
         List<String> suggestions = results.stream().map(i -> i.getKey().getString(i.getKeySize() - 1)).collect(Collectors.toList());
-        assertEquals(expectedSuggestions, suggestions);
+        assertThat(suggestions, containsInAnyOrder(expectedSuggestions.stream().map(Matchers::equalTo).collect(Collectors.toList())));
     }
 
     private void assertDocumentPartialRecordFromIndexEntry(@Nonnull RecordType recordType, @Nonnull IndexEntry indexEntry,

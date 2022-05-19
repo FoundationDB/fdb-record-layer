@@ -64,7 +64,6 @@ import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.NumericUtils;
 import org.slf4j.Logger;
@@ -74,7 +73,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -95,7 +93,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
     private final FDBDirectoryManager directoryManager;
     private final AnalyzerChooser indexAnalyzerChooser;
-    private final AnalyzerChooser autoCompleteIndexAnalyzerChooser;
     private final AnalyzerChooser autoCompleteQueryAnalyzerChooser;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
@@ -108,7 +105,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.executor = executor;
         this.directoryManager = FDBDirectoryManager.getManager(state);
         this.indexAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.FULL_TEXT).getLeft();
-        this.autoCompleteIndexAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.AUTO_COMPLETE).getLeft();
         this.autoCompleteQueryAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.AUTO_COMPLETE).getRight();
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
         this.highlightForAutoCompleteIfEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_HIGHLIGHT, false);
@@ -152,7 +148,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
             return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
-                    executor, scanProperties, getAutocompleteQueryAnalyzer(List.of(scanAutoComplete.getKeyToComplete())), state, scanAutoComplete.getGroupKey(), List.of("text"), highlightForAutoCompleteIfEnabled);
+                    executor, scanProperties, getAutocompleteQueryAnalyzer(List.of(scanAutoComplete.getKeyToComplete())), state, scanAutoComplete.getGroupKey(), highlightForAutoCompleteIfEnabled);
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
@@ -169,16 +165,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     /**
      * Insert a field into the document and add a suggestion into the suggester if needed.
-     * @return whether a suggestion has been added to the suggester
      */
     @SuppressWarnings("java:S3776")
-    private boolean insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
+    private void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
         final String fieldName = field.getFieldName();
         final Object value = field.getValue();
         final Field luceneField;
         final Field sortedField;
         final StoredField storedField;
-        boolean suggestionAdded = false;
         switch (field.getType()) {
             case TEXT:
                 luceneField = new Field(fieldName, (String) value, getTextFieldType(field));
@@ -220,7 +214,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (storedField != null) {
             document.add(storedField);
         }
-        return suggestionAdded;
     }
 
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
