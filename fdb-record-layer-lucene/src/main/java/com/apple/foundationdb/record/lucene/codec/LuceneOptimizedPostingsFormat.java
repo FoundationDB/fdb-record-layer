@@ -24,7 +24,6 @@ import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.PostingsReaderBase;
-import org.apache.lucene.codecs.blocktree.BlockTreeTermsReader;
 import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
 import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReader;
 import org.apache.lucene.index.SegmentReadState;
@@ -54,7 +53,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
         PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
         boolean success = false;
         try {
-            FieldsProducer ret = new BlockTreeTermsReader(postingsReader, state);
+            FieldsProducer ret = new LuceneOptimizedBlockTreeTermsReader(postingsReader, state);
             success = true;
             return ret;
         } finally {

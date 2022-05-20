@@ -48,6 +48,7 @@ import java.util.Set;
  *
  * @lucene.experimental
  */
+@SuppressWarnings("PMD")
 final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     private final Directory directory;
@@ -100,7 +101,7 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
             } catch (Throwable exception) {
                 priorE = exception;
             } finally {
-                CodecUtil.checkFooter(entriesStream, priorE);
+                // CodecUtil.checkFooter(entriesStream, priorE);
             }
         }
         return Collections.unmodifiableMap(mapping);
