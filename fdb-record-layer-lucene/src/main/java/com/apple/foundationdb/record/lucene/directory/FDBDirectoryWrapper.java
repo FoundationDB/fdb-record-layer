@@ -34,6 +34,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
+import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.slf4j.Logger;
@@ -82,7 +83,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
     public IndexReader getReader() throws IOException {
         IndexWriter indexWriter = writer;
         if (writer == null) {
-            return DirectoryReader.open(directory);
+            return StandardDirectoryReaderOptimization.open(directory, null, null,
+                    state.context.getExecutor());
         } else {
             return DirectoryReader.open(indexWriter);
         }
