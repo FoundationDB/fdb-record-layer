@@ -24,23 +24,19 @@ import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
-import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedBlendedInfixSuggester;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.TieredMergePolicy;
-import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -59,15 +55,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile IndexWriter writer;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
-    private volatile AnalyzingInfixSuggester suggester;
-    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile String writerAnalyzerId;
-    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
-    private volatile String suggesterIndexAnalyzerId;
-    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
-    private volatile String suggesterQueryAnalyzerId;
-    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
-    private volatile IndexOptions suggesterFieldIndexOptions;
 
     FDBDirectoryWrapper(IndexMaintainerState state, FDBDirectory directory, int mergeDirectoryCount) {
         this.state = state;
@@ -144,42 +132,6 @@ class FDBDirectoryWrapper implements AutoCloseable {
         return writer;
     }
 
-    @Nonnull
-    public AnalyzingInfixSuggester getAutocompleteSuggester(@Nonnull LuceneAnalyzerWrapper indexAnalyzerWrapper,
-                                                            @Nonnull LuceneAnalyzerWrapper queryAnalyzerWrapper,
-                                                            boolean highlight, @Nullable IndexOptions indexOptions) throws IOException {
-        if (suggesterRenewNeeded(indexAnalyzerWrapper, queryAnalyzerWrapper, indexOptions)) {
-            synchronized (this) {
-                if (suggesterRenewNeeded(indexAnalyzerWrapper, queryAnalyzerWrapper, indexOptions)) {
-                    AnalyzingInfixSuggester oldSuggester = suggester;
-                    if (oldSuggester != null) {
-                        oldSuggester.close();
-                    }
-
-                    suggester = LuceneOptimizedWrappedBlendedInfixSuggester.getSuggester(state, directory,
-                            indexAnalyzerWrapper.getAnalyzer(), queryAnalyzerWrapper.getAnalyzer(),
-                            highlight, indexOptions == null ? suggesterFieldIndexOptions : indexOptions,
-                            mergeDirectoryCount);
-                    suggesterIndexAnalyzerId = indexAnalyzerWrapper.getUniqueIdentifier();
-                    suggesterQueryAnalyzerId = queryAnalyzerWrapper.getUniqueIdentifier();
-                    if (indexOptions != null) {
-                        suggesterFieldIndexOptions = indexOptions;
-                    }
-                }
-            }
-        }
-        return suggester;
-    }
-
-    private boolean suggesterRenewNeeded(@Nonnull LuceneAnalyzerWrapper indexAnalyzerWrapper,
-                                         @Nonnull LuceneAnalyzerWrapper queryAnalyzerWrapper,
-                                         @Nullable IndexOptions indexOptions) {
-        return suggester == null
-               || !suggesterIndexAnalyzerId.equals(indexAnalyzerWrapper.getUniqueIdentifier())
-               || !suggesterQueryAnalyzerId.equals(queryAnalyzerWrapper.getUniqueIdentifier())
-               || (indexOptions != null && !indexOptions.equals(suggesterFieldIndexOptions));
-    }
-
     @Override
     public synchronized void close() throws IOException {
         IndexWriter indexWriter = writer;
@@ -187,13 +139,6 @@ class FDBDirectoryWrapper implements AutoCloseable {
             indexWriter.close();
             writer = null;
             writerAnalyzerId = null;
-        }
-        if (suggester != null) {
-            suggester.close();
-            suggester = null;
-            suggesterIndexAnalyzerId = null;
-            suggesterQueryAnalyzerId = null;
-            suggesterFieldIndexOptions = null;
         }
         directory.close();
     }
