@@ -37,12 +37,15 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.params.provider.Arguments;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Counts.REMOTE_FETCH;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY;
@@ -94,32 +97,58 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
             .setFilter(Query.field("rec_no").equalsValue(1L))
             .build();
 
+    /**
+     * The policies supported by the tested features (NONE and MATCHED will not return required information for the tests).
+     * @return teh stream of supported index entry return policies
+     */
+    protected static Stream<IndexEntryReturnPolicy> testedReturnPolicies() {
+        return List.of(IndexEntryReturnPolicy.ALL, IndexEntryReturnPolicy.UNMATCHED).stream();
+    }
+
+    /**
+     * Factory method to create sets of arguments that cover all configurations of remote fetch and return policies.
+     * @return stream of argument sets
+     */
+    protected static Stream<Arguments> testedParams() {
+        return Arrays.stream(RecordQueryPlannerConfiguration.IndexFetchMethod.values())
+                .flatMap(indexFetchMethod -> RemoteFetchTestBase.testedReturnPolicies()
+                        .map(returnPolicy -> Arguments.of(indexFetchMethod, returnPolicy)));
+    }
+
     protected void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue,
-                                final int numValue, final String indexName, Object indexedValue) {
-        assertBaseRecord(rec, primaryKey, strValue, numValue, indexName, indexedValue);
+                                final int numValue, final String indexName, Object indexedValue,
+                                final RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+        assertBaseRecord(rec, primaryKey, strValue, numValue, indexName, indexedValue, indexFetchMethod, indexEntryReturnPolicy);
 
         FDBRecordVersion version = rec.getStoredRecord().getVersion();
         assertThat(version.toBytes().length, equalTo(12));
     }
 
     protected void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue,
-                                final int numValue, final String indexName, Object indexedValue, final int localVersion) {
-        assertBaseRecord(rec, primaryKey, strValue, numValue, indexName, indexedValue);
+                                final int numValue, final String indexName, Object indexedValue, final int localVersion,
+                                final RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+        assertBaseRecord(rec, primaryKey, strValue, numValue, indexName, indexedValue, indexFetchMethod, indexEntryReturnPolicy);
 
         FDBRecordVersion version = rec.getStoredRecord().getVersion();
         assertThat(version.getLocalVersion(), equalTo(localVersion));
     }
 
-    private void assertBaseRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, final Object indexedValue) {
-        IndexEntry indexEntry = rec.getIndexEntry();
-        assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
-        List<Object> indexElements = indexEntry.getKey().getItems();
-        assertThat(indexElements.size(), equalTo(2));
-        assertThat(indexElements.get(0), equalTo(indexedValue));
-        assertThat(indexElements.get(1), equalTo(primaryKey));
-        List<Object> indexPrimaryKey = indexEntry.getPrimaryKey().getItems();
-        assertThat(indexPrimaryKey.size(), equalTo(1));
-        assertThat(indexPrimaryKey.get(0), equalTo(primaryKey));
+    private void assertBaseRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue,
+                                  final int numValue, final String indexName, final Object indexedValue,
+                                  final RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+        if ((indexFetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) || (indexEntryReturnPolicy == IndexEntryReturnPolicy.ALL)) {
+            IndexEntry indexEntry = rec.getIndexEntry();
+            assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
+            List<Object> indexElements = indexEntry.getKey().getItems();
+            assertThat(indexElements.size(), equalTo(2));
+            assertThat(indexElements.get(0), equalTo(indexedValue));
+            assertThat(indexElements.get(1), equalTo(primaryKey));
+            List<Object> indexPrimaryKey = indexEntry.getPrimaryKey().getItems();
+            assertThat(indexPrimaryKey.size(), equalTo(1));
+            assertThat(indexPrimaryKey.get(0), equalTo(primaryKey));
+        } else {
+            // All but the first and last records should have null index entry
+        }
 
         FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
         assertThat(storedRecord.getPrimaryKey().get(0), equalTo(primaryKey));
@@ -133,10 +162,11 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch) {
+    protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setIndexFetchMethod(useIndexPrefetch)
+                .setIndexEntryReturnPolicy(indexEntryReturnPolicy)
                 .build());
         return planner.plan(query);
     }

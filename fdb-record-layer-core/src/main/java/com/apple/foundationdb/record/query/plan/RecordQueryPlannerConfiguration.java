@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.IndexEntryReturnPolicy;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
@@ -57,7 +58,10 @@ public class RecordQueryPlannerConfiguration {
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
     @Nonnull
     private final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules;
+    @Nonnull
     private final IndexFetchMethod indexFetchMethod;
+    @Nonnull
+    private final IndexEntryReturnPolicy indexEntryReturnPolicy;
 
     /**
      * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
@@ -80,6 +84,7 @@ public class RecordQueryPlannerConfiguration {
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
                                             @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules,
                                             @Nonnull final IndexFetchMethod indexFetchMethod,
+                                            @Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy,
                                             @Nonnull final Set<String> valueIndexesOverScanNeeded,
                                             boolean planOtherAttemptWholeFilter) {
         this.indexScanPreference = indexScanPreference;
@@ -96,6 +101,7 @@ public class RecordQueryPlannerConfiguration {
         this.sortConfiguration = sortConfiguration;
         this.disabledTransformationRules = ImmutableSet.copyOf(disabledTransformationRules);
         this.indexFetchMethod = indexFetchMethod;
+        this.indexEntryReturnPolicy = indexEntryReturnPolicy;
         this.valueIndexesOverScanNeeded = valueIndexesOverScanNeeded;
         this.planOtherAttemptWholeFilter = planOtherAttemptWholeFilter;
     }
@@ -236,7 +242,7 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
-     * Whether the planner should use IndexPrefetch operations for the index scan plans. IndexPrefetch operations
+     * Whether the planner should use Remote Fetch operations for the index scan plans. IndexPrefetch operations
      * use the DB's API to fetch records from the index, rather than return the index entries, followed
      * by record fetches.
      * @return Whether the planner should use index prefetch in the plans
@@ -252,6 +258,16 @@ public class RecordQueryPlannerConfiguration {
 
     public boolean shouldPlanOtherAttemptWholeFilter() {
         return planOtherAttemptWholeFilter;
+    }
+
+    /**
+     * Whether the planner should use an optimization to the remote-fetch
+     * index scan plans that will remove index entries from the returned payload.
+     * @return The entry return policy for the index scan plans
+     */
+    @Nonnull
+    public IndexEntryReturnPolicy getIndexEntryReturnPolicy() {
+        return indexEntryReturnPolicy;
     }
 
     @Nonnull
@@ -286,6 +302,8 @@ public class RecordQueryPlannerConfiguration {
         private Set<Class<? extends PlannerRule<?>>> disabledTransformationRules = Sets.newHashSet();
         @Nonnull
         private IndexFetchMethod indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
+        @Nonnull
+        private IndexEntryReturnPolicy indexEntryReturnPolicy = IndexEntryReturnPolicy.ALL;
 
         @Nonnull
         private Set<String> valueIndexesOverScanNeeded = Sets.newHashSet();
@@ -306,6 +324,7 @@ public class RecordQueryPlannerConfiguration {
             this.sortConfiguration = configuration.sortConfiguration;
             this.disabledTransformationRules = configuration.disabledTransformationRules;
             this.indexFetchMethod = configuration.indexFetchMethod;
+            this.indexEntryReturnPolicy = configuration.indexEntryReturnPolicy;
             this.valueIndexesOverScanNeeded = configuration.valueIndexesOverScanNeeded;
         }
 
@@ -453,7 +472,6 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
-
         /**
          * Set whether the planner should use FDB remote fetch operations for the index scan plans. Remote fetch operations
          * use the DB's API to fetch records from the index, rather than return the index entries, followed
@@ -484,6 +502,19 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set the index entry return policy to use when using the REMOTE_FETCH index scans.
+         * When using remote fetch scans, setting the mode can reduce bandwidth by skipping (not returning) index
+         * entries from the payload.
+         * @param indexEntryReturnPolicy the policy to use
+         * @return this builder
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public Builder setIndexEntryReturnPolicy(@Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+            this.indexEntryReturnPolicy = indexEntryReturnPolicy;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
             return new RecordQueryPlannerConfiguration(indexScanPreference,
                     attemptFailedInJoinAsOr,
@@ -499,6 +530,7 @@ public class RecordQueryPlannerConfiguration {
                     sortConfiguration,
                     disabledTransformationRules,
                     indexFetchMethod,
+                    indexEntryReturnPolicy,
                     valueIndexesOverScanNeeded,
                     planOtherAttemptWholeFilter);
         }

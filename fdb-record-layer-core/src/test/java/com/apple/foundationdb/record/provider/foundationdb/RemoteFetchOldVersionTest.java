@@ -38,7 +38,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -60,9 +60,9 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
     }
 
     @ParameterizedTest
-    @EnumSource()
-    void oldVersionFormatTest(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
+    @MethodSource("testedParams")
+    void oldVersionFormatTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod, indexEntryReturnPolicy);
 
         int count = 0;
         try (FDBRecordContext context = openContext()) {
@@ -73,7 +73,8 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
                     long primaryKey = 9 - count;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - (int)primaryKey;
-                    assertRecord(record, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                    // Use "ALL" as the index return policy since for old versions the code will fall back to ALL
+                    assertRecord(record, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                     count++;
                 }
             }

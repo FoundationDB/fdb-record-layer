@@ -184,7 +184,7 @@ public class IndexingByIndex extends IndexingBase {
                     this::getRecordIfTypeMatch,
                     lastResult, hasMore, recordsScanned, isIdempotent)
                     .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getIndexEntry().getKey() :
+                                          Objects.requireNonNull(lastResult.get().get().getIndexEntry()).getKey() :
                                           rangeEnd)
                     .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
                                 .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
@@ -248,7 +248,7 @@ public class IndexingByIndex extends IndexingBase {
                 this::getRecordIfTypeMatch,
                 lastResult, hasMore, recordsScanned, isIdempotent
         ).thenApply(vignore -> hasMore.get() ?
-                               lastResult.get().get().getIndexEntry().getKey() :
+                               Objects.requireNonNull(lastResult.get().get().getIndexEntry()).getKey() :
                                null );
     }
 }

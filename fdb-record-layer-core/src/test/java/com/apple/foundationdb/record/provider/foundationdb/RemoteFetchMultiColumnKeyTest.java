@@ -33,7 +33,7 @@ import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Objects;
@@ -72,9 +72,9 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
      * @param indexFetchMethod the fetch type
      */
     @ParameterizedTest(name = "testMultiColumnPrimaryKeyNoKeyInIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    public void testMultiColumnPrimaryKeyNoKeyInIndex(IndexFetchMethod indexFetchMethod) throws Exception {
-        List<FDBQueriedRecord<Message>> records = executeQuery(indexFetchMethod, recordMetadataStrValueIndex(), STR_HELLO);
+    @MethodSource("testedParams")
+    public void testMultiColumnPrimaryKeyNoKeyInIndex(IndexFetchMethod indexFetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        List<FDBQueriedRecord<Message>> records = executeQuery(indexFetchMethod, indexEntryReturnPolicy, recordMetadataStrValueIndex(), STR_HELLO);
         assertRecordStrIndex(records.get(0), "aaa", 1, "hello");
     }
 
@@ -83,9 +83,9 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
      * @param indexFetchMethod the fetch type
      */
     @ParameterizedTest(name = "testMultiColumnPrimaryKeyRecnoInIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    public void testMultiColumnPrimaryKeyRecnoInIndex(IndexFetchMethod indexFetchMethod) throws Exception {
-        List<FDBQueriedRecord<Message>> records = executeQuery(indexFetchMethod, recordMetadataRecnoIndex(), REC_NO_1);
+    @MethodSource("testedParams")
+    public void testMultiColumnPrimaryKeyRecnoInIndex(IndexFetchMethod indexFetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        List<FDBQueriedRecord<Message>> records = executeQuery(indexFetchMethod, indexEntryReturnPolicy, recordMetadataRecnoIndex(), REC_NO_1);
         assertRecordRecnoIndex(records.get(0), "aaa", 1, "hello");
     }
 
@@ -95,19 +95,20 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
      * @throws Exception in case of error
      */
     @ParameterizedTest(name = "testMultiColumnPrimaryKeyPathInIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    public void testMultiColumnPrimaryKeyPathInIndex(IndexFetchMethod indexFetchMethod) throws Exception {
-        List<FDBQueriedRecord<Message>> records = executeQuery(indexFetchMethod, recordMetadataPathIndex(), PATH_AAA);
+    @MethodSource("testedParams")
+    public void testMultiColumnPrimaryKeyPathInIndex(IndexFetchMethod indexFetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        List<FDBQueriedRecord<Message>> records = executeQuery(indexFetchMethod, indexEntryReturnPolicy, recordMetadataPathIndex(), PATH_AAA);
         assertRecordPathIndex(records.get(0), "aaa", 1, "hello");
     }
 
-    private List<FDBQueriedRecord<Message>> executeQuery(final IndexFetchMethod indexFetchMethod, final RecordMetaData metaData, final RecordQuery query) throws InterruptedException, ExecutionException {
+    private List<FDBQueriedRecord<Message>> executeQuery(final IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy,
+                                                         final RecordMetaData metaData, final RecordQuery query) throws InterruptedException, ExecutionException {
         populateRecords(metaData);
         List<FDBQueriedRecord<Message>> records;
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
 
-            RecordQueryPlan plan = plan(query, indexFetchMethod);
+            RecordQueryPlan plan = plan(query, indexFetchMethod, indexEntryReturnPolicy);
             records = recordStore.executeQuery(plan, null, ExecuteProperties.SERIAL_EXECUTE).asList().get();
             assertEquals(1, records.size());
         }

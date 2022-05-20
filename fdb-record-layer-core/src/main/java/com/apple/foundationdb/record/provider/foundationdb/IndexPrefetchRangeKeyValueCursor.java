@@ -29,6 +29,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.subspace.Subspace;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 
@@ -60,6 +61,7 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
     public static class Builder extends KeyValueCursor.Builder {
         // The HopInfo that is used for the getRangeAndFlatMap call
         private final byte[] hopInfo;
+        private IndexEntryReturnPolicy indexEntryReturnPolicy;
 
         private Builder(@Nonnull Subspace indexSubspace, @Nonnull byte[] hopInfo) {
             super(indexSubspace);
@@ -77,8 +79,13 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
                                                           int limit, boolean reverse,
                                                           @Nonnull StreamingMode streamingMode) {
             return transaction
-                    .getMappedRange(begin, end, hopInfo, limit, reverse, streamingMode)
+                    .getMappedRange(begin, end, hopInfo, limit, indexEntryReturnPolicy.getIntValue(), reverse, streamingMode)
                     .iterator();
+        }
+
+        public <M extends Message> Builder setIndexEntryReturnPolicy(final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+            this.indexEntryReturnPolicy = indexEntryReturnPolicy;
+            return this;
         }
     }
 }

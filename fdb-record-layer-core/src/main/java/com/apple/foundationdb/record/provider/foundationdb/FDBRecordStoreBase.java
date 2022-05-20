@@ -1118,6 +1118,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
      * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
+     * @param indexEntryReturnPolicy the policy deciding which index entries to include in the returned payload
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
@@ -1126,7 +1127,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                    @Nonnull final IndexScanBounds scanBounds,
                                                                    @Nullable byte[] continuation,
                                                                    @Nonnull ScanProperties scanProperties,
-                                                                   @Nonnull final IndexOrphanBehavior orphanBehavior) {
+                                                                   @Nonnull final IndexOrphanBehavior orphanBehavior,
+                                                                   @Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy) {
         final Index index = getRecordMetaData().getIndex(indexName);
         return scanIndexRemoteFetch(index, scanBounds, continuation, scanProperties, orphanBehavior);
     }
@@ -1150,7 +1152,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                    @Nonnull ScanProperties scanProperties,
                                                                    @Nonnull final IndexOrphanBehavior orphanBehavior) {
         int commonPrimaryKeyLength = getCommonPrimaryKeyLength(index);
-        return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior);
+        return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior, indexEntryReturnPolicy);
     }
 
     /**
@@ -1163,6 +1165,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
      *    there is no associated record
+     * @param indexEntryReturnPolicy the policy deciding which index entries to include in the returned payload
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
@@ -1172,7 +1175,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                            int commonPrimaryKeyLength,
                                                            @Nullable byte[] continuation,
                                                            @Nonnull ScanProperties scanProperties,
-                                                           @Nonnull IndexOrphanBehavior orphanBehavior);
+                                                           @Nonnull IndexOrphanBehavior orphanBehavior,
+                                                           @Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy);
 
     /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
@@ -1235,7 +1239,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
         final IndexScanBounds bounds = new IndexScanRange(IndexScanType.BY_VALUE, range);
-        return scanIndexRemoteFetch(indexName, bounds, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
+        return scanIndexRemoteFetch(indexName, bounds, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR, IndexEntryReturnPolicy.ALL);
     }
 
     /**
@@ -2029,7 +2033,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
      *        bindings that are used to execute the query
      * @return a query plan
-     * @see RecordQueryPlanner#plan(RecordQuery) 
+     * @see RecordQueryPlanner#plan(RecordQuery)
      */
     @Nonnull
     RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);

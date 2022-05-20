@@ -116,13 +116,13 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
             return indexed.getStoredRecord();
         }
 
-        @Nonnull
+        @Nullable
         @Override
         public Index getIndex() {
             return indexed.getIndex();
         }
 
-        @Nonnull
+        @Nullable
         @Override
         public IndexEntry getIndexEntry() {
             return indexed.getIndexEntry();

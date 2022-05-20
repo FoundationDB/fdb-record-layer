@@ -180,7 +180,7 @@ public class IndexingScrubDangling extends IndexingBase {
                     this::deleteIndexIfDangling,
                     lastResult, hasMore, recordsScanned, true)
                     .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getIndexEntry().getKey() :
+                                          Objects.requireNonNull(lastResult.get().get().getIndexEntry()).getKey() :
                                           rangeEnd)
                     .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
                             .thenApply(ignore -> {
@@ -206,21 +206,24 @@ public class IndexingScrubDangling extends IndexingBase {
             final FDBStoreTimer timer = getRunner().getTimer();
             timerIncrement(timer, FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES);
             final IndexEntry indexEntry = indexResult.getIndexEntry();
-            final Tuple valueKey = indexEntry.getKey();
-            final byte[] keyBytes = store.indexSubspace(common.getIndex()).pack(valueKey);
+            // Safety check. In this case we should always have an index entry
+            if (indexEntry != null) {
+                final Tuple valueKey = indexEntry.getKey();
+                final byte[] keyBytes = store.indexSubspace(common.getIndex()).pack(valueKey);
 
-            if (LOGGER.isWarnEnabled() && logWarningCounter > 0) {
-                logWarningCounter --;
-                LOGGER.warn(KeyValueLogMessage.build("Scrubber: dangling index entry",
-                        LogMessageKeys.KEY, valueKey.toString())
-                        .addKeysAndValues(common.indexLogMessageKeyValues())
-                        .toString());
-            }
-            if (scrubbingPolicy.allowRepair()) {
-                // remove this index entry
-                // Note that there no record can be added to the conflict list, so we'll add the index entry itself.
-                store.addRecordReadConflict(indexEntry.getPrimaryKey());
-                store.getContext().ensureActive().clear(keyBytes);
+                if (LOGGER.isWarnEnabled() && logWarningCounter > 0) {
+                    logWarningCounter --;
+                    LOGGER.warn(KeyValueLogMessage.build("Scrubber: dangling index entry",
+                                    LogMessageKeys.KEY, valueKey.toString())
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .toString());
+                }
+                if (scrubbingPolicy.allowRepair()) {
+                    // remove this index entry
+                    // Note that there no record can be added to the conflict list, so we'll add the index entry itself.
+                    store.addRecordReadConflict(indexEntry.getPrimaryKey());
+                    store.getContext().ensureActive().clear(keyBytes);
+                }
             }
         }
         return CompletableFuture.completedFuture(null);

@@ -195,9 +195,9 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     @Override
-    public AsyncIterable<MappedKeyValue> getMappedRange(final KeySelector begin, final KeySelector end, final byte[] mapper, final int limit, final boolean reverse, final StreamingMode mode) {
+    public AsyncIterable<MappedKeyValue> getMappedRange(final KeySelector begin, final KeySelector end, final byte[] mapper, final int limit, final int matchIndex, final boolean reverse, final StreamingMode mode) {
         increment(FDBStoreTimer.Counts.REMOTE_FETCH);
-        return underlying.getMappedRange(begin, end, mapper, limit, reverse, mode);
+        return underlying.getMappedRange(begin, end, mapper, limit, matchIndex, reverse, mode);
     }
 
     @Override
