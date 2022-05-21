@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableSet;
 
@@ -36,7 +37,7 @@ import java.util.Set;
  * A property that computes the set of complex (dynamic) types that is used by the graph passed in.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UsedTypesProperty implements ExpressionProperty<Set<Type>> {
+public class UsedTypesProperty implements ExpressionProperty<Set<Type>>, RelationalExpressionVisitorWithDefaults<Set<Type>> {
     private static final UsedTypesProperty INSTANCE = new UsedTypesProperty();
 
     @Nonnull

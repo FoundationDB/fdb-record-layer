@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -37,7 +38,7 @@ import java.util.Objects;
 /**
  * This property establishes a partial order over the expressions contained in a subgraph.
  */
-public class ReferencesAndDependenciesProperty implements ExpressionProperty<PartialOrder<ExpressionRef<? extends RelationalExpression>>> {
+public class ReferencesAndDependenciesProperty implements ExpressionProperty<PartialOrder<ExpressionRef<? extends RelationalExpression>>>, RelationalExpressionVisitorWithDefaults<PartialOrder<ExpressionRef<? extends RelationalExpression>>> {
 
     @Nonnull
     @Override

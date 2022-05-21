@@ -393,7 +393,27 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan element) {
+        public Ordering visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+            //
+            // For now, we special-case where we can find exactly one _regular_ quantifier and only
+            // another quantifier with a max cardinality of 1.
+            //
+            final var orderingsFromChildren = orderingsFromChildren(flatMapPlan);
+            final var outerOrdering = orderingsFromChildren.get(0);
+            final var innerOrdering = orderingsFromChildren.get(1);
+
+            final var outerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getOuterQuantifier());
+            var maxCardinality = outerCardinalities.getMaxCardinality();
+            if (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L) {
+                return innerOrdering;
+            }
+
+            final var innerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getInnerQuantifier());
+            maxCardinality = innerCardinalities.getMaxCardinality();
+            if (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L) {
+                return outerOrdering;
+            }
+            
             return Ordering.emptyOrder();
         }
 

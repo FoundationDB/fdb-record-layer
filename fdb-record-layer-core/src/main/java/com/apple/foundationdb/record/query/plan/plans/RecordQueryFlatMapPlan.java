@@ -61,31 +61,31 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Flat-Map-Plan");
 
     @Nonnull
-    private final Quantifier.Physical outer;
+    private final Quantifier.Physical outerQuantifier;
     @Nonnull
-    private final Quantifier.Physical inner;
+    private final Quantifier.Physical innerQuantifier;
     @Nonnull
     private final Value resultValue;
     private final boolean inheritOuterRecordProperties;
 
-    public RecordQueryFlatMapPlan(@Nonnull final Quantifier.Physical outer,
-                                  @Nonnull final Quantifier.Physical inner,
+    public RecordQueryFlatMapPlan(@Nonnull final Quantifier.Physical outerQuantifier,
+                                  @Nonnull final Quantifier.Physical innerQuantifier,
                                   @Nonnull final Value resultValue,
                                   final boolean inheritOuterRecordProperties) {
-        this.outer = outer;
-        this.inner = inner;
+        this.outerQuantifier = outerQuantifier;
+        this.innerQuantifier = innerQuantifier;
         this.resultValue = resultValue;
         this.inheritOuterRecordProperties = inheritOuterRecordProperties;
     }
 
     @Nonnull
-    public Quantifier.Physical getOuter() {
-        return outer;
+    public Quantifier.Physical getOuterQuantifier() {
+        return outerQuantifier;
     }
 
     @Nonnull
-    public Quantifier.Physical getInner() {
-        return inner;
+    public Quantifier.Physical getInnerQuantifier() {
+        return innerQuantifier;
     }
 
     public boolean isInheritOuterRecordProperties() {
@@ -103,14 +103,14 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
 
         return RecordCursor.flatMapPipelined(
                 outerContinuation ->
-                        outer.getRangesOverPlan().executePlan(store, context, continuation, executeProperties),
+                        outerQuantifier.getRangesOverPlan().executePlan(store, context, continuation, executeProperties),
                 (outerResult, innerContinuation) -> {
-                    final EvaluationContext fromOuterContext = context.withBinding(outer.getAlias(), outerResult);
+                    final EvaluationContext fromOuterContext = context.withBinding(outerQuantifier.getAlias(), outerResult);
 
-                    return new MapCursor<>(inner.getRangesOverPlan().executePlan(store, fromOuterContext, continuation, executeProperties),
+                    return new MapCursor<>(innerQuantifier.getRangesOverPlan().executePlan(store, fromOuterContext, continuation, executeProperties),
                             innerResult -> {
                                 final EvaluationContext nestedContext =
-                                        fromOuterContext.withBinding(inner.getAlias(), innerResult);
+                                        fromOuterContext.withBinding(innerQuantifier.getAlias(), innerResult);
                                 final var computed = resultValue.eval(store, nestedContext);
                                 return inheritOuterRecordProperties
                                        ? outerResult.withComputed(computed)
@@ -134,7 +134,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     @Nonnull
     @Override
     public List<RecordQueryPlan> getChildren() {
-        return ImmutableList.of(outer.getRangesOverPlan(), inner.getRangesOverPlan());
+        return ImmutableList.of(outerQuantifier.getRangesOverPlan(), innerQuantifier.getRangesOverPlan());
     }
 
     @Nonnull
@@ -184,7 +184,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     @Nonnull
     @Override
     public String toString() {
-        return "flatMap(" + outer.getRangesOverPlan() + ", " + inner.getRangesOverPlan() + ")";
+        return "flatMap(" + outerQuantifier.getRangesOverPlan() + ", " + innerQuantifier.getRangesOverPlan() + ")";
     }
 
     @Override
@@ -222,7 +222,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
 
     @Override
     public int getComplexity() {
-        return outer.getRangesOverPlan().getComplexity() * inner.getRangesOverPlan().getComplexity();
+        return outerQuantifier.getRangesOverPlan().getComplexity() * innerQuantifier.getRangesOverPlan().getComplexity();
     }
 
     @Override
@@ -240,7 +240,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(outer, inner);
+        return ImmutableList.of(outerQuantifier, innerQuantifier);
     }
 
     @Nonnull

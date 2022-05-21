@@ -231,7 +231,7 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
             if (flatMapPlan.isInheritOuterRecordProperties()) {
-                return storedRecordsFromSingleQuantifier(flatMapPlan.getOuter());
+                return storedRecordsFromSingleQuantifier(flatMapPlan.getOuterQuantifier());
             }
             return false;
         }
