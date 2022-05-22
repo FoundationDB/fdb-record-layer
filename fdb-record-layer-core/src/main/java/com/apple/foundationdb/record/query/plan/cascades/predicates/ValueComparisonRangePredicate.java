@@ -235,9 +235,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             final var translatedValue = getValue().translateCorrelations(translationMap);
             final ComparisonRange newComparisonRange;
             if (comparisonRange.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
-                final var aliasMap = translationMap.getAliasMapMaybe()
-                        .orElseThrow(() -> new RecordCoreException("unsupported translate of a comparison"));
-                newComparisonRange = comparisonRange.rebase(aliasMap);
+                newComparisonRange = comparisonRange.translateCorrelations(translationMap);
             } else {
                 newComparisonRange = comparisonRange;
             }

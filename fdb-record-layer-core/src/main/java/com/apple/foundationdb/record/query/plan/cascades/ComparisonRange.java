@@ -178,35 +178,42 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ComparisonRange rebase(@Nonnull final AliasMap translationMap) {
-        final var rebasedEqualityComparison = equalityComparison  == null
-                                              ? null
-                                              : equalityComparison.rebase(translationMap);
+    public ComparisonRange rebase(@Nonnull final AliasMap aliasMap) {
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap));
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public ComparisonRange translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        final var translatedEqualityComparison =
+                equalityComparison  == null
+                ? null
+                : equalityComparison.translateCorrelations(translationMap);
 
         final List<Comparisons.Comparison> rebasedInequalityComparisons;
         if (inequalityComparisons != null) {
             boolean allRemainedSame = true;
-            final var rebasedInequalityComparisonsBuilder = ImmutableList.<Comparisons.Comparison>builder();
+            final var translatedInequalityComparisonsBuilder = ImmutableList.<Comparisons.Comparison>builder();
             for (final var inequalityComparison : inequalityComparisons) {
-                final var rebasedInequalityComparison = inequalityComparison.rebase(translationMap);
-                rebasedInequalityComparisonsBuilder.add(rebasedInequalityComparison);
-                if (inequalityComparison != rebasedInequalityComparison) {
+                final var translatedInequalityComparison = inequalityComparison.translateCorrelations(translationMap);
+                translatedInequalityComparisonsBuilder.add(translatedInequalityComparison);
+                if (inequalityComparison != translatedInequalityComparison) {
                     allRemainedSame = false;
                 }
             }
-            rebasedInequalityComparisons = allRemainedSame ? inequalityComparisons : rebasedInequalityComparisonsBuilder.build();
+            rebasedInequalityComparisons = allRemainedSame ? inequalityComparisons : translatedInequalityComparisonsBuilder.build();
         } else {
             rebasedInequalityComparisons = null;
         }
 
         // reference equality is intended here as we use that mechanism to detect changes in the rebased objects
-        if (rebasedEqualityComparison == equalityComparison &&
-                rebasedInequalityComparisons == inequalityComparisons) {
+        if (translatedEqualityComparison == equalityComparison &&
+            rebasedInequalityComparisons == inequalityComparisons) {
             return this;
         }
         if (isEquality()) {
-            Objects.requireNonNull(rebasedEqualityComparison);
-            return new ComparisonRange(rebasedEqualityComparison);
+            Objects.requireNonNull(translatedEqualityComparison);
+            return new ComparisonRange(translatedEqualityComparison);
         } else if (isInequality()) {
             Objects.requireNonNull(rebasedInequalityComparisons);
             return new ComparisonRange(rebasedInequalityComparisons);

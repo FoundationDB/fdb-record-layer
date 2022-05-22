@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
@@ -170,7 +170,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Nonnull
         @Override
-        public Comparisons.Comparison rebase(@Nonnull final AliasMap translationMap) {
+        public Comparisons.Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
         }
 

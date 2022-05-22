@@ -41,6 +41,8 @@ import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -709,6 +711,15 @@ public class Comparisons {
             return ImmutableSet.of();
         }
 
+        @Nonnull
+        @Override
+        default Comparison rebase(@Nonnull AliasMap translationMap) {
+            return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+        }
+
+        @Nonnull
+        Comparison translateCorrelations(@Nonnull final TranslationMap translationMap);
+
         @Override
         default boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap) {
             return this.equals(other);
@@ -870,7 +881,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison rebase(@Nonnull final AliasMap translationMap) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
         }
     }
@@ -971,10 +982,11 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison rebase(@Nonnull final AliasMap translationMap) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             if (isCorrelation()) {
+                final var aliasMap = translationMap.getAliasMapMaybe().orElseThrow(() -> new RecordCoreException("must have aliasMap"));
                 final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(parameter));
-                final var translatedAlias = translationMap.getTargetOrDefault(alias, alias);
+                final var translatedAlias = aliasMap.getTargetOrDefault(alias, alias);
                 return new ParameterComparison(type,
                         Bindings.Internal.CORRELATION.bindingName(translatedAlias.getId()),
                         Bindings.Internal.CORRELATION,
@@ -1135,6 +1147,163 @@ public class Comparisons {
     }
 
     /**
+     * A comparison with a bound parameter, as opposed to a literal constant in the query.
+     */
+    public static class ValueComparison implements Comparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Value-Comparison");
+
+        @Nonnull
+        private final Type type;
+        @Nonnull
+        private final Value comparandValue;
+        @Nonnull
+        protected final ParameterRelationshipGraph parameterRelationshipGraph;
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier;
+
+        public ValueComparison(@Nonnull final Type type,
+                               @Nonnull final Value comparandValue) {
+            this(type, comparandValue, ParameterRelationshipGraph.unbound());
+        }
+
+        public ValueComparison(@Nonnull final Type type,
+                               @Nonnull final Value comparandValue,
+                               @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+            this.type = type;
+            this.comparandValue = comparandValue;
+            if (type.isUnary()) {
+                throw new RecordCoreException("Unary comparison type " + type + " cannot be bound to a value");
+            }
+            this.parameterRelationshipGraph = parameterRelationshipGraph;
+            this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        }
+
+        @Override
+        public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
+            // No additional validation.
+        }
+
+        @Nonnull
+        @Override
+        public Type getType() {
+            return type;
+        }
+
+        @Nullable
+        @Override
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+            if (context == null) {
+                throw new EvaluationContextRequiredException("Cannot get parameter without context");
+            }
+            return comparandValue.eval(store, context);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+            if (comparandValue.getCorrelatedTo()
+                    .stream()
+                    .noneMatch(translationMap::containsSourceAlias)) {
+                return this;
+            }
+
+            return new ValueComparison(type, comparandValue.translateCorrelations(translationMap), parameterRelationshipGraph);
+        }
+
+        @Nonnull
+        @Override
+        public Set<CorrelationIdentifier> getCorrelatedTo() {
+            return comparandValue.getCorrelatedTo();
+        }
+
+        @Override
+        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+            if (this == other) {
+                return true;
+            }
+            if (other == null || getClass() != other.getClass()) {
+                return false;
+            }
+            final var that = (ValueComparison) other;
+            if (type != that.type) {
+                return false;
+            }
+
+            return comparandValue.semanticEquals(that, aliasMap);
+        }
+
+        @Nullable
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
+            // this is at evaluation time --> always use the context binding
+            final Object comparand = getComparand(store, context);
+            if (comparand == null) {
+                return null;
+            } else if (comparand == COMPARISON_SKIPPED_BINDING) {
+                return Boolean.TRUE;
+            } else {
+                return evalComparison(type, v, comparand);
+            }
+        }
+
+        @Nonnull
+        @Override
+        public String typelessString() {
+            return comparandValue.toString();
+        }
+
+        @Override
+        public String toString() {
+            return type + " " + typelessString();
+        }
+
+        @Override
+        @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+        @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+        public boolean equals(Object o) {
+            return semanticEquals(o, AliasMap.identitiesFor(comparandValue.getCorrelatedTo()));
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        public int computeHashCode() {
+            return Objects.hash(type, relatedByEquality());
+        }
+
+        private Set<String> relatedByEquality() {
+            return ImmutableSet.of();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+            case LEGACY:
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+            default:
+                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return HashUtils.queryHash(hashKind, BASE_HASH, type);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+            Verify.verify(this.parameterRelationshipGraph.isUnbound());
+            return new ValueComparison(type, comparandValue, parameterRelationshipGraph);
+        }
+    }
+
+    /**
      * A comparison with a list of values.
      */
     public static class ListComparison implements Comparison {
@@ -1225,7 +1394,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison rebase(@Nonnull final AliasMap translationMap) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
         }
 
@@ -1344,7 +1513,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison rebase(@Nonnull final AliasMap translationMap) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
         }
 
@@ -1424,7 +1593,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison rebase(@Nonnull final AliasMap translationMap) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
         }
 
@@ -1498,7 +1667,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison rebase(@Nonnull final AliasMap translationMap) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
         }
 
@@ -1893,12 +2062,12 @@ public class Comparisons {
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Comparison rebase(@Nonnull final AliasMap translationMap) {
-            final var rebasedInner = inner.rebase(translationMap);
-            if (inner == rebasedInner) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+            final var translatedInner = inner.translateCorrelations(translationMap);
+            if (inner == translatedInner) {
                 return this;
             } else {
-                return new MultiColumnComparison(rebasedInner);
+                return new MultiColumnComparison(translatedInner);
             }
         }
 

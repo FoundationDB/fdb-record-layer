@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -93,10 +92,7 @@ public class ValuePredicate implements PredicateWithValue {
         final var translatedValue = value.translateCorrelations(translationMap);
         final Comparison newComparison;
         if (comparison.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
-            final var aliasMap = translationMap.getAliasMapMaybe()
-                    .orElseThrow(() -> new RecordCoreException("unsupported translate of a comparison"));
-
-            newComparison = comparison.rebase(aliasMap);
+            newComparison = comparison.translateCorrelations(translationMap);
         } else {
             newComparison = comparison;
         }
