@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlanner
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
@@ -315,11 +316,12 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         
         final var otherResultValue = otherSelectExpression.getResultValue();
         final Optional<Value> remainingValueComputationOptional;
-        if (!resultValue.semanticEquals(otherResultValue, aliasMap)) {
-            // we potentially need to compensate
-            remainingValueComputationOptional = Optional.of(resultValue);
-        } else {
+        if (otherResultValue instanceof QuantifiedObjectValue &&
+            resultValue.semanticEquals(otherResultValue, aliasMap)) {
             remainingValueComputationOptional = Optional.empty();
+        } else {
+            // we need to compensate
+            remainingValueComputationOptional = Optional.of(resultValue);
         }
 
         //

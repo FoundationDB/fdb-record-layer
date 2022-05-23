@@ -394,6 +394,11 @@ public class ScanComparisons implements PlanHashable {
         return typed(Comparisons.ParameterComparison.class);
     }
 
+    @Nonnull
+    public static BindingMatcher<Comparisons.ValueComparison> anyValueComparison() {
+        return typed(Comparisons.ValueComparison.class);
+    }
+
     private static class InequalityRangeCombiner {
         enum EndpointComparison {
             NONE, VALUE, MULTIPLE

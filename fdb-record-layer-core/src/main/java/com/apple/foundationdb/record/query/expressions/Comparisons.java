@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -977,7 +978,11 @@ public class Comparisons {
             if (context == null) {
                 throw new EvaluationContextRequiredException("Cannot get parameter without context");
             }
-            return context.getBinding(parameter);
+            if (isCorrelation()) {
+                return Objects.requireNonNull(((QueryResult)context.getBinding(parameter))).getDatum();
+            } else {
+                return context.getBinding(parameter);
+            }
         }
 
         @Nonnull
@@ -1040,7 +1045,7 @@ public class Comparisons {
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             // this is at evaluation time --> always use the context binding
-            final Object comparand = context.getBinding(parameter);
+            final Object comparand = getComparand(store, context);
             if (comparand == null) {
                 return null;
             } else if (comparand == COMPARISON_SKIPPED_BINDING) {

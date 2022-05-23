@@ -49,6 +49,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
+
 /**
  * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner}.
  */
@@ -277,28 +279,28 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         // plan is not useful.
         final Set<ScanComparisons> scanComparisonsSet = ScanComparisonsProperty.evaluate(leftExpression);
 
-        final ImmutableSet<String> parametersInScanComparisons =
+        final ImmutableSet<CorrelationIdentifier> scanComparisonsCorrelatedTo =
                 scanComparisonsSet
                         .stream()
                         .flatMap(scanComparisons ->
                                 scanComparisons.getEqualityComparisons()
                                         .stream()
-                                        .filter(comparison -> comparison instanceof Comparisons.ParameterComparison)
-                                        .map(comparison -> (Comparisons.ParameterComparison)comparison))
-                        .map(Comparisons.ParameterComparison::getParameter)
+                                        .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
+                                        .map(comparison -> (Comparisons.ValueComparison)comparison))
+                        .flatMap(comparison -> comparison.getCorrelatedTo().stream())
                         .collect(ImmutableSet.toImmutableSet());
 
         if (leftExpression instanceof RecordQueryInJoinPlan) {
             final var inJoinPlan = (RecordQueryInJoinPlan)leftExpression;
             final var inSource = inJoinPlan.getInSource();
-            if (!parametersInScanComparisons.contains(inSource.getBindingName())) {
+            if (!scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.identifier(inSource.getBindingName())))) {
                 return OptionalInt.of(1);
             }
         } else if (leftExpression instanceof RecordQueryInUnionPlan) {
             final var inUnionPlan = (RecordQueryInUnionPlan)leftExpression;
             if (inUnionPlan.getInSources()
                     .stream()
-                    .noneMatch(inValuesSource -> parametersInScanComparisons.contains(inValuesSource.getBindingName()))) {
+                    .noneMatch(inValuesSource -> scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.identifier(inValuesSource.getBindingName()))))) {
                 return OptionalInt.of(1);
             }
         }

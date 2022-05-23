@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -39,12 +40,14 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
                                                  @Nonnull final List<? extends InSource> inSources,
                                                  @Nonnull final KeyExpression comparisonKeyExpression,
                                                  final boolean reverse,
-                                                 final int maxNumberOfValuesAllowed) {
+                                                 final int maxNumberOfValuesAllowed,
+                                                 @Nonnull final Bindings.Internal internal) {
         super(inner,
                 inSources,
                 new ComparisonKeyFunction.OnKeyExpression(comparisonKeyExpression),
                 reverse,
-                maxNumberOfValuesAllowed);
+                maxNumberOfValuesAllowed,
+                internal);
     }
 
     @Nonnull
@@ -71,7 +74,8 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
                 getInSources(),
                 getComparisonKeyExpression(),
                 reverse,
-                maxNumberOfValuesAllowed);
+                maxNumberOfValuesAllowed,
+                internal);
     }
 
     @Nonnull
@@ -81,6 +85,7 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
                 getInSources(),
                 getComparisonKeyExpression(),
                 reverse,
-                maxNumberOfValuesAllowed);
+                maxNumberOfValuesAllowed,
+                internal);
     }
 }

@@ -218,7 +218,8 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                         RecordQueryInUnionPlan.from(newInnerQuantifier,
                                 inSources,
                                 comparisonKey,
-                                attemptFailedInJoinAsUnionMaxSize)));
+                                attemptFailedInJoinAsUnionMaxSize,
+                                CORRELATION)));
             }
         }
     }

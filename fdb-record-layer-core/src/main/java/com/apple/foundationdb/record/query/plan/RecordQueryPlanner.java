@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -521,7 +522,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 return null;
             }
             final List<InSource> valuesSources = inExtractor.unionSources();
-            final RecordQueryPlan union = RecordQueryInUnionPlan.from(scoredPlan.plan, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize());
+            final RecordQueryPlan union = RecordQueryInUnionPlan.from(scoredPlan.plan, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.Internal.IN);
             return new ScoredPlan(scoredPlan.score, union);
         }
         return null;
