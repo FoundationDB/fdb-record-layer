@@ -30,11 +30,13 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.annotations.VisibleForTesting;
@@ -43,6 +45,7 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.index.IndexNotFoundException;
+import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.Term;
@@ -292,9 +295,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         final String prefixToken = getQueryTokens(queryAnalyzer, searchKey, tokens);
 
         IndexReader indexReader = getIndexReader();
-        Set<String> fieldNames = new HashSet<>();
-        indexReader.leaves().forEach(leaf -> leaf.reader().getFieldInfos().forEach(fieldInfo -> fieldNames.add(fieldInfo.name)));
-        fieldNames.removeAll(LuceneIndexMaintainer.UNSEARCHABLE_SYSTEM_FIELD_NAMES);
+        Set<String> fieldNames = getAllIndexedFieldNames(indexReader);
 
         final Set<String> tokenSet = new HashSet<>(tokens);
         // Note: phrase matching needs to know token order, so we pass the *list* of tokens to the phrase
@@ -303,6 +304,12 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         Query finalQuery = phraseQueryNeeded
                              ? buildQueryForPhraseMatching(fieldNames, tokens, prefixToken)
                              : buildQueryForTermsMatching(fieldNames, tokenSet, prefixToken);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(logMessage("query for auto-complete")
+                    .addKeyAndValue(LogMessageKeys.QUERY, query.replaceAll("\"", "\\\""))
+                    .addKeyAndValue("lucene_query", finalQuery)
+                    .toString());
+        }
 
         IndexSearcher searcher = new IndexSearcher(indexReader, executor);
         TopDocs topDocs = searcher.search(finalQuery, limit);
@@ -310,6 +317,17 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, topDocs.scoreDocs.length);
         }
         return createResults(searcher, topDocs, tokenSet, prefixToken);
+    }
+
+    private Set<String> getAllIndexedFieldNames(IndexReader indexReader) {
+        Set<String> fieldNames = new HashSet<>();
+        indexReader.leaves().forEach(leaf -> leaf.reader().getFieldInfos().forEach(fieldInfo -> {
+            // Exclude any field where the field's IndexOptions indicate that the field data is not indexed
+            if (fieldInfo.getIndexOptions() != IndexOptions.NONE) {
+                fieldNames.add(fieldInfo.name);
+            }
+        }));
+        return fieldNames;
     }
 
     /**
@@ -523,5 +541,12 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
             }
             return indexEntry;
         }).filter(Objects::nonNull); // Note: may not return any results if all matches exceed the maxTextLength
+    }
+
+    private KeyValueLogMessage logMessage(String staticMessage) {
+        final SubspaceProvider subspaceProvider = state.store.getSubspaceProvider();
+        return KeyValueLogMessage.build(staticMessage)
+                .addKeyAndValue(LogMessageKeys.INDEX_NAME, state.index.getName())
+                .addKeyAndValue(subspaceProvider.logKey(), subspaceProvider.toString(state.context));
     }
 }

@@ -94,11 +94,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final AnalyzerChooser indexAnalyzerChooser;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
-    /**
-     * System fields maintained used by the {@code LuceneIndexMaintainer} that should not be searched in
-     * all-field queries.
-     */
-    protected static final Set<String> UNSEARCHABLE_SYSTEM_FIELD_NAMES = Set.of(PRIMARY_KEY_FIELD_NAME, PRIMARY_KEY_SEARCH_NAME);
     private final Executor executor;
     private final boolean autoCompleteEnabled;
     private final boolean highlightForAutoCompleteIfEnabled;

@@ -1038,6 +1038,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Assert the corresponding field for the suggestions
             List<String> fields = results.stream().map(i -> (String) i.getKey().get(i.getKeySize() - 2)).collect(Collectors.toList());
             assertEquals(ImmutableList.of("text", "text", "text", "text", "text2", "text2"), fields);
+
+            commit(context);
         }
     }
 
@@ -1061,6 +1063,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE),
                     context, "_0.cfs", true);
+
+            commit(context);
         }
     }
 
@@ -1097,6 +1101,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE).subspace(Tuple.from("sampleTextPhrase")),
                     context, "_0.cfs", true);
+
+            commit(context);
         }
     }
 
@@ -1152,6 +1158,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states o\"",
                     ImmutableList.of("united states of america",
                             "welcome to the united states of america"));
+
+            commit(context);
         }
     }
 
@@ -1207,6 +1215,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states o\"",
                     ImmutableList.of("<b>united</b> <b>states</b> <b>o</b>f america",
                             "welcome to the <b>united</b> <b>states</b> <b>o</b>f america"));
+
+            commit(context);
         }
     }
 
@@ -1236,6 +1246,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .map(entry -> TupleHelpers.subTuple(entry.getKey(), 0, 2))
                     .collect(Collectors.toList());
             assertThat(fieldAndText, containsInAnyOrder(Tuple.from("text", doc.getText()), Tuple.from("text2", doc.getText2())));
+
+            commit(context);
         }
     }
 
@@ -1250,6 +1262,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertThrows(ExecutionException.class,
                     () -> queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
                             ImmutableList.of()));
+
+            commit(context);
         }
     }
 
@@ -1283,6 +1297,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals("keyboard", result.getKey().get(1));
             assertEquals("text", result.getKey().get(0));
             assertEquals(0.85714287F, result.getValue().get(0));
+
+            commit(context);
         }
     }
 
@@ -1320,6 +1336,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             // assertEquals(1, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             // assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MAP_ON_VALUE_INDEX_WITH_void).subspace(Tuple.from("sampleTextPhrase")), context, "_0.cfs", true);
+
+            commit(context);
         }
     }
 
@@ -1684,6 +1702,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(6, context.getTimer().getCount(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS));
             assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE),
                     context, "_0.cfs", true);
+
+            commit(context);
         }
     }
 
