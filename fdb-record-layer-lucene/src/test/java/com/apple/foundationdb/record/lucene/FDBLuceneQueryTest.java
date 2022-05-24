@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -55,6 +56,7 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -941,4 +943,80 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Test
+    void andNot() throws Exception {
+        initializeFlat();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("Verona", Lists.newArrayList("text"), true);
+            final QueryComponent filter2 = new LuceneQueryComponent("traffic", Lists.newArrayList("text"), true);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(Query.and(filter1, Query.not(filter2)))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    scanParams(query(hasToString("MULTI Verona AND NOT MULTI traffic")))));
+            assertThat(plan, matcher);
+            assertThat(getLuceneQuery(plan), Matchers.hasToString("+(text:verona) -(text:traffic)"));
+            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
+            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
+            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
+            assertEquals(Set.of(2L), Set.copyOf(primaryKeys));
+        }
+    }
+
+    @Test
+    void justNot() throws Exception {
+        initializeFlat();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter = new LuceneQueryComponent("Verona", Lists.newArrayList("text"), true);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(Query.not(filter))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    scanParams(query(hasToString("NOT MULTI Verona")))));
+            assertThat(plan, matcher);
+            assertThat(getLuceneQuery(plan), Matchers.hasToString("+*:* -(text:verona)"));
+            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
+            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
+            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
+            assertEquals(Set.of(0L, 1L, 3L, 5L), Set.copyOf(primaryKeys));
+        }
+    }
+
+    @Test
+    void notOr() throws Exception {
+        initializeFlat();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("Verona", Lists.newArrayList("text"), true);
+            final QueryComponent filter2 = new LuceneQueryComponent("traffic", Lists.newArrayList("text"), true);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(Query.not(Query.or(filter1, filter2)))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    scanParams(query(hasToString("NOT MULTI Verona AND NOT MULTI traffic")))));
+            assertThat(plan, matcher);
+            assertThat(getLuceneQuery(plan), Matchers.hasToString("+*:* -(text:verona) -(text:traffic)"));
+            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
+            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
+            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
+            assertEquals(Set.of(0L, 1L, 3L), Set.copyOf(primaryKeys));
+        }
+    }
+
+    private org.apache.lucene.search.Query getLuceneQuery(RecordQueryPlan plan) {
+        LuceneIndexQueryPlan indexPlan = (LuceneIndexQueryPlan)plan;
+        LuceneScanQuery scan = (LuceneScanQuery)indexPlan.getScanParameters().bind(recordStore, recordStore.getRecordMetaData().getIndex(indexPlan.getIndexName()), EvaluationContext.EMPTY);
+        return scan.getQuery();
+    }
 }
