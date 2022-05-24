@@ -306,7 +306,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                              : buildQueryForTermsMatching(fieldNames, tokenSet, prefixToken);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(logMessage("query for auto-complete")
-                    .addKeyAndValue(LogMessageKeys.QUERY, query.replaceAll("\"", "\\\""))
+                    .addKeyAndValue(LogMessageKeys.QUERY, query.replace("\"", "\\\""))
                     .addKeyAndValue("lucene_query", finalQuery)
                     .toString());
         }
