@@ -536,8 +536,11 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
             // text, but queries wanting to do something with both the auto-completed text and the
             // original record need to do something else
             IndexEntry indexEntry = new IndexEntry(state.index, key, Tuple.from(scoreDocAndRecord.scoreDoc.score));
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Suggestion read as an index entry={}", indexEntry);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(logMessage("Suggestion read as an index entry")
+                        .addKeyAndValue(LogMessageKeys.INDEX_KEY, key)
+                        .addKeyAndValue(LogMessageKeys.INDEX_VALUE, indexEntry.getValue())
+                        .toString());
             }
             return indexEntry;
         }).filter(Objects::nonNull); // Note: may not return any results if all matches exceed the maxTextLength
