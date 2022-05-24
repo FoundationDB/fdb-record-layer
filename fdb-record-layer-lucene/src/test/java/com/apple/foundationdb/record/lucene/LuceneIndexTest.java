@@ -1121,6 +1121,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             "states united as a country",
                             "states have been united as a country",
                             "all the states united as a country",
+                            "all the states have been united as a country",
                             "welcome to the united states of america",
                             "The countries are united kingdom, france, the states"));
 
@@ -1178,6 +1179,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             "<b>states</b> <b>united</b> as a country",
                             "<b>states</b> have been <b>united</b> as a country",
                             "all the <b>states</b> <b>united</b> as a country",
+                            "all the <b>states</b> have been <b>united</b> as a country",
                             "welcome to the <b>united</b> <b>states</b> of america",
                             "The countries are <b>united</b> kingdom, france, the <b>states</b>"));
 
@@ -1776,7 +1778,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         recordStore.saveRecord(createSimpleDocument(1628L, "all the states united as a country", 1));
         recordStore.saveRecord(createSimpleDocument(1629L, "states have been united as a country", 1));
         recordStore.saveRecord(createSimpleDocument(1630L, "all the states have been united as a country", 1));
-        recordStore.saveRecord(createSimpleDocument(1630L, "united states is a country in the continent of america", 1));
+        recordStore.saveRecord(createSimpleDocument(1631L, "united states is a country in the continent of america", 1));
     }
 
     private void queryAndAssertAutoCompleteSuggestionsReturned(@Nonnull Index index, @Nonnull String searchKey, @Nonnull List<String> expectedSuggestions) throws Exception {
