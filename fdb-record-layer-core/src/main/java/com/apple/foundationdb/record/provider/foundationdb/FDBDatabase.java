@@ -479,13 +479,6 @@ public class FDBDatabase {
         return context;
     }
 
-    private void logNoOpFailure(@Nonnull Throwable err) {
-        if (LOGGER.isErrorEnabled()) {
-            LOGGER.error(KeyValueLogMessage.of("unable to perform no-op operation against fdb",
-                    LogMessageKeys.CLUSTER, getClusterFile()), err);
-        }
-    }
-
     /**
      * Perform a no-op against FDB to check network thread liveness. See {@link #performNoOp(Map, FDBStoreTimer)}
      * for more information. This will use the default MDC for running threads and will not instrument the
@@ -551,17 +544,9 @@ public class FDBDatabase {
                 future = context.instrument(FDBStoreTimer.Events.PERFORM_NO_OP, future, startTime);
             }
             futureStarted = true;
-            return future.thenAccept(ignore -> { }).whenComplete((vignore, err) -> {
-                context.close();
-                if (err != null) {
-                    logNoOpFailure(err);
-                }
-            });
+            return future.thenAccept(ignore -> { }).whenComplete((vignore, err) -> context.close());
         } catch (RuntimeException e) {
-            logNoOpFailure(e);
-            CompletableFuture<Void> errFuture = new CompletableFuture<>();
-            errFuture.completeExceptionally(e);
-            return errFuture;
+            return CompletableFuture.failedFuture(e);
         } finally {
             if (!futureStarted) {
                 context.close();
