@@ -1211,6 +1211,35 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void testAutoCompleteSearchMultipleResultsSingleDocument() {
+        try (FDBRecordContext context = openContext()) {
+            final Index index = COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE;
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(COMPLEX_DOC, index);
+            });
+
+            TestRecordsTextProto.ComplexDocument doc = TestRecordsTextProto.ComplexDocument.newBuilder()
+                    .setDocId(1597L)
+                    // Romeo and Juliet, Act II, Scene II.
+                    .setText("Good night! Good night! Parting is such sweet sorrow")
+                    .setText2("That I shall say good night till it be morrow")
+                    .build();
+            recordStore.saveRecord(doc);
+
+            List<IndexEntry> entries = recordStore.scanIndex(index, autoComplete(index, "good night "), null, ScanProperties.FORWARD_SCAN)
+                    .asList()
+                    .join();
+            assertThat(entries, hasSize(2));
+
+            List<Tuple> fieldAndText = entries.stream()
+                    .map(entry -> TupleHelpers.subTuple(entry.getKey(), 0, 2))
+                    .collect(Collectors.toList());
+            assertThat(fieldAndText, containsInAnyOrder(Tuple.from("text", doc.getText()), Tuple.from("text2", doc.getText2())));
+        }
+    }
+
+    @Test
     void testAutoCompleteSearchForPhraseWithoutFreqsAndPositions() {
         try (FDBRecordContext context = openContext()) {
             final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS;
