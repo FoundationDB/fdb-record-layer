@@ -86,7 +86,10 @@ class FDBDirectoryWrapper implements AutoCloseable {
             this.mergeDirectoryCount = mergeDirectoryCount;
         }
 
-        @SuppressWarnings("squid:S2245") // ThreadLocalRandom not used in case where cryptographic security is needed
+        @SuppressWarnings({
+                "squid:S2245", // ThreadLocalRandom not used in case where cryptographic security is needed
+                "squid:S3776", // Cognitive complexity is too high. Candidate for later refactoring
+        })
         @Override
         public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
             if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
