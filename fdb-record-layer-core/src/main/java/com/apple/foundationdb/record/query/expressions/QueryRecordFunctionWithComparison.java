@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -35,9 +34,10 @@ import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
@@ -164,8 +164,8 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             // join predicate
             final var selfJoinPredicate =
                     rankQuantifier.getFlowedObjectValue()
-                            .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
-                                    Bindings.Internal.CORRELATION.bindingName(baseQuantifier.getAlias().toString()), Bindings.Internal.CORRELATION));
+                            .withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS,
+                                    QuantifiedObjectValue.of(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())));
             final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
 
             final var rankAndJoiningPredicateSelectExpression =

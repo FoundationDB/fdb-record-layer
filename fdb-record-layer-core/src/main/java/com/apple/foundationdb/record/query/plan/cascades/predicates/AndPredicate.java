@@ -24,6 +24,11 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -33,6 +38,8 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -94,6 +101,28 @@ public class AndPredicate extends AndOrPredicate {
     @Override
     public AndPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
         return new AndPredicate(ImmutableList.copyOf(newChildren));
+    }
+
+    @Nonnull
+    @Override
+    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+        final var childrenInjectCompensationFunctions=
+                childrenResults.stream()
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .collect(ImmutableList.toImmutableList());
+        if (childrenInjectCompensationFunctions.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(translationMap -> {
+            final var childrenGraphExpansions = childrenInjectCompensationFunctions.stream()
+                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensation(translationMap))
+                    .collect(ImmutableList.toImmutableList());
+            return GraphExpansion.ofOthers(childrenGraphExpansions);
+        });
     }
 
     public static QueryPredicate and(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,

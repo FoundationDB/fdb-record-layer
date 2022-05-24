@@ -33,7 +33,8 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.InjectCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -45,6 +46,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -162,6 +164,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             return new Placeholder(getValue().translateCorrelations(translationMap), alias);
         }
 
+        @Nonnull
+        @Override
+        public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap, @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+            throw new RecordCoreException("this method should not ever be reached");
+        }
+
         @Override
         public int semanticHashCode() {
             return Objects.hash(super.semanticHashCode(), alias);
@@ -269,13 +277,17 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
                 // parameter placeholder in the candidate
                 return Optional.of(new PredicateMapping(this,
                         candidatePredicate,
-                        ((partialMatch, boundParameterPrefixMap) -> reapplyPredicateMaybe(boundParameterPrefixMap, placeHolderPredicate)),
+                        ((partialMatch, boundParameterPrefixMap) -> {
+                            if (boundParameterPrefixMap.containsKey(placeHolderPredicate.getAlias())) {
+                                return Optional.empty();
+                            }
+                            return injectCompensationFunctionMaybe();
+                        }),
                         placeHolderPredicate.getAlias()));
             } else if (candidatePredicate.isTautology()) {
                 return Optional.of(new PredicateMapping(this,
                         candidatePredicate,
-                        ((partialMatch, boundParameterPrefixMap) -> Optional.of(reapplyPredicate()))));
-
+                        ((partialMatch, boundParameterPrefixMap) -> injectCompensationFunctionMaybe())));
             }
 
             //
@@ -294,16 +306,21 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             return Optional.empty();
         }
 
-        private Optional<InjectCompensationFunction> reapplyPredicateMaybe(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                           @Nonnull final Placeholder placeholderPredicate) {
-            if (boundParameterPrefixMap.containsKey(placeholderPredicate.getAlias())) {
-                return Optional.empty();
-            }
+        @Nonnull
+        @Override
+        public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                    @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+            Verify.verify(childrenResults.isEmpty());
+            return injectCompensationFunctionMaybe();
+        }
 
+        @Nonnull
+        public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe() {
             return Optional.of(reapplyPredicate());
         }
 
-        private InjectCompensationFunction reapplyPredicate() {
+        private ExpandCompensationFunction reapplyPredicate() {
             return translationMap -> GraphExpansion.ofPredicate(toResidualPredicate().translateCorrelations(translationMap));
         }
 

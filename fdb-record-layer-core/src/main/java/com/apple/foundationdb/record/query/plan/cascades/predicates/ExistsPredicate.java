@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.InjectCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -46,6 +46,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -148,13 +149,21 @@ public class ExistsPredicate implements LeafQueryPredicate {
     }
 
     @Nonnull
-    public Optional<InjectCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+    @Override
+    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+        Verify.verify(childrenResults.isEmpty());
+        return injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
+    }
+
+    @Nonnull
+    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
         final var compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
-            // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
-            //      make a predicate that can evaluate a QueryComponent
             return Optional.of(translationMap -> injectCompensation(partialMatch, translationMap));
         }
         return Optional.empty();

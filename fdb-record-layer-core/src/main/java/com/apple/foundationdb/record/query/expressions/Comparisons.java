@@ -1234,7 +1234,7 @@ public class Comparisons {
                 return false;
             }
 
-            return comparandValue.semanticEquals(that, aliasMap);
+            return comparandValue.semanticEquals(that.comparandValue, aliasMap);
         }
 
         @Nullable

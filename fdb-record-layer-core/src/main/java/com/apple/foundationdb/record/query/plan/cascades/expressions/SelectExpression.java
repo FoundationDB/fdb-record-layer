@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.InjectCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlanner
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
@@ -316,12 +315,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         
         final var otherResultValue = otherSelectExpression.getResultValue();
         final Optional<Value> remainingValueComputationOptional;
-        if (otherResultValue instanceof QuantifiedObjectValue &&
-            resultValue.semanticEquals(otherResultValue, aliasMap)) {
-            remainingValueComputationOptional = Optional.empty();
-        } else {
-            // we need to compensate
+        if (!resultValue.semanticEquals(otherResultValue, aliasMap)) {
+            // we potentially need to compensate
             remainingValueComputationOptional = Optional.of(resultValue);
+        } else {
+            remainingValueComputationOptional = Optional.empty();
         }
 
         //
@@ -519,7 +517,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     @SuppressWarnings({"java:S135", "java:S1066"})
     public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        final var toBeReappliedPredicatesMap = Maps.<QueryPredicate, InjectCompensationFunction>newIdentityHashMap();
+        final var toBeReappliedPredicatesMap = Maps.<QueryPredicate, ExpandCompensationFunction>newIdentityHashMap();
         final var matchInfo = partialMatch.getMatchInfo();
         final var predicateMap = matchInfo.getPredicateMap();
 
@@ -561,7 +559,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
             final var predicateMapping = predicateMappingOptional.get();
 
-            final Optional<InjectCompensationFunction> injectCompensationFunctionOptional =
+            final Optional<ExpandCompensationFunction> injectCompensationFunctionOptional =
                     predicateMapping
                             .compensatePredicateFunction()
                             .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);

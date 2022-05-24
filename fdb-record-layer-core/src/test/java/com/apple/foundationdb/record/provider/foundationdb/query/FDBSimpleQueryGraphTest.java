@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
 import java.util.Collection;
@@ -54,7 +56,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
@@ -122,7 +123,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testPrimaryScanFallbackWithIndexHintGraph() throws Exception {
+    public void testFailWithBadIndexHintGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         final Optional<Collection<String>> recordTypeNamesOptional = Optional.of(ImmutableSet.of("RestaurantRecord"));
@@ -130,7 +131,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         final ParameterRelationshipGraph parameterRelationshipGraph = ParameterRelationshipGraph.empty();
 
         // with index hints ("review_rating"), cannot plan a query
-        final var plan = cascadesPlanner.planGraph(
+        Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
                 () -> {
                     final var allRecordTypes =
                             ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
@@ -164,10 +165,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 allowedIndexesOptional,
                 IndexQueryabilityFilter.TRUE,
                 false,
-                parameterRelationshipGraph);
-
-        final BindingMatcher<? extends RecordQueryPlan> planMatcher = descendantPlans(scanPlan().where(scanComparisons(unbounded())));
-        assertMatchesExactly(plan, planMatcher);
+                parameterRelationshipGraph));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

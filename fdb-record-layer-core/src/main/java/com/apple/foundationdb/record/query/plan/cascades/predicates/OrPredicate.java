@@ -25,6 +25,12 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -35,6 +41,8 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -97,6 +105,39 @@ public class OrPredicate extends AndOrPredicate {
     @Override
     public OrPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
         return new OrPredicate(ImmutableList.copyOf(newChildren));
+    }
+
+    @Nonnull
+    @Override
+    public Optional<PredicateMultiMap.ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                                  @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                                  @Nonnull final List<Optional<PredicateMultiMap.ExpandCompensationFunction>> childrenResults) {
+        final var childrenInjectCompensationFunctions=
+                childrenResults.stream()
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .collect(ImmutableList.toImmutableList());
+        if (childrenInjectCompensationFunctions.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(translationMap -> {
+            final var childGraphExpansions = childrenInjectCompensationFunctions.stream()
+                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensation(translationMap))
+                    .collect(ImmutableList.toImmutableList());
+            // take the predicates from each individual expansion, "and" them, and then "or" them
+            final var quantifiersBuilder = ImmutableList.<Quantifier>builder();
+            final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
+            for (final var childGraphExpansion : childGraphExpansions) {
+                quantifiersBuilder.addAll(childGraphExpansion.getQuantifiers());
+                predicatesBuilder.add(childGraphExpansion.asAndPredicate());
+            }
+
+            return GraphExpansion.of(ImmutableList.of(),
+                    ImmutableList.of(or(predicatesBuilder.build())),
+                    quantifiersBuilder.build(),
+                    ImmutableList.of());
+        });
     }
 
     @Nonnull

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.InjectCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -314,7 +314,7 @@ public interface Compensation {
      */
     @Nonnull
     static Compensation ofChildCompensationAndPredicateMap(@Nonnull final Compensation childCompensation,
-                                                           @Nonnull final Map<QueryPredicate, InjectCompensationFunction> predicateCompensationMap,
+                                                           @Nonnull final Map<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
                                                            @Nonnull final Set<Quantifier> mappedQuantifiers,
                                                            @Nonnull final Set<Quantifier.ForEach> unmappedForEachQuantifiers,
                                                            @Nonnull final Optional<Value> remainingComputationOptional) {
@@ -352,7 +352,7 @@ public interface Compensation {
         Set<Quantifier> getUnmatchedForEachQuantifiers();
 
         @Nonnull
-        Map<QueryPredicate, InjectCompensationFunction> getPredicateCompensationMap();
+        Map<QueryPredicate, ExpandCompensationFunction> getPredicateCompensationMap();
 
         @Nonnull
         Optional<Value> getRemainingComputationValueOptional();
@@ -369,7 +369,7 @@ public interface Compensation {
          */
         @Nonnull
         WithSelectCompensation derivedWithPredicateCompensationMap(@Nonnull Compensation childCompensation,
-                                                                   @Nonnull IdentityHashMap<QueryPredicate, InjectCompensationFunction> predicateCompensationMap,
+                                                                   @Nonnull IdentityHashMap<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
                                                                    @Nonnull Collection<? extends Quantifier> mappedQuantifiers,
                                                                    @Nonnull Set<? extends Quantifier> unmappedForEachQuantifiers,
                                                                    @Nonnull Optional<Value> remainingComputationOptional);
@@ -423,7 +423,7 @@ public interface Compensation {
                     : otherWithSelectCompensationRemainingComputationValueOptional;
 
             final var otherCompensationMap = otherWithSelectCompensation.getPredicateCompensationMap();
-            final var combinedPredicateMap = Maps.<QueryPredicate, InjectCompensationFunction>newIdentityHashMap();
+            final var combinedPredicateMap = Maps.<QueryPredicate, ExpandCompensationFunction>newIdentityHashMap();
 
             combinedPredicateMap.putAll(getPredicateCompensationMap());
 
@@ -501,7 +501,7 @@ public interface Compensation {
             }
 
             final var otherCompensationMap = otherWithSelectCompensation.getPredicateCompensationMap();
-            final var combinedPredicateMap = Maps.<QueryPredicate, InjectCompensationFunction>newIdentityHashMap();
+            final var combinedPredicateMap = Maps.<QueryPredicate, ExpandCompensationFunction>newIdentityHashMap();
             for (final var entry : getPredicateCompensationMap().entrySet()) {
                 // if the other side does not have compensation for this key, we don't need compensation
                 if (otherCompensationMap.containsKey(entry.getKey())) {
@@ -555,7 +555,7 @@ public interface Compensation {
         @Nonnull
         private final Compensation childCompensation;
         @Nonnull
-        final Map<QueryPredicate, InjectCompensationFunction> predicateCompensationMap;
+        final Map<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap;
         @Nonnull
         private final Set<Quantifier> mappedQuantifiers;
         @Nonnull
@@ -564,7 +564,7 @@ public interface Compensation {
         private final Optional<Value> remainingComputationValueOptional;
 
         private ForMatch(@Nonnull final Compensation childCompensation,
-                         @Nonnull final Map<QueryPredicate, InjectCompensationFunction> predicateCompensationMap,
+                         @Nonnull final Map<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
                          @Nonnull final Collection<? extends Quantifier> mappedQuantifiers,
                          @Nonnull final Collection<? extends Quantifier> unmatchedForEachQuantifiers,
                          @Nonnull final Optional<Value> remainingComputationOptional) {
@@ -598,7 +598,7 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public Map<QueryPredicate, InjectCompensationFunction> getPredicateCompensationMap() {
+        public Map<QueryPredicate, ExpandCompensationFunction> getPredicateCompensationMap() {
             return predicateCompensationMap;
         }
 
@@ -616,7 +616,7 @@ public interface Compensation {
         @Nonnull
         @Override
         public WithSelectCompensation derivedWithPredicateCompensationMap(@Nonnull final Compensation childCompensation,
-                                                                          @Nonnull final IdentityHashMap<QueryPredicate, InjectCompensationFunction> predicateCompensationMap,
+                                                                          @Nonnull final IdentityHashMap<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
                                                                           @Nonnull final Collection<? extends Quantifier> mappedQuantifiers,
                                                                           @Nonnull final Set<? extends Quantifier> unmappedForEachQuantifiers,
                                                                           @Nonnull final Optional<Value> remainingComputationValueOptional) {
@@ -656,7 +656,7 @@ public interface Compensation {
 
                 final var compensationExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
                 for (final var injectCompensationFunction : injectCompensationFunctions) {
-                    compensationExpansionsBuilder.add(injectCompensationFunction.injectCompensation(translationMap));
+                    compensationExpansionsBuilder.add(injectCompensationFunction.applyCompensation(translationMap));
                 }
                 compensationExpansionsBuilder.add(GraphExpansion.ofQuantifier(quantifier));
                 relationalExpression = GraphExpansion.ofOthers(compensationExpansionsBuilder.build()).buildSimpleSelectOverQuantifier(quantifier);

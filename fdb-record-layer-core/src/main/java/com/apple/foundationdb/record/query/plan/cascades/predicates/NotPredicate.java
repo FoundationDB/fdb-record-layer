@@ -27,11 +27,22 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A {@link QueryPredicate} that is satisfied when its child component is not satisfied.
@@ -109,6 +120,28 @@ public class NotPredicate implements QueryPredicateWithChild {
     @Override
     public NotPredicate withChild(@Nonnull final QueryPredicate newChild) {
         return new NotPredicate(newChild);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<PredicateMultiMap.ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                                  @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                                  @Nonnull final List<Optional<PredicateMultiMap.ExpandCompensationFunction>> childrenResults) {
+        Verify.verify(childrenResults.size() == 1);
+        final var childInjectCompensationFunctionOptional = Iterables.getOnlyElement(childrenResults);
+        if (childInjectCompensationFunctionOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        final var childInjectCompensationFunction = childInjectCompensationFunctionOptional.get();
+
+        return Optional.of(translationMap -> {
+            final var childGraphExpansion = childInjectCompensationFunction.applyCompensation(translationMap);
+            Verify.verify(childGraphExpansion.getResultColumns().isEmpty());
+            return GraphExpansion.of(ImmutableList.of(),
+                    ImmutableList.of(not(childGraphExpansion.asAndPredicate())),
+                    childGraphExpansion.getQuantifiers(),
+                    ImmutableList.of());
+        });
     }
 
     @Nonnull
