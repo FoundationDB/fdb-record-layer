@@ -1,5 +1,5 @@
 /*
- * RelationalExtension.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,12 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
-
-import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
-
-public interface RelationalExtension {
-
-    EmbeddedRelationalEngine getEngine();
-
-}
+/**
+ * Keeper of Metrics stuff for Relational.
+ */
+package com.apple.foundationdb.relational.api.metrics;

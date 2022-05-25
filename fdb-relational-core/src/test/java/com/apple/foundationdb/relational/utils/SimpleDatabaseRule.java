@@ -27,7 +27,6 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.net.URI;
-import java.util.Map;
 
 import javax.annotation.Nonnull;
 
@@ -86,9 +85,5 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
 
     public URI getConnectionUri() {
         return URI.create("jdbc:embed://" + getDatabasePath().getPath());
-    }
-
-    public Map<String, Object> getStoreTimerMetrics() {
-        return relationalExtension.getStoreTimerMetrics();
     }
 }

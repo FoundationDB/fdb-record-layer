@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.transactionbound;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 
 import java.util.List;
 
@@ -31,7 +32,7 @@ import java.util.List;
 public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelationalEngine {
     public TransactionBoundEmbeddedRelationalEngine() {
         super(
-                List.of(TransactionBoundStorageCluster.INSTANCE)
-        );
+                List.of(TransactionBoundStorageCluster.INSTANCE),
+                NoOpMetricRegistry.INSTANCE);
     }
 }

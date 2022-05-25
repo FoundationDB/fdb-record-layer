@@ -21,16 +21,18 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
+import com.codahale.metrics.MetricRegistry;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -50,20 +52,28 @@ public final class RecordLayerEngine {
                                                     @Nonnull List<FDBDatabase> databases,
                                                     @Nonnull KeySpace baseKeySpace,
                                                     @Nonnull Supplier<SchemaTemplateCatalog> templateCatalogSupplier,
-                                                    @Nullable FDBStoreTimer timer) throws RelationalException {
+                                                    @Nullable MetricRegistry metricsEngine) throws RelationalException {
+
+        MetricRegistry mEngine = convertToRecordLayerEngine(metricsEngine);
 
         SchemaTemplateCatalog templateCatalog = templateCatalogSupplier.get();
         //TODO(bfines) we need to move StoreCatalog to a per-cluster thing
         RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(baseKeySpace);
 
         List<StorageCluster> clusters = databases.stream().map(db ->
-                new RecordLayerStorageCluster(new DirectFdbConnection(db, timer), baseKeySpace, cfg, schemaCatalog, templateCatalog)).collect(Collectors.toList());
+                new RecordLayerStorageCluster(new DirectFdbConnection(db, mEngine), baseKeySpace, cfg, schemaCatalog, templateCatalog)).collect(Collectors.toList());
         try (Transaction txn = clusters.get(0).getTransactionManager().createTransaction()) {
             schemaCatalog.initialize(txn);
             txn.commit();
         }
 
-        return new EmbeddedRelationalEngine(clusters);
+        return new EmbeddedRelationalEngine(clusters, mEngine);
+    }
+
+    private static MetricRegistry convertToRecordLayerEngine(@Nullable MetricRegistry metricsEngine) {
+        //metrics are disabled for this engine, so no-op it
+        return Objects.requireNonNullElse(metricsEngine, NoOpMetricRegistry.INSTANCE);
+
     }
 
     private RecordLayerEngine() {

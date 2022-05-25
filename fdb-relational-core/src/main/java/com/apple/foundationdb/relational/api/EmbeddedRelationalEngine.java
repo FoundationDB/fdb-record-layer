@@ -21,7 +21,10 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.MetricSet;
 
+import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 
@@ -33,12 +36,16 @@ public class EmbeddedRelationalEngine {
 
     private final EmbeddedRelationalDriver driver;
 
+    private final MetricRegistry metricRegistry;
+
     //TODO(bfines) eventually we need to move StoreCatalog into StorageCluster
-    public EmbeddedRelationalEngine(List<StorageCluster> fdbClusters) {
+    public EmbeddedRelationalEngine(List<StorageCluster> fdbClusters,
+                                  @Nonnull MetricRegistry metricRegistry) {
         if (fdbClusters.isEmpty()) {
             throw new IllegalArgumentException("Must specify at least one FDB cluster to connect to");
         }
         this.clusters = fdbClusters;
+        this.metricRegistry = metricRegistry;
         this.driver = new EmbeddedRelationalDriver(this);
     }
 
@@ -54,4 +61,7 @@ public class EmbeddedRelationalEngine {
         return clusters;
     }
 
+    public MetricSet getEngineMetrics() {
+        return metricRegistry;
+    }
 }

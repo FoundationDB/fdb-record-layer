@@ -121,6 +121,7 @@ public final class RelationalCli {
         }
     }
 
+    @ExcludeFromJacocoGeneratedReport
     static class RelationalCommands extends PicocliCommands {
         public RelationalCommands(CommandLine cmd) {
             super(cmd);

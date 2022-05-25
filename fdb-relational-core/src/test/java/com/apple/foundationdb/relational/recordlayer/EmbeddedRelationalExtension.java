@@ -21,29 +21,26 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 
+import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.Collections;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
     private final Supplier<KeySpace> keySpaceSupplier;
     private EmbeddedRelationalEngine engine;
-    private final TestStoreTimer storeTimer = new TestStoreTimer();
+    private final MetricRegistry storeTimer = new MetricRegistry();
 
     public EmbeddedRelationalExtension() {
         this.keySpaceSupplier = this::createNewKeySpace;
@@ -81,20 +78,4 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         return engine;
     }
 
-    public Map<String, Object> getStoreTimerMetrics() {
-        return storeTimer.metrics;
-    }
-
-    private static class TestStoreTimer extends FDBStoreTimer {
-        private final Map<String, Object> metrics = new ConcurrentHashMap<>();
-
-        TestStoreTimer() {
-        }
-
-        @Override
-        public synchronized void record(StoreTimer.Event event, long timeDifference) {
-            super.record(event, timeDifference);
-            metrics.put(event.name(), timeDifference);
-        }
-    }
 }

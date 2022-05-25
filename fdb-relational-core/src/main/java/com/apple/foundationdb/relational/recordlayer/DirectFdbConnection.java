@@ -27,23 +27,27 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.recordlayer.util.MetricRegistryStoreTimer;
+
+import com.codahale.metrics.MetricRegistry;
 
 public class DirectFdbConnection implements FdbConnection {
     private final FDBDatabase fdb;
     private final TransactionManager txnManager;
 
     public DirectFdbConnection(FDBDatabase fdb) {
-        this(fdb, TransactionConfig.DEFAULT, new FDBStoreTimer());
+        this(fdb, TransactionConfig.DEFAULT, NoOpMetricRegistry.INSTANCE);
     }
 
-    public DirectFdbConnection(FDBDatabase fdb, FDBStoreTimer storeTimer) {
-        this(fdb, TransactionConfig.DEFAULT, storeTimer);
+    public DirectFdbConnection(FDBDatabase fdb, MetricRegistry metricsEngine) {
+        this(fdb, TransactionConfig.DEFAULT, metricsEngine);
     }
 
-    public DirectFdbConnection(FDBDatabase fdb, TransactionConfig config, FDBStoreTimer storeTimer) {
+    public DirectFdbConnection(FDBDatabase fdb, TransactionConfig config, MetricRegistry metricsEngine) {
         this.fdb = fdb;
-        this.txnManager = new RecordLayerTransactionManager(fdb, config, storeTimer);
+        this.txnManager = new RecordLayerTransactionManager(fdb, config, getStoreTimer(metricsEngine));
     }
 
     public static DirectFdbConnection connect(String clusterFile) {
@@ -62,5 +66,9 @@ public class DirectFdbConnection implements FdbConnection {
         } catch (RecordCoreException rce) {
             throw ExceptionUtil.toRelationalException(rce);
         }
+    }
+
+    private static FDBStoreTimer getStoreTimer(MetricRegistry registry) {
+        return new MetricRegistryStoreTimer(registry);
     }
 }

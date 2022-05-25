@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 
+import com.codahale.metrics.MetricSet;
 import com.google.common.collect.Iterators;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -37,17 +38,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.UUID;
 
 public class TransactionConfigTest {
     @RegisterExtension
     @Order(0)
-    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+    public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TransactionConfig.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational, TransactionConfig.class, TestSchemas.restaurant());
 
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
@@ -63,8 +63,8 @@ public class TransactionConfigTest {
                 String errorMsg = throwable.getMessage();
                 Assertions.assertEquals("Operation aborted because the transaction timed out", errorMsg);
             }
-            Map<String, Object> metrics = database.getStoreTimerMetrics();
-            Assertions.assertTrue(metrics.containsKey("CHECK_VERSION"));
+            MetricSet metrics = relational.getEngine().getEngineMetrics();
+            Assertions.assertTrue(metrics.getMetrics().containsKey("CHECK_VERSION"));
         }
     }
 

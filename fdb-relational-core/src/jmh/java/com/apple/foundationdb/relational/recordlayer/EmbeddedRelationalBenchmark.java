@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
@@ -35,6 +34,7 @@ import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
@@ -48,7 +48,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -83,7 +82,7 @@ public abstract class EmbeddedRelationalBenchmark {
             KeySpaceDirectory catalogDir = new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL);
             keySpace = new KeySpace(dbDirectory, catalogDir);
             final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
-            fdbDatabase = new DirectFdbConnection(fdbDb, new TestStoreTimer(new HashMap<>()));
+            fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
             RecordLayerConfig rlConfig = new RecordLayerConfig(
                     (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                     storePath -> DynamicMessageRecordSerializer.instance(),
@@ -163,20 +162,6 @@ public abstract class EmbeddedRelationalBenchmark {
             for (int i = 0; i < dbCount; ++i) {
                 databases.add(dbName.apply(i));
             }
-        }
-    }
-
-    private static class TestStoreTimer extends FDBStoreTimer {
-        private final Map<String, Object> metrics;
-
-        TestStoreTimer(Map<String, Object> metrics) {
-            this.metrics = metrics;
-        }
-
-        @Override
-        public void record(Event event, long timeDifference) {
-            super.record(event, timeDifference);
-            metrics.put(event.name(), timeDifference);
         }
     }
 
