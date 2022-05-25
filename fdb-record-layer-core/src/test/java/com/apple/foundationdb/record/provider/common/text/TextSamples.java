@@ -146,7 +146,7 @@ public class TextSamples {
     // also includes stress marks on the words, which isn't common among native
     // speakers, but sometimes happens (so it's possible that the correct thing to
     // do is to strip them out).
-    public static final String RUSSIAN = "Актёр посет́ил мн́огие достопримеч́ательности Москв́ы.";
+    public static final String RUSSIAN = "Актёр посети́л мно́гие достопримеча́тельности Москвы́.";
 
     // Translates to: "Or is it just nonsense?"
     // Telugu uses an abugida where vowels are encoded as combining diacritical marks.
