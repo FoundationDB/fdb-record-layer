@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -311,7 +312,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                     .toString());
         }
 
-        IndexSearcher searcher = new IndexSearcher(indexReader, executor);
+        IndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader, executor);
         TopDocs topDocs = searcher.search(finalQuery, limit);
         if (timer != null) {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, topDocs.scoreDocs.length);

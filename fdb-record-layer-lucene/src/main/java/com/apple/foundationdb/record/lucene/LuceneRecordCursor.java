@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -290,7 +291,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private void performScan() throws IOException {
         long startTime = System.nanoTime();
         indexReader = getIndexReader();
-        searcher = new IndexSearcher(indexReader, executorService);
+        searcher = new LuceneOptimizedIndexSearcher(indexReader, executorService);
         int limit = Math.min(limitRemaining, MAX_PAGE_SIZE);
         TopDocs newTopDocs;
         if (searchAfter != null && sort != null) {
@@ -314,4 +315,5 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
         }
     }
+
 }
