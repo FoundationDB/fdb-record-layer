@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
+import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -88,7 +89,7 @@ public class FDBLuceneTestIndex {
     public List<Document> searchIndex(String inField, String queryString) throws ParseException, IOException {
         Query query = new QueryParser(inField, analyzer).parse(queryString);
         try (IndexReader indexReader = DirectoryReader.open(directory)) {
-            IndexSearcher searcher = new IndexSearcher(indexReader);
+            IndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader);
             TopDocs topDocs = searcher.search(query, 10);
             List<Document> documents = new ArrayList<>();
             for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
@@ -100,7 +101,7 @@ public class FDBLuceneTestIndex {
 
     public List<Document> searchIndex(Query query) throws IOException {
         try (IndexReader indexReader = DirectoryReader.open(directory)) {
-            IndexSearcher searcher = new IndexSearcher(indexReader);
+            IndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader);
             TopDocs topDocs = searcher.search(query, 10);
             List<Document> documents = new ArrayList<>();
             for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
@@ -112,7 +113,7 @@ public class FDBLuceneTestIndex {
 
     public List<Document> searchIndex(Query query, Sort sort) throws IOException {
         try (IndexReader indexReader = DirectoryReader.open(directory)) {
-            IndexSearcher searcher = new IndexSearcher(indexReader);
+            IndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader);
             TopDocs topDocs = searcher.search(query, 10, sort);
             List<Document> documents = new ArrayList<>();
             for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
