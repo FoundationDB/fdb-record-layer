@@ -21,7 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -35,13 +38,17 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.google.common.base.Verify;
@@ -52,7 +59,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.choose;
@@ -117,8 +126,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                 selectExpression.getCorrelationOrder().getTransitiveClosure();
         final var aliasToQuantifierMap = selectExpression.getAliasToQuantifierMap();
 
-        if (outerQuantifier instanceof Quantifier.Existential ||
-                innerQuantifier instanceof Quantifier.Existential) {
+        if (outerQuantifier instanceof Quantifier.Existential) {
             return;
         }
 
@@ -175,9 +183,21 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
             }
         }
 
-        var outerPredicates = outerPredicatesBuilder.build();
-        var outerInnerPredicates = outerInnerPredicatesBuilder.build();
-        final var otherPredicates = otherPredicatesBuilder.build();
+        List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
+        List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
+        final List<QueryPredicate> otherPredicates = otherPredicatesBuilder.build();
+
+        if (innerQuantifier instanceof Quantifier.Existential) {
+            //
+            // If no otherPredicate contains a reference to the existential, we need to return as
+            // this transformation should be done by the specific rule to implement existential joins.
+            //
+            if (otherPredicates.stream()
+                    .flatMap(otherPredicate -> otherPredicate.getCorrelatedTo().stream())
+                    .anyMatch(alias -> alias.equals(innerAlias))) {
+                return;
+            }
+        }
 
         //
         // Find and apply all predicates that can be applied as part of this nested loop join (outer ⨝ inner).
@@ -207,7 +227,19 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
 
         var newInnerQuantifier =
                 Quantifier.physicalBuilder().withAlias(innerAlias).build(GroupExpressionRef.from(innerPartition.getPlans()));
+
+        if (innerQuantifier instanceof Quantifier.Existential) {
+            newInnerQuantifier =
+                    Quantifier.physical(GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(newInnerQuantifier, new NullValue(innerQuantifier.getFlowedObjectType()))));
+        }
+
         if (!outerInnerPredicates.isEmpty()) {
+            outerInnerPredicates =
+                    rewritePredicates(TranslationMap.rebaseWithAliasMap(AliasMap.of(innerAlias, newInnerQuantifier.getAlias())),
+                            innerAlias,
+                            newInnerQuantifier.getFlowedObjectType(),
+                            outerInnerPredicates);
+
             newInnerQuantifier =
                     Quantifier.physical(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newInnerQuantifier, outerInnerPredicates)));
         }
@@ -255,10 +287,10 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                         .build();
 
         final var newPredicates =
-                otherPredicates.stream()
-                        .map(otherPredicate ->
-                                otherPredicate.translateCorrelations(translationMap))
-                        .collect(ImmutableList.toImmutableList());
+                rewritePredicates(translationMap,
+                        innerAlias,
+                        innerValue.getResultType(),
+                        otherPredicates);
 
         final var resultValue = selectExpression.getResultValue();
         final var newResultValue =
@@ -268,11 +300,35 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
     }
 
     @Nonnull
-    private Value replaceJoinedReference(@Nonnull final CorrelationIdentifier resultAlias,
-                                         @Nonnull final Type.Record joinedRecordType,
-                                         @Nonnull final String fieldName,
-                                         @Nonnull final LeafValue leafValue) {
+    private static Value replaceJoinedReference(@Nonnull final CorrelationIdentifier resultAlias,
+                                                @Nonnull final Type.Record joinedRecordType,
+                                                @Nonnull final String fieldName,
+                                                @Nonnull final LeafValue leafValue) {
         final var fieldValue = new FieldValue(QuantifiedObjectValue.of(resultAlias, joinedRecordType), ImmutableList.of(fieldName));
         return leafValue.replaceReferenceWithField(fieldValue);
+    }
+
+    @Nonnull
+    public static List<QueryPredicate> rewritePredicates(@Nonnull final TranslationMap translationMap,
+                                                         @Nonnull final CorrelationIdentifier innerAlias,
+                                                         @Nonnull final Type innerType,
+                                                         @Nonnull final List<QueryPredicate> predicates) {
+        final Supplier<QueryPredicate> rewrittenExistsPredicateSupplier =
+                () -> new ValuePredicate(QuantifiedObjectValue.of(innerAlias, innerType),
+                        new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+
+        final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
+        for(final var predicate : predicates) {
+            final var newOuterInnerPredicate =
+                    predicate.replaceLeavesMaybe(leafPredicate -> {
+                        if (leafPredicate instanceof ExistsPredicate &&
+                            ((ExistsPredicate)leafPredicate).getExistentialAlias().equals(innerAlias)) {
+                            leafPredicate = rewrittenExistsPredicateSupplier.get();
+                        }
+                        return leafPredicate.translateLeafPredicate(translationMap);
+                    }).orElseThrow(() -> new RecordCoreException("unable to rewrite predicate"));
+            resultPredicatesBuilder.add(newOuterInnerPredicate);
+        }
+        return resultPredicatesBuilder.build();
     }
 }

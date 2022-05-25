@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -47,12 +48,13 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.choose;
@@ -132,9 +134,9 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
 
         //
         // Make sure that there is no other quantifier that is located "in the middle" between outer and inner,
-        // as creating a join with that outer and inner combination would leave no place for the middle to be planned.
+        // as creating a join with that outer and inner combination would leave no place for the middle quantifier to
+        // be planned.
         //
-
         final var innerDependencies = fullCorrelationOrder.get(outerAlias);
 
         for (final var quantifier : selectExpression.getQuantifiers()) {
@@ -176,17 +178,24 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
                     outerPredicatesBuilder.add(residualPredicate);
                 }
             } else {
+                if (correlatedToInExpression.stream()
+                        .anyMatch(alias -> alias.equals(innerAlias))) {
+                    //
+                    // We cannot do this join in an existential way because some predicate(s) depending on the
+                    // inner is in fact also depending on some other quantifiers within this select expression.
+                    //
+                    return;
+                }
+
                 otherPredicatesBuilder.add(predicate);
             }
         }
 
-        var outerPredicates = outerPredicatesBuilder.build();
-        var outerInnerPredicates = outerInnerPredicatesBuilder.build();
+        final var outerPredicates = outerPredicatesBuilder.build();
+        final var outerInnerPredicates = outerInnerPredicatesBuilder.build();
         final var otherPredicates = otherPredicatesBuilder.build();
 
         Verify.verify(!outerInnerPredicates.isEmpty());
-        // there can be more than one exists(), but they are all the same
-        final var existsPredicate = outerInnerPredicates.get(0);
 
         //
         // Find and apply all predicates that can be applied as part of this nested loop join (outer ⨝ inner).
@@ -219,21 +228,15 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
 
         var newInnerQuantifier =
                 Quantifier.physicalBuilder().withAlias(innerAlias).build(GroupExpressionRef.from(innerPartition.getPlans()));
-        Verify.verify(outerInnerPredicates.size() == 1);
-        final QueryPredicate outerInnerPredicate = Iterables.getOnlyElement(outerInnerPredicates);
-        Verify.verify(outerInnerPredicate instanceof ExistsPredicate);
 
         newInnerQuantifier =
                 Quantifier.physical(GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(newInnerQuantifier, new NullValue(innerQuantifier.getFlowedObjectType()))));
 
-        outerInnerPredicates = ImmutableList.of(new ValuePredicate(QuantifiedObjectValue.of(newInnerQuantifier.getAlias(), newInnerQuantifier.getFlowedObjectType()),
-                new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
+        final var newOuterInnerPredicates =
+                rewritePredicates(innerAlias, outerInnerPredicates, newInnerQuantifier);
 
         newInnerQuantifier =
-                Quantifier.physical(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newInnerQuantifier, outerInnerPredicates)));
-
-        final var outerValue = QuantifiedObjectValue.of(newOuterQuantifier.getAlias(), outerQuantifier.getFlowedObjectType());
-        final var innerValue = QuantifiedObjectValue.of(newInnerQuantifier.getAlias(), innerQuantifier.getFlowedObjectType());
+                Quantifier.physical(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newInnerQuantifier, newOuterInnerPredicates)));
 
         final var joinedResultValue = outerQuantifier.getFlowedObjectValue();
 
@@ -276,5 +279,28 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
                 resultValue.translateCorrelations(translationMap);
 
         call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates)));
+    }
+
+    @Nonnull
+    public static List<QueryPredicate> rewritePredicates(@Nonnull final CorrelationIdentifier existentialAlias,
+                                                         @Nonnull final List<QueryPredicate> predicates,
+                                                         @Nonnull final Quantifier.Physical newQuantifier) {
+        final Supplier<QueryPredicate> rewrittenExistsPredicateSupplier =
+                () -> new ValuePredicate(QuantifiedObjectValue.of(newQuantifier.getAlias(), newQuantifier.getFlowedObjectType()),
+                        new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+
+        final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
+        for(final var predicate : predicates) {
+            final var newOuterInnerPredicate =
+                    predicate.replaceLeavesMaybe(leafPredicate -> {
+                        if (leafPredicate instanceof ExistsPredicate &&
+                            ((ExistsPredicate)leafPredicate).getExistentialAlias().equals(existentialAlias)) {
+                            return rewrittenExistsPredicateSupplier.get();
+                        }
+                        return leafPredicate;
+                    }).orElseThrow(() -> new RecordCoreException("unable to rewrite exists predicate"));
+            resultPredicatesBuilder.add(newOuterInnerPredicate);
+        }
+        return resultPredicatesBuilder.build();
     }
 }

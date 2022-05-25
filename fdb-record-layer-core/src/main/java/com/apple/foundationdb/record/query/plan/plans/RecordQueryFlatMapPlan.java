@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.cursors.MapCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -107,8 +106,8 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                 (outerResult, innerContinuation) -> {
                     final EvaluationContext fromOuterContext = context.withBinding(outerQuantifier.getAlias(), outerResult);
 
-                    return new MapCursor<>(innerQuantifier.getRangesOverPlan().executePlan(store, fromOuterContext, continuation, executeProperties),
-                            innerResult -> {
+                    return innerQuantifier.getRangesOverPlan().executePlan(store, fromOuterContext, continuation, executeProperties)
+                            .map(innerResult -> {
                                 final EvaluationContext nestedContext =
                                         fromOuterContext.withBinding(innerQuantifier.getAlias(), innerResult);
                                 final var computed = resultValue.eval(store, nestedContext);
