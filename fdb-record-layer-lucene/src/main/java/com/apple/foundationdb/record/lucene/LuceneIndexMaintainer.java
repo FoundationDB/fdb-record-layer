@@ -92,6 +92,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
     private final FDBDirectoryManager directoryManager;
     private final AnalyzerChooser indexAnalyzerChooser;
+    private final AnalyzerChooser autoCompleteQueryAnalyzerChooser;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
@@ -103,6 +104,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.executor = executor;
         this.directoryManager = FDBDirectoryManager.getManager(state);
         this.indexAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.FULL_TEXT).getLeft();
+        this.autoCompleteQueryAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.AUTO_COMPLETE).getRight();
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
         this.highlightForAutoCompleteIfEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_HIGHLIGHT, false);
     }
@@ -144,7 +146,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
             }
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
-            Analyzer analyzer = indexAnalyzerChooser.chooseAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
+            Analyzer analyzer = autoCompleteQueryAnalyzerChooser.chooseAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
             return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
                     executor, scanProperties, analyzer, state, scanAutoComplete.getGroupKey(), highlightForAutoCompleteIfEnabled);
         }
