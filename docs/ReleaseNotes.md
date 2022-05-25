@@ -26,7 +26,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Failed no-ops no longer log at `ERROR` [(Issue #1692)](https://github.com/FoundationDB/fdb-record-layer/issues/1692)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Lucene auto-complete is now handled by running queries on the main index to allow it to avoid needing a separate directory [(Issue #1682)](https://github.com/FoundationDB/fdb-record-layer/issues/1682)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -258,14 +258,9 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @Nonnull
     private RecordCursorContinuation continuationHelper() {
         if (currentPosition >= topDocs.scoreDocs.length && limitRemaining > 0) {
-            return ByteArrayContinuation.fromNullable(null);
+            return RecordCursorEndContinuation.END;
         } else {
-            LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
-                    .setDoc(searchAfter.doc)
-                    .setScore(searchAfter.score)
-                    .setShard(searchAfter.shardIndex)
-                    .build();
-            return ByteArrayContinuation.fromNullable(continuation.toByteArray());
+            return LuceneCursorContinuation.fromScoreDoc(searchAfter);
         }
     }
 

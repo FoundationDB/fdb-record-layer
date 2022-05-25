@@ -33,11 +33,15 @@ public class LuceneIndexOptions {
     public static final String AUTO_COMPLETE_ENABLED = "autoCompleteEnabled";
     /**
      * The type of auto complete blender to transform the weight after search to take into account the position of the searched term into the indexed text.
+     * @deprecated this option is ignored as the blender suggester is no longer used by auto-complete queries
      */
+    @Deprecated
     public static final String AUTO_COMPLETE_BLENDER_TYPE = "autoCompleteBlenderType";
     /**
      * The number factor to multiply the number of searched elements for auto complete blender.
+     * @deprecated this option is ignored as the blender suggester is no longer used by auto-complete queries
      */
+    @Deprecated
     public static final String AUTO_COMPLETE_BLENDER_NUM_FACTOR = "autoCompleteBlenderNumFactor";
     /**
      * The minimum number of leading characters before prefix query is used for auto complete.
@@ -45,7 +49,9 @@ public class LuceneIndexOptions {
     public static final String AUTO_COMPLETE_MIN_PREFIX_SIZE = "autoCompleteMinPrefixSize";
     /**
      * The exponent to use for auto complete when the blender type is POSITION_EXPONENTIAL_RECIPROCAL.
+     * @deprecated this option is ignored as the blender suggester is no longer used by auto-complete queries
      */
+    @Deprecated
     public static final String AUTO_COMPLETE_BLENDER_EXPONENT = "autoCompleteBlenderExponent";
     /**
      * Whether highlight suggest query in suggestions.

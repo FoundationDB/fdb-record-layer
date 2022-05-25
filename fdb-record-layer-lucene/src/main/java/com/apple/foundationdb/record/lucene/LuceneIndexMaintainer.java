@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -47,10 +46,10 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
-import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.Field;
@@ -64,7 +63,6 @@ import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.NumericUtils;
 import org.slf4j.Logger;
@@ -73,10 +71,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -96,7 +92,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
     private final FDBDirectoryManager directoryManager;
     private final AnalyzerChooser indexAnalyzerChooser;
-    private final AnalyzerChooser autoCompleteIndexAnalyzerChooser;
     private final AnalyzerChooser autoCompleteQueryAnalyzerChooser;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
@@ -109,7 +104,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.executor = executor;
         this.directoryManager = FDBDirectoryManager.getManager(state);
         this.indexAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.FULL_TEXT).getLeft();
-        this.autoCompleteIndexAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.AUTO_COMPLETE).getLeft();
         this.autoCompleteQueryAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.AUTO_COMPLETE).getRight();
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
         this.highlightForAutoCompleteIfEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_HIGHLIGHT, false);
@@ -152,14 +146,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
             }
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
-            try {
-                return new LuceneAutoCompleteResultCursor(getSuggester(scanAutoComplete.getGroupKey(),
-                        Collections.singletonList(scanAutoComplete.getKeyToComplete()), null), scanAutoComplete.getKeyToComplete(),
-                        executor, scanProperties, state, scanAutoComplete.getGroupKey(), highlightForAutoCompleteIfEnabled);
-            } catch (IOException ex) {
-                throw new RecordCoreException("Exception to get suggester for auto-complete search", ex)
-                        .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-            }
+            Analyzer analyzer = autoCompleteQueryAnalyzerChooser.chooseAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
+            return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
+                    executor, scanProperties, analyzer, state, scanAutoComplete.getGroupKey(), highlightForAutoCompleteIfEnabled);
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
@@ -174,62 +163,21 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
     }
 
-    private boolean addTermToSuggesterIfNeeded(@Nonnull String value, @Nonnull String fieldName, @Nullable AnalyzingInfixSuggester suggester) {
-        if (suggester == null) {
-            return false;
-        }
-
-        final byte[] valueBytes = value.getBytes(StandardCharsets.UTF_8);
-        final RecordLayerPropertyKey<Integer> sizeLimitProp = LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT;
-        final int sizeLimit = Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(sizeLimitProp), sizeLimitProp.getDefaultValue()).intValue();
-        // Ignore this text if its size exceeds the limitation
-        if (valueBytes.length > sizeLimit) {
-            if (LOG.isTraceEnabled()) {
-                LOG.trace(KeyValueLogMessage.of("Skip auto-complete indexing due to exceeding size limitation",
-                        LuceneLogMessageKeys.DATA_SIZE, valueBytes.length,
-                        LuceneLogMessageKeys.DATA_VALUE, value.substring(0, Math.min(value.length(), 100)),
-                        LogMessageKeys.FIELD_NAME, fieldName));
-            }
-            return false;
-        }
-
-        try {
-            suggester.add(new BytesRef(valueBytes),
-                    Set.of(new BytesRef(fieldName.getBytes(StandardCharsets.UTF_8))),
-                    state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_DEFAULT_WEIGHT),
-                    new BytesRef(Tuple.from(fieldName).pack()));
-            if (LOG.isTraceEnabled()) {
-                LOG.trace(KeyValueLogMessage.of("Added auto-complete suggestion to suggester",
-                        LuceneLogMessageKeys.DATA_SIZE, valueBytes.length,
-                        LuceneLogMessageKeys.DATA_VALUE, value.substring(0, Math.min(value.length(), 100)),
-                        LogMessageKeys.FIELD_NAME, fieldName));
-            }
-            return true;
-        } catch (IOException ex) {
-            throw new RecordCoreException("Exception to add term into suggester", ex)
-                    .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-        }
-    }
-
     /**
      * Insert a field into the document and add a suggestion into the suggester if needed.
-     * @return whether a suggestion has been added to the suggester
      */
     @SuppressWarnings("java:S3776")
-    private boolean insertField(LuceneDocumentFromRecord.DocumentField field, final Document document,
-                             @Nullable AnalyzingInfixSuggester suggester) {
+    private void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
         final String fieldName = field.getFieldName();
         final Object value = field.getValue();
         final Field luceneField;
         final Field sortedField;
         final StoredField storedField;
-        boolean suggestionAdded = false;
         switch (field.getType()) {
             case TEXT:
                 luceneField = new Field(fieldName, (String) value, getTextFieldType(field));
                 sortedField = null;
                 storedField = null;
-                suggestionAdded = addTermToSuggesterIfNeeded((String) value, fieldName, suggester);
                 break;
             case STRING:
                 luceneField = new StringField(fieldName, (String)value, field.isStored() ? Field.Store.YES : Field.Store.NO);
@@ -266,7 +214,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (storedField != null) {
             document.add(storedField);
         }
-        return suggestionAdded;
     }
 
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
@@ -274,22 +221,17 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         final List<String> texts = fields.stream()
                 .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
                 .map(f -> (String) f.getValue()).collect(Collectors.toList());
+        Document document = new Document();
         final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey,
                 indexAnalyzerChooser.chooseAnalyzer(texts));
         BytesRef ref = new BytesRef(primaryKey);
-        Document document = new Document();
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
 
         Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> indexOptionsToFieldsMap = getIndexOptionsToFieldsMap(fields);
         for (Map.Entry<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> entry : indexOptionsToFieldsMap.entrySet()) {
-            final AnalyzingInfixSuggester suggester = autoCompleteEnabled ? getSuggester(groupingKey, texts, entry.getKey()) : null;
-            boolean suggestionAdded = false;
             for (LuceneDocumentFromRecord.DocumentField field : entry.getValue()) {
-                suggestionAdded = insertField(field, document, suggester) || suggestionAdded;
-            }
-            if (suggestionAdded) {
-                suggester.refresh();
+                insertField(field, document);
             }
         }
         newWriter.addDocument(document);
@@ -297,7 +239,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     private Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> getIndexOptionsToFieldsMap(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
-        final Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> map = new HashMap<>();
+        final Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> map = new EnumMap<>(IndexOptions.class);
         fields.stream().forEach(f -> {
             final IndexOptions indexOptions = getIndexOptions((String) Objects.requireNonNullElse(f.getConfig(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS),
                     LuceneFunctionNames.LuceneFieldIndexOptions.DOCS_AND_FREQS_AND_POSITIONS.name()));
@@ -362,16 +304,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
 
         return AsyncUtil.DONE;
-    }
-
-    /**
-     * Get the {@link AnalyzingInfixSuggester} for indexing or query, from the session of the context if there exists a corresponding one, or by creating a new one.
-     * @param indexOptions the {@link IndexOptions} for suggester's {@link FieldType}. This only matters for when the suggester is for indexing.
-     * The one for query can just use an arbitrary one, so just pass in a NULL when getting a suggester for query, so the existing one from session of context can be reused.
-     */
-    private AnalyzingInfixSuggester getSuggester(@Nullable Tuple groupingKey, @Nonnull List<String> texts, @Nullable IndexOptions indexOptions) throws IOException {
-        return directoryManager.getAutocompleteSuggester(groupingKey, autoCompleteIndexAnalyzerChooser.chooseAnalyzer(texts),
-                autoCompleteQueryAnalyzerChooser.chooseAnalyzer(texts), highlightForAutoCompleteIfEnabled, indexOptions);
     }
 
     private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
