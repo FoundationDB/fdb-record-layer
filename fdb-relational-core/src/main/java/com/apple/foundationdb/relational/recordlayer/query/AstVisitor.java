@@ -22,13 +22,16 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -60,6 +63,7 @@ import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RuleContext;
@@ -70,6 +74,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -79,7 +84,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * Visits the abstract syntax tree of the query and generates a {@link com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression}
@@ -97,9 +101,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     // upfront by the planner, and it should become unnecessary later on.
     @Nonnull
     private final Set<String> filteredRecords;
-
-    @Nullable
-    private byte[] continuation;
 
     @Nonnull
     private final String query;
@@ -121,11 +122,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     /**
      * Creates a new instance of {@link AstVisitor}.
      *
-     * @param parserContext The parsing context used to maintain references.
-     * @param query The string representation of the SQL statement.
+     * @param parserContext         The parsing context used to maintain references.
+     * @param query                 The string representation of the SQL statement.
      * @param constantActionFactory A factory used to run DDL statements with side-effects.
-     * @param ddlQueryFactory A factory used to query the metadata.
-     * @param dbUri The current database {@link URI}.
+     * @param ddlQueryFactory       A factory used to query the metadata.
+     * @param dbUri                 The current database {@link URI}.
      */
     public AstVisitor(@Nonnull final ParserContext parserContext,
                       @Nonnull final String query,
@@ -324,15 +325,24 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Typed visitAtomTableItem(RelationalParser.AtomTableItemContext ctx) {
         Assert.isNullUnchecked(ctx.PARTITION(), UNSUPPORTED_QUERY);
-        Assert.thatUnchecked(ctx.indexHint().isEmpty(), UNSUPPORTED_QUERY);
         final String recordTypeName = ParserUtils.safeCastLiteral(visit(ctx.tableName()), String.class);
         Assert.notNullUnchecked(recordTypeName);
         final ImmutableSet<String> recordTypeNameSet = ImmutableSet.<String>builder().add(recordTypeName).build();
         final RecordMetaData recordMetaData = parserContext.getRecordMetaData();
         final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap = recordMetaData.getFieldDescriptorMapFromNames(recordTypeNameSet);
         final Set<String> allAvailableRecordTypes = recordMetaData.getRecordTypes().keySet();
+        final Set<String> allIndexes = recordMetaData.getAllIndexes().stream().map(Index::getName).collect(Collectors.toSet());
+        // get index hints
+        final Set<String> hintedIndexes = new HashSet<>();
+        for (final RelationalParser.IndexHintContext indexHintContext : ctx.indexHint()) {
+            hintedIndexes.addAll(visitIndexHint(indexHintContext));
+        }
+        // check if all hinted indexes exist
+        Assert.thatUnchecked(Sets.difference(hintedIndexes, allIndexes).isEmpty(), String.format("Unknown index(es) %s", String.join(",", Sets.difference(hintedIndexes, allIndexes)),
+                ErrorCode.SYNTAX_ERROR));
+        Set<AccessHint> accessHintSet = hintedIndexes.stream().map(IndexAccessHint::new).collect(Collectors.toSet());
         RelationalExpression typeFilterExpression = new LogicalTypeFilterExpression(recordTypeNameSet,
-                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, new AccessHints()))), // todo index hints.
+                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, new AccessHints(accessHintSet.toArray(AccessHint[]::new))))), // todo index hints.
                 Type.Record.fromFieldDescriptorsMap(fieldDescriptorMap));
 
         // improve
@@ -344,6 +354,17 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         parserContext.pushScope(Map.of(CorrelationIdentifier.of(alias), quantifiedObjectValue));
         filteredRecords.addAll(recordTypeNameSet);
         return null;
+    }
+
+    @Override
+    public Set<String> visitIndexHint(RelationalParser.IndexHintContext ctx) {
+        // currently only support USE INDEX '(' uidList ')' syntax
+        Assert.isNullUnchecked(ctx.IGNORE(), UNSUPPORTED_QUERY);
+        Assert.isNullUnchecked(ctx.FORCE(), UNSUPPORTED_QUERY);
+        Assert.isNullUnchecked(ctx.KEY(), UNSUPPORTED_QUERY);
+        Assert.isNullUnchecked(ctx.FOR(), UNSUPPORTED_QUERY);
+
+        return ctx.uidList().uid().stream().map(RuleContext::getText).collect(Collectors.toSet());
     }
 
     @Override // not supported yet
@@ -873,13 +894,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return filteredRecords;
     }
 
-    @Nullable
-    public byte[] getContinuation() {
-        return continuation == null ? null : continuation.clone();
-    }
-
     /**
      * Parses a query generating an equivalent abstract syntax tree.
+     *
      * @param query The query.
      * @return The abstract syntax tree.
      * @throws RelationalException if something goes wrong.

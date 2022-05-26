@@ -171,21 +171,42 @@ public class QueryTest {
                 query += " WITH CONTINUATION \"" + Base64.getEncoder().encodeToString(continuation.getBytes()) + "\"";
             }
             try (final ResultSet resultSet = statement.executeQuery(query)) {
-                // add message in resultSet to actual
+                // assert result matches expected
                 Assertions.assertNotNull(resultSet, "Did not return a result set!");
                 RelationalAssertions.assertThat(resultSet).nextRowMatches(new MessageTuple(expected.get(i)));
-
-                // Assertions.assertTrue(resultSet.next(), "result set is empty!");
-                // Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
-                // actual.add(resultSet.asRow());
                 // get continuation for the next query
                 Assertions.assertTrue(resultSet instanceof RelationalResultSet);
                 continuation = ((RelationalResultSet) resultSet).getContinuation();
                 i += 1;
             }
         }
-        // Assertions.assertEquals(expected, actual);
+    }
 
+    @Test
+    void testSelectWithIndexHint() throws SQLException {
+        // successfully execute a query with hinted index
+        try (final ResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantRecord USE INDEX (record_name_idx)")) {
+            while (resultSet.next()) {
+                Assertions.assertEquals("testName", resultSet.getString(1));
+            }
+        }
+        // successfully execute a query with multiple hinted indexes
+        try (final ResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantRecord USE INDEX (record_name_idx, reviewer_name_idx)")) {
+            while (resultSet.next()) {
+                Assertions.assertEquals("testName", resultSet.getString(1));
+            }
+        }
+        // successfully execute a query with multiple hinted indexes, different syntax
+        try (final ResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantRecord USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx)")) {
+            while (resultSet.next()) {
+                Assertions.assertEquals("testName", resultSet.getString(1));
+            }
+        }
+        // exception is thrown when hinted indexes don't exist
+        Exception exception = Assertions.assertThrows(SQLException.class, () -> {
+            statement.executeQuery("SELECT * FROM RestaurantRecord USE INDEX (name) WHERE 11 <= rest_no");
+        });
+        Assertions.assertEquals("Unknown index(es) name", exception.getMessage());
     }
 
     @Test

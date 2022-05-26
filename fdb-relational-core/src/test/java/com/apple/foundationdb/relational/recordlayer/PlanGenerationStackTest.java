@@ -138,7 +138,10 @@ public class PlanGenerationStackTest {
                     Arguments.of(58, "select * from RestaurantRecord where rest_no is null", null),
                     Arguments.of(59, "select * from RestaurantRecord where rest_no is not null", null),
                     Arguments.of(60, "select * from RestaurantRecord with continuation \"abc\"", null),
-                    Arguments.of(61, "select * from RestaurantRecord with continuation", "Syntax error at line 1 position 48")
+                    Arguments.of(61, "select * from RestaurantRecord with continuation", "Syntax error at line 1 position 48"),
+                    Arguments.of(62, "select * from RestaurantRecord USE INDEX (record_name_idx) where rest_no > 10 ", null),
+                    Arguments.of(63, "select * from RestaurantRecord USE INDEX (record_name_idx, reviewer_name_idx) where rest_no > 10 ", null),
+                    Arguments.of(64, "select * from RestaurantRecord USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx) where rest_no > 10 ", null)
             );
         }
     }
