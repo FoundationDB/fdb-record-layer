@@ -23,20 +23,26 @@ package com.apple.foundationdb.record.lucene.search;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.index.Terms;
+import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BulkScorer;
 import org.apache.lucene.search.CollectionTerminatedException;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.LeafCollector;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+
+import static org.apache.lucene.search.QueryHelper.getQueriesTerms;
 
 /**
  * This class optimizes the current IndexSearcher and attempts to perform operations in parallel in places where
@@ -110,5 +116,42 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         }
     }
 
+    /**
+     * This overridden call will attempt to cache the relevant terms low level blocks in the case where we need scores.
+     *
+     * @param query query implementation
+     * @param scoreMode mode for scoring
+     * @param boost boost for scores
+     * @return Weight of query
+     * @throws IOException IOException
+     */
+    @SuppressWarnings("PMD")
+    @Override
+    public Weight createWeight(final Query query, final ScoreMode scoreMode, final float boost) throws IOException {
+        if (scoreMode.needsScores() && getExecutor() != null) {
+            List<Term> terms = getQueriesTerms(query);
+            for (Term term : terms) {
+                for (final LeafReaderContext ctx : getTopReaderContext().leaves()) {
+                    // Do not block on these pre-fetches...
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            cacheTermsEnum(ctx, term);
+                        } catch (Exception e) {
+                            // No Op Swallow since this is for pre-caching
+                        }
+                    }, getExecutor());
+                }
+            }
+        }
+        return super.createWeight(query, scoreMode, boost);
+    }
+
+    private static void cacheTermsEnum(LeafReaderContext ctx, Term term) throws IOException {
+        final Terms terms = ctx.reader().terms(term.field());
+        if (terms != null) {
+            final TermsEnum termsEnum = terms.iterator();
+            termsEnum.seekExact(term.bytes());
+        }
+    }
 
 }
