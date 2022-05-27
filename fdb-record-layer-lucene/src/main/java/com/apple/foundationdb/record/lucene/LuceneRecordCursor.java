@@ -21,15 +21,18 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -54,11 +57,13 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 
 /**
  * This class is a Record Cursor implementation for Lucene queries.
@@ -68,7 +73,7 @@ import java.util.concurrent.ExecutorService;
 class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneRecordCursor.class);
     // pagination within single instance of record cursor for lucene queries.
-    private static final int MAX_PAGE_SIZE = 201;
+    private final int pageSize;
     @Nonnull
     private final Executor executor;
     @Nullable
@@ -78,6 +83,14 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private final FDBStoreTimer timer;
     private int limitRemaining;
+    /**
+     * The records to skip.
+     */
+    private final int skip;
+    /**
+     * To track the count of records left to skip.
+     */
+    private int leftToSkip;
     @Nullable
     private RecordCursorResult<IndexEntry> nextResult;
     final IndexMaintainerState state;
@@ -85,9 +98,10 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final Query query;
     private final Sort sort;
     private IndexSearcher searcher;
-    private TopDocs topDocs;
-    private int currentPosition;
+    private RecordCursor<IndexEntry> lookupResults = null;
+    private int currentPosition = 0;
     private final List<KeyExpression> fields;
+    @Nullable
     private ScoreDoc searchAfter = null;
     private boolean exhausted = false;
     @Nullable
@@ -102,6 +116,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @SuppressWarnings("squid:S107")
     LuceneRecordCursor(@Nonnull Executor executor,
                        @Nullable ExecutorService executorService,
+                       int pageSize,
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state,
                        @Nonnull Query query,
@@ -112,11 +127,14 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes) {
         this.state = state;
         this.executor = executor;
+        this.pageSize = pageSize;
         this.executorService = executorService;
         this.storedFields = storedFields;
         this.storedFieldTypes = storedFieldTypes;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
+        this.skip = scanProperties.getExecuteProperties().getSkip();
+        this.leftToSkip = scanProperties.getExecuteProperties().getSkip();
         this.timer = state.context.getTimer();
         this.query = query;
         this.sort = sort;
@@ -127,10 +145,6 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             } catch (Exception e) {
                 throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, e);
             }
-        }
-        this.currentPosition = 0;
-        if (scanProperties.getExecuteProperties().getSkip() > 0) {
-            this.currentPosition += scanProperties.getExecuteProperties().getSkip();
         }
         this.fields = state.index.getRootExpression().normalizeKeyForPositions();
         this.groupingKey = groupingKey;
@@ -144,125 +158,45 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             // hasNext is false to avoid the NoNextReason changing.
             return CompletableFuture.completedFuture(nextResult);
         }
-        if (topDocs == null) {
+
+        // Scan all the pages within skip range firstly
+        CompletableFuture<Void> scanPages = AsyncUtil.whileTrue(() -> {
+            if (leftToSkip < pageSize) {
+                return CompletableFuture.completedFuture(false);
+            }
             try {
-                performScan();
-            } catch (IndexNotFoundException e) {
-                // The index has not been initialized and is therefore empty. Can immediately return
-                // with "source exhausted"
+                searchForTopDocs(pageSize);
+            } catch (IndexNotFoundException indexNotFoundException) {
+                // Trying to open an empty directory results in an IndexNotFoundException,
+                // but this should be interpreted as there not being any data to read
                 nextResult = RecordCursorResult.exhausted();
-                return CompletableFuture.completedFuture(nextResult);
             } catch (IOException ioException) {
-                throw new RuntimeException(ioException);
+                throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
+                        .addLogInfo(LogMessageKeys.QUERY, query);
             }
-        }
-        if (topDocs.scoreDocs.length - 1 < currentPosition && limitRemaining > 0 && !exhausted) {
-            try {
-                performScan();
-            } catch (IOException ioException) {
-                throw new RuntimeException(ioException);
-            }
-            currentPosition = Math.max(currentPosition - MAX_PAGE_SIZE, 0);
-        }
-        if (limitRemaining > 0 && currentPosition < topDocs.scoreDocs.length && limitManager.tryRecordScan()) {
-            return CompletableFuture.supplyAsync(() -> {
-                try {
-                    Document document = searcher.doc(topDocs.scoreDocs[currentPosition].doc);
-                    searchAfter = topDocs.scoreDocs[currentPosition];
-                    IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
-                    BytesRef pk = primaryKey.binaryValue();
-                    if (LOGGER.isTraceEnabled()) {
-                        LOGGER.trace("document={}", document);
-                        LOGGER.trace("primary key read={}", Tuple.fromBytes(pk.bytes, pk.offset, pk.length));
-                    }
-                    if (timer != null) {
-                        timer.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
-                    }
-                    if (limitRemaining != Integer.MAX_VALUE) {
-                        limitRemaining--;
-                    }
-                    Tuple setPrimaryKey = Tuple.fromBytes(pk.bytes);
-                    // Initialized with values that aren't really legal in a Tuple to find offset bugs.
-                    List<Object> fieldValues = Lists.newArrayList(fields);
-                    if (groupingKey != null) {
-                        // Grouping keys are at the front.
-                        for (int i = 0; i < groupingKey.size(); i++) {
-                            fieldValues.set(i, groupingKey.get(i));
-                        }
-                    }
-                    if (storedFields != null) {
-                        for (int i = 0; i < storedFields.size(); i++) {
-                            if (storedFieldTypes.get(i) == null) {
-                                continue;
-                            }
-                            Object value = null;
-                            IndexableField docField = document.getField(storedFields.get(i));
-                            switch (storedFieldTypes.get(i)) {
-                                case STRING:
-                                    value = docField.stringValue();
-                                    break;
-                                case BOOLEAN:
-                                    value = Boolean.valueOf(docField.stringValue());
-                                    break;
-                                case INT:
-                                case LONG:
-                                case DOUBLE:
-                                    value = docField.numericValue();
-                                    break;
-                                default:
-                                    break;
-                            }
-                            fieldValues.set(i, value);
-                        }
-                    }
-                    int[] keyPos = state.index.getPrimaryKeyComponentPositions();
-                    Tuple tuple;
-                    if (keyPos != null) {
-                        List<Object> leftovers = Lists.newArrayList();
-                        for (int i = 0; i < keyPos.length; i++) {
-                            if (keyPos[i] > -1) {
-                                fieldValues.set(keyPos[i], setPrimaryKey.get(i));
-                            } else {
-                                leftovers.add(setPrimaryKey.get(i));
-                            }
-                        }
-                        tuple = Tuple.fromList(fieldValues).addAll(leftovers);
-                    } else {
-                        tuple = Tuple.fromList(fieldValues).addAll(setPrimaryKey);
-                    }
+            leftToSkip -= pageSize;
+            return CompletableFuture.completedFuture(leftToSkip >= pageSize);
+        }, executor);
 
-                    nextResult = RecordCursorResult.withNextValue(new IndexEntry(state.index,
-                            tuple, null), continuationHelper());
-                    currentPosition++;
-                    return nextResult;
-                } catch (Exception e) {
-                    throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, "exception", e);
-                }
-            }, executor);
-        } else { // a limit was exceeded
-            if (limitRemaining <= 0) {
-                nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), NoNextReason.RETURN_LIMIT_REACHED);
-            } else if (currentPosition >= topDocs.scoreDocs.length) {
-                nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), NoNextReason.SOURCE_EXHAUSTED);
-            } else {
-                final Optional<NoNextReason> stoppedReason = limitManager.getStoppedReason();
-                if (!stoppedReason.isPresent()) {
-                    throw new RecordCoreException("limit manager stopped LuceneRecordCursor but did not report a reason");
-                } else {
-                    nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), stoppedReason.get());
-                }
+        return scanPages.thenCompose(vignore -> {
+            if (lookupResults == null || !exhausted && (leftToSkip > 0 || (currentPosition + skip) % pageSize == 0) && limitRemaining > 0) {
+                return CompletableFuture.supplyAsync(() -> {
+                    try {
+                        maybePerformScan();
+                    } catch (IndexNotFoundException indexNotFoundException) {
+                        // Trying to open an empty directory results in an IndexNotFoundException,
+                        // but this should be interpreted as there not being any data to read
+                        nextResult = RecordCursorResult.exhausted();
+                        return CompletableFuture.completedFuture(nextResult);
+                    } catch (IOException ioException) {
+                        throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
+                                .addLogInfo(LogMessageKeys.QUERY, query);
+                    }
+                    return lookupResults.onNext();
+                }).thenCompose(Function.identity());
             }
-            return CompletableFuture.completedFuture(nextResult);
-        }
-    }
-
-    @Nonnull
-    private RecordCursorContinuation continuationHelper() {
-        if (currentPosition >= topDocs.scoreDocs.length && limitRemaining > 0) {
-            return RecordCursorEndContinuation.END;
-        } else {
-            return LuceneCursorContinuation.fromScoreDoc(searchAfter);
-        }
+            return lookupResults.onNext();
+        });
     }
 
     @Override
@@ -288,16 +222,51 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey);
     }
 
-    private void performScan() throws IOException {
+    private void maybePerformScan() throws IOException {
+        if (lookupResults != null) {
+            lookupResults.close();
+        }
+
+        final int limit = limitRemaining == Integer.MAX_VALUE ? pageSize : Math.min(limitRemaining + leftToSkip, pageSize);
+        TopDocs newTopDocs = searchForTopDocs(limit);
+
+        lookupResults = RecordCursor.fromIterator(executor, Arrays.stream(newTopDocs.scoreDocs).iterator()).skip(leftToSkip)
+                .mapPipelined(this::buildIndexEntryFromScoreDocAsync, state.store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
+                .mapResult(result -> {
+                    if (result.hasNext() && limitManager.tryRecordScan()) {
+                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(result.get().scoreDoc);
+                        currentPosition++;
+                        if (limitRemaining != Integer.MAX_VALUE) {
+                            limitRemaining--;
+                        }
+                        nextResult = RecordCursorResult.withNextValue(result.get().indexEntry, continuationFromDoc);
+                    } else if (exhausted) {
+                        nextResult = RecordCursorResult.exhausted();
+                    } else if (limitRemaining <= 0) {
+                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(searchAfter);
+                        nextResult = RecordCursorResult.withoutNextValue(continuationFromDoc, NoNextReason.RETURN_LIMIT_REACHED);
+                    } else {
+                        final Optional<NoNextReason> stoppedReason = limitManager.getStoppedReason();
+                        if (!stoppedReason.isPresent()) {
+                            throw new RecordCoreException("limit manager stopped LuceneRecordCursor but did not report a reason");
+                        } else {
+                            nextResult = RecordCursorResult.withoutNextValue(LuceneCursorContinuation.fromScoreDoc(searchAfter), stoppedReason.get());
+                        }
+                    }
+                    return nextResult;
+                });
+        leftToSkip = 0;
+    }
+
+    private TopDocs searchForTopDocs(int limit) throws IOException {
         long startTime = System.nanoTime();
         indexReader = getIndexReader();
         searcher = new LuceneOptimizedIndexSearcher(indexReader, executorService);
-        int limit = Math.min(limitRemaining, MAX_PAGE_SIZE);
         TopDocs newTopDocs;
         if (searchAfter != null && sort != null) {
             newTopDocs = searcher.searchAfter(searchAfter, query, limit, sort);
         } else if (searchAfter != null) {
-            newTopDocs =  searcher.searchAfter(searchAfter, query, limit);
+            newTopDocs = searcher.searchAfter(searchAfter, query, limit);
         } else if (sort != null) {
             newTopDocs = searcher.search(query,  limit, sort);
         } else {
@@ -306,14 +275,94 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (newTopDocs.scoreDocs.length < limit) {
             exhausted = true;
         }
-        topDocs = newTopDocs;
-        if (topDocs.scoreDocs.length != 0) {
-            searchAfter = topDocs.scoreDocs[topDocs.scoreDocs.length - 1];
+        if (newTopDocs.scoreDocs.length != 0) {
+            searchAfter = newTopDocs.scoreDocs[newTopDocs.scoreDocs.length - 1];
         }
         if (timer != null) {
             timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_INDEX_SCAN, startTime);
-            timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
+            timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, newTopDocs.scoreDocs.length);
         }
+        return newTopDocs;
     }
 
+    private CompletableFuture<ScoreDocAndIndexEntry> buildIndexEntryFromScoreDocAsync(@Nonnull ScoreDoc scoreDoc) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                Document document = searcher.doc(scoreDoc.doc);
+                IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
+                BytesRef pk = primaryKey.binaryValue();
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("document={}", document);
+                    LOGGER.trace("primary key read={}", Tuple.fromBytes(pk.bytes, pk.offset, pk.length));
+                }
+                if (timer != null) {
+                    timer.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
+                }
+                Tuple setPrimaryKey = Tuple.fromBytes(pk.bytes);
+                // Initialized with values that aren't really legal in a Tuple to find offset bugs.
+                List<Object> fieldValues = Lists.newArrayList(fields);
+                if (groupingKey != null) {
+                    // Grouping keys are at the front.
+                    for (int i = 0; i < groupingKey.size(); i++) {
+                        fieldValues.set(i, groupingKey.get(i));
+                    }
+                }
+                if (storedFields != null) {
+                    for (int i = 0; i < storedFields.size(); i++) {
+                        if (storedFieldTypes.get(i) == null) {
+                            continue;
+                        }
+                        Object value = null;
+                        IndexableField docField = document.getField(storedFields.get(i));
+                        switch (storedFieldTypes.get(i)) {
+                            case STRING:
+                                value = docField.stringValue();
+                                break;
+                            case BOOLEAN:
+                                value = Boolean.valueOf(docField.stringValue());
+                                break;
+                            case INT:
+                            case LONG:
+                            case DOUBLE:
+                                value = docField.numericValue();
+                                break;
+                            default:
+                                break;
+                        }
+                        fieldValues.set(i, value);
+                    }
+                }
+                int[] keyPos = state.index.getPrimaryKeyComponentPositions();
+                Tuple tuple;
+                if (keyPos != null) {
+                    List<Object> leftovers = Lists.newArrayList();
+                    for (int i = 0; i < keyPos.length; i++) {
+                        if (keyPos[i] > -1) {
+                            fieldValues.set(keyPos[i], setPrimaryKey.get(i));
+                        } else {
+                            leftovers.add(setPrimaryKey.get(i));
+                        }
+                    }
+                    tuple = Tuple.fromList(fieldValues).addAll(leftovers);
+                } else {
+                    tuple = Tuple.fromList(fieldValues).addAll(setPrimaryKey);
+                }
+
+                return new ScoreDocAndIndexEntry(scoreDoc, new IndexEntry(state.index,
+                        tuple, null));
+            } catch (Exception e) {
+                throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, "exception", e);
+            }
+        }, executor);
+    }
+
+    private static final class ScoreDocAndIndexEntry {
+        private final ScoreDoc scoreDoc;
+        private final IndexEntry indexEntry;
+
+        private ScoreDocAndIndexEntry(ScoreDoc scoreDoc, IndexEntry indexEntry) {
+            this.scoreDoc = scoreDoc;
+            this.indexEntry = indexEntry;
+        }
+    }
 }

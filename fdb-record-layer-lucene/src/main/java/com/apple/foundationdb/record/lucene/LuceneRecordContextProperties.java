@@ -113,4 +113,9 @@ public final class LuceneRecordContextProperties {
      * This controls whether Lucene indexes' directories (and their directories for auto-complete) should be merged based on probability to reduce multiple merges per transaction.
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.multipleMerge.optimizationEnabled", true);
+
+    /**
+     * This controls the page size to scan the basic Lucene index.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_INDEX_CURSOR_PAGE_SIZE = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.cursor.pageSize", 201);
 }
