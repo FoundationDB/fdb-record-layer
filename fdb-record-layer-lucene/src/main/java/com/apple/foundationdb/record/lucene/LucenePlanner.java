@@ -300,35 +300,37 @@ public class LucenePlanner extends RecordQueryPlanner {
     private static LuceneQueryClause negate(@Nonnull LuceneQueryClause clause) {
         if (clause instanceof LuceneBooleanQuery) {
             final LuceneBooleanQuery booleanQuery = (LuceneBooleanQuery)clause;
-            final BooleanClause.Occur occur = booleanQuery.getOccur();
-            if (occur == BooleanClause.Occur.MUST) {
-                List<LuceneQueryClause> clauses = new ArrayList<>();
-                for (LuceneQueryClause child : booleanQuery.getChildren()) {
-                    clauses.add(negate(child));
-                }
-                if (clause instanceof LuceneNotQuery) {
-                    LuceneNotQuery notQuery = (LuceneNotQuery)clause;
-                    if (clauses.isEmpty() && notQuery.getNegatedChildren().size() == 1) {
-                        return notQuery.getNegatedChildren().get(0);
+            switch (booleanQuery.getOccur()) {
+                case MUST:
+                    List<LuceneQueryClause> clauses = new ArrayList<>();
+                    for (LuceneQueryClause child : booleanQuery.getChildren()) {
+                        clauses.add(negate(child));
                     }
-                    clauses.addAll(notQuery.getNegatedChildren());
-                }
-                return new LuceneBooleanQuery(clauses, BooleanClause.Occur.SHOULD);
-            } else {
-                List<LuceneQueryClause> positive = new ArrayList<>();
-                List<LuceneQueryClause> negative = new ArrayList<>();
-                for (LuceneQueryClause child : booleanQuery.getChildren()) {
-                    if (child instanceof LuceneBooleanQuery) {
-                        positive.add(negate(child));
+                    if (clause instanceof LuceneNotQuery) {
+                        LuceneNotQuery notQuery = (LuceneNotQuery)clause;
+                        if (clauses.isEmpty() && notQuery.getNegatedChildren().size() == 1) {
+                            return notQuery.getNegatedChildren().get(0);
+                        }
+                        clauses.addAll(notQuery.getNegatedChildren());
+                    }
+                    return new LuceneBooleanQuery(clauses, BooleanClause.Occur.SHOULD);
+                case SHOULD:
+                    List<LuceneQueryClause> positive = new ArrayList<>();
+                    List<LuceneQueryClause> negative = new ArrayList<>();
+                    for (LuceneQueryClause child : booleanQuery.getChildren()) {
+                        if (child instanceof LuceneBooleanQuery) {
+                            positive.add(negate(child));
+                        } else {
+                            negative.add(child);
+                        }
+                    }
+                    if (negative.isEmpty()) {
+                        return new LuceneBooleanQuery(positive, BooleanClause.Occur.MUST);
                     } else {
-                        negative.add(child);
+                        return new LuceneNotQuery(positive, negative);
                     }
-                }
-                if (negative.isEmpty()) {
-                    return new LuceneBooleanQuery(positive, BooleanClause.Occur.MUST);
-                } else {
-                    return new LuceneNotQuery(positive, negative);
-                }
+                default:
+                    throw new RecordCoreException("Unsupported boolean query occur: " + booleanQuery);
             }
         }
         return new LuceneNotQuery(clause);
