@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -117,7 +118,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -1612,6 +1615,217 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .getCount().join());
             assertEquals(1, recordStore.scanIndex(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, fullTextSearch(ANALYZER_CHOOSER_TEST_LUCENE_INDEX, "motivatio"), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
+        }
+    }
+
+    @Test
+    void basicLuceneCursorTest() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            // Save 20 records
+            for (int i = 0; i < 20; i++) {
+                recordStore.saveRecord(createSimpleDocument(1600L + i, "testing text" + i, 1));
+            }
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), null, ScanProperties.FORWARD_SCAN);
+
+            List<IndexEntry> entries = indexEntries.asList().join();
+            assertEquals(20, entries.size());
+            assertEquals(20, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+        }
+    }
+
+    @Test
+    void luceneCursorTestWithMultiplePages() throws Exception {
+        // Configure page size as 10
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 10);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            // Save 20 records
+            for (int i = 0; i < 20; i++) {
+                recordStore.saveRecord(createSimpleDocument(1600L + i, "testing text" + i, 1));
+            }
+
+            ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .build());
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), null, scanProperties);
+
+            List<IndexEntry> entries = indexEntries.asList().join();
+            assertEquals(20, entries.size());
+            assertEquals(20, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
+        }
+    }
+
+    @Test
+    void luceneCursorTestWith3rdPage() throws Exception {
+        // Configure page size as 10
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 10);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            // Save 21 records
+            for (int i = 0; i < 21; i++) {
+                recordStore.saveRecord(createSimpleDocument(1600L + i, "testing text" + i, 1));
+            }
+
+            ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .build());
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), null, scanProperties);
+
+            List<IndexEntry> entries = indexEntries.asList().join();
+            assertEquals(21, entries.size());
+            assertEquals(21, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
+        }
+    }
+
+    @Test
+    void luceneCursorTestWithMultiplePagesWithSkip() throws Exception {
+        // Configure page size as 10
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 10);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            // Save 31 records
+            for (int i = 0; i < 31; i++) {
+                recordStore.saveRecord(createSimpleDocument(1600L + i, "testing text" + i, 1));
+            }
+
+            ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .setSkip(12)
+                    .build());
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), null, scanProperties);
+
+            List<IndexEntry> entries = indexEntries.asList().join();
+            assertEquals(19, entries.size());
+            assertEquals(19, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
+        }
+    }
+
+    @Test
+    void luceneCursorTestWithLimit() throws Exception {
+        // Configure page size as 10
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 10);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            // Save 21 records
+            for (int i = 0; i < 21; i++) {
+                recordStore.saveRecord(createSimpleDocument(1600L + i, "testing text" + i, 1));
+            }
+
+            // Scan with limit = 10
+            ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .setReturnedRowLimit(8)
+                    .build());
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), null, scanProperties);
+
+            // Get 8 results and continuation
+            List<IndexEntry> entries = indexEntries.asList().join();
+            assertEquals(8, entries.size());
+            assertEquals(8, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            RecordCursorResult<IndexEntry> lastResult = indexEntries.onNext().get();
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
+
+            indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), lastResult.getContinuation().toBytes(), scanProperties);
+
+            // Get 8 results and continuation
+            entries = indexEntries.asList().join();
+            assertEquals(8, entries.size());
+            assertEquals(16, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            lastResult = indexEntries.onNext().get();
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
+
+            indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), lastResult.getContinuation().toBytes(), scanProperties);
+
+            // Get 3 results
+            entries = indexEntries.asList().join();
+            assertEquals(5, entries.size());
+            assertEquals(21, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
+        }
+    }
+
+    @Test
+    void luceneCursorTestWithLimitAndSkip() throws Exception {
+        // Configure page size as 10
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 10);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            // Save 21 records
+            for (int i = 0; i < 21; i++) {
+                recordStore.saveRecord(createSimpleDocument(1600L + i, "testing text" + i, 1));
+            }
+
+            // Scan with limit = 8 and skip = 2
+            ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .setReturnedRowLimit(8)
+                    .setSkip(2)
+                    .build());
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), null, scanProperties);
+
+            // Get 8 results and continuation
+            List<IndexEntry> entries = indexEntries.asList().join();
+            assertEquals(8, entries.size());
+            assertEquals(8, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            RecordCursorResult<IndexEntry> lastResult = indexEntries.onNext().get();
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
+
+            // Scan with limit = 8, no skip
+            scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .setReturnedRowLimit(8)
+                    .build());
+            indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), lastResult.getContinuation().toBytes(), scanProperties);
+
+            // Get 8 results and continuation
+            entries = indexEntries.asList().join();
+            assertEquals(8, entries.size());
+            assertEquals(16, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            lastResult = indexEntries.onNext().get();
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
+
+            indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), lastResult.getContinuation().toBytes(), scanProperties);
+
+            // Get 3 results
+            entries = indexEntries.asList().join();
+            assertEquals(3, entries.size());
+            assertEquals(19, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
+        }
+    }
+
+    @Test
+    void luceneCursorTestAllMatchesSkipped() throws Exception {
+        // Configure page size as 10
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 10);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            // Save 6 records
+            for (int i = 0; i < 6; i++) {
+                recordStore.saveRecord(createSimpleDocument(1600L + i, "testing text" + i, 1));
+            }
+            // Scan with skip = 15
+            ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .setSkip(15)
+                    .build());
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"testing\""), null, scanProperties);
+
+            // No matches are found and source is exhausted
+            RecordCursorResult<IndexEntry> next = indexEntries.onNext().get();
+            assertFalse(next.hasNext());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, next.getNoNextReason());
+            assertNull(context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY));
         }
     }
 
