@@ -50,7 +50,7 @@ public final class Relational {
     }
 
     public static RelationalDriver getDriver(@Nonnull URI connectionUrl) throws RelationalException {
-        if (registeredDriver.acceptsURL(connectionUrl)) {
+        if (registeredDriver != null && registeredDriver.acceptsURL(connectionUrl)) {
             return registeredDriver;
         }
         throw new RelationalException("No Driver registered which can interpret scheme <" + connectionUrl.getScheme() + ">", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);

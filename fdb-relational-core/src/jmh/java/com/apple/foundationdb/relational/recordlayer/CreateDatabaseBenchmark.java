@@ -25,11 +25,14 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
@@ -46,23 +49,36 @@ import java.util.concurrent.TimeUnit;
 @BenchmarkMode({Mode.AverageTime, Mode.SampleTime})
 @Threads(Threads.MAX)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
+@State(Scope.Benchmark)
 public class CreateDatabaseBenchmark extends EmbeddedRelationalBenchmark {
     static final String schema = "schema";
+
+    Driver driver = new Driver();
+
+    @Setup(Level.Trial)
+    public void trialUp() throws SQLException, RelationalException {
+        driver.up();
+    }
+
+    @TearDown(Level.Trial)
+    public void trialDown() throws RelationalException {
+        driver.down();
+    }
 
     @State(Scope.Thread)
     public static class DbNameGenerator {
         private int id = 0;
 
         public String getNextDbName() {
-            return "/CreateDatabaseBenchmark_" + Thread.currentThread().getName() + "_" + id++;
+            return "/CreateDatabaseBenchmark_" + Thread.currentThread().getId() + "_" + id++;
         }
     }
 
     @Benchmark
-    public void createDatabase(Driver driver, ThreadScopedDatabases databases, DbNameGenerator dbNameGenerator) throws RelationalException, SQLException {
+    public void createDatabase(ThreadScopedDatabases databases, DbNameGenerator dbNameGenerator) throws RelationalException, SQLException {
         databases.createDatabase(
                 DatabaseTemplate.newBuilder()
-                        .withSchema(schema, restaurantRecord)
+                        .withSchema(schema, schemaTemplateName)
                         .build(),
                 dbNameGenerator.getNextDbName());
     }

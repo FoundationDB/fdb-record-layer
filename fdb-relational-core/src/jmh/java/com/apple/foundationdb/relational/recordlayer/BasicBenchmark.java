@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.google.protobuf.Message;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -36,6 +36,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
@@ -63,12 +64,24 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
     static final String singleWriteSchema = "singleWriteSchema";
     AtomicInteger restNo = new AtomicInteger();
 
+    Driver driver = new Driver();
+
+    @Setup(Level.Trial)
+    public void trialUp() throws SQLException, RelationalException {
+        driver.up();
+    }
+
+    @TearDown(Level.Trial)
+    public void trialDown() throws RelationalException {
+        driver.down();
+    }
+
     @Setup(Level.Iteration)
-    public void setUp(Driver driver, ThreadScopedDatabases databases) throws RelationalException, SQLException {
+    public void setUp(ThreadScopedDatabases databases) throws RelationalException, SQLException {
         databases.createDatabase(
                 DatabaseTemplate.newBuilder()
-                        .withSchema(singleReadSchema, restaurantRecord)
-                        .withSchema(singleWriteSchema, restaurantRecord)
+                        .withSchema(singleReadSchema, schemaTemplateName)
+                        .withSchema(singleWriteSchema, schemaTemplateName)
                         .build(),
                 dbName);
 
@@ -76,8 +89,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(
-                        restaurantRecord,
-                        Collections.singleton(newRestaurantRecord(42)),
+                        restaurantRecordTable,
+                        Collections.singleton(newRestaurantRecord(42, stmt)),
                         com.apple.foundationdb.relational.api.Options.create());
             }
         }
@@ -89,8 +102,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
             dbConn.setSchema(singleWriteSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 bh.consume(stmt.executeInsert(
-                        restaurantRecord,
-                        Collections.singleton(newRestaurantRecord()),
+                        restaurantRecordTable,
+                        Collections.singleton(newRestaurantRecord(stmt)),
                         com.apple.foundationdb.relational.api.Options.create()));
             }
         }
@@ -101,7 +114,7 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
-                    ResultSet resultSet = stmt.executeQuery("SELECT rest_no FROM RestaurantRecord WHERE rest_no = 42")) {
+                    ResultSet resultSet = stmt.executeQuery("SELECT * FROM RestaurantRecord WHERE rest_no = 42")) {
 
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
@@ -114,24 +127,23 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
-                    ResultSet resultSet = stmt.executeQuery("SELECT rest_no, name from RestaurantRecord WHERE name = 'testName'")) {
+                    ResultSet resultSet = stmt.executeQuery("SELECT * from RestaurantRecord WHERE name = 'testName'")) {
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
             }
         }
     }
 
-    private Restaurant.RestaurantRecord newRestaurantRecord() {
-        return newRestaurantRecord(restNo.incrementAndGet());
+    private Message newRestaurantRecord(RelationalStatement statement) throws RelationalException {
+        return newRestaurantRecord(restNo.incrementAndGet(), statement);
     }
 
-    private Restaurant.RestaurantRecord newRestaurantRecord(int recordId) {
-        return Restaurant.RestaurantRecord.newBuilder()
-                .setRestNo(recordId)
-                .setName("testName")
+    private Message newRestaurantRecord(int recordId, RelationalStatement statement) throws RelationalException {
+        return statement.getDataBuilder(restaurantRecordTable)
+                .setField("rest_no", recordId)
+                .setField("name", "testName")
                 .build();
     }
-
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()

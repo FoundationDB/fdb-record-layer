@@ -38,7 +38,6 @@ import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
@@ -56,26 +55,26 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 public abstract class EmbeddedRelationalBenchmark {
-    private static final String restaurantSchema =
+    private static final String templateDefinition =
             "CREATE STRUCT Location (address string, latitude string, longitude string);" +
                     "CREATE STRUCT RestaurantReview (reviewer int64, rating int64);" +
                     "CREATE STRUCT RestaurantTag (tag string, weight int64);" +
                     "CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string);" +
                     "CREATE TABLE RestaurantRecord (rest_no int64, name string, location Location, reviews RestaurantReview ARRAY, tags RestaurantTag ARRAY, customer string ARRAY PRIMARY KEY(rest_no));" +
                     "CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats PRIMARY KEY(id));" +
-                    "CREATE VALUE INDEX record_type_covering on RestaurantRecord(rest_no) INCLUDE (name);" +
+                    //"CREATE VALUE INDEX record_type_covering on RestaurantRecord(rest_no) INCLUDE (name);" +
                     "CREATE VALUE INDEX record_name_idx on RestaurantRecord(name);" +
                     "CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name) ";
 
-    static final String restaurantRecord = "RestaurantRecord";
+    static final String restaurantRecordTable = "RestaurantRecord";
 
-    @State(Scope.Benchmark)
+    static final String schemaTemplateName = "RestaurantTemplate";
+
     public static class Driver {
         EmbeddedRelationalEngine engine;
         KeySpace keySpace;
         FdbConnection fdbDatabase;
 
-        @Setup(Level.Trial)
         public void up() throws RelationalException, SQLException {
             KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
             dbDirectory.addSubdirectory(new KeySpaceDirectory("schema", KeySpaceDirectory.KeyType.STRING));
@@ -99,19 +98,17 @@ public abstract class EmbeddedRelationalBenchmark {
             createSchemaTemplate();
         }
 
+        public void down() throws RelationalException {
+            engine.deregisterDriver();
+        }
+
         private void createSchemaTemplate() throws RelationalException, SQLException {
             try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
                 conn.setSchema("catalog");
                 try (Statement statement = conn.createStatement()) {
-                    statement.executeUpdate("CREATE SCHEMA TEMPLATE restaurant_template AS { " + restaurantSchema + "}");
-                    conn.commit();
+                    statement.executeUpdate("CREATE SCHEMA TEMPLATE " + schemaTemplateName + " AS { " + templateDefinition + "}");
                 }
             }
-        }
-
-        @TearDown(Level.Trial)
-        public void down() throws RelationalException {
-            engine.deregisterDriver();
         }
     }
 
@@ -120,8 +117,8 @@ public abstract class EmbeddedRelationalBenchmark {
         List<String> databases = new ArrayList<>();
 
         @TearDown(Level.Iteration)
-        public void down(Driver driver) throws RelationalException {
-            deleteDatabases(databases, driver);
+        public void down() throws RelationalException {
+            deleteDatabases(databases);
         }
 
         public void createDatabase(DatabaseTemplate dbTemplate, String dbName) throws RelationalException, SQLException {
@@ -130,14 +127,8 @@ public abstract class EmbeddedRelationalBenchmark {
         }
     }
 
-    @State(Scope.Benchmark)
     public static class BenchmarkScopedDatabases {
         List<String> databases = new ArrayList<>();
-
-        @TearDown(Level.Trial)
-        public void down(Driver driver) throws RelationalException {
-            deleteDatabases(databases, driver);
-        }
 
         public void createMultipleDatabases(
                 DatabaseTemplate dbTemplate,
@@ -163,6 +154,10 @@ public abstract class EmbeddedRelationalBenchmark {
                 databases.add(dbName.apply(i));
             }
         }
+
+        public void deleteDatabases() throws RelationalException {
+            EmbeddedRelationalBenchmark.deleteDatabases(databases);
+        }
     }
 
     static URI getUri(String dbName, boolean fullyQualified) {
@@ -179,13 +174,13 @@ public abstract class EmbeddedRelationalBenchmark {
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate("CREATE DATABASE '" + dbUri.getPath() + "'");
                 for (Map.Entry<String, String> schemaTemplateEntry : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
-                    statement.executeUpdate("CREATE SCHEMA '" + schemaTemplateEntry.getKey() + "' WITH TEMPLATE " + schemaTemplateEntry.getValue());
+                    statement.executeUpdate("CREATE SCHEMA '" + dbUri.getPath() + "/" + schemaTemplateEntry.getKey() + "' WITH TEMPLATE " + schemaTemplateEntry.getValue());
                 }
             }
         }
     }
 
-    private static void deleteDatabase(URI dbUri, Driver driver) throws RelationalException, SQLException {
+    private static void deleteDatabase(URI dbUri) throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
@@ -194,11 +189,11 @@ public abstract class EmbeddedRelationalBenchmark {
         }
     }
 
-    private static void deleteDatabases(Collection<String> databases, Driver driver) throws RelationalException {
+    private static void deleteDatabases(Collection<String> databases) throws RelationalException {
         try {
             databases.parallelStream().forEach(dbName -> {
                 try {
-                    deleteDatabase(getUri(dbName, false), driver);
+                    deleteDatabase(getUri(dbName, false));
                 } catch (RelationalException e) {
                     throw e.toUncheckedWrappedException();
                 } catch (SQLException e) {
