@@ -58,6 +58,7 @@ publishing {
             from components.java
             artifact tasks.sourcesJar
             artifact tasks.javadocJar
+            artifact tasks.testJar
             addPublishingInfo(publication)
         }
     }
@@ -100,7 +101,7 @@ if (System.getenv('ARTIFACTORY_USER') != null && System.getenv('ARTIFACTORY_KEY'
 createDistribution.configure {
     afterEvaluate {
         dependsOn generatePomFileForLibraryPublication
-        from tasks.jar, tasks.sourcesJar, tasks.javadocJar, tasks.generatePomFileForLibraryPublication
+        from tasks.jar, tasks.sourcesJar, tasks.javadocJar, tasks.testJar, tasks.generatePomFileForLibraryPublication
         rename { filename ->
             GenerateMavenPom pomTask = tasks.generatePomFileForLibraryPublication
             Jar jarTask = tasks.jar
