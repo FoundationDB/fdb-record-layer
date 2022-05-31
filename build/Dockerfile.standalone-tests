@@ -14,7 +14,9 @@ RUN yum -y install ${JDKPKG} && yum clean all && rm -rf /var/cache/yum
 
 FROM java AS standalone
 
-COPY fdb-record-layer-core/.out/libs/fdb-record-layer-core-3.1-SNAPSHOT-standalone-tests.jar fdb-record-layer-standalone-tests.jar 
+ARG RECORDLAYERVERSION=3.2-SNAPSHOT
+
+COPY fdb-record-layer-core/.out/libs/fdb-record-layer-core-${RECORDLAYERVERSION}-standalone-tests.jar fdb-record-layer-standalone-tests.jar 
 
 ENTRYPOINT ["java", "-Dlog4j.configurationFile=standalone.log4j.properties", "-jar", "fdb-record-layer-standalone-tests.jar"]
 CMD ["help"]
