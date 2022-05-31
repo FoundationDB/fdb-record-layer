@@ -71,7 +71,7 @@ public class NullValue implements LeafValue {
 
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        return true;
+        return false;
     }
 
     @Override

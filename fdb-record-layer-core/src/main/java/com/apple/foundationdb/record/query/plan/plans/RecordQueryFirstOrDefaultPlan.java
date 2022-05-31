@@ -54,8 +54,9 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A query plan that applies the values it contains over the incoming ones. In a sense, this is similar to the {@code Stream.map()}
- * method: Mapping one {@link Value} to another.
+ * A query plan that only flows the first record it processes from its inner and then stops. If the inner is empty,
+ * i.e. does not produce any records, are default value that is passed into the constructor is returned in place of
+ * the first record.
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, RelationalExpressionWithChildren {

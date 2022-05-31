@@ -670,9 +670,7 @@ public interface Compensation {
                     final var quantifier = Quantifier.forEach(GroupExpressionRef.of(relationalExpression));
 
                     final var translationMap =
-                            (mappedQuantifiers.size() == 1)
-                            ? AliasMap.of(mappedForEachQuantifierAlias, quantifier.getAlias())
-                            : AliasMap.emptyMap();
+                            AliasMap.of(mappedForEachQuantifierAlias, quantifier.getAlias());
 
                     final var rebasedRemainingComputationValue = remainingComputationValue.rebase(translationMap);
 

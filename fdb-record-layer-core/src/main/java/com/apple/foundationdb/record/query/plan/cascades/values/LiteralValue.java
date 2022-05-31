@@ -87,7 +87,7 @@ public class LiteralValue<T> implements LeafValue {
 
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        return true;
+        return false;
     }
 
     @Override

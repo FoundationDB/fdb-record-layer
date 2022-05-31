@@ -114,7 +114,7 @@ public class ImplementSimpleSelectRule extends PlannerRule<SelectExpression> {
             if (!predicates.isEmpty()) {
                 final var lowerAlias = quantifier.getAlias();
                 beforeMapQuantifier = Quantifier.physical(reference);
-                resultValue = resultValue.rebase(AliasMap.of(lowerAlias, quantifier.getAlias()));
+                resultValue = resultValue.rebase(AliasMap.of(lowerAlias, beforeMapQuantifier.getAlias()));
             } else {
                 beforeMapQuantifier = Quantifier.physicalBuilder()
                         .withAlias(quantifier.getAlias())
