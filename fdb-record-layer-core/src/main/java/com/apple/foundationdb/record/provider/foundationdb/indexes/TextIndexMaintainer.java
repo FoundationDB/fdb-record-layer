@@ -520,12 +520,12 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      */
     @Nonnull
     @Override
-    @SuppressWarnings("squid:S2095") // not closing the returned cursor
+    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // not closing the returned cursor
     public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
                                          @Nonnull TupleRange range,
                                          @Nullable byte[] continuation,
                                          @Nonnull ScanProperties scanProperties) {
-        if (scanType != IndexScanType.BY_TEXT_TOKEN) {
+        if (!scanType.equals(IndexScanType.BY_TEXT_TOKEN)) {
             throw new RecordCoreException("Can only scan text index by text token.");
         }
         int textPosition = textFieldPosition(state.index.getRootExpression());

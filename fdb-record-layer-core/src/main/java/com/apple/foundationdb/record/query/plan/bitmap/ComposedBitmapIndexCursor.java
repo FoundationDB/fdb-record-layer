@@ -115,6 +115,7 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     protected IndexEntry getNextResult(@Nonnull List<MergeCursorState<IndexEntry>> resultStates) {
         final List<MergeCursorState<IndexEntry>> cursorStates = getCursorStates();
         final IndexEntry firstEntry = resultStates.get(0).getResult().get();

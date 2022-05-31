@@ -169,7 +169,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                                          @Nullable byte[] continuation,
                                          @Nonnull ScanProperties scanProperties) {
         final IndexScanType scanType = scanBounds.getScanType();
-        if (scanType != IndexScanType.BY_VALUE && scanType != IndexScanType.BY_RANK && scanType != IndexScanType.BY_TIME_WINDOW) {
+        if (!scanType.equals(IndexScanType.BY_VALUE) && !scanType.equals(IndexScanType.BY_RANK) && !scanType.equals(IndexScanType.BY_TIME_WINDOW)) {
             throw new RecordCoreException("Can only scan leaderboard index by time window, rank or value.");
         }
 
@@ -177,7 +177,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         final int type;
         final long timestamp;
         final TupleRange leaderboardRange;
-        if (scanType == IndexScanType.BY_TIME_WINDOW) {
+        if (scanType.equals(IndexScanType.BY_TIME_WINDOW)) {
             // Get oldest leaderboard of type containing timestamp.
             if (scanBounds instanceof TimeWindowScanRange) {
                 TimeWindowScanRange scanRange = (TimeWindowScanRange)scanBounds;
@@ -210,7 +210,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         final int groupPrefixSize = getGroupingCount();
         final CompletableFuture<TimeWindowLeaderboard> leaderboardFuture = oldestLeaderboardMatching(type, timestamp);
         final CompletableFuture<TupleRange> scoreRangeFuture;
-        if (scanType == IndexScanType.BY_VALUE) {
+        if (scanType.equals(IndexScanType.BY_VALUE)) {
             scoreRangeFuture = leaderboardFuture.thenApply(leaderboard -> leaderboard == null ? null : leaderboardRange);
         } else {
             scoreRangeFuture = leaderboardFuture.thenCompose(leaderboard -> {
@@ -232,7 +232,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                     }
                     final TimeWindowLeaderboard leaderboard = state.context.joinNow(leaderboardFuture); // Already waited in scoreRangeFuture.
                     final CompletableFuture<Boolean> highStoreFirstFuture;
-                    if (scanType == IndexScanType.BY_VALUE) {
+                    if (scanType.equals(IndexScanType.BY_VALUE)) {
                         final Tuple lowGroup = scoreRange.getLow() != null && scoreRange.getLow().size() > groupPrefixSize ?
                                                TupleHelpers.subTuple(scoreRange.getLow(), 0, groupPrefixSize) : null;
                         final Tuple highGroup = scoreRange.getHigh() != null && scoreRange.getHigh().size() > groupPrefixSize ?
@@ -418,9 +418,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
     @Override
     public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
-        return (function.getName().equals(FunctionNames.RANK) ||
-                function.getName().equals(FunctionNames.TIME_WINDOW_RANK) ||
-                function.getName().equals(FunctionNames.TIME_WINDOW_RANK_AND_ENTRY)) &&
+        return (FunctionNames.RANK.equals(function.getName()) ||
+                FunctionNames.TIME_WINDOW_RANK.equals(function.getName()) ||
+                FunctionNames.TIME_WINDOW_RANK_AND_ENTRY.equals(function.getName())) &&
                state.index.getRootExpression().equals(function.getOperand());
     }
 
@@ -431,17 +431,17 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
                                                                               @Nonnull IndexRecordFunction<T> function,
                                                                               @Nonnull FDBRecord<M> record) {
-        if (function.getName().equals(FunctionNames.RANK)) {
+        if (FunctionNames.RANK.equals(function.getName())) {
             final CompletableFuture<Long> rank = timeWindowRankAndEntry(record, TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0)
                     .thenApply(re -> re == null ? null : re.getLeft());
             return (CompletableFuture<T>)rank;
-        } else if (function.getName().equals(FunctionNames.TIME_WINDOW_RANK)) {
+        } else if (FunctionNames.TIME_WINDOW_RANK.equals(function.getName())) {
             final TimeWindowRecordFunction<Long> timeWindowRank = (TimeWindowRecordFunction<Long>) function;
             final TimeWindowForFunction timeWindow = timeWindowRank.getTimeWindow();
             final CompletableFuture<Long> rank = timeWindowRankAndEntry(context, timeWindow, record)
                     .thenApply(re -> re == null ? null : re.getLeft());
             return (CompletableFuture<T>)rank;
-        } else if (function.getName().equals(FunctionNames.TIME_WINDOW_RANK_AND_ENTRY)) {
+        } else if (FunctionNames.TIME_WINDOW_RANK_AND_ENTRY.equals(function.getName())) {
             final TimeWindowRecordFunction<Tuple> timeWindowRankAndEntry = (TimeWindowRecordFunction<Tuple>) function;
             final TimeWindowForFunction timeWindow = timeWindowRankAndEntry.getTimeWindow();
             final CompletableFuture<Tuple> rankAndEntry = timeWindowRankAndEntry(context, timeWindow, record)
@@ -751,12 +751,14 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                             if (isRebuildConditional()) {
                                 rebuild = true;
                             }
-                            LOGGER.info(KeyValueLogMessage.of(rebuild ?
-                                                              "rebuilding leaderboard index due to overlapping existing record" :
-                                                              "need to rebuild leaderboard index due to overlapping existing record",
-                                    LogMessageKeys.LATEST_ENTRY_TIMESTAMP, latestEntryTimestamp,
-                                    LogMessageKeys.EARLIEST_ADDED_START_TIMESTAMP, earliestAddedStartTimestamp,
-                                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
+                            if (LOGGER.isInfoEnabled()) {
+                                LOGGER.info(KeyValueLogMessage.of(rebuild ?
+                                                                  "rebuilding leaderboard index due to overlapping existing record" :
+                                                                  "need to rebuild leaderboard index due to overlapping existing record",
+                                        LogMessageKeys.LATEST_ENTRY_TIMESTAMP, latestEntryTimestamp,
+                                        LogMessageKeys.EARLIEST_ADDED_START_TIMESTAMP, earliestAddedStartTimestamp,
+                                        LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
+                            }
                             if (getTimer() != null) {
                                 getTimer().increment(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED);
                             }

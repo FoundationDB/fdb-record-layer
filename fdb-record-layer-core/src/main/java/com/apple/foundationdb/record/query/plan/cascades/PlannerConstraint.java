@@ -61,5 +61,5 @@ public interface PlannerConstraint<T> {
      *         subsumes the new property.
      */
     @Nonnull
-    Optional<T> combine(@Nonnull final T currentConstraint, @Nonnull final T newConstraint);
+    Optional<T> combine(@Nonnull T currentConstraint, @Nonnull T newConstraint);
 }

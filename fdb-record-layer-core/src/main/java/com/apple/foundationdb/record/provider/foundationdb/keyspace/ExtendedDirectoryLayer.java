@@ -37,7 +37,7 @@ import com.google.common.primitives.Bytes;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -230,12 +230,12 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
     private CompletableFuture<Subspace> getCounterSubspaceAsync() {
         return nodeSubspaceFuture.thenApply(nodeSubspace ->
-                nodeSubspace.get(nodeSubspace.getKey()).get("hca".getBytes(Charset.forName("UTF-8"))).get(0));
+                nodeSubspace.get(nodeSubspace.getKey()).get("hca".getBytes(StandardCharsets.UTF_8)).get(0));
     }
 
     private CompletableFuture<Subspace> getAllocationSubspaceAsync() {
         return nodeSubspaceFuture.thenApply(nodeSubspace ->
-                nodeSubspace.get(nodeSubspace.getKey()).get("hca".getBytes(Charset.forName("UTF-8"))).get(1));
+                nodeSubspace.get(nodeSubspace.getKey()).get("hca".getBytes(StandardCharsets.UTF_8)).get(1));
     }
 
     @Override

@@ -97,6 +97,7 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
         });
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private void chooseStates(@Nonnull List<KeyedMergeCursorState<T>> allStates, @Nonnull List<KeyedMergeCursorState<T>> chosenStates, @Nonnull List<KeyedMergeCursorState<T>> otherStates) {
         List<Object> nextKey = null;
         for (KeyedMergeCursorState<T> cursorState : allStates) {

@@ -64,7 +64,7 @@ public class MetaDataProtoEditor {
      */
     public static void addRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType, @Nonnull KeyExpression primaryKey) {
         RecordMetaDataOptionsProto.RecordTypeOptions.Usage newRecordTypeUsage = getMessageTypeUsage(newRecordType);
-        if (newRecordType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME) ||
+        if (RecordMetaDataBuilder.DEFAULT_UNION_NAME.equals(newRecordType.getName()) ||
                 newRecordTypeUsage == RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION) {
             throw new MetaDataException("Adding UNION record type not allowed");
         }
@@ -129,7 +129,7 @@ public class MetaDataProtoEditor {
     }
 
     private static boolean isUnion(@Nonnull DescriptorProtos.DescriptorProtoOrBuilder messageType) {
-        if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+        if (RecordMetaDataBuilder.DEFAULT_UNION_NAME.equals(messageType.getName())) {
             return true;
         }
         RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = messageType.getOptions()
@@ -140,7 +140,7 @@ public class MetaDataProtoEditor {
     }
 
     private static boolean isUnion(@Nonnull Descriptors.Descriptor messageType) {
-        if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+        if (RecordMetaDataBuilder.DEFAULT_UNION_NAME.equals(messageType.getName())) {
             return true;
         }
         RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = messageType.getOptions()
@@ -470,7 +470,7 @@ public class MetaDataProtoEditor {
             }
         }
         // Do not allow renaming to the default union name unless the record type is already the union
-        if (newRecordTypeName.equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME) &&
+        if (RecordMetaDataBuilder.DEFAULT_UNION_NAME.equals(newRecordTypeName) &&
                 !RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION.equals(usage)) {
             throw new MetaDataException("Cannot rename record type to the default union name", LogMessageKeys.RECORD_TYPE, recordTypeName);
         }

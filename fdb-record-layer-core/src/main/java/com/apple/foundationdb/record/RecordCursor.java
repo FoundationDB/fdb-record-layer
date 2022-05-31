@@ -309,7 +309,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      */
     @Nonnull
     default CompletableFuture<Integer> getCount() {
-        final int[] i = new int[] {0};
+        final int[] i = { 0 };
         return forEachResult(result -> i[0] = i[0] + 1).thenApply(vignore -> i[0]);
     }
 

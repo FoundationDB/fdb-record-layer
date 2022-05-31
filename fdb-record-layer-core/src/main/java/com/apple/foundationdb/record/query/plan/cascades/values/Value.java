@@ -135,7 +135,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nullable
-    <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context);
+    <M extends Message> Object eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 
     /**
      * Method to create a {@link QueryPredicate} that is based on this value and a
@@ -292,6 +292,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean semanticEquals(@Nullable final Object other,
                                    @Nonnull final AliasMap aliasMap) {
         if (other == null) {
@@ -327,7 +328,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return !otherChildren.hasNext();
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
     default boolean equalsWithoutChildren(@Nonnull final Value other,
                                           @Nonnull final AliasMap equivalenceMap) {
         if (this == other) {

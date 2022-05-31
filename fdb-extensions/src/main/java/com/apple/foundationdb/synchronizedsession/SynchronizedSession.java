@@ -129,9 +129,11 @@ public class SynchronizedSession {
                         .addLogInfo(LogMessageKeys.SESSION_ID, sessionId);
             } else {
                 if (sessionTime == null) {
-                    LOGGER.warn("Session ID is set but session time is not",
-                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()),
-                            LogMessageKeys.SESSION_ID, sessionId);
+                    if (LOGGER.isWarnEnabled()) {
+                        LOGGER.warn("Session ID is set but session time is not {}={} {}={}",
+                                LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()),
+                                LogMessageKeys.SESSION_ID, sessionId);
+                    }
                     // This is unexpected, but if it does occur, we may want to correct it by letting the new session
                     // to take the lock.
                     takeSessionLock(tr);

@@ -53,6 +53,7 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
 
     @Override
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store,
                                                     @Nullable byte[] continuation,
                                                     @Nonnull ExecuteProperties executeProperties) {

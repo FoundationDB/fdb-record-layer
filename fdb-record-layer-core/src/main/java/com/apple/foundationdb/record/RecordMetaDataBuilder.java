@@ -757,6 +757,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private Descriptors.Descriptor findOldDescriptor(@Nonnull Descriptors.FieldDescriptor newUnionField, @Nonnull Descriptors.Descriptor newUnion) {
         if (unionDescriptor == null) {
             throw new RecordCoreException("cannot get field from union as it has not been set");
@@ -867,7 +868,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             }
             final FieldKeyExpression field = Key.Expressions.fromDescriptor(fieldDescriptor);
             final KeyExpression expr;
-            if (type.equals(IndexTypes.RANK)) {
+            if (IndexTypes.RANK.equals(type)) {
                 expr = field.ungrouped();
             } else {
                 expr = field;
@@ -1381,7 +1382,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             syntheticRecordTypes.values().forEach(recordTypeBuilder -> recordTypeBuilder.buildDescriptor(fileBuilder));
             final Descriptors.FileDescriptor fileDescriptor;
             try {
-                final Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[] { unionDescriptor.getFile() };
+                final Descriptors.FileDescriptor[] dependencies = { unionDescriptor.getFile() };
                 fileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
             } catch (Descriptors.DescriptorValidationException ex) {
                 throw new MetaDataException("Could not build synthesized file descriptor", ex);

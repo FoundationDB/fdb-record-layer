@@ -48,6 +48,7 @@ public class InstanceMatcher<T> implements BindingMatcher<T> {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
         Verify.verify(outerBindings.containsKey(otherMatcher));
 

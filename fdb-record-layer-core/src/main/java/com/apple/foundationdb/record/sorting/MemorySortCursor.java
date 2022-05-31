@@ -126,6 +126,7 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
         return visitor.visitLeave(this);
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     public static <K, V> MemorySortCursor<K, V> create(@Nonnull MemorySortAdapter<K, V> adapter,
                                                        @Nonnull Function<byte[], RecordCursor<V>> inputCursorFunction,
                                                        @Nullable StoreTimer timer,

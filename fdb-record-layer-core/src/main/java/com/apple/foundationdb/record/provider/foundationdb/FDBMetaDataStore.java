@@ -308,8 +308,10 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                                 .thenApply(oldRawRecord -> {
                                     if (oldRawRecord != null) {
                                         final byte[] oldBytes = oldRawRecord.getRawRecord();
-                                        LOGGER.info(KeyValueLogMessage.of("Upgrading old-format meta-data store",
-                                                subspaceProvider.logKey(), subspaceProvider.toString(context)));
+                                        if (LOGGER.isInfoEnabled()) {
+                                            LOGGER.info(KeyValueLogMessage.of("Upgrading old-format meta-data store",
+                                                    subspaceProvider.logKey(), subspaceProvider.toString(context)));
+                                        }
                                         ensureContextActive().clear(getSubspace().range(OLD_FORMAT_KEY));
                                         SplitHelper.saveWithSplit(context, getSubspace(), CURRENT_KEY, oldBytes, null);
                                         return oldBytes;
@@ -379,10 +381,12 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                 RecordMetaDataProto.MetaData oldProto = parseMetaDataProto(oldSerialized);
                 int oldVersion = oldProto.getVersion();
                 if (metaDataProto.getVersion() <= oldVersion) {
-                    LOGGER.warn(KeyValueLogMessage.of("Meta-data version did not increase",
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context),
-                                    LogMessageKeys.OLD, oldVersion,
-                                    LogMessageKeys.NEW, metaDataProto.getVersion()));
+                    if (LOGGER.isWarnEnabled()) {
+                        LOGGER.warn(KeyValueLogMessage.of("Meta-data version did not increase",
+                                        subspaceProvider.logKey(), subspaceProvider.toString(context),
+                                        LogMessageKeys.OLD, oldVersion,
+                                        LogMessageKeys.NEW, metaDataProto.getVersion()));
+                    }
                     throw new MetaDataException("meta-data version must increase");
                 }
                 // Build the meta-data, but don't use the local file descriptor as this should validate the original descriptors

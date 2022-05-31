@@ -267,7 +267,7 @@ public abstract class GraphExporter<N, E> {
         });
     }
 
-    protected abstract boolean isValidId(@Nonnull final String idCandidate);
+    protected abstract boolean isValidId(@Nonnull String idCandidate);
 
     /**
      * Render the header. To be implemented by subclass.
@@ -353,8 +353,8 @@ public abstract class GraphExporter<N, E> {
      * @param context the context to use
      * @param clusters the clusters on this level
      */
-    protected abstract void renderClusters(@Nonnull final ExporterContext context,
-                                           @Nonnull final Collection<Cluster<N, E>> clusters);
+    protected abstract void renderClusters(@Nonnull ExporterContext context,
+                                           @Nonnull Collection<Cluster<N, E>> clusters);
 
     /**
      * Render the footer.

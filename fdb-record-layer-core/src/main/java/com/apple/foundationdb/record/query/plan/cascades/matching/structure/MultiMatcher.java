@@ -82,7 +82,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
     }
 
     @Nonnull
-    protected abstract Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream);
+    protected abstract Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull Stream<PlannerBindings> accumulatedStream);
 
     /**
      * A multi matcher that binds a sub collection of objects of the collection it is being matched. That includes the empty

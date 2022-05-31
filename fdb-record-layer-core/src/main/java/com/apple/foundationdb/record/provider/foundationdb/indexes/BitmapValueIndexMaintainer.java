@@ -112,7 +112,7 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
                                          @Nonnull TupleRange range,
                                          @Nullable byte[] continuation,
                                          @Nonnull ScanProperties scanProperties) {
-        if (scanType != IndexScanType.BY_GROUP) {
+        if (!scanType.equals(IndexScanType.BY_GROUP)) {
             throw new RecordCoreException("Can only scan bitmap index by group.");
         }
         final int groupPrefixSize = getGroupingCount();
@@ -247,16 +247,17 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
-        return function.getName().equals(AGGREGATE_FUNCTION_NAME) &&
+        return AGGREGATE_FUNCTION_NAME.equals(function.getName()) &&
                 IndexFunctionHelper.isGroupPrefix(function.getOperand(), state.index.getRootExpression());
     }
 
     @Override
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
                                                               @Nonnull TupleRange range,
                                                               @Nonnull IsolationLevel isolationveLevel) {
-        if (!function.getName().equals(AGGREGATE_FUNCTION_NAME)) {
+        if (!AGGREGATE_FUNCTION_NAME.equals(function.getName())) {
             throw new MetaDataException("this index does not support aggregate function: " + function);
         }
         final RecordCursor<IndexEntry> cursor = scan(IndexScanType.BY_GROUP, range,

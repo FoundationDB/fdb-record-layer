@@ -100,8 +100,8 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
     }
 
     @Nonnull
-    RelationalExpressionWithChildren rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                  @Nonnull final List<Quantifier> rebasedQuantifiers);
+    RelationalExpressionWithChildren rebaseWithRebasedQuantifiers(@Nonnull AliasMap translationMap,
+                                                                  @Nonnull List<Quantifier> rebasedQuantifiers);
 
     @Nonnull
     @Override

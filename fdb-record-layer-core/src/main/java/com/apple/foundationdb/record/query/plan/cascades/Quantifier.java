@@ -115,7 +115,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         }
 
         @Nonnull
-        public abstract Quantifier build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver);
+        public abstract Quantifier build(@Nonnull ExpressionRef<? extends RelationalExpression> rangesOver);
     }
 
     /**
@@ -498,6 +498,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         return getRangesOver().semanticEquals(that.getRangesOver(), aliasMap);
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsOnKind(final Object o) {
         if (this == o) {
             return true;

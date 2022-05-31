@@ -183,6 +183,7 @@ public class PlanOrderingKey {
      * @return a comparison key compatible with all the plans
      */
     @Nullable
+    @SuppressWarnings("PMD.UnusedAssignment") // confused by break?
     public static KeyExpression mergedComparisonKey(@Nonnull List<RecordQueryPlanner.ScoredPlan> plans,
                                                     @Nullable KeyExpression candidateKey,
                                                     boolean candidateOnly) {

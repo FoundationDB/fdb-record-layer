@@ -110,6 +110,7 @@ public abstract class FDBStoreBase {
         return subspace;
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     public void addConflictForSubspace(boolean write) {
         final Range range = getSubspace().range();
         final Transaction tr = context.ensureActive();

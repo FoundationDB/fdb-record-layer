@@ -62,7 +62,7 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
                                          @Nonnull TupleRange range,
                                          @Nullable byte[] continuation,
                                          @Nonnull ScanProperties scanProperties) {
-        if (scanType != IndexScanType.BY_VALUE) {
+        if (!scanType.equals(IndexScanType.BY_VALUE)) {
             throw new RecordCoreException("Can only scan standard index by value.");
         }
         return scan(range, continuation, scanProperties);
@@ -93,8 +93,8 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
-        return (function.getName().equals(FunctionNames.MIN) ||
-                function.getName().equals(FunctionNames.MAX)) &&
+        return (FunctionNames.MIN.equals(function.getName()) ||
+                FunctionNames.MAX.equals(function.getName())) &&
                 ungroupedAggregateOperand(function.getOperand()).isPrefixKey(state.index.getRootExpression());
     }
 
@@ -112,9 +112,9 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
                                                               @Nonnull TupleRange range,
                                                               @Nonnull final IsolationLevel isolationLevel) {
         final boolean reverse;
-        if (function.getName().equals(FunctionNames.MIN)) {
+        if (FunctionNames.MIN.equals(function.getName())) {
             reverse = false;
-        } else if (function.getName().equals(FunctionNames.MAX)) {
+        } else if (FunctionNames.MAX.equals(function.getName())) {
             reverse = true;
         } else {
             throw new MetaDataException("do not index aggregate function: " + function);

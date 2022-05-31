@@ -155,6 +155,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * @param overriddenKeyRanges the position ranges of the dynamic field names within the entire field name
      * @return a pair of the list of fixed names and that of the dynamic ones
      */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Pair<List<String>, List<String>> getOriginalAndMappedFieldElements(@Nonnull String entireFieldName,
                                                                                       @Nonnull List<Integer> overriddenKeyRanges) {
         int size = overriddenKeyRanges.size();

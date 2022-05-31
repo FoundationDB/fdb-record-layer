@@ -66,7 +66,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @return a copy of {@code this} using the new children passed in
      */
     @Nonnull
-    T withChildren(final Iterable<? extends T> newChildren);
+    T withChildren(Iterable<? extends T> newChildren);
 
     /**
      * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like.

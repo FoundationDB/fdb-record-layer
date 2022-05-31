@@ -101,6 +101,7 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;

@@ -108,6 +108,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;

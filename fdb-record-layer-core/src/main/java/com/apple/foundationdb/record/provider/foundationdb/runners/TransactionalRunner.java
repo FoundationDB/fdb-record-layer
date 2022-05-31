@@ -95,6 +95,7 @@ public class TransactionalRunner implements AutoCloseable {
      * so will the future returned here.
      */
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public <T> CompletableFuture<T> runAsync(final boolean clearWeakReadSemantics,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
         FDBRecordContext context = openContext(clearWeakReadSemantics);

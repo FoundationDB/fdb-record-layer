@@ -668,7 +668,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *     <code>false</code> otherwise
      */
     @Nonnull
-    CompletableFuture<Boolean> recordExistsAsync(@Nonnull final Tuple primaryKey, @Nonnull final IsolationLevel isolationLevel);
+    CompletableFuture<Boolean> recordExistsAsync(@Nonnull Tuple primaryKey, @Nonnull IsolationLevel isolationLevel);
 
     /**
      * Check if a record exists in the record store with the given primary key.
@@ -719,7 +719,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the primary key of the record to add a read conflict on
      * @see com.apple.foundationdb.Transaction#addReadConflictRange(byte[], byte[])
      */
-    void addRecordReadConflict(@Nonnull final Tuple primaryKey);
+    void addRecordReadConflict(@Nonnull Tuple primaryKey);
 
     /**
      * Add a write conflict as if one had modified the record with the given primary key. This will cause any concurrent
@@ -739,7 +739,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the primary key of the record to add a write conflict on
      * @see com.apple.foundationdb.Transaction#addWriteConflictRange(byte[], byte[])
      */
-    void addRecordWriteConflict(@Nonnull final Tuple primaryKey);
+    void addRecordWriteConflict(@Nonnull Tuple primaryKey);
 
     /**
      * Scan the records in the database.
@@ -946,10 +946,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @API(API.Status.EXPERIMENTAL)
     RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull Index index,
                                                            @Nonnull IndexScanBounds scanBounds,
-                                                           @Nonnull final KeyExpression commonPrimaryKey,
+                                                           @Nonnull KeyExpression commonPrimaryKey,
                                                            @Nullable byte[] continuation,
                                                            @Nonnull ScanProperties scanProperties,
-                                                           @Nonnull final IndexOrphanBehavior orphanBehavior);
+                                                           @Nonnull IndexOrphanBehavior orphanBehavior);
 
     /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
@@ -975,6 +975,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return A cursor returning indexed record entries.
      */
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     default RecordCursor<FDBIndexedRecord<M>> fetchIndexRecords(@Nonnull RecordCursor<IndexEntry> indexCursor,
                                                                 @Nonnull IndexOrphanBehavior orphanBehavior,
                                                                 @Nonnull ExecuteState executeState) {
@@ -1294,7 +1295,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that completes {@code true} if the record was present to be deleted
      */
     @Nonnull
-    CompletableFuture<Boolean> deleteRecordAsync(@Nonnull final Tuple primaryKey);
+    CompletableFuture<Boolean> deleteRecordAsync(@Nonnull Tuple primaryKey);
 
     /**
      * Delete the record with the given primary key.

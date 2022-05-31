@@ -87,7 +87,7 @@ public class GeophileIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     @Override
     public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
-        if (scanType == GeophileScanTypes.GO_TO_Z) {
+        if (scanType.equals(GeophileScanTypes.GO_TO_Z)) {
             return scan(range, continuation, scanProperties);
         } else {
             throw new RecordCoreException("This index can only be scanned by a spatial cursor");

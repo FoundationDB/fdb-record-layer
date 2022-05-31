@@ -61,10 +61,9 @@
         <exclude name="AvoidLiteralsInIfCondition" />
         <exclude name="BeanMembersShouldSerialize" />
         <exclude name="ConstructorCallsOverridableMethod" />
-        <!-- The rule below appears to have bugs when run: https://github.com/pmd/pmd/issues/873 -->
-        <exclude name="DataflowAnomalyAnalysis" />
         <exclude name="NullAssignment" />
         <exclude name="ReturnEmptyArrayRatherThanNull" />
+        <exclude name="ReturnEmptyCollectionRatherThanNull" />
     </rule>
 
 </ruleset>

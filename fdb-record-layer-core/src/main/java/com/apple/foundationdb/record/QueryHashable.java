@@ -51,5 +51,5 @@ public interface QueryHashable {
      * @param hashKind the "kind" of hash to calculate. Each kind of hash has a particular logic with regards to included and excluded items.
      * @return a stable hash code
      */
-    int queryHash(@Nonnull final QueryHashKind hashKind);
+    int queryHash(@Nonnull QueryHashKind hashKind);
 }

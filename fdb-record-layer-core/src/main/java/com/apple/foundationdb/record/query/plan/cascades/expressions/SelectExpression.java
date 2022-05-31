@@ -153,8 +153,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         return semanticHashCode();
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Override
+    @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap aliasMap) {
         if (this == otherExpression) {
@@ -180,6 +180,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                           @Nonnull final AliasMap aliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {

@@ -81,6 +81,7 @@ class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  
 
     @Override
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store,
                                                                         @Nonnull FDBStoredRecord<M> record,
                                                                         @Nullable byte[] continuation,

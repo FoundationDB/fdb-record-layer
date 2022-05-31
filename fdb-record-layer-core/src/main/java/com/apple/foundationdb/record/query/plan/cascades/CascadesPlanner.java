@@ -447,7 +447,7 @@ public class CascadesPlanner implements QueryPlanner {
     public interface Task {
         void execute();
 
-        Debugger.Event toTaskEvent(final Location location);
+        Debugger.Event toTaskEvent(Location location);
     }
 
     /**

@@ -44,8 +44,8 @@ public interface AggregateValue extends Value {
      * @return a new {@link Accumulator} for aggregating values for this Value.
      */
     @Nonnull
-    Accumulator createAccumulator(@Nonnull final TypeRepository typeRepository);
+    Accumulator createAccumulator(@Nonnull TypeRepository typeRepository);
 
     @Nullable
-    <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context);
+    <M extends Message> Object evalToPartial(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 }

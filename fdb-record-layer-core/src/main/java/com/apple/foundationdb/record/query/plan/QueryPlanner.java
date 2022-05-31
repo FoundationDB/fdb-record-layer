@@ -137,5 +137,5 @@ public interface QueryPlanner {
      * {@link #setIndexScanPreference(IndexScanPreference)} then it will be ignored.
      * @param configuration a configuration object for this planner
      */
-    void setConfiguration(@Nonnull final RecordQueryPlannerConfiguration configuration);
+    void setConfiguration(@Nonnull RecordQueryPlannerConfiguration configuration);
 }

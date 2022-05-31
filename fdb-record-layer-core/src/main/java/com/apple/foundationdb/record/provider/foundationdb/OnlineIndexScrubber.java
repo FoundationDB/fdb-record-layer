@@ -927,6 +927,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         // Check pointer equality to make sure other objects really came from given metaData.
         // Also resolve record types to use if not specified.
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         private void validateIndex() {
             if (index == null) {
                 throw new MetaDataException("index must be set");

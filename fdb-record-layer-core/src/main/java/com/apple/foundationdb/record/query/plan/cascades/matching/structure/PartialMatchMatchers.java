@@ -38,6 +38,7 @@ public class PartialMatchMatchers {
      * @return a matcher matching any partial match
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static BindingMatcher<PartialMatch> completeMatch() {
         return new TypedMatcher<>(PartialMatch.class) {
             @Nonnull
@@ -60,6 +61,7 @@ public class PartialMatchMatchers {
      * @return a matcher matching any partial match
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static BindingMatcher<PartialMatch> incompleteMatch() {
         return new TypedMatcher<>(PartialMatch.class) {
             @Nonnull

@@ -44,7 +44,7 @@ public interface MatchPredicate<T> {
      */
     boolean test(@Nonnull T element,
                  @Nonnull T otherElement,
-                 @Nonnull final AliasMap aliasMap);
+                 @Nonnull AliasMap aliasMap);
 
     /**
      * Method that combines this {@link MatchPredicate} and the {@code other} one passed in to produce a new

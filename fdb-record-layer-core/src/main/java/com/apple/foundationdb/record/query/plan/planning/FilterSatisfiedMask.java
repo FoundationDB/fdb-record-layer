@@ -156,6 +156,7 @@ public class FilterSatisfiedMask {
      * @throws FilterNotFoundException if the given filter is not associated with any of the mask's children
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public FilterSatisfiedMask getChild(@Nonnull QueryComponent childFilter) {
         for (FilterSatisfiedMask child : children) {
             // Use pointer equality because (1) efficiency and (2) this should
@@ -235,6 +236,7 @@ public class FilterSatisfiedMask {
     }
 
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private QueryComponent getUnsatisfiedFilter(@Nonnull NestedField filter) {
         if (children.isEmpty()) {
             throw new RecordCoreException("nested filter has no child masks", LogMessageKeys.PARENT_FILTER, filter);
@@ -349,6 +351,7 @@ public class FilterSatisfiedMask {
      * @param other another mask over the same filter
      * @throws FilterMismatchException if <code>other</code> is not a mask of the same filter as this mask
      */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public void mergeWith(@Nonnull FilterSatisfiedMask other) {
         if (other.getFilter() != getFilter()) {
             throw new FilterMismatchException(other.getFilter());

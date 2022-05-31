@@ -130,12 +130,12 @@ public interface Type extends Narrowable<Type> {
      * @param typeNameOptional The type name of the descriptor.
      * @param label The label of the descriptor.
      */
-    void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
-                       @Nonnull final DescriptorProto.Builder descriptorBuilder,
-                       final int fieldNumber,
-                       @Nonnull final String fieldName,
-                       @Nonnull final Optional<String> typeNameOptional,
-                       @Nonnull final FieldDescriptorProto.Label label);
+    void addProtoField(@Nonnull TypeRepository.Builder typeRepositoryBuilder,
+                       @Nonnull DescriptorProto.Builder descriptorBuilder,
+                       int fieldNumber,
+                       @Nonnull String fieldName,
+                       @Nonnull Optional<String> typeNameOptional,
+                       @Nonnull FieldDescriptorProto.Label label);
 
     /**
      * Returns a map from Java {@link Class} to corresponding {@link TypeCode}.

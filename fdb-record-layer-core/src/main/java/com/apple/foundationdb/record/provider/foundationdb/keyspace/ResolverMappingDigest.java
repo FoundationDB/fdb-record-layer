@@ -68,6 +68,7 @@ public class ResolverMappingDigest implements AutoCloseable {
         runner.close();
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<byte[]> computeDigest() {
         MessageDigest messageDigest;
         try {

@@ -68,6 +68,7 @@ public class ReadVersionRecordStoreStateCache implements FDBRecordStoreStateCach
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore,
                                                                 @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final FDBRecordContext context = recordStore.getContext();
@@ -99,6 +100,7 @@ public class ReadVersionRecordStoreStateCache implements FDBRecordStoreStateCach
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public void validateDatabase(@Nonnull FDBDatabase database) {
         if (database != this.database) {
             throw new RecordCoreArgumentException("record store state cache used with different database than the one it was initialized with");

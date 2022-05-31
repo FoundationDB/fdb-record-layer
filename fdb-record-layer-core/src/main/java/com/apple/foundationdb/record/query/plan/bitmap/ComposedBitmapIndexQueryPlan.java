@@ -196,6 +196,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     }
     
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression other, @Nonnull AliasMap equivalences) {
         if (this == other) {
             return true;

@@ -141,7 +141,7 @@ public interface Debugger {
     }
 
     @Nullable
-    String nameForObject(@Nonnull final Object object);
+    String nameForObject(@Nonnull Object object);
 
     void onEvent(Event event);
 
@@ -149,7 +149,7 @@ public interface Debugger {
 
     int onGetIndex(@Nonnull Class<?> clazz);
 
-    int onUpdateIndex(@Nonnull Class<?> clazz, @Nonnull final IntUnaryOperator updateFn);
+    int onUpdateIndex(@Nonnull Class<?> clazz, @Nonnull IntUnaryOperator updateFn);
 
     void onRegisterExpression(@Nonnull RelationalExpression expression);
 
@@ -161,9 +161,9 @@ public interface Debugger {
 
     void onSetup();
 
-    void onShow(@Nonnull final ExpressionRef<? extends RelationalExpression> ref);
+    void onShow(@Nonnull ExpressionRef<? extends RelationalExpression> ref);
 
-    void onQuery(final String queryAsString, final PlanContext planContext);
+    void onQuery(String queryAsString, PlanContext planContext);
 
     /**
      * Shorthands to identify a kind of event.

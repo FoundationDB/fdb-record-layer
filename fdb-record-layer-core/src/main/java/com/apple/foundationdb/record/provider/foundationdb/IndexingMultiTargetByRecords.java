@@ -201,6 +201,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
 
         validateSameMetadataOrThrow(store);

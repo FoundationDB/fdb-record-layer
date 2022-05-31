@@ -130,6 +130,7 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
@@ -166,7 +167,7 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
         StringBuilder str = new StringBuilder("IndexScan(");
         str.append(indexName).append(" ");
         str.append(scanComparisons()).append(" ");
-        if (scanType != IndexScanType.BY_VALUE) {
+        if (!scanType.equals(IndexScanType.BY_VALUE)) {
             str.append(scanType);
         }
         if (reverse) {

@@ -86,6 +86,7 @@ public class AdjustMatchRule extends PlannerRule<PartialMatch> {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private Optional<MatchInfo> matchWithCandidate(@Nonnull PartialMatch partialMatch,
                                                    @Nonnull RelationalExpression candidateExpression) {
         Verify.verify(!candidateExpression.getQuantifiers().isEmpty());

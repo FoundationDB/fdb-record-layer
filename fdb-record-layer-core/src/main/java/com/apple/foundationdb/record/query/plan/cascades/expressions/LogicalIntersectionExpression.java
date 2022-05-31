@@ -114,6 +114,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {

@@ -304,6 +304,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     }
 
     @CanIgnoreReturnValue
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
     private boolean compareAllStates(@Nonnull final List<KeyedMergeCursorState<T>> cursorStates) {
         final long startTime = System.nanoTime();
 
@@ -393,6 +394,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     /**
      * An internal class that is never equal to anything (other than itself).
      */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static class Unequal implements Comparable<Object> {
         @Override
         public int compareTo(@Nonnull final Object o) {

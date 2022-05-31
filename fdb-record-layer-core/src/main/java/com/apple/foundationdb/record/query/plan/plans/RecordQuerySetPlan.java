@@ -147,7 +147,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @return a new set-based plan
      */
     @Nonnull
-    RecordQuerySetPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren);
+    RecordQuerySetPlan withChildrenReferences(@Nonnull List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren);
 
     /**
      * Returns whether the set operation is dynamic if it only has exactly one leg, i.e., the leg of the plan can be

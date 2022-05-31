@@ -91,6 +91,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
@@ -113,6 +114,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ExplodeExpression rebase(@Nonnull final AliasMap translationMap) {
         final Value rebasedResultValue = collectionValue.rebase(translationMap);
         if (rebasedResultValue == this.collectionValue) {

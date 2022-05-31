@@ -730,7 +730,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         } else if (filter instanceof OneOfThemWithComponent) {
             return planOneOfThemWithComponent(candidateScan, indexExpr, (OneOfThemWithComponent) filter, sort);
         } else if (filter instanceof QueryRecordFunctionWithComparison) {
-            if (((QueryRecordFunctionWithComparison) filter).getFunction().getName().equals(FunctionNames.VERSION)) {
+            if (FunctionNames.VERSION.equals(((QueryRecordFunctionWithComparison) filter).getFunction().getName())) {
                 return planVersion(candidateScan, indexExpr, (QueryRecordFunctionWithComparison) filter, sort);
             }
         } else if (filter instanceof QueryKeyExpressionWithComparison) {
@@ -1276,6 +1276,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private ScoredPlan planRank(@Nonnull CandidateScan candidateScan,
                                 @Nonnull Index index, @Nonnull GroupingKeyExpression indexExpr,
                                 @Nonnull QueryComponent filter) {
@@ -1296,6 +1297,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private ScoredPlan planRankWithAnd(@Nonnull CandidateScan candidateScan,
                                        @Nonnull Index index, @Nonnull GroupingKeyExpression indexExpr,
                                        @Nonnull AndComponent and) {
@@ -1312,7 +1314,8 @@ public class RecordQueryPlanner implements QueryPlanner {
                     final List<QueryComponent> unsatisfiedFilters = new ArrayList<>(filters);
                     unsatisfiedFilters.remove(filter);
                     unsatisfiedFilters.removeAll(rankComparison.getGroupFilters());
-                    for (int i = 0; i < unsatisfiedFilters.size(); i++) {
+                    int i = 0;
+                    while (i < unsatisfiedFilters.size()) {
                         final QueryComponent otherFilter = unsatisfiedFilters.get(i);
                         if (otherFilter instanceof QueryRecordFunctionWithComparison) {
                             final QueryRecordFunctionWithComparison otherComparison = (QueryRecordFunctionWithComparison) otherFilter;
@@ -1326,6 +1329,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                 }
                             }
                         }
+                        i++;
                     }
                     final RecordQueryPlan scan = rankScan(candidateScan, filterComparison, scanComparisons);
                     final boolean createsDuplicates = RankComparisons.createsDuplicates(index, indexExpr);
@@ -1416,7 +1420,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                      @Nonnull QueryRecordFunctionWithComparison rank,
                                      @Nonnull ScanComparisons scanComparisons) {
         IndexScanComparisons scanParameters;
-        if (rank.getFunction().getName().equals(FunctionNames.TIME_WINDOW_RANK)) {
+        if (FunctionNames.TIME_WINDOW_RANK.equals(rank.getFunction().getName())) {
             scanParameters = new TimeWindowScanComparisons(((TimeWindowRecordFunction<?>) rank.getFunction()).getTimeWindow(), scanComparisons);
         } else {
             scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, scanComparisons);
@@ -1648,8 +1652,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             } else {
                 conjuncts.add(child);
             }
-            child = AndComponent.from(conjuncts);
-            distributed.add(child);
+            QueryComponent cchild = AndComponent.from(conjuncts);
+            distributed.add(cchild);
         }
         return distributed;
     }
@@ -2097,7 +2101,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 } else if (filterComponent instanceof OneOfThemWithComparison) {
                     planOneOfThemWithComparisonChild(child, (OneOfThemWithComparison) filterComponent, filterChild);
                 } else if (filterComponent instanceof QueryRecordFunctionWithComparison
-                           && ((QueryRecordFunctionWithComparison) filterComponent).getFunction().getName().equals(FunctionNames.VERSION)) {
+                           && FunctionNames.VERSION.equals(((QueryRecordFunctionWithComparison) filterComponent).getFunction().getName())) {
                     planWithVersionComparisonChild(child, (QueryRecordFunctionWithComparison) filterComponent, filterChild);
                 } else if (filterComponent instanceof QueryKeyExpressionWithComparison) {
                     planWithComparisonChild(child, (QueryKeyExpressionWithComparison) filterComponent, filterChild);

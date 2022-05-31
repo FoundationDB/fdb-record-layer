@@ -94,6 +94,7 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     protected void renderGraphAttributes(@Nonnull final ExporterContext context,
                                          @Nonnull final Map<String, Attribute> attributes) {
         // graph attributes
@@ -109,6 +110,7 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     protected void renderNode(@Nonnull final ExporterContext context,
                               @Nonnull final N node,
                               @Nonnull final Map<String, Attribute> attributes) {
@@ -140,6 +142,7 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     protected void renderEdge(@Nonnull final ExporterContext context,
                               final boolean isDirected,
                               @Nonnull final N source,
@@ -185,6 +188,7 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param indentation current indentation of the writer
      * @param attributes attributes
      */
+    @SuppressWarnings("PMD.CloseResource")
     private void renderAttributes(@Nonnull final ExporterContext context,
                                   @Nonnull final String indentation,
                                   @Nonnull final Map<String, Attribute> attributes) {
@@ -208,7 +212,7 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param attrName attribute name
      * @param attribute attribute; may be any type
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "PMD.CloseResource"})
     private void renderAttribute(@Nonnull final ExporterContext context,
                                  @Nonnull final String indentation,
                                  @Nonnull final String attrName,

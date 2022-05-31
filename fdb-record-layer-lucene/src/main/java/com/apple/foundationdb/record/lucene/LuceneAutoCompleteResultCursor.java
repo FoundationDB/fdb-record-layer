@@ -288,6 +288,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         sb.append(surface.substring(prefixToken.length()));
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<IndexEntry> lookup() throws IOException {
         // Determine the tokens from the query key
         final boolean phraseQueryNeeded = query.startsWith("\"") && query.endsWith("\"");

@@ -160,6 +160,7 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private LuceneScanParameters getSpecialScan(@Nonnull LucenePlanState state, @Nonnull FilterSatisfiedMask filterMask) {
         QueryComponent queryComponent = state.groupingComparisons.isEmpty() ? state.filter : filterMask.getUnsatisfiedFilter();
         if (queryComponent instanceof LuceneQueryComponent) {
@@ -233,7 +234,7 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    @SuppressWarnings("java:S3776")
+    @SuppressWarnings({"java:S3776", "PMD.CompareObjectsWithEquals"})
     private LuceneQueryClause getQueryForAndOr(@Nonnull LucenePlanState state, @Nonnull AndOrComponent filter,
                                                @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterMask) {
         final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;

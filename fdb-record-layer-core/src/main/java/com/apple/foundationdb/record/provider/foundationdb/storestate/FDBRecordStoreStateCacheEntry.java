@@ -84,6 +84,7 @@ public class FDBRecordStoreStateCacheEntry {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     CompletableFuture<Void> handleCachedState(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final Transaction tr = context.ensureActive();
         tr.addReadConflictKey(subspace.pack(FDBRecordStoreKeyspace.STORE_INFO.key()));

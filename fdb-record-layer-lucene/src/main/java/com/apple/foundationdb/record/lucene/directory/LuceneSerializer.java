@@ -56,19 +56,19 @@ public class LuceneSerializer {
             this.encrypted = false;
         }
 
-        private void setCompressed(boolean compressed) {
+        void setCompressed(boolean compressed) {
             this.compressed = compressed;
         }
 
-        private void setEncrypted(boolean encrypted) {
+        void setEncrypted(boolean encrypted) {
             this.encrypted = encrypted;
         }
 
-        private boolean isCompressed() {
+        boolean isCompressed() {
             return compressed;
         }
 
-        private boolean isEncrypted() {
+        boolean isEncrypted() {
             return encrypted;
         }
     }

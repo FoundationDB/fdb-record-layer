@@ -115,7 +115,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
                                             @Nonnull TupleRange range,
                                             @Nullable byte[] continuation,
                                             @Nonnull ScanProperties scanProperties) {
-        if (scanType != IndexScanType.BY_GROUP) {
+        if (!scanType.equals(IndexScanType.BY_GROUP)) {
             throw new RecordCoreException("Can only scan aggregate index by group.");
         }
         return scan(range, continuation, scanProperties);
@@ -205,6 +205,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
                                                               @Nonnull TupleRange range,
                                                               @Nonnull IsolationLevel isolationveLevel) {

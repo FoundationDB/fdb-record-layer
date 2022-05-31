@@ -233,8 +233,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         return false;
     }
 
-    boolean equalsWithoutChildren(@Nonnull final RelationalExpression other,
-                                  @Nonnull final AliasMap equivalences);
+    boolean equalsWithoutChildren(@Nonnull RelationalExpression other,
+                                  @Nonnull AliasMap equivalences);
 
     int hashCodeWithoutChildren();
 
@@ -259,6 +259,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @return {@code true} if this is considered equal to {@code other}, false otherwise
      */
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean semanticEquals(@Nullable final Object other,
                                    @Nonnull final AliasMap aliasMap) {
         // check some early-outs
@@ -356,8 +357,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
          *        {@code boundCorrelatedToMap}
          * @return {@code false} if the match should be dropped or {@code true} if it should be kept.
          */
-        boolean combine(@Nonnull final AliasMap boundCorrelatedToMap,
-                        @Nonnull final Iterable<AliasMap> boundMapIterable);
+        boolean combine(@Nonnull AliasMap boundCorrelatedToMap,
+                        @Nonnull Iterable<AliasMap> boundMapIterable);
     }
 
     /**
@@ -532,8 +533,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
          * @return an iterable of type {@code S}
          */
         @Nonnull
-        Iterable<S> combine(@Nonnull final AliasMap boundCorrelatedToMap,
-                            @Nonnull final Iterable<BoundMatch<EnumeratingIterable<R>>> boundMatches);
+        Iterable<S> combine(@Nonnull AliasMap boundCorrelatedToMap,
+                            @Nonnull Iterable<BoundMatch<EnumeratingIterable<R>>> boundMatches);
     }
 
     /**

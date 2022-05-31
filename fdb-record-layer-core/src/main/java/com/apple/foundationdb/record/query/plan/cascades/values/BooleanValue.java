@@ -43,5 +43,5 @@ public interface BooleanValue extends Value {
      * @param innermostAlias An alias immediately visible to the expression.
      * @return A {@link QueryPredicate} that is equivalent to this {@link BooleanValue} expression.
      */
-    Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias);
+    Optional<QueryPredicate> toQueryPredicate(@Nonnull CorrelationIdentifier innermostAlias);
 }

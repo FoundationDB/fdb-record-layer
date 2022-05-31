@@ -227,6 +227,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Sargable rebaseLeaf(@Nonnull final AliasMap translationMap) {
             final var rebasedValue = getValue().rebase(translationMap);
             final var rebasedComparisonRange = comparisonRange.rebase(translationMap);

@@ -1915,6 +1915,7 @@ public class OnlineIndexer implements AutoCloseable {
             validateLimits();
         }
 
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         private void validateIndexes(RecordMetaData metaData) {
             if (this.targetIndexes.isEmpty()) {
                 throw new MetaDataException("index must be set");
@@ -1938,6 +1939,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
         }
 
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         private void validateTypes(RecordMetaData metaData) {
             if (recordTypes != null) {
                 for (RecordType recordType : recordTypes) {

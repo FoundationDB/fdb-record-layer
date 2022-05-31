@@ -107,6 +107,7 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the provided value constant value is not valid for the
      * type of directory being created
      */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Object value,
                              @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
 
@@ -419,7 +420,8 @@ public class KeySpaceDirectory {
     }
 
     @Nonnull
-    @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the cursor is wrapped and returned
+    @SuppressWarnings({"squid:S2095", // SonarQube doesn't realize that the cursor is wrapped and returned
+                       "PMD.CompareObjectsWithEquals"})
     protected RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nullable KeySpacePath listFrom,
                                                                        @Nonnull FDBRecordContext context,
                                                                        @Nonnull String subdirName,
@@ -476,6 +478,7 @@ public class KeySpaceDirectory {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private CompletableFuture<KeyRange> getValueRange(@Nonnull FDBRecordContext context,
                                                       @Nullable ValueRange<?> valueRange,
                                                       @Nonnull Subspace subspace) {
@@ -546,6 +549,7 @@ public class KeySpaceDirectory {
                 LogMessageKeys.RANGE, range);
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Optional<Tuple>> nextTuple(@Nonnull FDBRecordContext context,
                                                          @Nonnull Subspace subspace,
                                                          @Nonnull KeyRange range,
@@ -779,6 +783,7 @@ public class KeySpaceDirectory {
         toTree(out, this, 0, false, new BitSet());
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private void toTree(Writer out, KeySpaceDirectory dir, int indent, boolean hasAnotherSibling,
                         BitSet downspouts) throws IOException {
 

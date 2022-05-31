@@ -73,6 +73,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
         for (FDBDirectoryWrapper directory : createdDirectories.values()) {
             directory.close();
@@ -123,6 +124,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public static FDBDirectoryManager getManager(@Nonnull IndexMaintainerState state) {
         synchronized (state.context) {
             FDBRecordContext context = state.context;
@@ -146,7 +148,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private int getMergeDirectoryCount(@Nonnull IndexMaintainerState state) {
         final AtomicInteger luceneMergeCount = new AtomicInteger();
-        state.store.getRecordMetaData().getAllIndexes().stream().filter(i -> i.getType().equals(LuceneIndexTypes.LUCENE)).forEach(i -> {
+        state.store.getRecordMetaData().getAllIndexes().stream().filter(i -> LuceneIndexTypes.LUCENE.equals(i.getType())).forEach(i -> {
             if (i.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false)) {
                 // Auto-complete has its separate directory to merge
                 luceneMergeCount.getAndAdd(2);

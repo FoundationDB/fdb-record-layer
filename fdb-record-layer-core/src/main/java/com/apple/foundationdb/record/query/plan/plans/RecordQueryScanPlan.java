@@ -228,6 +228,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {

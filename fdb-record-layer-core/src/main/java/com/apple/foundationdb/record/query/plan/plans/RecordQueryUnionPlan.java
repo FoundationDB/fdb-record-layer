@@ -105,6 +105,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {

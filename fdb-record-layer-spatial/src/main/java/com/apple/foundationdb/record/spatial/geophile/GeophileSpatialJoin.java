@@ -94,6 +94,7 @@ class GeophileSpatialJoin {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<IndexEntry> recordCursor(@Nonnull SpatialObject spatialObject,
                                                  @Nonnull SpatialIndex<GeophileRecordImpl> spatialIndex) {
         // TODO: This is a synchronous implementation using Iterators. A proper RecordCursor implementation needs
@@ -112,6 +113,7 @@ class GeophileSpatialJoin {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<Pair<IndexEntry, IndexEntry>> recordCursor(@Nonnull SpatialIndex<GeophileRecordImpl> left,
                                                                    @Nonnull SpatialIndex<GeophileRecordImpl> right) {
         // TODO: This is a synchronous implementation using Iterators. A proper RecordCursor implementation needs

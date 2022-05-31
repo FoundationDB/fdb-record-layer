@@ -70,7 +70,7 @@ public abstract class InSource implements PlanHashable {
     protected abstract List<Object> getValues(@Nullable EvaluationContext context);
 
     @Nonnull
-    public abstract RecordQueryInJoinPlan toInJoinPlan(@Nonnull final Quantifier.Physical innerQuantifier);
+    public abstract RecordQueryInJoinPlan toInJoinPlan(@Nonnull Quantifier.Physical innerQuantifier);
 
     public int baseHash(@Nonnull final PlanHashKind hashKind, @Nonnull ObjectPlanHash objectPlanHash) {
         // TODO We should really use objectPlanHash here, too, but it seems doing so will change a lot

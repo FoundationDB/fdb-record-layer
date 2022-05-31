@@ -114,6 +114,7 @@ public class SplitHelper {
      * @param previousSizeInfo if <code>clearBasedOnPreviousSizeInfo</code>, the {@link FDBStoredSizes} for any old record, or <code>null</code> if there was no old record
      * @param sizeInfo optional size information to populate
      */
+    @SuppressWarnings("PMD.CloseResource")
     public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                      @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
                                      final boolean splitLongRecords, final boolean omitUnsplitSuffix,
@@ -154,6 +155,7 @@ public class SplitHelper {
         writeVersion(context, subspace, key, version, sizeInfo);
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private static void writeSplitRecord(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                          @Nonnull final Tuple key, @Nonnull final byte[] serialized,
                                          final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
@@ -184,6 +186,7 @@ public class SplitHelper {
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private static void writeVersion(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace, @Nonnull final Tuple key,
                                      @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo) {
         if (version == null) {
@@ -231,6 +234,7 @@ public class SplitHelper {
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private static void clearPreviousSplitRecord(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                                  @Nonnull final Tuple key,
                                                  final boolean clearBasedOnPreviousSizeInfo, @Nullable FDBStoredSizes previousSizeInfo) {
@@ -744,6 +748,7 @@ public class SplitHelper {
         }
 
         // Process all elements from the scan until we get a new primary key
+        @SuppressWarnings("PMD.UnnecessaryLocalBeforeReturn") // Name and negation make it much clearer as is
         private CompletableFuture<Void> appendUntilNewKey() {
             return AsyncUtil.whileTrue(() -> {
                 if (pending != null) {

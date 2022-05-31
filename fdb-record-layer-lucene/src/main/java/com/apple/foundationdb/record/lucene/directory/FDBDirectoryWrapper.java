@@ -68,6 +68,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
         return directory;
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     public IndexReader getReader() throws IOException {
         IndexWriter indexWriter = writer;
         if (writer == null) {
@@ -123,6 +124,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public IndexWriter getWriter(LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
         if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
             synchronized (this) {
@@ -150,6 +152,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
         IndexWriter indexWriter = writer;
         if (indexWriter != null) {

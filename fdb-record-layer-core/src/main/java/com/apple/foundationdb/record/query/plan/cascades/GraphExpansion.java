@@ -331,6 +331,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier) {
             final var forEachQuantifiers = quantifiers.stream()
                     .filter(quantifier -> quantifier instanceof Quantifier.ForEach)

@@ -57,5 +57,5 @@ public interface ValueWithChild extends Value {
     }
 
     @Nonnull
-    ValueWithChild withNewChild(@Nonnull final Value rebasedChild);
+    ValueWithChild withNewChild(@Nonnull Value rebasedChild);
 }

@@ -113,8 +113,8 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
         return projectedValues;
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Override
+    @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {

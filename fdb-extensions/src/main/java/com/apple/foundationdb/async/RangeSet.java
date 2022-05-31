@@ -52,8 +52,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @API(API.Status.MAINTAINED)
 public class RangeSet {
     @Nonnull private Subspace subspace;
-    @Nonnull private static final byte[] FIRST_KEY = new byte[]{(byte)0x00};
-    @Nonnull private static final byte[] FINAL_KEY = new byte[]{(byte)0xff};
+    @Nonnull private static final byte[] FIRST_KEY = { (byte)0x00 };
+    @Nonnull private static final byte[] FINAL_KEY = { (byte)0xff };
 
     private static final Range COMPLETE_RANGE = new Range(FIRST_KEY, FINAL_KEY);
 

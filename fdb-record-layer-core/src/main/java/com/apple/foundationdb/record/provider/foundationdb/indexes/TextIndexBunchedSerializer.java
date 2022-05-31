@@ -82,7 +82,7 @@ import java.util.function.BiFunction;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List<Integer>> {
-    private static final byte[] PREFIX = new byte[]{0x20};
+    private static final byte[] PREFIX = { 0x20 };
     private static final TextIndexBunchedSerializer INSTANCE = new TextIndexBunchedSerializer();
 
     /**

@@ -177,7 +177,7 @@ public abstract class IndexMaintainer {
      * @return a list of index keys and values
      */
     @Nullable
-    public abstract  <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord);
+    public abstract  <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable FDBIndexableRecord<M> savedRecord);
 
     /**
      * Evaluate a record function on the given record.
@@ -215,7 +215,7 @@ public abstract class IndexMaintainer {
     @Nonnull
     public abstract CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
                                                                        @Nonnull TupleRange range,
-                                                                       @Nonnull final IsolationLevel isolationLevel);
+                                                                       @Nonnull IsolationLevel isolationLevel);
 
     @Nonnull
     protected CompletableFuture<Tuple> unsupportedAggregateFunction(@Nonnull IndexAggregateFunction function) {

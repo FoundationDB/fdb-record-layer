@@ -164,6 +164,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     private final RecordLayerPropertyStorage propertyStorage;
 
+    @SuppressWarnings("PMD.CloseResource")
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
                                @Nonnull Transaction transaction,
                                @Nonnull FDBRecordContextConfig config) {
@@ -1156,9 +1157,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                         if (ex != null
                                 && (!(ex instanceof FDBException) ||
                                     ((FDBException) ex).getCode() != FDBError.TRANSACTION_CANCELLED.code())) {
-                            LOGGER.warn(KeyValueLogMessage.of("error reading sample key",
-                                            LogMessageKeys.KEY, ByteArrayUtil2.loggable(key)),
-                                    ex);
+                            if (LOGGER.isWarnEnabled()) {
+                                LOGGER.warn(KeyValueLogMessage.of("error reading sample key",
+                                                LogMessageKeys.KEY, ByteArrayUtil2.loggable(key)),
+                                        ex);
+                            }
                         }
                         return null;
                     });

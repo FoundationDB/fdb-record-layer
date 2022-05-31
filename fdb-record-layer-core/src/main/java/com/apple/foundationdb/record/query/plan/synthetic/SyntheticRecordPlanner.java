@@ -106,6 +106,7 @@ public class SyntheticRecordPlanner {
      * @return a plan that can be applied to a record store to generate synthetic records
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public SyntheticRecordFromStoredRecordPlan forType(@Nonnull SyntheticRecordType<?> syntheticRecordType) {
         if (syntheticRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
@@ -124,6 +125,7 @@ public class SyntheticRecordPlanner {
      * @return a plan that can be applied to a record store to generate joined records
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public SyntheticRecordFromStoredRecordPlan forType(@Nonnull JoinedRecordType joinedRecordType) {
         if (joinedRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
@@ -153,6 +155,7 @@ public class SyntheticRecordPlanner {
      * no indexed synthetic types include the given stored record type.
      */
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public SyntheticRecordFromStoredRecordPlan fromStoredType(@Nonnull RecordType storedRecordType, boolean onlyIfIndexed) {
         if (storedRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
@@ -270,6 +273,7 @@ public class SyntheticRecordPlanner {
      * @return a plan that can be applied to a record of the given type to generate synthetic records
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public SyntheticRecordFromStoredRecordPlan forJoinConstituent(@Nonnull JoinedRecordType joinedRecordType,
                                                                   @Nonnull JoinedRecordType.JoinConstituent joinConstituent) {
         if (joinedRecordType.getRecordMetaData() != recordMetaData) {

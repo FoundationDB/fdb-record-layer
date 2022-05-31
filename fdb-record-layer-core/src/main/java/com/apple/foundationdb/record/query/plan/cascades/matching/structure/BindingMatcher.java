@@ -154,7 +154,7 @@ public interface BindingMatcher<T> {
      * @param indentation the current indentation as a string of spaces
      * @return a string explaining the semantics of this matcher
      */
-    String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation);
+    String explainMatcher(@Nonnull Class<?> atLeastType, @Nonnull String boundId, @Nonnull String indentation);
 
     /**
      * Method that attempts to match the current binding matcher against the object passed in and just returns whether

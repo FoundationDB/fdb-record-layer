@@ -84,13 +84,12 @@ class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
     @Override
     @Nonnull
     public BloomFilterCursorContinuation getContinuation() {
-        ByteString.Output bloomOutput = ByteString.newOutput();
-        try {
+        try (ByteString.Output bloomOutput = ByteString.newOutput()) {
             bloomFilter.writeTo(bloomOutput);
+            return new BloomFilterCursorContinuation(super.getContinuation(), bloomOutput.toByteString());
         } catch (IOException e) {
             throw new RecordCoreException("unable to serialize bloom filter", e);
         }
-        return new BloomFilterCursorContinuation(super.getContinuation(), bloomOutput.toByteString());
     }
 
     @VisibleForTesting

@@ -226,6 +226,7 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
 
     @Override
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store,
                                                                         @Nonnull FDBStoredRecord<M> record,
                                                                         @Nullable byte[] continuation,
@@ -242,6 +243,7 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         return joinedContexts.map(this::toSyntheticRecord);
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private RecordCursor<EvaluationContext> query(int depth, @Nonnull FDBRecordStore store, @Nonnull EvaluationContext context,
                                                   @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
         final RecordCursor<FDBQueriedRecord<Message>> records;

@@ -246,22 +246,20 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph> {
      */
     @Nonnull
     public static URI createHtmlLauncher(@Nonnull final String dotString) throws Exception {
-        final InputStream launcherHtmlInputStream =
-                PlannerGraphProperty.class
-                        .getResourceAsStream("/showPlannerExpression.html");
-        final String launcherHtmlString =
-                CharStreams.toString(new InputStreamReader(launcherHtmlInputStream, StandardCharsets.UTF_8))
-                        .replace("$DOT", dotString);
+        final String launcherHtmlString;
+        try (InputStream launcherHtmlInputStream = PlannerGraphProperty.class.getResourceAsStream("/showPlannerExpression.html")) {
+            launcherHtmlString = CharStreams.toString(new InputStreamReader(launcherHtmlInputStream, StandardCharsets.UTF_8))
+                .replace("$DOT", dotString);
+        }
         final File launcherTempFile = File.createTempFile("local_launcher-", ".html", new File(System.getProperty("java.io.tmpdir")));
         final String launcherTempFileName = launcherTempFile.toString();
-        final PrintWriter writer;
         try {
-            writer = new PrintWriter(launcherTempFile, "UTF-8");
+            try (PrintWriter writer = new PrintWriter(launcherTempFile, "UTF-8")) {
+                writer.print(launcherHtmlString);
+            }
         } catch (Exception e) {
-            throw new Exception("Error opening file for writing: " + launcherTempFile.getAbsolutePath() + " : " + e.getMessage(), e);
+            throw new Exception("Error writing file: " + launcherTempFile.getAbsolutePath() + " : " + e.getMessage(), e);
         }
-        writer.print(launcherHtmlString);
-        writer.close();
         return new URI("file:///" + launcherTempFileName.replace("\\", "/"));
     }
 

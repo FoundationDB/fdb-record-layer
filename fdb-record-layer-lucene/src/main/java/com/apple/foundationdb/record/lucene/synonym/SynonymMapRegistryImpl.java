@@ -87,6 +87,7 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
         return registry;
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private static SynonymMap buildSynonymMap(final SynonymMapConfig config) {
         try {
             SynonymMap.Parser parser = new SolrSynonymParser(true, true, new Analyzer() {
