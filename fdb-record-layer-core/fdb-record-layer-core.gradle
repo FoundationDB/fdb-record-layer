@@ -121,7 +121,8 @@ task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     configurations = [ project.configurations.testRuntime ]
     manifest {
         inheritFrom project.tasks.jar.manifest
-        attributes 'Main-Class': 'com.apple.foundationdb.record.provider.foundationdb.FDBRecordStorePerformanceTest'
+        attributes 'Main-Class': 'com.apple.foundationdb.record.provider.foundationdb.FDBRecordStorePerformanceTest',
+                   'Multi-Release': 'true' // https://github.com/johnrengelman/shadow/issues/449
     }
     mergeServiceFiles()
     exclude 'log4j.properties'
