@@ -76,6 +76,7 @@ public class NestedField extends BaseNestedField {
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public QueryComponent withOtherChild(QueryComponent newChild) {
         if (newChild == getChild()) {
             return this;

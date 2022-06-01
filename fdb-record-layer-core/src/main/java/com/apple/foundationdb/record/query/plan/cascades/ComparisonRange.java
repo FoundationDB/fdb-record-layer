@@ -214,8 +214,8 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         throw new IllegalStateException("this should never be reached");
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Override
+    @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;

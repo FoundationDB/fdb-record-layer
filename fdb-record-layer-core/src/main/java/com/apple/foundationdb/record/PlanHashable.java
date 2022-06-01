@@ -60,7 +60,7 @@ public interface PlanHashable {
      * @param hashKind the "kind" of hash to calculate. Each kind of hash has a particular logic with regards to included and excluded items.
      * @return a stable hash code
      */
-    int planHash(@Nonnull final PlanHashKind hashKind);
+    int planHash(@Nonnull PlanHashKind hashKind);
 
     default int planHash() {
         return planHash(PlanHashKind.LEGACY);

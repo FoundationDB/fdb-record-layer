@@ -106,6 +106,7 @@ class KeySpacePathImpl implements KeySpacePath {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public KeySpacePath add(@Nonnull String dirName) {
         KeySpaceDirectory nextDir = directory.getSubdirectory(dirName);
         if (nextDir.getValue() == KeySpaceDirectory.ANY_VALUE) {

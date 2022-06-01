@@ -85,14 +85,15 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
 
             List<ExpressionRef<RecordQueryPlan>> newChildren = new ArrayList<>(unionPlan.getChildren().size());
             for (RecordQueryPlan plan : unionPlan.getChildren()) {
+                RecordQueryPlan oldPlan = plan;
                 if (shouldPullOutFilter) { // All children have the same filter so we'll try to move it
                     // Check if the plan under the filter can have its index fetch removed.
-                    if (!(plan instanceof RecordQueryFilterPlan)) {
+                    if (!(oldPlan instanceof RecordQueryFilterPlan)) {
                         throw new RecordCoreException("serious logic error: thought this was a filter plan but it wasn't");
                     }
-                    plan = ((RecordQueryFilterPlan) plan).getChild();
+                    oldPlan = ((RecordQueryFilterPlan) oldPlan).getChild();
                 }
-                @Nullable RecordQueryPlan newPlan = removeIndexFetch(plan, requiredFields);
+                @Nullable RecordQueryPlan newPlan = removeIndexFetch(oldPlan, requiredFields);
                 if (newPlan == null) { // can't remove index fetch, so give up
                     return recordQueryPlan;
                 }

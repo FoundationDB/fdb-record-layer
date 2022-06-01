@@ -97,7 +97,7 @@ public class IndexScanComparisons implements IndexScanParameters {
 
     @Override
     public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
-        if (scanType != IndexScanType.BY_VALUE) {
+        if (!scanType.equals(IndexScanType.BY_VALUE)) {
             detailsBuilder.add("scan type: {{scanType}}");
             attributeMapBuilder.put("scanType", Attribute.gml(scanType.toString()));
         }

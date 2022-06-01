@@ -56,6 +56,7 @@ public class TypedRecordSerializer<M extends Message, U extends Message, B exten
     @Nonnull
     private final AtomicReference<String> validRecordType = new AtomicReference<>();
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public TypedRecordSerializer(@Nonnull Descriptors.FieldDescriptor fieldDescriptor,
                                  @Nonnull Supplier<B> builderSupplier,
                                  @Nonnull Predicate<U> tester,
@@ -86,6 +87,7 @@ public class TypedRecordSerializer<M extends Message, U extends Message, B exten
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     protected void setUnionField(@Nonnull RecordMetaData metaData,
                                  @Nonnull RecordType recordType,
                                  @Nonnull B unionBuilder,

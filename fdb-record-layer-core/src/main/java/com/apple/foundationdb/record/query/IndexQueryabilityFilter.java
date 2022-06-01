@@ -91,5 +91,5 @@ public interface IndexQueryabilityFilter extends QueryHashable {
      * @return 0 as the calculated hash in all cases, to have no impact on query hashes.
      */
     @Override
-    int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind);
+    int queryHash(@Nonnull QueryHashable.QueryHashKind hashKind);
 }

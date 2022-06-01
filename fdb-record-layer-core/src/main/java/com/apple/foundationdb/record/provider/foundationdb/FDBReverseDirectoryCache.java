@@ -177,7 +177,7 @@ public class FDBReverseDirectoryCache {
      * the Optional is empty
      */
     @Nonnull
-    @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the context is closed in the returned future
+    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Don't realize that the context is closed in the returned future
     public CompletableFuture<Optional<String>> getInReverseDirectoryCacheSubspace(@Nullable FDBStoreTimer timer, @Nonnull ScopedValue<Long> scopedReverseDirectoryKey) {
         FDBRecordContext context = fdb.openContext();
         context.setTimer(timer);
@@ -215,7 +215,7 @@ public class FDBReverseDirectoryCache {
      * the Optional is empty
      */
     @Nonnull
-    @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the context is closed in the returned future
+    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Don't realize that the context is closed in the returned future
     public CompletableFuture<Optional<String>> get(@Nullable FDBStoreTimer timer, @Nonnull final ScopedValue<Long> scopedReverseDirectoryKey) {
         FDBRecordContext context = fdb.openContext();
         context.setTimer(timer);
@@ -372,6 +372,7 @@ public class FDBReverseDirectoryCache {
                 .thenCompose(subspace -> putToSubspace(context, subspace, scopedPathString, pathValue));
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Void> putToSubspace(@Nonnull FDBRecordContext context,
                                                   @Nonnull Subspace reverseCacheSubspace,
                                                   @Nonnull ScopedValue<String> scopedPathString,
@@ -466,6 +467,7 @@ public class FDBReverseDirectoryCache {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<byte[]> populateRegion(@Nonnull FDBRecordContext context,
                                                      @Nonnull Subspace directorySubspace,
                                                      @Nonnull Subspace reverseDirectorySubspace,

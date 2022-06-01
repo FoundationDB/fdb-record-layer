@@ -172,6 +172,7 @@ public abstract class IndexingBase {
     }
 
     // buildIndexAsync - the main indexing function. Builds and commits indexes asynchronously; throttling to avoid overloading the system.
+    @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
                 LogMessageKeys.SHOULD_MARK_READABLE, markReadable)
@@ -206,6 +207,7 @@ public abstract class IndexingBase {
         });
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private <T> CompletableFuture<T> runWithSynchronizedRunnerAndEndSession(
             @Nonnull SynchronizedSessionRunner newSynchronizedRunner, @Nonnull Supplier<CompletableFuture<T>> runnable) {
         final SynchronizedSessionRunner currentSynchronizedRunner1 = common.getSynchronizedSessionRunner();
@@ -366,6 +368,7 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild) {
         // continuedBuild is set if this session isn't a continuation of a previous indexing
         Transaction transaction = store.getContext().ensureActive();
@@ -462,6 +465,7 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
         // HERE: The index must be readable, checked by the caller
         //   if scrubber had already run and still have missing ranges, do nothing
@@ -642,6 +646,7 @@ public abstract class IndexingBase {
      * @return hasMore, nextResultCont, and recordsScanned.
      */
 
+    @SuppressWarnings("PMD.CloseResource")
     protected  <T> CompletableFuture<Void> iterateRangeOnly(@Nonnull FDBRecordStore store,
                                                             @Nonnull RecordCursor<T> cursor,
                                                             @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,

@@ -214,6 +214,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @return {@code true} if {@code this} is structurally equal to {@code other}, {@code false} otherwise
      */
     @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean structuralEquals(@Nullable final Object other,
                                      @Nonnull final AliasMap equivalenceMap) {
         if (this == other) {

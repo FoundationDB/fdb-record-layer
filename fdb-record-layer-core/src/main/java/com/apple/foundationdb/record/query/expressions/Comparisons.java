@@ -761,6 +761,7 @@ public class Comparisons {
             }
         }
 
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         private boolean validForComparand(@Nonnull Descriptors.FieldDescriptor fieldDescriptor) {
             switch (fieldDescriptor.getJavaType()) {
                 case BOOLEAN:
@@ -993,6 +994,7 @@ public class Comparisons {
         }
 
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
             if (this == other) {
                 return true;
@@ -1890,6 +1892,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison rebase(@Nonnull final AliasMap translationMap) {
             final var rebasedInner = inner.rebase(translationMap);
             if (inner == rebasedInner) {
@@ -1906,6 +1909,7 @@ public class Comparisons {
         }
 
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
             if (this == other) {
                 return true;

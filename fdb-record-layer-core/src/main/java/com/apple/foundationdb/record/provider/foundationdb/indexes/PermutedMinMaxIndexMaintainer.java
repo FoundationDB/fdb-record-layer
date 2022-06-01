@@ -95,14 +95,15 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
                                          @Nonnull TupleRange range,
                                          @Nullable byte[] continuation,
                                          @Nonnull ScanProperties scanProperties) {
-        if (scanType == IndexScanType.BY_VALUE) {
+        if (scanType.equals(IndexScanType.BY_VALUE)) {
             return scan(range, continuation, scanProperties);
         }
-        if (scanType == IndexScanType.BY_GROUP) {
+        if (scanType.equals(IndexScanType.BY_GROUP)) {
             final Subspace permutedSubspace = getSecondarySubspace();
             final RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(permutedSubspace)
                     .setContext(state.context)
@@ -187,6 +188,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     }
 
     // Return the min/max key matching the given group key or {@code null} if there are not entries for the group.
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Tuple> getExtremum(@Nonnull Tuple groupKey) {
         final RecordCursor<IndexEntry> scan = scan(TupleRange.allOf(groupKey), null,
                 (type == Type.MIN ? ScanProperties.FORWARD_SCAN : ScanProperties.REVERSE_SCAN)

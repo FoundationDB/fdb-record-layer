@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
  * An aggregate accumulator.
  */
 public interface Accumulator {
-    void accumulate(@Nullable final Object currentObject);
+    void accumulate(@Nullable Object currentObject);
 
     @Nullable Object finish();
 }

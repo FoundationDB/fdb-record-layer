@@ -126,8 +126,8 @@ public class RankedSet {
         }
     }
 
-    private static final byte[] EMPTY_ARRAY = new byte[0];
-    private static final byte[] ZERO_ARRAY = new byte[] { 0 };
+    private static final byte[] EMPTY_ARRAY = { };
+    private static final byte[] ZERO_ARRAY = { 0 };
 
     private static byte[] encodeLong(long count) {
         return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();

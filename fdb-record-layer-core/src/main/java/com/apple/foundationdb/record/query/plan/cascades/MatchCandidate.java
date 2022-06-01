@@ -167,9 +167,9 @@ public interface MatchCandidate {
                                             boolean isReverse);
 
     @Nonnull
-    Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons,
-                                                final boolean isReverse,
-                                                final boolean isDistinct);
+    Ordering computeOrderingFromScanComparisons(@Nonnull ScanComparisons scanComparisons,
+                                                boolean isReverse,
+                                                boolean isDistinct);
 
     /**
      * Creates a logical expression that represents a scan over the materialized candidate data.
@@ -212,8 +212,8 @@ public interface MatchCandidate {
     @Nonnull
     RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
                                                 @Nonnull PartialMatch partialMatch,
-                                                @Nonnull final PlanContext planContext,
-                                                @Nonnull final List<ComparisonRange> comparisonRanges);
+                                                @Nonnull PlanContext planContext,
+                                                @Nonnull List<ComparisonRange> comparisonRanges);
 
     @Nonnull
     @SuppressWarnings("java:S1452")
@@ -253,7 +253,7 @@ public interface MatchCandidate {
 
         final var type = index.getType();
 
-        if (type.equals(IndexTypes.VALUE)) {
+        if (IndexTypes.VALUE.equals(type)) {
             expandIndexMatchCandidate(
                     metaData,
                     index,
@@ -264,7 +264,7 @@ public interface MatchCandidate {
                     new ValueIndexExpansionVisitor(index, recordTypesForIndex)).ifPresent(resultBuilder::add);
         }
 
-        if (type.equals(IndexTypes.RANK)) {
+        if (IndexTypes.RANK.equals(type)) {
             // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
             expandIndexMatchCandidate(
                     metaData,

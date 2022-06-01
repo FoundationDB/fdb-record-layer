@@ -57,5 +57,5 @@ public interface QueryPredicateWithChild extends QueryPredicate {
     }
 
     @Nonnull
-    QueryPredicateWithChild withChild(@Nonnull final QueryPredicate rebasedChild);
+    QueryPredicateWithChild withChild(@Nonnull QueryPredicate rebasedChild);
 }

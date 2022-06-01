@@ -91,6 +91,7 @@ class JoinedRecordPlanner {
             return pendingJoins.stream().filter(this::isJoinBound).count();
         }
 
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public boolean isJoinBound(@Nonnull PendingJoin pendingJoin) {
             if (pendingJoin.pendingLeft == this) {
                 return pendingJoin.rightBound;
@@ -177,6 +178,7 @@ class JoinedRecordPlanner {
         return new JoinedRecordPlan(joinedRecordType, joinedTypes, queries);
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private void bindAndRemove(@Nonnull PendingType pendingType) {
         final List<JoinedRecordPlan.BindingPlan> bindingPlans = new ArrayList<>();
         for (PendingJoin pendingJoin : pendingType.pendingJoins) {
@@ -202,6 +204,7 @@ class JoinedRecordPlanner {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private RecordQuery buildQuery(@Nonnull PendingType pendingType) {
         final List<QueryComponent> conditions = new ArrayList<>();
         for (PendingJoin pendingJoin : pendingType.pendingJoins) {

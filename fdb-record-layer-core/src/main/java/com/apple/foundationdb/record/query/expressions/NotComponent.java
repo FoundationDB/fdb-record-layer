@@ -104,6 +104,7 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public QueryComponent withOtherChild(QueryComponent newChild) {
         if (newChild == getChild()) {
             return this;

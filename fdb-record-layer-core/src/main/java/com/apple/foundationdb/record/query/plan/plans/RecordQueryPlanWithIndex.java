@@ -74,6 +74,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     default <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
                                                                       @Nonnull EvaluationContext context,
                                                                       @Nullable byte[] continuation,
@@ -113,7 +114,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
      */
     @Nonnull
     PlannerGraph createIndexPlannerGraph(@Nonnull RecordQueryPlan identity,
-                                         @Nonnull final NodeInfo nodeInfo,
-                                         @Nonnull final List<String> additionalDetails,
-                                         @Nonnull final Map<String, Attribute> additionalAttributeMap);
+                                         @Nonnull NodeInfo nodeInfo,
+                                         @Nonnull List<String> additionalDetails,
+                                         @Nonnull Map<String, Attribute> additionalAttributeMap);
 }

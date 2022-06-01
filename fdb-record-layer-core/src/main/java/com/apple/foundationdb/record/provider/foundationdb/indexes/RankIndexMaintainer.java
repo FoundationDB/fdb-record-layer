@@ -136,9 +136,9 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
                                          @Nonnull TupleRange rankRange,
                                          @Nullable byte[] continuation,
                                          @Nonnull ScanProperties scanProperties) {
-        if (scanType == IndexScanType.BY_VALUE) {
+        if (scanType.equals(IndexScanType.BY_VALUE)) {
             return scan(rankRange, continuation, scanProperties);
-        } else if (scanType != IndexScanType.BY_RANK) {
+        } else if (!scanType.equals(IndexScanType.BY_RANK)) {
             throw new RecordCoreException("Can only scan rank index by rank or by value.");
         }
         final Subspace extraSubspace = getSecondarySubspace();
@@ -204,7 +204,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
-        return function.getName().equals(FunctionNames.RANK) &&
+        return FunctionNames.RANK.equals(function.getName()) &&
                 state.index.getRootExpression().equals(function.getOperand());
     }
 
@@ -214,7 +214,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
                                                                               @Nonnull IndexRecordFunction<T> function,
                                                                               @Nonnull FDBRecord<M> record) {
-        if (function.getName().equals(FunctionNames.RANK)) {
+        if (FunctionNames.RANK.equals(function.getName())) {
             return (CompletableFuture<T>)rank(context, (IndexRecordFunction<Long>)function, record);
         } else {
             return unsupportedRecordFunction(function);

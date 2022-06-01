@@ -552,8 +552,8 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
     protected List<KeyExpression> indexStoredKeys(@Nonnull Index index) {
         KeyExpression storedKey = index.getRootExpression();
         if (storedKey instanceof GroupingKeyExpression) {
-            if (index.getType().equals(IndexTypes.RANK) ||
-                    index.getType().equals(IndexTypes.TIME_WINDOW_LEADERBOARD)) {
+            if (IndexTypes.RANK.equals(index.getType()) ||
+                    IndexTypes.TIME_WINDOW_LEADERBOARD.equals(index.getType())) {
                 // The grouped key(s) is also stored.
                 storedKey = ((GroupingKeyExpression)storedKey).getWholeKey();
             } else {
@@ -561,7 +561,7 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
                 storedKey = ((GroupingKeyExpression)storedKey).getGroupingSubKey();
             }
         }
-        if (index.getType().equals(IndexTypes.TIME_WINDOW_LEADERBOARD)) {
+        if (IndexTypes.TIME_WINDOW_LEADERBOARD.equals(index.getType())) {
             storedKey = Key.Expressions.concat(Key.Expressions.field("leaderboard"), storedKey);
         }
         return storedKey.normalizeKeyForPositions();

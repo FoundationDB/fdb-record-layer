@@ -180,7 +180,7 @@ public interface Compensation {
         }
     };
 
-    RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression);
+    RelationalExpression apply(@Nonnull RelationalExpression relationalExpression);
 
     /**
      * Returns if this compensation object needs to be applied in order to correct the result of a match.
@@ -369,7 +369,7 @@ public interface Compensation {
         @Nonnull
         WithSelectCompensation derivedWithPredicateCompensationMap(@Nonnull Compensation childCompensation,
                                                                    @Nonnull IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap,
-                                                                   @Nonnull final Collection<? extends Quantifier> mappedQuantifiers,
+                                                                   @Nonnull Collection<? extends Quantifier> mappedQuantifiers,
                                                                    @Nonnull Set<? extends Quantifier> unmappedForEachQuantifiers,
                                                                    @Nonnull Optional<Value> remainingComputationOptional);
 

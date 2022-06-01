@@ -88,6 +88,7 @@ public class SortedFileReader<V> implements AutoCloseable {
         skipLimit(skip, limit);
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private void skipLimit(int skip, int limit) throws IOException, GeneralSecurityException {
         final RecordSortingProto.SortFileHeader.Builder fileHeader = RecordSortingProto.SortFileHeader.newBuilder();
         headerStream.readMessage(fileHeader, ExtensionRegistryLite.getEmptyRegistry());
@@ -158,6 +159,7 @@ public class SortedFileReader<V> implements AutoCloseable {
     }
 
     @Nullable
+    @SuppressWarnings("PMD.CloseResource")
     public V read() throws IOException, GeneralSecurityException {
         if (recordPosition >= fileRecordEnd) {
             return null;

@@ -105,6 +105,7 @@ import java.util.stream.Collectors;
  * </p>
  */
 @AutoService(Processor.class)
+@SuppressWarnings("PMD.GuardLogStatement") // confused by error invocation
 public class GenerateVisitorAnnotationProcessor extends AbstractProcessor {
     private static final String parameterName = "element";
 

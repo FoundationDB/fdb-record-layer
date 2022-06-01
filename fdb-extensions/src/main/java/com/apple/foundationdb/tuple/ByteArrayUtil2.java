@@ -88,7 +88,8 @@ public class ByteArrayUtil2 {
             return null;
         }
         List<Byte> bytes = new ArrayList<>();
-        for (int i = 0; i < loggedBytes.length(); i++) {
+        int i = 0;
+        while (i < loggedBytes.length()) {
             char c = loggedBytes.charAt(i);
             if (c == '\\') {
                 i++;
@@ -105,10 +106,11 @@ public class ByteArrayUtil2 {
             } else {
                 bytes.add((byte)c);
             }
+            i++;
         }
         byte[] bytesArray = new byte[bytes.size()];
-        for (int i = 0; i < bytes.size(); i++) {
-            bytesArray[i] = bytes.get(i);
+        for (int j = 0; j < bytes.size(); j++) {
+            bytesArray[j] = bytes.get(j);
         }
         return bytesArray;
     }

@@ -89,7 +89,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final boolean usesLocalRecordsDescriptor;
     private final Map<Index, Collection<RecordType>> recordTypesForIndex;
 
-    private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = new Descriptors.FileDescriptor[] {
+    private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = {
             RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
     };
 
@@ -170,6 +170,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RecordType getRecordTypeForDescriptor(@Nonnull Descriptors.Descriptor descriptor) {
         RecordType recordType = getRecordType(descriptor.getName());
         if (recordType.getDescriptor() != descriptor) {

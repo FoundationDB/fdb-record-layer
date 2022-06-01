@@ -41,7 +41,7 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
     @Nonnull
-    static final byte[] PREFIX = new byte[]{0x10};
+    static final byte[] PREFIX = { 0x10 };
     private static final BunchedTupleSerializer INSTANCE = new BunchedTupleSerializer();
 
     /**
@@ -164,8 +164,8 @@ public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
         List<Map.Entry<Tuple, Tuple>> entryList = new ArrayList<>(entriesTuple.size() / 2);
         boolean first = true;
         while (tupleIterator.hasNext()) {
-            Tuple entryKey = null;
-            Tuple entryValue = null;
+            Tuple entryKey;
+            Tuple entryValue;
             try {
                 if (first) {
                     entryKey = key;

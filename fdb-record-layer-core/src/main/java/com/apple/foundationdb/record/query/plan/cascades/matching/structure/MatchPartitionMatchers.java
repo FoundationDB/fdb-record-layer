@@ -54,6 +54,7 @@ public class MatchPartitionMatchers {
                 downstreamMatches);
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static <O extends Optional<RelationalExpression>, C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> ofExpressionOptionalAndMatches(@Nonnull final BindingMatcher<O> downstreamExpressionOptional,
                                                                                                                                                                          @Nonnull final BindingMatcher<C> downstreamMatches) {
         return typedWithDownstream(MatchPartition.class,

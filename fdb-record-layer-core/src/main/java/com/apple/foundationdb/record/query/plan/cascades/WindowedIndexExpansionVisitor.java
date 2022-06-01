@@ -59,7 +59,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
     private final List<RecordType> recordTypes;
 
     public WindowedIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(index.getType().equals(IndexTypes.RANK));
+        Preconditions.checkArgument(IndexTypes.RANK.equals(index.getType()));
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
     }

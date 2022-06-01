@@ -42,7 +42,7 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      * @return a new {@link MatchCandidate} that can be used for matching.
      */
     @Nonnull
-    MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
-                          @Nullable final KeyExpression primaryKey,
-                          final boolean isReverse);
+    MatchCandidate expand(@Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+                          @Nullable KeyExpression primaryKey,
+                          boolean isReverse);
 }

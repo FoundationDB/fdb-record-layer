@@ -337,8 +337,8 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return new GroupExpressionRef<>(members);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
+    @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"})
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;

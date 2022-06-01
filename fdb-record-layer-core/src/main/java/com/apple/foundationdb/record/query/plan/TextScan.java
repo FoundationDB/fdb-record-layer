@@ -168,7 +168,7 @@ public class TextScan implements PlanHashable {
     }
 
     @Nonnull
-    @SuppressWarnings("squid:S2095") // try-with-resources - the two cursors returned cannot be closed because they are wrapped and returned
+    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // try-with-resources - the two cursors returned cannot be closed because they are wrapped and returned
     private <M extends Message> RecordCursor<IndexEntry> scan(@Nonnull FDBRecordStoreBase<M> store,
                                                               @Nonnull EvaluationContext context,
                                                               @Nullable Tuple prefix, @Nullable TupleRange suffix,

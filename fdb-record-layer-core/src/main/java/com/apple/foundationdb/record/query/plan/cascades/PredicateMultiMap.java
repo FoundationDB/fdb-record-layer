@@ -56,8 +56,8 @@ public class PredicateMultiMap {
      */
     @FunctionalInterface
     public interface ReapplyPredicateFunction {
-        Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull final MatchInfo matchInfo,
-                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap);
+        Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull MatchInfo matchInfo,
+                                                       @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap);
     }
 
     /**

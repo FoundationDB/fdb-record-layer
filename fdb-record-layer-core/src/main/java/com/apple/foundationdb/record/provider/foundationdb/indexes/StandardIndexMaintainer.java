@@ -122,6 +122,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param scanProperties any limits on the scan
      * @return a cursor of index entries within the given range
      */
+    @SuppressWarnings("PMD.CloseResource")
     protected RecordCursor<IndexEntry> scan(@Nonnull final TupleRange range,
                                             @Nullable byte[] continuation,
                                             @Nonnull ScanProperties scanProperties) {
@@ -144,11 +145,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * Index Maintainers that support the {@link #scanRemoteFetch} method can use this implementation. Note that this
      * method is not supported by default by an index maintainer.
      */
+    @SuppressWarnings("PMD.CloseResource")
     protected RecordCursor<FDBIndexedRawRecord> scanRemoteFetchByValue(@Nonnull final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
                                                              @Nonnull final ScanProperties scanProperties,
                                                              @Nonnull final KeyExpression commonPrimaryKey) {
-        if ((scanBounds.getScanType() != IndexScanType.BY_VALUE) || (!(scanBounds instanceof IndexScanRange))) {
+        if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE) || (!(scanBounds instanceof IndexScanRange))) {
             throw new RecordCoreArgumentException("scanRemoteFetch can only be used with VALUE index scan type and Range Scan");
         }
         IndexScanRange scanRange = (IndexScanRange)scanBounds;
@@ -442,6 +444,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @return a future that is complete when the uniqueness violation is removed
      */
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     protected CompletableFuture<Void> removeUniquenessViolationsAsync(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
         Subspace uniqueValueSubspace = state.store.indexUniquenessViolationsSubspace(state.index).subspace(valueKey);
         state.transaction.clear(uniqueValueSubspace.pack(primaryKey));
@@ -463,6 +466,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     @Override
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         final Subspace uniquenessViolationsSubspace = state.store.indexUniquenessViolationsSubspace(state.index);
         RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(uniquenessViolationsSubspace)

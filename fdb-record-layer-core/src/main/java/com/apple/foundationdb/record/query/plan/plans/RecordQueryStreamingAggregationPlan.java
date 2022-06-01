@@ -203,6 +203,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
@@ -351,9 +352,9 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
      */
     @FunctionalInterface
     public interface CompleteResultValueSupplier {
-        Value supply(@Nullable final Value groupingKeyValue,
-                     @Nonnull final AggregateValue aggregateValue,
-                     @Nonnull final CorrelationIdentifier groupingKeyAlias,
-                     @Nonnull final CorrelationIdentifier aggregateAlias);
+        Value supply(@Nullable Value groupingKeyValue,
+                     @Nonnull AggregateValue aggregateValue,
+                     @Nonnull CorrelationIdentifier groupingKeyAlias,
+                     @Nonnull CorrelationIdentifier aggregateAlias);
     }
 }

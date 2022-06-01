@@ -74,6 +74,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
     @Nullable
     private RecordCursorResult<U> nextResult;
 
+    @SuppressWarnings("PMD.CloseResource")
     protected MergeCursor(@Nonnull List<S> cursorStates, @Nullable FDBStoreTimer timer) {
         this.cursorStates = cursorStates;
         this.timer = timer;
@@ -89,6 +90,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
         this.executor = cursorExecutor != null ? cursorExecutor : cursorStates.get(0).getExecutor();
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private static <T, S extends MergeCursorState<T>> CompletableFuture<?>[] getOnNextFutures(@Nonnull List<S> cursorStates) {
         CompletableFuture<?>[] futures = new CompletableFuture<?>[cursorStates.size()];
         int i = 0;
@@ -108,8 +110,8 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
     // CompletableFuture<Void> whereas CompletableFuture.anyOf returns a CompletableFuture<Object>.
     // The caller always ignores the result anyway and just uses this as a signal, so it's not
     // a big loss.
-    @SuppressWarnings("squid:S1452")
     @Nonnull
+    @SuppressWarnings({"squid:S1452","PMD.CloseResource"})
     protected static <T, S extends MergeCursorState<T>> CompletableFuture<?> whenAny(@Nonnull List<S> cursorStates) {
         List<S> nonDoneCursors = new ArrayList<>(cursorStates.size());
         for (S cursorState : cursorStates) {
@@ -150,7 +152,9 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
                         .collect(Collectors.toList())
                 );
             }
-            LOGGER.warn(logMessage.toString());
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn(logMessage.toString());
+            }
             throw new RecordCoreException("time computing next state exceeded");
         }
     }
@@ -166,6 +170,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
      * @return the strongest reason to stop from the list of all cursors
      */
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     protected static <T, S extends MergeCursorState<T>> NoNextReason getStrongestNoNextReason(@Nonnull List<S> cursorStates) {
         NoNextReason reason = null;
         for (S cursorState : cursorStates) {
@@ -199,6 +204,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
      * @return the strongest reason to stop from the list of all cursors
      */
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     protected static <T, S extends MergeCursorState<T>> NoNextReason getWeakestNoNextReason(@Nonnull List<S> cursorStates) {
         NoNextReason reason = null;
         for (S cursorState : cursorStates) {
@@ -325,6 +331,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             for (S cursorState : getCursorStates()) {

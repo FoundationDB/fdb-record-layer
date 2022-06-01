@@ -64,6 +64,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     protected TokenStreamComponents createComponents(String fieldName) {
         final StandardTokenizer src = new StandardTokenizer();
         TokenStream tok = new LowerCaseFilter(src);

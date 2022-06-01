@@ -112,7 +112,7 @@ pmd {
     ignoreFailures = false
     targetJdk = '1.7'
     sourceSets = [sourceSets.main]
-    toolVersion = '6.10.0'
+    toolVersion = '6.44.0'
     // an annoying hack to get around Gradle defaults
     // See https://ncona.com/2015/01/unable-to-exclude-pmd-rule-after-upgrading-to-gradle-2/
     ruleSets = []

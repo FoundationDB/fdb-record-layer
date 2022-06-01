@@ -67,7 +67,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
     LinkedIdentitySet<T> getMembers();
 
     @Nonnull
-    <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty);
+    <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull PlanProperty<A> planProperty);
 
     @Nonnull
     List<PlanPartition> getPlanPartitions();
@@ -88,7 +88,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
      * @return a collection of partial matches that matches the give expression to some candidate
      */
     @Nonnull
-    Collection<PartialMatch> getPartialMatchesForExpression(@Nonnull final RelationalExpression expression);
+    Collection<PartialMatch> getPartialMatchesForExpression(@Nonnull RelationalExpression expression);
 
     /**
      * Return all partial matches for the {@link MatchCandidate} passed in.
@@ -96,7 +96,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
      * @return a set of partial matches for {@code candidate}
      */
     @Nonnull
-    Set<PartialMatch> getPartialMatchesForCandidate(final MatchCandidate candidate);
+    Set<PartialMatch> getPartialMatchesForCandidate(MatchCandidate candidate);
 
     /**
      * Add the {@link PartialMatch} passed in to this reference for the {@link MatchCandidate} passed in.
@@ -106,7 +106,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
      *         contained in this reference
      */
     @SuppressWarnings("UnusedReturnValue")
-    boolean addPartialMatchForCandidate(final MatchCandidate candidate, final PartialMatch partialMatch);
+    boolean addPartialMatchForCandidate(MatchCandidate candidate, PartialMatch partialMatch);
 
     @Nonnull
     ConstraintsMap getRequirementsMap();

@@ -122,7 +122,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                                  @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
         // TODO for now we only do this for rank but we can do this for more than that
-        if (function instanceof IndexRecordFunction && function.getName().equals(FunctionNames.RANK)) {
+        if (function instanceof IndexRecordFunction && FunctionNames.RANK.equals(function.getName())) {
             final var groupingKeyExpression = ((IndexRecordFunction<?>)function).getOperand();
             final var wholeKeyExpression = groupingKeyExpression.getWholeKey();
             final var expansionVisitor = new KeyExpressionExpansionVisitor();

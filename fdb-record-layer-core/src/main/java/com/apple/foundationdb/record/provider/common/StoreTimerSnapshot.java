@@ -142,6 +142,7 @@ public final class StoreTimerSnapshot {
      *
      * @return true if it is valid to diff this snapshot from the provided timer
      */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean derivedFrom(StoreTimer timer) {
         if (timer.geUUID() != this.fromUUID) {
             return false;

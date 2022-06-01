@@ -54,7 +54,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     private final List<RecordType> recordTypes;
 
     public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(index.getType().equals(IndexTypes.VALUE) || index.getType().equals(IndexTypes.RANK));
+        Preconditions.checkArgument(IndexTypes.VALUE.equals(index.getType()) || IndexTypes.RANK.equals(index.getType()));
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
     }
@@ -75,7 +75,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         var rootExpression = index.getRootExpression();
 
         if (rootExpression instanceof GroupingKeyExpression) {
-            if (index.getType().equals(IndexTypes.RANK)) {
+            if (IndexTypes.RANK.equals(index.getType())) {
                 rootExpression = ((GroupingKeyExpression)rootExpression).getWholeKey();
             } else {
                 throw new UnsupportedOperationException("cannot create match candidate on grouping expression for unknown index type");

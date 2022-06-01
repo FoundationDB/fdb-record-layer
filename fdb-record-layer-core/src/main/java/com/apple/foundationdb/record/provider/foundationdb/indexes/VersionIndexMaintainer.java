@@ -63,7 +63,7 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
     public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range,
                                             @Nullable byte[] continuation,
                                             @Nonnull ScanProperties scanProperties) {
-        if (scanType != IndexScanType.BY_VALUE) {
+        if (!scanType.equals(IndexScanType.BY_VALUE)) {
             throw new RecordCoreException("Can only scan version index by value.");
         }
         return scan(range, continuation, scanProperties);

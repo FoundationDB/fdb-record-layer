@@ -123,7 +123,7 @@ public class IndexingByIndex extends IndexingBase {
                     validateOrThrowEx(common.getAllRecordTypes().size() == 1, "target index has multiple types");
                     validateOrThrowEx(srcRecordTypes.size() == 1, "source index has multiple types");
                     validateOrThrowEx(!srcIndex.getRootExpression().createsDuplicates(), "source index creates duplicates");
-                    validateOrThrowEx(srcIndex.getType().equals(IndexTypes.VALUE), "source index is not a VALUE index");
+                    validateOrThrowEx(IndexTypes.VALUE.equals(srcIndex.getType()), "source index is not a VALUE index");
                     validateOrThrowEx(common.getAllRecordTypes().containsAll(srcRecordTypes), "source index's type is not equal to target index's");
 
                     // all valid; back to the future. Note that for practical reasons, readability and idempotency will be validated later
@@ -222,6 +222,7 @@ public class IndexingByIndex extends IndexingBase {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
 
         validateSameMetadataOrThrow(store);

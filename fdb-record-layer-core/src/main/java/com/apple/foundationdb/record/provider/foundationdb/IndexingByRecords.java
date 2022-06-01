@@ -70,7 +70,7 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class IndexingByRecords extends IndexingBase {
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingByRecords.class);
-    @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff}; // this line should be gone in a future refactoring. Give RangeSet its privacy...
+    @Nonnull private static final byte[] END_BYTES = { (byte)0xff }; // this line should be gone in a future refactoring. Give RangeSet its privacy...
 
     @Nonnull private final TupleRange recordsRange;
     @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
@@ -178,6 +178,7 @@ public class IndexingByRecords extends IndexingBase {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store, @Nonnull RangeSet rangeSet,
                                                          @Nullable AtomicLong recordsScanned) {
         boolean isIdempotent = store.getIndexMaintainer(common.getIndex()).isIdempotent();
@@ -520,6 +521,7 @@ public class IndexingByRecords extends IndexingBase {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull TupleRange range,
                                                     boolean respectLimit, @Nullable AtomicLong recordsScanned) {
         validateSameMetadataOrThrow(store);

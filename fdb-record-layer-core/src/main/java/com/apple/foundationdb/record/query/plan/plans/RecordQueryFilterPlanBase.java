@@ -75,6 +75,7 @@ public abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithCh
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,

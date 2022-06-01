@@ -44,6 +44,7 @@ public interface TypeFilterExpression extends RelationalExpressionWithChildren {
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                           @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {

@@ -67,6 +67,7 @@ public class ParameterRelationshipGraph {
         this.network = ImmutableNetwork.copyOf(network);
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean isUnbound() {
         return this == unbound();
     }

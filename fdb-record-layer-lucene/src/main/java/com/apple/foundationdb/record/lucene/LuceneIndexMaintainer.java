@@ -125,11 +125,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      */
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
         final IndexScanType scanType = scanBounds.getScanType();
         LOG.trace("scan scanType={}", scanType);
 
-        if (scanType == LuceneScanTypes.BY_LUCENE) {
+        if (scanType.equals(LuceneScanTypes.BY_LUCENE)) {
             LuceneScanQuery scanQuery = (LuceneScanQuery)scanBounds;
             return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
@@ -137,7 +138,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     scanQuery.getGroupKey(), scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes());
         }
 
-        if (scanType == LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE) {
+        if (scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)) {
             if (!autoCompleteEnabled) {
                 throw new RecordCoreArgumentException("Auto-complete unsupported due to not enabled on index")
                         .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
@@ -217,6 +218,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
                                byte[] primaryKey) throws IOException {
         final List<String> texts = fields.stream()
@@ -250,6 +252,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return map;
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
         final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerChooser.chooseAnalyzer(""));
         Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));

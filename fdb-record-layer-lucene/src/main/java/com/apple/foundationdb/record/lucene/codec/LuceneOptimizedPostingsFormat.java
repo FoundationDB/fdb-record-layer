@@ -50,6 +50,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public FieldsProducer fieldsProducer(SegmentReadState state) throws IOException {
         PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
         boolean success = false;

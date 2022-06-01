@@ -83,7 +83,9 @@ public class Main {
         List<String> names = new ArrayList<>();
         FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
         RecordQueryPlan plan = store.planQuery(query);
-        LOGGER.info(KeyValueLogMessage.of("Query planned", LogMessageKeys.PLAN, plan));  // The plan string works like a basic "explain" function
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("Query planned", LogMessageKeys.PLAN, plan));  // The plan string works like a basic "explain" function
+        }
         try (RecordCursor<FDBQueriedRecord<Message>> cursor = store.executeQuery(plan)) {
             RecordCursorResult<FDBQueriedRecord<Message>> result;
             do {
@@ -179,7 +181,9 @@ public class Main {
             return SampleProto.Vendor.newBuilder()
                     .mergeFrom(store.loadRecord(Key.Evaluated.scalar(9375L).toTuple()).getRecord());
         });
-        LOGGER.info("    Result -> Id: {}, Name: {}", readBuilder.getVendorId(), readBuilder.getVendorName());
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("    Result -> Id: {}, Name: {}", readBuilder.getVendorId(), readBuilder.getVendorName());
+        }
 
         // Using the secondary index declared in the message type, query
         // Item by vendor ID, then look up the item ID.

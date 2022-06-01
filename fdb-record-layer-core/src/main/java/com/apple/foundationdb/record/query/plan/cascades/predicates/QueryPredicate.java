@@ -223,6 +223,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean semanticEquals(@Nullable final Object other,
                                    @Nonnull final AliasMap aliasMap) {
         if (other == null) {
@@ -258,7 +259,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         return !otherPreds.hasNext();
     }
 
-    @SuppressWarnings({"squid:S1172", "unused"})
+    @SuppressWarnings({"squid:S1172", "unused", "PMD.CompareObjectsWithEquals"})
     default boolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
                                           @Nonnull final AliasMap equivalenceMap) {
         if (this == other) {

@@ -100,7 +100,7 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
         super(cursorStates, timer);
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
     private boolean checkIfInRest(@Nonnull ProbableIntersectionCursorState<T> cursorState) {
         final List<ProbableIntersectionCursorState<T>> cursorStates = getCursorStates();
         final List<Object> key = cursorState.getComparisonKey();

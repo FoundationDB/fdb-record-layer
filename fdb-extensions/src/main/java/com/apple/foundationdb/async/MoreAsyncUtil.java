@@ -765,7 +765,7 @@ public class MoreAsyncUtil {
     public static <U,T> CompletableFuture<U> reduce(@Nonnull Executor executor,
                                                     @Nonnull AsyncIterator<T> iterator, U identity,
                                                     BiFunction<U, ? super T, U> accumulator) {
-        Holder<U> holder = new Holder<U>(identity);
+        Holder<U> holder = new Holder<>(identity);
         return whileTrue(() -> iterator.onHasNext().thenApply(hasNext -> {
             if (hasNext) {
                 holder.value = accumulator.apply(holder.value, iterator.next());

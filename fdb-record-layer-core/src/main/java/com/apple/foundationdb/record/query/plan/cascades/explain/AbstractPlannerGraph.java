@@ -207,6 +207,7 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
         public abstract Map<String, Attribute> getAttributes();
 
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public boolean equals(Object o) {
             if (this == o) {
                 return true;

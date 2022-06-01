@@ -134,7 +134,7 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
                                                         @Nonnull FileSortAdapter<K, V> adapter) {
         FileSortCursorContinuation<K, V> result;
         if (unparsed == null) {
-            result = new FileSortCursorContinuation<K, V>(adapter, false, true, Collections.emptyList(), Collections.emptyList(), RecordCursorStartContinuation.START, 0, 0);
+            result = new FileSortCursorContinuation<>(adapter, false, true, Collections.emptyList(), Collections.emptyList(), RecordCursorStartContinuation.START, 0, 0);
         } else {
             try {
                 result = from(RecordSortingProto.FileSortContinuation.parseFrom(unparsed), adapter);

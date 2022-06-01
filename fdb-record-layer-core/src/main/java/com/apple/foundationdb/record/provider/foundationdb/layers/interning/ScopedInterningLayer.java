@@ -43,7 +43,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.MAINTAINED)
 public class ScopedInterningLayer extends LocatableResolver {
-    private static final byte[] GLOBAL_SCOPE_PREFIX_BYTES = new byte[]{(byte) 0xFC};
+    private static final byte[] GLOBAL_SCOPE_PREFIX_BYTES = { (byte)0xFC };
     private static final int STATE_SUBSPACE_KEY_SUFFIX = -10;
 
     @Nonnull
@@ -119,6 +119,7 @@ public class ScopedInterningLayer extends LocatableResolver {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     protected CompletableFuture<Optional<String>> readReverse(FDBStoreTimer timer, Long value) {
         FDBRecordContext context = database.openContext();
         context.setTimer(timer);

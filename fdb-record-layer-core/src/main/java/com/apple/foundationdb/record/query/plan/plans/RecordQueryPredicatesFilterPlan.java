@@ -157,8 +157,8 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
         return getInner().getFlowedObjectValue();
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Override
+    @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {

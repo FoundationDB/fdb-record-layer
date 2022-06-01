@@ -68,6 +68,7 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
     }
 
     // Identify the list of maximal (and non-maximal) elements from the list of cursor states.
+    @SuppressWarnings("PMD.CloseResource")
     private void findMaxStates(@Nonnull List<KeyedMergeCursorState<T>> maxStates, @Nonnull List<KeyedMergeCursorState<T>> nonMaxCursors) {
         final List<KeyedMergeCursorState<T>> cursorStates = getCursorStates();
         maxStates.add(cursorStates.get(0));

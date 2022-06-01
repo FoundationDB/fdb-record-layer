@@ -52,6 +52,7 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public byte[] serialize(@Nonnull RecordMetaData metaData,
                             @Nonnull RecordType recordType,
                             @Nonnull M rec,
@@ -85,7 +86,7 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
     @Nonnull
     @Override
     @SuppressWarnings({"unchecked", "squid:S1193", "PMD.AvoidInstanceofChecksInCatchClause", // exception type checking is less clunky
-                       "PMD.PreserveStackTrace"})
+                       "PMD.PreserveStackTrace", "PMD.CompareObjectsWithEquals"})
     public M deserialize(@Nonnull RecordMetaData metaData,
                          @Nonnull Tuple primaryKey,
                          @Nonnull byte[] serialized,

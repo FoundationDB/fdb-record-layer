@@ -47,8 +47,8 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class HighContentionAllocator {
     private static final byte[] LITTLE_ENDIAN_LONG_ONE = {1, 0, 0, 0, 0, 0, 0, 0};
-    private static final byte[] KEY_UPDATING_BYTE = new byte[0];
-    private static final byte[] INVALID_ALLOCATION_VALUE = new byte[]{(byte) 0xFD};
+    private static final byte[] KEY_UPDATING_BYTE = { };
+    private static final byte[] INVALID_ALLOCATION_VALUE = { (byte)0xFD };
     private static final Function<Long, CompletableFuture<Boolean>> NOOP_CHECK = ignored -> CompletableFuture.completedFuture(true);
     private final Subspace counterSubspace;
     private final Subspace allocationSubspace;

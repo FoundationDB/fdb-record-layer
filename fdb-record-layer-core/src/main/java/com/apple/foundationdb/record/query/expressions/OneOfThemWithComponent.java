@@ -129,6 +129,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public QueryComponent withOtherChild(QueryComponent newChild) {
         if (newChild == getChild()) {
             return this;

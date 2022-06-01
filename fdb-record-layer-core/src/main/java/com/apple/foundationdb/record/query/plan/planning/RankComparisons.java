@@ -132,9 +132,9 @@ public class RankComparisons {
         final String rankFunction = comparison.getFunction().getName();
         final Comparisons.Type comparisonType = comparison.getComparison().getType();
         final boolean isRightRange = comparisonType == Comparisons.Type.LESS_THAN || comparisonType == Comparisons.Type.LESS_THAN_OR_EQUALS;
-        if (rankFunction.equals(FunctionNames.RANK)) {
+        if (FunctionNames.RANK.equals(rankFunction)) {
             return isRightRange ? FunctionNames.SCORE_FOR_RANK_ELSE_SKIP : FunctionNames.SCORE_FOR_RANK;
-        } else if (rankFunction.equals(FunctionNames.TIME_WINDOW_RANK)) {
+        } else if (FunctionNames.TIME_WINDOW_RANK.equals(rankFunction)) {
             return isRightRange ? FunctionNames.SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP : FunctionNames.SCORE_FOR_TIME_WINDOW_RANK;
         } else {
             throw new RecordCoreException("Unknown rank function: " + rankFunction);
@@ -151,7 +151,7 @@ public class RankComparisons {
 
     public static boolean createsDuplicates(@Nonnull Index index, @Nonnull GroupingKeyExpression indexExpr) {
         // A time window leaderboard index takes the best score for the record among repeated fields.
-        return !index.getType().equals(IndexTypes.TIME_WINDOW_LEADERBOARD) && indexExpr.createsDuplicates();
+        return !IndexTypes.TIME_WINDOW_LEADERBOARD.equals(index.getType()) && indexExpr.createsDuplicates();
     }
 
     private void findComparisons(@Nullable QueryComponent filter,
@@ -173,9 +173,9 @@ public class RankComparisons {
         // TODO: Should share with indexMaintainerForAggregateFunction
         // TODO: Move index-specific query planning behavior outside of planner (https://github.com/FoundationDB/fdb-record-layer/issues/17)
         List<String> requiredIndexTypes;
-        if (recordFunction.getName().equals(FunctionNames.RANK)) {
+        if (FunctionNames.RANK.equals(recordFunction.getName())) {
             requiredIndexTypes = Arrays.asList(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD);
-        } else if (recordFunction.getName().equals(FunctionNames.TIME_WINDOW_RANK)) {
+        } else if (FunctionNames.TIME_WINDOW_RANK.equals(recordFunction.getName())) {
             requiredIndexTypes = Collections.singletonList(IndexTypes.TIME_WINDOW_LEADERBOARD);
         } else {
             requiredIndexTypes = null;

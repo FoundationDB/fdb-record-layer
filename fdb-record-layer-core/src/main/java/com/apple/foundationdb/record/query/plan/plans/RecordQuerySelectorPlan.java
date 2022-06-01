@@ -132,6 +132,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
      */
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
@@ -168,6 +169,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;

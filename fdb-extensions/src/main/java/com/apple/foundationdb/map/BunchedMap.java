@@ -103,7 +103,7 @@ import javax.annotation.Nullable;
 @API(API.Status.EXPERIMENTAL)
 public class BunchedMap<K,V> {
     private static final int MAX_VALUE_SIZE = 10_000; // The actual max value size is 100_000, but let's stay clear of that
-    private static final byte[] ZERO_ARRAY = new byte[]{0x00};
+    private static final byte[] ZERO_ARRAY = { 0x00 };
 
     @Nonnull
     private final Comparator<K> keyComparator;

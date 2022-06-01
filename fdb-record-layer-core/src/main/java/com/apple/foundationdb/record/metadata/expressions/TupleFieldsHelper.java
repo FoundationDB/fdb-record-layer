@@ -65,6 +65,7 @@ public class TupleFieldsHelper {
      * @return an object suitable for storing in a {@code Tuple}
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static Object fromProto(@Nonnull Message value, @Nonnull Descriptors.Descriptor descriptor) {
         if (descriptor == TupleFieldsProto.UUID.getDescriptor()) {
             return fromProto(value instanceof TupleFieldsProto.UUID ? (TupleFieldsProto.UUID)value : TupleFieldsProto.UUID.newBuilder().mergeFrom(value).build());
@@ -169,6 +170,7 @@ public class TupleFieldsHelper {
      * @return an object suitable for storing in the field
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static Message toProto(@Nonnull Object value, @Nonnull Descriptors.Descriptor descriptor) {
         if (descriptor == TupleFieldsProto.UUID.getDescriptor()) {
             return toProto((UUID)value);

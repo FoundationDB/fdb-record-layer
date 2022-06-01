@@ -173,7 +173,7 @@ public class FileSorter<K, V>  {
         })).thenApply(vignore -> loadResult);
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
     private void saveToNextFile(int maxNumFiles) {
         final long startTime = System.nanoTime();
         final boolean compress = adapter.isCompressed();
@@ -289,6 +289,7 @@ public class FileSorter<K, V>  {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     static OutputStream wrapOutputStream(@Nonnull FileOutputStream fileStream,
                                          @Nullable Cipher cipher, boolean compress) {
         OutputStream stream = new NoCloseFilterStream(fileStream);
@@ -302,6 +303,7 @@ public class FileSorter<K, V>  {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     static InputStream wrapInputStream(@Nonnull FileInputStream fileStream,
                                        @Nullable Cipher cipher, boolean compressed) {
         InputStream stream = fileStream;
@@ -378,6 +380,7 @@ public class FileSorter<K, V>  {
             fileRecordEnd = builder.getNumberOfRecords();
         }
 
+        @SuppressWarnings("PMD.CloseResource")
         public void next() throws IOException, GeneralSecurityException {
             while (recordPosition >= sectionRecordEnd) {
                 if (recordPosition >= fileRecordEnd) {
@@ -558,7 +561,7 @@ public class FileSorter<K, V>  {
 
     // TODO: If there were a limit on the total number of records saved, then each file could be limited to
     // that number and merge could stop when it is reached.
-    @SuppressWarnings("PMD.EmptyCatchBlock")
+    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.CloseResource", "PMD.UseTryWithResources"})
     private void merge(@Nonnull Collection<File> inputFiles, @Nonnull File outputFile) throws IOException, GeneralSecurityException {
         final long startTime = System.nanoTime();
         final List<InputState> inputs = new ArrayList<>(inputFiles.size());

@@ -67,7 +67,7 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
 
     @Nonnull
     @Override
-    public abstract LuceneScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index, @Nonnull final EvaluationContext context);
+    public abstract LuceneScanBounds bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context);
 
     @Nonnull
     public ScanComparisons getGroupComparisons() {

@@ -429,6 +429,7 @@ public class ScanComparisons implements PlanHashable {
             }
         }
 
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public void addComparison(Comparisons.Comparison comparison) {
             final Object comparand = comparison.getComparand(store, context);
             if (comparand == Comparisons.COMPARISON_SKIPPED_BINDING) {

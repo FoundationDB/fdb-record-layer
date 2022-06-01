@@ -156,7 +156,7 @@ public class ResolverValidator {
                     // The reverse directory cache has an entry in the directory layer that it does not,
                     // itself maintain a reverse entry for (it probably SHOULD, but we now have caches that
                     // were created that way and have to accept it.
-                    if (keyValue.getKey().equals(FDBReverseDirectoryCache.REVERSE_DIRECTORY_CACHE_ENTRY)) {
+                    if (FDBReverseDirectoryCache.REVERSE_DIRECTORY_CACHE_ENTRY.equals(keyValue.getKey())) {
                         return CompletableFuture.completedFuture(new ValidatedEntry(ValidationResult.OK, keyValue));
                     }
 

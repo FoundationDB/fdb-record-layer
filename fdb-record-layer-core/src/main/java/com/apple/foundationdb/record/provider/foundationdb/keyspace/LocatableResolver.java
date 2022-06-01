@@ -124,6 +124,7 @@ public abstract class LocatableResolver {
     }
 
     @Nonnull
+    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     private <T> CompletableFuture<T> runAsyncBorrowingReadVersion(@Nonnull FDBRecordContext parentContext,
                                                                   @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable,
                                                                   Object...additionalLogMessageKeyValues) {
@@ -306,6 +307,7 @@ public abstract class LocatableResolver {
      * @return a future for the {@link ResolverResult} containing the resolved value and metadata
      */
     @Nonnull
+    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     public CompletableFuture<ResolverResult> resolveWithMetadata(@Nullable FDBStoreTimer timer,
                                                                  @Nonnull String name,
                                                                  @Nonnull ResolverCreateHooks hooks) {
@@ -466,11 +468,13 @@ public abstract class LocatableResolver {
                 })
                 .thenCombine(getResolverState(context), (readState, cachedState) -> {
                     if (!readState.equals(cachedState)) {
-                        LOGGER.warn(KeyValueLogMessage.of("cached state and read stated differ",
-                                        LogMessageKeys.RESOLVER_KEY, key,
-                                        LogMessageKeys.RESOLVER_PATH, location,
-                                        LogMessageKeys.CACHED_STATE, cachedState,
-                                        LogMessageKeys.READ_STATE, readState));
+                        if (LOGGER.isWarnEnabled()) {
+                            LOGGER.warn(KeyValueLogMessage.of("cached state and read stated differ",
+                                            LogMessageKeys.RESOLVER_KEY, key,
+                                            LogMessageKeys.RESOLVER_PATH, location,
+                                            LogMessageKeys.CACHED_STATE, cachedState,
+                                            LogMessageKeys.READ_STATE, readState));
+                        }
                     }
                     return readState;
                 })

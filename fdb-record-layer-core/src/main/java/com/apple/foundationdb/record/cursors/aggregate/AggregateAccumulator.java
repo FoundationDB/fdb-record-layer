@@ -47,8 +47,8 @@ public interface AggregateAccumulator {
      * @param message the message containing the result that needs to be accumulated into the aggregation
      * @param <M> the type of records used in the evaluation
      */
-    <M extends Message> void accumulate(@Nonnull FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
-                                        @Nullable final FDBRecord<M> record, @Nonnull final M message);
+    <M extends Message> void accumulate(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                        @Nullable FDBRecord<M> record, @Nonnull M message);
 
     /**
      * Calculate and return the result from the accumulated state.

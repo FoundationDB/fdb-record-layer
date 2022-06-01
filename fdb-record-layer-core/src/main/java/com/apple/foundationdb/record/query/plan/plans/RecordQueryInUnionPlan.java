@@ -210,9 +210,10 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     @Override
-    public abstract RecordQueryInUnionPlan withChild(@Nonnull final RecordQueryPlan child);
+    public abstract RecordQueryInUnionPlan withChild(@Nonnull RecordQueryPlan child);
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {

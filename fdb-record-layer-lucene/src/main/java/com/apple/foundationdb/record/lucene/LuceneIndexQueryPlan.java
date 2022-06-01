@@ -58,6 +58,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
      */
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
                                                                       @Nonnull EvaluationContext context,
                                                                       @Nullable byte[] continuation,
@@ -69,7 +70,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
             throw new RecordCoreException("No lucene index should span multiple record types");
         }
         final IndexScanType scanType = getScanType();
-        if (scanType == LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE || scanType == LuceneScanTypes.BY_LUCENE_SPELL_CHECK) {
+        if (scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE) || scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
             final RecordType recordType = recordTypes.iterator().next();
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
             return entryRecordCursor

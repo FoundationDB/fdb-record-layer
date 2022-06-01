@@ -107,15 +107,15 @@ public interface PlannerRuleCall {
      * @param candidateRef the matching reference on the candidate side
      * @param matchInfo an auxiliary structure to keep additional information about the match
      */
-    void yieldPartialMatch(@Nonnull final AliasMap boundAliasMap,
-                           @Nonnull final MatchCandidate matchCandidate,
-                           @Nonnull final RelationalExpression queryExpression,
-                           @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
-                           @Nonnull final MatchInfo matchInfo);
+    void yieldPartialMatch(@Nonnull AliasMap boundAliasMap,
+                           @Nonnull MatchCandidate matchCandidate,
+                           @Nonnull RelationalExpression queryExpression,
+                           @Nonnull ExpressionRef<? extends RelationalExpression> candidateRef,
+                           @Nonnull MatchInfo matchInfo);
 
-    <T> void pushConstraint(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
-                            @Nonnull final PlannerConstraint<T> plannerConstraint,
-                            @Nonnull final T requirement);
+    <T> void pushConstraint(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
+                            @Nonnull PlannerConstraint<T> plannerConstraint,
+                            @Nonnull T requirement);
 
     /**
      * Wrap the given planner expression in an implementation of {@link ExpressionRef} suitable for the planner

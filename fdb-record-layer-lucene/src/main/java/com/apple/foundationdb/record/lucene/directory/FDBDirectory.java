@@ -406,8 +406,10 @@ public class FDBDirectory extends Directory {
                 try {
                     readBlock(name, fileReference, 0);
                 } catch (RecordCoreException e) {
-                    LOGGER.warn(getLogMessage("Exception thrown during prefetch",
-                            LuceneLogMessageKeys.FILE_NAME, name));
+                    if (LOGGER.isWarnEnabled()) {
+                        LOGGER.warn(getLogMessage("Exception thrown during prefetch",
+                                LuceneLogMessageKeys.FILE_NAME, name));
+                    }
                 }
             }
             outMap.put(name, fileReference);

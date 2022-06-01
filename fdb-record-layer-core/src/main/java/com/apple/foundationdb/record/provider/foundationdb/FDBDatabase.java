@@ -437,7 +437,7 @@ public class FDBDatabase {
      * @see Database#createTransaction
      */
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
     public FDBRecordContext openContext(@Nonnull FDBRecordContextConfig contextConfig) {
         openFDB();
         final Executor executor = newContextExecutor(contextConfig.getMdcContext());
@@ -525,6 +525,7 @@ public class FDBDatabase {
      * @return a future that will complete after being run by the FDB network thread
      */
     @Nonnull
+    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     public CompletableFuture<Void> performNoOpAsync(@Nullable Map<String, String> mdcContext,
                                                     @Nullable FDBStoreTimer timer) {
         final FDBRecordContext context = openContext(mdcContext, timer);
@@ -744,6 +745,7 @@ public class FDBDatabase {
      * @param executor the executor to be used for asynchronous operations
      * @return newly created transaction
      */
+    @SuppressWarnings("PMD.CloseResource")
     private Transaction createTransaction(@Nonnull FDBRecordContextConfig config, @Nonnull Executor executor) {
         final TransactionListener listener = config.getTransactionListener() == null
                                              ? factory.getTransactionListener()
@@ -927,6 +929,7 @@ public class FDBDatabase {
      */
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("PMD.CloseResource")
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
         final FDBDatabaseRunner runner = newRunner();
@@ -971,6 +974,7 @@ public class FDBDatabase {
      */
     @Nonnull
     @API(API.Status.MAINTAINED)
+    @SuppressWarnings("PMD.CloseResource")
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
@@ -1020,6 +1024,7 @@ public class FDBDatabase {
      */
     @Nonnull
     @API(API.Status.MAINTAINED)
+    @SuppressWarnings("PMD.CloseResource")
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext, @Nullable WeakReadSemantics weakReadSemantics,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         final FDBDatabaseRunner runner = newRunner(timer, mdcContext, weakReadSemantics);
@@ -1164,6 +1169,7 @@ public class FDBDatabase {
      * @return number of such contexts found
      */
     @VisibleForTesting
+    @SuppressWarnings({"PMD.CloseResource", "PMD.GuardLogStatement"})
     public int warnAndCloseOldTrackedOpenContexts(long minAgeSeconds) {
         long nanoTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(minAgeSeconds);
         if (trackedOpenContexts.isEmpty()) {
@@ -1181,10 +1187,12 @@ public class FDBDatabase {
             KeyValueLogMessage msg = KeyValueLogMessage.build("context not closed",
                     LogMessageKeys.AGE_SECONDS, TimeUnit.NANOSECONDS.toSeconds(nanoTime - context.getTrackOpenTimeNanos()),
                     LogMessageKeys.TRANSACTION_ID, context.getTransactionId());
-            if (context.getOpenStackTrace() != null) {
-                LOGGER.warn(msg.toString(), context.getOpenStackTrace());
-            } else {
-                LOGGER.warn(msg.toString());
+            if (LOGGER.isWarnEnabled()) {
+                if (context.getOpenStackTrace() != null) {
+                    LOGGER.warn(msg.toString(), context.getOpenStackTrace());
+                } else {
+                    LOGGER.warn(msg.toString());
+                }
             }
             context.closeTransaction(true);
             count++;
@@ -1200,7 +1208,7 @@ public class FDBDatabase {
         context.setTrackOpenTimeNanos(key);
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
     protected void untrackOpenContext(FDBRecordContext context) {
         FDBRecordContext found = trackedOpenContexts.remove(context.getTrackOpenTimeNanos());
         if (found != context) {
@@ -1281,7 +1289,7 @@ public class FDBDatabase {
 
         if (!isComplete && behavior.throwExceptionOnBlocking()) {
             throw exception;
-        } else {
+        } else if (LOGGER.isWarnEnabled()) {
             KeyValueLogMessage logMessage = KeyValueLogMessage.build(title)
                     .addKeysAndValues(exception.getLogInfo());
             LOGGER.warn(logMessage.toString(), exception);

@@ -130,6 +130,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     protected void renderHeader(@Nonnull final ExporterContext context, @Nonnull final ImmutableNetwork<N, E> graph) {
         final PrintWriter out = context.getPrintWriter();
         if (!graph.allowsParallelEdges()) {
@@ -147,6 +148,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     protected void renderGraphAttributes(@Nonnull final ExporterContext context, @Nonnull final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
         // graph attributes
@@ -162,7 +164,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         }
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "PMD.CloseResource"})
     private void renderInvisibleEdges(@Nonnull final ExporterContext context, final N n, final String indentation) {
         final ImmutableNetwork<N, E> network = context.getNetwork();
         final PrintWriter out = context.getPrintWriter();
@@ -274,6 +276,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     protected void renderNode(@Nonnull final ExporterContext context,
                               @Nonnull final N node,
                               @Nonnull final Map<String, Attribute> attributes) {
@@ -308,7 +311,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
-    @SuppressWarnings("squid:S3358")
+    @SuppressWarnings({"squid:S3358", "PMD.CloseResource"})
     protected void renderEdge(@Nonnull final ExporterContext context,
                               final boolean isDirected,
                               @Nonnull final N source,
@@ -385,6 +388,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param attributes the attributes of the sub cluster
      * @param indentation indentation
      */
+    @SuppressWarnings("PMD.CloseResource")
     protected void renderCluster(@Nonnull ExporterContext context,
                                  @Nonnull String clusterId,
                                  @Nonnull Cluster<N, E> cluster,
@@ -516,6 +520,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param attribute attribute value
      * @param suffix -- suffix
      */
+    @SuppressWarnings("PMD.CloseResource")
     private void renderAttribute(@Nonnull final ExporterContext context,
                                  @Nonnull final String attrName,
                                  @Nullable final Attribute attribute,

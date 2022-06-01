@@ -94,6 +94,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
         return store.evaluateAggregateFunction(context, Collections.emptyList(), scoreForRank.function, TupleRange.allOf(operand), isolationLevel);
     }
     
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private <M extends Message> CompletableFuture<EvaluationContext> bindScores(@Nonnull FDBRecordStoreBase<M> store,
                                                                                 @Nonnull EvaluationContext context,
                                                                                 @Nonnull IsolationLevel isolationLevel) {
@@ -188,6 +189,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
