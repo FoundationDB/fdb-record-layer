@@ -116,7 +116,7 @@ tasks.withType(Test) { task ->
 task testJar(type: Jar, dependsOn: testClasses) {
     group = 'Build'
     description = 'Build a jar file of test classes as an exported artifact'
-    baseName = "${project.archivesBaseName}-test"
+    classifier='test'
     from sourceSets.test.output
 }
 
