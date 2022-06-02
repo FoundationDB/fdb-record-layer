@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -59,11 +60,15 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -91,6 +96,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -122,6 +128,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
 /**
  * Tests for {@code VERSION} type indexes.
@@ -168,6 +175,15 @@ public class VersionIndexTest extends FDBTestBase {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
         metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
         metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$num2-version", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
+        metaDataBuilder.addUniversalIndex(
+                new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
+    };
+
+    @Nonnull
+    private final RecordMetaDataHook justVersionHook = metaDataBuilder -> {
+        metaDataBuilder.setSplitLongRecords(splitLongRecords);
+        metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$just-version", VersionKeyExpression.VERSION, IndexTypes.VERSION));
         metaDataBuilder.addUniversalIndex(
                 new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
     };
@@ -220,6 +236,14 @@ public class VersionIndexTest extends FDBTestBase {
                 FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION,
                 FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION
         ).flatMap(formatVersion -> Stream.of(Arguments.of(formatVersion, true), Arguments.of(formatVersion, false)));
+    }
+
+    // Provide a combination of format versions, split and a remote fetch option
+    private static Stream<Arguments> formatVersionArgumentsWithRemoteFetch() {
+        return formatVersionArguments()
+                .flatMap(arg -> Stream.of(RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH,
+                                RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH)
+                        .map(indexFetchMethod -> Arguments.of(arg.get()[0], arg.get()[1], indexFetchMethod)));
     }
 
     /**
@@ -571,10 +595,10 @@ public class VersionIndexTest extends FDBTestBase {
         }
     }
 
-    @ParameterizedTest(name = "saveLoadWithFunctionVersion [formatVersion = {0}, splitLongRecords = {1}]")
-    @MethodSource("formatVersionArguments")
+    @ParameterizedTest(name = "saveLoadWithFunctionVersion [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void saveLoadWithFunctionVersion(int testFormatVersion, boolean testSplitLongRecords) throws ExecutionException, InterruptedException {
+    public void saveLoadWithFunctionVersion(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -615,8 +639,8 @@ public class VersionIndexTest extends FDBTestBase {
 
         try (FDBRecordContext context = openContext(functionVersionHook)) {
             // Scan the functional index
-            List<Tuple> indexKeys = recordStore.scanIndex(metaData.getIndex("MySimpleRecord$maybeVersion"), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
-                    .map(IndexEntry::getKey).asList().get();
+            List<Tuple> indexKeys = scanIndexToKeys(fetchMethod, "MySimpleRecord$maybeVersion", ScanProperties.FORWARD_SCAN);
+
             List<Tuple> expectedKeys = Arrays.asList(
                     Tuple.from(FDBRecordVersion.MIN_VERSION.toVersionstamp(), 43L),
                     Tuple.from(FDBRecordVersion.MIN_VERSION.toVersionstamp(), 871L),
@@ -831,9 +855,9 @@ public class VersionIndexTest extends FDBTestBase {
     }
 
     @ParameterizedTest(name = "saveLoadWithRepeatedVersion [formatVersion = {0}, splitLongRecords = {1}]")
-    @MethodSource("formatVersionArguments")
+    @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void scanWithIncompleteVersion(int testFormatVersion, boolean testSplitLongRecords) {
+    public void scanWithIncompleteVersion(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -870,6 +894,14 @@ public class VersionIndexTest extends FDBTestBase {
 
             scannedRecords = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asList().join();
             assertEquals(Lists.reverse(savedRecords), scannedRecords);
+
+            List<Tuple> expectedKeys = Arrays.asList(
+                    Tuple.from(null, savedRecords.get(0).getVersion().toVersionstamp(), 1066L),
+                    Tuple.from(null, savedRecords.get(1).getVersion().toVersionstamp(), 1415L)
+            );
+            List<Tuple> keys = scanIndexToKeys(fetchMethod, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN);
+            assertEquals(expectedKeys, keys);
+
             context.commit();
         }
     }
@@ -968,10 +1000,10 @@ public class VersionIndexTest extends FDBTestBase {
         }
     }
 
-    @ParameterizedTest(name = "updateWithinContext [formatVersion = {0}, splitLongRecords = {1}]")
-    @MethodSource("formatVersionArguments")
+    @ParameterizedTest(name = "updateWithinContext [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void updateWithinContext(int testFormatVersion, boolean testSplitLongRecords) {
+    public void updateWithinContext(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1039,15 +1071,13 @@ public class VersionIndexTest extends FDBTestBase {
                     Arrays.asList(
                         Tuple.from(FDBRecordVersion.complete(versionstamp, 0).toVersionstamp(), 1066L),
                         Tuple.from(FDBRecordVersion.complete(versionstamp, 2).toVersionstamp(), 1776L)),
-                    recordStore.scanIndex(metaData.getIndex("globalVersion"), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
-                        .map(IndexEntry::getKey).asList().join()
+                    scanIndexToKeys(fetchMethod, "globalVersion", ScanProperties.FORWARD_SCAN)
             );
             assertEquals(
                     Arrays.asList(
                         Tuple.from(42, FDBRecordVersion.complete(versionstamp, 2).toVersionstamp(), 1776L),
                         Tuple.from(43, FDBRecordVersion.complete(versionstamp, 0).toVersionstamp(), 1066L)),
-                    recordStore.scanIndex(metaData.getIndex("MySimpleRecord$num2-version"), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
-                            .map(IndexEntry::getKey).asList().join()
+                    scanIndexToKeys(fetchMethod, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN)
             );
         }
     }
@@ -2300,6 +2330,50 @@ public class VersionIndexTest extends FDBTestBase {
         }
     }
 
+    @Test
+    void testScanVersionIndex() throws Exception {
+        MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(42).setNumValue3Indexed(1).build();
+        MySimpleRecord record2 = MySimpleRecord.newBuilder().setRecNo(1067L).setNumValue2(42).setNumValue3Indexed(2).build();
+        MySimpleRecord record3 = MySimpleRecord.newBuilder().setRecNo(1068L).setNumValue2(43).setNumValue3Indexed(2).build();
+        MySimpleRecord record4 = MySimpleRecord.newBuilder().setRecNo(1776L).setNumValue2(42).setNumValue3Indexed(1).build();
+
+        byte[] transactionVersion;
+        try (FDBRecordContext context = openContext(justVersionHook)) {
+            FDBRecordVersion version = FDBRecordVersion.incomplete(context.claimLocalVersion());
+            recordStore.saveRecord(record1, version);
+            recordStore.saveRecord(record2, version); // Save record. Shouldn't update version information.
+            recordStore.saveRecord(record3, version); // Save record. Shouldn't update version information
+            recordStore.saveRecord(record4);
+            recordStore.saveRecord(record4); // Same record. New version.
+            context.commit();
+
+            transactionVersion = context.getVersionStamp();
+        }
+
+        try (FDBRecordContext context = openContext(justVersionHook)) {
+            List<FDBIndexedRecord<Message>> records = scanIndexToRecords("MySimpleRecord$just-version", ScanProperties.FORWARD_SCAN);
+
+            Objects.requireNonNull(transactionVersion);
+            List<Tuple> expectedKeys = List.of(
+                    Tuple.from(Versionstamp.complete(transactionVersion, 0), 1066L),
+                    Tuple.from(Versionstamp.complete(transactionVersion, 0), 1067L),
+                    Tuple.from(Versionstamp.complete(transactionVersion, 0), 1068L),
+                    Tuple.from(Versionstamp.complete(transactionVersion, 2), 1776)
+            );
+            assertEquals(expectedKeys, records.stream().map(FDBIndexedRecord::getIndexEntry).map(IndexEntry::getKey).collect(Collectors.toList()));
+
+            List<Long> expectedRecordKeys = List.of(1066L, 1067L, 1068L, 1776L);
+            List<Long> actualPrimaryKeys = records.stream().map(record -> {
+                TestRecords1Proto.MySimpleRecord.Builder simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder();
+                simpleRecord.mergeFrom(record.getRecord());
+                return simpleRecord.getRecNo();
+            }).collect(Collectors.toList());
+            assertEquals(expectedRecordKeys, actualPrimaryKeys);
+
+            context.commit();
+        }
+    }
+
     private <M extends Message> void validateUsingOlderVersionFormat(@Nonnull List<FDBStoredRecord<M>> storedRecords) {
         // Make sure all of the records have versions in the old keyspace
         final Subspace legacyVersionSubspace = recordStore.getLegacyVersionSubspace();
@@ -2353,5 +2427,28 @@ public class VersionIndexTest extends FDBTestBase {
             assertEquals(storedRecord.getVersion(), versionPair.getRight());
         }
         assertFalse(versionKeyPairs.hasNext());
+    }
+
+    @Nonnull
+    private List<Tuple> scanIndexToKeys(final RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod, final String indexName, final ScanProperties direction) throws Exception {
+        if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) {
+            return recordStore.scanIndex(metaData.getIndex(indexName), IndexScanType.BY_VALUE, TupleRange.ALL, null, direction)
+                    .map(IndexEntry::getKey)
+                    .asList().get();
+        } else {
+            IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
+            KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
+            return recordStore.scanIndexRemoteFetch(indexName, scanBounds, primaryKey, null, direction, IndexOrphanBehavior.ERROR)
+                    .map(FDBIndexedRecord::getIndexEntry)
+                    .map(IndexEntry::getKey)
+                    .asList().get();
+        }
+    }
+    @Nonnull
+    private List<FDBIndexedRecord<Message>> scanIndexToRecords(final String indexName, final ScanProperties direction) throws Exception {
+            IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
+            KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
+            return recordStore.scanIndexRemoteFetch(indexName, scanBounds, primaryKey, null, direction, IndexOrphanBehavior.ERROR)
+                    .asList().get();
     }
 }
