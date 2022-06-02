@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFie
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectExistentialRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSortRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughUnionRule;
@@ -112,7 +113,8 @@ public class PlannerRuleSet {
             new PushRequestedOrderingThroughDistinctRule(),
             new PushRequestedOrderingThroughUnionRule(),
             new PushRequestedOrderingThroughInLikeSelectRule(),
-            new PushRequestedOrderingThroughSelectRule()
+            new PushRequestedOrderingThroughSelectRule(),
+            new PushRequestedOrderingThroughSelectExistentialRule()
     );
 
     private static final List<PlannerRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(

@@ -84,7 +84,12 @@ import java.util.Objects;
 import java.util.OptionalLong;
 
 /**
- * This property establishes a partial order over the expressions contained in a subgraph.
+ * This property attempts to derive the minimum and the maximum cardinality of the conceptual result of a
+ * {@link RelationalExpression}. If the expression happens to be a
+ * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan} the minimum and maximum cardinalities derived
+ * by this property represent the cardinality bounds of the plan. This property is implemented in a defensive way,
+ * using best-effort, e.g. the result may indicate {@link Cardinality#unknownCardinality()} if a cardinality cannot be
+ * constrained from the data flow graph given to the property.
  */
 public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesProperty.Cardinalities> {
     @Nonnull

@@ -1,5 +1,5 @@
 /*
- * PushRequestedOrderingThroughSelectRule.java
+ * PushRequestedOrderingThroughSelectExistentialRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRul
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -36,8 +37,8 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.existentialQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -45,16 +46,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushRequestedOrderingThroughSelectRule extends PlannerRule<SelectExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughSelectExistentialRule extends PlannerRule<SelectExpression> implements PreOrderRule {
     @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
+    private static final BindingMatcher<Quantifier.Existential> innerQuantifierMatcher = existentialQuantifierOverRef(lowerRefMatcher);
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(exactly(innerQuantifierMatcher));
+            selectExpression(any(innerQuantifierMatcher));
 
-    public PushRequestedOrderingThroughSelectRule() {
+    public PushRequestedOrderingThroughSelectExistentialRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
@@ -62,11 +63,8 @@ public class PushRequestedOrderingThroughSelectRule extends PlannerRule<SelectEx
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final var bindings = call.getBindings();
         final var lowerRef = bindings.get(lowerRefMatcher);
-        final var requestedOrdering =
-                call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING)
-                        .orElse(ImmutableSet.of());
         call.pushConstraint(lowerRef,
                 RequestedOrderingConstraint.REQUESTED_ORDERING,
-                requestedOrdering);
+                ImmutableSet.of(RequestedOrdering.preserve()));
     }
 }

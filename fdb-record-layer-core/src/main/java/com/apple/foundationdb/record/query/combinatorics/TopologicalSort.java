@@ -694,7 +694,7 @@ public class TopologicalSort {
 
     /**
      * Create a correct topological ordering based on a set and a function describing
-     * the depends-on relationships between items in the given set.
+     * the dependency relationships between items in the given set.
      * @param set the set to create the iterable over
      * @param dependsOnFn a function from {@code T} to {@code Set<T>} that can be called during the lifecycle of all
      *        iterators multiple times repeatedly or not at all for any given element in {@code set}. This method is
@@ -710,8 +710,8 @@ public class TopologicalSort {
     }
 
     /**
-     * Create a correct topological ordering based on a partial order describing
-     * the depends-on relationships between items in the given set.
+     * Create a correct topological ordering based on a partial order describing the dependency relationships between
+     * the items in the given set.
      * @param partialOrder the partial order to create the iterable over
      * @param <T> type
      * @return a permutation of the set that is topologically correctly ordered with respect to {@code dependsOnFn}
@@ -722,8 +722,8 @@ public class TopologicalSort {
     }
 
     /**
-     * Create a correct topological ordering based on a set and a map describing
-     * the depends-on relationships between items in the given set.
+     * Create a correct topological ordering based on a set and a map describing the dependency relationships between
+     * items in the given set.
      * @param set the set to create the iterable over
      * @param dependsOnMap a set-based multimap from {@code T} to {@code T} describing the dependencies between entities.
      *        The key entity of the map depends on each entity in the set of values for that key.

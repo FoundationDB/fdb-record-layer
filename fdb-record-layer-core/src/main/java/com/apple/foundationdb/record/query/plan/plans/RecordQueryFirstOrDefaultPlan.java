@@ -55,7 +55,7 @@ import java.util.Set;
 
 /**
  * A query plan that only flows the first record it processes from its inner and then stops. If the inner is empty,
- * i.e. does not produce any records, are default value that is passed into the constructor is returned in place of
+ * i.e. does not produce any records, a default value that is passed into the constructor is returned in place of
  * the first record.
  */
 @API(API.Status.INTERNAL)
