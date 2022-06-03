@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
@@ -1937,8 +1938,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             FDBRecordStoreBase.UserVersionChecker userVersionChecker = new FDBRecordStoreBase.UserVersionChecker() {
                 @Override
+                public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                    return CompletableFuture.completedFuture(1);
+                }
+
+                @Deprecated
+                @Override
                 public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-                    return CompletableFuture.completedFuture(Integer.valueOf(1));
+                    throw new RecordCoreException("deprecated checkUserVersion called");
                 }
 
                 @Override
@@ -1982,8 +1989,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         final FDBRecordStoreBase.UserVersionChecker alwaysDisabled = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
+            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                return CompletableFuture.completedFuture(1);
+            }
+
+            @Deprecated
+            @Override
             public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-                return CompletableFuture.completedFuture(Integer.valueOf(1));
+                throw new RecordCoreException("deprecated checkUserVersion called");
             }
 
             @Override
@@ -1994,8 +2007,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         final FDBRecordStoreBase.UserVersionChecker alwaysEnabled = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
+            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                return CompletableFuture.completedFuture(1);
+            }
+
+            @Deprecated
+            @Override
             public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-                return CompletableFuture.completedFuture(Integer.valueOf(1));
+                throw new RecordCoreException("deprecated checkUserVersion called");
             }
 
             @Override
@@ -2130,8 +2149,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void testSelectiveIndexDisable() throws Exception {
         final FDBRecordStoreBase.UserVersionChecker selectiveEnable = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
+            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                return CompletableFuture.completedFuture(1);
+            }
+
+            @Deprecated
+            @Override
             public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-                return CompletableFuture.completedFuture(Integer.valueOf(1));
+                throw new RecordCoreException("deprecated checkUserVersion called");
             }
 
             @Override

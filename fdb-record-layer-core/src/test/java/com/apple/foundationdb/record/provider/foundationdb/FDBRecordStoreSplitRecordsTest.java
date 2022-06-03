@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
@@ -316,8 +317,14 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         // We want to test that a conflict comes from the clearing itself.
         final FDBRecordStoreBase.UserVersionChecker dontBuild = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
-            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                 return CompletableFuture.completedFuture(0);
+            }
+
+            @Deprecated
+            @Override
+            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+                throw new RecordCoreException("deprecated checkUserVersion called");
             }
 
             @Override

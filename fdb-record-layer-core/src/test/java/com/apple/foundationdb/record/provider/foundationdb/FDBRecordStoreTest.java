@@ -866,14 +866,21 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-            if (oldUserVersion < 0) {
+        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+            if (storeHeader.getFormatVersion() == 0) {
                 return CompletableFuture.completedFuture(defaultVersion);
             }
+            int oldUserVersion = storeHeader.getUserVersion();
             if (oldUserVersion == 101) {
                 needOld = true;
             }
             return CompletableFuture.completedFuture(oldUserVersion);
+        }
+
+        @Deprecated
+        @Override
+        public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+            throw new RecordCoreException("deprecated checkUserVersion called");
         }
     }
 

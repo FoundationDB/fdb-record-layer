@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestNoIndexesProto;
@@ -727,8 +728,14 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         }
 
         @Override
+        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+            return CompletableFuture.completedFuture(storeHeader.getUserVersion());
+        }
+
+        @Deprecated
+        @Override
         public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
-            return CompletableFuture.completedFuture(oldUserVersion);
+            throw new RecordCoreException("deprecated checkUserVersion called");
         }
 
         @Override

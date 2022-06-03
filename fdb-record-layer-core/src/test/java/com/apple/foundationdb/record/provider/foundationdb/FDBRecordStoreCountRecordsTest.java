@@ -45,6 +45,7 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -260,8 +261,14 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         // Need to allow immediate rebuild of new count index.
         final FDBRecordStoreBase.UserVersionChecker alwaysEnabled = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
-            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                 return CompletableFuture.completedFuture(1);
+            }
+
+            @Deprecated
+            @Override
+            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+                throw new RecordCoreException("deprecated checkUserVersion called");
             }
 
             @Override
