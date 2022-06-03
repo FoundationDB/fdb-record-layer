@@ -34,7 +34,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Publish test jar as part of the regular distribution [(Issue #1703)](https://github.com/FoundationDB/fdb-record-layer/issues/1703)
-* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** UserVersionChecker should be getting RecordMetaDataProto.DataStoreInfo [(Issue #1710)](https://github.com/FoundationDB/fdb-record-layer/issues/1710)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -169,11 +170,42 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     interface UserVersionChecker {
         /**
          * Check the user version.
+         * <p>
+         * If this store is being created for the first time, the store header will be set to the default instance. In
+         * particular, the format version will be zero, whereas the format version on all stores that have already been
+         * created will be greater than zero.
+         *
+         * @param storeHeader store header
+         * @param metaData the meta-data provider that will be used to get meta-data
+         *
+         * @return the user version to store in the record info header
+         */
+        @SuppressWarnings("deprecation")
+        default CompletableFuture<Integer> checkUserVersion(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+                                                            RecordMetaDataProvider metaData) {
+            final boolean newStore = storeHeader.getFormatVersion() == 0;
+            final int oldMetaDataVersion = newStore ? -1 : storeHeader.getMetaDataversion();
+            final int oldUserVersion = newStore ? -1 : storeHeader.getUserVersion();
+            return checkUserVersion(oldUserVersion, oldMetaDataVersion, metaData);
+        }
+
+        /**
+         * Check the user version.
+         * <p>
+         * This method is not called on classes that override
+         * {@link #checkUserVersion(RecordMetaDataProto.DataStoreInfo, RecordMetaDataProvider)}. Such implementations
+         * can just throw an exception from here.
+         *
          * @param oldUserVersion the old user version or <code>-1</code> if this is a new record store
          * @param oldMetaDataVersion the old meta-data version
          * @param metaData the meta-data provider that will be used to get meta-data
+         *
          * @return the user version to store in the record info header
+         *
+         * @deprecated use {@link #checkUserVersion(RecordMetaDataProto.DataStoreInfo, RecordMetaDataProvider)} instead
          */
+        @API(API.Status.DEPRECATED)
+        @Deprecated
         CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion,
                                                     RecordMetaDataProvider metaData);
 
