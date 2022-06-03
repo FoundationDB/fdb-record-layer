@@ -1991,9 +1991,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private CompletableFuture<Boolean> checkVersion(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable UserVersionChecker userVersionChecker) {
         RecordMetaDataProto.DataStoreInfo.Builder info = storeHeader.toBuilder();
-        final boolean newStore = info.getFormatVersion() == 0;
-        final int oldMetaDataVersion = newStore ? -1 : info.getMetaDataversion();
-        final int oldUserVersion = newStore ? -1 : info.getUserVersion();
         if (info.hasFormatVersion() && info.getFormatVersion() >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
             // If the store is already using a format version greater than or equal to the version
             // where the unsplit records are now written with an extra suffix, use the value for
@@ -2002,7 +1999,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             omitUnsplitRecordSuffix = info.getOmitUnsplitRecordSuffix();
         }
         final boolean[] dirty = new boolean[1];
-        final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, oldUserVersion, oldMetaDataVersion, info, dirty);
+        final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, storeHeader, info, dirty);
         final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
         return checkedRebuild.thenCompose(vignore -> {
             if (dirty[0]) {
@@ -2013,12 +2010,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }).thenCompose(this::removeReplacedIndexesIfChanged);
     }
 
-    private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker, int oldUserVersion, int oldMetaDataVersion,
+    private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker,
+                                                     @Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader,
                                                      @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info, @Nonnull boolean[] dirty) {
+        final boolean newStore = info.getFormatVersion() == 0;
+        final int oldUserVersion = newStore ? -1 : info.getUserVersion();
         if (userVersionChecker == null) {
             return AsyncUtil.DONE;
         }
-        return userVersionChecker.checkUserVersion(oldUserVersion, oldMetaDataVersion, metaDataProvider)
+        return userVersionChecker.checkUserVersion(storeHeader, metaDataProvider)
                 .thenApply(newUserVersion -> {
                     userVersion = newUserVersion;
                     if (newUserVersion != oldUserVersion) {
