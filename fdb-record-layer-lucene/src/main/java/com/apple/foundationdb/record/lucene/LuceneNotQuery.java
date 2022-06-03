@@ -1,9 +1,9 @@
 /*
- * LuceneBooleanQuery.java
+ * LuceneNotQuery.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,75 +30,75 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * Binder for a conjunction of other clauses.
+ * Binder for a negation of clauses.
+ * Because of the way Lucene {@link BooleanQuery} works, this actually represents set subtraction,
+ * with a set of positive and negative clauses. For the same reason, there is no disjunctive analogue.
  */
 @API(API.Status.UNSTABLE)
-public class LuceneBooleanQuery extends LuceneQueryClause {
+public class LuceneNotQuery extends LuceneBooleanQuery {
     @Nonnull
-    private final List<LuceneQueryClause> children;
-    @Nonnull
-    private final BooleanClause.Occur occur;
+    private final List<LuceneQueryClause> negatedChildren;
 
-    public LuceneBooleanQuery(@Nonnull List<LuceneQueryClause> children, @Nonnull BooleanClause.Occur occur) {
-        this.children = children;
-        this.occur = occur;
+    public LuceneNotQuery(@Nonnull List<LuceneQueryClause> children, @Nonnull List<LuceneQueryClause> negatedChildren) {
+        super(children, BooleanClause.Occur.MUST);
+        this.negatedChildren = negatedChildren;
+    }
+
+    public LuceneNotQuery(@Nonnull LuceneQueryClause negatedChild) {
+        this(Collections.emptyList(), Collections.singletonList(negatedChild));
     }
 
     @Nonnull
-    protected List<LuceneQueryClause> getChildren() {
-        return children;
-    }
-
-    @Nonnull
-    protected BooleanClause.Occur getOccur() {
-        return occur;
+    protected List<LuceneQueryClause> getNegatedChildren() {
+        return negatedChildren;
     }
 
     @Override
     public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
-        for (LuceneQueryClause child : children) {
-            builder.add(child.bind(store, index, context), occur);
+        if (getChildren().isEmpty()) {
+            // Lucene cannot handle all negated clauses.
+            builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST);
+        } else {
+            for (LuceneQueryClause child : getChildren()) {
+                builder.add(child.bind(store, index, context), BooleanClause.Occur.MUST);
+            }
+        }
+        for (LuceneQueryClause child : negatedChildren) {
+            builder.add(child.bind(store, index, context), BooleanClause.Occur.MUST_NOT);
         }
         return builder.build();
     }
 
     @Override
     public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
-        detailsBuilder.add("occur: {{occur}}");
-        attributeMapBuilder.put("occur", Attribute.gml(occur));
-        for (LuceneQueryClause child : children) {
+        super.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
+        for (LuceneQueryClause child : negatedChildren) {
             child.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
         }
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.iterablePlanHash(hashKind, children);
+        return super.planHash() - PlanHashable.iterablePlanHash(hashKind, negatedChildren);
     }
 
     @Override
     public String toString() {
-        final String op;
-        switch (occur) {
-            case MUST:
-                op = " AND ";
-                break;
-            case SHOULD:
-                op = " OR ";
-                break;
-            default:
-                op = " " + occur.name() + " ";
-                break;
-        }
-        return children.stream().map(Objects::toString).collect(Collectors.joining(op));
+        return Stream.concat(
+                getChildren().stream().map(Objects::toString),
+                negatedChildren.stream().map(c -> "NOT " + c)
+        ).collect(Collectors.joining(" AND "));
     }
 }

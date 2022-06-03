@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.expressions.BaseField;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
+import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -98,6 +99,10 @@ public class LucenePlanner extends RecordQueryPlanner {
             final KeyExpression groupingKey = ((GroupingKeyExpression)rootExp).getGroupingSubKey();
             final QueryToKeyMatcher.Match groupingMatch = new QueryToKeyMatcher(filter).matchesCoveringKey(groupingKey, filterMask);
             if (!groupingMatch.getType().equals((QueryToKeyMatcher.MatchType.EQUALITY))) {
+                return null;
+            }
+            if (filterMask.allSatisfied()) {
+                // If filter is only group predicates, can skip trying to find non-trivial Lucene scan.
                 return null;
             }
             groupingComparisons = new ScanComparisons(groupingMatch.getEqualityComparisons(), Collections.emptySet());
@@ -202,6 +207,8 @@ public class LucenePlanner extends RecordQueryPlanner {
             return getQueryForLuceneComponent(state, (LuceneQueryComponent)filter, filterMask);
         } else if (filter instanceof AndOrComponent) {
             return getQueryForAndOr(state, (AndOrComponent) filter, parentFieldName, filterMask);
+        } else if (filter instanceof NotComponent) {
+            return getQueryForNot(state, (NotComponent) filter, parentFieldName, filterMask);
         } else if (filter instanceof FieldWithComparison) {
             return getQueryForFieldWithComparison(state, (FieldWithComparison) filter, parentFieldName, filterMask);
         } else if (filter instanceof OneOfThemWithComponent) {
@@ -240,6 +247,8 @@ public class LucenePlanner extends RecordQueryPlanner {
         final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
         final List<QueryComponent> filters = filter.getChildren();
         final List<LuceneQueryClause> childClauses = new ArrayList<>(filters.size());
+        final List<LuceneQueryClause> negatedChildren = new ArrayList<>(0);
+        final BooleanClause.Occur occur = filter instanceof OrComponent ? BooleanClause.Occur.SHOULD : BooleanClause.Occur.MUST;
         for (QueryComponent subFilter : filters) {
             final FilterSatisfiedMask childMask = subFilterMasks != null ? subFilterMasks.next() : null;
             LuceneQueryClause childClause = getQueryForFilter(state, subFilter, parentFieldName, childMask);
@@ -252,16 +261,79 @@ public class LucenePlanner extends RecordQueryPlanner {
             if (childMask != null) {
                 childMask.setSatisfied(true);
             }
-            childClauses.add(childClause);
+            if (childClause instanceof LuceneBooleanQuery && ((LuceneBooleanQuery)childClause).getOccur() == occur) {
+                childClauses.addAll(((LuceneBooleanQuery)childClause).getChildren());
+                if (childClause instanceof LuceneNotQuery) {
+                    negatedChildren.addAll(((LuceneNotQuery)childClause).getNegatedChildren());
+                }
+            } else {
+                childClauses.add(childClause);
+            }
         }
         if (filterMask != null && filterMask.getUnsatisfiedFilters().isEmpty()) {
             filterMask.setSatisfied(true);
         }
+        if (!negatedChildren.isEmpty()) {
+            return new LuceneNotQuery(childClauses, negatedChildren);
+        }
+        // Don't do Lucene scan if none are satisfied, though.
         if (childClauses.isEmpty()) {
             return null;
         }
-        final BooleanClause.Occur occur = filter instanceof OrComponent ? BooleanClause.Occur.SHOULD : BooleanClause.Occur.MUST;
         return new LuceneBooleanQuery(childClauses, occur);
+    }
+
+    @Nullable
+    private LuceneQueryClause getQueryForNot(@Nonnull LucenePlanState state, @Nonnull NotComponent filter,
+                                             @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterMask) {
+        final LuceneQueryClause childClause = getQueryForFilter(state, filter.getChild(), parentFieldName, filterMask == null ? null : filterMask.getChildren().get(0));
+        if (childClause == null) {
+            return null;
+        }
+        if (filterMask != null) {
+            filterMask.setSatisfied(true);
+        }
+        return negate(childClause);
+    }
+
+    @Nonnull
+    private static LuceneQueryClause negate(@Nonnull LuceneQueryClause clause) {
+        if (clause instanceof LuceneBooleanQuery) {
+            final LuceneBooleanQuery booleanQuery = (LuceneBooleanQuery)clause;
+            switch (booleanQuery.getOccur()) {
+                case MUST:
+                    List<LuceneQueryClause> clauses = new ArrayList<>();
+                    for (LuceneQueryClause child : booleanQuery.getChildren()) {
+                        clauses.add(negate(child));
+                    }
+                    if (clause instanceof LuceneNotQuery) {
+                        LuceneNotQuery notQuery = (LuceneNotQuery)clause;
+                        if (clauses.isEmpty() && notQuery.getNegatedChildren().size() == 1) {
+                            return notQuery.getNegatedChildren().get(0);
+                        }
+                        clauses.addAll(notQuery.getNegatedChildren());
+                    }
+                    return new LuceneBooleanQuery(clauses, BooleanClause.Occur.SHOULD);
+                case SHOULD:
+                    List<LuceneQueryClause> positive = new ArrayList<>();
+                    List<LuceneQueryClause> negative = new ArrayList<>();
+                    for (LuceneQueryClause child : booleanQuery.getChildren()) {
+                        if (child instanceof LuceneBooleanQuery) {
+                            positive.add(negate(child));
+                        } else {
+                            negative.add(child);
+                        }
+                    }
+                    if (negative.isEmpty()) {
+                        return new LuceneBooleanQuery(positive, BooleanClause.Occur.MUST);
+                    } else {
+                        return new LuceneNotQuery(positive, negative);
+                    }
+                default:
+                    throw new RecordCoreException("Unsupported boolean query occur: " + booleanQuery);
+            }
+        }
+        return new LuceneNotQuery(clause);
     }
 
     @Nullable
