@@ -20,12 +20,16 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+
+import java.util.Set;
+import java.util.stream.Collectors;
 
 
 public class ProtobufDataBuilder implements DynamicMessageBuilder {
@@ -36,6 +40,22 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     public ProtobufDataBuilder(Descriptors.Descriptor typeDescriptor) {
         this.typeDescriptor = typeDescriptor;
         this.data = DynamicMessage.newBuilder(typeDescriptor);
+    }
+
+    @Override
+    public Set<String> getFieldNames() {
+        return typeDescriptor.getFields().stream()
+                .map(Descriptors.FieldDescriptor::getName)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public String getFieldType(String fieldName) throws RelationalException {
+        final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByName(fieldName);
+        if (field == null) {
+            throw new RelationalException(String.format("Field <%s> does not exist", fieldName), ErrorCode.INVALID_PARAMETER);
+        }
+        return ProtobufDdlUtil.getTypeName(field);
     }
 
     @Override
@@ -92,6 +112,11 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
             }
         }
         throw new RelationalException("Field <" + fieldName + "> does not exist in this Type", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Override
+    public Descriptors.Descriptor getDescriptor() {
+        return typeDescriptor;
     }
 
     private Message convert(Message m, Descriptors.Descriptor destinationDescriptor) throws RelationalException {

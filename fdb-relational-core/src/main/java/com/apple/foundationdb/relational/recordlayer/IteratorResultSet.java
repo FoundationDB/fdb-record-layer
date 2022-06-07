@@ -38,12 +38,12 @@ import javax.annotation.Nullable;
 @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentionally exposed for performance reasons")
 public class IteratorResultSet extends AbstractRecordLayerResultSet {
     private final String[] fieldNames;
-    private final Iterator<Row> rowIter;
+    private final Iterator<? extends Row> rowIter;
 
     private int currentRowPosition;
     private Row currentRow;
 
-    public IteratorResultSet(String[] fieldNames, Iterator<Row> rowIter, int initialRowPosition) {
+    public IteratorResultSet(String[] fieldNames, Iterator<? extends Row> rowIter, int initialRowPosition) {
         this.fieldNames = fieldNames;
         this.rowIter = rowIter;
         this.currentRowPosition = initialRowPosition;

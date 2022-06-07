@@ -96,7 +96,7 @@ public class JDBCDatabaseConnection implements RelationalConnection {
     @Nonnull
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
+        return new JDBCDatabaseMetaData(relationalConn.getMetaData());
     }
 
     @Override

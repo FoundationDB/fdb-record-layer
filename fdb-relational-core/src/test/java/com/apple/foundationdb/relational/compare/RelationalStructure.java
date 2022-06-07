@@ -24,7 +24,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -46,15 +45,6 @@ public class RelationalStructure {
         this.tables = new HashMap<>();
         for (Table structure : structures) {
             tables.put(structure.getName(), structure);
-        }
-    }
-
-    void createTables(java.sql.Statement statement) throws SQLException {
-    }
-
-    void dropTables(java.sql.Statement statement) throws SQLException {
-        for (Table table : tables.values()) {
-            statement.execute("DROP TABLE " + table.getName());
         }
     }
 
@@ -218,6 +208,7 @@ public class RelationalStructure {
                         columns.add(Column.doubleType(field.getName()));
                         break;
                     case BOOLEAN:
+                        columns.add(Column.booleanType(field.getName()));
                         break;
                     case STRING:
                     case ENUM:
@@ -254,4 +245,7 @@ public class RelationalStructure {
         return tables.values();
     }
 
+    public Descriptors.Descriptor getDescriptor() {
+        return topLevelDescriptor;
+    }
 }

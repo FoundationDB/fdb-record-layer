@@ -103,6 +103,28 @@ public class DdlSchemaTest {
     }
 
     @Test
+    void canCreateSchemaTemplateWhenConnectedToNonCatalogSchema() throws Exception {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            conn.setSchema("catalog");
+            try (Statement statement = conn.createStatement()) {
+                //create a schema
+                final String createStatement = "CREATE SCHEMA '" + db.getDbUri() + "/testSchema' WITH TEMPLATE " + baseTemplate.getTemplateName();
+                statement.executeUpdate(createStatement);
+
+            }
+        }
+        //now create a new schema in the same db but using a different connection
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:" + db.getDbUri()), Options.create())) {
+            conn.setSchema("testSchema");
+            try (Statement statement = conn.createStatement()) {
+                //create a schema
+                final String createStatement = "CREATE SCHEMA TEMPLATE FOO AS { CREATE TABLE T(A string, B string); } ";
+                statement.executeUpdate(createStatement);
+            }
+        }
+    }
+
+    @Test
     void cannotCreateSchemaTwice() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
             conn.setSchema("catalog");

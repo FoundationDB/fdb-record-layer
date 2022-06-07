@@ -20,14 +20,32 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+
+import java.util.Set;
+
+import javax.annotation.concurrent.NotThreadSafe;
 
 /**
  * Interface to hide away the annoying details of building a Dynamic Message from a descriptor.
  */
+@NotThreadSafe
 public interface DynamicMessageBuilder {
+
+    Set<String> getFieldNames();
+
+    /**
+     * Get the type for the specified field, or throw an error if the field doesn't exist.
+     *
+     * @param fieldName the name of the field to get the type for
+     * @return the string name of the type that the field is.
+     * @throws RelationalException with {@link ErrorCode#INVALID_PARAMETER} if the field does not exist.
+     */
+    String getFieldType(String fieldName) throws RelationalException;
 
     DynamicMessageBuilder setField(String fieldName, Object value) throws RelationalException;
 
@@ -40,4 +58,6 @@ public interface DynamicMessageBuilder {
     <T extends Message> Message convertMessage(T m) throws RelationalException;
 
     DynamicMessageBuilder getNestedMessageBuilder(String fieldName) throws RelationalException;
+
+    Descriptors.Descriptor getDescriptor();
 }

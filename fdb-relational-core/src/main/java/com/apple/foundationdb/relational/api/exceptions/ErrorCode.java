@@ -125,7 +125,7 @@ public enum ErrorCode {
     }
 
     public static ErrorCode get(String errorCode) {
-        return ENUM_MAP.get(errorCode);
+        return ENUM_MAP.getOrDefault(errorCode, ErrorCode.UNKNOWN);
     }
 
     public String getErrorCode() {

@@ -1,5 +1,5 @@
 /*
- * IsolationLevelTest.java
+ * Connector.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,24 +18,17 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api;
+package com.apple.foundationdb.relational.autotest;
 
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import org.junit.jupiter.api.Test;
+import java.net.URI;
+import java.sql.SQLException;
 
-import static org.assertj.core.api.Assertions.assertThat;
+public interface Connector {
 
-class IsolationLevelTest {
+    RelationalConnection connect(URI dbUri) throws RelationalException, SQLException;
 
-    @Test
-    void fromFdbLevel() throws RelationalException {
-        assertThat(IsolationLevel.fromFdbLevel(com.apple.foundationdb.record.IsolationLevel.SERIALIZABLE)).isEqualTo(IsolationLevel.SERIALIZABLE);
-        assertThat(IsolationLevel.fromFdbLevel(com.apple.foundationdb.record.IsolationLevel.SNAPSHOT)).isEqualTo(IsolationLevel.SNAPSHOT_ISOLATION);
-    }
-
-    @Test
-    void valueOf() {
-        assertThat(IsolationLevel.valueOf("READ_COMMITTED")).isEqualTo(IsolationLevel.READ_COMMITTED);
-    }
+    String getLabel();
 }

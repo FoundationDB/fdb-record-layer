@@ -20,6 +20,11 @@
 
 package com.apple.foundationdb.relational.compare;
 
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.Descriptors;
 
 import java.sql.SQLException;
@@ -30,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class RelationalCatalog {
     private final Map<String, Set<String>> schemaToTableMapping = new HashMap<>();
@@ -41,7 +47,7 @@ public class RelationalCatalog {
          * we can't recursively update the map because that's a CME, so instead we just collect a set of tables
          * to load and then load them in sequence afterwards
          */
-        Map<String, RelationalStructure> nestedTables = new HashMap<>();
+        Map<String, RelationalStructure> nestedTables = new ConcurrentHashMap<>();
         RelationalStructure structure = relationalStructures.computeIfAbsent(table, k -> insertStructure(k, typeDescriptor, nestedTables));
         nestedTables.forEach(relationalStructures::putIfAbsent);
         return structure;
@@ -124,4 +130,22 @@ public class RelationalCatalog {
         return relStruct;
     }
 
+    public DynamicMessageBuilder getDataBuilder(String typeName) throws RelationalException {
+        //go through the relational structures looking for the
+        for (RelationalStructure structure : relationalStructures.values()) {
+            final Descriptors.Descriptor descriptor = structure.getDescriptor();
+            if (descriptor.getName().equals(typeName)) {
+                //it's a table! whoo!
+                return new ProtobufDataBuilder(structure.getDescriptor());
+            } else {
+                //look through the struct messages in the descriptor to see if you can find it's nestednedd
+                for (Descriptors.Descriptor desc : descriptor.getFile().getMessageTypes()) {
+                    if (desc.getName().equals(typeName)) {
+                        return new ProtobufDataBuilder(desc);
+                    }
+                }
+            }
+        }
+        throw new RelationalException("Unknown type: <" + typeName + ">", ErrorCode.UNKNOWN_TYPE);
+    }
 }

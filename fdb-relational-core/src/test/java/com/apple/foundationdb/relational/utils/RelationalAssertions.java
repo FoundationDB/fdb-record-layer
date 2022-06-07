@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -77,6 +78,10 @@ public final class RelationalAssertions {
     public static RelationalExceptionAssert assertThrows(ThrowableAssert.ThrowingCallable shouldThrow) {
         RelationalException ve = Assertions.catchThrowableOfType(shouldThrow, RelationalException.class);
         return new RelationalExceptionAssert(ve);
+    }
+
+    public static RowAssert assertThat(Row row) {
+        return new RowAssert(row);
     }
 
     public static SQLExceptionAssert assertThrowsSqlException(ThrowableAssert.ThrowingCallable shouldThrow) {

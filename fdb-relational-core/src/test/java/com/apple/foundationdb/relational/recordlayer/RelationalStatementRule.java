@@ -92,6 +92,11 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     }
 
     @Override
+    public boolean execute(String sql) throws SQLException {
+        return statement.execute(sql);
+    }
+
+    @Override
     public int executeUpdate(String sql) throws SQLException {
         return statement.executeUpdate(sql);
     }

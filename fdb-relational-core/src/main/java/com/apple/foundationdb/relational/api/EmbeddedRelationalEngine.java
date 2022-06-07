@@ -21,12 +21,14 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 /**
  * The Engine that drives and manages an Embedded Relational instance.

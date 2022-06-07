@@ -76,23 +76,41 @@ public class JDBCStatement implements RelationalStatement {
     @Nonnull
     @Override
     public RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException {
-        return null;
+        //TODO(bfines) this keyset arrangement isn't going to work for scans over unequal ranges
+        String whereClauseBuilder = getWhereClause(scan.getTableName(), new KeySet().setKeyColumns(scan.getStartKey()));
+
+        String tableName = scan.getTableName();
+        if (tableName.contains(".")) {
+            //strip the schema name off of it
+            tableName = tableName.substring(tableName.indexOf(".") + 1);
+        }
+        RelationalStructure structure = catalog.getStructure(tableName);
+
+        Table t = structure.getTable(tableName);
+        Message.Builder topLevelProtobuf = t.getProtobuf();
+        String sql;
+        if (topLevelProtobuf == null) {
+            //someone issued a GET against one of the link tables, so just return it directly
+
+            sql = "SELECT * from " + scan.getTableName() + whereClauseBuilder;
+        } else {
+            /*
+             * We want to pull the columns and add a specific field reference for each column, to make sure
+             * that we get it back correctly for nested and repeated types
+             */
+            sql = createQuery(topLevelProtobuf.getDescriptorForType(), whereClauseBuilder);
+        }
+        try {
+            return executeQuery(sql);
+        } catch (SQLException e) {
+            throw new RelationalException(e.getMessage(), ErrorCode.get(e.getSQLState()));
+        }
     }
 
     @Nonnull
     @Override
     public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException {
-        StringBuilder whereClauseBuilder = new StringBuilder("");
-        Map<String, Object> paramsMap = key.toMap();
-        boolean isFirst = true;
-        for (Map.Entry<String, Object> param : paramsMap.entrySet()) {
-            if (!isFirst) {
-                whereClauseBuilder.append(" AND ");
-            } else {
-                isFirst = false;
-            }
-            whereClauseBuilder.append(tableName).append(".").append(param.getKey()).append(" = ").append(param.getValue());
-        }
+        String whereClauseBuilder = getWhereClause(tableName, key);
 
         RelationalStructure structure = catalog.getStructure(tableName);
 
@@ -108,12 +126,12 @@ public class JDBCStatement implements RelationalStatement {
              * We want to pull the columns and add a specific field reference for each column, to make sure
              * that we get it back correctly for nested and repeated types
              */
-            sql =  createQuery(topLevelProtobuf.getDescriptorForType(), whereClauseBuilder.toString());
+            sql = createQuery(topLevelProtobuf.getDescriptorForType(), whereClauseBuilder);
         }
 
         System.out.println(sql);
         try {
-            RelationalResultSet rrs =  executeQuery(sql);
+            RelationalResultSet rrs = executeQuery(sql);
             if (topLevelProtobuf == null) {
                 return rrs;
             } else {
@@ -135,9 +153,32 @@ public class JDBCStatement implements RelationalStatement {
         }
     }
 
+    @Nonnull
+    private String getWhereClause(@Nonnull String tableName, @Nonnull KeySet key) {
+        StringBuilder whereClauseBuilder = new StringBuilder("");
+        Map<String, Object> paramsMap = key.toMap();
+        boolean isFirst = true;
+        for (Map.Entry<String, Object> param : paramsMap.entrySet()) {
+            if (!isFirst) {
+                whereClauseBuilder.append(" AND ");
+            } else {
+                isFirst = false;
+            }
+            whereClauseBuilder.append(tableName).append(".").append(param.getKey()).append(" = ");
+            final Object value = param.getValue();
+            if (value instanceof String) {
+                String str = ((String) value).replaceAll("'", "''");
+                whereClauseBuilder.append("'").append(str).append("'");
+            } else {
+                whereClauseBuilder.append(value);
+            }
+        }
+        return whereClauseBuilder.toString();
+    }
+
     @Override
     public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
+        return catalog.getDataBuilder(typeName);
     }
 
     @Override
@@ -186,11 +227,14 @@ public class JDBCStatement implements RelationalStatement {
         for (Descriptors.FieldDescriptor field : descriptor.getFields()) {
             if (field.isRepeated()) {
                 if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-                    buildQuery(field.getMessageType(), columns, field.getName(), fromClause);
-                    //join to the link table
-                    fromClause.append(String.format("left outer join %1$s_%2$s on %1$s.RECORD_ID = %1$s_%2$s.PARENT_RECORD_ID ", tableName, field.getName()));
-                    //join from the link table to the nested table
-                    fromClause.append(String.format("left outer join %3$s on %2$s_RECORD_ID = %3$s.RECORD_ID ", tableName, field.getName(), field.getMessageType().getName()));
+                    String parentTableName = tableName;
+                    String linkTableName = parentTableName + "_" + field.getName();
+                    String nestedTableName = field.getMessageType().getName();
+                    //join from the parent to the link table
+                    fromClause.append(String.format(" left outer join %2$s on %1$s.%3$s_RECORD_ID = %2$s.PARENT_RECORD_ID", parentTableName, linkTableName, field.getName()));
+                    //join from the link table to the data table
+                    fromClause.append(String.format(" left outer join %1$s on %1$s.RECORD_ID = %2$s.RECORD_ID", nestedTableName, linkTableName));
+                    buildQuery(field.getMessageType(), columns, nestedTableName, fromClause);
                 }
             } else {
                 if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
@@ -206,7 +250,7 @@ public class JDBCStatement implements RelationalStatement {
     }
 
     /**
-     Creates a query on the entire structure based on the where clause.
+     * Creates a query on the entire structure based on the where clause.
      */
     private String createQuery(Descriptors.Descriptor topLevelDescriptor, String whereClause) {
         Set<String> columns = new TreeSet<>();

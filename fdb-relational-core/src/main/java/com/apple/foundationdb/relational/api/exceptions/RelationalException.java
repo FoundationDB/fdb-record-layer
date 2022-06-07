@@ -41,6 +41,16 @@ public class RelationalException extends Exception {
         this.errorCode = errorCode;
     }
 
+    public RelationalException(SQLException sqle) {
+        super(sqle.getMessage(), sqle);
+        this.errorCode = ErrorCode.get(sqle.getSQLState());
+    }
+
+    public RelationalException(String message, SQLException sqle) {
+        super(message, sqle);
+        this.errorCode = ErrorCode.get(sqle.getSQLState());
+    }
+
     public SQLException toSqlException() {
         if (getCause() instanceof SQLException) {
             return (SQLException) getCause();

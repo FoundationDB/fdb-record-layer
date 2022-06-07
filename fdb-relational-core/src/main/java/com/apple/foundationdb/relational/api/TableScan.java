@@ -104,5 +104,15 @@ public class TableScan {
 
             return new TableScan(tableName, sk, ek, scanProperties);
         }
+
+        public Builder setStartKeys(KeySet params) {
+            this.startKey = params;
+            return this;
+        }
+
+        public Builder setEndKeys(KeySet params) {
+            this.endKey = params;
+            return this;
+        }
     }
 }

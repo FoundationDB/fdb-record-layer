@@ -1,0 +1,33 @@
+{
+  "templateName": "simple_select",
+  "templateDef":"CREATE TYPE coordinates(lat STRING, long STRING);\
+                CREATE TABLE location(name STRING, location coordinates);
+  ",
+  "database": "/simple_select",
+  "schemas": [
+    "testSchema"
+  ],
+  "data": [
+    {
+      "name": "Apple Park",
+      "location": {
+        "lat": 37.33486,
+        "long": -122.00904
+      }
+    }
+  ],
+  "queries": [
+    {
+      "queryText": "select * from Restaurant",
+      "expectedResults": [
+        {
+          "name": "Apple Park",
+          "location": {
+            "lat": 37.33486,
+            "long": -122.00904
+          }
+        }
+      ]
+    }
+  ]
+}

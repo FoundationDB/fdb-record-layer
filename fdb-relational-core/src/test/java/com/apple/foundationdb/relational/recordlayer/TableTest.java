@@ -56,7 +56,7 @@ public class TableTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TableTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TableTest.class, TestSchemas.restaurantWithCoveringIndex());
 
     @RegisterExtension
     @Order(2)
@@ -151,6 +151,18 @@ public class TableTest {
 
         try (final RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys,
                 Options.create().withOption(OperationOption.index("record_name_idx")))) {
+            RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r));
+        }
+    }
+
+    @Test
+    void canGetFieldNamesFromCoveringIndex() throws Exception {
+        Restaurant.RestaurantRecord r = insertRestaurantRecord(statement);
+
+        KeySet keys = new KeySet().setKeyColumn("rest_no", r.getRestNo());
+
+        try (final RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys,
+                Options.create().withOption(OperationOption.index("record_type_covering")))) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r));
         }
     }

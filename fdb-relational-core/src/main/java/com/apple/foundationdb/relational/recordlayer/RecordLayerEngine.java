@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
+
 import com.codahale.metrics.MetricRegistry;
 
 import java.util.List;

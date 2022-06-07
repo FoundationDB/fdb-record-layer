@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -48,11 +49,21 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        engine.deregisterDriver();
+        if (engine != null) {
+            engine.deregisterDriver();
+            engine = null;
+        }
     }
 
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
+        setup();
+    }
+
+    private void setup() throws RelationalException {
+        if (engine != null) {
+            return; //nothing to do
+        }
         RecordLayerConfig rlCfg = new RecordLayerConfig(
                 (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                 path -> DynamicMessageRecordSerializer.instance(),

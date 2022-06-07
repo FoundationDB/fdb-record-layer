@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
@@ -111,6 +112,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
+    @SuppressWarnings("PMD.PreserveStackTrace") //we are intentionally destroying the stack trace here
     public boolean insertRecord(@Nonnull Message message) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
         try {
@@ -121,6 +123,8 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
             store.insertRecord(message);
         } catch (MetaDataException mde) {
             throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", ErrorCode.INVALID_PARAMETER, mde);
+        } catch (RecordAlreadyExistsException raee) {
+            throw new RelationalException("Duplicate primary key for message (" + message + ") on table <" + tableName + ">", ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

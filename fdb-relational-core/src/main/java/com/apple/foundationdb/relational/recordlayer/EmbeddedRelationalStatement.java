@@ -46,7 +46,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -106,7 +105,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             if (resultSet.isPresent()) {
                 return resultSet.get();
             } else {
-                throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql));
+                throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.INVALID_PARAMETER.getErrorCode());
             }
         } catch (RelationalException ve) {
             throw ve.toSqlException();
@@ -192,7 +191,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
         final Row row = source.get(conn.transaction, tuple, queryProperties);
 
-        return new IteratorResultSet(table.getFieldNames(), row == null ? Collections.emptyIterator() : List.of(row).iterator(), 0);
+        return new IteratorResultSet(table.getFieldNames(), row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator(), 0);
     }
 
     @Override
@@ -200,7 +199,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         ensureTransactionActive();
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), typeName);
         RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], Options.create());
-        return schema.getDataBuilder(typeName);
+        return schema.getDataBuilder(schemaAndTable[1]);
     }
 
     @Override
@@ -306,14 +305,13 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     private String[] getSchemaAndTable(@Nullable String schemaName, @Nonnull String tableName) throws RelationalException {
         String schema = schemaName;
         String tableN = tableName;
-        if (schema == null) {
-            //look for the schema in the table name
+        if (tableName.contains(".")) {
             String[] t = tableName.split("\\.");
-            if (t.length != 2) {
-                throw new RelationalException("Invalid table format", ErrorCode.CANNOT_CONVERT_TYPE);
-            }
             schema = t[0];
             tableN = t[1];
+        }
+        if (schema == null) {
+            throw new RelationalException("Invalid table format", ErrorCode.INVALID_PARAMETER);
         }
 
         return new String[]{schema, tableN};

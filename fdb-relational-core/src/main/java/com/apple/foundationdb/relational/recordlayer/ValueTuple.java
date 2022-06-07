@@ -46,9 +46,4 @@ public class ValueTuple extends AbstractRow {
 
         return obj;
     }
-
-    @Override
-    public String toString() {
-        return "(" + obj + ")";
-    }
 }

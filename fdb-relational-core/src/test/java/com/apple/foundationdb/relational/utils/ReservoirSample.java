@@ -18,11 +18,15 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.compare;
+package com.apple.foundationdb.relational.utils;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Random;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A simple Resevoir Sample of Objects. Used to keep a sample of data during load operations in comparison
@@ -76,6 +80,11 @@ public class ReservoirSample<T> {
                 return n;
             }
         };
+    }
+
+    public Stream<T> sampleStream() {
+        Spliterator<T> spliterator = Spliterators.spliterator(sampleIterator(), size, Spliterator.SIZED | Spliterator.NONNULL);
+        return StreamSupport.stream(spliterator, false);
     }
 
 }

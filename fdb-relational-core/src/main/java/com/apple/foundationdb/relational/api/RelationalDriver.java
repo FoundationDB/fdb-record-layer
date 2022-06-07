@@ -63,4 +63,5 @@ public interface RelationalDriver {
      * @return true if this driver can interpret this scheme, {@code false} otherwise.
      */
     boolean acceptsURL(URI url);
+
 }

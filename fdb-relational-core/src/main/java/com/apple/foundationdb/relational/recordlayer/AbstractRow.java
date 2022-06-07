@@ -20,13 +20,17 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -202,5 +206,37 @@ public abstract class AbstractRow implements Row {
             }
         };
         return truncatedThis.equals(prefix);
+    }
+
+    @Override
+    public String toString() {
+        try {
+            int numCols = getNumFields();
+            StringBuilder sb = new StringBuilder("(");
+            boolean isFirst = true;
+            for (int i = 0; i < numCols; i++) {
+                if (isFirst) {
+                    isFirst = false;
+                } else {
+                    sb.append(",");
+                }
+                Object colValue = getObject(i);
+                if (colValue instanceof Object[]) {
+                    sb.append("Array").append(Arrays.toString((Object[]) colValue));
+                } else if (colValue instanceof Collection) {
+                    String fieldVals = ((Collection<?>) colValue).stream()
+                            .map(obj -> obj == null ? "NULL" : obj.toString())
+                            .collect(Collectors.joining(", "));
+                    sb.append("Array[").append(fieldVals).append("]");
+                } else if (colValue instanceof byte[]) {
+                    sb.append("ByteArray[").append(ByteArrayUtil2.toHexString((byte[]) colValue)).append("]");
+                } else {
+                    sb.append(colValue);
+                }
+            }
+            return sb.append(")").toString();
+        } catch (RelationalException ve) {
+            throw ve.toUncheckedWrappedException();
+        }
     }
 }

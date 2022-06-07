@@ -63,4 +63,21 @@ public class KeySet {
         return this;
     }
 
+    public KeySet setKeyColumns(Map<String, Object> keyMap) throws RelationalException {
+        if (keySet == null) {
+            keySet = new HashMap<>();
+        }
+        //make sure that all keys are in UPPER case to make it easier to use
+        for (Map.Entry<String, Object> keyEntry : keyMap.entrySet()) {
+            keySet.put(keyEntry.getKey().toUpperCase(Locale.ROOT), keyEntry.getValue());
+        }
+        return this;
+    }
+
+    @Override
+    public String toString() {
+        return "KeySet{" +
+                keySet +
+                '}';
+    }
 }

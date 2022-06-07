@@ -154,6 +154,7 @@ public interface RelationalStatement extends java.sql.Statement {
      */
     int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException;
 
+    @Nonnull
     DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException;
 
     /**
@@ -271,13 +272,6 @@ public interface RelationalStatement extends java.sql.Statement {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setCursorName(String name) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default boolean execute(String sql) throws SQLException {
-        // todo: implement now we that we have a proper way of telling whether a plan produces results or not.
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

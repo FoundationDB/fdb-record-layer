@@ -158,8 +158,8 @@ public final class PlanContext {
         }
 
         private void verify() throws RelationalException {
-            Assert.notNull(metaData);
-            Assert.notNull(storeState);
+            //            Assert.notNull(metaData);
+            //            Assert.notNull(storeState);
             Assert.notNull(constantActionFactory);
             Assert.notNull(ddlQueryFactory);
             Assert.notNull(dbUri);

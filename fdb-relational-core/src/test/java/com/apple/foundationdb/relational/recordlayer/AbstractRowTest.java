@@ -21,9 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.relational.api.Row;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
+import static com.apple.foundationdb.relational.utils.RelationalAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,5 +47,27 @@ class AbstractRowTest {
         assertFalse(new ValueTuple(4).startsWith(new ImmutableKeyValue(new ValueTuple(4), new ValueTuple(5))));
         assertFalse(new ImmutableKeyValue(new ValueTuple(4L), new FDBTuple(new Tuple().add(5).add(6).add(7)))
                 .startsWith(new FDBTuple(new Tuple().add(4L).add(6L))));
+    }
+
+    @Test
+    void testToStringShowsByteStrings() {
+        Row row = new ValueTuple(new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11});
+        assertThat(row.toString()).isEqualTo("(ByteArray[0102030405060708090A0B])");
+    }
+
+    @Test
+    void testToStringShowsCollections() {
+        Row row = new ArrayRow(new Object[]{
+                List.of("this", "is", "a", "test")
+        });
+        assertThat(row.toString()).isEqualTo("(Array[this, is, a, test])");
+    }
+
+    @Test
+    void testToStringShowsArrays() {
+        Row row = new ArrayRow(new Object[]{
+                new String[]{"this", "is", "a", "test"}
+        });
+        assertThat(row.toString()).isEqualTo("(Array[this, is, a, test])");
     }
 }

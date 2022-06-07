@@ -37,9 +37,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.QueryExecutor;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
@@ -47,7 +49,6 @@ import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import java.net.URI;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -86,10 +87,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
          * Parses a query, generates an equivalent logical plan and calls the planner to generate an execution plan.
          *
          * @param query                 The query string.
-         * @param metaData              The record store metadata.
-         * @param storeState            The record store state.
-         * @param constantActionFactory A factory used to run DDL statements with side-effects.
-         * @param dbUri                 The database {@link URI}.
+         * @param planContext           the plan context
          * @return The execution plan of the query.
          * @throws RelationalException if something goes wrong.
          */
@@ -126,23 +124,29 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
 
         @Override
         public RelationalResultSet execute(@Nonnull final ExecutionContext context) throws RelationalException {
-            final String schemaName = context.connection.getSchema();
+            if (!(context.connection instanceof EmbeddedRelationalConnection)) {
+                //this is required until TODO is resolved
+                throw new RelationalException("Cannot execute a QueryPlan without an EmbeddedRelationalConnection", ErrorCode.INTERNAL_ERROR);
+            }
+            EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) context.connection;
+            final String schemaName = conn.getSchema();
             final Type innerType = relationalExpression.getResultType().getInnerType();
             Assert.notNull(innerType);
             Assert.that(innerType instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", innerType.getTypeCode()));
             final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
             final TypeRepository.Builder builder = TypeRepository.newBuilder();
             usedTypes.forEach(builder::addTypeIfNeeded);
-            final FDBRecordStore store = context.connection.getRecordLayerDatabase().loadSchema(schemaName, context.options).loadStore();
-            final var planContext = PlanContext.Builder.create().fromDatabase(context.connection.getRecordLayerDatabase()).fromRecordStore(store).build();
-            recordQueryPlan = generatePhysicalPlan(query, planContext);
-            Assert.notNull(recordQueryPlan);
-            final RecordLayerSchema schema = context.connection.getRecordLayerDatabase().loadSchema(schemaName, context.options);
-            final String[] fieldNames = Objects.requireNonNull(((Type.Record) innerType).getFields()).stream().sorted(Comparator.comparingInt(Type.Record.Field::getFieldIndex)).map(Type.Record.Field::getFieldName).collect(Collectors.toUnmodifiableList()).toArray(String[]::new);
-            final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan, fieldNames, EvaluationContext.forTypeRepository(builder.build()), schema, false /* get this information from the query plan */);
-            return new RecordLayerResultSet(queryExecutor.getFieldNames(),
-                    queryExecutor.execute(ContinuationImpl.fromBytes(continuation)),
-                    context.connection);
+            try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName, context.options)) {
+                final FDBRecordStore store = recordLayerSchema.loadStore();
+                final var planContext = PlanContext.Builder.create().fromDatabase(conn.getRecordLayerDatabase()).fromRecordStore(store).build();
+                recordQueryPlan = generatePhysicalPlan(query, planContext);
+                Assert.notNull(recordQueryPlan);
+                final String[] fieldNames = Objects.requireNonNull(((Type.Record) innerType).getFields()).stream().sorted(Comparator.comparingInt(Type.Record.Field::getFieldIndex)).map(Type.Record.Field::getFieldName).collect(Collectors.toUnmodifiableList()).toArray(String[]::new);
+                final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan, fieldNames, EvaluationContext.forTypeRepository(builder.build()), recordLayerSchema, false /* get this information from the query plan */);
+                return new RecordLayerResultSet(queryExecutor.getFieldNames(),
+                        queryExecutor.execute(ContinuationImpl.fromBytes(continuation)),
+                        conn);
+            }
         }
 
         @Nonnull

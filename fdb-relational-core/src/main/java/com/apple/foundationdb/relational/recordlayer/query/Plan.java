@@ -26,11 +26,11 @@ import com.apple.foundationdb.record.query.plan.cascades.Scopes;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.base.VerifyException;
@@ -45,11 +45,11 @@ public interface Plan<T> {
         @Nonnull
         final Options options;
         @Nonnull
-        final EmbeddedRelationalConnection connection;
+        final RelationalConnection connection;
 
         ExecutionContext(@Nonnull Transaction transaction,
                          @Nonnull Options options,
-                         @Nonnull EmbeddedRelationalConnection connection) {
+                         @Nonnull RelationalConnection connection) {
             this.transaction = transaction;
             this.options = options;
             this.connection = connection;
@@ -58,7 +58,7 @@ public interface Plan<T> {
         @Nonnull
         public static ExecutionContext of(@Nonnull Transaction transaction,
                                               @Nonnull Options options,
-                                              @Nonnull EmbeddedRelationalConnection connection) {
+                                              @Nonnull RelationalConnection connection) {
             return new ExecutionContext(transaction, options, connection);
         }
     }

@@ -22,16 +22,13 @@ package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 
 import com.google.protobuf.Message;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
-import org.assertj.core.api.IterableAssert;
 import org.assertj.core.api.MapAssert;
-import org.assertj.core.api.SoftAssertions;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -39,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -157,77 +153,8 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
         }
     }
 
-    private static class RowAssert extends AbstractAssert<RowAssert, Row> {
-        protected RowAssert(Row row) {
-            super(row, RowAssert.class);
-        }
-
-        @Override
-        public RowAssert isEqualTo(Object expected) {
-            if (expected instanceof Row) {
-                //do row comparison
-                Row other = (Row) expected;
-                //make sure that they have the same number of fields
-                extracting(Row::getNumFields, Assertions::assertThat).isEqualTo(other.getNumFields());
-                for (int i = 0; i < other.getNumFields(); i++) {
-                    try {
-                        Object actualO = getObject(actual, i);
-                        Object otherO = other.getObject(i);
-                        extractAssert(actualO).isEqualTo(otherO);
-                        //                        final int p = i; //use a temporary final variable so that the lambda doesn't object
-                        //                        extracting(row -> getObject(row,p), this::extractAssert).isEqualTo(other.getObject(i));
-                    } catch (InvalidColumnReferenceException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            } else {
-                return super.isEqualTo(expected);
-            }
-            return this;
-        }
-
-        private AbstractAssert<? extends AbstractAssert<?, ?>, ?> extractAssert(Object o) {
-            if (o instanceof Message) {
-                return new MessageAssert((Message) o);
-            } else if (o instanceof Iterable) {
-                Iterable<?> objects = (Iterable<?>) o;
-
-                return new IterableAssert<Object>(objects) {
-                    @Override
-                    public IterableAssert<Object> isEqualTo(Object expected) {
-                        if (!(expected instanceof Iterable)) {
-                            failWithMessage("Unexpected iterable. Expected type " + expected.getClass().getName());
-                        }
-                        Iterable<?> expectedObjects = (Iterable<?>) expected;
-                        for (Object expectedObj : expectedObjects) {
-                            Predicate<? super Object> searchPredicate = expectedObj instanceof Message ? o1 -> {
-                                if (!(o1 instanceof Message)) {
-                                    return false;
-                                }
-                                SoftAssertions assertions = new SoftAssertions();
-                                return MessageAssert.messagesMatch((Message) expectedObj, (Message) o1, assertions).wasSuccess();
-                            } : expectedObj::equals;
-
-                            anyMatch(searchPredicate);
-                        }
-                        return this;
-                    }
-                };
-
-            } else {
-                return Assertions.assertThat(o);
-            }
-        }
-
-        private Object getObject(Row row, int position) {
-            //wrapper for the runtime exception handling so that our assertions are prettier
-            try {
-                return row.getObject(position);
-            } catch (InvalidColumnReferenceException e) {
-                //shouldn't happen, but you never know
-                throw new RuntimeException(e);
-            }
-        }
+    public void isEqualToInAnyOrder(RelationalResultSet expectedResults) {
+        failWithMessage("Unimplemented");
     }
 
     private static class ResultSetMetaDataAssert extends AbstractAssert<ResultSetMetaDataAssert, ResultSetMetaData> {

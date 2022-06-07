@@ -86,25 +86,7 @@ public class CatalogMetaDataProvider implements RecordMetaDataProvider {
                 //TODO(bfines) handling the recordType key is not correct here, because it requires the Table list to always be in the same order
                 int typeKey = 0;
                 final CatalogData.Schema schema = storeCatalog.loadSchema(txn, dbUri, schemaName);
-                DescriptorProtos.FileDescriptorProto fdProto = DescriptorProtos.FileDescriptorProto.parseFrom(schema.getRecord(), DEFAULT_EXTENSION_REGISTRY);
-                Descriptors.FileDescriptor fileDesc = Descriptors.FileDescriptor.buildFrom(fdProto,
-                        new Descriptors.FileDescriptor[]{RecordMetaDataOptionsProto.getDescriptor()});
-                final RecordMetaDataBuilder recordMetaDataBuilder = RecordMetaData.newBuilder().setRecords(fileDesc);
-                //add in the primary keys for each table
-                for (CatalogData.Table tbl : schema.getTablesList()) {
-                    final RecordTypeBuilder recordType = recordMetaDataBuilder.getRecordType(tbl.getName());
-                    recordType.setPrimaryKey(KeyExpression.fromProto(RecordMetaDataProto.KeyExpression.parseFrom(tbl.getPrimaryKey())));
-                    setRecordTypeKey(recordType, schema.getDatabaseId(), schema.getSchemaName(), tbl.getName(), typeKey);
-                    for (CatalogData.Index idx : tbl.getIndexesList()) {
-                        RecordMetaDataProto.Index indexDef = RecordMetaDataProto.Index.parseFrom(idx.getIndexDef());
-                        //RecordLayer wants lower-case values for type, and just in case the parser doesn't
-                        // obey that, we don't want to break because of it. So here we are double-checking it.
-                        indexDef = indexDef.toBuilder().setType(indexDef.getType().toLowerCase(Locale.ROOT)).build();
-                        recordMetaDataBuilder.addIndex(tbl.getName(), new Index(indexDef));
-                    }
-                    typeKey++;
-                }
-                metaData = recordMetaDataBuilder.build();
+                metaData = loadMetaData(typeKey, schema);
                 cachedMetaData = metaData;
             } catch (RelationalException e) {
                 //TODO(bfines): vomit, but I think this is probably the correct type, because RecordLayer is
@@ -123,12 +105,12 @@ public class CatalogMetaDataProvider implements RecordMetaDataProvider {
      * way.
      *
      * @param recordTypeBuilder The record type build.
-     * @param databaseId The database id.
-     * @param schemaName The schema name.
-     * @param tableName The table name.
-     * @param typeKey The type key to use for user tables.
+     * @param databaseId        The database id.
+     * @param schemaName        The schema name.
+     * @param tableName         The table name.
+     * @param typeKey           The type key to use for user tables.
      */
-    private void setRecordTypeKey(@Nonnull RecordTypeBuilder recordTypeBuilder,
+    private static void setRecordTypeKey(@Nonnull RecordTypeBuilder recordTypeBuilder,
                                   @Nonnull final String databaseId,
                                   @Nonnull final String schemaName,
                                   @Nonnull final String tableName,
@@ -140,5 +122,30 @@ public class CatalogMetaDataProvider implements RecordMetaDataProvider {
         } else {
             recordTypeBuilder.setRecordTypeKey(typeKey);
         }
+    }
+
+    @Nonnull
+    public static RecordMetaData loadMetaData(int typeKey, CatalogData.Schema schema) throws
+            InvalidProtocolBufferException, Descriptors.DescriptorValidationException {
+        DescriptorProtos.FileDescriptorProto fdProto = DescriptorProtos.FileDescriptorProto.parseFrom(schema.getRecord(), DEFAULT_EXTENSION_REGISTRY);
+
+        Descriptors.FileDescriptor fileDesc = Descriptors.FileDescriptor.buildFrom(fdProto,
+                new Descriptors.FileDescriptor[]{RecordMetaDataOptionsProto.getDescriptor(), RecordMetaDataProto.getDescriptor()});
+        final RecordMetaDataBuilder recordMetaDataBuilder = RecordMetaData.newBuilder().setRecords(fileDesc);
+        //add in the primary keys for each table
+        for (CatalogData.Table tbl : schema.getTablesList()) {
+            final RecordTypeBuilder recordType = recordMetaDataBuilder.getRecordType(tbl.getName());
+            recordType.setPrimaryKey(KeyExpression.fromProto(RecordMetaDataProto.KeyExpression.parseFrom(tbl.getPrimaryKey())));
+            setRecordTypeKey(recordType, schema.getDatabaseId(), schema.getSchemaName(), tbl.getName(), typeKey);
+            for (CatalogData.Index idx : tbl.getIndexesList()) {
+                RecordMetaDataProto.Index indexDef = RecordMetaDataProto.Index.parseFrom(idx.getIndexDef());
+                //RecordLayer wants lower-case values for type, and just in case the parser doesn't
+                // obey that, we don't want to break because of it. So here we are double-checking it.
+                indexDef = indexDef.toBuilder().setType(indexDef.getType().toLowerCase(Locale.ROOT)).build();
+                recordMetaDataBuilder.addIndex(tbl.getName(), new Index(indexDef));
+            }
+            typeKey++;
+        }
+        return recordMetaDataBuilder.build();
     }
 }

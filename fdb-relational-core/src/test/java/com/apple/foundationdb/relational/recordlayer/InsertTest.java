@@ -72,7 +72,7 @@ public class InsertTest {
                 Assertions.assertEquals(1, inserted, "Did not insert reviewers properly!");
 
                 //now prove we can get them back out
-                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", record.getRestNo()), Options.create())) {
+                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumns(Map.of("rest_no", record.getRestNo())), Options.create())) {
                     RelationalAssertions.assertThat(relationalResultSet).hasExactly(Map.of("name", record.getName(), "rest_no", record.getRestNo()));
                 }
 

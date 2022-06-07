@@ -1,5 +1,5 @@
 /*
- * QueryTestResult.java
+ * ParameterizedQuery.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,22 +18,21 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.compare;
+package com.apple.foundationdb.relational.autotest;
 
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nullable;
+import com.google.protobuf.Message;
 
-public class QueryTestResult implements TestResult {
-    private final RelationalResultSet rrs;
+import java.sql.SQLException;
+import java.util.Map;
 
-    public QueryTestResult(RelationalResultSet rrs) {
-        this.rrs = rrs;
-    }
+import javax.annotation.Nonnull;
 
-    @Nullable
-    @Override
-    public RelationalResultSet getQueryResult() {
-        return rrs;
-    }
+public interface ParameterizedQuery {
+    RelationalResultSet executeQuery(@Nonnull RelationalStatement statement,
+                                   @Nonnull Map<String, Message> params) throws SQLException, RelationalException;
+
 }
