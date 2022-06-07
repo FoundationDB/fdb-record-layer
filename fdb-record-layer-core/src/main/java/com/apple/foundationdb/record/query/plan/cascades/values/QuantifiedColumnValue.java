@@ -40,7 +40,7 @@ import java.util.Objects;
 
 /**
  * A value representing the quantifier as an object.
- *
+ * <p>
  * For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -54,8 +54,8 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     private final Type.Record recordType;
 
     private QuantifiedColumnValue(@Nonnull final CorrelationIdentifier alias,
-                                 final int ordinalPosition,
-                                 final Type.Record recordType) {
+                                  final int ordinalPosition,
+                                  final Type.Record recordType) {
         this.alias = alias;
         this.ordinalPosition = ordinalPosition;
         this.recordType = recordType;
@@ -99,10 +99,14 @@ public class QuantifiedColumnValue implements QuantifiedValue {
         }
 
         final var message = queryResult.getMessage(); // we must be able to distill a message from the result
-        
+
         final var descriptorForType = message.getDescriptorForType();
         final var fieldDescriptor = descriptorForType.findFieldByNumber(getFieldForOrdinal().getFieldIndex());
-        return message.getField(fieldDescriptor);
+        if (fieldDescriptor.isRepeated() || message.hasField(fieldDescriptor)) {
+            return message.getField(fieldDescriptor);
+        } else {
+            return null;
+        }
     }
 
     @Nonnull
@@ -165,6 +169,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
      *
      * @param alias The alias of the correlation containing the column.
      * @param ordinal The ordinal position of the column.
+     *
      * @return a new instance of {@link CorrelationIdentifier}.
      * note: this method will be replaced by {@link #of(CorrelationIdentifier, int, Type.Record)}.
      */
@@ -180,6 +185,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
      * @param alias The alias of the correlation containing the column.
      * @param ordinal The ordinal position of the column.
      * @param recordType The {@link Type} of the record.
+     *
      * @return a new instance of {@link CorrelationIdentifier}.
      */
     @Nonnull

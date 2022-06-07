@@ -101,7 +101,11 @@ public class OrdinalFieldValue implements ValueWithChild {
         }
         final Descriptors.Descriptor descriptorForType = childMessage.getDescriptorForType();
         final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
-        return childMessage.getField(fieldDescriptor);
+        if (fieldDescriptor.isRepeated() || childMessage.hasField(fieldDescriptor)) {
+            return childMessage.getField(fieldDescriptor);
+        } else {
+            return null;
+        }
     }
 
     @Override
