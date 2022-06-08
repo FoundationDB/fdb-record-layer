@@ -3150,7 +3150,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull IsolationLevel isolationLevel) {
         Subspace isSubspace = getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
-        KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
+        RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
                 .setContext(getContext())
                 .setRange(TupleRange.ALL)
                 .setContinuation(null)
@@ -3945,7 +3945,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Read all of the keys in the old record version location. For each
         // record, copy its version to the new location within the primary record
         // subspace. Then once they are all copied, delete the old subspace.
-        KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
+        RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
                 .setContext(getRecordContext())
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build();
@@ -4263,7 +4263,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         final Subspace recordSubspace = recordsSubspace();
-        KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(recordSubspace)
+        RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(recordSubspace)
                 .setContext(getRecordContext())
                 .setContinuation(continuation)
                 .setScanProperties(scanProperties)

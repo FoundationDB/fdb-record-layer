@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
@@ -341,6 +340,8 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
     }
 
     private static class OverScanIndexProbeJoinTechnique implements JoinTechnique {
+        private static final StandardIndexProbeJoinTechnique standardJoinTechnique = new StandardIndexProbeJoinTechnique();
+
         @Override
         public JoinTechniqueType getType() {
             return JoinTechniqueType.OVERSCAN;
@@ -348,41 +349,20 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
 
         @Override
         public Joiner createJoiner(final FDBRecordStore store) {
-            return new OverScanIndexProbeJoiner(store);
+            return new OverScanIndexProbeJoiner(standardJoinTechnique.createJoiner(store));
         }
 
         public static class OverScanIndexProbeJoiner implements Joiner {
-            private final FDBRecordStore store;
-            private final Index index;
+            private final Joiner standardJoiner;
 
-            public OverScanIndexProbeJoiner(FDBRecordStore store) {
-                this.store = store;
-                this.index = store.getRecordMetaData().getIndex(GROUP_OUTER_VALUE_INDEX);
+            public OverScanIndexProbeJoiner(Joiner standardJoiner) {
+                this.standardJoiner = standardJoiner;
             }
 
             @Override
             public RecordCursor<QueryResult> executeInner(final EvaluationContext innerContext, @Nullable final byte[] continuation, final ExecuteProperties executeProperties) {
-                Object group = innerContext.getBinding(GROUP_PARAM);
-                Long outerId = (Long) innerContext.getBinding(OUTER_PARAM);
-                TupleRange range = new TupleRange(Tuple.from(group, outerId), Tuple.from(group), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
-                ExecuteProperties limited = executeProperties.setReturnedRowLimit(1);
-                return store.scanIndex(index, IndexScanType.BY_VALUE, range, continuation, limited.asScanProperties(false))
-                        .filter(entry -> entry.getKey().getLong(1) == outerId)
-                        .mapResult(result -> {
-                            if (result.hasNext()) {
-                                IndexEntry entry = result.get();
-                                TestSparseJoinPerfProto.InnerRecord innerRecord = TestSparseJoinPerfProto.InnerRecord.newBuilder()
-                                        .setGroup(entry.getKey().getLong(0))
-                                        .setOuterId(entry.getKey().getLong(1))
-                                        .setVal((int)entry.getKey().getLong(2))
-                                        .setRecNo(entry.getKey().getLong(3))
-                                        .build();
-                                QueryResult queryResult = QueryResult.ofComputed(innerRecord);
-                                return RecordCursorResult.withNextValue(queryResult, result.getContinuation());
-                            } else {
-                                return RecordCursorResult.exhausted();
-                            }
-                        });
+                ExecuteProperties execPropsWithOverScan = executeProperties.setOverScanForCache(true);
+                return standardJoiner.executeInner(innerContext, continuation, execPropsWithOverScan);
             }
         }
     }
@@ -733,13 +713,13 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
     }
 
     @ParameterizedTest(name = "middleGroupJoin[joinTechniqueType={0}]")
-    @EnumSource(JoinTechniqueType.class)
+    @EnumSource(value = JoinTechniqueType.class, names = {"STANDARD", "OVERSCAN"})
     void middleGroupJoin(JoinTechniqueType joinTechniqueType) {
         profileQuery(GROUP_COUNT / 2, "d", joinTechniqueType);
     }
 
     @ParameterizedTest(name = "zeroGroupJoin[joinTechniqueType={0}]")
-    @EnumSource(JoinTechniqueType.class)
+    @EnumSource(value = JoinTechniqueType.class, names = {"STANDARD", "OVERSCAN"})
     void zeroGroupJoin(JoinTechniqueType joinTechniqueType) {
         profileQuery(0, "d", joinTechniqueType);
     }

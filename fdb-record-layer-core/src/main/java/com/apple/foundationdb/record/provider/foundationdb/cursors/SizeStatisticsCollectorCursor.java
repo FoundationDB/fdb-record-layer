@@ -128,7 +128,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         return subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
-            KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace).setContext(context).setContinuation(kvCursorContinuation).setScanProperties(scanProperties).build();
+            RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace).setContext(context).setContinuation(kvCursorContinuation).setScanProperties(scanProperties).build();
             return kvCursor.forEachResult(nextKv -> {
                 sizeStatisticsResults.updateStatistics(nextKv.get());
             }).thenApply(resultKv -> {

@@ -85,7 +85,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void all() {
         fdb.run(context -> {
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.ALL)
                     .setContinuation(null)
@@ -122,7 +122,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void beginsWith() {
         fdb.run(context -> {
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.allOf(Tuple.from(3)))
                     .setContinuation(null)
@@ -157,7 +157,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void inclusiveRange() {
         fdb.run(context -> {
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_INCLUSIVE)
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_INCLUSIVE)
@@ -193,7 +193,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void exclusiveRange() {
         fdb.run(context -> {
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)
@@ -268,7 +268,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void noNextReasons() {
         fdb.run(context -> {
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.allOf(Tuple.from(3)))
                     .setContinuation(null)
@@ -302,7 +302,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     public void simpleScanLimit() {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(2);
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.ALL)
                     .setScanProperties(forwardScanWithLimiter(limiter))
@@ -320,7 +320,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     public void limitNotReached() {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(4);
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)
@@ -335,7 +335,7 @@ public class KeyValueCursorTest extends FDBTestBase {
         });
     }
 
-    private boolean hasNextAndAdvance(KeyValueCursor cursor) {
+    private boolean hasNextAndAdvance(RecordCursor<?> cursor) {
         return cursor.getNext().hasNext();
     }
 
@@ -348,8 +348,8 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)
                     .setScanProperties(forwardScanWithLimiter(limiter));
-            KeyValueCursor cursor1 = builder.build();
-            KeyValueCursor cursor2 = builder.build();
+            RecordCursor<KeyValue> cursor1 = builder.build();
+            RecordCursor<KeyValue> cursor2 = builder.build();
 
             assertThat(hasNextAndAdvance(cursor1), is(true));
             assertThat(hasNextAndAdvance(cursor2), is(true));
@@ -370,7 +370,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     public void limiterWithLookahead() {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(1);
-            KeyValueCursor kvCursor =  KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursor<KeyValue> kvCursor =  KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)

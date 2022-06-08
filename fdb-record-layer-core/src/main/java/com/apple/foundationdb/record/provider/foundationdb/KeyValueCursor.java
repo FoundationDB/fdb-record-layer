@@ -20,26 +20,28 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -192,7 +194,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
         }
 
         @SuppressWarnings("unchecked")
-        public KeyValueCursor build() throws RecordCoreException {
+        public RecordCursor<KeyValue> build() throws RecordCoreException {
             if (subspace == null) {
                 throw new RecordCoreException("record subspace must be supplied");
             }
@@ -242,7 +244,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             // Begin the scan with the new arrays
             KeySelector begin = KeySelector.firstGreaterOrEqual(lowBytes);
             KeySelector end = KeySelector.firstGreaterOrEqual(highBytes);
-            if (scanProperties.getExecuteProperties().getSkip() > 0) {
+            if (!scanProperties.getExecuteProperties().isOverScanForCache() && scanProperties.getExecuteProperties().getSkip() > 0) {
                 if (reverse) {
                     end = end.add(- scanProperties.getExecuteProperties().getSkip());
                 } else {
@@ -250,7 +252,18 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
                 }
             }
 
-            final int limit = scanProperties.getExecuteProperties().getReturnedRowLimit();
+            // If we are in overscan mode, expand the range of the key selectors by one on either side.
+            if (scanProperties.getExecuteProperties().isOverScanForCache()) {
+                begin = begin.add(-1);
+                end = end.add(1);
+            }
+
+            final int limit;
+            if (scanProperties.getExecuteProperties().isOverScanForCache()) {
+                limit = ReadTransaction.ROW_LIMIT_UNLIMITED;
+            } else {
+                limit = scanProperties.getExecuteProperties().getReturnedRowLimit();
+            }
             final StreamingMode streamingMode;
             if (scanProperties.getCursorStreamingMode() == CursorStreamingMode.ITERATOR) {
                 streamingMode = StreamingMode.ITERATOR;
@@ -265,9 +278,20 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             iterator = scanRange(transaction, begin, end, limit, reverse, streamingMode);
 
             final CursorLimitManager limitManager = new CursorLimitManager(context, scanProperties);
-            final int valuesLimit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
+            final int valuesLimit = scanProperties.getExecuteProperties().isOverScanForCache() ? Integer.MAX_VALUE : scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
 
-            return new KeyValueCursor(context, (AsyncIterator<KeyValue>)iterator, prefixLength, limitManager, valuesLimit);
+            KeyValueCursor kvCursor = new KeyValueCursor(context, (AsyncIterator<KeyValue>)iterator, prefixLength, limitManager, valuesLimit);
+            if (scanProperties.getExecuteProperties().isOverScanForCache()) {
+                return kvCursor
+                        .filter(kv -> {
+                            // If overscanning is enabled, we get results outside the desired range that need to be filtered out
+                            byte[] key = kv.getKey();
+                            return ByteArrayUtil.compareUnsigned(lowBytes, key) <= 0 && ByteArrayUtil.compareUnsigned(key, highBytes) <= 0;
+                        })
+                        .skipThenLimit(scanProperties.getExecuteProperties().getSkip(), scanProperties.getExecuteProperties().getReturnedRowLimitOrMax());
+            } else {
+                return kvCursor;
+            }
         }
 
         public Builder setContext(FDBRecordContext context) {

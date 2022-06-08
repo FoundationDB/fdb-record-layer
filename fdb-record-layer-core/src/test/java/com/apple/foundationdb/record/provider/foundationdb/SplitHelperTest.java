@@ -650,7 +650,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     private FDBRawRecord scanSingleRecord(@Nonnull FDBRecordContext context, boolean reverse, @Nonnull Tuple key, @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion version) {
         final ScanProperties scanProperties = reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN;
-        KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
+        RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
                 .setContext(context)
                 .setRange(TupleRange.allOf(key))
                 .setScanProperties(scanProperties)
@@ -723,7 +723,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         List<FDBRawRecord> rawRecords = writeDummyRecords();
 
         try (FDBRecordContext context = openContext()) {
-            KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.ALL)
                     .setScanProperties(scanProperties)

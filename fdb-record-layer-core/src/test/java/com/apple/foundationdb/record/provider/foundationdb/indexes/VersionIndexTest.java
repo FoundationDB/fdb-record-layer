@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -2330,7 +2331,7 @@ public class VersionIndexTest extends FDBTestBase {
     private <M extends Message> void validateUsingNewerVersionFormat(@Nonnull List<FDBStoredRecord<M>> storedRecords) {
         // Make sure the old keyspace doesn't have anything in it
         final Subspace legacyVersionSubspace = recordStore.getLegacyVersionSubspace();
-        KeyValueCursor legacyKvs = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
+        RecordCursor<KeyValue> legacyKvs = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
                 .setContext(recordStore.getRecordContext())
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build();

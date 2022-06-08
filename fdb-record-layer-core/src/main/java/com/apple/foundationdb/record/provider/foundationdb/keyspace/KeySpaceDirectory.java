@@ -555,7 +555,7 @@ public class KeySpaceDirectory {
                                                          @Nonnull KeyRange range,
                                                          @Nonnull Optional<Tuple> lastTuple,
                                                          @Nonnull ScanProperties scanProperties) {
-        final KeyValueCursor cursor;
+        final RecordCursor<KeyValue> cursor;
         if (!lastTuple.isPresent()) {
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)

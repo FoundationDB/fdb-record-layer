@@ -74,8 +74,11 @@ public class ExecuteProperties {
 
     private final CursorStreamingMode defaultCursorStreamingMode;
 
+    private final boolean overScanForCache;
+
     private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
-                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode) {
+                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode,
+                              boolean overScanForCache) {
         this.skip = skip;
         this.rowLimit = rowLimit;
         this.isolationLevel = isolationLevel;
@@ -83,6 +86,7 @@ public class ExecuteProperties {
         this.state = state;
         this.failOnScanLimitReached = failOnScanLimitReached;
         this.defaultCursorStreamingMode = defaultCursorStreamingMode;
+        this.overScanForCache = overScanForCache;
     }
 
     @Nonnull
@@ -99,7 +103,7 @@ public class ExecuteProperties {
         if (skip == this.skip) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -121,7 +125,7 @@ public class ExecuteProperties {
         if (newLimit == this.rowLimit) {
             return this;
         }
-        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -168,7 +172,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties setState(@Nonnull ExecuteState newState) {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -177,7 +181,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties clearState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -193,7 +197,7 @@ public class ExecuteProperties {
         if (failOnScanLimitReached == this.failOnScanLimitReached) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     @Nonnull
@@ -201,7 +205,7 @@ public class ExecuteProperties {
         if (getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -213,7 +217,7 @@ public class ExecuteProperties {
         if (getTimeLimit() == UNLIMITED_TIME && getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED ) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -225,7 +229,7 @@ public class ExecuteProperties {
         if (skip == 0 && rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -238,7 +242,7 @@ public class ExecuteProperties {
             return this;
         }
         return copy(0, rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? ReadTransaction.ROW_LIMIT_UNLIMITED : rowLimit + skip,
-                timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
+                timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -289,7 +293,18 @@ public class ExecuteProperties {
         if (defaultCursorStreamingMode == this.defaultCursorStreamingMode) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
+    }
+
+    public boolean isOverScanForCache() {
+        return overScanForCache;
+    }
+
+    public ExecuteProperties setOverScanForCache(boolean overScanForCache) {
+        if (overScanForCache == this.overScanForCache) {
+            return this;
+        }
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -299,7 +314,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties resetState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, defaultCursorStreamingMode);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     /**
@@ -315,8 +330,9 @@ public class ExecuteProperties {
      */
     @Nonnull
     protected ExecuteProperties copy(int skip, int rowLimit, long timeLimit, @Nonnull IsolationLevel isolationLevel,
-                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode) {
-        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode);
+                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode,
+                                     boolean overScanForCache) {
+        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
     }
 
     @Nonnull
@@ -390,6 +406,7 @@ public class ExecuteProperties {
         private ExecuteState executeState = null;
         private boolean failOnScanLimitReached = false;
         private CursorStreamingMode defaultCursorStreamingMode = CursorStreamingMode.ITERATOR;
+        private boolean overScanForCache = false;
 
         private Builder() {
         }
@@ -402,6 +419,7 @@ public class ExecuteProperties {
             this.executeState = executeProperties.state;
             this.failOnScanLimitReached = executeProperties.failOnScanLimitReached;
             this.defaultCursorStreamingMode = executeProperties.defaultCursorStreamingMode;
+            this.overScanForCache = executeProperties.overScanForCache;
         }
 
         @Nonnull
@@ -562,6 +580,15 @@ public class ExecuteProperties {
             return this;
         }
 
+        public boolean isOverScanForCache() {
+            return overScanForCache;
+        }
+
+        public Builder setOverScanForCache(boolean overScanForCache) {
+            this.overScanForCache = overScanForCache;
+            return this;
+        }
+
         @Nonnull
         public ExecuteProperties build() {
             final ExecuteState state;
@@ -576,7 +603,7 @@ public class ExecuteProperties {
             } else {
                 state = new ExecuteState(RecordScanLimiterFactory.enforce(scannedRecordsLimit), ByteScanLimiterFactory.enforce(scannedBytesLimit));
             }
-            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode);
+            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, overScanForCache);
         }
     }
 }
