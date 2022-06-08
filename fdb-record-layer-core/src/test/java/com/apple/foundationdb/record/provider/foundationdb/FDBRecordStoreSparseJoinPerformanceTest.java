@@ -239,22 +239,22 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
 
     public JoinTechnique getJoinTechnique(JoinTechniqueType type, int group) {
         switch (type) {
-        case STANDARD:
-            return new StandardIndexProbeJoinTechnique();
-        case PREFETCH:
-            return new PreFetchedIndexProbeJoinTechnique(group, 100);
-        case OVERSCAN:
-            return new OverScanIndexProbeJoinTechnique();
-        case IN_MEMORY_HASH_JOIN:
-            return new InMemoryHashJoinTechnique(getInnerByOuterForGroup(group));
-        case SET_FILTER:
-            return new IdSetHashJoinTechnique(getOuterRecordIdsByGroup(group));
-        case BIT_SET_FILTER:
-            return new BitSetHashJoinTechnique(getOuterRecordBitSetByGroup(group));
-        case BLOOM_FILTER:
-            return new BloomFilterHashJoinTechnique(getOuterRecordBloomFilterByGroup(group));
-        default:
-            throw new RecordCoreArgumentException("Unrecognized join technique type", "type", type);
+            case STANDARD:
+                return new StandardIndexProbeJoinTechnique();
+            case PREFETCH:
+                return new PreFetchedIndexProbeJoinTechnique(group, 100);
+            case OVERSCAN:
+                return new OverScanIndexProbeJoinTechnique();
+            case IN_MEMORY_HASH_JOIN:
+                return new InMemoryHashJoinTechnique(getInnerByOuterForGroup(group));
+            case SET_FILTER:
+                return new IdSetHashJoinTechnique(getOuterRecordIdsByGroup(group));
+            case BIT_SET_FILTER:
+                return new BitSetHashJoinTechnique(getOuterRecordBitSetByGroup(group));
+            case BLOOM_FILTER:
+                return new BloomFilterHashJoinTechnique(getOuterRecordBloomFilterByGroup(group));
+            default:
+                throw new RecordCoreArgumentException("Unrecognized join technique type", "type", type);
         }
     }
 
