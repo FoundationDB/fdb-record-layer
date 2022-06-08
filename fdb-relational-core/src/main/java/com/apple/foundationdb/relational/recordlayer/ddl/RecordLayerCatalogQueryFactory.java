@@ -1,5 +1,5 @@
 /*
- * JDBCQueryFactory.java
+ * RecordLayerCatalogQueryFactory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,53 +18,65 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.compare;
+package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.ddl.CatalogQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
-import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.AbstractRow;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
+import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import java.net.URI;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
-public class JDBCQueryFactory implements DdlQueryFactory {
-    private final SchemaTemplateCatalog templateCatalog;
-
-    public JDBCQueryFactory(SchemaTemplateCatalog templateCatalog) {
-        this.templateCatalog = templateCatalog;
+public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
+    public RecordLayerCatalogQueryFactory(StoreCatalog catalog, SchemaTemplateCatalog templateCatalog) {
+        super(catalog, templateCatalog);
     }
 
     @Override
-    public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
-        throw new UnsupportedOperationException("Unimplemented in JDBC");
-    }
-
-    @Override
-    public DdlQuery getListSchemaTemplatesQueryAction() {
+    public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbId, @Nonnull String schemaId) {
         return new DdlQuery() {
             @Nonnull
             @Override
             public Type getResultSetMetadata() {
-                return Type.primitiveType(Type.TypeCode.STRING);
+                return DdlQuery.constructTypeFrom(List.of("DATABASE_PATH", "SCHEMA_NAME", "TABLES", "INDEXES"));
             }
 
             @Override
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
-                return templateCatalog.listTemplates(txn);
+                final Schema schema = catalog.loadSchema(txn, dbId, schemaId);
+
+                List<String> tableNames = schema.getMetaData().getRecordTypesList().stream()
+                        .map(RecordMetaDataProto.RecordType::getName)
+                        .collect(Collectors.toList());
+
+                List<String> indexNames = schema.getMetaData().getIndexesList().stream()
+                        .map(RecordMetaDataProto.Index::getName)
+                        .collect(Collectors.toList());
+
+                Row tuple = new ArrayRow(new Object[]{
+                        schema.getDatabaseId(),
+                        schema.getSchemaName(),
+                        tableNames,
+                        indexNames,
+                });
+
+                return new IteratorResultSet(new String[]{"DATABASE_PATH", "SCHEMA_NAME", "TABLES", "INDEXES"},
+                        Collections.singleton(tuple).iterator(), 0);
             }
         };
     }
@@ -88,28 +100,9 @@ public class JDBCQueryFactory implements DdlQueryFactory {
                         schemaTemplate.getTypes()
                 };
 
-                Row tuple = new AbstractRow() {
-                    @Override
-                    public int getNumFields() {
-                        return 3;
-                    }
-
-                    @Override
-                    public Object getObject(int position) {
-                        return fields[position];
-                    }
-                };
+                Row tuple = new ArrayRow(fields);
                 return new IteratorResultSet(new String[]{"TEMPLATE_NAME", "TYPES", "TABLES"}, Collections.singleton(tuple).iterator(), 0);
             }
         };
-    }
-
-    @Override
-    public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbId, @Nonnull String schemaId) {
-        throw new UnsupportedOperationException("unimplemented in JDBC");
-    }
-
-    private Connection getConnection(@Nonnull URI dbPath) throws SQLException {
-        return DriverManager.getConnection("jdbc:h2:./src/test/resources/" + dbPath.getPath().replaceAll("/", "_"));
     }
 }

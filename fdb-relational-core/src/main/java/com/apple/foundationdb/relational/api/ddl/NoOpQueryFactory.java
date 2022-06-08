@@ -36,11 +36,6 @@ public class NoOpQueryFactory implements DdlQueryFactory {
     }
 
     @Override
-    public DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath) {
-        return DdlQuery.NoOpDdlQuery.INSTANCE;
-    }
-
-    @Override
     public DdlQuery getListSchemaTemplatesQueryAction() {
         return DdlQuery.NoOpDdlQuery.INSTANCE;
     }

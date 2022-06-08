@@ -18,17 +18,25 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.ddl;
+package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.TableInfo;
 import com.apple.foundationdb.relational.api.catalog.TypeInfo;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -41,13 +49,13 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
     private final LinkedHashSet<TableInfo> tables;
     private final Set<TypeInfo> customTypes;
     @SuppressWarnings("PMD.UnusedPrivateField") //this will be used eventually
-    private final int version;
+    private final long version;
 
     @SuppressWarnings("PMD.LooseCoupling")
     public SchemaTemplateDescriptor(String name,
                                     LinkedHashSet<TableInfo> tables,
                                     Set<TypeInfo> customTypes,
-                                    int version) {
+                                    long version) {
         this.name = name;
         this.tables = tables;
         this.customTypes = customTypes;
@@ -60,15 +68,24 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
     }
 
     @Override
-    public CatalogData.Schema generateSchema(String databaseId, String schemaName) {
-        final CatalogData.Schema.Builder builder = CatalogData.Schema.newBuilder().setSchemaName(schemaName)
-                .setDatabaseId(databaseId)
-                .setSchemaTemplateName(getUniqueId())
-                .setSchemaVersion(1) //TODO(bfines) add this to the SchemaTemplate object
-                .setRecord(toProtobufDescriptor().toByteString());
+    public Schema generateSchema(String databaseId, String schemaName) throws RelationalException {
 
-        tables.stream().map(TableInfo::getTable).forEach(builder::addTables);
-        return builder.build();
+        try {
+            final Descriptors.FileDescriptor fd = Descriptors.FileDescriptor.buildFrom(toProtobufDescriptor(),
+                    new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()});
+            RecordMetaDataBuilder rmd = RecordMetaData.newBuilder().setRecords(fd);
+            int typeKey = 0;
+            for (TableInfo table : tables) {
+                final KeyExpression keyExpression = table.getPrimaryKey();
+                final RecordTypeBuilder recordType = rmd.getRecordType(table.getTableName());
+                recordType.setRecordTypeKey(typeKey++);
+                recordType.setPrimaryKey(keyExpression);
+                table.getIndexes().forEach(index -> rmd.addIndex(table.getTableName(), new Index(index)));
+            }
+            return new Schema(databaseId, schemaName, rmd.build().toProto(), name, version);
+        } catch (Descriptors.DescriptorValidationException e) {
+            throw ExceptionUtil.toRelationalException(e);
+        }
     }
 
     @Override

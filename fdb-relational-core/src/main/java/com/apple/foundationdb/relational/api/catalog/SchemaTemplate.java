@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
 
 import com.google.protobuf.DescriptorProtos;
 
@@ -45,11 +45,12 @@ public interface SchemaTemplate {
     /**
      * Get a new SchemaData instance for this template. This is useful as a starting point
      * for creating new schemas and/or for comparing existing ones.
-     * @return a new SchemaData instance representing the structure of this template
      * @param databaseId the unique database identifier
      * @param schemaName the name of the schema to generate for
+     * @return a new SchemaData instance representing the structure of this template
+     * @throws RelationalException if something goes wrong
      */
-    CatalogData.Schema generateSchema(String databaseId, String schemaName);
+    Schema generateSchema(String databaseId, String schemaName) throws RelationalException;
 
     /**
      * Determine if the specified DatabaseSchema instance is valid.

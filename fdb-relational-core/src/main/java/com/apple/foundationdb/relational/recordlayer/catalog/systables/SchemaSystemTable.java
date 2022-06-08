@@ -40,14 +40,10 @@ public class SchemaSystemTable implements SystemTable {
 
     private static final String SCHEMA_NAME = "schema_name";
 
-    private static final String INDEX_DEF = "indexDef";
-
-    private static final String INDEX_ALIAS = "IndexAlias";
     private static final String DATABASE_ID = "database_id";
-    private static final String SCHEMA_TEMPLATE_NAME = "schema_template_name";
-    private static final String SCHEMA_VERSION = "schema_version";
-    private static final String TABLES = "tables";
-    private static final String RECORD = "record";
+    private static final String TEMPLATE_NAME = "template_name";
+    private static final String TEMPLATE_VERSION = "template_version";
+    private static final String METADATA = "meta_data";
 
     @Nonnull
     @Override
@@ -58,30 +54,18 @@ public class SchemaSystemTable implements SystemTable {
     @Override
     public void addDefinition(@Nonnull final TypingContext typingContext) {
         // construct the Index type.
-        {
-            final TypingContext.FieldDefinition f1 = new TypingContext.FieldDefinition(SCHEMA_NAME, Type.TypeCode.STRING, null, false);
-            final TypingContext.FieldDefinition f2 = new TypingContext.FieldDefinition(INDEX_DEF, Type.TypeCode.BYTES, null, false);
-            typingContext.addType(new TypingContext.TypeDefinition(INDEX_ALIAS, List.of(f1, f2), false, Optional.empty()));
-        }
+        typingContext.addType(getType());
+    }
 
-        // construct the Table type.
-        {
-            final TypingContext.FieldDefinition f1 = new TypingContext.FieldDefinition("name", Type.TypeCode.STRING, null, false);
-            final TypingContext.FieldDefinition f2 = new TypingContext.FieldDefinition("primary_key", Type.TypeCode.BYTES, null, false);
-            final TypingContext.FieldDefinition f3 = new TypingContext.FieldDefinition("indexes", Type.TypeCode.RECORD, INDEX_ALIAS, true);
-            typingContext.addType(new TypingContext.TypeDefinition("Table", List.of(f1, f2, f3), false, Optional.empty()));
-        }
-
-        // construct the system table
-        {
-            final TypingContext.FieldDefinition f1 = new TypingContext.FieldDefinition(SCHEMA_NAME, Type.TypeCode.STRING, null, false);
-            final TypingContext.FieldDefinition f2 = new TypingContext.FieldDefinition(DATABASE_ID, Type.TypeCode.STRING, null, false);
-            final TypingContext.FieldDefinition f3 = new TypingContext.FieldDefinition(SCHEMA_TEMPLATE_NAME, Type.TypeCode.STRING, null, false);
-            final TypingContext.FieldDefinition f4 = new TypingContext.FieldDefinition(SCHEMA_VERSION, Type.TypeCode.INT, null, false);
-            final TypingContext.FieldDefinition f5 = new TypingContext.FieldDefinition(TABLES, Type.TypeCode.RECORD, "Table", true);
-            final TypingContext.FieldDefinition f6 = new TypingContext.FieldDefinition(RECORD, Type.TypeCode.BYTES, null, false);
-            typingContext.addType(new TypingContext.TypeDefinition(getName(), List.of(f1, f2, f3, f4, f5, f6), true, Optional.of(List.of(DATABASE_ID, SCHEMA_NAME))));
-        }
+    @Override
+    public TypingContext.TypeDefinition getType() {
+        final TypingContext.FieldDefinition dbField = new TypingContext.FieldDefinition(DATABASE_ID, Type.TypeCode.STRING, null, false);
+        final TypingContext.FieldDefinition nameField = new TypingContext.FieldDefinition(SCHEMA_NAME, Type.TypeCode.STRING, null, false);
+        final TypingContext.FieldDefinition templatNameField = new TypingContext.FieldDefinition(TEMPLATE_NAME, Type.TypeCode.STRING, null, false);
+        final TypingContext.FieldDefinition versionField = new TypingContext.FieldDefinition(TEMPLATE_VERSION, Type.TypeCode.LONG, null, false);
+        final TypingContext.FieldDefinition metadataField = new TypingContext.FieldDefinition(METADATA, Type.TypeCode.BYTES, null, false);
+        final Optional<List<String>> pkFields = Optional.of(List.of(DATABASE_ID, SCHEMA_NAME));
+        return new TypingContext.TypeDefinition(TABLE_NAME, List.of(dbField, nameField, templatNameField, versionField, metadataField), true, pkFields);
     }
 
     @Nonnull
@@ -91,7 +75,7 @@ public class SchemaSystemTable implements SystemTable {
     }
 
     @Override
-    public int getRecordTypeKey() {
+    public long getRecordTypeKey() {
         return SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY;
     }
 }

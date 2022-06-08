@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.net.URI;
 
@@ -30,6 +31,7 @@ import javax.annotation.Nullable;
 /**
  * A Driver which is used to connect to a Relational Database.
  */
+@ExcludeFromJacocoGeneratedReport
 public interface RelationalDriver {
     default RelationalConnection connect(@Nonnull URI url) throws RelationalException {
         return connect(url, null, TransactionConfig.DEFAULT, Options.create());

@@ -20,54 +20,43 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Optional;
+
 public class CatalogValidatorTest {
     @Test
-    void testValidateTableWithUnsetName() {
-        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-            CatalogValidator.validateTable(generateTableWithUnsetName());
-        });
-        Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
-        Assertions.assertEquals("Field name in Table must be set!", exception.getMessage());
-    }
-
-    @Test
-    void testValidateGoodTable() {
-        Assertions.assertDoesNotThrow(() -> {
-            CatalogValidator.validateTable(generateGoodTable());
-        });
-    }
-
-    @Test
     void testValidateGoodSchema() {
-        Assertions.assertDoesNotThrow(() -> {
-            CatalogValidator.validateSchema(generateGoodSchema());
-        });
+        Assertions.assertDoesNotThrow(() -> CatalogValidator.validateSchema(generateGoodSchema()));
     }
 
     @Test
-    void testValidateWithUnsetSchemaName() {
-        CatalogData.Schema goodSchema = generateGoodSchema();
+    void testValidateWithUnsetSchemaName() throws RelationalException {
+        Schema goodSchema = generateGoodSchema();
         // clear schema_name field
-        CatalogData.Schema schemaWithUnsetSchemaName = goodSchema.toBuilder().clearSchemaName().build();
-        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-            CatalogValidator.validateSchema(schemaWithUnsetSchemaName);
-        });
+        Schema schemaWithUnsetSchemaName = new Schema(goodSchema.getDatabaseId(), null,
+                goodSchema.getMetaData(), goodSchema.getSchemaTemplateName(), goodSchema.getTemplateVersion());
+        RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
+                CatalogValidator.validateSchema(schemaWithUnsetSchemaName));
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
         Assertions.assertEquals("Field schema_name in Schema must be set!", exception.getMessage());
     }
 
     @Test
-    void testValidateWithUnsetDatabaseId() {
-        CatalogData.Schema goodSchema = generateGoodSchema();
+    void testValidateWithUnsetDatabaseId() throws RelationalException {
+        Schema goodSchema = generateGoodSchema();
         // clear database_id field
-        CatalogData.Schema badSchema = goodSchema.toBuilder().clearDatabaseId().build();
+        Schema badSchema = new Schema(null, goodSchema.getSchemaName(),
+                goodSchema.getMetaData(), goodSchema.getSchemaTemplateName(), goodSchema.getTemplateVersion());
+
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
             CatalogValidator.validateSchema(badSchema);
         });
@@ -76,10 +65,11 @@ public class CatalogValidatorTest {
     }
 
     @Test
-    void testValidateWithUnsetTemplateName() {
-        CatalogData.Schema goodSchema = generateGoodSchema();
+    void testValidateWithUnsetTemplateName() throws RelationalException {
+        Schema goodSchema = generateGoodSchema();
         // clear schema_template_name field
-        CatalogData.Schema badSchema = goodSchema.toBuilder().clearSchemaTemplateName().build();
+        Schema badSchema = new Schema(goodSchema.getDatabaseId(), goodSchema.getSchemaName(),
+                goodSchema.getMetaData(), null, goodSchema.getTemplateVersion());
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
             CatalogValidator.validateSchema(badSchema);
         });
@@ -88,44 +78,26 @@ public class CatalogValidatorTest {
     }
 
     @Test
-    void testValidateWithUnsetVersion() {
-        CatalogData.Schema goodSchema = generateGoodSchema();
+    void testValidateWithUnsetVersion() throws RelationalException {
+        Schema goodSchema = generateGoodSchema();
         // clear schema_version field
-        CatalogData.Schema badSchema = goodSchema.toBuilder().clearSchemaVersion().build();
+        Schema badSchema = new Schema(goodSchema.getDatabaseId(), goodSchema.getSchemaName(),
+                goodSchema.getMetaData(), goodSchema.getSchemaTemplateName(), 0);
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
             CatalogValidator.validateSchema(badSchema);
         });
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
-        Assertions.assertEquals("Field schema_version in Schema must be set, and must not be 0!", exception.getMessage());
+        Assertions.assertEquals("Field schema_version in Schema must be set, and must be > 0!", exception.getMessage());
     }
 
-    @Test
-    void testValidateWithBadTable() {
-        CatalogData.Schema goodSchema = generateGoodSchema();
-        // clear schema_version field
-        CatalogData.Schema badSchema = goodSchema.toBuilder().addTables(generateTableWithUnsetName()).build();
-        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-            CatalogValidator.validateSchema(badSchema);
-        });
-        Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
-        Assertions.assertEquals("Field name in Table must be set!", exception.getMessage());
-    }
+    private Schema generateGoodSchema() throws RelationalException {
+        TypingContext ctx = TypingContext.create();
 
-    private CatalogData.Table generateGoodTable() {
-        return CatalogData.Table.newBuilder().setName("table_name1").build();
-    }
+        TypingContext.FieldDefinition aField = new TypingContext.FieldDefinition("A", Type.TypeCode.STRING, null, false);
+        ctx.addType(new TypingContext.TypeDefinition("test_table", List.of(aField), true, Optional.of(List.of("A"))));
 
-    private CatalogData.Table generateTableWithUnsetName() {
-        return CatalogData.Table.getDefaultInstance();
-    }
-
-    private CatalogData.Schema generateGoodSchema() {
-        return CatalogData.Schema.newBuilder()
-                .setSchemaName("test_schema_name")
-                .setDatabaseId("test_database_id")
-                .setSchemaTemplateName("test_schema_template_name")
-                .setSchemaVersion(1)
-                .addTables(generateGoodTable())
-                .build();
+        ctx.addAllToTypeRepository();
+        final SchemaTemplate template = ctx.generateSchemaTemplate("test_template");
+        return template.generateSchema("test_db", "test_schema");
     }
 }

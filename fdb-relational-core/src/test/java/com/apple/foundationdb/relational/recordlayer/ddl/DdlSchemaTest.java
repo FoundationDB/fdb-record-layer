@@ -20,13 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.DatabaseRule;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
@@ -63,17 +61,6 @@ public class DdlSchemaTest {
     public final DatabaseRule db = new DatabaseRule(relational, URI.create("/" + DdlSchemaTest.class.getSimpleName()));
 
     @Test
-    void cannotCreateSchemaWithNonexistentSchemaTemplate() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
-            conn.setSchema("catalog");
-            try (Statement statement = conn.createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate("CREATE SCHEMA bad_schema WITH TEMPLATE missingTemplate"))
-                        .hasErrorCode(ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
-            }
-        }
-    }
-
-    @Test
     void canCreateSchema() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
             conn.setSchema("catalog");
@@ -91,11 +78,7 @@ public class DdlSchemaTest {
                         Collection<?> tableInfo = relationalResultSet.getRepeated("TABLES");
                         Assertions.assertEquals(1, tableInfo.size(), "Incorrect number of tables!");
                         Object tbl = tableInfo.stream().findFirst().orElseThrow();
-                        CatalogData.Table correctData = CatalogData.Table.newBuilder()
-                                .setName("FOO_TBL")
-                                .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("col0")).toKeyExpression().toByteString())
-                                .build();
-                        Assertions.assertEquals(correctData, tbl, "Incorrect table info!");
+                        Assertions.assertEquals("FOO_TBL", tbl, "Incorrect table name!");
                     }
                 }
             }
@@ -161,11 +144,7 @@ public class DdlSchemaTest {
                         Collection<?> tableInfo = relationalResultSet.getRepeated("TABLES");
                         Assertions.assertEquals(1, tableInfo.size(), "Incorrect number of tables!");
                         Object tbl = tableInfo.stream().findFirst().orElseThrow();
-                        CatalogData.Table correctData = CatalogData.Table.newBuilder()
-                                .setName("FOO_TBL")
-                                .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("col0")).toKeyExpression().toByteString())
-                                .build();
-                        Assertions.assertEquals(correctData, tbl, "Incorrect table info!");
+                        Assertions.assertEquals("FOO_TBL", tbl, "Incorrect table name!");
                     }
                 }
 

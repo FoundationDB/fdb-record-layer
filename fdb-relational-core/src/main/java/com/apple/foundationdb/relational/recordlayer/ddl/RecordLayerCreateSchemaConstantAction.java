@@ -30,14 +30,14 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
+import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.net.URI;
@@ -80,7 +80,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         //verify that the schema doesn't already exist
         // This is a bit awkward--perhaps we should adjust the behavior of the StoreCatalog?
         try {
-            final CatalogData.Schema beforeSchema = catalog.loadSchema(txn, dbUri, schemaName);
+            final Schema beforeSchema = catalog.loadSchema(txn, dbUri, schemaName);
             String schemaTemplateName = beforeSchema.getSchemaTemplateName();
             throw new RelationalException("Schema " + schemaName + " already exists with mapping " + schemaTemplateName, ErrorCode.SCHEMA_EXISTS);
         } catch (RelationalException ve) {
@@ -92,7 +92,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, templateName);
 
         //map the schema to the template
-        final CatalogData.Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
+        final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
 
         //insert the schema into the catalog
         catalog.updateSchema(txn, schema);

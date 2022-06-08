@@ -41,7 +41,6 @@ import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
@@ -60,7 +59,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public ResultSet executeQuery(String sql) throws SQLException {
+    public RelationalResultSet executeQuery(String sql) throws SQLException {
         if (execute(sql)) {
             return getResultSet();
         } else {

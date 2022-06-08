@@ -21,10 +21,8 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordStoreState;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.relational.api.Options;
@@ -32,14 +30,14 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.TableInfo;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -72,11 +70,13 @@ public class DdlStatementParsingTest {
     };
 
     public DdlStatementParsingTest() throws RelationalException {
-        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
-        builder.getRecordType("Schema").setRecordTypeKey("Schema").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields("database_id", "schema_name")));
-        builder.getRecordType("DatabaseInfo").setRecordTypeKey("DatabaseInfo").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("database_id")));
+        TypingContext ctx = TypingContext.create();
+        SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(ctx);
+        SystemTableRegistry.getSystemTable("DATABASES").addDefinition(ctx);
+        ctx.addAllToTypeRepository();
+        RecordMetaDataProto.MetaData md = ctx.generateSchemaTemplate("catalog_template").generateSchema("__SYS", "catalog").getMetaData();
         fakePlanContext = PlanContext.Builder.create()
-                .withMetadata(builder.build())
+                .withMetadata(RecordMetaData.build(md))
                 .withStoreState(new RecordStoreState(RecordMetaDataProto.DataStoreInfo.newBuilder().build(), null))
                 .withDbUri(URI.create("/DdlStatementParsingTest"))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
@@ -195,16 +195,11 @@ public class DdlStatementParsingTest {
                                                                         @Nonnull Options templateProperties) {
                 Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
                 TableInfo info = template.getTables().stream().findFirst().orElseThrow();
-                Assertions.assertEquals(1, info.getTable().getIndexesCount(), "Incorrect number of indexes!");
-                final CatalogData.Index index = info.getTable().getIndexes(0);
+                Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
+                final RecordMetaDataProto.Index index = info.getIndexes().get(0);
                 Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
-                RecordMetaDataProto.KeyExpression actualKe = null;
-                try {
-                    actualKe = RecordMetaDataProto.Index.parseFrom(index.getIndexDef()).getRootExpression();
-                } catch (InvalidProtocolBufferException e) {
-                    throw new RuntimeException(e);
-                }
+                RecordMetaDataProto.KeyExpression actualKe = index.getRootExpression();
                 List<RecordMetaDataProto.KeyExpression> keys = null;
                 if (actualKe.hasThen()) {
                     keys = new ArrayList<>(actualKe.getThen().getChildList());
@@ -322,16 +317,11 @@ public class DdlStatementParsingTest {
                                                                         @Nonnull Options templateProperties) {
                 Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
                 TableInfo info = template.getTables().stream().findFirst().orElseThrow();
-                Assertions.assertEquals(1, info.getTable().getIndexesCount(), "Incorrect number of indexes!");
-                final CatalogData.Index index = info.getTable().getIndexes(0);
+                Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
+                final RecordMetaDataProto.Index index = info.getIndexes().get(0);
                 Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
-                RecordMetaDataProto.KeyExpression actualKe = null;
-                try {
-                    actualKe = RecordMetaDataProto.Index.parseFrom(index.getIndexDef()).getRootExpression();
-                } catch (InvalidProtocolBufferException e) {
-                    throw new RuntimeException(e);
-                }
+                RecordMetaDataProto.KeyExpression actualKe = index.getRootExpression();
                 List<RecordMetaDataProto.KeyExpression> keys = null;
                 if (actualKe.hasThen()) {
                     keys = new ArrayList<>(actualKe.getThen().getChildList());
@@ -374,16 +364,11 @@ public class DdlStatementParsingTest {
                                                                         @Nonnull Options templateProperties) {
                 Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
                 TableInfo info = template.getTables().stream().findFirst().orElseThrow();
-                Assertions.assertEquals(1, info.getTable().getIndexesCount(), "Incorrect number of indexes!");
-                final CatalogData.Index index = info.getTable().getIndexes(0);
+                Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
+                final RecordMetaDataProto.Index index = info.getIndexes().get(0);
                 Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
-                RecordMetaDataProto.KeyExpression actualKe = null;
-                try {
-                    actualKe = RecordMetaDataProto.Index.parseFrom(index.getIndexDef()).getRootExpression();
-                } catch (InvalidProtocolBufferException e) {
-                    throw new RuntimeException(e);
-                }
+                RecordMetaDataProto.KeyExpression actualKe = index.getRootExpression();
                 Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
                 final RecordMetaDataProto.KeyWithValue keyWithValue = actualKe.getKeyWithValue();
 
@@ -573,11 +558,6 @@ public class DdlStatementParsingTest {
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
 
-            @Override
-            public DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath) {
-                Assertions.fail("Incorrectly called listSchemas!");
-                return DdlQuery.NoOpDdlQuery.INSTANCE;
-            }
         });
         Assertions.assertTrue(called[0], "Did not call the correct method!");
     }
@@ -597,11 +577,6 @@ public class DdlStatementParsingTest {
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
 
-            @Override
-            public DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath) {
-                Assertions.fail("Incorrectly called listSchemas!");
-                return DdlQuery.NoOpDdlQuery.INSTANCE;
-            }
         });
         Assertions.assertTrue(called[0], "Did not call the correct method!");
     }
@@ -614,12 +589,6 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedQueryFactory(command, new AbstractQueryFactory() {
             @Override
             public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
-                Assertions.fail("Incorrectly called listSchemas!");
-                return DdlQuery.NoOpDdlQuery.INSTANCE;
-            }
-
-            @Override
-            public DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath) {
                 Assertions.fail("Incorrectly called listSchemas!");
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }

@@ -26,11 +26,11 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
-import com.apple.foundationdb.relational.api.ddl.CatalogQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataStore;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerCatalogQueryFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
 import java.net.URI;
@@ -82,7 +82,7 @@ public class RecordLayerStorageCluster implements StorageCluster {
                 .setStoreCatalog(catalog)
                 .build();
 
-        final var ddlQueryFactory = new CatalogQueryFactory(catalog, schemaTemplateCatalog);
+        final var ddlQueryFactory = new RecordLayerCatalogQueryFactory(catalog, schemaTemplateCatalog);
 
         return new RecordLayerDatabase(fdb, new CatalogMetaDataStore(catalog),
                 catalog,

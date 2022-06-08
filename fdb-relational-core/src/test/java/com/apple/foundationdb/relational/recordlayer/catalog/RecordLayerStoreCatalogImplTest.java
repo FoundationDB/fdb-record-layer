@@ -20,24 +20,23 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalAssertions;
+import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -50,6 +49,7 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public class RecordLayerStoreCatalogImplTest {
@@ -62,35 +62,21 @@ public class RecordLayerStoreCatalogImplTest {
     @BeforeEach
     void setUpCatalog() throws RelationalException {
         fdb = FDBDatabaseFactory.instance().getDatabase();
-        storeCatalog = new RecordLayerStoreCatalogImpl(keySpaceExt.getKeySpace());
+        RecordLayerStoreCatalogImpl rlsci = new RecordLayerStoreCatalogImpl(keySpaceExt.getKeySpace());
         // create a FDBRecordStore
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
-            builder.getRecordType("Schema").setRecordTypeKey("Schema").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields("database_id", "schema_name")));
-            builder.getRecordType("DatabaseInfo").setRecordTypeKey("DatabaseInfo").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("database_id")));
-
-            FDBRecordStore.newBuilder()
-                    .setKeySpacePath(KeySpaceUtils.uriToPath(URI.create("/__SYS/catalog"), keySpaceExt.getKeySpace()))
-                    .setMetaDataProvider(builder)
-                    .setContext(txn.unwrap(FDBRecordContext.class))
-                    .createOrOpen();
+            rlsci.initialize(txn);
             txn.commit();
         }
+        storeCatalog = rlsci;
     }
 
     @AfterEach
     void deleteAllRecords() throws RelationalException {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(CatalogData.getDescriptor());
-            builder.getRecordType("Schema").setPrimaryKey(Key.Expressions.concatenateFields("database_id", "schema_name"));
-            builder.getRecordType("DatabaseInfo").setPrimaryKey(Key.Expressions.field("database_id"));
 
-            FDBRecordStore recordStore = FDBRecordStore.newBuilder()
-                    .setKeySpacePath(KeySpaceUtils.uriToPath(URI.create("/__SYS/catalog"), keySpaceExt.getKeySpace()))
-                    .setMetaDataProvider(builder)
-                    .setContext(txn.unwrap(FDBRecordContext.class))
-                    .open();
-            recordStore.deleteAllRecords();
+            final KeySpacePath keySpacePath = KeySpaceUtils.uriToPath(URI.create("/__SYS/catalog"), keySpaceExt.getKeySpace());
+            FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), keySpacePath);
             txn.commit();
         }
     }
@@ -99,35 +85,39 @@ public class RecordLayerStoreCatalogImplTest {
     void testLoadSchema() throws RelationalException {
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            CatalogData.Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+            Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
             storeCatalog.updateSchema(txn, schema1);
             txn.commit();
         }
 
         // test loadSchema method with correct schema name
         try (Transaction loadTxn1 = new RecordContextTransaction(fdb.openContext())) {
-            CatalogData.Schema result = storeCatalog.loadSchema(loadTxn1, URI.create("test_database_id"), "test_schema_name");
+            Schema result = storeCatalog.loadSchema(loadTxn1, URI.create("test_database_id"), "test_schema_name");
             Assertions.assertEquals("test_schema_name", result.getSchemaName());
             Assertions.assertEquals("test_template_name", result.getSchemaTemplateName());
-            Assertions.assertEquals(1, result.getSchemaVersion());
-            Assertions.assertEquals(2, result.getTablesList().size());
-            Assertions.assertEquals("test_table1", result.getTables(0).getName());
-            Assertions.assertEquals("test_table2", result.getTables(1).getName());
+            Assertions.assertEquals(1, result.getTemplateVersion());
+            Assertions.assertEquals(2, result.getTableNames().size());
+            org.assertj.core.api.Assertions.assertThat(result.getTableNames())
+                    .containsExactlyInAnyOrder("test_table1", "test_table2");
         }
+    }
 
-        // test loadSchema method with a not existed database_id
+    @Test
+    void loadSchemaFailsWithNonexistentDatabase() throws RelationalException {
+        // test loadSchema method with a nonexistent database_id
         try (Transaction loadTxn2 = new RecordContextTransaction(fdb.openContext())) {
-            RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-                storeCatalog.loadSchema(loadTxn2, URI.create("test_wrong_database_id"), "test_schema_name");
-            });
+            RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
+                    storeCatalog.loadSchema(loadTxn2, URI.create("test_wrong_database_id"), "test_schema_name"));
             Assertions.assertEquals(ErrorCode.SCHEMA_NOT_FOUND, exception.getErrorCode());
         }
+    }
 
-        // test loadSchema method with a not existed database_id
+    @Test
+    void loadSchemaFailsWithNOnExistentSchemaName() throws RelationalException {
+        // test loadSchema method with a nonexistent schema
         try (Transaction loadTxn3 = new RecordContextTransaction(fdb.openContext())) {
-            RelationalException exception2 = Assertions.assertThrows(RelationalException.class, () -> {
-                storeCatalog.loadSchema(loadTxn3, URI.create("test_database_id"), "test_wrong_schema_name");
-            });
+            RelationalException exception2 = Assertions.assertThrows(RelationalException.class, () ->
+                    storeCatalog.loadSchema(loadTxn3, URI.create("test_database_id"), "test_wrong_schema_name"));
             Assertions.assertEquals(ErrorCode.SCHEMA_NOT_FOUND, exception2.getErrorCode());
         }
     }
@@ -147,9 +137,8 @@ public class RecordLayerStoreCatalogImplTest {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             // commit
             txn.commit();
-            RelationalException exception3 = Assertions.assertThrows(RelationalException.class, () -> {
-                storeCatalog.loadSchema(txn, URI.create("test_database_id"), "test_schema_name");
-            });
+            RelationalException exception3 = Assertions.assertThrows(RelationalException.class, () ->
+                    storeCatalog.loadSchema(txn, URI.create("test_database_id"), "test_schema_name"));
             Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception3.getErrorCode());
         }
     }
@@ -159,9 +148,8 @@ public class RecordLayerStoreCatalogImplTest {
         // abort
         try (Transaction txn2 = new RecordContextTransaction(fdb.openContext())) {
             txn2.abort();
-            RelationalException exception4 = Assertions.assertThrows(RelationalException.class, () -> {
-                storeCatalog.loadSchema(txn2, URI.create("test_database_id"), "test_schema_name");
-            });
+            RelationalException exception4 = Assertions.assertThrows(RelationalException.class, () ->
+                    storeCatalog.loadSchema(txn2, URI.create("test_database_id"), "test_schema_name"));
             Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception4.getErrorCode());
         }
     }
@@ -171,54 +159,50 @@ public class RecordLayerStoreCatalogImplTest {
         // close
         Transaction txn3 = new RecordContextTransaction(fdb.openContext());
         txn3.close();
-        RelationalException exception5 = Assertions.assertThrows(RelationalException.class, () -> {
-            storeCatalog.loadSchema(txn3, URI.create("test_database_id"), "test_schema_name");
-        });
+        RelationalException exception5 = Assertions.assertThrows(RelationalException.class, () ->
+                storeCatalog.loadSchema(txn3, URI.create("test_database_id"), "test_schema_name"));
         Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception5.getErrorCode());
     }
 
     @Test
     void testUpdateSchemaWithCommittedTransaction() throws RelationalException {
-        CatalogData.Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
         try (Transaction txn1 = new RecordContextTransaction(fdb.openContext())) {
             // committed
             txn1.commit();
-            RelationalException exception1 = Assertions.assertThrows(RelationalException.class, () -> {
-                storeCatalog.updateSchema(txn1, schema1);
-            });
+            RelationalException exception1 = Assertions.assertThrows(RelationalException.class, () ->
+                    storeCatalog.updateSchema(txn1, schema1));
             Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception1.getErrorCode());
         }
     }
 
     @Test
     void testUpdateSchemaWithAbortedTransaction() throws RelationalException {
-        CatalogData.Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
         try (Transaction txn2 = new RecordContextTransaction(fdb.openContext())) {
             // aborted
             txn2.abort();
-            RelationalException exception2 = Assertions.assertThrows(RelationalException.class, () -> {
-                storeCatalog.updateSchema(txn2, schema1);
-            });
+            RelationalException exception2 = Assertions.assertThrows(RelationalException.class, () ->
+                    storeCatalog.updateSchema(txn2, schema1));
             Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception2.getErrorCode());
         }
     }
 
     @Test
     void testUpdateSchemaWithClosedTransaction() throws RelationalException {
-        CatalogData.Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
         Transaction txn3 = new RecordContextTransaction(fdb.openContext());
         txn3.close();
-        RelationalException exception3 = Assertions.assertThrows(RelationalException.class, () -> {
-            storeCatalog.updateSchema(txn3, schema1);
-        });
+        RelationalException exception3 = Assertions.assertThrows(RelationalException.class, () ->
+                storeCatalog.updateSchema(txn3, schema1));
         Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, exception3.getErrorCode());
     }
 
     @Test
     void testUpdateSchemaWithTwoConsecutiveTransactions() throws RelationalException {
         // 2 schemas with different versions
-        final CatalogData.Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
-        final CatalogData.Schema schema2 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 2, Arrays.asList("test_table1", "test_table2"));
+        final Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        final Schema schema2 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 2, Arrays.asList("test_table1", "test_table2"));
 
         // test 2 successful consecutive transactions
         // update with schema1 (version = 1)
@@ -230,15 +214,15 @@ public class RecordLayerStoreCatalogImplTest {
         }
         // read after 1st transaction commit
         try (Transaction readTransaction1 = new RecordContextTransaction(fdb.openContext())) {
-            CatalogData.Schema result1 = storeCatalog.loadSchema(readTransaction1, URI.create("test_database_id"), "test_schema_name");
+            Schema result1 = storeCatalog.loadSchema(readTransaction1, URI.create("test_database_id"), "test_schema_name");
             // Assert result is correct
             Assertions.assertTrue(updateSuccess1);
             Assertions.assertEquals("test_schema_name", result1.getSchemaName());
             Assertions.assertEquals("test_template_name", result1.getSchemaTemplateName());
-            Assertions.assertEquals(1, result1.getSchemaVersion());
-            Assertions.assertEquals(2, result1.getTablesList().size());
-            Assertions.assertEquals("test_table1", result1.getTables(0).getName());
-            Assertions.assertEquals("test_table2", result1.getTables(1).getName());
+            Assertions.assertEquals(1, result1.getTemplateVersion());
+
+            org.assertj.core.api.Assertions.assertThat(result1.getTableNames())
+                    .containsExactlyInAnyOrder("test_table1", "test_table2");
         }
         // update with schema2 (version = 2)
         boolean updateSuccess2;
@@ -249,23 +233,23 @@ public class RecordLayerStoreCatalogImplTest {
 
         // read after 2nd transaction
         try (Transaction readTransaction2 = new RecordContextTransaction(fdb.openContext())) {
-            CatalogData.Schema result2 = storeCatalog.loadSchema(readTransaction2, URI.create("test_database_id"), "test_schema_name");
+            Schema result2 = storeCatalog.loadSchema(readTransaction2, URI.create("test_database_id"), "test_schema_name");
             // Assert result is correct
             Assertions.assertTrue(updateSuccess2);
             Assertions.assertEquals("test_schema_name", result2.getSchemaName());
             Assertions.assertEquals("test_template_name", result2.getSchemaTemplateName());
-            Assertions.assertEquals(2, result2.getSchemaVersion());
-            Assertions.assertEquals(2, result2.getTablesList().size());
-            Assertions.assertEquals("test_table1", result2.getTables(0).getName());
-            Assertions.assertEquals("test_table2", result2.getTables(1).getName());
+            Assertions.assertEquals(2, result2.getTemplateVersion());
+
+            org.assertj.core.api.Assertions.assertThat(result2.getTableNames())
+                    .containsExactlyInAnyOrder("test_table1", "test_table2");
         }
     }
 
     @Test
     void testUpdateSchemaWithTwoSimultaneousTransactions() throws RelationalException {
         // 2 schemas with different versions
-        final CatalogData.Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
-        final CatalogData.Schema schema2 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 2, Arrays.asList("test_table1", "test_table2"));
+        final Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        final Schema schema2 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 2, Arrays.asList("test_table1", "test_table2"));
 
         // test 2 conflicting transactions
         try (Transaction txn3 = new RecordContextTransaction(fdb.openContext()); Transaction txn4 = new RecordContextTransaction(fdb.openContext())) {
@@ -283,21 +267,20 @@ public class RecordLayerStoreCatalogImplTest {
     @Test
     void testUpdateSchemaWithBadSchema() throws RelationalException {
         // bad schema, schema_version must not be 0
-        final CatalogData.Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 0, Arrays.asList("test_table1", "test_table2"));
+        final Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 0, Arrays.asList("test_table1", "test_table2"));
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-                storeCatalog.updateSchema(txn, schema1);
-            });
+            RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
+                    storeCatalog.updateSchema(txn, schema1));
             Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
-            Assertions.assertEquals("Field schema_version in Schema must be set, and must not be 0!", exception.getMessage());
+            Assertions.assertEquals("Field schema_version in Schema must be set, and must be > 0!", exception.getMessage());
         }
     }
 
     @Test
     void testListDatabases() throws RelationalException, SQLException {
         // save 2 schemas
-        final CatalogData.Schema schema1 = generateTestSchema("test_schema_name1", "test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
-        final CatalogData.Schema schema2 = generateTestSchema("test_schema_name2", "test_database_id2", "test_template_name", 1, Arrays.asList("test_table3", "test_table4"));
+        final Schema schema1 = generateTestSchema("test_schema_name1", "test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        final Schema schema2 = generateTestSchema("test_schema_name2", "test_database_id2", "test_template_name", 1, Arrays.asList("test_table3", "test_table4"));
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.updateSchema(txn, schema1);
             storeCatalog.updateSchema(txn, schema2);
@@ -315,14 +298,15 @@ public class RecordLayerStoreCatalogImplTest {
                 continuation = result.getContinuation();
             } while (!continuation.atEnd());
         }
-        Assertions.assertEquals(2, databases.size());
+        Assertions.assertEquals(3, databases.size());
         Assertions.assertTrue(databases.contains("test_database_id1"));
         Assertions.assertTrue(databases.contains("test_database_id2"));
+        Assertions.assertTrue(databases.contains("/__SYS"));
     }
 
     @Test
     void testDoesDatabaseExist() throws RelationalException {
-        final CatalogData.Schema schema1 = generateTestSchema("test_schema_name1", "/test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        final Schema schema1 = generateTestSchema("test_schema_name1", "/test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.updateSchema(txn, schema1);
             txn.commit();
@@ -336,7 +320,7 @@ public class RecordLayerStoreCatalogImplTest {
 
     @Test
     void testDeleteDatabaseWorks() throws RelationalException {
-        final CatalogData.Schema schema1 = generateTestSchema("test_schema_name1", "/test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+        final Schema schema1 = generateTestSchema("test_schema_name1", "/test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.updateSchema(txn, schema1);
             txn.commit();
@@ -364,7 +348,7 @@ public class RecordLayerStoreCatalogImplTest {
         // save schemas
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             for (int i = 0; i < n; i++) {
-                CatalogData.Schema schema = generateTestSchema("test_schema_name" + i, "test_database_id" + i / 2, "test_template_name", 1, Arrays.asList("test_table" + i));
+                Schema schema = generateTestSchema("test_schema_name" + i, "test_database_id" + i / 2, "test_template_name", 1, List.of("test_table" + i));
                 storeCatalog.updateSchema(txn, schema);
             }
             txn.commit();
@@ -383,10 +367,12 @@ public class RecordLayerStoreCatalogImplTest {
                 }
             } while (!continuation.atEnd());
         }
-        Assertions.assertEquals(n, fullSchemaNames.size());
+        Assertions.assertEquals(n + 1, fullSchemaNames.size());
         for (int i = 0; i < n; i++) {
             Assertions.assertTrue(fullSchemaNames.contains("test_database_id" + i / 2 + "/test_schema_name" + i));
         }
+        //should also contain the sys catalog schema
+        Assertions.assertTrue(fullSchemaNames.contains("/__SYS/catalog"));
         // list schemas of 1 database
         Set<String> resultSet = new HashSet<>();
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
@@ -421,18 +407,28 @@ public class RecordLayerStoreCatalogImplTest {
             } while (!continuation.atEnd());
         }
         // assert
-        Assertions.assertEquals(0, fullSchemaNames.size());
+        Assertions.assertEquals(1, fullSchemaNames.size());
+        //the only entry should be the catalog
+        Assertions.assertTrue(fullSchemaNames.contains("/__SYS/catalog"));
     }
 
-    private CatalogData.Schema generateTestSchema(String schemaName, String databaseId, String schemaTemplateName, int schemaVersion, List<String> tableNames) {
-        CatalogData.Schema.Builder schemaBuilder = CatalogData.Schema.newBuilder()
-                .setSchemaName(schemaName)
-                .setDatabaseId(databaseId)
-                .setSchemaTemplateName(schemaTemplateName)
-                .setSchemaVersion(schemaVersion);
-        for (String tableName : tableNames) {
-            schemaBuilder.addTables(CatalogData.Table.newBuilder().setName(tableName).build());
-        }
-        return schemaBuilder.build();
+    @SuppressWarnings({"SameParameterValue", "unused"})
+    private Schema generateTestSchema(String schemaName,
+                                      String databaseId,
+                                      String schemaTemplateName,
+                                      int schemaVersion,
+                                      List<String> tableNames) throws RelationalException {
+        TypingContext ctx = TypingContext.create();
+
+        TypingContext.FieldDefinition aField = new TypingContext.FieldDefinition("A", Type.TypeCode.STRING, null, false);
+        ctx.addType(new TypingContext.TypeDefinition("test_table1", List.of(aField), true, Optional.of(List.of("A"))));
+
+        ctx.addType(new TypingContext.TypeDefinition("test_table2", List.of(aField), true, Optional.of(List.of("A"))));
+
+        ctx.addAllToTypeRepository();
+        final SchemaTemplate template = ctx.generateSchemaTemplate(schemaTemplateName);
+        Schema genSchema = template.generateSchema(databaseId, schemaName);
+        //set the schema version
+        return new Schema(genSchema.getDatabaseId(), genSchema.getSchemaName(), genSchema.getMetaData(), genSchema.getSchemaTemplateName(), schemaVersion);
     }
 }

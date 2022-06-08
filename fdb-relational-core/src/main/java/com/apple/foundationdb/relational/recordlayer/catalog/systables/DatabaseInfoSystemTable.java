@@ -48,8 +48,13 @@ public class DatabaseInfoSystemTable implements SystemTable {
 
     @Override
     public void addDefinition(@Nonnull final TypingContext typingContext) {
+        typingContext.addType(getType());
+    }
+
+    @Override
+    public TypingContext.TypeDefinition getType() {
         final TypingContext.FieldDefinition f1 = new TypingContext.FieldDefinition(DATABASE_ID, Type.TypeCode.STRING, null, false);
-        typingContext.addType(new TypingContext.TypeDefinition(getName(), List.of(f1), true, Optional.of(List.of(DATABASE_ID))));
+        return new TypingContext.TypeDefinition(getName(), List.of(f1), true, Optional.of(List.of(DATABASE_ID)));
     }
 
     @Nonnull
@@ -59,7 +64,7 @@ public class DatabaseInfoSystemTable implements SystemTable {
     }
 
     @Override
-    public int getRecordTypeKey() {
+    public long getRecordTypeKey() {
         return SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY;
     }
 }

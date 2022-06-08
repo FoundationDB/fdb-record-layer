@@ -34,11 +34,6 @@ public abstract class AbstractQueryFactory implements DdlQueryFactory {
     }
 
     @Override
-    public DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath) {
-        return NoOpQueryFactory.INSTANCE.getListSchemasQueryAction(dbPath);
-    }
-
-    @Override
     public DdlQuery getListSchemaTemplatesQueryAction() {
         return NoOpQueryFactory.INSTANCE.getListSchemaTemplatesQueryAction();
     }

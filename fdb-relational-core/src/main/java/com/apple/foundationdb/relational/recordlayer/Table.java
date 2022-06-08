@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
-import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
@@ -59,14 +58,6 @@ public interface Table extends DirectScannable, AutoCloseable {
     @Nonnull
     @Override
     String getName();
-
-    /**
-     * Get the metadata descriptor for this table.
-     *
-     * @return the metadata descriptor for this table.
-     * @throws RelationalException if the metadata could not be retrieved
-     */
-    @Nonnull TableMetaData getMetaData() throws RelationalException;
 
     DynamicMessageBuilder getDataBuilder() throws RelationalException;
 }

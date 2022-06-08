@@ -22,15 +22,15 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.TableInfo;
 import com.apple.foundationdb.relational.api.catalog.TypeInfo;
-import com.apple.foundationdb.relational.api.ddl.SchemaTemplateDescriptor;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.ddl.SchemaTemplateDescriptor;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +43,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -88,24 +89,32 @@ public final class TypingContext {
         final TypeRepository repository = typeRepositoryBuilder.build();
         final var tableInfos = types.stream()
                 .filter(type -> type.isTable)
-                .map(t -> new TableInfo(t.name,
-                        CatalogData.Table.newBuilder()
-                                .setName(t.name)
-                                .addAllIndexes(indexes.get(t.name).stream()
-                                        .map(kv -> CatalogData.Index.newBuilder()
-                                                .setName(kv.getLeft().getName())
-                                                .setIndexDef(kv.getLeft().toByteString()).build())
-                                        .collect(Collectors.toList()))
-                                .setPrimaryKey((t.primaryKey.isEmpty() || t.primaryKey.get().isEmpty()) ?
-                                        Key.Expressions.recordType().toKeyExpression().toByteString() :
-                                        Key.Expressions.concat(Stream.concat(Stream.of(Key.Expressions.recordType()), t.primaryKey.get().stream().map(Key.Expressions::field)).collect(Collectors.toList())).toKeyExpression().toByteString())
-                                .build(),
-                        repository.getMessageDescriptor(t.name).toProto())).collect(Collectors.toList());
+                .map(typeDef -> {
+                    List<RecordMetaDataProto.Index> tableIndexes = indexes.get(typeDef.name).stream().map(Pair::getLeft).collect(Collectors.toList());
+                    KeyExpression primaryKey = createKeyExpression(typeDef);
+                    return new TableInfo(typeDef.name, primaryKey,
+                            tableIndexes, Objects.requireNonNull(repository.getMessageDescriptor(typeDef.name)).toProto());
+                })
+                .collect(Collectors.toList());
         final var typeInfos = types.stream().filter(type -> !type.isTable).map(t -> new TypeInfo(repository.getMessageDescriptor(t.name).toProto())).collect(Collectors.toSet());
         // add the rest of the types
         final var residualTypeInfos = repository.getMessageTypes().stream().filter(type -> Stream.concat(tableInfos.stream().map(TableInfo::getTableName), typeInfos.stream().map(TypeInfo::getTypeName)).noneMatch(included -> included.equals(type))).map(t -> new TypeInfo(repository.getMessageDescriptor(t).toProto()));
         final var allTypeInfos = Streams.concat(typeInfos.stream(), residualTypeInfos).collect(Collectors.toSet());
-        return new SchemaTemplateDescriptor(name, new LinkedHashSet<>(tableInfos), allTypeInfos, 1);
+        return new SchemaTemplateDescriptor(name, new LinkedHashSet<>(tableInfos), allTypeInfos, 1L);
+    }
+
+    private KeyExpression createKeyExpression(TypeDefinition typeDef) {
+        if (typeDef.primaryKey.isEmpty()) {
+            return Key.Expressions.recordType();
+        } else {
+            List<String> pkFields = typeDef.primaryKey.get();
+            if (pkFields.isEmpty()) {
+                return Key.Expressions.recordType();
+            } else {
+                Stream<KeyExpression> fieldExprs = pkFields.stream().map(Key.Expressions::field);
+                return Key.Expressions.concat(Stream.concat(Stream.of(Key.Expressions.recordType()), fieldExprs).collect(Collectors.toList()));
+            }
+        }
     }
 
     public void addAllToTypeRepository() {
@@ -200,6 +209,10 @@ public final class TypingContext {
         public Set<String> getDependencies() {
             return fields.stream().filter(f -> !f.isPrimitive()).map(FieldDefinition::getTypeName).collect(Collectors.toSet());
         }
+
+        public List<FieldDefinition> getFields() {
+            return fields;
+        }
     }
 
     /**
@@ -239,12 +252,18 @@ public final class TypingContext {
         }
 
         @Nullable
-        private String getTypeName() {
+        public String getTypeName() {
             return typeName;
+        }
+
+        @Nonnull
+        public String getFieldName() {
+            return name;
         }
 
         private boolean isPrimitive() {
             return pbType.isPrimitive();
         }
+
     }
 }

@@ -21,17 +21,14 @@
 package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
-import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
-
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.InvalidProtocolBufferException;
+import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -47,7 +44,8 @@ public class InMemoryCatalog implements StoreCatalog {
     Map<URI, List<InMemorySchema>> dbToSchemas = new ConcurrentHashMap<>();
 
     @Override
-    public CatalogData.Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
+    @Nonnull
+    public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
         final List<InMemorySchema> schemas = dbToSchemas.get(databaseId);
         if (schemas == null) {
             throw new RelationalException("No such database <" + databaseId + ">", ErrorCode.SCHEMA_NOT_FOUND);
@@ -61,13 +59,10 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public boolean updateSchema(@Nonnull Transaction txn, @Nonnull CatalogData.Schema dataToWrite) throws RelationalException {
+    public boolean updateSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) {
         final URI key = URI.create(dataToWrite.getDatabaseId());
-        List<InMemorySchema> schemas = dbToSchemas.get(key);
-        if (schemas == null) {
-            schemas = Collections.synchronizedList(new ArrayList<>());
-            dbToSchemas.put(key, schemas);
-        }
+        List<InMemorySchema> schemas = dbToSchemas.computeIfAbsent(key, k -> Collections.synchronizedList(new ArrayList<>()));
+
         for (InMemorySchema schema : schemas) {
             if (schema.schema.getSchemaName().equalsIgnoreCase(dataToWrite.getSchemaName())) {
                 schema.schema = dataToWrite;
@@ -85,32 +80,32 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
+    public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) {
         return null;
     }
 
     @Override
-    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
+    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) {
         return null;
     }
 
     @Override
-    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException {
+    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) {
         return null;
     }
 
     @Override
-    public void deleteSchema(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
+    public void deleteSchema(Transaction txn, URI dbUri, String schemaName) {
 
     }
 
     @Override
-    public boolean doesDatabaseExist(Transaction txn, URI dbUrl) throws RelationalException {
+    public boolean doesDatabaseExist(Transaction txn, URI dbUrl) {
         return dbToSchemas.containsKey(dbUrl);
     }
 
     @Override
-    public void deleteDatabase(Transaction txn, URI dbUrl) throws RelationalException {
+    public void deleteDatabase(Transaction txn, URI dbUrl) {
         dbToSchemas.remove(dbUrl);
     }
 
@@ -132,19 +127,15 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     private static class InMemorySchema {
-        CatalogData.Schema schema;
-        private Map<String, InMemoryTable> tables = new ConcurrentHashMap<>();
+        Schema schema;
+        private final Map<String, InMemoryTable> tables = new ConcurrentHashMap<>();
 
         public void createTables() {
             tables.clear();
 
-            try {
-                final RecordMetaData recordMetaData = CatalogMetaDataProvider.loadMetaData(0, schema);
-                for (CatalogData.Table tbl : schema.getTablesList()) {
-                    tables.put(tbl.getName(), new InMemoryTable(recordMetaData.getRecordType(tbl.getName())));
-                }
-            } catch (InvalidProtocolBufferException | Descriptors.DescriptorValidationException e) {
-                throw new RuntimeException(e);
+            final RecordMetaData recordMetaData = RecordMetaData.build(schema.getMetaData());
+            for (Map.Entry<String, RecordType> typeEntry : recordMetaData.getRecordTypes().entrySet()) {
+                tables.put(typeEntry.getKey(), new InMemoryTable(typeEntry.getValue()));
             }
         }
     }

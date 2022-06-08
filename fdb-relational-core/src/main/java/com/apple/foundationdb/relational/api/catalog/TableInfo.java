@@ -20,36 +20,42 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
 
 import com.google.protobuf.DescriptorProtos;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class TableInfo {
     String tableName;
-    CatalogData.Table table;
+    List<RecordMetaDataProto.Index> indexes;
     DescriptorProtos.DescriptorProto descriptor;
 
+    KeyExpression primaryKey;
+
     public TableInfo(String tableName,
-                     CatalogData.Table table,
+                     KeyExpression primaryKey,
+                     List<RecordMetaDataProto.Index> indexes,
                      DescriptorProtos.DescriptorProto descriptor) {
         this.tableName = tableName;
-        this.table = table;
+        this.primaryKey = primaryKey;
         this.descriptor = descriptor;
+        this.indexes = indexes;
     }
 
     public String getTableName() {
         return tableName;
     }
 
-    public CatalogData.Table getTable() {
-        return table;
-    }
-
     public DescriptorProtos.DescriptorProto toDescriptor() {
         return descriptor;
+    }
+
+    public List<RecordMetaDataProto.Index> getIndexes() {
+        return indexes;
     }
 
     @Override
@@ -59,5 +65,9 @@ public class TableInfo {
 
         toStr += "}}";
         return toStr;
+    }
+
+    public KeyExpression getPrimaryKey() {
+        return primaryKey;
     }
 }

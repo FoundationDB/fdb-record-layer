@@ -22,12 +22,14 @@ package com.apple.foundationdb.relational.recordlayer.utils;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 
 /**
  * A set of helper methods for validating input, pre-conditions, ... etc.
  */
+@ExcludeFromJacocoGeneratedReport //just assertions, hard to test in a useful way
 public final class Assert {
 
     public static void that(boolean mustBeTrue) throws RelationalException {

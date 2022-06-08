@@ -29,27 +29,30 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
+
 
 public class CatalogMetaData implements RelationalDatabaseMetaData {
     private final StoreCatalog catalog;
@@ -111,11 +114,12 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         }
         ensureActiveTransaction();
         try {
-            final CatalogData.Schema schemaInfo = this.catalog.loadSchema(conn.transaction, conn.frl.getURI(), schema);
-            List<Row> tableList = schemaInfo.getTablesList().stream()
-                    .map(tbl -> new String[]{null, schema, tbl.getName()})
+            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, conn.frl.getURI(), schema).getMetaData();
+            List<Row> tableList = schemaInfo.getRecordTypesList().stream()
+                    .map(type -> new String[]{null, schema, type.getName()})
                     .map(ArrayRow::new)
                     .collect(Collectors.toList());
+
             return new IteratorResultSet(new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME"}, tableList.iterator(), 0);
         } catch (RelationalException e) {
             throw e.toSqlException();
@@ -126,29 +130,26 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     public RelationalResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
         ensureActiveTransaction();
         try {
-            final CatalogData.Schema schemaInfo = this.catalog.loadSchema(conn.transaction, URI.create(catalog), schema);
-            List<Row> rows = new ArrayList<>();
-            for (CatalogData.Table tbl : schemaInfo.getTablesList()) {
-                if (tbl.getName().equalsIgnoreCase(table)) {
-                    RecordMetaDataProto.KeyExpression pk = RecordMetaDataProto.KeyExpression.parseFrom(tbl.getPrimaryKey());
-                    String[] pkInfo = keyExpressionToPrimaryKey(pk);
-                    for (int i = 0; i < pkInfo.length; i++) {
-                        rows.add(new ArrayRow(new Object[]{
-                                catalog,
-                                schema,
-                                tbl.getName(),
-                                pkInfo[i],
-                                i + 1,
-                                null
-                        }));
-                    }
-                }
-            }
+            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, URI.create(catalog), schema).getMetaData();
+            Stream<Row> rows = schemaInfo.getRecordTypesList().stream()
+                    .filter(type -> type.getName().equals(table))
+                    .map(type -> {
+                        RecordMetaDataProto.KeyExpression ke = type.getPrimaryKey();
+                        return new AbstractMap.SimpleEntry<>(type.getName(), keyExpressionToPrimaryKey(ke));
+                    }).flatMap(pks -> IntStream.range(0, pks.getValue().length)
+                    .mapToObj(pos -> new ArrayRow(new Object[]{
+                            catalog,
+                            schema,
+                            pks.getKey(),
+                            pks.getValue()[pos],
+                            pos + 1,
+                            null
+                    })));
             return new IteratorResultSet(new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "KEY_SEQ", "PK_NAME"}, rows.iterator(), 0);
         } catch (RelationalException e) {
             throw e.toSqlException();
-        } catch (InvalidProtocolBufferException e) {
-            throw new SQLException(e);
+        } catch (UncheckedRelationalException uve) {
+            throw uve.unwrap().toSqlException();
         }
     }
 
@@ -270,8 +271,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         }
         ensureActiveTransaction();
         try {
-            //TODO(bfines) this is a weird way of doing this, is there a better way?
-            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, conn.frl.getURI(), schema, conn.transaction).getRecordMetaData();
+            RecordMetaData rmd = RecordMetaData.build(this.catalog.loadSchema(conn.transaction, conn.frl.getURI(), schema).getMetaData());
             //verify that it is in fact a table
             List<Row> indexDefs;
             try {
@@ -333,7 +333,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     }
 
     //the position in the array is the key sequence, the value is the name of the column
-    private String[] keyExpressionToPrimaryKey(RecordMetaDataProto.KeyExpression ke) throws RelationalException {
+    private String[] keyExpressionToPrimaryKey(RecordMetaDataProto.KeyExpression ke) throws UncheckedRelationalException {
         if (ke.hasThen()) {
             final List<RecordMetaDataProto.KeyExpression> childList = ke.getThen().getChildList();
             String[] fields = new String[childList.size()];
@@ -355,7 +355,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         } else {
             //TODO(bfines) we should never throw this, we need to check all the different KeyExpression structures
             //that are valid
-            throw new OperationUnsupportedException("Unexpected Primary Key structure");
+            throw new OperationUnsupportedException("Unexpected Primary Key structure").toUncheckedWrappedException();
         }
     }
 }

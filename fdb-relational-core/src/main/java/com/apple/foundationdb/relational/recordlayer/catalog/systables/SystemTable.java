@@ -52,6 +52,8 @@ public interface SystemTable {
      */
     void addDefinition(@Nonnull final TypingContext typingContext);
 
+    TypingContext.TypeDefinition getType();
+
     /**
      * Returns the primary key definition of the system table. Each system table must have a primary key.
      * @return The primary key.
@@ -63,5 +65,5 @@ public interface SystemTable {
      * Returns the record type key which is used for clustering the records of the same type.
      * @return The record type key.
      */
-    int getRecordTypeKey();
+    long getRecordTypeKey();
 }

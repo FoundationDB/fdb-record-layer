@@ -38,8 +38,8 @@ import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
+import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
 import java.net.URI;
@@ -151,7 +151,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
                     final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, templateId);
 
                     //map the schema to the template
-                    final CatalogData.Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
+                    Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
 
                     //insert the schema into the catalog
                     catalog.updateSchema(txn, schema);

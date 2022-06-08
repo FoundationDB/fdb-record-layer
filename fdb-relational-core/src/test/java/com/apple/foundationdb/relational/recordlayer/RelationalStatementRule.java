@@ -35,7 +35,6 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 
@@ -87,8 +86,13 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     }
 
     @Override
-    public ResultSet executeQuery(String sql) throws SQLException {
+    public RelationalResultSet executeQuery(String sql) throws SQLException {
         return statement.executeQuery(sql);
+    }
+
+    @Override
+    public RelationalResultSet getResultSet() throws SQLException {
+        return statement.getResultSet();
     }
 
     @Override

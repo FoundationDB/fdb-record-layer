@@ -34,8 +34,6 @@ public interface DdlQueryFactory {
 
     DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath);
 
-    DdlQuery getListSchemasQueryAction(@Nonnull URI dbPath);
-
     DdlQuery getListSchemaTemplatesQueryAction();
 
     DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId);

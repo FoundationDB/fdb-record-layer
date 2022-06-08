@@ -36,7 +36,6 @@ import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -145,12 +144,6 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     public String getName() {
         return tableName;
-    }
-
-    @Nonnull
-    @Override
-    public TableMetaData getMetaData() throws RelationalException {
-        return new RecordTypeMetaData(loadRecordType());
     }
 
     @Override

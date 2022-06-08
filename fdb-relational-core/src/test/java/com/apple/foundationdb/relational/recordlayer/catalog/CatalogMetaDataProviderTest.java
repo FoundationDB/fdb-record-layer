@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
@@ -56,19 +55,19 @@ class CatalogMetaDataProviderTest {
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction()) {
             //create the Catalog RecordStore
             catalog.initialize(txn);
+            txn.commit();
         }
 
         URI dbUri = URI.create("/testdb");
         String schemaName = "testSchema" + System.currentTimeMillis();
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction()) {
             //write schema info to the store
-            CatalogData.Schema schema = CatalogData.Schema.newBuilder()
-                    .setDatabaseId(dbUri.getPath())
-                    .setSchemaVersion(2)
-                    .setSchemaTemplateName("testTemplate")
-                    .setSchemaName(schemaName)
-                    .setRecord(Restaurant.getDescriptor().toProto().toByteString())
-                    .build();
+            Schema schema = new Schema(
+                    dbUri.getPath(),
+                    schemaName,
+                    RecordMetaData.build(Restaurant.getDescriptor()).toProto(),
+                    "testTemplate",
+                    2);
             catalog.updateSchema(txn, schema);
 
             CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(catalog, dbUri, schemaName, txn);

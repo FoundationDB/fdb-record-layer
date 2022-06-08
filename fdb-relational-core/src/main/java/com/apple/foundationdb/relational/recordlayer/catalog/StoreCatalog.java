@@ -18,13 +18,12 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.catalog;
+package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
 
 import java.net.URI;
 
@@ -42,7 +41,8 @@ public interface StoreCatalog {
      *                           InternalError if txn is incompatible type
      *                           TransactionInactive if txn is no longer active
      */
-    CatalogData.Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
+    @Nonnull
+    Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
 
     /**
      * Updates schema, returns true if succeeds. Change applied after transaction is committed.
@@ -54,7 +54,7 @@ public interface StoreCatalog {
      * @throws RelationalException InternalError if txn is compatible type
      *                           TransactionInactive if txn is no longer active
      */
-    boolean updateSchema(@Nonnull Transaction txn, @Nonnull CatalogData.Schema dataToWrite) throws RelationalException;
+    boolean updateSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException;
 
     /**
      * list databases in the entire Catalog.

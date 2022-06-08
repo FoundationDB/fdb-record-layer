@@ -20,7 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
-import java.util.List;
+import java.util.Collection;
+import java.util.Map;
 
 import javax.annotation.Nonnull;
 
@@ -31,12 +32,15 @@ import javax.annotation.Nonnull;
  */
 public final class SystemTableRegistry {
 
-    public static final int SCHEMA_RECORD_TYPE_KEY = 0;
-    public static final int DATABASE_INFO_RECORD_TYPE_KEY = 1;
+    public static final long SCHEMA_RECORD_TYPE_KEY = 0L;
+    public static final long DATABASE_INFO_RECORD_TYPE_KEY = 1L;
+
+    public static final String SCHEMAS_TABLE_NAME = "SCHEMAS";
+    public static final String DATABASE_TABLE_NAME = "DATABASES";
     @Nonnull
-    private static final List<SystemTable> tablesMap = List.of(
-            new SchemaSystemTable(),
-            new DatabaseInfoSystemTable()
+    private static final Map<String, SystemTable> tablesMap = Map.of(
+            SCHEMAS_TABLE_NAME, new SchemaSystemTable(),
+            DATABASE_TABLE_NAME, new DatabaseInfoSystemTable()
     );
 
     /**
@@ -44,8 +48,17 @@ public final class SystemTableRegistry {
      * @return a list of all registered system tables.
      */
     @Nonnull
-    public static List<SystemTable> getAllTables() {
-        return tablesMap;
+    public static Collection<SystemTable> getAllTables() {
+        return tablesMap.values();
+    }
+
+    @Nonnull
+    public static SystemTable getSystemTable(String key) {
+        final SystemTable systemTable = tablesMap.get(key);
+        if (systemTable == null) {
+            throw new IllegalStateException("Programmer error: messing system table named <" + key + ">");
+        }
+        return systemTable;
     }
 
     private SystemTableRegistry() {

@@ -42,7 +42,6 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
@@ -98,7 +97,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public ResultSet executeQuery(String sql) throws SQLException {
+    public RelationalResultSet executeQuery(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
             Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.create());
@@ -131,7 +130,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public ResultSet getResultSet() throws SQLException {
+    public RelationalResultSet getResultSet() throws SQLException {
         if (currentResultSet != null /*&& !currentResultSet.isClosed()  todo implement this*/) {
             return currentResultSet;
         }

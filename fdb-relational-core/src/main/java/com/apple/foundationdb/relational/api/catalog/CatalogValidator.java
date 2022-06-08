@@ -22,37 +22,28 @@ package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.generated.CatalogData;
+import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
 
 import javax.annotation.Nonnull;
 
 public final class CatalogValidator {
-    public static void validateSchema(@Nonnull CatalogData.Schema schema) throws RelationalException {
+    public static void validateSchema(@Nonnull Schema schema) throws RelationalException {
         // fields schema_name, schema_version, schema_template_name, database_id are required
-        if (schema.getSchemaName().isEmpty()) {
+        if (schema.getSchemaName() == null || schema.getSchemaName().isEmpty()) {
             throw new RelationalException("Field schema_name in Schema must be set!", ErrorCode.INVALID_PARAMETER);
         }
-        if (schema.getDatabaseId().isEmpty()) {
+        if (schema.getDatabaseId() == null || schema.getDatabaseId().isEmpty()) {
             throw new RelationalException("Field database_id in Schema must be set!", ErrorCode.INVALID_PARAMETER);
         }
-        if (schema.getSchemaTemplateName().isEmpty()) {
+        if (schema.getSchemaTemplateName() == null || schema.getSchemaTemplateName().isEmpty()) {
             throw new RelationalException("Field schema_template_name in Schema must be set!", ErrorCode.INVALID_PARAMETER);
         }
         // if not set, default value for int fields is 0
-        if (schema.getSchemaVersion() == 0) {
-            throw new RelationalException("Field schema_version in Schema must be set, and must not be 0!", ErrorCode.INVALID_PARAMETER);
+        if (schema.getTemplateVersion() <= 0) {
+            throw new RelationalException("Field schema_version in Schema must be set, and must be > 0!", ErrorCode.INVALID_PARAMETER);
         }
-        // validate tables field
-        for (CatalogData.Table t : schema.getTablesList()) {
-            validateTable(t);
-        }
-    }
+        // We are assuming that the RecordMetaData field has been validated by RecordLayer
 
-    public static void validateTable(@Nonnull CatalogData.Table table) throws RelationalException {
-        // field name is required
-        if (table.getName().isEmpty()) {
-            throw new RelationalException("Field name in Table must be set!", ErrorCode.INVALID_PARAMETER);
-        }
     }
 
     private CatalogValidator() {

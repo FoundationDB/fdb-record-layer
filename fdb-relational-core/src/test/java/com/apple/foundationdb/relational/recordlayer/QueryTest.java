@@ -81,7 +81,8 @@ public class QueryTest {
 
     @Test
     void simpleSelect() throws RelationalException, SQLException {
-        try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantRecord")) {
+        Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantRecord"), "Did not return a result set from a select statement!");
+        try (final ResultSet resultSet = statement.getResultSet()) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(insertedRecord));
         }
     }

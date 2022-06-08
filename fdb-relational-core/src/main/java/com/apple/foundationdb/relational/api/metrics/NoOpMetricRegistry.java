@@ -164,15 +164,18 @@ public final class NoOpMetricRegistry extends MetricRegistry {
     private static final Counter NOOP_COUNTER = new Counter() {
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public void inc(long n) {
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public void dec(long n) {
             super.dec(n);
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public long getCount() {
             return 0L;
         }
@@ -183,6 +186,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public int size() {
             return 0;
         }
@@ -191,6 +195,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public void update(long value) {
             // NOP
         }
@@ -199,6 +204,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public Snapshot getSnapshot() {
             return EMPTY_SNAPSHOT;
         }
@@ -210,6 +216,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public void update(int value) {
             // NOP
         }
@@ -218,6 +225,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public void update(long value) {
             // NOP
         }
@@ -226,6 +234,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public long getCount() {
             return 0L;
         }
@@ -234,6 +243,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public Snapshot getSnapshot() {
             return EMPTY_SNAPSHOT;
         }
@@ -245,6 +255,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getValue(double quantile) {
             return 0D;
         }
@@ -253,6 +264,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public long[] getValues() {
             return EMPTY_LONG_ARRAY;
         }
@@ -261,6 +273,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public int size() {
             return 0;
         }
@@ -269,6 +282,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public long getMax() {
             return 0L;
         }
@@ -277,6 +291,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getMean() {
             return 0D;
         }
@@ -285,6 +300,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public long getMin() {
             return 0L;
         }
@@ -293,6 +309,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getStdDev() {
             return 0D;
         }
@@ -301,6 +318,7 @@ public final class NoOpMetricRegistry extends MetricRegistry {
          * {@inheritDoc}
          */
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public void dump(OutputStream output) {
             // NOP
         }
@@ -308,31 +326,37 @@ public final class NoOpMetricRegistry extends MetricRegistry {
 
     private static final Meter NOOP_METER = new Meter() {
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public void mark(long n) {
             // noop
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public long getCount() {
             return 0L;
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getFifteenMinuteRate() {
             return 0d;
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getFiveMinuteRate() {
             return 0d;
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getMeanRate() {
             return 0d;
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getOneMinuteRate() {
             return 0d;
         }
@@ -341,41 +365,49 @@ public final class NoOpMetricRegistry extends MetricRegistry {
     private static final Timer NOOP_TIMER = new Timer(EMPTY_RESERVOIR) {
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public void update(long duration, TimeUnit unit) {
             //no op
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public <T> T time(Callable<T> event) throws Exception {
             return event.call();
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public long getCount() {
             return 0L;
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getFifteenMinuteRate() {
             return 0d;
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getFiveMinuteRate() {
             return 0d;
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getMeanRate() {
             return 0d;
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public double getOneMinuteRate() {
             return 0d;
         }
 
         @Override
+        @ExcludeFromJacocoGeneratedReport
         public Snapshot getSnapshot() {
             return EMPTY_SNAPSHOT;
         }

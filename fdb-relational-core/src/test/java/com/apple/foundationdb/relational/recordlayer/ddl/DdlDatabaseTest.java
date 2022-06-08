@@ -24,12 +24,14 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.TableDefinition;
 import com.apple.foundationdb.relational.utils.TypeDefinition;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -49,31 +51,47 @@ public class DdlDatabaseTest {
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule( relational, DdlDatabaseTest.class.getSimpleName() + "_TEMPLATE",
+    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational, DdlDatabaseTest.class.getSimpleName() + "_TEMPLATE",
             Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col1"))),
             Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "int64"))));
 
+    @AfterEach
+    void tearDown() throws Exception {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            conn.setSchema("catalog");
+            try (Statement statement = conn.createStatement()) {
+                statement.execute("DROP DATABASE '/test_db'");
+            }
+        }
+    }
+
     @Test
-    @Disabled("Awaiting support for listDatabases")
     public void canCreateDatabase() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 //create a database
                 statement.executeUpdate("CREATE DATABASE '/test_db'");
+                statement.executeUpdate("CREATE SCHEMA '/test_db/foo_schem' with template " + baseTemplate.getTemplateName());
+            }
+        }
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/test_db"), Options.create())) {
+            conn.setSchema("foo_schem");
+            try (Statement statement = conn.createStatement()) {
 
                 //look to see if it's in the list
-                try (ResultSet rs = statement.executeQuery("SHOW DATABASES WITH PREFIX /test_db")) {
-                    Assertions.assertTrue(rs.next(), "Did not find any databases!");
-                    Assertions.assertEquals("/test_db", rs.getString(1), "Incorrect database name!");
-                    Assertions.assertFalse(rs.next(), "Found too many databases!");
+                try (ResultSet rs = statement.executeQuery("SHOW DATABASES")) {
+                    RelationalAssertions.assertThat(rs).hasExactlyInAnyOrder(List.of(
+                            new ArrayRow(new Object[]{"/test_db"}),
+                            new ArrayRow(new Object[]{"/__SYS"})
+                    ));
                 }
             }
         }
     }
 
     @Test
-    @Disabled("disabled until listDatabases is supported")
+    @Disabled("TODO")
     public void dropDatabaseRemovesFromList() throws Exception {
         final String listCommand = "SHOW DATABASES WITH PREFIX '/test_db'";
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
@@ -84,11 +102,10 @@ public class DdlDatabaseTest {
 
                 //look to see if it's in the list
                 try (ResultSet rs = statement.executeQuery(listCommand)) {
-                    Assertions.assertTrue(rs.next(), "Did not find any databases!");
-                    Assertions.assertEquals("/test_db", rs.getString(1), "Incorrect database name!");
-                    Assertions.assertFalse(rs.next(), "Found too many databases!");
+                    RelationalAssertions.assertThat(rs).hasExactlyInAnyOrder(List.of(
+                            new ArrayRow(new Object[]{"/test_db"})
+                    ));
                 }
-
                 //now drop the database
                 statement.executeUpdate("DROP DATABASE '/test_db/test_db'");
 

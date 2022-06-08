@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.ImmutableList;
@@ -95,15 +97,17 @@ public class SystemCatalogQueryTest {
     public void selectSchemasWorks() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
             conn.setSchema("catalog");
-            try (Statement statement = conn.createStatement(); ResultSet rs = statement.executeQuery("SELECT * FROM Schema")) {
-                shouldBe(rs, Set.of(
-                        List.of("S11", "/DB1"),
-                        List.of("S12", "/DB2"),
-                        List.of("S21", "/DB2"),
-                        List.of("S31", "/DB3"),
-                        List.of("S32", "/DB3"),
-                        List.of("S33", "/DB3"),
-                        List.of("catalog", "/__SYS")
+            //we are selective here to make it easier to check the correctness of the row (otherwise we'd have to put
+            //MetaData objects in for equality)
+            try (RelationalStatement statement = conn.createStatement(); RelationalResultSet rs = statement.executeQuery("SELECT schema_name,database_id FROM Schema")) {
+                com.apple.foundationdb.relational.utils.RelationalAssertions.assertThat(rs).hasExactlyInAnyOrder(List.of(
+                        new ArrayRow(new Object[]{"S11", "/DB1"}),
+                        new ArrayRow(new Object[]{"S12", "/DB2"}),
+                        new ArrayRow(new Object[]{"S21", "/DB2"}),
+                        new ArrayRow(new Object[]{"S31", "/DB3"}),
+                        new ArrayRow(new Object[]{"S32", "/DB3"}),
+                        new ArrayRow(new Object[]{"S33", "/DB3"}),
+                        new ArrayRow(new Object[]{"catalog", "/__SYS"})
                 ));
             }
         }
