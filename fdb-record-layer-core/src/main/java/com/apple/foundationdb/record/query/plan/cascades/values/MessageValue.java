@@ -105,11 +105,36 @@ public class MessageValue {
         return null;
     }
 
+    public static <M extends Message> Object getNullableField(Message message, int fieldNumber) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessageByNumber(message, fieldNumber);
+        if (field.isRepeated()) {
+            int count = message.getRepeatedFieldCount(field);
+            List<Object> list = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) {
+                list.add(message.getRepeatedField(field, i));
+            }
+            return list;
+        }
+        if (field.hasDefaultValue() || message.hasField(field)) {
+            return message.getField(field);
+        } else {
+            return null;
+        }
+    }
+
     @Nonnull
     public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
         if (field == null) {
             throw new Query.InvalidExpressionException("Missing field " + fieldName);
+        }
+        return field;
+    }
+
+    private static Descriptors.FieldDescriptor findFieldDescriptorOnMessageByNumber(@Nonnull MessageOrBuilder message, @Nonnull int fieldNumber) {
+        final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByNumber(fieldNumber);
+        if (field == null) {
+            throw new Query.InvalidExpressionException("Missing field " + fieldNumber);
         }
         return field;
     }

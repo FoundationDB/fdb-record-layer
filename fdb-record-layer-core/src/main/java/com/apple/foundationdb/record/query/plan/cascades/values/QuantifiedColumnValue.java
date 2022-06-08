@@ -99,14 +99,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
         }
 
         final var message = queryResult.getMessage(); // we must be able to distill a message from the result
-
-        final var descriptorForType = message.getDescriptorForType();
-        final var fieldDescriptor = descriptorForType.findFieldByNumber(getFieldForOrdinal().getFieldIndex());
-        if (fieldDescriptor.isRepeated() || message.hasField(fieldDescriptor)) {
-            return message.getField(fieldDescriptor);
-        } else {
-            return null;
-        }
+        return MessageValue.getNullableField(message, getFieldForOrdinal().getFieldIndex());
     }
 
     @Nonnull
