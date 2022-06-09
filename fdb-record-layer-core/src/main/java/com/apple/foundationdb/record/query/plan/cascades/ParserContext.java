@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Context for query parsing, including meta-data, generated types, and the state of available indexes.
@@ -46,11 +47,11 @@ public class ParserContext {
     }
 
     @Nonnull
-    public Scopes.Scope.Builder getCurrentScope() {
+    public Scopes.Scope getCurrentScope() {
         return Objects.requireNonNull(scopes.getCurrentScope());
     }
 
-    public Scopes.Scope.Builder pushScope() {
+    public Scopes.Scope pushScope() {
         return scopes.push();
     }
 
@@ -60,12 +61,12 @@ public class ParserContext {
     }
 
     @Nonnull
-    public Quantifier resolveQuantifier(@Nonnull final String identifier) {
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final String identifier) {
         return resolveQuantifier(CorrelationIdentifier.of(identifier));
     }
 
     @Nonnull
-    public Quantifier resolveQuantifier(@Nonnull final CorrelationIdentifier identifier) {
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final CorrelationIdentifier identifier) {
         return scopes.resolveQuantifier(identifier);
     }
 
