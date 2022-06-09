@@ -20,7 +20,15 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.KeySelector;
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MappedKeyValue;
+import com.apple.foundationdb.StreamingMode;
+import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncIterable;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -32,10 +40,12 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
+import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestSparseJoinPerfProto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
@@ -45,6 +55,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
@@ -74,9 +85,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -246,6 +259,7 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
         SET_FILTER,
         BIT_SET_FILTER,
         BLOOM_FILTER,
+        REMOTE_FETCH,
     }
 
     public JoinTechnique getJoinTechnique(JoinTechniqueType type, int group) {
@@ -268,6 +282,8 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
                 return new BitSetHashJoinTechnique(getOuterRecordBitSetByGroup(group));
             case BLOOM_FILTER:
                 return new BloomFilterHashJoinTechnique(getOuterRecordBloomFilterByGroup(group));
+            case REMOTE_FETCH:
+                return new DummyRemoteFetchJoinTechnique();
             default:
                 throw new RecordCoreArgumentException("Unrecognized join technique type", "type", type);
         }
@@ -635,10 +651,110 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
         }
     }
 
+    private static class DummyRemoteFetchJoinTechnique implements JoinTechnique {
+        @Override
+        public JoinTechniqueType getType() {
+            return JoinTechniqueType.REMOTE_FETCH;
+        }
+
+        @Override
+        public Joiner createJoiner(final FDBRecordStore store) {
+            return null;
+        }
+
+        public RecordCursor<Integer> executeRemoteFetch(FDBRecordStore store, int group, String text, @Nullable byte[] continuation, ExecuteProperties executeProperties) {
+            final Transaction tr = store.getRecordContext().ensureActive();
+
+            Index textIndex = store.getRecordMetaData().getIndex(TEXT_INDEX_NAME);
+            final Subspace scanSubspace = store.indexSubspace(textIndex).subspace(Tuple.from(text));
+            final com.apple.foundationdb.Range range = scanSubspace.range();
+            int scanSubspaceSize = Tuple.fromBytes(scanSubspace.pack()).size();
+
+            Index groupIndex = store.getRecordMetaData().getIndex(GROUP_OUTER_VALUE_INDEX);
+            final Subspace mapSubspace = store.indexSubspace(groupIndex).subspace(Tuple.from(group));
+            final byte[] mapper = mapSubspace.pack(Tuple.from("{K[" + scanSubspaceSize + "]}", "{...}"));
+            final int scanLimit = executeProperties.getScannedRecordsLimit();
+            final int configuredScanLimit = 100; // scanLimit == 0 || scanLimit == Integer.MAX_VALUE ? 100 : scanLimit;
+            final AsyncIterable<MappedKeyValue> iterable = tr.getMappedRange(
+                    continuation == null ? KeySelector.firstGreaterOrEqual(range.begin) : KeySelector.firstGreaterThan(continuation),
+                    KeySelector.firstGreaterOrEqual(range.end),
+                    mapper,
+                    configuredScanLimit,
+                    false,
+                    StreamingMode.WANT_ALL);
+            final AsyncIterator<MappedKeyValue> iterator = iterable.iterator();
+            CursorLimitManager cursorLimitManager = new CursorLimitManager(executeProperties.asScanProperties(false));
+
+            return new RecordCursor<Integer>() {
+                private RecordCursorResult<Integer> lastResult;
+                private byte[] lastKey;
+                private int scanned;
+
+                @Nonnull
+                @Override
+                public CompletableFuture<RecordCursorResult<Integer>> onNext() {
+                    if (lastResult != null) {
+                        return CompletableFuture.completedFuture(lastResult);
+                    }
+                    return iterator.onHasNext().thenApply(hasNext -> {
+                        if (hasNext) {
+                            MappedKeyValue mappedKeyValue = iterator.next();
+                            cursorLimitManager.reportScannedBytes(mappedKeyValue.getKey().length + mappedKeyValue.getValue().length + mappedKeyValue.getRangeResult().stream().mapToInt(kv -> kv.getKey().length + kv.getValue().length).sum());
+                            RecordCursorContinuation nextContinuation = ByteArrayContinuation.fromNullable(mappedKeyValue.getKey());
+                            if (cursorLimitManager.tryRecordScan() || lastKey == null) {
+                                List<KeyValue> results = mappedKeyValue.getRangeResult();
+                                lastKey = mappedKeyValue.getKey();
+                                scanned++;
+
+                                if (!results.isEmpty()) {
+                                    KeyValue childKey = results.get(0);
+                                    int result = (int) mapSubspace.unpack(childKey.getKey()).getLong(1);
+                                    return RecordCursorResult.withNextValue(result, nextContinuation);
+                                } else {
+                                    return RecordCursorResult.withNextValue(null, nextContinuation);
+                                }
+                            } else {
+                                Optional<NoNextReason> noNextReason = cursorLimitManager.getStoppedReason();
+                                return RecordCursorResult.withoutNextValue(ByteArrayContinuation.fromNullable(lastKey), noNextReason.get());
+                            }
+                        } else {
+                            if (scanned < configuredScanLimit || lastKey == null) {
+                                lastResult = RecordCursorResult.exhausted();
+                            } else {
+                                lastResult = RecordCursorResult.withoutNextValue(ByteArrayContinuation.fromNullable(lastKey), NoNextReason.RETURN_LIMIT_REACHED);
+                            }
+                            return lastResult;
+                        }
+                    });
+                }
+
+                @Override
+                public void close() {
+                }
+
+                @Nonnull
+                @Override
+                public Executor getExecutor() {
+                    return store.getExecutor();
+                }
+
+                @Override
+                public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+                    return visitor.visitEnter(this) && visitor.visitLeave(this);
+                }
+            }.filter(Objects::nonNull).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimitOrMax());
+        }
+    }
+
+
     private RecordCursor<Integer> executeJoin(FDBRecordStore store, int group, String text, @Nullable byte[] continuation, ExecuteProperties executeProperties, JoinTechnique joinTechnique) {
         // Combine the outer and inner queries to produce roughly this join:
         //   SELECT InnerRecord.val FROM OuterRecord JOIN InnerRecord
         //   WHERE OuterRecord.text = $text AND InnerRecord.group = $group AND InnerRecord.outer_id = OuterRecord.rec_no
+        if (joinTechnique.getType() == JoinTechniqueType.REMOTE_FETCH) {
+            DummyRemoteFetchJoinTechnique remoteFetchJoinTechnique = (DummyRemoteFetchJoinTechnique) joinTechnique;
+            return remoteFetchJoinTechnique.executeRemoteFetch(store, group, text, continuation, executeProperties);
+        }
 
         final RecordQuery outer = outerQuery();
         final RecordQueryPlan outerPlan = store.planQuery(outer);
@@ -859,6 +975,7 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
     @BeforeEach
     void setUp() {
         FDBDatabaseFactory databaseFactory = FDBDatabaseFactory.instance();
+        databaseFactory.setAPIVersion(APIVersion.API_VERSION_7_1);
         database = databaseFactory.getDatabase();
     }
 
@@ -878,13 +995,13 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
     }
 
     @ParameterizedTest(name = "middleGroupJoin[joinTechniqueType={0}]")
-    @EnumSource(value = JoinTechniqueType.class, names = {"LOAD_AND_CACHE"})
+    @EnumSource(value = JoinTechniqueType.class)
     void middleGroupJoin(JoinTechniqueType joinTechniqueType) {
         profileQuery(GROUP_COUNT / 2, "d", joinTechniqueType);
     }
 
     @ParameterizedTest(name = "zeroGroupJoin[joinTechniqueType={0}]")
-    @EnumSource(value = JoinTechniqueType.class, names = {"STANDARD", "OVERSCAN", "SCAN_WIDER", "PREFETCH", "LOAD_AND_CACHE"})
+    @EnumSource(value = JoinTechniqueType.class)
     void zeroGroupJoin(JoinTechniqueType joinTechniqueType) {
         profileQuery(0, "d", joinTechniqueType);
     }
