@@ -149,7 +149,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
     void indexPrefetchInQueryTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(IN_VALUE, useIndexPrefetch);
         executeAndVerifyData(plan, 5, (rec, i) -> {
-            int primaryKey = i*10;
+            int primaryKey = i * 10;
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
         }, splitRecordsHook);
