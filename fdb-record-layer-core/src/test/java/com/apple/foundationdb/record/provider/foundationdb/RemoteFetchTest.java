@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -66,6 +68,21 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PL
  */
 @Tag(Tags.RequiresFDB)
 class RemoteFetchTest extends RemoteFetchTestBase {
+
+    protected static final RecordQuery IN_VALUE = RecordQuery.newBuilder()
+            .setRecordType("MySimpleRecord")
+            .setFilter(Query.field("num_value_unique").in(List.of(1000, 990, 980, 970, 960)))
+            .build();
+
+    protected static final RecordQuery OR_AND_VALUE = RecordQuery.newBuilder()
+            .setRecordType("MySimpleRecord")
+            .setFilter(Query.or(
+                    Query.field("num_value_unique").equalsValue(1000),
+                    Query.and(
+                            Query.field("num_value_unique").greaterThanOrEquals(900),
+                            Query.field("num_value_unique").lessThan(910))))
+            .build();
+
     private boolean useSplitRecords = true;
 
     @BeforeEach
@@ -124,6 +141,29 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int primaryKey = i * 2;
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$str_value_indexed", "even", primaryKey); // we are filtering out all odd entries, so count*2 are the keys of the even ones
+        }, splitRecordsHook);
+    }
+
+    @ParameterizedTest(name = "indexPrefetchInQueryTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void indexPrefetchInQueryTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+        RecordQueryPlan plan = plan(IN_VALUE, useIndexPrefetch);
+        executeAndVerifyData(plan, 5, (rec, i) -> {
+            int primaryKey = i*10;
+            int numValue = 1000 - primaryKey;
+            assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+        }, splitRecordsHook);
+    }
+
+    @ParameterizedTest(name = "indexPrefetchAndOrQueryTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void indexPrefetchAndOrQueryTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+        RecordQueryPlan plan = plan(OR_AND_VALUE, useIndexPrefetch);
+        executeAndVerifyData(plan, 10, (rec, i) -> {
+            int primaryKey = (i == 9) ? 0 : (99 - i);
+            int numValue = 1000 - primaryKey;
+            String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
         }, splitRecordsHook);
     }
 
