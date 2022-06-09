@@ -46,7 +46,11 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import com.google.protobuf.Descriptors;
@@ -60,6 +64,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -67,10 +72,12 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -234,6 +241,7 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
         PREFETCH,
         OVERSCAN,
         SCAN_WIDER,
+        LOAD_AND_CACHE,
         IN_MEMORY_HASH_JOIN,
         SET_FILTER,
         BIT_SET_FILTER,
@@ -250,6 +258,8 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
                 return new OverScanIndexProbeJoinTechnique();
             case SCAN_WIDER:
                 return new ScanWiderIndexRangeJoinTechnique();
+            case LOAD_AND_CACHE:
+                return new LoadAndCachePageJoinTechnique();
             case IN_MEMORY_HASH_JOIN:
                 return new InMemoryHashJoinTechnique(getInnerByOuterForGroup(group));
             case SET_FILTER:
@@ -419,6 +429,72 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
                                     .build();
                             return QueryResult.ofComputed(msg);
                         });
+            }
+        }
+    }
+
+    private static class LoadAndCachePageJoinTechnique implements JoinTechnique {
+
+        @Override
+        public JoinTechniqueType getType() {
+            return JoinTechniqueType.LOAD_AND_CACHE;
+        }
+
+        @Override
+        public Joiner createJoiner(final FDBRecordStore store) {
+            return new LoadAndCacheJoiner(store);
+        }
+
+        private static class LoadAndCacheJoiner implements Joiner {
+            private final NavigableMap<Tuple, Tuple> cachedValues;
+            private final RangeSet<Tuple> cachedRanges;
+
+            private final FDBRecordStore store;
+            private final Index index;
+
+            public LoadAndCacheJoiner(FDBRecordStore store) {
+                this.store = store;
+                this.index = store.getRecordMetaData().getIndex(GROUP_OUTER_VALUE_INDEX);
+                this.cachedValues = new ConcurrentSkipListMap<>();
+                this.cachedRanges = TreeRangeSet.create();
+            }
+
+            @Override
+            public RecordCursor<QueryResult> executeInner(final EvaluationContext innerContext, @Nullable final byte[] continuation, final ExecuteProperties executeProperties) {
+                Object groupId = innerContext.getBinding(GROUP_PARAM);
+                long outerId = (long) innerContext.getBinding(OUTER_PARAM);
+                Tuple prefix = Tuple.from(groupId, outerId);
+                Tuple outside = Tuple.from(groupId, outerId + 1);
+                if (cachedRanges.rangeContaining(prefix) != null) {
+                    return RecordCursor.fromIterator(store.getExecutor(), cachedValues.subMap(prefix, outside).entrySet().iterator())
+                            .map(entry -> toQueryResult(entry.getKey()));
+                } else {
+                    return store.scanIndex(index, IndexScanType.BY_VALUE, new TupleRange(prefix, Tuple.from(groupId), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation, executeProperties.asScanProperties(false))
+                            .mapResult(result -> {
+                                if (result.hasNext()) {
+                                    IndexEntry indexEntry = result.get();
+                                    cachedValues.put(indexEntry.getKey(), indexEntry.getValue());
+                                    if (!TupleHelpers.isPrefix(prefix, indexEntry.getKey())) {
+                                        cachedRanges.add(Range.closed(prefix, indexEntry.getKey()));
+                                        return RecordCursorResult.exhausted();
+                                    }
+                                    return RecordCursorResult.withNextValue(toQueryResult(indexEntry.getKey()), result.getContinuation());
+                                } else if (result.getNoNextReason().isSourceExhausted()) {
+                                    cachedRanges.add(Range.greaterThan(prefix));
+                                }
+                                return RecordCursorResult.withoutNextValue(result);
+                            });
+                }
+            }
+
+            private QueryResult toQueryResult(@Nonnull Tuple key) {
+                TestSparseJoinPerfProto.InnerRecord innerRecord = TestSparseJoinPerfProto.InnerRecord.newBuilder()
+                        .setGroup(key.getLong(0))
+                        .setOuterId(key.getLong(1))
+                        .setVal((int) key.getLong(2))
+                        .setRecNo(key.getLong(3))
+                        .build();
+                return QueryResult.ofComputed(innerRecord);
             }
         }
     }
@@ -802,19 +878,19 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
     }
 
     @ParameterizedTest(name = "middleGroupJoin[joinTechniqueType={0}]")
-    @EnumSource(value = JoinTechniqueType.class, names = {"STANDARD", "OVERSCAN"})
+    @EnumSource(value = JoinTechniqueType.class, names = {"LOAD_AND_CACHE"})
     void middleGroupJoin(JoinTechniqueType joinTechniqueType) {
         profileQuery(GROUP_COUNT / 2, "d", joinTechniqueType);
     }
 
     @ParameterizedTest(name = "zeroGroupJoin[joinTechniqueType={0}]")
-    @EnumSource(value = JoinTechniqueType.class, names = {"STANDARD", "OVERSCAN", "SCAN_WIDER", "PREFETCH"})
+    @EnumSource(value = JoinTechniqueType.class, names = {"STANDARD", "OVERSCAN", "SCAN_WIDER", "PREFETCH", "LOAD_AND_CACHE"})
     void zeroGroupJoin(JoinTechniqueType joinTechniqueType) {
         profileQuery(0, "d", joinTechniqueType);
     }
 
     @ParameterizedTest(name = "compareEachGroup[joinTechniqueType={0}]")
-    @EnumSource(value = JoinTechniqueType.class, names = {"OVERSCAN", "SCAN_WIDER"})
+    @EnumSource(value = JoinTechniqueType.class)
     @Timeout(value = 30L, unit = TimeUnit.MINUTES)
     void compareEachGroup(JoinTechniqueType joinTechniqueType) {
         Map<Integer, Map<String, Object>> statsByGroup = new TreeMap<>();
