@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
@@ -53,6 +54,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
@@ -65,6 +67,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
@@ -129,7 +132,7 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
 
     private static final List<String> TEXTS = List.of("a", "b", "c", "d", "e", "f", "g");
     private static final int OUTER_RECORD_COUNT = 100_000;
-    private static final int GROUP_COUNT = 50;
+    private static final int GROUP_COUNT = 10;
 
     private FDBDatabase database;
 
@@ -230,6 +233,7 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
         STANDARD,
         PREFETCH,
         OVERSCAN,
+        SCAN_WIDER,
         IN_MEMORY_HASH_JOIN,
         SET_FILTER,
         BIT_SET_FILTER,
@@ -244,6 +248,8 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
                 return new PreFetchedIndexProbeJoinTechnique(group, 100);
             case OVERSCAN:
                 return new OverScanIndexProbeJoinTechnique();
+            case SCAN_WIDER:
+                return new ScanWiderIndexRangeJoinTechnique();
             case IN_MEMORY_HASH_JOIN:
                 return new InMemoryHashJoinTechnique(getInnerByOuterForGroup(group));
             case SET_FILTER:
@@ -330,7 +336,7 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
                     }
                     // Consume results until we run out
                     return indexPrefetchCursor.onNext().thenApply(RecordCursorResult::hasNext);
-                }, store.getExecutor());
+                }, store.getExecutor()).join();
             }
 
             // Return the same join strategy as if we didn't have prefetch enabled.
@@ -363,6 +369,56 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
             public RecordCursor<QueryResult> executeInner(final EvaluationContext innerContext, @Nullable final byte[] continuation, final ExecuteProperties executeProperties) {
                 ExecuteProperties execPropsWithOverScan = executeProperties.setOverScanForCache(true);
                 return standardJoiner.executeInner(innerContext, continuation, execPropsWithOverScan);
+            }
+        }
+    }
+
+    private static class ScanWiderIndexRangeJoinTechnique implements JoinTechnique {
+        @Override
+        public JoinTechniqueType getType() {
+            return JoinTechniqueType.SCAN_WIDER;
+        }
+
+        @Override
+        public Joiner createJoiner(final FDBRecordStore store) {
+            return new ScanWiderIndexRangeJoiner(store);
+        }
+
+        private static class ScanWiderIndexRangeJoiner implements Joiner {
+            private final FDBRecordStore store;
+            private final Index index;
+
+            public ScanWiderIndexRangeJoiner(FDBRecordStore store) {
+                this.store = store;
+                this.index = store.getRecordMetaData().getIndex(GROUP_OUTER_VALUE_INDEX);
+            }
+
+            @Override
+            public RecordCursor<QueryResult> executeInner(final EvaluationContext innerContext, @Nullable final byte[] continuation, final ExecuteProperties executeProperties) {
+                Object group = innerContext.getBinding(GROUP_PARAM);
+                Object outerId = innerContext.getBinding(OUTER_PARAM);
+
+                TupleRange range = new TupleRange(Tuple.from(group, outerId), Tuple.from(group), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+                return store.scanIndex(index, IndexScanType.BY_VALUE, range, continuation, executeProperties.asScanProperties(false))
+                        .mapResult(result -> {
+                            if (result.hasNext()) {
+                                IndexEntry entry = result.get();
+                                if (!Objects.equals(entry.getKey().get(1), outerId)) {
+                                    return RecordCursorResult.exhausted();
+                                }
+                            }
+                            return result;
+                        })
+                        .map(indexEntry -> {
+                            Tuple key = indexEntry.getKey();
+                            TestSparseJoinPerfProto.InnerRecord msg = TestSparseJoinPerfProto.InnerRecord.newBuilder()
+                                    .setGroup(key.getLong(0))
+                                    .setOuterId(key.getLong(1))
+                                    .setVal((int) key.getLong(2))
+                                    .setRecNo(key.getLong(3))
+                                    .build();
+                            return QueryResult.ofComputed(msg);
+                        });
             }
         }
     }
@@ -534,10 +590,11 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
         ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
-    private List<Integer> executeMultiTransactionJoin(FDBRecordContextConfig contextConfig, int group, String text, JoinTechnique joinTechnique) {
+    private List<Integer> executeMultiTransactionJoin(FDBRecordContextConfig.Builder contextConfigBuilder, int group, String text, JoinTechnique joinTechnique) {
         long startNanos = System.nanoTime();
         List<Integer> values = new ArrayList<>();
         RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
+        int trCount = 0;
 
         do {
             final ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
@@ -546,6 +603,14 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
                     .setScannedRecordsLimit(1000)
                     .setTimeLimit(3_000L)
                     .build();
+            final FDBRecordContextConfig contextConfig;
+            if (contextConfigBuilder.getTransactionId() != null) {
+                contextConfig = contextConfigBuilder.copyBuilder()
+                        .setTransactionId(contextConfigBuilder.getTransactionId() + "_" + trCount)
+                        .build();
+            } else {
+                contextConfig = contextConfigBuilder.build();
+            }
             try (FDBRecordContext context = database.openContext(contextConfig)) {
                 FDBRecordStore store = openStore(context);
                 try (RecordCursor<Integer> cursor = executeJoin(store, group, text, continuation.toBytes(), executeProperties, joinTechnique)) {
@@ -556,7 +621,7 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
                     continuation = result.getContinuation();
                 }
             }
-
+            trCount++;
         } while (!continuation.isEnd());
         long endNanos = System.nanoTime();
 
@@ -567,7 +632,7 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
                     "result_count", values.size(),
                     "join_technique_type", joinTechnique.getType(),
                     "execute_micros", TimeUnit.NANOSECONDS.toMicros(endNanos - startNanos));
-            FDBStoreTimer timer = contextConfig.getTimer();
+            FDBStoreTimer timer = contextConfigBuilder.getTimer();
             if (timer != null) {
                 msg.addKeysAndValues(timer.getKeysAndValues());
             }
@@ -577,46 +642,68 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
         return values;
     }
 
-    private static void addStats(KeyValueLogMessage message, List<Long> data, String prefix) {
+    private static void addStats(Map<String, Object> stats, List<Long> data, String prefix) {
         data.sort(Comparator.naturalOrder());
-        message.addKeyAndValue(prefix + "_min", data.get(0));
-        message.addKeyAndValue(prefix + "_max", data.get(data.size() - 1));
-        message.addKeyAndValue(prefix + "_median", data.get(data.size() / 2));
-        message.addKeyAndValue(prefix + "_avg", data.stream().mapToLong(Long::longValue).sum() / data.size());
+        stats.put(prefix + "_min", data.get(0));
+        stats.put(prefix + "_max", data.get(data.size() - 1));
+        stats.put(prefix + "_median", data.get(data.size() / 2));
+        stats.put(prefix + "_avg", data.stream().mapToLong(Long::longValue).sum() / data.size());
     }
 
-    private void profileQuery(int group, String text, JoinTechniqueType joinTechniqueType) {
+    private Map<String, Object> profileQuery(int group, String text, JoinTechniqueType joinTechniqueType) {
+        return profileQuery(group, text, joinTechniqueType, 50, 50);
+    }
+
+    private Map<String, Object> profileQuery(int group, String text, JoinTechniqueType joinTechniqueType, int untrackedRepetitions, int trackedRepititions) {
         JoinTechnique joinTechnique = getJoinTechnique(joinTechniqueType, group);
 
+        final String transactionIdBase = String.format("perf_%s_%d_%s_", joinTechniqueType, group, text);
+
         // Run some initial tests without profiling to warm up the JVM
-        for (int i = 0; i < 50; i++) {
-            executeMultiTransactionJoin(FDBRecordContextConfig.newBuilder().setTimer(new FDBStoreTimer()).build(), group, text, joinTechnique);
+        for (int i = 0; i < untrackedRepetitions; i++) {
+            executeMultiTransactionJoin(FDBRecordContextConfig.newBuilder().setTimer(new FDBStoreTimer()), group, text, joinTechnique);
         }
 
         List<Long> durations = new ArrayList<>();
         int resultCount = 0;
         long readsCount = 0;
-        for (int i = 0; i < 50; i++) {
+        int bytesReadCount = 0;
+        int transactionCount = 0;
+        for (int i = 0; i < trackedRepititions; i++) {
             long startNanos = System.nanoTime();
             final FDBStoreTimer timer = new FDBStoreTimer();
-            resultCount = executeMultiTransactionJoin(FDBRecordContextConfig.newBuilder().setTimer(timer).build(), group, text, joinTechnique).size();
+            FDBRecordContextConfig.Builder configBuilder = FDBRecordContextConfig.newBuilder()
+                    .setTimer(timer)
+                    .setLogTransaction(false)
+                    .setTransactionId(transactionIdBase);
+            resultCount = executeMultiTransactionJoin(configBuilder, group, text, joinTechnique).size();
             readsCount = timer.getCount(FDBStoreTimer.Counts.READS);
+            bytesReadCount = timer.getCount(FDBStoreTimer.Counts.BYTES_READ);
+            transactionCount = timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT);
             long endNanos = System.nanoTime();
             durations.add(TimeUnit.NANOSECONDS.toMicros(endNanos - startNanos));
         }
 
+        Map<String, Object> stats = new TreeMap<>();
+        stats.put("result_count", resultCount);
+        stats.put("reads_count", readsCount);
+        stats.put("bytes_read_count", bytesReadCount);
+        stats.put("selectivity", resultCount * TEXTS.size() * 1.0 / OUTER_RECORD_COUNT);
+        stats.put("transaction_count", transactionCount);
+        addStats(stats, durations, "latency_micros");
+
         if (LOGGER.isInfoEnabled()) {
+
             KeyValueLogMessage logMessage = KeyValueLogMessage.build("join query profiled")
                     .addKeyAndValue("group", group)
                     .addKeyAndValue("text", text)
-                    .addKeyAndValue("result_count", resultCount)
-                    .addKeyAndValue("reads_count", readsCount)
                     .addKeyAndValue("join_technique_type", joinTechnique.getType());
-
-            addStats(logMessage, durations, "latency_micros");
+            logMessage.addKeysAndValues(stats);
 
             LOGGER.info(logMessage.toString());
         }
+
+        return stats;
     }
 
     private FDBRecordStore openStore(FDBRecordContext context) {
@@ -625,6 +712,7 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
                 .setMetaDataProvider(createMetaData())
                 .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
                 .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH))
+                // .setPipelineSizer(operation -> 100)
                 .createOrOpen();
     }
 
@@ -694,7 +782,8 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
 
     @BeforeEach
     void setUp() {
-        database = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabaseFactory databaseFactory = FDBDatabaseFactory.instance();
+        database = databaseFactory.getDatabase();
     }
 
     @Test
@@ -719,8 +808,41 @@ public class FDBRecordStoreSparseJoinPerformanceTest {
     }
 
     @ParameterizedTest(name = "zeroGroupJoin[joinTechniqueType={0}]")
-    @EnumSource(value = JoinTechniqueType.class, names = {"STANDARD", "OVERSCAN"})
+    @EnumSource(value = JoinTechniqueType.class, names = {"STANDARD", "OVERSCAN", "SCAN_WIDER", "PREFETCH"})
     void zeroGroupJoin(JoinTechniqueType joinTechniqueType) {
         profileQuery(0, "d", joinTechniqueType);
+    }
+
+    @ParameterizedTest(name = "compareEachGroup[joinTechniqueType={0}]")
+    @EnumSource(value = JoinTechniqueType.class, names = {"OVERSCAN", "SCAN_WIDER"})
+    @Timeout(value = 30L, unit = TimeUnit.MINUTES)
+    void compareEachGroup(JoinTechniqueType joinTechniqueType) {
+        Map<Integer, Map<String, Object>> statsByGroup = new TreeMap<>();
+        for (int i = 0; i < GROUP_COUNT; i++) {
+            Map<String, Object> stats = profileQuery(i, "b", joinTechniqueType, 10, 10);
+            statsByGroup.put(i, stats);
+        }
+        printTable(statsByGroup, "group");
+    }
+
+    private static <K> void printTable(Map<K, Map<String, Object>> statsByKey, String key) {
+        Map<String, Object> first = statsByKey.values().iterator().next();
+        Set<String> keySet = first.keySet();
+
+        System.out.print(key);
+        for (String column : keySet) {
+            System.out.print('\t');
+            System.out.print(column);
+        }
+        System.out.println();
+
+        for (Map.Entry<K, Map<String, Object>> entry : statsByKey.entrySet()) {
+            System.out.print(entry.getKey());
+            for (String column : keySet) {
+                System.out.print('\t');
+                System.out.print(entry.getValue().get(column));
+            }
+            System.out.println();
+        }
     }
 }

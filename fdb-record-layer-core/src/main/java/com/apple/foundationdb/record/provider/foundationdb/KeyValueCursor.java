@@ -252,10 +252,13 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
                 }
             }
 
-            // If we are in overscan mode, expand the range of the key selectors by one on either side.
+            // If we are in overscan mode, expand the range of the key selectors by one in the direction being scanned
             if (scanProperties.getExecuteProperties().isOverScanForCache()) {
-                begin = begin.add(-1);
-                end = end.add(1);
+                if (reverse) {
+                    begin = begin.add(-1);
+                } else {
+                    end = end.add(1);
+                }
             }
 
             final int limit;
@@ -283,10 +286,14 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             KeyValueCursor kvCursor = new KeyValueCursor(context, (AsyncIterator<KeyValue>)iterator, prefixLength, limitManager, valuesLimit);
             if (scanProperties.getExecuteProperties().isOverScanForCache()) {
                 return kvCursor
-                        .filter(kv -> {
-                            // If overscanning is enabled, we get results outside the desired range that need to be filtered out
-                            byte[] key = kv.getKey();
-                            return ByteArrayUtil.compareUnsigned(lowBytes, key) <= 0 && ByteArrayUtil.compareUnsigned(key, highBytes) <= 0;
+                        .mapResult(result -> {
+                            if (result.hasNext()) {
+                                byte[] key = result.get().getKey();
+                                if (reverse && ByteArrayUtil.compareUnsigned(key, lowBytes) < 0 || !reverse && ByteArrayUtil.compareUnsigned(key, highBytes) >= 0) {
+                                    return RecordCursorResult.exhausted();
+                                }
+                            }
+                            return result;
                         })
                         .skipThenLimit(scanProperties.getExecuteProperties().getSkip(), scanProperties.getExecuteProperties().getReturnedRowLimitOrMax());
             } else {
