@@ -154,7 +154,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
 
     protected void assertCounters(final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch, final int expectedRemoteFetches, final int expectedRemoteFetchEntries) {
         if ((useIndexPrefetch != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) &&
-            (recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1))) {
+                (recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1))) {
 
             StoreTimer.Counter numRemoteFetches = recordStore.getTimer().getCounter(REMOTE_FETCH);
             StoreTimer.Counter numRemoteFetchEntries = recordStore.getTimer().getCounter(SCAN_REMOTE_FETCH_ENTRY);
