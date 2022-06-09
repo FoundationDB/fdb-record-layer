@@ -130,7 +130,7 @@ public class FDBStoreTimer extends StoreTimer {
          * The amount of time taken performing an index prefetch operation.
          * Index prefetch operation is an index scan followed by record fetches, all done at the FDB level.
          */
-        SCAN_INDEX_REMOTE_FETCH("index remote fetch"),
+        SCAN_REMOTE_FETCH_ENTRY("remote fetch index entry"),
         /**
          * The amount of time taken deleting records.
          * This time includes secondary index maintenance as well as writing to the current transaction
@@ -642,6 +642,8 @@ public class FDBStoreTimer extends StoreTimer {
         READS("reads", false),
         /** Total number of range read (get) operations. */
         RANGE_READS("range reads", false),
+        /** Total number of remote fetch (get) operations. */
+        REMOTE_FETCH("remote fetch reads", false),
         /** Total number of write operations. */
         WRITES("writes", false),
         /** Total number of delete (clear) operations. */

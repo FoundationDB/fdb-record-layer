@@ -83,6 +83,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
         }, splitRecordsHook);
+        assertCounters(useIndexPrefetch, 1, 11);
     }
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -95,6 +96,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
         }, splitRecordsHook);
+        assertCounters(useIndexPrefetch, 1, 11);
     }
 
     /**
@@ -114,6 +116,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int numValue = 1000 - primaryKey;
             assertRecordWithPrimaryKeyIndex(rec, primaryKey, strValue, numValue, "PrimaryKeyIndex", (long)numValue);
         }, splitRecordsHook);
+        assertCounters(useIndexPrefetch, 1, 2);
     }
 
     @ParameterizedTest(name = "indexPrefetchComplexIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -125,6 +128,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$str_value_indexed", "even", primaryKey); // we are filtering out all odd entries, so count*2 are the keys of the even ones
         }, splitRecordsHook);
+        assertCounters(useIndexPrefetch, 1, 51);
     }
 
     @ParameterizedTest(name = "indexPrefetchWithContinuationTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -142,6 +146,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
         }, splitRecordsHook);
+        assertCounters(useIndexPrefetch, 1, 6);
         // Second iteration - last 5 records
         continuation = executeAndVerifyData(plan, continuation, executeProperties, 5, (rec, i) -> {
             int primaryKey = 4 - i;
@@ -149,10 +154,12 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
         }, splitRecordsHook);
+        assertCounters(useIndexPrefetch, 2, 12);
         // Third iteration - no more values to read
         continuation = executeAndVerifyData(plan, continuation, executeProperties, 0, (rec, i) -> {
         }, splitRecordsHook);
         assertNull(continuation);
+        assertCounters(useIndexPrefetch, 3, 13);
     }
 
     /*
@@ -188,6 +195,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
         }, splitRecordsHook);
         assertNull(continuation);
+        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 2, 8);
     }
 
     @ParameterizedTest(name = "indexPrefetchByteLimitContinuation(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -235,6 +243,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 assertNotNull(cursor.asList().get());
             }
         }
+        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 11);
     }
 
     @Test
@@ -250,6 +259,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 assertThrows(ExecutionException.class, () -> cursor.asList().get());
             }
         }
+        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 1);
     }
 
     @ParameterizedTest(name = "testReadYourWriteInRange(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -276,6 +286,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 assertNotNull(cursor.getNext());
             }
         }
+        assertCounters(fetchMethod, 1, 1);
     }
 
     @ParameterizedTest(name = "testReadYourWriteOutOfRangeSucceeds(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -293,10 +304,10 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             // Execute the query (will fail because a record in memory cannot be processed by fdb)
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
             ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
-            RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
-
-            assertNotNull(cursor.getNext());
+            List<FDBQueriedRecord<Message>> list = recordStore.executeQuery(plan, null, executeProperties).asList().get();
+            assertEquals(10, list.size());
         }
+        assertCounters(fetchMethod, 1, 11);
     }
 
     @Test
@@ -366,6 +377,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             }
             c--;
         }
+        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 100);
     }
 
     @Test
@@ -389,6 +401,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             }
             c--;
         }
+        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 101);
     }
 
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexOrphanBehavior orphanBehavior) throws InterruptedException, ExecutionException {
