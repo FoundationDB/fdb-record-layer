@@ -98,7 +98,7 @@ public class OrdinalFieldValue implements ValueWithChild {
         if (childMessage == null) {
             return null;
         }
-        return MessageValue.getNullableField(childMessage, field.getFieldIndex());
+        return MessageValue.getFieldOnMessage(childMessage, field.getFieldIndex());
     }
 
     @Override

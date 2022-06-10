@@ -74,6 +74,36 @@ public class MessageValue {
     @Nullable
     public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldName);
+        return getFieldOnMessage(message, field);
+    }
+
+    @Nullable
+    public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, int fieldNumber) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldNumber);
+        return getFieldOnMessage(message, field);
+    }
+
+    @Nonnull
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
+        final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
+        if (field == null) {
+            throw new Query.InvalidExpressionException("Missing field " + fieldName);
+        }
+        return field;
+    }
+
+    @Nonnull
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, int fieldNumber) {
+        final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByNumber(fieldNumber);
+        if (field == null) {
+            throw new Query.InvalidExpressionException("Missing field " + fieldNumber);
+        }
+        return field;
+    }
+
+
+    @Nullable
+    private static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull Descriptors.FieldDescriptor field) {
         if (field.isRepeated()) {
             int count = message.getRepeatedFieldCount(field);
             List<Object> list = new ArrayList<>(count);
@@ -84,7 +114,7 @@ public class MessageValue {
         }
         if (field.hasDefaultValue() || message.hasField(field)) {
             if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE &&
-                    TupleFieldsHelper.isTupleField(field.getMessageType())) {
+                TupleFieldsHelper.isTupleField(field.getMessageType())) {
                 return TupleFieldsHelper.fromProto((Message)message.getField(field), field.getMessageType());
             } else {
                 return message.getField(field);
@@ -103,40 +133,6 @@ public class MessageValue {
             return (Message)message.getField(field);
         }
         return null;
-    }
-
-    public static <M extends Message> Object getNullableField(Message message, int fieldNumber) {
-        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessageByNumber(message, fieldNumber);
-        if (field.isRepeated()) {
-            int count = message.getRepeatedFieldCount(field);
-            List<Object> list = new ArrayList<>(count);
-            for (int i = 0; i < count; i++) {
-                list.add(message.getRepeatedField(field, i));
-            }
-            return list;
-        }
-        if (field.hasDefaultValue() || message.hasField(field)) {
-            return message.getField(field);
-        } else {
-            return null;
-        }
-    }
-
-    @Nonnull
-    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
-        final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
-        if (field == null) {
-            throw new Query.InvalidExpressionException("Missing field " + fieldName);
-        }
-        return field;
-    }
-
-    private static Descriptors.FieldDescriptor findFieldDescriptorOnMessageByNumber(@Nonnull MessageOrBuilder message, @Nonnull int fieldNumber) {
-        final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByNumber(fieldNumber);
-        if (field == null) {
-            throw new Query.InvalidExpressionException("Missing field " + fieldNumber);
-        }
-        return field;
     }
 
     private MessageValue() {
