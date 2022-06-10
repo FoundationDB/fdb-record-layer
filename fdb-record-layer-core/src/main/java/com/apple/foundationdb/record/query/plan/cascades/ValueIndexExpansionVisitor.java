@@ -156,13 +156,16 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
      */
     @Nonnull
     public static KeyExpression fullKey(@Nonnull Index index, @Nullable final KeyExpression primaryKey) {
+        final KeyExpression rootExpression = index.getRootExpression() instanceof KeyWithValueExpression
+                                             ? ((KeyWithValueExpression)index.getRootExpression()).getKeyExpression()
+                                             : index.getRootExpression();
         if (primaryKey == null) {
-            return index.getRootExpression();
+            return rootExpression;
         }
         final var trimmedPrimaryKeyComponents = new ArrayList<>(primaryKey.normalizeKeyForPositions());
         index.trimPrimaryKey(trimmedPrimaryKeyComponents);
         final var fullKeyListBuilder = ImmutableList.<KeyExpression>builder();
-        fullKeyListBuilder.add(index.getRootExpression());
+        fullKeyListBuilder.add(rootExpression);
         fullKeyListBuilder.addAll(trimmedPrimaryKeyComponents);
         return concat(fullKeyListBuilder.build());
     }
