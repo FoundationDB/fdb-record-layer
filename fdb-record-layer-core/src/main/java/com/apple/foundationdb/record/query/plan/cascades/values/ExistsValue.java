@@ -28,9 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
@@ -118,20 +116,17 @@ public class ExistsValue implements BooleanValue, ValueWithChild, Value.CompileT
     public static class ExistsFn extends BuiltInFunction<Value> {
         public ExistsFn() {
             super("exists",
-                    ImmutableList.of(new Type.Relation()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(parserContext, arguments));
+                    ImmutableList.of(new Type.Relation()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(arguments));
         }
 
-        private static Value encapsulateInternal(@Nonnull ParserContext parserContext, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull final List<Typed> arguments) {
             // the call is already validated against the resolved function
             Verify.verify(arguments.size() == 1);
             final Typed in = arguments.get(0);
             Verify.verify(in instanceof RelationalExpression);
 
-            final GraphExpansion.Builder graphExpansionBuilder = parserContext.getCurrentScope().getGraphExpansionBuilder();
-
             // create an existential quantifier
             final Quantifier.Existential existsQuantifier = Quantifier.existential(GroupExpressionRef.of((RelationalExpression)in));
-            graphExpansionBuilder.addQuantifier(existsQuantifier);
 
             return new ExistsValue(existsQuantifier.getFlowedObjectValue());
         }

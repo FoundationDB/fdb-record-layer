@@ -20,13 +20,19 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
-import com.google.common.collect.ImmutableMap;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * A stack of {@link Scope}s.
@@ -48,64 +54,122 @@ public class Scopes {
         return currentScope;
     }
 
-    public Scopes push(@Nonnull final Map<CorrelationIdentifier, QuantifiedValue> boundIdentifiers) {
-        this.currentScope = new Scope(this.currentScope, boundIdentifiers, GraphExpansion.builder());
-        return this;
+    @Nonnull
+    public Scope push() {
+        this.currentScope = Scope.withParent(currentScope);
+        return currentScope;
     }
 
+    @Nonnull
     public Scope pop() {
         try {
-            return currentScope;
+            return Objects.requireNonNull(currentScope);
         } finally {
-            currentScope = Objects.requireNonNull(currentScope).getParentScope();
+            currentScope = Objects.requireNonNull(currentScope).getParent();
         }
     }
 
     @Nonnull
-    public QuantifiedValue resolveIdentifier(@Nonnull final String identifier) {
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final String identifier) {
+        return resolveQuantifier(CorrelationIdentifier.of(identifier));
+    }
+
+    @Nonnull
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final CorrelationIdentifier identifier) {
         Scope scope = currentScope;
-        final CorrelationIdentifier needle = CorrelationIdentifier.of(identifier);
         while (scope != null)  {
-            final Map<CorrelationIdentifier, QuantifiedValue> boundIdentifiers = scope.getBoundQuantifiers();
-            if (boundIdentifiers.containsKey(needle)) {
-                return boundIdentifiers.get(needle);
+            final var maybeQuantifier = scope.getQuantifier(identifier);
+            if (maybeQuantifier.isPresent()) {
+                return maybeQuantifier;
             }
-            scope = scope.getParentScope();
+            scope = scope.getParent();
         }
-        throw new SemanticException("unresolved identifier " + identifier);
+        return Optional.empty();
     }
 
     /**
      * A frame of the scopes stack, binding names to quantifiers.
      */
     public static class Scope {
-        @Nullable
-        private final Scope parentScope;
-        @Nonnull
-        private final Map<CorrelationIdentifier, QuantifiedValue> boundQuantifiers;
-        @Nonnull
-        private final GraphExpansion.Builder graphExpansionBuilder;
-
-        public Scope(@Nullable Scope parentScope,
-                     @Nonnull final Map<CorrelationIdentifier, QuantifiedValue> boundQuantifiers,
-                     @Nonnull final GraphExpansion.Builder graphExpansionBuilder) {
-            this.parentScope = parentScope;
-            this.boundQuantifiers = ImmutableMap.copyOf(boundQuantifiers);
-            this.graphExpansionBuilder = graphExpansionBuilder;
-        }
 
         @Nullable
-        public Scope getParentScope() {
-            return parentScope;
-        }
+        private final Scope parent;
 
-        public Map<CorrelationIdentifier, QuantifiedValue> getBoundQuantifiers() {
-            return boundQuantifiers;
+        @Nonnull
+        private final Map<CorrelationIdentifier, Quantifier> quantifiers;
+
+        @Nonnull
+        private final List<Column<? extends Value>> projectionList;
+
+        @Nullable
+        private QueryPredicate predicate;
+
+
+        private Scope(@Nullable final Scope parent, @Nonnull final Map<CorrelationIdentifier, Quantifier> quantifiers, @Nonnull final List<Column<? extends Value>> projectionList, @Nullable final QueryPredicate predicate) {
+            this.parent = parent;
+            this.quantifiers = quantifiers;
+            this.projectionList = projectionList;
+            this.predicate = predicate;
         }
 
         @Nonnull
-        public GraphExpansion.Builder getGraphExpansionBuilder() {
-            return graphExpansionBuilder;
+        public SelectExpression convertToSelectExpression() {
+            GraphExpansion.Builder builder = GraphExpansion.builder();
+            builder.addAllQuantifiers(new ArrayList<>(quantifiers.values()))
+                    .addAllResultColumns(projectionList);
+            if (predicate != null) {
+                builder.addPredicate(predicate);
+            }
+            return builder.build().buildSelect();
         }
+
+        public void addQuantifier(@Nonnull final Quantifier quantifier) {
+            if (hasQuantifier(quantifier.getAlias())) {
+                // TODO we should use error codes for proper dispatch in caller.
+                throw new SemanticException(String.format("quantifier with name '%s' already exists in scope", quantifier.getAlias()));
+            }
+            quantifiers.put(quantifier.getAlias(), quantifier);
+        }
+
+        @Nonnull
+        public Optional<Quantifier> getQuantifier(@Nonnull final String alias) {
+            return getQuantifier(CorrelationIdentifier.of(alias));
+        }
+
+        @Nonnull
+        public Optional<Quantifier> getQuantifier(@Nonnull final CorrelationIdentifier alias) {
+            return Optional.ofNullable(this.quantifiers.get(alias));
+        }
+
+        @Nonnull
+        public List<Quantifier> getAllQuantifiers() {
+            return quantifiers.values().stream().collect(Collectors.toUnmodifiableList());
+        }
+
+        public boolean hasQuantifier(@Nonnull final String alias) {
+            return hasQuantifier(CorrelationIdentifier.of(alias));
+        }
+
+        public boolean hasQuantifier(@Nonnull final CorrelationIdentifier alias) {
+            return quantifiers.containsKey(alias);
+        }
+
+        public void setPredicate(@Nonnull final QueryPredicate predicate) {
+            this.predicate = predicate;
+        }
+
+        public void addProjectionColumn(@Nonnull final Column<? extends Value> column) {
+            projectionList.add(column);
+        }
+
+        @Nullable
+        public Scope getParent() {
+            return parent;
+        }
+
+        public static Scope withParent(@Nullable final Scope parent) {
+            return new Scope(parent, new HashMap<>(), new ArrayList<>(), null);
+        }
+
     }
 }
