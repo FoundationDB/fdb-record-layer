@@ -57,7 +57,7 @@ public class SimpleDirectAccessInsertionTests {
 
     @Test
     void insertNestedFields() throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath()), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath()), Options.NONE)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -77,7 +77,7 @@ public class SimpleDirectAccessInsertionTests {
                 Assertions.assertThat(inserted).withFailMessage("incorrect insertion number!").isEqualTo(1);
                 KeySet key = new KeySet()
                         .setKeyColumn("id", 1L);
-                try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", key, Options.none())) {
+                try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", key, Options.NONE)) {
                     RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(toWrite));
                 }
             }
@@ -91,7 +91,7 @@ public class SimpleDirectAccessInsertionTests {
          * tables are logically separated.
          */
 
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath()), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath()), Options.NONE)) {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
@@ -128,30 +128,30 @@ public class SimpleDirectAccessInsertionTests {
                 Assertions.assertThat(s.executeInsert("RestaurantRecord", restaurant)).isEqualTo(1);
 
                 //now make sure that you don't get back the other one
-                try (RelationalResultSet rrs = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", 1L), Options.none())) {
+                try (RelationalResultSet rrs = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", 1L), Options.NONE)) {
                     RelationalAssertions.assertThat(rrs).hasNoNextRow();
                 }
 
-                try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", 2L), Options.none())) {
+                try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", 2L), Options.NONE)) {
                     RelationalAssertions.assertThat(rrs).hasNoNextRow();
                 }
 
                 //make sure you get back the correct rows from the correct tables
-                try (RelationalResultSet rrs = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", 2L), Options.none())) {
+                try (RelationalResultSet rrs = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", 2L), Options.NONE)) {
                     RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(restaurant));
                 }
-                try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", 1L), Options.none())) {
+                try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", 1L), Options.NONE)) {
                     RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(review));
                 }
 
                 //now scan the data and see if too much comes back
                 TableScan restaurantScan = new TableScan("RestaurantRecord", KeySet.EMPTY, KeySet.EMPTY);
-                try (RelationalResultSet rrs = s.executeScan(restaurantScan, Options.none())) {
+                try (RelationalResultSet rrs = s.executeScan(restaurantScan, Options.NONE)) {
                     RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(restaurant));
                 }
 
                 TableScan reviewScan = new TableScan("RestaurantReviewer", KeySet.EMPTY, KeySet.EMPTY);
-                try (RelationalResultSet rrs = s.executeScan(reviewScan, Options.none())) {
+                try (RelationalResultSet rrs = s.executeScan(reviewScan, Options.NONE)) {
                     RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(review));
                 }
             }

@@ -130,7 +130,7 @@ public class RelationalDataLoaderTest {
                     KeySet ks = new KeySet();
                     //                    ks.setKeyColumn("name", "'Scott Fines'");
                     ks.setKeyColumn("rest_no", 2L);
-                    try (final RelationalResultSet rrs = s.executeGet("RestaurantRecord", ks, Options.none())) {
+                    try (final RelationalResultSet rrs = s.executeGet("RestaurantRecord", ks, Options.NONE)) {
                         if (!rrs.next()) {
                             System.out.println("NOT FOUND!");
                         }

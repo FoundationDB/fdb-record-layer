@@ -66,7 +66,7 @@ public class DdlSchemaTemplateTest {
                 "CREATE TABLE FOO_TBL (b double PRIMARY KEY(b))" +
                 "}";
 
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate(createColumnStatement);
@@ -95,7 +95,7 @@ public class DdlSchemaTemplateTest {
                 "CREATE STRUCT " + table.getTypeDefinition("TYP") + ";" +
                 "CREATE TABLE " + table.getTableDefinition("TBL") +
                 "}";
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate(createColumnStatement);
@@ -130,7 +130,7 @@ public class DdlSchemaTemplateTest {
                 "CREATE STRUCT " + table.getTypeDefinition("FOO") +
                 "}";
 
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 //do a scan of template names first, to see if there are any in there. This is mostly a protection

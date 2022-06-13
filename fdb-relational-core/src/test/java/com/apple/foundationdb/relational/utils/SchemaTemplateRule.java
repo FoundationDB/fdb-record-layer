@@ -72,7 +72,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
     public void afterEach(ExtensionContext context) throws Exception {
         final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE '").append(templateName).append("'");
 
-        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             connection.setSchema("catalog");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate(dropStatement.toString());
@@ -87,7 +87,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
         createStatement.append(tableCreator.getTypeDefinition());
         createStatement.append("}");
 
-        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             connection.setSchema("catalog");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate(createStatement.toString());

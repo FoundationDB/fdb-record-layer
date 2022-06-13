@@ -119,7 +119,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     @Override
     @Nonnull
     public Options getOptions() {
-        return Options.none();
+        return Options.NONE;
     }
 
     InMemoryTable loadTable(String tableName) throws RelationalException {

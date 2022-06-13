@@ -99,7 +99,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
     @Benchmark
     public void singleRead(Blackhole bh) throws SQLException, RelationalException {
         long dbId = ThreadLocalRandom.current().nextInt(0, dbCount);
-        try (RelationalConnection dbConn = Relational.connect(getUri(dbName(dbId), true), com.apple.foundationdb.relational.api.Options.none())) {
+        try (RelationalConnection dbConn = Relational.connect(getUri(dbName(dbId), true), com.apple.foundationdb.relational.api.Options.NONE)) {
             dbConn.setSchema(schema);
             long restId = ThreadLocalRandom.current().nextInt(1, dbSize + 1);
             try (RelationalStatement stmt = dbConn.createStatement();
@@ -112,7 +112,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private void populateDatabase(URI uri) {
-        try (RelationalConnection dbConn = Relational.connect(uri, com.apple.foundationdb.relational.api.Options.none())) {
+        try (RelationalConnection dbConn = Relational.connect(uri, com.apple.foundationdb.relational.api.Options.NONE)) {
             dbConn.setSchema(schema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(

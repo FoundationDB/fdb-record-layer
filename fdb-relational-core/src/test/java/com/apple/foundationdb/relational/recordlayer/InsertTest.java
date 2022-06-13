@@ -57,7 +57,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("testSchema");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
@@ -71,11 +71,11 @@ public class InsertTest {
                 Assertions.assertEquals(1, inserted, "Did not insert reviewers properly!");
 
                 //now prove we can get them back out
-                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumns(Map.of("rest_no", record.getRestNo())), Options.none())) {
+                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumns(Map.of("rest_no", record.getRestNo())), Options.NONE)) {
                     RelationalAssertions.assertThat(relationalResultSet).hasExactly(Map.of("name", record.getName(), "rest_no", record.getRestNo()));
                 }
 
-                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", reviewer.getId()), Options.none())) {
+                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", reviewer.getId()), Options.NONE)) {
                     RelationalAssertions.assertThat(relationalResultSet).hasExactly(Map.of("name", reviewer.getName(), "id", reviewer.getId()));
                 }
 
@@ -98,7 +98,7 @@ public class InsertTest {
                  * actually OK, because wwhat we really care about is that the scan doesn't return data from
                  * other tables. So all we do here is check the returned message type
                  */
-                try (final RelationalResultSet recordScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(), Options.none())) {
+                try (final RelationalResultSet recordScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(), Options.NONE)) {
                     Assertions.assertNotNull(recordScan, "Did not return a valid result set!");
 
                     while (recordScan.next()) {
@@ -111,7 +111,7 @@ public class InsertTest {
                     }
                 }
 
-                try (final RelationalResultSet reviewerScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantReviewer").build(), Options.none())) {
+                try (final RelationalResultSet reviewerScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantReviewer").build(), Options.NONE)) {
                     Assertions.assertNotNull(reviewerScan, "Did not return a valid result set!");
                     while (reviewerScan.next()) {
                         Assertions.assertDoesNotThrow(() -> {
@@ -132,7 +132,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("testSchema");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
@@ -150,7 +150,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("doesNotExist");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {

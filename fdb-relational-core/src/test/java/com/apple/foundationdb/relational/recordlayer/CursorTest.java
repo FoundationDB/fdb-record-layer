@@ -62,7 +62,7 @@ public class CursorTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withOptions(Options.none())
+            .withOptions(Options.NONE)
             .withSchema("testSchema");
 
     @RegisterExtension
@@ -74,7 +74,7 @@ public class CursorTest {
         havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
             // 1/2 scan all records
             try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),
-                    Options.none())) {
+                    Options.NONE)) {
                 assertThat(resultSet).hasExactlyInAnyOrder(records);
             } catch (SQLException | RelationalException e) {
                 throw new RuntimeException(e);
@@ -128,7 +128,7 @@ public class CursorTest {
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
-                resultSet = s.executeScan(scan, Options.none());
+                resultSet = s.executeScan(scan, Options.NONE);
 
                 // get continuation before iterating on the result set (should point to the first record).
                 Continuation beginContinuation = resultSet.getContinuation();
@@ -182,7 +182,7 @@ public class CursorTest {
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
-                resultSet = s.executeScan(scan, Options.none());
+                resultSet = s.executeScan(scan, Options.NONE);
                 Continuation continuation = resultSet.getContinuation();
                 Assertions.assertNull(continuation.getBytes());
                 Assertions.assertTrue(continuation.atEnd());

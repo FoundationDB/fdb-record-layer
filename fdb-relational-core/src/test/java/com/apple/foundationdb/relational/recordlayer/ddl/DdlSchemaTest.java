@@ -62,7 +62,7 @@ public class DdlSchemaTest {
 
     @Test
     void canCreateSchema() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
@@ -87,7 +87,7 @@ public class DdlSchemaTest {
 
     @Test
     void canCreateSchemaTemplateWhenConnectedToNonCatalogSchema() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
@@ -97,7 +97,7 @@ public class DdlSchemaTest {
             }
         }
         //now create a new schema in the same db but using a different connection
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:" + db.getDbUri()), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:" + db.getDbUri()), Options.NONE)) {
             conn.setSchema("testSchema");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
@@ -109,7 +109,7 @@ public class DdlSchemaTest {
 
     @Test
     void cannotCreateSchemaTwice() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
 
@@ -125,7 +125,7 @@ public class DdlSchemaTest {
 
     @Test
     void dropSchema() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
 

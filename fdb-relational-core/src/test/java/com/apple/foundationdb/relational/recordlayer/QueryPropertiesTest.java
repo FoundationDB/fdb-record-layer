@@ -60,8 +60,8 @@ public class QueryPropertiesTest {
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, QueryPropertiesTest.class, TestSchemas.restaurant());
 
     @Test
-    void verifyExecuteAndScanPropertiesGivenQueryProperties() {
-        Options options = Options.none();
+    void verifyExecuteAndScanPropertiesGivenQueryProperties() throws RelationalException {
+        Options options = Options.NONE;
 
         final ExecuteState trackingExecuteState = new ExecuteState(RecordScanLimiterFactory.tracking(), ByteScanLimiterFactory.tracking());
         final ExecuteProperties executeProperties1 = QueryPropertiesUtils.getExecuteProperties(options);
@@ -110,7 +110,7 @@ public class QueryPropertiesTest {
                         .setStartKey("rest_no", id1)
                         .setEndKey("rest_no", id2 + 1)
                         .build();
-                final RelationalResultSet resultSet = s.executeScan(scan, Options.none());
+                final RelationalResultSet resultSet = s.executeScan(scan, Options.NONE);
                 return getRestNoList(resultSet);
             } catch (Throwable t) {
                 try {

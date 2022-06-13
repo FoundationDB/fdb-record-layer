@@ -21,9 +21,14 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.options.OptionContract;
+import com.apple.foundationdb.relational.api.options.RangeContract;
+import com.apple.foundationdb.relational.api.options.TypeContract;
 
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nonnull;
@@ -35,7 +40,15 @@ public final class Options {
         ROW_LIMIT // Limit the maximum number of records to return
     }
 
-    private Options parentOptions;
+    private static final Map<Name, List<OptionContract>> contracts = Map.of(
+            Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)),
+            Name.INDEX_HINT, List.of(new TypeContract<>(String.class)),
+            Name.ROW_LIMIT, List.of(new TypeContract<>(Integer.class), new RangeContract<>(0, Integer.MAX_VALUE))
+    );
+
+    public static final Options NONE = Options.builder().build();
+
+    private final Options parentOptions;
     private final Map<Name, Object> optionsMap;
 
     private Options(Map<Name, Object> optionsMap) {
@@ -47,10 +60,6 @@ public final class Options {
         this.parentOptions = parentOptions;
     }
 
-    public static Options none() {
-        return Options.builder().build();
-    }
-
     @SuppressWarnings("unchecked")
     public <T> T getOption(Name name) {
         T option = (T) optionsMap.get(name);
@@ -58,14 +67,6 @@ public final class Options {
             return parentOptions.getOption(name);
         } else {
             return option;
-        }
-    }
-
-    public int size() {
-        if (parentOptions != null) {
-            return parentOptions.size() + optionsMap.size();
-        } else {
-            return optionsMap.size();
         }
     }
 
@@ -92,13 +93,20 @@ public final class Options {
         private Builder() {
         }
 
-        public Builder withOption(Name name, Object value) {
+        public Builder withOption(Name name, Object value) throws RelationalException {
+            validateOption(name, value);
             optionsMapBuilder.put(name, value);
             return this;
         }
 
         public Options build() {
             return new Options(optionsMapBuilder.build());
+        }
+    }
+
+    private static void validateOption(Name name, Object value) throws RelationalException {
+        for (OptionContract contract : contracts.get(name)) {
+            contract.validate(name, value);
         }
     }
 }

@@ -60,7 +60,7 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     }
 
     private void setup() throws Exception {
-        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             connection.setSchema("catalog");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("CREATE SCHEMA '" + dbUri.getPath() + "/" + schemaName + "' WITH TEMPLATE '" + templateName + "'");
@@ -69,7 +69,7 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     }
 
     private void tearDown() throws Exception {
-        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             connection.setSchema("catalog");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("DROP SCHEMA '" + dbUri.getPath() + "/" + schemaName + "'");

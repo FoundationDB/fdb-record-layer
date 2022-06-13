@@ -80,7 +80,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public boolean execute(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.none());
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.NONE);
             if (resultSet.isPresent()) {
                 currentResultSet = resultSet.get();
                 return true;
@@ -98,7 +98,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public RelationalResultSet executeQuery(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.none());
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.NONE);
             if (resultSet.isPresent()) {
                 return resultSet.get();
             } else {
@@ -113,7 +113,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public int executeUpdate(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.none());
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.NONE);
             if (resultSet.isEmpty()) {
                 if (getConnection().getAutoCommit()) {
                     getConnection().commit();

@@ -66,7 +66,7 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
 
     @Override
     public void beforeEach(ExtensionContext context) throws RelationalException, SQLException {
-        Options opt = options == null ? Options.none() : options;
+        Options opt = options == null ? Options.NONE : options;
         connection = Relational.connect(connFactory.get(), opt);
         connection.beginTransaction();
         if (schema != null) {

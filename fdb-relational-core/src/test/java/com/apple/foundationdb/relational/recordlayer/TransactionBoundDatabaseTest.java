@@ -55,7 +55,7 @@ public class TransactionBoundDatabaseTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connRule = new RelationalConnectionRule(dbRule::getConnectionUri)
-            .withOptions(Options.none())
+            .withOptions(Options.NONE)
             .withSchema("testSchema");
 
     @Test
@@ -70,7 +70,7 @@ public class TransactionBoundDatabaseTest {
                 // connect to a TransactionBoundDatabase
                 EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine();
                 EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
-                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.none())) {
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
                     conn.setSchema("testSchema");
                     try (RelationalStatement statement = conn.createStatement()) {
                         Message record = statement.getDataBuilder("RestaurantRecord")
@@ -81,7 +81,7 @@ public class TransactionBoundDatabaseTest {
                     }
 
                     try (RelationalStatement statement = conn.createStatement()) {
-                        try (RelationalResultSet resultSet = statement.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(), Options.none())) {
+                        try (RelationalResultSet resultSet = statement.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(), Options.NONE)) {
                             Assertions.assertThat(resultSet.next()).isTrue();
                             Assertions.assertThat(resultSet.getString("name")).isEqualTo("FOO");
                             Assertions.assertThat(resultSet.getLong("rest_no")).isEqualTo(42L);

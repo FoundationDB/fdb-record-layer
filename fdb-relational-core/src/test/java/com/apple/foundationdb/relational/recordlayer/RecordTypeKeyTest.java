@@ -53,7 +53,7 @@ public class RecordTypeKeyTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withOptions(Options.none())
+            .withOptions(Options.NONE)
             .withSchema("testSchema");
 
     @RegisterExtension
@@ -81,7 +81,7 @@ public class RecordTypeKeyTest {
         TableScan scan = TableScan.newBuilder()
                 .withTableName("RestaurantReview")
                 .build();
-        try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.none())) {
+        try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.NONE)) {
             // Only 1 RestaurantRecord is expected to be returned
             RelationalAssertions.assertThat(resultSet).hasExactly(new ArrayRow(new Object[]{12345L, 4L}));
         }
@@ -104,7 +104,7 @@ public class RecordTypeKeyTest {
                 .setEndKey("reviewer", review.getReviewer() + 1)
                 .build();
         // Scan is expected to rejected because it uses fields which are not included in primary key
-        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> statement.executeScan(scan, Options.none()));
+        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> statement.executeScan(scan, Options.NONE));
         Assertions.assertEquals("Unknown keys for primary key of <RestaurantReview>, unknown keys: <REVIEWER>", exception.getMessage());
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
     }
@@ -118,7 +118,7 @@ public class RecordTypeKeyTest {
 
         try (final RelationalResultSet rrs = statement.executeGet("RestaurantTag",
                 new KeySet().setKeyColumn("tag", tag.getTag()),
-                Options.none())) {
+                Options.NONE)) {
             RelationalAssertions.assertThat(rrs).hasExactly(new ArrayRow(new Object[]{
                     tag.getTag(),
                     (long) tag.getWeight()

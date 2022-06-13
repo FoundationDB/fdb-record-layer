@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 @ExcludeFromJacocoGeneratedReport
 public interface RelationalDriver {
     default RelationalConnection connect(@Nonnull URI url) throws RelationalException {
-        return connect(url, null, TransactionConfig.DEFAULT, Options.none());
+        return connect(url, null, TransactionConfig.DEFAULT, Options.NONE);
     }
 
     default RelationalConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {

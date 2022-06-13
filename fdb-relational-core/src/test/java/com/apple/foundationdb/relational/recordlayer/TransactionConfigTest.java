@@ -51,7 +51,7 @@ public class TransactionConfigTest {
 
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.beginTransaction(testTransactionConfig());
             conn.setSchema("testSchema");
             try (RelationalStatement s = conn.createStatement()) {

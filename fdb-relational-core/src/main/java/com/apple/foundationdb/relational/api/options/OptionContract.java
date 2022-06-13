@@ -1,5 +1,5 @@
 /*
- * ConnectCommand.java
+ * OptionContract.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,31 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.cli;
+package com.apple.foundationdb.relational.api.options;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import picocli.CommandLine;
-
-import java.net.URI;
-import java.util.List;
-
-/**
- * Command that establishes a connection to the database.
- */
-@CommandLine.Command(name = "connect", description = "Connects to a database")
-public class ConnectCommand extends Command {
-
-    @CommandLine.Parameters(index = "0", description = "database URI")
-    private URI databaseUri;
-
-    public ConnectCommand(DbState dbState) {
-        super(dbState, List.of());
-    }
-
-    @Override
-    protected void callInternal() throws Exception {
-        dbState.setConnection(Relational.connect(databaseUri, Options.NONE));
-    }
+public interface OptionContract {
+    void validate(Options.Name name, Object value) throws RelationalException;
 }

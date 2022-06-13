@@ -57,7 +57,7 @@ public class DdlDatabaseTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 statement.execute("DROP DATABASE '/test_db'");
@@ -67,7 +67,7 @@ public class DdlDatabaseTest {
 
     @Test
     public void canCreateDatabase() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 //create a database
@@ -75,7 +75,7 @@ public class DdlDatabaseTest {
                 statement.executeUpdate("CREATE SCHEMA '/test_db/foo_schem' with template " + baseTemplate.getTemplateName());
             }
         }
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/test_db"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/test_db"), Options.NONE)) {
             conn.setSchema("foo_schem");
             try (Statement statement = conn.createStatement()) {
 
@@ -94,7 +94,7 @@ public class DdlDatabaseTest {
     @Disabled("TODO")
     public void dropDatabaseRemovesFromList() throws Exception {
         final String listCommand = "SHOW DATABASES WITH PREFIX '/test_db'";
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 //create a database
@@ -126,7 +126,7 @@ public class DdlDatabaseTest {
          *
          * This is a drop database test that doesn't require listing the database
          */
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 //create a database
@@ -152,7 +152,7 @@ public class DdlDatabaseTest {
          * a schema inside the database, then it is created.  Then try to create it again, it should fail
          *
          */
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 //create a database

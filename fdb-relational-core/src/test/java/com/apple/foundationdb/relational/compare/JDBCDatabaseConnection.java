@@ -70,7 +70,7 @@ public class JDBCDatabaseConnection implements RelationalConnection {
     @Override
     @Nonnull
     public Options getOptions() {
-        return Options.none();
+        return Options.NONE;
     }
 
     @Override

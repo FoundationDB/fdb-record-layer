@@ -65,7 +65,7 @@ public class QueryTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withOptions(Options.none())
+            .withOptions(Options.NONE)
             .withSchema("testSchema");
 
     @RegisterExtension

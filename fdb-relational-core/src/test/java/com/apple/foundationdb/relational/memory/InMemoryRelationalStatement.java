@@ -80,7 +80,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                 throw new SQLFeatureNotSupportedException("Cannot execute queries in the InMemory Relational version, it's only good for Direct Access API");
             }
 
-            Plan.ExecutionContext executionCtx = Plan.ExecutionContext.of(inMemoryTransactionManager.createTransaction(), Options.none(), relationalConn);
+            Plan.ExecutionContext executionCtx = Plan.ExecutionContext.of(inMemoryTransactionManager.createTransaction(), Options.NONE, relationalConn);
             plan.execute(executionCtx);
             return true;
         } catch (RelationalException e) {
