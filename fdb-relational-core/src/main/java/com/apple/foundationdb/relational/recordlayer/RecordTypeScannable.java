@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -41,8 +41,7 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
     public final ResumableIterator<Row> openScan(@Nonnull Transaction transaction,
                                                  @Nullable Row startKey,
                                                  @Nullable Row endKey,
-                                                 @Nullable Continuation continuation,
-                                                 @Nonnull QueryProperties scanProperties) throws RelationalException {
+                                                 @Nonnull Options options) throws RelationalException {
         TupleRange range;
         if (startKey == null) {
             if (endKey == null) {
@@ -60,8 +59,8 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
 
         FDBRecordStore store = getSchema().loadStore();
         //TODO(bfines) get the type index for this
-        ScanProperties props = QueryPropertiesUtils.getScanProperties(scanProperties);
-        final RecordCursor<CursorT> cursor = openScan(store, range, continuation, props);
+        ScanProperties props = QueryPropertiesUtils.getScanProperties(options);
+        final RecordCursor<CursorT> cursor = openScan(store, range, options.getOption(Options.Name.CONTINUATION), props);
         return RecordLayerIterator.create(cursor, keyValueTransform());
     }
 

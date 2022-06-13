@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.KeySet;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -54,7 +53,7 @@ public class RecordTypeKeyTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withOptions(Options.create())
+            .withOptions(Options.none())
             .withSchema("testSchema");
 
     @RegisterExtension
@@ -69,20 +68,20 @@ public class RecordTypeKeyTest {
                 .build();
         Restaurant.RestaurantTag tag = Restaurant.RestaurantTag.newBuilder().setTag("Awesome Burgers").setWeight(23).build();
         int count = statement.executeInsert("RestaurantReview",
-                statement.getDataBuilder("RestaurantReview").convertMessage(review),
-                Options.create());
+                statement.getDataBuilder("RestaurantReview").convertMessage(review)
+        );
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
         count = statement.executeInsert("RestaurantTag",
-                statement.getDataBuilder("RestaurantTag").convertMessage(tag),
-                Options.create());
+                statement.getDataBuilder("RestaurantTag").convertMessage(tag)
+        );
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
         // Only scan the "RestaurantRecord" table
         TableScan scan = TableScan.newBuilder()
                 .withTableName("RestaurantReview")
                 .build();
-        try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.create())) {
+        try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.none())) {
             // Only 1 RestaurantRecord is expected to be returned
             RelationalAssertions.assertThat(resultSet).hasExactly(new ArrayRow(new Object[]{12345L, 4L}));
         }
@@ -95,8 +94,8 @@ public class RecordTypeKeyTest {
                 .setRating(2)
                 .build();
         int count = statement.executeInsert("RestaurantReview",
-                statement.getDataBuilder("RestaurantReview").convertMessage(review),
-                Options.create());
+                statement.getDataBuilder("RestaurantReview").convertMessage(review)
+        );
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
         TableScan scan = TableScan.newBuilder()
@@ -105,7 +104,7 @@ public class RecordTypeKeyTest {
                 .setEndKey("reviewer", review.getReviewer() + 1)
                 .build();
         // Scan is expected to rejected because it uses fields which are not included in primary key
-        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> statement.executeScan(scan, Options.create()));
+        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> statement.executeScan(scan, Options.none()));
         Assertions.assertEquals("Unknown keys for primary key of <RestaurantReview>, unknown keys: <REVIEWER>", exception.getMessage());
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
     }
@@ -114,12 +113,12 @@ public class RecordTypeKeyTest {
     void canGetWithRecordTypeInPrimaryKey() throws RelationalException, SQLException {
         Restaurant.RestaurantTag tag = Restaurant.RestaurantTag.newBuilder().setTag("culvers").setWeight(23).build();
         int count = statement.executeInsert("RestaurantTag",
-                statement.getDataBuilder("RestaurantTag").convertMessage(tag), Options.create());
+                statement.getDataBuilder("RestaurantTag").convertMessage(tag));
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
         try (final RelationalResultSet rrs = statement.executeGet("RestaurantTag",
                 new KeySet().setKeyColumn("tag", tag.getTag()),
-                Options.create())) {
+                Options.none())) {
             RelationalAssertions.assertThat(rrs).hasExactly(new ArrayRow(new Object[]{
                     tag.getTag(),
                     (long) tag.getWeight()
@@ -134,13 +133,13 @@ public class RecordTypeKeyTest {
                 .setRating(2)
                 .build();
         int count = statement.executeInsert("RestaurantReview",
-                statement.getDataBuilder("RestaurantReview").convertMessage(review),
-                Options.create());
+                statement.getDataBuilder("RestaurantReview").convertMessage(review)
+        );
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
         try (final RelationalResultSet rrs = statement.executeGet("RestaurantReview",
                 new KeySet().setKeyColumn("reviewer", review.getReviewer()),
-                Options.create().withOption(OperationOption.index("record_rt_covering_idx")))) {
+                Options.builder().withOption(Options.Name.INDEX_HINT, "record_rt_covering_idx").build())) {
             RelationalAssertions.assertThat(rrs).hasExactly(new ArrayRow(new Object[]{
                     review.getReviewer(),
                     (long) review.getRating()

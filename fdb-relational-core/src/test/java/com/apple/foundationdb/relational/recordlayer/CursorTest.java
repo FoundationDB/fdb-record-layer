@@ -22,9 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -64,7 +62,7 @@ public class CursorTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withOptions(Options.create())
+            .withOptions(Options.none())
             .withSchema("testSchema");
 
     @RegisterExtension
@@ -76,7 +74,7 @@ public class CursorTest {
         havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
             // 1/2 scan all records
             try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),
-                    Options.create())) {
+                    Options.none())) {
                 assertThat(resultSet).hasExactlyInAnyOrder(records);
             } catch (SQLException | RelationalException e) {
                 throw new RuntimeException(e);
@@ -91,17 +89,15 @@ public class CursorTest {
             List<Row> actual = new ArrayList<>();
             RelationalResultSet resultSet = null;
             try {
-                TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord")
-                        .setScanProperties(QueryProperties.newBuilder().setRowLimit(1).build()).build();
-                resultSet = s.executeScan(scan, Options.create());
+                TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+                resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.ROW_LIMIT, 1).build());
                 while (true) {
                     while (resultSet.next()) {
                         actual.add(resultSet.asRow());
                     }
                     if (!resultSet.getContinuation().atEnd()) {
                         resultSet.close();
-                        resultSet = s.executeScan(scan,
-                                Options.create().withOption(OperationOption.continuation(resultSet.getContinuation())));
+                        resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, resultSet.getContinuation()).build());
                     } else {
                         resultSet.close();
                         break;
@@ -132,7 +128,7 @@ public class CursorTest {
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
-                resultSet = s.executeScan(scan, Options.create());
+                resultSet = s.executeScan(scan, Options.none());
 
                 // get continuation before iterating on the result set (should point to the first record).
                 Continuation beginContinuation = resultSet.getContinuation();
@@ -186,7 +182,7 @@ public class CursorTest {
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
-                resultSet = s.executeScan(scan, Options.create());
+                resultSet = s.executeScan(scan, Options.none());
                 Continuation continuation = resultSet.getContinuation();
                 Assertions.assertNull(continuation.getBytes());
                 Assertions.assertTrue(continuation.atEnd());
@@ -222,7 +218,7 @@ public class CursorTest {
                     }
                 })
                 .collect(Collectors.toList());
-        int count = statement.executeInsert("RestaurantRecord", convertedRecords, Options.create());
+        int count = statement.executeInsert("RestaurantRecord", convertedRecords);
         Assertions.assertEquals(numRecords, count);
 
         // 2/2 test logic follows
@@ -233,7 +229,7 @@ public class CursorTest {
         RelationalResultSet resultSet = null;
         try {
             TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
-            resultSet = s.executeScan(scan, Options.create().withOption(OperationOption.continuation(c)));
+            resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, c).build());
             resultSet.next();
             return resultSet.asRow();
         } catch (SQLException e) {

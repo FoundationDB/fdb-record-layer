@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -66,8 +65,8 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
 
     @Nonnull
     @Override
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException {
-        return statement.executeGet(tableName, key, options, queryProperties);
+    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
+        return statement.executeGet(tableName, key, options);
     }
 
     @Override
@@ -76,13 +75,13 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
-        return statement.executeInsert(tableName, data, options);
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws RelationalException {
+        return statement.executeInsert(tableName, data);
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
-        return statement.executeDelete(tableName, keys, options);
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws RelationalException {
+        return statement.executeDelete(tableName, keys);
     }
 
     @Override

@@ -81,7 +81,7 @@ public class KnownPkGetTest {
     public Connector relationalConnector = new Connector() {
         @Override
         public RelationalConnection connect(URI dbUri) throws RelationalException {
-            return Relational.connect(URI.create("jdbc:embed:" + dbUri.getPath()), Options.create());
+            return Relational.connect(URI.create("jdbc:embed:" + dbUri.getPath()), Options.none());
         }
 
         @Override
@@ -151,7 +151,7 @@ public class KnownPkGetTest {
                     for (String pkCol : pkCols) {
                         keySet.setKeyColumn(pkCol, m.getField(m.getDescriptorForType().findFieldByName(pkCol)));
                     }
-                    return statement.executeGet(fullTableName, keySet, Options.create());
+                    return statement.executeGet(fullTableName, keySet, Options.none());
                 }));
         return queries;
     }

@@ -20,31 +20,25 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Options;
 
 import javax.annotation.Nonnull;
 
 public final class QueryPropertiesUtils {
-    public static ExecuteProperties getExecuteProperties(@Nonnull QueryProperties queryProperties) {
-        ExecuteProperties.Builder builder = ExecuteProperties.newBuilder()
-                .setIsolationLevel(queryProperties.isSnapshotIsolation() ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE)
-                .setSkip(queryProperties.getSkip())
-                .setReturnedRowLimit(queryProperties.getRowLimit())
-                .setTimeLimit(queryProperties.getTimeLimit())
-                .setScannedRecordsLimit(queryProperties.getScannedRecordsLimit())
-                .setScannedBytesLimit(queryProperties.getScannedBytesLimit())
-                .setFailOnScanLimitReached(queryProperties.failOnScanLimitReached())
-                .setDefaultCursorStreamingMode(queryProperties.loadAllRecordsImmediately() ? CursorStreamingMode.WANT_ALL : CursorStreamingMode.ITERATOR);
+    static ExecuteProperties getExecuteProperties(@Nonnull Options options) {
+        ExecuteProperties.Builder builder = ExecuteProperties.newBuilder();
+        Integer rowLimit = options.getOption(Options.Name.ROW_LIMIT);
+        if (rowLimit != null) {
+            builder.setReturnedRowLimit(rowLimit);
+        }
         return builder.build();
     }
 
-    public static ScanProperties getScanProperties(@Nonnull QueryProperties queryProperties) {
-        ExecuteProperties executeProperties = getExecuteProperties(queryProperties);
-        return new ScanProperties(executeProperties, queryProperties.isReverse());
+    public static ScanProperties getScanProperties(@Nonnull Options options) {
+        ExecuteProperties executeProperties = getExecuteProperties(options);
+        return new ScanProperties(executeProperties);
     }
 
     private QueryPropertiesUtils() {

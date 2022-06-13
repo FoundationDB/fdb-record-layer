@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -37,16 +36,15 @@ public interface DirectScannable {
      * @param transaction    the transaction to use.
      * @param startKey       the key to start the scan from(inclusive), or {@code null} if we wish to start at the beginning.
      * @param endKey         the key to end the scan at (exclusive), or {@code null} if we wish to scan all the way to the end.
-     * @param continuation   the continuation that could be used to resume a previous scan.
-     * @param scanProperties the properties for the scan
+     * @param options        the options for the scan
      * @return a Scanner over the range [startKey,endKey), with the specified options and using the specified transaction.
      * @throws RelationalException if something goes wrong during scanning.
      */
     @Nonnull
     ResumableIterator<Row> openScan(@Nonnull Transaction transaction, @Nullable Row startKey, @Nullable Row endKey,
-                                    @Nullable Continuation continuation, @Nonnull QueryProperties scanProperties) throws RelationalException;
+                                    Options options) throws RelationalException;
 
-    Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties queryProperties) throws RelationalException;
+    Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException;
 
     /**
      * The index is the position in the row, and the value is

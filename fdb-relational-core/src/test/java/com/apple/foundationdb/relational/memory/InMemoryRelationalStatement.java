@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -81,7 +80,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                 throw new SQLFeatureNotSupportedException("Cannot execute queries in the InMemory Relational version, it's only good for Direct Access API");
             }
 
-            Plan.ExecutionContext executionCtx = Plan.ExecutionContext.of(inMemoryTransactionManager.createTransaction(), Options.create(), relationalConn);
+            Plan.ExecutionContext executionCtx = Plan.ExecutionContext.of(inMemoryTransactionManager.createTransaction(), Options.none(), relationalConn);
             plan.execute(executionCtx);
             return true;
         } catch (RelationalException e) {
@@ -112,7 +111,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
 
     @Nonnull
     @Override
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException {
+    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
         final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
         if (inMemoryTable == null) {
             throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
@@ -127,7 +126,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws RelationalException {
         final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
         if (inMemoryTable == null) {
             throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
@@ -146,7 +145,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) {
         return 0;
     }
 

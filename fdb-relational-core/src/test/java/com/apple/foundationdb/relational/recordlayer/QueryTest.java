@@ -65,7 +65,7 @@ public class QueryTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withOptions(Options.create())
+            .withOptions(Options.none())
             .withSchema("testSchema");
 
     @RegisterExtension
@@ -305,7 +305,7 @@ public class QueryTest {
 
     private Restaurant.RestaurantRecord insertRestaurantRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName) throws RelationalException {
         Restaurant.RestaurantRecord rec = Restaurant.RestaurantRecord.newBuilder().setRestNo(recordNumber).setName(recordName).setLocation(Restaurant.Location.newBuilder().setAddress("address").build()).build();
-        int cnt = s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(rec), Options.create());
+        int cnt = s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(rec));
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return rec;
     }
@@ -317,7 +317,7 @@ public class QueryTest {
                 .setEncodedBytes(ByteString.copyFrom(blob))
                 .setLocation(Restaurant.Location.newBuilder().setAddress("address"))
                 .build();
-        int cnt = s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(rec), Options.create());
+        int cnt = s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(rec));
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return rec;
     }

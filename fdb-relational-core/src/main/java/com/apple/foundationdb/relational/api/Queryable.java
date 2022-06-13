@@ -70,12 +70,4 @@ public interface Queryable {
      * @return {@code true} if the query is to be planned only, and {@code false} if the query is to be fully executed.
      */
     boolean isExplain();
-
-    /**
-     * Get the Options to use for the query.
-     *
-     * @return the Options for this query.
-     */
-    @Nonnull
-    QueryProperties getQueryOptions();
 }

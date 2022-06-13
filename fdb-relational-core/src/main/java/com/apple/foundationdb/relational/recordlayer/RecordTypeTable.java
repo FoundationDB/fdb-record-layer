@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -74,7 +74,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties queryProperties) throws RelationalException {
+    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
         try {
             final FDBStoredRecord<Message> storedRecord = store.loadRecord(TupleUtils.toFDBTuple(key));

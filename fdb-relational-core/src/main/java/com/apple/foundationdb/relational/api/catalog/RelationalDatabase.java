@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.ConnectionScoped;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -44,11 +43,10 @@ public interface RelationalDatabase extends AutoCloseable {
      * Load the specified schema for the database.
      *
      * @param schemaId the unique id of the schema
-     * @param options  the options for loading.
      * @return a Schema for the specified id.
      * @throws RelationalException if something goes wrong during load
      */
-    DatabaseSchema loadSchema(@Nonnull String schemaId, @Nonnull Options options) throws RelationalException;
+    DatabaseSchema loadSchema(@Nonnull String schemaId) throws RelationalException;
 
     @Nonnull
     ConstantActionFactory getDdlFactory();

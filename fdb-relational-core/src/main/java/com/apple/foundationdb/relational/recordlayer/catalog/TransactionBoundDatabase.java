@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
@@ -55,10 +56,13 @@ import javax.annotation.Nullable;
 public class TransactionBoundDatabase extends AbstractDatabase {
     FDBRecordStore store;
     URI uri;
+    @Nonnull
+    final Options options;
 
-    public TransactionBoundDatabase(URI uri) {
+    public TransactionBoundDatabase(URI uri, @Nonnull Options options) {
         super(NoOpConstantActionFactory.INSTANCE, NoOpQueryFactory.INSTANCE);
         this.uri = uri;
+        this.options = options;
     }
 
     @Override
@@ -67,7 +71,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
             throw new RelationalException("TransactionBoundDatabase.connect expects a RecordStoreAndRecordContextTransaction", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
         }
         store = ((RecordStoreAndRecordContextTransaction) transaction).getRecordStore();
-        EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, HollowStoreCatalog.INSTANCE, ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction());
+        EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, HollowStoreCatalog.INSTANCE, ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction(), options);
         setConnection(connection);
         return connection;
     }

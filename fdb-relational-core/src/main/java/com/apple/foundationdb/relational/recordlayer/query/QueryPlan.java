@@ -136,7 +136,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
             final TypeRepository.Builder builder = TypeRepository.newBuilder();
             usedTypes.forEach(builder::addTypeIfNeeded);
-            try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName, context.options)) {
+            try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
                 final FDBRecordStore store = recordLayerSchema.loadStore();
                 final var planContext = PlanContext.Builder.create().fromDatabase(conn.getRecordLayerDatabase()).fromRecordStore(store).build();
                 recordQueryPlan = generatePhysicalPlan(query, planContext);

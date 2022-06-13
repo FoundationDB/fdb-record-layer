@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.cli;
 
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 
@@ -48,7 +47,7 @@ public class InsertInto extends CommandWithConnectionAndSchema {
         try (RelationalStatement s = dbState.getConnection().createStatement()) {
             Iterable<Message> data = Utils.jsonToDynamicMessage(json, s.getDataBuilder(table));
 
-            s.executeInsert(table.substring(Math.max(table.lastIndexOf('.'), table.lastIndexOf('$')) + 1), data, Options.create());
+            s.executeInsert(table.substring(Math.max(table.lastIndexOf('.'), table.lastIndexOf('$')) + 1), data);
         } catch (UncheckedRelationalException uve) {
             throw uve.unwrap();
         }

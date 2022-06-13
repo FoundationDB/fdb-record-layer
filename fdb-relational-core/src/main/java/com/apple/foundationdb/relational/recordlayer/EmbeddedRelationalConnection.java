@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
@@ -47,15 +48,19 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     private boolean autoCommit = true;
     private boolean usingAnExistingTransaction;
     private final TransactionManager txnManager;
+    @Nonnull
+    private final Options options;
 
     public EmbeddedRelationalConnection(@Nonnull AbstractDatabase frl,
                                       @Nonnull StoreCatalog backingCatalog,
-                                      @Nullable Transaction transaction) {
+                                      @Nullable Transaction transaction,
+                                      @Nonnull Options options) {
         this.frl = frl;
         this.txnManager = frl.getTransactionManager();
         this.transaction = transaction;
         this.usingAnExistingTransaction = transaction != null;
         this.backingCatalog = backingCatalog;
+        this.options = options;
     }
 
     @Override
@@ -173,6 +178,12 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
+    }
+
+    @Override
+    @Nonnull
+    public Options getOptions() {
+        return options;
     }
 
     boolean inActiveTransaction() {

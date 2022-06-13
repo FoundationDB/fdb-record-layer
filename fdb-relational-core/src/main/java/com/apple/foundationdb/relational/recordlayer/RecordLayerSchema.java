@@ -24,8 +24,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.api.OperationOption;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -59,11 +57,11 @@ public class RecordLayerSchema implements DatabaseSchema {
      */
     private final Map<String, RecordTypeTable> loadedTables = new HashMap<>();
 
-    public RecordLayerSchema(@Nonnull String schemaName, AbstractDatabase database, EmbeddedRelationalConnection connection, @Nonnull Options options) throws RelationalException {
+    public RecordLayerSchema(@Nonnull String schemaName, AbstractDatabase database, EmbeddedRelationalConnection connection) throws RelationalException {
         this.schemaName = schemaName;
         this.db = database;
         this.conn = connection;
-        this.existenceCheck = getExistenceCheckGivenOptions(options);
+        this.existenceCheck = FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS;
     }
 
     @Override
@@ -72,7 +70,7 @@ public class RecordLayerSchema implements DatabaseSchema {
         return schemaName;
     }
 
-    @Nonnull public Table loadTable(@Nonnull String tableName, @Nonnull Options options) throws RelationalException {
+    @Nonnull public Table loadTable(@Nonnull String tableName) throws RelationalException {
         //TODO(bfines) load the record type index, rather than just the generic type, then
         // return an index object instead
         RecordTypeTable t = loadedTables.get(tableName.toUpperCase(Locale.ROOT));
@@ -115,26 +113,6 @@ public class RecordLayerSchema implements DatabaseSchema {
             currentStore = null;
         });
         return currentStore;
-    }
-
-    private FDBRecordStoreBase.StoreExistenceCheck getExistenceCheckGivenOptions(@Nonnull Options options) throws RelationalException {
-        final OperationOption.SchemaExistenceCheck existenceCheck = options.getOption(OperationOption.SCHEMA_EXISTENCE_CHECK,
-                OperationOption.SchemaExistenceCheck.ERROR_IF_NOT_EXISTS);
-        switch (existenceCheck) {
-            case NONE:
-                return FDBRecordStoreBase.StoreExistenceCheck.NONE;
-            case ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES:
-                return FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES;
-            case ERROR_IF_NO_INFO_AND_NOT_EMPTY:
-                return FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY;
-            case ERROR_IF_EXISTS:
-                return FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS;
-            case ERROR_IF_NOT_EXISTS:
-                return FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS;
-            default:
-                throw new RelationalException("Invalid StoreExistenceCheck in options: <" + existenceCheck + ">",
-                        ErrorCode.INVALID_PARAMETER);
-        }
     }
 
     public DynamicMessageBuilder getDataBuilder(String typeName) throws RelationalException {

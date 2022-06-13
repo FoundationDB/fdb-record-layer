@@ -122,15 +122,15 @@ public class RelationalDataLoaderTest {
                 catalog.createTables(s);
                 try {
 
-                    int count = s.executeInsert("RestaurantRecord", Collections.singleton(record).iterator(), Options.create());
+                    int count = s.executeInsert("RestaurantRecord", Collections.singleton(record).iterator());
                     System.out.println(count);
-                    count = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer).iterator(), Options.create());
+                    count = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer).iterator());
                     System.out.println(count);
 
                     KeySet ks = new KeySet();
                     //                    ks.setKeyColumn("name", "'Scott Fines'");
                     ks.setKeyColumn("rest_no", 2L);
-                    try (final RelationalResultSet rrs = s.executeGet("RestaurantRecord", ks, Options.create())) {
+                    try (final RelationalResultSet rrs = s.executeGet("RestaurantRecord", ks, Options.none())) {
                         if (!rrs.next()) {
                             System.out.println("NOT FOUND!");
                         }

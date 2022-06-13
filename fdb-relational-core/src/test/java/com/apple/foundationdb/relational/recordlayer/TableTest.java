@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.KeySet;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -61,7 +60,7 @@ public class TableTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withOptions(Options.create())
+            .withOptions(Options.none())
             .withSchema("testSchema");
 
     @RegisterExtension
@@ -75,7 +74,7 @@ public class TableTest {
         KeySet keys = new KeySet()
                 .setKeyColumn("rest_no", inserted.getRestNo());
 
-        try (final RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.create())) {
+        try (final RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.none())) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(inserted));
         }
     }
@@ -86,16 +85,16 @@ public class TableTest {
 
         KeySet keys = new KeySet().setKeyColumn("rest_no", inserted.getRestNo());
 
-        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.create())) {
+        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.none())) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(inserted));
         }
 
         // Now delete the record and check again
-        int recordsDeleted = statement.executeDelete("RestaurantRecord", Collections.singleton(keys), Options.create());
+        int recordsDeleted = statement.executeDelete("RestaurantRecord", Collections.singleton(keys));
         Assertions.assertEquals(1, recordsDeleted, "Incorrect number of records deletes");
 
         // Now it shouldn't be there
-        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.create())) {
+        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.none())) {
             RelationalAssertions.assertThat(resultSet).hasNoNextRow();
         }
     }
@@ -106,16 +105,16 @@ public class TableTest {
 
         KeySet keys = new KeySet().setKeyColumn("rest_no", inserted.getRestNo());
 
-        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.create())) {
+        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.none())) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(inserted));
         }
 
         // Pretend to delete the record
-        int recordsDeleted = statement.executeDelete("RestaurantRecord", List.of(), Options.create());
+        int recordsDeleted = statement.executeDelete("RestaurantRecord", List.of());
         Assertions.assertEquals(0, recordsDeleted, "Incorrect number of records deletes");
 
         // It's still there
-        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.create())) {
+        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.none())) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(inserted));
         }
     }
@@ -126,18 +125,18 @@ public class TableTest {
         List<KeySet> keys = new ArrayList<>();
         for (Restaurant.RestaurantRecord record : inserted) {
             keys.add(new KeySet().setKeyColumn("rest_no", record.getRestNo()));
-            try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys.get(keys.size() - 1), Options.create())) {
+            try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys.get(keys.size() - 1), Options.none())) {
                 RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(record));
             }
         }
 
         //now delete the record and check again
-        final int recordsDeleted = statement.executeDelete("RestaurantRecord", keys, Options.create());
+        final int recordsDeleted = statement.executeDelete("RestaurantRecord", keys);
         Assertions.assertEquals(2, recordsDeleted, "Incorrect number of records deletes");
 
         //now it shouldn't be there
         for (KeySet key : keys) {
-            try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", key, Options.create())) {
+            try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", key, Options.none())) {
                 RelationalAssertions.assertThat(resultSet).hasNoNextRow();
             }
         }
@@ -150,7 +149,7 @@ public class TableTest {
         KeySet keys = new KeySet().setKeyColumn("name", r.getName());
 
         try (final RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys,
-                Options.create().withOption(OperationOption.index("record_name_idx")))) {
+                Options.builder().withOption(Options.Name.INDEX_HINT, "record_name_idx").build())) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r));
         }
     }
@@ -162,7 +161,7 @@ public class TableTest {
         KeySet keys = new KeySet().setKeyColumn("rest_no", r.getRestNo());
 
         try (final RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys,
-                Options.create().withOption(OperationOption.index("record_type_covering")))) {
+                Options.builder().withOption(Options.Name.INDEX_HINT, "record_type_covering").build())) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r));
         }
     }
@@ -173,7 +172,10 @@ public class TableTest {
 
         KeySet keys = new KeySet().setKeyColumn("name", r.getName());
 
-        assertThatThrownBy(() -> statement.executeGet("RestaurantRecord", keys, Options.create().withOption(OperationOption.index("RestaurantRecord$NOT_AN_INDEX"))))
+        assertThatThrownBy(() -> statement.executeGet(
+                "RestaurantRecord",
+                keys,
+                Options.builder().withOption(Options.Name.INDEX_HINT, "RestaurantRecord$NOT_AN_INDEX").build()))
                 .isInstanceOf(RelationalException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.UNKNOWN_INDEX);
@@ -189,7 +191,7 @@ public class TableTest {
                     .setStartKey("rest_no", r.getRestNo())
                     .setEndKey("rest_no", r.getRestNo() + 1)
                     .build();
-            try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.create())) {
+            try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.none())) {
                 RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r));
             }
         } catch (Throwable t) {
@@ -210,7 +212,7 @@ public class TableTest {
         KeySet keys = new KeySet()
                 .setKeyColumn("rest_no", r.getRestNo());
 
-        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.create())) {
+        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.none())) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r));
         }
     }
@@ -223,7 +225,7 @@ public class TableTest {
         KeySet keys = new KeySet()
                 .setKeyColumn("name", r.getName());
         try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys,
-                Options.create().withOption(OperationOption.index("record_name_idx")))) {
+                Options.builder().withOption(Options.Name.INDEX_HINT, "record_name_idx").build())) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r));
         }
     }
@@ -238,7 +240,7 @@ public class TableTest {
                 .setStartKey("rest_no", r.getRestNo())
                 .setEndKey("rest_no", r.getRestNo() + 1)
                 .build();
-        try (RelationalResultSet resultSet = statement.executeScan(scan, Options.create())) {
+        try (RelationalResultSet resultSet = statement.executeScan(scan, Options.none())) {
             RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r));
         }
     }
@@ -253,7 +255,7 @@ public class TableTest {
                 .setStartKey("name", r.getName())
                 .setEndKey("name", r.getName() + 1)
                 .build();
-        try (RelationalResultSet resultSet = statement.executeScan(scan, Options.create().withOption(OperationOption.index("record_name_idx")))) {
+        try (RelationalResultSet resultSet = statement.executeScan(scan, Options.builder().withOption(Options.Name.INDEX_HINT, "record_name_idx").build())) {
             //because we are scanning the index only, the returned result only contains what's in the record_name_idx (name)
             RelationalAssertions.assertThat(resultSet).hasExactly(Map.of("name", r.getName()));
         }
@@ -266,12 +268,12 @@ public class TableTest {
         //now delete the record
         KeySet keys = new KeySet()
                 .setKeyColumn("rest_no", r.getRestNo());
-        int numDeleted = statement.executeDelete("RestaurantRecord", Collections.singleton(keys), Options.create());
+        int numDeleted = statement.executeDelete("RestaurantRecord", Collections.singleton(keys));
         Assertions.assertEquals(1, numDeleted, "Incorrect number of keys deleted");
 
         //now see that it's not there any more
 
-        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.create())) {
+        try (RelationalResultSet resultSet = statement.executeGet("RestaurantRecord", keys, Options.none())) {
             RelationalAssertions.assertThat(resultSet).hasNoNextRow();
         }
     }
@@ -279,7 +281,7 @@ public class TableTest {
     private Restaurant.RestaurantRecord insertRestaurantRecord(RelationalStatement s) throws RelationalException {
         long id = System.currentTimeMillis();
         Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
-        int insertCount = s.executeInsert("RestaurantRecord", statement.getDataBuilder("RestaurantRecord").convertMessage(r), Options.create());
+        int insertCount = s.executeInsert("RestaurantRecord", statement.getDataBuilder("RestaurantRecord").convertMessage(r));
         Assertions.assertEquals(1, insertCount, "Did not count insertions correctly!");
         return r;
     }

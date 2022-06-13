@@ -767,7 +767,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(ctx.schemaId().getText());
         final String templateId = ParserUtils.unquoteString(ctx.templateId().getText());
         return ProceduralPlan.of(constantActionFactory.getCreateSchemaConstantAction(dbAndSchema.getLeft().orElse(dbUri),
-                dbAndSchema.getRight(), templateId, Options.create()));
+                dbAndSchema.getRight(), templateId, Options.none()));
     }
 
     @Override
@@ -778,7 +778,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         ctx.indexDefinition().forEach(s -> s.accept(this));
         typingContext.addAllToTypeRepository();
         SchemaTemplate schemaTemplate = typingContext.generateSchemaTemplate(schemaTemplateName);
-        return ProceduralPlan.of(constantActionFactory.getCreateSchemaTemplateConstantAction(schemaTemplate, Options.create()));
+        return ProceduralPlan.of(constantActionFactory.getCreateSchemaTemplateConstantAction(schemaTemplate, Options.none()));
     }
 
     @Override
@@ -786,7 +786,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var dbName = ParserUtils.unquoteString(ctx.path().getText());
         Assert.notNullUnchecked(dbName);
         Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
-        return ProceduralPlan.of(constantActionFactory.getCreateDatabaseConstantAction(URI.create(dbName), Options.create()));
+        return ProceduralPlan.of(constantActionFactory.getCreateDatabaseConstantAction(URI.create(dbName), Options.none()));
     }
 
     @Override
@@ -842,19 +842,19 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var dbName = ParserUtils.unquoteString(ctx.path().getText());
         Assert.notNullUnchecked(dbName);
         Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
-        return ProceduralPlan.of(constantActionFactory.getDropDatabaseConstantAction(URI.create(dbName), Options.create()));
+        return ProceduralPlan.of(constantActionFactory.getDropDatabaseConstantAction(URI.create(dbName), Options.none()));
     }
 
     @Override
     public ProceduralPlan visitDropSchemaTemplateStatement(RelationalParser.DropSchemaTemplateStatementContext ctx) {
-        return ProceduralPlan.of(constantActionFactory.getDropSchemaTemplateConstantAction(ctx.uid().getText(), Options.create()));
+        return ProceduralPlan.of(constantActionFactory.getDropSchemaTemplateConstantAction(ctx.uid().getText(), Options.none()));
     }
 
     @Override
     public ProceduralPlan visitDropSchemaStatement(RelationalParser.DropSchemaStatementContext ctx) {
         final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(ctx.uid().getText());
         Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), String.format("invalid database identifier in '%s'", ctx.uid().getText()));
-        return ProceduralPlan.of(constantActionFactory.getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.create()));
+        return ProceduralPlan.of(constantActionFactory.getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.none()));
     }
 
     /////// administration statements //////////////

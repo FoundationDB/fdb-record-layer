@@ -85,33 +85,31 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
                         .build(),
                 dbName);
 
-        try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.none())) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(
                         restaurantRecordTable,
-                        Collections.singleton(newRestaurantRecord(42, stmt)),
-                        com.apple.foundationdb.relational.api.Options.create());
+                        Collections.singleton(newRestaurantRecord(42, stmt)));
             }
         }
     }
 
     @Benchmark
     public void singleWrite(Blackhole bh) throws SQLException, RelationalException {
-        try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.none())) {
             dbConn.setSchema(singleWriteSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 bh.consume(stmt.executeInsert(
                         restaurantRecordTable,
-                        Collections.singleton(newRestaurantRecord(stmt)),
-                        com.apple.foundationdb.relational.api.Options.create()));
+                        Collections.singleton(newRestaurantRecord(stmt))));
             }
         }
     }
 
     @Benchmark
     public void singlePkRead(Blackhole bh) throws SQLException, RelationalException {
-        try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.none())) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("SELECT * FROM RestaurantRecord WHERE rest_no = 42")) {
@@ -124,7 +122,7 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void singleNonPkRead(Blackhole bh) throws SQLException, RelationalException {
-        try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.create())) {
+        try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.none())) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("SELECT * from RestaurantRecord WHERE name = 'testName'")) {

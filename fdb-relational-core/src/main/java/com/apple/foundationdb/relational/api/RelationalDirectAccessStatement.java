@@ -1,0 +1,127 @@
+/*
+ * RelationalDirectAccessStatement.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.api;
+
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import com.google.protobuf.Message;
+
+import java.util.Collections;
+import java.util.Iterator;
+
+import javax.annotation.Nonnull;
+
+public interface RelationalDirectAccessStatement {
+    /**
+     * Execute a multi-row scan against the database, returning a {@link RelationalResultSet} containing
+     * the results of the scan.
+     *
+     * <p>
+     * The caller can specify some execution-level options, which can be used to control the execution path
+     * that the execution. Specifically, the following options are honored:
+     * <ul>
+     *     <li>use.index: the name of a specific index to use during scan</li>
+     *     <li>continuation: The value of the continuation to use for the scan</li>
+     * </ul>
+     *
+     * @param scan         the definition of the can to be executed.
+     * @param options      options that can be used to configure the scan.
+     * @return a ResultSet containing the entire record in the underlying scan.
+     * @throws RelationalException if something goes wrong. Use the Error code to determine exactly what.
+     */
+    @Nonnull
+    RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException;
+
+    /**
+     * Get a single record from the system by key.
+     * <p>
+     * This constructs a primary key from the specified KeySet according to the table definition, and then performs
+     * a single-row lookup. This is equivalent to executing a scan on the range bounds, but can potentially be
+     * more efficiently executed.
+     *
+     * @param tableName the name of the table to get data from
+     * @param key       The constructor for the key to fetch by
+     * @param options   the options for the GET operation.
+     * @return a ResultSet containing the entire record from the resulting GET, either 1 row or 0. If the row does
+     * not exist the ResultSet will be empty
+     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     */
+    @Nonnull
+    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException;
+
+    // syntactic sugar to make it easier to insert a single record
+    default int executeInsert(@Nonnull String tableName, Message message) throws RelationalException {
+        return executeInsert(tableName, Collections.singleton(message).iterator());
+    }
+
+    /**
+     * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
+     * <p>
+     * Equivalent to {@link #executeInsert(String, Iterator)}, but avoids the extra {@code .iterator()} call
+     * for a slightly nicer user experience.
+     *
+     * @param tableName the name of the table to insert into.
+     * @param data      the data to insert.
+     * @return the number of records inserted.
+     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     */
+    default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<? extends Message> data) throws RelationalException {
+        return executeInsert(tableName, data.iterator());
+    }
+
+    /**
+     * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
+     *
+     * @param tableName the name of the table to insert into.
+     * @param data      the data to insert.
+     * @return the number of records inserted.
+     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     */
+    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws RelationalException;
+
+    DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException;
+
+    /**
+     * Delete one or more records from the specified table, specified by key, if such records exist.
+     * <p>
+     * equivalent to {@link #executeDelete(String, Iterator)}, but with a marginally nicer user experience
+     * of not needing to call {@code .iterator()}
+     * </p>
+     *
+     * @param tableName the name of the table to delete from
+     * @param keys      the keys to delete
+     * @return the number of records inserted
+     * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
+     */
+    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys) throws RelationalException {
+        return executeDelete(tableName, keys.iterator());
+    }
+
+    /**
+     * Delete one or more records from the specified table, specified by key, if such records exist.
+     *
+     * @param tableName the name of the table to delete from
+     * @param keys      the keys to delete
+     * @return the number of records inserted
+     * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
+     */
+    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws RelationalException;
+}

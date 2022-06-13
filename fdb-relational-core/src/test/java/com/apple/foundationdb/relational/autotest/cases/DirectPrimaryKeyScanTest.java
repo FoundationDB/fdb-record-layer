@@ -79,7 +79,7 @@ public class DirectPrimaryKeyScanTest {
     public Connector relationalConnector = new Connector() {
         @Override
         public RelationalConnection connect(URI dbUri) throws RelationalException {
-            return Relational.connect(URI.create("jdbc:embed:" + dbUri.getPath()), Options.create());
+            return Relational.connect(URI.create("jdbc:embed:" + dbUri.getPath()), Options.none());
         }
 
         @Override
@@ -153,7 +153,7 @@ public class DirectPrimaryKeyScanTest {
                             .setStartKeys(keySet)
                             .setEndKeys(keySet)
                             .build();
-                    return statement.executeScan(scan, Options.create());
+                    return statement.executeScan(scan, Options.none());
                 }));
         return queries;
     }

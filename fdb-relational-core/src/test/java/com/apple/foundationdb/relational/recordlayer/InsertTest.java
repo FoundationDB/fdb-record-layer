@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.KeySet;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
@@ -58,38 +57,38 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.none())) {
             conn.setSchema("testSchema");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
-                int inserted = s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(record), Options.create());
+                int inserted = s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(record));
                 Assertions.assertEquals(1, inserted, "Did not insert properly!");
 
                 Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setName("reviewerName" + id).setId(id - 1).build();
-                inserted = s.executeInsert("RestaurantReviewer", s.getDataBuilder("RestaurantReviewer").convertMessage(reviewer), Options.create());
+                inserted = s.executeInsert("RestaurantReviewer", s.getDataBuilder("RestaurantReviewer").convertMessage(reviewer));
                 Assertions.assertEquals(1, inserted, "Did not insert reviewers properly!");
 
                 //now prove we can get them back out
-                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumns(Map.of("rest_no", record.getRestNo())), Options.create())) {
+                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumns(Map.of("rest_no", record.getRestNo())), Options.none())) {
                     RelationalAssertions.assertThat(relationalResultSet).hasExactly(Map.of("name", record.getName(), "rest_no", record.getRestNo()));
                 }
 
-                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", reviewer.getId()), Options.create())) {
+                try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", reviewer.getId()), Options.none())) {
                     RelationalAssertions.assertThat(relationalResultSet).hasExactly(Map.of("name", reviewer.getName(), "id", reviewer.getId()));
                 }
 
                 //now make sure that they don't show up in the other table
                 try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord",
                         new KeySet().setKeyColumn("name", reviewer.getName()),
-                        Options.create().withOption(OperationOption.index("record_name_idx")))) {
+                        Options.builder().withOption(Options.Name.INDEX_HINT, "record_name_idx").build())) {
                     RelationalAssertions.assertThat(relationalResultSet).hasNoNextRow();
                 }
 
                 try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantReviewer",
                         new KeySet().setKeyColumn("name", record.getName()),
-                        Options.create().withOption(OperationOption.index("reviewer_name_idx")))) {
+                        Options.builder().withOption(Options.Name.INDEX_HINT, "reviewer_name_idx").build())) {
                     RelationalAssertions.assertThat(relationalResultSet).hasNoNextRow();
                 }
 
@@ -99,7 +98,7 @@ public class InsertTest {
                  * actually OK, because wwhat we really care about is that the scan doesn't return data from
                  * other tables. So all we do here is check the returned message type
                  */
-                try (final RelationalResultSet recordScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(), Options.create())) {
+                try (final RelationalResultSet recordScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(), Options.none())) {
                     Assertions.assertNotNull(recordScan, "Did not return a valid result set!");
 
                     while (recordScan.next()) {
@@ -112,7 +111,7 @@ public class InsertTest {
                     }
                 }
 
-                try (final RelationalResultSet reviewerScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantReviewer").build(), Options.create())) {
+                try (final RelationalResultSet reviewerScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantReviewer").build(), Options.none())) {
                     Assertions.assertNotNull(reviewerScan, "Did not return a valid result set!");
                     while (reviewerScan.next()) {
                         Assertions.assertDoesNotThrow(() -> {
@@ -133,14 +132,14 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.none())) {
             conn.setSchema("testSchema");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
                 RelationalAssertions.assertThrows(
-                        () -> s.executeInsert("RestaurantReviewer", Collections.singleton(record), Options.create()))
+                        () -> s.executeInsert("RestaurantReviewer", Collections.singleton(record)))
                         .hasErrorCode(ErrorCode.INVALID_PARAMETER);
             }
         }
@@ -151,14 +150,14 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.none())) {
             conn.setSchema("doesNotExist");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
                 RelationalAssertions.assertThrows(() -> {
-                    int inserted = s.executeInsert("RestaurantReviewer", Collections.singleton(record), Options.create());
+                    int inserted = s.executeInsert("RestaurantReviewer", Collections.singleton(record));
                     Assertions.fail("did not throw an exception on insertion(inserted=" + inserted + ")");
                 }).hasErrorCode(ErrorCode.SCHEMA_NOT_FOUND);
             }

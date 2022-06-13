@@ -99,6 +99,9 @@ public interface RelationalConnection extends java.sql.Connection {
      */
     void beginTransaction(@Nullable TransactionConfig config) throws RelationalException;
 
+    @Nonnull
+    Options getOptions();
+
     /* Unsupported SQL features*/
     @Override
     @ExcludeFromJacocoGeneratedReport

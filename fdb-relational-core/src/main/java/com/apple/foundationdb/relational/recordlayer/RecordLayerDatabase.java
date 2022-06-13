@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
@@ -60,6 +61,8 @@ public class RecordLayerDatabase extends AbstractDatabase {
 
     private final SerializerRegistry serializerRegistry;
     private final KeySpacePath ksPath;
+    @Nonnull
+    private final Options options;
 
     public RecordLayerDatabase(FdbConnection fdbDb,
                                RecordMetaDataStore metaDataStore,
@@ -69,7 +72,8 @@ public class RecordLayerDatabase extends AbstractDatabase {
                                SerializerRegistry serializerRegistry,
                                KeySpacePath dbPathPrefix,
                                @Nonnull final ConstantActionFactory constantActionFactory,
-                               @Nonnull final DdlQueryFactory ddlQueryFactory) {
+                               @Nonnull final DdlQueryFactory ddlQueryFactory,
+                               @Nonnull Options options) {
         super(constantActionFactory, ddlQueryFactory);
         this.fdbDb = fdbDb;
         this.metaDataStore = new CachedMetaDataStore(metaDataStore);
@@ -78,6 +82,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
         this.formatVersion = formatVersion;
         this.serializerRegistry = serializerRegistry;
         this.ksPath = dbPathPrefix;
+        this.options = options;
     }
 
     @Override
@@ -85,7 +90,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
         if (transaction != null && !(transaction instanceof RecordContextTransaction)) {
             throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
         }
-        EmbeddedRelationalConnection conn = new EmbeddedRelationalConnection(this, storeCatalog, transaction);
+        EmbeddedRelationalConnection conn = new EmbeddedRelationalConnection(this, storeCatalog, transaction, options);
         setConnection(conn);
         return conn;
     }

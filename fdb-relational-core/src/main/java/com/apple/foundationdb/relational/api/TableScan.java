@@ -34,14 +34,10 @@ public class TableScan {
     private final KeySet startKey;
     private final KeySet endKey;
 
-    private final QueryProperties scanProperties;
-
-    public TableScan(String tableName, KeySet startKey, KeySet endKey,
-                     QueryProperties scanProperties) {
+    public TableScan(String tableName, KeySet startKey, KeySet endKey) {
         this.tableName = tableName;
         this.startKey = startKey;
         this.endKey = endKey;
-        this.scanProperties = scanProperties;
     }
 
     public static Builder newBuilder() {
@@ -60,15 +56,10 @@ public class TableScan {
         return endKey.toMap();
     }
 
-    public QueryProperties getScanProperties() {
-        return scanProperties;
-    }
-
     public static class Builder {
         private String tableName;
         private KeySet startKey;
         private KeySet endKey;
-        private QueryProperties scanProperties = QueryProperties.DEFAULT;
 
         public Builder withTableName(String tableName) {
             this.tableName = tableName;
@@ -91,18 +82,13 @@ public class TableScan {
             return this;
         }
 
-        public Builder setScanProperties(QueryProperties scanProperties) {
-            this.scanProperties = scanProperties;
-            return this;
-        }
-
         public TableScan build() {
             Preconditions.checkNotNull(this.tableName, "Cannot create a scan without a table name");
 
             KeySet sk = startKey == null ? KeySet.EMPTY : startKey;
             KeySet ek = endKey == null ? KeySet.EMPTY : endKey;
 
-            return new TableScan(tableName, sk, ek, scanProperties);
+            return new TableScan(tableName, sk, ek);
         }
 
         public Builder setStartKeys(KeySet params) {

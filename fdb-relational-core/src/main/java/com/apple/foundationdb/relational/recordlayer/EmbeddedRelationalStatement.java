@@ -23,9 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
-import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -66,7 +64,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query,
                                                              @Nonnull Options options) throws RelationalException, SQLException {
         ensureTransactionActive();
-        final FDBRecordStore store = conn.getRecordLayerDatabase().loadSchema(conn.getSchema(), Options.create()).loadStore();
+        final FDBRecordStore store = conn.getRecordLayerDatabase().loadSchema(conn.getSchema()).loadStore();
         final var planContext = PlanContext.Builder.create().fromRecordStore(store).fromDatabase(conn.getRecordLayerDatabase()).build();
         final Plan<?> plan = Plan.generate(query, planContext);
         final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
@@ -82,7 +80,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public boolean execute(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.create());
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.none());
             if (resultSet.isPresent()) {
                 currentResultSet = resultSet.get();
                 return true;
@@ -100,7 +98,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public RelationalResultSet executeQuery(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.create());
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.none());
             if (resultSet.isPresent()) {
                 return resultSet.get();
             } else {
@@ -115,7 +113,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public int executeUpdate(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.create());
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.none());
             if (resultSet.isEmpty()) {
                 if (getConnection().getAutoCommit()) {
                     getConnection().commit();
@@ -155,40 +153,45 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public @Nonnull
     RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException {
         ensureTransactionActive();
+        options = Options.combine(conn.getOptions(), options);
 
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), scan.getTableName());
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
-        Table table = schema.loadTable(schemaAndTable[1], options);
+        Table table = schema.loadTable(schemaAndTable[1]);
 
-        DirectScannable source = getSourceScannable(options, table);
+        String indexName = options.getOption(Options.Name.INDEX_HINT);
+        DirectScannable source = getSourceScannable(indexName, table);
 
         final KeyBuilder keyBuilder = source.getKeyBuilder();
         Row start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), true, true);
         Row end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), true, true);
 
         return new RecordLayerResultSet(source.getFieldNames(),
-                source.openScan(conn.transaction, start, end, options.getOption(OperationOption.CONTINUATION_NAME, null), scan.getScanProperties()),
+                source.openScan(conn.transaction, start, end, options),
                 conn);
     }
 
     @Override
     public @Nonnull
-    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException {
+    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
+        options = Options.combine(conn.getOptions(), options);
+
         //check that the key is valid
         Preconditions.checkArgument(key.toMap().size() != 0, "Cannot perform a GET without specifying a key");
         ensureTransactionActive();
 
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
-        Table table = schema.loadTable(schemaAndTable[1], options);
+        Table table = schema.loadTable(schemaAndTable[1]);
 
-        DirectScannable source = getSourceScannable(options, table);
+        String indexName = options.getOption(Options.Name.INDEX_HINT);
+        DirectScannable source = getSourceScannable(indexName, table);
 
         Row tuple = source.getKeyBuilder().buildKey(key.toMap(), true, true);
 
-        final Row row = source.get(conn.transaction, tuple, queryProperties);
+        final Row row = source.get(conn.transaction, tuple, options);
 
         return new IteratorResultSet(table.getFieldNames(), row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator(), 0);
     }
@@ -197,12 +200,12 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException {
         ensureTransactionActive();
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), typeName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], Options.create());
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
         return schema.getDataBuilder(schemaAndTable[1]);
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws RelationalException {
         //do this check first because otherwise we might start an expensive transaction that does nothing
         if (!data.hasNext()) {
             return 0;
@@ -211,9 +214,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         ensureTransactionActive();
 
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
-        Table table = schema.loadTable(schemaAndTable[1], options);
+        Table table = schema.loadTable(schemaAndTable[1]);
 
         return executeMutation(() -> {
             int rowCount = 0;
@@ -228,28 +231,27 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws RelationalException {
         if (!keys.hasNext()) {
             return 0;
         }
 
         ensureTransactionActive();
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
-        Table table = schema.loadTable(schemaAndTable[1], options);
+        Table table = schema.loadTable(schemaAndTable[1]);
 
-        DirectScannable source = getSourceScannable(options, table);
         return executeMutation(() -> {
             int count = 0;
-            Row toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
+            Row toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
             while (toDelete != null) {
                 if (table.deleteRecord(toDelete)) {
                     count++;
                 }
                 toDelete = null;
                 if (keys.hasNext()) {
-                    toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
+                    toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
                 }
             }
             return count;
@@ -316,9 +318,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         return new String[]{schema, tableN};
     }
 
-    private @Nonnull DirectScannable getSourceScannable(@Nonnull Options options, @Nonnull Table table) throws RelationalException {
-        DirectScannable source;
-        String indexName = options.getOption(OperationOption.INDEX_HINT_NAME, null);
+    private @Nonnull DirectScannable getSourceScannable(String indexName, @Nonnull Table table) throws RelationalException {
         if (indexName != null) {
             Index index = null;
             final Set<Index> readableIndexes = table.getAvailableIndexes();
@@ -331,11 +331,10 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             if (index == null) {
                 throw new RelationalException("Unknown index: <" + indexName + "> on type <" + table.getName() + ">", ErrorCode.UNKNOWN_INDEX);
             }
-            source = index;
+            return index;
         } else {
-            source = table;
+            return table;
         }
-        return source;
     }
 
 }

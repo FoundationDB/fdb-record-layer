@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
@@ -151,7 +150,7 @@ public class PlanGenerationStackTest {
     void queryTestHarness(@Nonnull final int index, @Nonnull final String query, @Nullable String error) throws Exception {
         final String schemaName = connection.getSchema();
         final AbstractDatabase database = ((EmbeddedRelationalConnection) connection.connection).frl;
-        final FDBRecordStore store = database.loadSchema(schemaName, Options.create()).loadStore();
+        final FDBRecordStore store = database.loadSchema(schemaName).loadStore();
         final PlanContext planContext = PlanContext.Builder.create().fromDatabase(database).fromRecordStore(store).build();
         if (error == null) {
             Assertions.assertDoesNotThrow(() -> Plan.generate(query, planContext));

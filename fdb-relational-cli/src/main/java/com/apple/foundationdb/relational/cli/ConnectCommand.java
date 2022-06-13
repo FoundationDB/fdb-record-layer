@@ -43,6 +43,6 @@ public class ConnectCommand extends Command {
 
     @Override
     protected void callInternal() throws Exception {
-        dbState.setConnection(Relational.connect(databaseUri, Options.create()));
+        dbState.setConnection(Relational.connect(databaseUri, Options.none()));
     }
 }

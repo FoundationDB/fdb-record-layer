@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
@@ -56,13 +55,13 @@ public abstract class AbstractDatabase implements RelationalDatabase {
     }
 
     @Override
-    public @Nonnull RecordLayerSchema loadSchema(@Nonnull String schemaId, @Nonnull Options options) throws RelationalException {
+    public @Nonnull RecordLayerSchema loadSchema(@Nonnull String schemaId) throws RelationalException {
         RecordLayerSchema schema = schemas.get(schemaId);
         boolean putBack = false;
         if (schema == null) {
             // The SchemaExistenceCheck from the options is only taken when the schema is created firstly
             // It is an immutable parameter for the schema and the options for the following operations on that schema are ignored
-            schema = new RecordLayerSchema(schemaId, this, connection, options);
+            schema = new RecordLayerSchema(schemaId, this, connection);
             putBack = true;
         }
 

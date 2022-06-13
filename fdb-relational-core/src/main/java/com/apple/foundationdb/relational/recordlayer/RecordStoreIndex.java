@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -80,9 +80,9 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull QueryProperties queryProperties) throws RelationalException {
+    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException {
         FDBRecordStore store = getSchema().loadStore();
-        ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(queryProperties);
+        ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(options);
         scanProperties = new ScanProperties(scanProperties.getExecuteProperties().setReturnedRowLimit(1), scanProperties.isReverse());
         try {
             final RecordCursorIterator<IndexEntry> indexEntryRecordCursor = store.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator();

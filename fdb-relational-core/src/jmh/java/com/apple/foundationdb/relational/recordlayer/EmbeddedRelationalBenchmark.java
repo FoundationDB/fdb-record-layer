@@ -103,7 +103,7 @@ public abstract class EmbeddedRelationalBenchmark {
         }
 
         private void createSchemaTemplate() throws RelationalException, SQLException {
-            try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+            try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
                 conn.setSchema("catalog");
                 try (Statement statement = conn.createStatement()) {
                     statement.executeUpdate("CREATE SCHEMA TEMPLATE " + schemaTemplateName + " AS { " + templateDefinition + "}");
@@ -169,7 +169,7 @@ public abstract class EmbeddedRelationalBenchmark {
     }
 
     private static void createDatabase(DatabaseTemplate dbTemplate, URI dbUri) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate("CREATE DATABASE '" + dbUri.getPath() + "'");
@@ -181,7 +181,7 @@ public abstract class EmbeddedRelationalBenchmark {
     }
 
     private static void deleteDatabase(URI dbUri) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.none())) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate("DROP DATABASE '" + dbUri.getPath() + "'");

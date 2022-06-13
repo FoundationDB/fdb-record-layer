@@ -51,13 +51,13 @@ public class TransactionConfigTest {
 
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.create())) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.none())) {
             conn.beginTransaction(testTransactionConfig());
             conn.setSchema("testSchema");
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
-                s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r), Options.create());
+                s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r));
             } catch (RelationalException | SQLException e) {
                 Throwable throwable = e.getCause();
                 String errorMsg = throwable.getMessage();

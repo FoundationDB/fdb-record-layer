@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.autotest.engine;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -328,7 +327,7 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
                         throw e.toUncheckedWrappedException();
                     }
                 }).iterator();
-                statement.executeInsert(tableName, theBatch, Options.create());
+                statement.executeInsert(tableName, theBatch);
             }
             //add to the sample here, only after we guarantee that the write actually succeeded
             messages.forEach(reservoir::add);

@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.compare;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -109,7 +108,7 @@ public class JDBCStatement implements RelationalStatement {
 
     @Nonnull
     @Override
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException {
+    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
         String whereClauseBuilder = getWhereClause(tableName, key);
 
         RelationalStructure structure = catalog.getStructure(tableName);
@@ -182,7 +181,7 @@ public class JDBCStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws RelationalException {
         RelationalStructure structure = catalog.getStructure(tableName);
         int count = 0;
         Message datum = null;
@@ -208,7 +207,7 @@ public class JDBCStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws RelationalException {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
 

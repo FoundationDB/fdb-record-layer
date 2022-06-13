@@ -89,7 +89,7 @@ public class RecordLayerStorageCluster implements StorageCluster {
                 rlConfiguration.getUserVersionChecker(),
                 rlConfiguration.getFormatVersion(),
                 rlConfiguration.getSerializerRegistry(),
-                ksPath, constantActionFactory, ddlQueryFactory);
+                ksPath, constantActionFactory, ddlQueryFactory, connOptions);
     }
 
     @Override

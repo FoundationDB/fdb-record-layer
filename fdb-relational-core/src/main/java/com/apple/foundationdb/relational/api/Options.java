@@ -20,31 +20,85 @@
 
 package com.apple.foundationdb.relational.api;
 
-import java.util.HashMap;
+import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
+
+import com.google.common.collect.ImmutableMap;
+
 import java.util.Map;
 
-public class Options {
-    private Map<String, Object> optionsMap = new HashMap<>();
+import javax.annotation.Nonnull;
 
-    public static Options create() {
-        return new Options();
+public final class Options {
+    public enum Name {
+        CONTINUATION,
+        INDEX_HINT,
+        ROW_LIMIT // Limit the maximum number of records to return
+    }
+
+    private Options parentOptions;
+    private final Map<Name, Object> optionsMap;
+
+    private Options(Map<Name, Object> optionsMap) {
+        this(optionsMap, null);
+    }
+
+    private Options(Map<Name, Object> optionsMap, Options parentOptions) {
+        this.optionsMap = optionsMap;
+        this.parentOptions = parentOptions;
+    }
+
+    public static Options none() {
+        return Options.builder().build();
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T getOption(String name, T defaultValue) {
-        return (T) optionsMap.getOrDefault(name, defaultValue);
-    }
-
-    public <T> Options withOption(OperationOption<T> option) {
-        optionsMap.put(option.getOptionName(), option.getValue());
-        return this;
-    }
-
-    public boolean hasOption(String optionName) {
-        return optionsMap.containsKey(optionName);
+    public <T> T getOption(Name name) {
+        T option = (T) optionsMap.get(name);
+        if (option == null && parentOptions != null) {
+            return parentOptions.getOption(name);
+        } else {
+            return option;
+        }
     }
 
     public int size() {
-        return optionsMap.size();
+        if (parentOptions != null) {
+            return parentOptions.size() + optionsMap.size();
+        } else {
+            return optionsMap.size();
+        }
+    }
+
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals"})
+    public static Options combine(@Nonnull Options parentOptions, @Nonnull Options childOptions) {
+        if (childOptions.parentOptions != null) {
+            throw new InternalErrorException("Cannot override parent options").toUncheckedWrappedException();
+        }
+        if (parentOptions == childOptions) {
+            // We should not combine options with itself
+            return childOptions;
+        }
+
+        return new Options(childOptions.optionsMap, parentOptions);
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        ImmutableMap.Builder<Name, Object> optionsMapBuilder = ImmutableMap.builder();
+
+        private Builder() {
+        }
+
+        public Builder withOption(Name name, Object value) {
+            optionsMapBuilder.put(name, value);
+            return this;
+        }
+
+        public Options build() {
+            return new Options(optionsMapBuilder.build());
+        }
     }
 }

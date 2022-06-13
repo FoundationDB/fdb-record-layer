@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.compare;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
@@ -64,6 +65,12 @@ public class JDBCDatabaseConnection implements RelationalConnection {
 
     @Override
     public void beginTransaction(@Nullable TransactionConfig config) throws RelationalException {
+    }
+
+    @Override
+    @Nonnull
+    public Options getOptions() {
+        return Options.none();
     }
 
     @Override

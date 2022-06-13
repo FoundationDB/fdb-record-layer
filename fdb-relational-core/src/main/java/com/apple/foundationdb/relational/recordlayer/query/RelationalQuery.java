@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Queryable;
 import com.apple.foundationdb.relational.api.WhereClause;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
@@ -42,20 +41,18 @@ public class RelationalQuery implements Queryable {
     private final List<String> columns;
     private final WhereClause whereClause;
     private final boolean isExplain;
-    private final QueryProperties queryOpts;
 
     public RelationalQuery(@Nonnull String table,
                          @Nullable String schema,
                          @Nullable List<String> columns,
                          @Nullable WhereClause whereClause,
-                         boolean isExplain,
-                         @Nullable QueryProperties queryOpts) {
+                         boolean isExplain) {
+
         this.table = table;
         this.schema = schema;
         this.columns = columns == null ? Collections.emptyList() : columns;
         this.whereClause = whereClause;
         this.isExplain = isExplain;
-        this.queryOpts = queryOpts == null ? QueryProperties.DEFAULT : queryOpts;
     }
 
     @Override
@@ -85,11 +82,5 @@ public class RelationalQuery implements Queryable {
     @Override
     public boolean isExplain() {
         return isExplain;
-    }
-
-    @Override
-    @Nonnull
-    public QueryProperties getQueryOptions() {
-        return queryOpts;
     }
 }

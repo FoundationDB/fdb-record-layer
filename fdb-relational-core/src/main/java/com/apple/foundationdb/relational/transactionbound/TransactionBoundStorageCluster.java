@@ -43,7 +43,7 @@ public class TransactionBoundStorageCluster implements StorageCluster {
     @Nullable
     @Override
     public RelationalDatabase loadDatabase(@Nonnull URI url, @Nonnull Options connOptions) throws RelationalException {
-        return new TransactionBoundDatabase(url);
+        return new TransactionBoundDatabase(url, connOptions);
     }
 
     @Override

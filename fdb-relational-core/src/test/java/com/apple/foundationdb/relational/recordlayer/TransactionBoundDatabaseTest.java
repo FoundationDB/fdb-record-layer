@@ -55,13 +55,13 @@ public class TransactionBoundDatabaseTest {
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connRule = new RelationalConnectionRule(dbRule::getConnectionUri)
-            .withOptions(Options.create())
+            .withOptions(Options.none())
             .withSchema("testSchema");
 
     @Test
     void simpleSelect() throws RelationalException, SQLException {
         // First create a transaction object out of the connection and the statement
-        RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("testSchema", Options.create());
+        RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("testSchema");
         FDBRecordStore store = schema.loadStore();
         try (FDBRecordContext context = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction().unwrap(FDBRecordContext.class)) {
             try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context)) {
@@ -70,18 +70,18 @@ public class TransactionBoundDatabaseTest {
                 // connect to a TransactionBoundDatabase
                 EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine();
                 EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
-                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.create())) {
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.none())) {
                     conn.setSchema("testSchema");
                     try (RelationalStatement statement = conn.createStatement()) {
                         Message record = statement.getDataBuilder("RestaurantRecord")
                                 .setField("rest_no", 42)
                                 .setField("name", "FOO")
                                 .build();
-                        statement.executeInsert("RestaurantRecord", record, Options.create());
+                        statement.executeInsert("RestaurantRecord", record);
                     }
 
                     try (RelationalStatement statement = conn.createStatement()) {
-                        try (RelationalResultSet resultSet = statement.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(), Options.create())) {
+                        try (RelationalResultSet resultSet = statement.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(), Options.none())) {
                             Assertions.assertThat(resultSet.next()).isTrue();
                             Assertions.assertThat(resultSet.getString("name")).isEqualTo("FOO");
                             Assertions.assertThat(resultSet.getLong("rest_no")).isEqualTo(42L);
