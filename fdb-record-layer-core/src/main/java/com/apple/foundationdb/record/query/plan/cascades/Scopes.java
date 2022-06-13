@@ -120,7 +120,7 @@ public class Scopes {
             if (predicate != null) {
                 builder.addPredicate(predicate);
             }
-            return builder.build().seal().buildSelect();
+            return builder.build().buildSelect();
         }
 
         public void addQuantifier(@Nonnull final Quantifier quantifier) {
