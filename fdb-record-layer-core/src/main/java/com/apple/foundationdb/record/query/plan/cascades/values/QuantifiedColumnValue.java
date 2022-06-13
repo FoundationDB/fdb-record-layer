@@ -83,11 +83,14 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public QuantifiedColumnValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(alias)) {
-            return new QuantifiedColumnValue(translationMap.getTargetOrThrow(alias), ordinalPosition, recordType);
-        }
-        return this;
+    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
+        return new QuantifiedColumnValue(targetAlias, ordinalPosition, recordType);
+    }
+
+    @Nonnull
+    @Override
+    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
+        return OrdinalFieldValue.of(fieldValue, getOrdinalPosition());
     }
 
     @Nullable

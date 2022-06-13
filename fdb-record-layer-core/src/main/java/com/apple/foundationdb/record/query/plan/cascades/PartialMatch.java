@@ -21,13 +21,17 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -85,6 +89,9 @@ public class PartialMatch {
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, ComparisonRange>> boundParameterPrefixMapSupplier;
 
+    @Nonnull
+    private final Supplier<Set<QueryPredicate>> bindingPredicatesSupplier;
+
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
                         @Nonnull final ExpressionRef<? extends RelationalExpression> queryRef,
@@ -98,6 +105,7 @@ public class PartialMatch {
         this.candidateRef = candidateRef;
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
+        this.bindingPredicatesSupplier = Suppliers.memoize(this::computeBindingQueryPredicates);
     }
 
     @Nonnull
@@ -134,17 +142,78 @@ public class PartialMatch {
         return boundParameterPrefixMapSupplier.get().size();
     }
 
+    @Nonnull
     public Map<CorrelationIdentifier, ComparisonRange> getBoundParameterPrefixMap() {
         return boundParameterPrefixMapSupplier.get();
     }
 
+    @Nonnull
     private Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap() {
         return getMatchCandidate().computeBoundParameterPrefixMap(getMatchInfo());
     }
 
     @Nonnull
+    public Set<Quantifier> computeUnmatchedQuantifiers(@Nonnull final RelationalExpression relationalExpression) {
+        final Set<Quantifier> unmatchedQuantifiers = new LinkedIdentitySet<>();
+        for (final Quantifier quantifier : relationalExpression.getQuantifiers()) {
+            if (matchInfo.getChildPartialMatch(quantifier.getAlias()).isEmpty()) {
+                unmatchedQuantifiers.add(quantifier);
+            }
+        }
+        return unmatchedQuantifiers;
+    }
+
+    @Nonnull
+    private Set<QueryPredicate> computeBindingQueryPredicates() {
+        final var boundParameterPrefixMap = getBoundParameterPrefixMap();
+        final var bindingQueryPredicates = Sets.<QueryPredicate>newIdentityHashSet();
+
+        //
+        // Go through all accumulated parameter bindings -- find the query predicates binding the parameters. Those
+        // query predicates are binding the parameters by means of a placeholder on the candidate side (they themselves
+        // should be of class Placeholder). Note that there could be more than one query predicate mapping to a candidate
+        // predicate.
+        //
+        for (final var entry : matchInfo.getAccumulatedPredicateMap().entries()) {
+            final var predicateMapping = entry.getValue();
+            final var candidatePredicate = predicateMapping.getCandidatePredicate();
+            if (!(candidatePredicate instanceof ValueComparisonRangePredicate.Placeholder)) {
+                continue;
+            }
+
+            final var placeholder = (ValueComparisonRangePredicate.Placeholder)candidatePredicate;
+            if (boundParameterPrefixMap.containsKey(placeholder.getAlias())) {
+                bindingQueryPredicates.add(predicateMapping.getQueryPredicate());
+            }
+        }
+
+        return bindingQueryPredicates;
+    }
+
+    @Nonnull
+    public final Set<QueryPredicate> getBindingPredidcates() {
+        return bindingPredicatesSupplier.get();
+    }
+
+    @Nonnull
+    public Compensation compensate() {
+        return queryExpression.compensate(this, getBoundParameterPrefixMap());
+    }
+
+    @Nonnull
     public Compensation compensate(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         return queryExpression.compensate(this, boundParameterPrefixMap);
+    }
+
+    /**
+     * Determine if compensation can be applied at a later time, e.g. at the top of the matched DAG. Mostly, that
+     * can only be done if the compensation for this match is just a predicate that the MQT cannot handle. Whenever
+     * we need to compensate for unmatched quantifiers and value computations, we need compensate right away (for now).
+     * @return {@code true} if compensation can be deferred, {@code false} otherwise.
+     */
+    public boolean compensationCanBeDeferred() {
+        return computeUnmatchedQuantifiers(getQueryExpression()).stream().anyMatch(quantifier -> quantifier instanceof Quantifier.ForEach) ||
+               matchInfo.getRemainingComputationValueOptional().isEmpty();
     }
 
     @Nonnull

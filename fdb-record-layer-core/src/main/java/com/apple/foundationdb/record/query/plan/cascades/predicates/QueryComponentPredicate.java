@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -150,9 +151,9 @@ public class QueryComponentPredicate implements LeafQueryPredicate {
 
     @Nullable
     @Override
-    public QueryComponentPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        if (correlation != null && translationMap.containsSource(correlation)) {
-            return new QueryComponentPredicate(getQueryComponent(), translationMap.getTargetOrThrow(correlation));
+    public QueryComponentPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+        if (translationMap.containsSourceAlias(correlation)) {
+            return new QueryComponentPredicate(getQueryComponent(), translationMap.getTargetAlias(correlation));
         }
         return this;
     }

@@ -41,7 +41,7 @@ public class VersionValue implements LeafValue, Value.CompileTimeValue {
 
     @Nonnull
     @Override
-    public Value rebaseLeaf(@Nonnull final AliasMap translationMap) {
+    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         return this;
     }
 

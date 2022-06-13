@@ -69,7 +69,7 @@ public class RequestedOrdering {
     }
 
     /**
-     * When expressing a requirement (see also {@link OrderingConstraint}), the requirement may be to preserve
+     * When expressing a requirement (see also {@link RequestedOrderingConstraint}), the requirement may be to preserve
      * the order of records that are being encountered. This is represented by a special value here.
      * @return {@code true} if the ordering needs to be preserved
      */

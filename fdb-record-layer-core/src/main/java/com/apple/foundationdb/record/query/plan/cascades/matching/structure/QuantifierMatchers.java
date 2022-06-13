@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -79,9 +79,30 @@ public class QuantifierMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<Quantifier.Existential> existentialQuantifier(@Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {
+        return ofTypeRangingOver(Quantifier.Existential.class, AnyMatcher.any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.Existential> existentialQuantifier(@Nonnull final CollectionMatcher<? extends RelationalExpression> downstream) {
+        return ofTypeRangingOver(Quantifier.Existential.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.Existential> existentialQuantifier() {
+        return ofTypeRangingOverRef(Quantifier.Existential.class, ReferenceMatchers.anyRef());
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.Existential> existentialQuantifierOverRef(@Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
+        return ofTypeRangingOverRef(Quantifier.Existential.class, downstream);
+    }
+
+    @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifier() {
         return ofTypeRangingOverRef(Quantifier.ForEach.class, ReferenceMatchers.anyRef());
     }
+
 
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifier(@Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {

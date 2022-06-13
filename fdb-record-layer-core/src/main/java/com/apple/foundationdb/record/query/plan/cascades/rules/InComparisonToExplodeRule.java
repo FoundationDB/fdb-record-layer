@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -29,23 +28,21 @@ import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
@@ -129,42 +126,42 @@ public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final PlannerBindings bindings = call.getBindings();
+        final var bindings = call.getBindings();
 
-        final SelectExpression selectExpression = bindings.get(root);
+        final var selectExpression = bindings.get(root);
 
-        // we don't need iteration stability
-        final List<? extends ValuePredicate> inPredicatesList = bindings.getAll(inPredicateMatcher);
+        final var inPredicatesList = bindings.getAll(inPredicateMatcher);
         if (inPredicatesList.isEmpty()) {
             return;
         }
 
-        final Set<QueryPredicate> inPredicates = Sets.newIdentityHashSet();
+        final var inPredicates = Sets.<QueryPredicate>newIdentityHashSet();
         inPredicates.addAll(inPredicatesList);
 
-        final ImmutableList.Builder<Quantifier> transformedQuantifiers = ImmutableList.builder();
-
-        final ImmutableList.Builder<QueryPredicate> transformedPredicates = ImmutableList.builder();
-        for (final QueryPredicate predicate : selectExpression.getPredicates()) {
+        final var transformedQuantifiers = ImmutableList.<Quantifier>builder();
+        final var transformedPredicates = ImmutableList.<QueryPredicate>builder();
+        for (final var predicate : selectExpression.getPredicates()) {
             if (inPredicates.contains(predicate)) {
-                final ValuePredicate valuePredicate = (ValuePredicate)predicate;
-                final Comparisons.Comparison comparison = valuePredicate.getComparison();
+                final var valuePredicate = (ValuePredicate)predicate;
+                final var value = valuePredicate.getValue();
+
+                final Type elementType = value.getResultType();
+                final var comparison = valuePredicate.getComparison();
                 Verify.verify(comparison.getType() == Comparisons.Type.IN);
                 final ExplodeExpression explodeExpression;
                 if (comparison instanceof Comparisons.ListComparison) {
                     final var listComparison = (Comparisons.ListComparison)comparison;
                     explodeExpression = new ExplodeExpression(LiteralValue.ofList((List<?>)listComparison.getComparand(null, null)));
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
-                    // TODO this needs to resolve the proper type
-                    explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), new Type.Array(new Type.Any())));
+                    explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), new Type.Array(elementType)));
                 } else {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
                 }
 
                 final Quantifier.ForEach newQuantifier = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
                 transformedPredicates.add(
-                        new ValuePredicate(((ValuePredicate)predicate).getValue(),
-                                new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, Bindings.Internal.CORRELATION.bindingName(newQuantifier.getAlias().toString()), Bindings.Internal.CORRELATION)));
+                        new ValuePredicate(value,
+                                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
                 transformedQuantifiers.add(newQuantifier);
             } else {
                 transformedPredicates.add(predicate);

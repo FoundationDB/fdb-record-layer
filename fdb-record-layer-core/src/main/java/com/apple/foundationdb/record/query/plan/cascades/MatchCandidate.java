@@ -330,7 +330,11 @@ public interface MatchCandidate {
     @Nonnull
     static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull RecordMetaData metaData, @Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex, @Nonnull AccessHint accessHint) {
         final var quantifier =
-                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes, new AccessHints(accessHint))));
+                Quantifier.forEach(
+                        GroupExpressionRef.of(
+                                new FullUnorderedScanExpression(allAvailableRecordTypes,
+                                        Type.Record.fromFieldDescriptorsMap(metaData.getFieldDescriptorMapFromNames(allAvailableRecordTypes)),
+                                        new AccessHints(accessHint))));
         return GroupExpressionRef.of(
                 new LogicalTypeFilterExpression(recordTypesForIndex,
                         quantifier,

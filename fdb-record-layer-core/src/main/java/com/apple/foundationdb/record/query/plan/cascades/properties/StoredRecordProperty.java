@@ -28,8 +28,11 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
@@ -119,8 +122,8 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitMapPlan(@Nonnull final RecordQueryMapPlan element) {
-            return false;
+        public Boolean visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
+            return storedRecordsFromChildren(mapPlan).stream().allMatch(s -> s);
         }
 
         @Nonnull
@@ -143,6 +146,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
+        public Boolean visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
+            return false;
+        }
+
+        @Nonnull
+        @Override
         public Boolean visitIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan intersectionOnValuePlan) {
             return storedRecordsFromChildren(intersectionOnValuePlan).stream().allMatch(s -> s);
         }
@@ -157,6 +166,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitIndexPlan(@Nonnull final RecordQueryIndexPlan element) {
             return true;
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
+            return false;
         }
 
         @Nonnull
@@ -214,6 +229,15 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
+        public Boolean visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+            if (flatMapPlan.isInheritOuterRecordProperties()) {
+                return storedRecordsFromSingleQuantifier(flatMapPlan.getOuterQuantifier());
+            }
+            return false;
+        }
+
+        @Nonnull
+        @Override
         public Boolean visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan element) {
             return false;
         }
@@ -263,9 +287,13 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         private boolean storedRecordsFromSingleChild(@Nonnull final RelationalExpression expression) {
             final var quantifiers = expression.getQuantifiers();
             if (quantifiers.size() == 1) {
-                return evaluateForReference(Iterables.getOnlyElement(quantifiers).getRangesOver());
+                return storedRecordsFromSingleQuantifier(Iterables.getOnlyElement(quantifiers));
             }
             throw new RecordCoreException("cannot compute property for expression");
+        }
+
+        private boolean storedRecordsFromSingleQuantifier(@Nonnull final Quantifier quantifier) {
+            return evaluateForReference(quantifier.getRangesOver());
         }
 
         @Nonnull

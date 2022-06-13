@@ -86,7 +86,7 @@ public class PartialOrder<T> {
     }
 
     @Nonnull
-    public ImmutableSetMultimap<T, T> getFullDependencyMap() {
+    public ImmutableSetMultimap<T, T> getTransitiveClosure() {
         return transitiveClosureSupplier.get();
     }
 
@@ -113,7 +113,7 @@ public class PartialOrder<T> {
             return false;
         }
         final PartialOrder<?> that = (PartialOrder<?>)o;
-        return getSet().equals(that.getSet()) && getFullDependencyMap().equals(that.getFullDependencyMap());
+        return getSet().equals(that.getSet()) && getTransitiveClosure().equals(that.getTransitiveClosure());
     }
 
     @Override
@@ -220,6 +220,16 @@ public class PartialOrder<T> {
         }
     }
 
+    /**
+     * Construct the transitive closure from a given set and a function that maps each element of the given set to
+     * other elements that constitutes that element's dependencies.
+     * @param <T> the type of the elements in {@code set}
+     * @param set a set of elements
+     * @param dependsOnFn a function mapping each element of the set to its dependencies of type {@code T}. Note that
+     *        the returned dependencies may not be a strict subset of the set passed in, in which case those elements
+     *        in the dependency set that are not in {@code set} are simply ignored.
+     * @return a multi map containing the transitive closure
+     */
     @Nonnull
     static <T> ImmutableSetMultimap<T, T> fromFunctionalDependencies(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
         final ImmutableSetMultimap.Builder<T, T> builder = ImmutableSetMultimap.builder();

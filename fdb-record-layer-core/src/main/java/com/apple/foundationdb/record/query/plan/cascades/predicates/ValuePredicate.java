@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -87,11 +88,16 @@ public class ValuePredicate implements PredicateWithValue {
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        final var rebasedValue = value.rebase(translationMap);
-        final var rebasedComparison = comparison.rebase(translationMap);
-        if (value != rebasedValue || rebasedComparison != comparison) { // reference comparison intended
-            return new ValuePredicate(rebasedValue, rebasedComparison);
+    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+        final var translatedValue = value.translateCorrelations(translationMap);
+        final Comparison newComparison;
+        if (comparison.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
+            newComparison = comparison.translateCorrelations(translationMap);
+        } else {
+            newComparison = comparison;
+        }
+        if (value != translatedValue || newComparison != comparison) { // reference comparison intended
+            return new ValuePredicate(translatedValue, newComparison);
         }
         return this;
     }

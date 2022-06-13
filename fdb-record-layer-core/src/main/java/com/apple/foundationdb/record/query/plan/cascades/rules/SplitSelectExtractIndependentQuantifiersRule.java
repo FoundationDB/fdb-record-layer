@@ -135,8 +135,16 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
                                         explodeAliases.contains(quantifier.getAlias()) && eligibleAliases.contains(quantifier.getAlias()),
                                 ImmutableList.toImmutableList()));
 
+        final var lowerQuantifiers = partitionedQuantifiers.get(false);
+        final var upperQuantifiers = partitionedQuantifiers.get(true);
+
         // we need a proper partitioning
-        if (partitionedQuantifiers.get(false).isEmpty() || partitionedQuantifiers.get(true).isEmpty()) {
+        if (lowerQuantifiers.isEmpty() || upperQuantifiers.isEmpty()) {
+            return;
+        }
+
+        if (lowerQuantifiers.stream().noneMatch(quantifier -> quantifier instanceof Quantifier.ForEach)) {
+            // we have to have at least one for each among the lower quantifiers
             return;
         }
 
@@ -144,7 +152,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         // Create a new SelectExpression with just the non-eligible quantifiers.
         //
         final var lowerSelectExpression =
-                new SelectExpression(selectExpression.getResultValue(), partitionedQuantifiers.get(false), selectExpression.getPredicates());
+                new SelectExpression(selectExpression.getResultValue(), lowerQuantifiers, selectExpression.getPredicates());
         final var lowerQuantifier = Quantifier.forEach(GroupExpressionRef.of(lowerSelectExpression));
 
         //
@@ -154,7 +162,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         final var upperSelectExpression =
                 new SelectExpression(lowerQuantifier.getFlowedObjectValue(),
                         ImmutableList.<Quantifier>builder()
-                                .addAll(partitionedQuantifiers.get(true))
+                                .addAll(upperQuantifiers)
                                 .add(lowerQuantifier)
                                 .build(),
                         ImmutableList.of());

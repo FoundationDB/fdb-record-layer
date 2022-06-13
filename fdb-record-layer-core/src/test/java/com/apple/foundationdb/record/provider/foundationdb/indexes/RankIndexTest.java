@@ -65,11 +65,11 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.Collections2;
@@ -104,17 +104,6 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.inParameter;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.inValues;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scoreForRank;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
@@ -137,6 +126,17 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.inParameter;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.inValues;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scoreForRank;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
@@ -1217,7 +1217,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                         .and(scanComparisons(range("([buffaloes, 1],[buffaloes]]"))));
     }
 
-    @DualPlannerTest
+    @Test
     void rankWithoutGroupRestriction() throws Exception {
         // Grouped rank in filter but query results include all groups.
         final var filter = Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).equalsValue(1L);
@@ -1234,6 +1234,8 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                                     .where(recordTypes(containsAll(ImmutableSet.of("BasicRankedRecord")))))
                             .where(queryComponents(exactly(equalsObject(filter)))));
         } else {
+            // TODO We currently cannot plan this query as the query component associated with it does not have a QGM
+            //      representation which would be encoded as the compensation of that predicate.
             assertMatchesExactly(plan,
                     predicatesFilterPlan(
                             typeFilterPlan(

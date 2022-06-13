@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -64,12 +65,15 @@ import java.util.Set;
 public class FullUnorderedScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
     private final Set<String> recordTypes;
+    @Nonnull
+    private final Type.Record flowedType;
 
     @Nonnull
     final AccessHints accessHints;
 
-    public FullUnorderedScanExpression(final Set<String> recordTypes, @Nonnull final AccessHints accessHints) {
+    public FullUnorderedScanExpression(@Nonnull final Set<String> recordTypes, @Nonnull final Type.Record flowedType, @Nonnull final AccessHints accessHints) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
+        this.flowedType = flowedType;
         this.accessHints = accessHints;
     }
 
@@ -86,7 +90,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     @Override
     public Value getResultValue() {
-        return new QueriedValue(new Type.Any());
+        return new QueriedValue(flowedType);
     }
 
     @Nonnull
@@ -103,7 +107,8 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
 
     @Nonnull
     @Override
-    public FullUnorderedScanExpression rebase(@Nonnull final AliasMap translationMap) {
+    public FullUnorderedScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 
@@ -116,8 +121,11 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
+        if (!recordTypes.equals(((FullUnorderedScanExpression)otherExpression).getRecordTypes())) {
+            return false;
+        }
 
-        return recordTypes.equals(((FullUnorderedScanExpression)otherExpression).getRecordTypes());
+        return flowedType.equals(otherExpression.getResultValue().getResultType());
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -133,7 +141,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(recordTypes);
+        return Objects.hash(recordTypes, flowedType);
     }
 
     @Override
@@ -147,7 +155,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         if (getClass() != candidateExpression.getClass()) {
             return ImmutableList.of();
         }
-        // if query doesnot contain candidate's indexes, the query cannot be subsumed by the candidate
+        // if query does not contain candidate's indexes, the query cannot be subsumed by the candidate
         if (getAccessHints().satisfies(((FullUnorderedScanExpression)candidateExpression).getAccessHints())) {
             return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
         } else {

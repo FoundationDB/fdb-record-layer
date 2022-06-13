@@ -1,5 +1,5 @@
 /*
- * PushInterestingOrderingThroughUnionRule.java
+ * PushRequestedOrderingThroughUnionRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
@@ -45,23 +45,23 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 
 /**
- * A rule that pushes an ordering {@link OrderingConstraint} through a {@link LogicalUnionExpression}.
+ * A rule that pushes an ordering {@link RequestedOrderingConstraint} through a {@link LogicalUnionExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushInterestingOrderingThroughUnionRule extends PlannerRule<LogicalUnionExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughUnionRule extends PlannerRule<LogicalUnionExpression> implements PreOrderRule {
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     private static final BindingMatcher<LogicalUnionExpression> root =
             logicalUnionExpression(all(innerQuantifierMatcher));
 
-    public PushInterestingOrderingThroughUnionRule() {
-        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
+    public PushRequestedOrderingThroughUnionRule() {
+        super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final Optional<Set<RequestedOrdering>> requestedOrderingOptional = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
+        final Optional<Set<RequestedOrdering>> requestedOrderingOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingOptional.isEmpty()) {
             return;
         }
@@ -74,7 +74,7 @@ public class PushInterestingOrderingThroughUnionRule extends PlannerRule<Logical
                 .map(Quantifier.ForEach::getRangesOver)
                 .forEach(lowerReference ->
                         call.pushConstraint(lowerReference,
-                                OrderingConstraint.REQUESTED_ORDERING,
+                                RequestedOrderingConstraint.REQUESTED_ORDERING,
                                 requestedOrderingOptional.get()));
     }
 }

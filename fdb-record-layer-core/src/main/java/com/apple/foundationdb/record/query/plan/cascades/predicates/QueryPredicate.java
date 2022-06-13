@@ -26,9 +26,14 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -40,9 +45,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
 
 /**
@@ -144,10 +153,23 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull AliasMap aliasMap,
                                                                  @Nonnull final QueryPredicate candidatePredicate) {
         if (candidatePredicate.isTautology()) {
-            return Optional.of(new PredicateMapping(this, candidatePredicate, ((matchInfo, boundParameterPrefixMap) -> Optional.of(toResidualPredicate()))));
+            return Optional.of(new PredicateMapping(this,
+                    candidatePredicate,
+                    ((partialMatch, boundParameterPrefixMap) ->
+                             Objects.requireNonNull(foldNullable(Function.identity(),
+                                     (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
+                                             boundParameterPrefixMap,
+                                             ImmutableList.copyOf(childFunctions)))))));
         }
         
         return Optional.empty();
+    }
+
+    @Nonnull
+    default Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                 @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                 @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+        return Optional.of(translationMap -> GraphExpansion.ofPredicate(toResidualPredicate().translateCorrelations(translationMap)));
     }
 
     /**
@@ -271,25 +293,31 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     @Nonnull
     @Override
-    default QueryPredicate rebase(@Nonnull final AliasMap translationMap) {
-        return replaceLeavesMaybe(t -> t.rebaseLeaf(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+    default QueryPredicate rebase(@Nonnull final AliasMap aliasMap) {
+        final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
+        return translateCorrelations(translationMap);
+    }
+
+    @Nonnull
+    default QueryPredicate translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nullable
     @SuppressWarnings("unused")
-    default QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
+    default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
         throw new RecordCoreException("implementor must override");
     }
 
     @Nonnull
-    default Optional<QueryPredicate> translateValues(@Nonnull final Map<Value, Value> translationMap) {
+    default Optional<QueryPredicate> translateValues(@Nonnull final UnaryOperator<Value> translationOperator) {
         return replaceLeavesMaybe(t -> {
             if (!(t instanceof PredicateWithValue)) {
                 return this;
             }
             final PredicateWithValue predicateWithValue = (PredicateWithValue)t;
             return predicateWithValue.getValue()
-                            .translate(translationMap)
+                            .replaceLeavesMaybe(translationOperator)
                     .map(predicateWithValue::withValue)
                     .orElse(null);
         });

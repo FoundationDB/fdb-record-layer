@@ -27,22 +27,23 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
-import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -55,33 +56,14 @@ public class ExistsPredicate implements LeafQueryPredicate {
 
     @Nonnull
     private final CorrelationIdentifier existentialAlias;
-    @Nullable
-    private final QueryComponent alternativeComponent;
-    @Nullable
-    private final CorrelationIdentifier alternativeBaseAlias;
 
-    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias,
-                           @Nullable final CorrelationIdentifier alternativeBaseAlias,
-                           @Nullable final QueryComponent alternativeComponent) {
+    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias) {
         this.existentialAlias = existentialAlias;
-        this.alternativeBaseAlias = alternativeBaseAlias;
-        this.alternativeComponent = alternativeComponent;
     }
 
     @Nonnull
     public CorrelationIdentifier getExistentialAlias() {
         return existentialAlias;
-    }
-
-
-    @Nonnull
-    public QueryComponent getAlternativeComponent() {
-        return Objects.requireNonNull(alternativeComponent);
-    }
-
-    @Nonnull
-    public CorrelationIdentifier getAlternativeBaseAlias() {
-        return Objects.requireNonNull(alternativeBaseAlias);
     }
 
     @Nullable
@@ -95,19 +77,14 @@ public class ExistsPredicate implements LeafQueryPredicate {
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         final var resultBuilder = ImmutableSet.<CorrelationIdentifier>builder();
         resultBuilder.add(existentialAlias);
-        if (alternativeBaseAlias != null) {
-            resultBuilder.add(alternativeBaseAlias);
-        }
         return resultBuilder.build();
     }
 
     @Nonnull
     @Override
-    public ExistsPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(existentialAlias) || translationMap.containsSource(alternativeBaseAlias)) {
-            return new ExistsPredicate(translationMap.getTargetOrDefault(existentialAlias, existentialAlias),
-                    alternativeBaseAlias == null ? null : translationMap.getTargetOrDefault(alternativeBaseAlias, alternativeBaseAlias),
-                    alternativeComponent);
+    public ExistsPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+        if (translationMap.containsSourceAlias(existentialAlias)) {
+            return new ExistsPredicate(translationMap.getTargetAliasOrDefault(existentialAlias, existentialAlias));
         } else {
             return this;
         }
@@ -126,9 +103,7 @@ public class ExistsPredicate implements LeafQueryPredicate {
             return false;
         }
         final ExistsPredicate that = (ExistsPredicate)other;
-        return equivalenceMap.containsMapping(existentialAlias, that.existentialAlias) &&
-               ((alternativeBaseAlias == null && that.alternativeBaseAlias == null) ||
-               equivalenceMap.containsMapping(alternativeBaseAlias, that.alternativeBaseAlias));
+        return equivalenceMap.containsMapping(existentialAlias, that.existentialAlias);
     }
 
     @Override
@@ -162,31 +137,49 @@ public class ExistsPredicate implements LeafQueryPredicate {
             if (!existentialAlias.equals(aliasMap.getTarget(candidateExistsPredicate.getExistentialAlias()))) {
                 return Optional.empty();
             }
-            return Optional.of(new PredicateMapping(this, candidatePredicate, this::reapplyPredicateMaybe));
+            return Optional.of(new PredicateMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe));
         } else if (candidatePredicate.isTautology()) {
-            return Optional.of(new PredicateMapping(this, candidatePredicate, this::reapplyPredicateMaybe));
-        }
-        return Optional.empty();
-    }
-
-    @Nonnull
-    public Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull final MatchInfo matchInfo, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        final Optional<PartialMatch> childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
-        final Optional<Compensation> compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
-        if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
-            // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
-            //      make a predicate that can evaluate a QueryComponent
-            return Optional.of(toResidualPredicate());
+            return Optional.of(new PredicateMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe));
         }
         return Optional.empty();
     }
 
     @Nonnull
     @Override
-    public QueryPredicate toResidualPredicate() {
-        return new QueryComponentPredicate(getAlternativeComponent(), getAlternativeBaseAlias());
+    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+        Verify.verify(childrenResults.isEmpty());
+        return injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
     }
 
+    @Nonnull
+    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        final var matchInfo = partialMatch.getMatchInfo();
+        final var childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
+        final var compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
+        if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
+            return Optional.of(translationMap -> injectCompensation(partialMatch, translationMap));
+        }
+        return Optional.empty();
+    }
+
+    @Nonnull
+    private GraphExpansion injectCompensation(@Nonnull final PartialMatch partialMatch, @Nonnull final TranslationMap translationMap) {
+        Verify.verify(!translationMap.containsSourceAlias(existentialAlias));
+
+        //
+        // Find the quantifier referenced by this exists(), translate the graph underneath and recreate a new exists on top
+        //
+        final var containingExpression = partialMatch.getQueryExpression();
+        Verify.verify(containingExpression.canCorrelate());
+
+        return GraphExpansion.builder()
+                .addPredicate(this)
+                .build();
+    }
+    
     @Override
     public String toString() {
         return "∃" + existentialAlias;

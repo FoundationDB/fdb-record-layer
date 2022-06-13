@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -66,6 +68,8 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nullable
     private final Set<String> recordTypes;
+    @Nonnull
+    private final Type flowedType;
     @Nullable
     private final KeyExpression commonPrimaryKey;
     @Nonnull
@@ -75,13 +79,13 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     /**
      * Overloaded constructor.
-     * Use the overloaded constructor {@link #RecordQueryScanPlan(Set, KeyExpression, ScanComparisons, boolean, boolean)}
+     * Use the overloaded constructor {@link #RecordQueryScanPlan(Set, Type, KeyExpression, ScanComparisons, boolean, boolean)}
      * to also pass in a set of record types.
      * @param comparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      */
     public RecordQueryScanPlan(@Nonnull ScanComparisons comparisons, boolean reverse) {
-        this(null, null, comparisons, reverse, false);
+        this(null, new Type.Any(), null, comparisons, reverse, false);
     }
 
     /**
@@ -92,10 +96,11 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      * @param reverse indicator whether this scan is reverse
      */
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
+                               @Nonnull Type flowedType,
                                @Nullable KeyExpression commonPrimaryKey,
                                @Nonnull ScanComparisons comparisons,
                                boolean reverse) {
-        this(recordTypes, commonPrimaryKey, comparisons, reverse, false);
+        this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, false);
     }
 
     /**
@@ -105,8 +110,14 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      * @param reverse indicator whether this scan is reverse
      * @param strictlySorted whether scan is stricted sorted for original query
      */
-    public RecordQueryScanPlan(@Nullable Set<String> recordTypes, @Nullable KeyExpression commonPrimaryKey, @Nonnull ScanComparisons comparisons, boolean reverse, boolean strictlySorted) {
+    public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
+                               @Nonnull Type flowedType,
+                               @Nullable KeyExpression commonPrimaryKey,
+                               @Nonnull ScanComparisons comparisons,
+                               boolean reverse,
+                               boolean strictlySorted) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
+        this.flowedType = flowedType;
         this.commonPrimaryKey = commonPrimaryKey;
         this.comparisons = comparisons;
         this.reverse = reverse;
@@ -187,7 +198,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Override
     public RecordQueryScanPlan strictlySorted() {
-        return new RecordQueryScanPlan(recordTypes, commonPrimaryKey, comparisons, reverse, true);
+        return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, true);
     }
 
     @Nonnull
@@ -217,14 +228,16 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
-    public RecordQueryScanPlan rebase(@Nonnull final AliasMap translationMap) {
-        return new RecordQueryScanPlan(getRecordTypes(), getCommonPrimaryKey(), getComparisons(), isReverse(), isStrictlySorted());
+    public RecordQueryScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        // TODO make return this dependent on whether the index scan is correlated according to the translation map
+        return this;
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return new QueriedValue(new Type.Any());
+        return new QueriedValue(flowedType);
     }
 
     @Override
@@ -239,6 +252,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         }
         final RecordQueryScanPlan that = (RecordQueryScanPlan)otherExpression;
         return Objects.equals(recordTypes, that.recordTypes) &&
+               flowedType.equals(otherExpression.getResultValue().getResultType()) &&
                Objects.equals(commonPrimaryKey, that.commonPrimaryKey) &&
                reverse == that.reverse &&
                Objects.equals(comparisons, that.comparisons);
@@ -257,7 +271,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(recordTypes, commonPrimaryKey, comparisons, reverse);
+        return Objects.hash(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse);
     }
 
     @Override
@@ -267,7 +281,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                 return comparisons.planHash(hashKind) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisons, reverse, recordTypes, commonPrimaryKey);
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisons, reverse, recordTypes, flowedType, commonPrimaryKey);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

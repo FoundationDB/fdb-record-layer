@@ -28,8 +28,10 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -44,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -212,19 +213,24 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return builder.build();
     }
 
-    @SuppressWarnings({"unchecked", "java:S1905"})
+    @SuppressWarnings("java:S1905")
     @Nonnull
     @Override
     public GroupExpressionRef<T> rebase(@Nonnull final AliasMap translationMap) {
-        return GroupExpressionRef.from(getMembers()
-                .stream()
-                // The following downcast is necessary since members of this class are of type T
-                // (extends RelationalExpression) but rebases of RelationalExpression are not
-                // Correlated of T (extends RelationalExpression) but Correlated<RelationalExpression> in order to
-                // avoid introducing a new type Parameter T. All the o1 = o.rebase(), however, by contract should return
-                // an o1 where o1.getClass() == o.getClass()
-                .map(member -> (T)member.rebase(translationMap))
-                .collect(Collectors.toList()));
+        final var expressionRef = translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+        if (expressionRef instanceof GroupExpressionRef<?>) {
+            return (GroupExpressionRef<T>)expressionRef;
+        } else {
+            return GroupExpressionRef.from(expressionRef.getMembers());
+        }
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("unchecked")
+    public ExpressionRef<T> translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        final var translatedRefs = ExpressionRefs.translateCorrelations(ImmutableList.of(this), translationMap);
+        return (ExpressionRef<T>)Iterables.getOnlyElement(translatedRefs);
     }
 
     /**

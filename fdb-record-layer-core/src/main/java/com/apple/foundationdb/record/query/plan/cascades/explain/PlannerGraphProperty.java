@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRefTraversal;
@@ -70,7 +71,7 @@ import java.util.stream.Collectors;
  * Class to hold a graph for explain, optimization, and rewrite purposes.
  */
 @SuppressWarnings({"UnstableApiUsage"})
-public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph> {
+public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, RelationalExpressionVisitorWithDefaults<PlannerGraph> {
 
     public static final int EMPTY_FLAGS                = 0x0000;
 

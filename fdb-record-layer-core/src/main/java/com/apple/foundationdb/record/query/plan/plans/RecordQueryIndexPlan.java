@@ -48,6 +48,8 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -307,15 +309,10 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public RecordQueryIndexPlan rebase(@Nonnull final AliasMap translationMap) {
-        return new RecordQueryIndexPlan(getIndexName(),
-                getCommonPrimaryKey(),
-                getScanParameters(),
-                getIndexFetchMethod(),
-                isReverse(),
-                isStrictlySorted(),
-                matchCandidateOptional,
-                resultType);
+    public RecordQueryIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        // TODO make return this dependent on whether the index scan is correlated according to the translation map
+        return this;
     }
 
     @Nonnull

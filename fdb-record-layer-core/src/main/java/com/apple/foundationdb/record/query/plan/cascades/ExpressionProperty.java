@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.common.collect.Lists;
 
@@ -69,7 +69,7 @@ import java.util.Objects;
  * @param <T> the result type of the property
  */
 @API(API.Status.EXPERIMENTAL)
-public interface ExpressionProperty<T> extends RelationalExpressionVisitorWithDefaults<T> {
+public interface ExpressionProperty<T> extends RelationalExpressionVisitor<T> {
     /**
      * Return whether the property should visit the subgraph rooted at the given expression.
      * Called on nodes in the expression graph in visit pre-order of the depth-first traversal of the graph.

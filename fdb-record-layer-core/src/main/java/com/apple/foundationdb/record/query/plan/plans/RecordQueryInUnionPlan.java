@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -74,17 +76,22 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     private final ComparisonKeyFunction comparisonKeyFunction;
     protected final boolean reverse;
     protected final int maxNumberOfValuesAllowed;
+    @Nonnull
+    protected final Bindings.Internal internal;
 
     protected RecordQueryInUnionPlan(@Nonnull final Quantifier.Physical inner,
                                      @Nonnull final List<? extends InSource> inSources,
                                      @Nonnull final ComparisonKeyFunction comparisonKeyFunction,
                                      final boolean reverse,
-                                     final int maxNumberOfValuesAllowed) {
+                                     final int maxNumberOfValuesAllowed,
+                                     @Nonnull final Bindings.Internal internal) {
+        Verify.verify(internal == Bindings.Internal.IN || internal == Bindings.Internal.CORRELATION);
         this.inner = inner;
         this.inSources = inSources;
         this.comparisonKeyFunction = comparisonKeyFunction;
         this.reverse = reverse;
         this.maxNumberOfValuesAllowed = maxNumberOfValuesAllowed;
+        this.internal = internal;
     }
 
     @Nonnull
@@ -280,7 +287,8 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
             final List<EvaluationContext> children = new ArrayList<>();
             for (EvaluationContext parent : parents) {
                 for (Object value : values.getValues(parent)) {
-                    children.add(parent.withBinding(values.getBindingName(), value));
+                    final Object bindingValue = (internal == Bindings.Internal.IN) ? value : QueryResult.ofComputed(value);
+                    children.add(parent.withBinding(values.getBindingName(), bindingValue));
                 }
             }
             parents = children;
@@ -295,18 +303,21 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
      * @param inSources a list of outer in-sources
      * @param comparisonKey a key expression by which the results of both plans are ordered
      * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
+     * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
      */
     @Nonnull
     public static RecordQueryInUnionOnKeyExpressionPlan from(@Nonnull final Quantifier.Physical inner,
                                                              @Nonnull final List<? extends InSource> inSources,
                                                              @Nonnull KeyExpression comparisonKey,
-                                                             final int maxNumberOfValuesAllowed) {
+                                                             final int maxNumberOfValuesAllowed,
+                                                             @Nonnull final Bindings.Internal internal) {
         return new RecordQueryInUnionOnKeyExpressionPlan(inner,
                 inSources,
                 comparisonKey,
                 Quantifiers.isReversed(ImmutableList.of(inner)),
-                maxNumberOfValuesAllowed);
+                maxNumberOfValuesAllowed,
+                internal);
     }
 
     /**
@@ -317,6 +328,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
      * @param comparisonKey a key expression by which the results of both plans are ordered
      * @param isReverse indicator if this operator produces its ordering in reverse order
      * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
+     * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
      */
     @Nonnull
@@ -324,11 +336,13 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                                                              @Nonnull final List<? extends InSource> inSources,
                                                              @Nonnull KeyExpression comparisonKey,
                                                              final boolean isReverse,
-                                                             final int maxNumberOfValuesAllowed) {
+                                                             final int maxNumberOfValuesAllowed,
+                                                             @Nonnull final Bindings.Internal internal) {
         return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(GroupExpressionRef.of(inner)),
                 inSources,
                 comparisonKey,
                 isReverse,
-                maxNumberOfValuesAllowed);
+                maxNumberOfValuesAllowed,
+                internal);
     }
 }

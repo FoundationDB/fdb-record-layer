@@ -65,7 +65,7 @@ public class QueriedValue implements LeafValue, Value.CompileTimeValue {
 
     @Nonnull
     @Override
-    public QueriedValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
+    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         return this;
     }
 

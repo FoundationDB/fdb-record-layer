@@ -24,12 +24,11 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Existential;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Physical;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.ComputingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.FindingMatcher;
@@ -37,6 +36,8 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.graph.GenericM
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.PredicatedMatcher;
+import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
@@ -44,13 +45,16 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -467,6 +471,59 @@ public class Quantifiers {
                 .map(QueryPlan::isReverse)
                 .findAny()
                 .orElseThrow(() -> new RecordCoreException("unable to determine reversed-ness"));
+    }
+
+    @Nonnull
+    public static List<? extends Quantifier> anyTopologicalOrderPermutation(@Nonnull List<? extends Quantifier> quantifiers) {
+        final var aliasToQuantifierMap =
+                quantifiers.stream()
+                        .collect(ImmutableMap.toImmutableMap(Quantifier::getAlias, Function.identity()));
+
+        final var aliases =
+                quantifiers.stream()
+                        .map(Quantifier::getAlias)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final var aliasesPermutationOptional =
+                TopologicalSort.anyTopologicalOrderPermutation(aliases,
+                        alias -> Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getCorrelatedTo());
+        Verify.verify(aliasesPermutationOptional.isPresent());
+
+        return aliasesPermutationOptional.get()
+                .stream()
+                .map(alias -> Objects.requireNonNull(aliasToQuantifierMap.get(alias)))
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static List<? extends Quantifier> translateCorrelations(@Nonnull Iterable<? extends Quantifier> quantifiers,
+                                                                   @Nonnull TranslationMap translationMap) {
+        //
+        // Take care of the case that two distinct quantifiers range over the same ref (CSE).
+        //
+        final var oldToNewRefMap =
+                Maps.<ExpressionRef<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>>newIdentityHashMap();
+        final var translatedQuantifiersBuilder = ImmutableList.<Quantifier>builder();
+
+        for (final Quantifier quantifier : quantifiers) {
+            @Nullable final var newRef = oldToNewRefMap.get(quantifier.getRangesOver());
+            if (newRef != null) {
+                // already translated
+                if (quantifier.getRangesOver() == newRef) {
+                    // old == new means that the translation did not change the subgraph
+                    translatedQuantifiersBuilder.add(quantifier);
+                } else {
+                    translatedQuantifiersBuilder.add(quantifier.overNewReference(newRef));
+                }
+            } else {
+                final var translatedQuantifier = quantifier.translateCorrelations(translationMap);
+                oldToNewRefMap.put(quantifier.getRangesOver(), translatedQuantifier.getRangesOver());
+                translatedQuantifiersBuilder.add(translatedQuantifier);
+            }
+        }
+
+        return translatedQuantifiersBuilder.build();
     }
 
     /**

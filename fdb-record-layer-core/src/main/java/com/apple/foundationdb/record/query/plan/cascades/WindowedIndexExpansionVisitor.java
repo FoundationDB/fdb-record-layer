@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -30,10 +29,11 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -127,7 +127,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         //
         // predicate on rank is expressed as an index placeholder
         final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValues().size() - 1);
-        final var rankAndJoiningPredicateExpansion = buildRankComparisonSelectExpression(baseAlias, rankQuantifier, rankColumnValue);
+        final var rankAndJoiningPredicateExpansion = buildRankComparisonSelectExpression(baseQuantifier, rankQuantifier, rankColumnValue);
         Verify.verify(rankAndJoiningPredicateExpansion.getPlaceholders().size() == 1);
         final var rankAlias = Iterables.getOnlyElement(rankAndJoiningPredicateExpansion.getPlaceholderAliases());
         final var rankAndJoiningPredicateSelectExpression = rankAndJoiningPredicateExpansion.buildSelect();
@@ -252,7 +252,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
     }
 
     @Nonnull
-    private GraphExpansion buildRankComparisonSelectExpression(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Quantifier.ForEach rankQuantifier, @Nonnull final QuantifiedColumnValue rankColumnValue) {
+    private GraphExpansion buildRankComparisonSelectExpression(@Nonnull final Quantifier baseQuantifier, @Nonnull final Quantifier.ForEach rankQuantifier, @Nonnull final QuantifiedColumnValue rankColumnValue) {
         // hold on to the placeholder for later
         final var rankPlaceholder = rankColumnValue.asPlaceholder(newParameterAlias());
 
@@ -262,8 +262,8 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         // join predicate
         final var selfJoinPredicate =
                 rankQuantifier.getFlowedObjectValue()
-                        .withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS,
-                                Bindings.Internal.CORRELATION.bindingName(baseAlias.toString()), Bindings.Internal.CORRELATION));
+                        .withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS,
+                                QuantifiedObjectValue.of(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())));
         final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
 
         return GraphExpansion.ofOthers(rankComparisonExpansion, selfJoinPredicateExpansion);

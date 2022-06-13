@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
@@ -40,7 +41,7 @@ import java.util.List;
  * indexes.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FieldWithComparisonCountProperty implements ExpressionProperty<Integer> {
+public class FieldWithComparisonCountProperty implements ExpressionProperty<Integer>, RelationalExpressionVisitorWithDefaults<Integer> {
     private static final FieldWithComparisonCountProperty INSTANCE = new FieldWithComparisonCountProperty();
 
     @Nonnull
