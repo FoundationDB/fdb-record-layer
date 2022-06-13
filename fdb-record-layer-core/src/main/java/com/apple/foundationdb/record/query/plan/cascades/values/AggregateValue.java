@@ -49,7 +49,7 @@ public interface AggregateValue extends Value {
     Accumulator createAccumulator(@Nonnull TypeRepository typeRepository);
 
     @Nullable
-    <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context);
+    <M extends Message> Object evalToPartial(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 
     @Nonnull
     @Override

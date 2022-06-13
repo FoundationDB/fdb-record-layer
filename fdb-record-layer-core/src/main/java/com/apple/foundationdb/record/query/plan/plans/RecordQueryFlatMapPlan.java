@@ -187,6 +187,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap aliasMap) {
         if (this == otherExpression) {

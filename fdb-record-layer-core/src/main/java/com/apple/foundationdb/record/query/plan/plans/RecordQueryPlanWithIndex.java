@@ -70,7 +70,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
 
     @Nonnull
     @Override
-    RecordQueryPlanWithIndex translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers);
+    RecordQueryPlanWithIndex translateCorrelations(@Nonnull TranslationMap translationMap, @Nonnull List<? extends Quantifier> translatedQuantifiers);
 
     @Nonnull
     <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store,

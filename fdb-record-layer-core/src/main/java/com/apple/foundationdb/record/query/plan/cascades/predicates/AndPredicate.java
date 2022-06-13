@@ -108,7 +108,7 @@ public class AndPredicate extends AndOrPredicate {
     public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
                                                                                 @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                                 @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
-        final var childrenInjectCompensationFunctions=
+        final var childrenInjectCompensationFunctions =
                 childrenResults.stream()
                         .filter(Optional::isPresent)
                         .map(Optional::get)

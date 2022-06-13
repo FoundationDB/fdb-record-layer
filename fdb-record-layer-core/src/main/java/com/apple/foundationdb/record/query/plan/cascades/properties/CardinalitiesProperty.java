@@ -457,7 +457,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             if (!minCardinality.isUnknown()) {
                 final var currentMinCardinality = cardinalities.getMinCardinality();
                 if (currentMinCardinality.isUnknown() ||
-                    minCardinality.getCardinality() > currentMinCardinality.getCardinality()) {
+                        minCardinality.getCardinality() > currentMinCardinality.getCardinality()) {
                     minCardinality = currentMinCardinality;
                 }
             }
@@ -465,7 +465,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             if (!maxCardinality.isUnknown()) {
                 final var currentMaxCardinality = cardinalities.getMaxCardinality();
                 if (currentMaxCardinality.isUnknown() ||
-                    minCardinality.getCardinality() < currentMaxCardinality.getCardinality()) {
+                        minCardinality.getCardinality() < currentMaxCardinality.getCardinality()) {
                     maxCardinality = currentMaxCardinality;
                 }
             }
@@ -518,9 +518,13 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         return Objects.requireNonNull(nullableResult);
     }
 
+
+    /**
+     *  Class to capture both minimum and maximum cardinality of an expression. Also contains some helpers to combine
+     *  cardinality information.
+     */
     public static class Cardinalities {
         private static final Cardinalities unknownCardinalities = new Cardinalities(Cardinality.unknownCardinality(), Cardinality.unknownCardinality());
-
         @Nonnull
         private final Cardinality minCardinality;
         @Nonnull
@@ -551,6 +555,10 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         }
     }
 
+    /**
+     * Class to encapsulate the minimum or maximum cardinality of an expression. Also contains helpers to combine
+     * cardinality information which each other.
+     */
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static class Cardinality {
         private static final Cardinality unknownCardinality = new Cardinality(OptionalLong.empty());

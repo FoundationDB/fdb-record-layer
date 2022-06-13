@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
@@ -243,6 +242,11 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     }
 
     @Nonnull
+    public SelectExpression buildSelectWithResultValue(@Nonnull final Value resultValue) {
+        return seal().buildSelectWithResultValue(resultValue);
+    }
+
+    @Nonnull
     public static GraphExpansion empty() {
         return builder().build();
     }
@@ -328,14 +332,14 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier) {
-            final var forEachQuantifiers = quantifiers.stream()
-                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                    .collect(ImmutableList.toImmutableList());
-            Verify.verify(forEachQuantifiers.size() == 1);
-            Verify.verify(Iterables.getOnlyElement(forEachQuantifiers) == overQuantifier);
-            return new SelectExpression(overQuantifier.getFlowedObjectValue(), quantifiers, getPredicates());
+            return buildSelectWithResultValue(overQuantifier.getFlowedObjectValue());
+        }
+
+        @Nonnull
+        public SelectExpression buildSelectWithResultValue(@Nonnull final Value resultValue) {
+            Verify.verify(resultColumns.isEmpty());
+            return new SelectExpression(resultValue, quantifiers, getPredicates());
         }
 
         @Nonnull
@@ -417,7 +421,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
-        public Builder addAllResultValues(@Nonnull final List<? extends Value> addResultValues) {
+        public Builder addAllResultValues(@Nonnull final Iterable<? extends Value> addResultValues) {
             addResultValues.forEach(this::addResultValue);
             return this;
         }
@@ -429,7 +433,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
-        public Builder addAllResultColumns(@Nonnull final List<Column<? extends Value>> addResultColumns) {
+        public Builder addAllResultColumns(@Nonnull final Iterable<Column<? extends Value>> addResultColumns) {
             addResultColumns.forEach(this::addResultColumn);
             return builder();
         }
@@ -441,7 +445,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
-        public Builder addAllPredicates(@Nonnull final List<? extends QueryPredicate> addPredicates) {
+        public Builder addAllPredicates(@Nonnull final Iterable<? extends QueryPredicate> addPredicates) {
             predicates.addAll(addPredicates);
             return this;
         }
@@ -453,7 +457,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
-        public Builder addAllQuantifiers(@Nonnull final List<? extends Quantifier> addQuantifiers) {
+        public Builder addAllQuantifiers(@Nonnull final Iterable<? extends Quantifier> addQuantifiers) {
             addQuantifiers.forEach(this::addQuantifier);
             return this;
         }
@@ -466,7 +470,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
-        public Builder pullUpAllQuantifiers(@Nonnull final List<? extends Quantifier> addQuantifiers) {
+        public Builder pullUpAllQuantifiers(@Nonnull final Iterable<? extends Quantifier> addQuantifiers) {
             addQuantifiers.forEach(this::pullUpQuantifier);
             return this;
         }
@@ -484,7 +488,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
-        public Builder addAllPlaceholders(@Nonnull final List<? extends Placeholder> addPlaceholders) {
+        public Builder addAllPlaceholders(@Nonnull final Iterable<? extends Placeholder> addPlaceholders) {
             placeholders.addAll(addPlaceholders);
             return this;
         }

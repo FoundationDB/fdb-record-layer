@@ -45,9 +45,11 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -494,32 +496,34 @@ public class Quantifiers {
     }
 
     @Nonnull
-    public static List<? extends Quantifier> translateCorrelations(@Nonnull List<? extends Quantifier> quantifiers,
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static List<? extends Quantifier> translateCorrelations(@Nonnull Iterable<? extends Quantifier> quantifiers,
                                                                    @Nonnull TranslationMap translationMap) {
-        final var expressionRefs = quantifiers
-                .stream()
-                .map(Quantifier::getRangesOver)
-                .collect(ImmutableList.toImmutableList());
+        //
+        // Take care of the case that two distinct quantifiers range over the same ref (CSE).
+        //
+        final var oldToNewRefMap =
+                Maps.<ExpressionRef<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>>newIdentityHashMap();
+        final var translatedQuantifiersBuilder = ImmutableList.<Quantifier>builder();
 
-        final var translatedExpressionRefs =
-                ExpressionRefs.translateCorrelations(expressionRefs, translationMap);
-
-        Verify.verify(quantifiers.size() == translatedExpressionRefs.size());
-
-        final var resultBuilder = ImmutableList.<Quantifier>builder();
-        for (int i = 0; i < expressionRefs.size(); i++) {
-            final var expressionRef = expressionRefs.get(i);
-            final var translatedExpressionRef = translatedExpressionRefs.get(i);
-            final var quantifier = quantifiers.get(i);
-
-            if (expressionRef == translatedExpressionRef) {
-                resultBuilder.add(quantifier);
+        for (final Quantifier quantifier : quantifiers) {
+            @Nullable final var newRef = oldToNewRefMap.get(quantifier.getRangesOver());
+            if (newRef != null) {
+                // already translated
+                if (quantifier.getRangesOver() == newRef) {
+                    // old == new means that the translation did not change the subgraph
+                    translatedQuantifiersBuilder.add(quantifier);
+                } else {
+                    translatedQuantifiersBuilder.add(quantifier.overNewReference(newRef));
+                }
             } else {
-                resultBuilder.add(quantifier.overNewReference(translatedExpressionRef));
+                final var translatedQuantifier = quantifier.translateCorrelations(translationMap);
+                oldToNewRefMap.put(quantifier.getRangesOver(), translatedQuantifier.getRangesOver());
+                translatedQuantifiersBuilder.add(translatedQuantifier);
             }
         }
 
-        return resultBuilder.build();
+        return translatedQuantifiersBuilder.build();
     }
 
     /**

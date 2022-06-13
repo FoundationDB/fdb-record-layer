@@ -102,7 +102,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
     }
 
     @Override
-    @SuppressWarnings({"java:S135", "java:S2629"})
+    @SuppressWarnings({"java:S135", "java:S2629", "checkstyle:VariableDeclarationUsageDistance", "PMD.GuardLogStatement"})
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
@@ -120,7 +120,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         final var innerPartition = bindings.get(innerPlanPartitionsMatcher);
 
         final var joinName = Debugger.mapDebugger(debugger -> debugger.nameForObject(outerQuantifier) + " ⨝ " + debugger.nameForObject(innerQuantifier)).orElse("not in debug mode");
-        Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("attempting join", "joinedTables", "JOIN:" + joinName)));
+        Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("attempting join", "joinedTables", joinName, "requestedOrderings", requestedOrderings)));
 
         final var fullCorrelationOrder =
                 selectExpression.getCorrelationOrder().getTransitiveClosure();
@@ -318,11 +318,11 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                         new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
 
         final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
-        for(final var predicate : predicates) {
+        for (final var predicate : predicates) {
             final var newOuterInnerPredicate =
                     predicate.replaceLeavesMaybe(leafPredicate -> {
                         if (leafPredicate instanceof ExistsPredicate &&
-                            ((ExistsPredicate)leafPredicate).getExistentialAlias().equals(innerAlias)) {
+                                ((ExistsPredicate)leafPredicate).getExistentialAlias().equals(innerAlias)) {
                             leafPredicate = rewrittenExistsPredicateSupplier.get();
                         }
                         return leafPredicate.translateLeafPredicate(translationMap);

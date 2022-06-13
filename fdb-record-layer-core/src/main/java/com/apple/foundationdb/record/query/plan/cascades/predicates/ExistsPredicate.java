@@ -34,13 +34,9 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -179,21 +175,7 @@ public class ExistsPredicate implements LeafQueryPredicate {
         final var containingExpression = partialMatch.getQueryExpression();
         Verify.verify(containingExpression.canCorrelate());
 
-        final var existentialQuantifierOptional =
-                containingExpression.getQuantifiers()
-                        .stream()
-                        .filter(quantifier -> quantifier.getAlias().equals(existentialAlias))
-                        .findFirst();
-        Verify.verify(existentialQuantifierOptional.isPresent());
-
-        final var existentialQuantifier = existentialQuantifierOptional.get();
-        Verify.verify(existentialQuantifier instanceof Quantifier.Existential);
-
-        final var newExistentialQuantifier =
-                Iterables.getOnlyElement(Quantifiers.translateCorrelations(ImmutableList.of(existentialQuantifier), translationMap));
-
         return GraphExpansion.builder()
-                .addQuantifier(newExistentialQuantifier)
                 .addPredicate(this)
                 .build();
     }

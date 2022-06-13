@@ -246,7 +246,7 @@ public class MatchInfo {
                 .map(Equivalence.Wrapper::get)
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
-
+        
         final List<BoundKeyPart> orderingKeyParts;
         if (regularQuantifiers.size() == 1) {
             final var regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);

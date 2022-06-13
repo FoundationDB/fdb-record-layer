@@ -80,7 +80,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     @Nonnull
     @Override
     public String getName() {
-        return "$primary";
+        return "primary(" + String.join(",", queriedRecordTypes) + ")";
     }
 
     @Nonnull

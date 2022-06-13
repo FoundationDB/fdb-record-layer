@@ -28,14 +28,13 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -80,7 +79,6 @@ public class DataAccessRule extends AbstractDataAccessRule<RelationalExpression>
     protected ExpressionRef<? extends RelationalExpression> inject(@Nonnull RelationalExpression expression,
                                                                    @Nonnull List<? extends PartialMatch> completeMatches,
                                                                    @Nonnull final ExpressionRef<? extends RelationalExpression> compensatedScanGraph) {
-        Verify.verify(computeIntersectedUnmatchedForEachQuantifiers(expression, completeMatches).isEmpty());
         return compensatedScanGraph;
     }
 }

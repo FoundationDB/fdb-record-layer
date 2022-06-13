@@ -719,7 +719,7 @@ public class Comparisons {
         }
 
         @Nonnull
-        Comparison translateCorrelations(@Nonnull final TranslationMap translationMap);
+        Comparison translateCorrelations(@Nonnull TranslationMap translationMap);
 
         @Override
         default boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap) {
@@ -1222,6 +1222,7 @@ public class Comparisons {
         }
 
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
             if (this == other) {
                 return true;
@@ -1286,12 +1287,12 @@ public class Comparisons {
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
             switch (hashKind) {
-            case LEGACY:
-            case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
+                case LEGACY:
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
-            default:
-                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
         }
 

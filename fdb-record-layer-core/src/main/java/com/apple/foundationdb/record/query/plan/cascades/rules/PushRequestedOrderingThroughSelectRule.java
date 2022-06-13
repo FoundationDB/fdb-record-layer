@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRul
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -36,7 +37,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
@@ -52,7 +53,7 @@ public class PushRequestedOrderingThroughSelectRule extends PlannerRule<SelectEx
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(exactly(innerQuantifierMatcher));
+            selectExpression(any(innerQuantifierMatcher));
 
     public PushRequestedOrderingThroughSelectRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
@@ -61,12 +62,30 @@ public class PushRequestedOrderingThroughSelectRule extends PlannerRule<SelectEx
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final var bindings = call.getBindings();
+        final var selectExpression = bindings.get(root);
+        final var innerQuantifier = bindings.get(innerQuantifierMatcher);
         final var lowerRef = bindings.get(lowerRefMatcher);
-        final var requestedOrdering =
+
+        final var isInnerQuantifierOnlyForEach =
+                selectExpression.getQuantifiers()
+                        .stream()
+                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                        .allMatch(quantifier -> quantifier == innerQuantifier);
+
+        final var requestedOrderings =
                 call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING)
                         .orElse(ImmutableSet.of());
-        call.pushConstraint(lowerRef,
-                RequestedOrderingConstraint.REQUESTED_ORDERING,
-                requestedOrdering);
+
+        if (isInnerQuantifierOnlyForEach) {
+            call.pushConstraint(lowerRef,
+                    RequestedOrderingConstraint.REQUESTED_ORDERING,
+                    requestedOrderings);
+        } else {
+            if (requestedOrderings.stream().anyMatch(RequestedOrdering::isPreserve)) {
+                call.pushConstraint(lowerRef,
+                        RequestedOrderingConstraint.REQUESTED_ORDERING,
+                        ImmutableSet.of(RequestedOrdering.preserve()));
+            }
+        }
     }
 }

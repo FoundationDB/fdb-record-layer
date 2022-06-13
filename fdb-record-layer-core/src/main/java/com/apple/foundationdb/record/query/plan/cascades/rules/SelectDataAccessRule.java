@@ -23,18 +23,14 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
@@ -66,23 +62,6 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
     protected ExpressionRef<? extends RelationalExpression> inject(@Nonnull SelectExpression selectExpression,
                                                                    @Nonnull List<? extends PartialMatch> completeMatches,
                                                                    @Nonnull final ExpressionRef<? extends RelationalExpression> compensatedScanGraph) {
-        final Set<Quantifier.ForEach> unmatchedQuantifiers =
-                computeIntersectedUnmatchedForEachQuantifiers(selectExpression, completeMatches);
-        if (unmatchedQuantifiers.isEmpty()) {
-            return compensatedScanGraph;
-        }
-        
-        //
-        // Create a new SelectExpression that contains all the unmatched for each quantifiers as well as the
-        // compensated scan graph.
-        //
-        final ImmutableList.Builder<Quantifier.ForEach> allQuantifiersBuilder = ImmutableList.builder();
-        unmatchedQuantifiers.stream()
-                .map(quantifier -> Quantifier.forEachBuilder().from(quantifier).build(quantifier.getRangesOver()))
-                .forEach(allQuantifiersBuilder::add);
-        final Quantifier.ForEach compensatedScanQuantifier = Quantifier.forEach(compensatedScanGraph);
-        allQuantifiersBuilder.add(compensatedScanQuantifier);
-
-        return GroupExpressionRef.of(new SelectExpression(compensatedScanQuantifier.getFlowedObjectValue(), allQuantifiersBuilder.build(), ImmutableList.of()));
+        return compensatedScanGraph;
     }
 }

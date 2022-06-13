@@ -171,14 +171,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                     .build(reference);
         }
 
-        @Override
-        @Nonnull
-        public ForEach rebase(@Nonnull final AliasMap translationMap) {
-            return Quantifier.forEachBuilder()
-                    .from(this)
-                    .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
-        }
-
         @Nonnull
         @Override
         public List<Column<? extends QuantifiedColumnValue>> computeFlowedColumns() {
@@ -275,14 +267,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return Quantifier.existentialBuilder()
                     .from(this)
                     .build(reference);
-        }
-
-        @Override
-        @Nonnull
-        public Existential rebase(@Nonnull final AliasMap translationMap) {
-            return Quantifier.existentialBuilder()
-                    .from(this)
-                    .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
         }
 
         @Nonnull
@@ -423,14 +407,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return Quantifier.physicalBuilder()
                     .from(this)
                     .build(reference);
-        }
-
-        @Override
-        @Nonnull
-        public Physical rebase(@Nonnull final AliasMap translationMap) {
-            return Quantifier.physicalBuilder()
-                    .from(this)
-                    .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
         }
 
         @Nonnull
@@ -632,5 +608,22 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     @Nonnull
-    public abstract Quantifier overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference);
+    public abstract Quantifier overNewReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference);
+
+    @Override
+    @Nonnull
+    public Quantifier rebase(@Nonnull final AliasMap translationMap) {
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public Quantifier translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        final ExpressionRef<? extends RelationalExpression> rangesOver = getRangesOver();
+        final ExpressionRef<? extends RelationalExpression> translatedReference =
+                getRangesOver().translateCorrelations(translationMap);
+        return rangesOver == translatedReference
+               ? this
+               : overNewReference(translatedReference);
+    }
 }

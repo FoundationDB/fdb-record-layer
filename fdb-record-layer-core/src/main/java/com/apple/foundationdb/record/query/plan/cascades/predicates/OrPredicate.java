@@ -112,7 +112,7 @@ public class OrPredicate extends AndOrPredicate {
     public Optional<PredicateMultiMap.ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
                                                                                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                                                   @Nonnull final List<Optional<PredicateMultiMap.ExpandCompensationFunction>> childrenResults) {
-        final var childrenInjectCompensationFunctions=
+        final var childrenInjectCompensationFunctions =
                 childrenResults.stream()
                         .filter(Optional::isPresent)
                         .map(Optional::get)

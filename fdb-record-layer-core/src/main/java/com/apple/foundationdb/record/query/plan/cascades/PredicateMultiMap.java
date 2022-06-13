@@ -57,8 +57,8 @@ public class PredicateMultiMap {
     @FunctionalInterface
     public interface CompensatePredicateFunction {
         @Nonnull
-        Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                             @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap);
+        Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull PartialMatch partialMatch,
+                                                                             @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap);
     }
 
     /**
@@ -67,7 +67,7 @@ public class PredicateMultiMap {
     @FunctionalInterface
     public interface ExpandCompensationFunction {
         @Nonnull
-        GraphExpansion applyCompensation(@Nonnull final TranslationMap translationMap);
+        GraphExpansion applyCompensation(@Nonnull TranslationMap translationMap);
     }
 
     /**

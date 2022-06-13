@@ -91,6 +91,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RecordQueryExplodePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap);
         if (translatedCollectionValue != collectionValue) {
@@ -168,6 +169,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {

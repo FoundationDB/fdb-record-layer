@@ -208,7 +208,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
 
         // reference equality is intended here as we use that mechanism to detect changes in the rebased objects
         if (translatedEqualityComparison == equalityComparison &&
-            rebasedInequalityComparisons == inequalityComparisons) {
+                rebasedInequalityComparisons == inequalityComparisons) {
             return this;
         }
         if (isEquality()) {

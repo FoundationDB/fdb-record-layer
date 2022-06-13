@@ -729,10 +729,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         throw new RecordCoreException("expression matched but no compensation logic implemented");
     }
 
-    default Set<Quantifier.ForEach> computeUnmatchedForEachQuantifiers(@Nonnull final PartialMatch partialMatch) {
-        return ImmutableSet.of();
-    }
-
     @Nonnull
     @Override
     default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
@@ -746,7 +742,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     @Nonnull
-    RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers);
+    RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap, @Nonnull List<? extends Quantifier> translatedQuantifiers);
 
     /**
      * Compute the semantic hash code of this expression. The logic computing the hash code is agnostic to the order

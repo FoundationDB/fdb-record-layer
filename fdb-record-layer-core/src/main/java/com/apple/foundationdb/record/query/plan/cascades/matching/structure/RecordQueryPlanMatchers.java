@@ -533,7 +533,7 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryFlatMapPlan> flatMapPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream1,
                                                                      @Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream2) {
-        return childrenPlans(RecordQueryFlatMapPlan.class, ListMatcher.exactly(downstream1, downstream2));
+        return childrenPlans(RecordQueryFlatMapPlan.class, exactly(downstream1, downstream2));
     }
 
     @Nonnull

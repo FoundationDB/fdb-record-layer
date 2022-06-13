@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
@@ -246,9 +247,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 if (quantifier instanceof Quantifier.ForEach) {
                     // current quantifier is matched
                     final var childPartialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(quantifier));
-
-                    if (!childPartialMatch.getQueryExpression()
-                            .computeUnmatchedForEachQuantifiers(childPartialMatch).isEmpty()) {
+                    if (!childPartialMatch.compensationCanBeDeferred()) {
                         return ImmutableList.of();
                     }
                 }
@@ -256,17 +255,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 matchedCorrelatedToBuilder.addAll(quantifier.getCorrelatedTo());
             }
         }
-
-        matchedCorrelatedToBuilder.addAll(getResultValue().getCorrelatedTo());
-
+        
         final var matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
-
-        if (getQuantifiers()
-                .stream()
-                .anyMatch(quantifier -> quantifier instanceof Quantifier.ForEach && !partialMatchMap.containsKeyUnwrapped(quantifier))) {
-            return ImmutableList.of();
-        }
-
         final var allNonMatchedQuantifiersIndependent =
                 getQuantifiers()
                         .stream()
@@ -390,7 +380,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                     //
                     // Last chance for unmapped predicates - if there is a placeholder or a tautology on the other side that is still
                     // unmapped, we can (and should) remove it from the unmapped other set now. The reasoning is that this predicate is
-                    // not filtering so it does not cause records to be filtered that are not filtered on the query side.
+                    // not filtering, so it does not cause records to be filtered that are not filtered on the query side.
                     //
                     unmappedOtherPredicates
                             .removeIf(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
@@ -517,9 +507,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     @SuppressWarnings({"java:S135", "java:S1066"})
     public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        final var toBeReappliedPredicatesMap = Maps.<QueryPredicate, ExpandCompensationFunction>newIdentityHashMap();
+        final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, ExpandCompensationFunction>();
         final var matchInfo = partialMatch.getMatchInfo();
         final var predicateMap = matchInfo.getPredicateMap();
+
+        final var quantifiers = getQuantifiers();
 
         //
         // The partial match we are called with here has child matches that have compensations on their own.
@@ -528,7 +520,6 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // optimal way. We need to fold over all those compensations to form one child compensation. The tree that
         // is formed by partial matches therefore collapses into a chain of compensations.
         //
-        final var quantifiers = getQuantifiers();
         final Compensation childCompensation = quantifiers
                 .stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
@@ -537,15 +528,10 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                                 .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap)).stream())
                 .reduce(Compensation.noCompensation(), Compensation::union);
 
-        //
-        // The fact that we matched the partial match handed in must mean that the child compensation is not impossible.
-        //
-        Verify.verify(!childCompensation.isImpossible());
-
-        //
-        // The fact that the childCompensation must mean it can be deferred as we should not have matched otherwise.
-        //
-        Verify.verify(childCompensation.canBeDeferred());
+        if (childCompensation.isImpossible() ||
+                !childCompensation.canBeDeferred()) {
+            return Compensation.impossibleCompensation();
+        }
 
         //
         // Go through all predicates and invoke the reapplication logic for each associated mapping. Remember, each
@@ -564,13 +550,34 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                             .compensatePredicateFunction()
                             .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
 
-            injectCompensationFunctionOptional.ifPresent(injectCompensationFunction -> toBeReappliedPredicatesMap.put(predicate, injectCompensationFunction));
+            injectCompensationFunctionOptional.ifPresent(injectCompensationFunction -> predicateCompensationMap.put(predicate, injectCompensationFunction));
+        }
+
+        final var unmatchedQuantifiers = partialMatch.computeUnmatchedQuantifiers(this);
+        final var isCompensationNeeded =
+                !unmatchedQuantifiers.isEmpty() || !predicateCompensationMap.isEmpty() || matchInfo.getRemainingComputationValueOptional().isPresent();
+
+        if (!isCompensationNeeded) {
+            return Compensation.noCompensation();
+        }
+
+        //
+        // We now know we need compensation, and if we have more than one quantifier, we would have to translate
+        // the references of the values from the query graph to values operating on the MQT in order to do that
+        // compensation. We cannot do that (yet). If we, however, do not have to worry about compensation we just
+        // this select entirely with the scan and there are no additional references to be considered.
+        //
+        final var partialMatchMap = partialMatch.getMatchInfo().getQuantifierToPartialMatchMap();
+        if (quantifiers.stream()
+                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach && partialMatchMap.containsKeyUnwrapped(quantifier))
+                    .count() > 1) {
+            return Compensation.impossibleCompensation();
         }
 
         return Compensation.ofChildCompensationAndPredicateMap(childCompensation,
-                toBeReappliedPredicatesMap,
+                predicateCompensationMap,
                 computeMappedQuantifiers(partialMatch),
-                computeUnmatchedForEachQuantifiers(partialMatch),
+                unmatchedQuantifiers,
                 matchInfo.getRemainingComputationValueOptional());
     }
 }

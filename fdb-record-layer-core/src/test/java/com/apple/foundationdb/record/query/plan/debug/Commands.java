@@ -559,7 +559,7 @@ public class Commands {
                         PlannerGraphProperty.show(true, rootReference, Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
                         return false;
                     } else if ("PLANS".equals(word1)) {
-                        PlannerGraphProperty.show(PlannerGraphProperty.RENDER_SINGLE_GROUPS | PlannerGraphProperty.REMOVE_LOGICAL_EXPRESSIONS, rootReference);
+                        PlannerGraphProperty.show(PlannerGraphProperty.REMOVE_LOGICAL_EXPRESSIONS, rootReference);
                         return false;
                     }
                 }

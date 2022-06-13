@@ -91,13 +91,8 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         return new FutureCursor<>(store.getExecutor(),
                 getChild().executePlan(store, context, continuation, executeProperties).first()
-                        .thenApply(resultOptional -> {
-                            if (resultOptional.isPresent()) {
-                                return resultOptional.get();
-                            } else {
-                                return QueryResult.ofComputed(onEmptyResultValue.eval(store, context));
-                            }
-                        }));
+                        .thenApply(resultOptional ->
+                                resultOptional.orElseGet(() -> QueryResult.ofComputed(onEmptyResultValue.eval(store, context)))));
     }
 
     @Override
@@ -153,6 +148,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap aliasMap) {
         if (this == otherExpression) {

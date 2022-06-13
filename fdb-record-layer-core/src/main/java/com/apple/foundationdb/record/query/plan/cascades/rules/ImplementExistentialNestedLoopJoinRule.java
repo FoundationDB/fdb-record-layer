@@ -90,7 +90,7 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
     }
 
     @Override
-    @SuppressWarnings({"java:S135", "java:S2629"})
+    @SuppressWarnings({"java:S135", "java:S2629", "PMD.GuardLogStatement"})
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
@@ -109,14 +109,14 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
 
         final var joinName = Debugger.mapDebugger(debugger -> debugger.nameForObject(outerQuantifier) + " ⨝ " + debugger.nameForObject(innerQuantifier)).orElse("not in debug mode");
 
-        Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("attempting join", "joinedTables", "JOIN:" + joinName)));
+        Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("attempting join", "joinedTables", joinName, "requestedOrderings", requestedOrderings)));
 
         final var fullCorrelationOrder =
                 selectExpression.getCorrelationOrder().getTransitiveClosure();
         final var aliasToQuantifierMap = selectExpression.getAliasToQuantifierMap();
 
         if (!(outerQuantifier instanceof Quantifier.ForEach &&
-              innerQuantifier instanceof Quantifier.Existential)) {
+                innerQuantifier instanceof Quantifier.Existential)) {
             return;
         }
 
@@ -167,7 +167,9 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
                 final var residualPredicate = predicate.toResidualPredicate();
                 if (correlatedToInExpression.contains(innerAlias)) {
                     if (!(predicate instanceof ExistsPredicate)) {
-                        logger.warn(KeyValueLogMessage.of("predicate depends on existential but it is not an exist()"));
+                        if (logger.isWarnEnabled()) {
+                            logger.warn(KeyValueLogMessage.of("predicate depends on existential but it is not an exist()"));
+                        }
                         Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("predicate depends on existential but it is not an exist()",
                                 "joinedTables", "JOIN:" + joinName)));
                         return;
@@ -290,11 +292,11 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
                         new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
 
         final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
-        for(final var predicate : predicates) {
+        for (final var predicate : predicates) {
             final var newOuterInnerPredicate =
                     predicate.replaceLeavesMaybe(leafPredicate -> {
                         if (leafPredicate instanceof ExistsPredicate &&
-                            ((ExistsPredicate)leafPredicate).getExistentialAlias().equals(existentialAlias)) {
+                                ((ExistsPredicate)leafPredicate).getExistentialAlias().equals(existentialAlias)) {
                             return rewrittenExistsPredicateSupplier.get();
                         }
                         return leafPredicate;

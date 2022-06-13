@@ -32,36 +32,31 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -228,9 +223,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         // create single scan accesses
         for (final var bestMatch : bestMaximumCoverageMatches) {
-            final var dataAccessAndCompensationExpression =
-                    compensateSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch));
-            toBeInjectedReference.insert(dataAccessAndCompensationExpression);
+            applyCompensationForSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch.getPartialMatch()))
+                    .ifPresent(toBeInjectedReference::insert);
         }
 
         final Map<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
@@ -240,7 +234,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         if (commonPrimaryKey != null) {
             final var commonPrimaryKeyParts = commonPrimaryKey.normalizeKeyForPositions();
 
-            final var boundPartitions = Lists.<List<PartialMatch>>newArrayList();
+            final var boundPartitions = Lists.<List<PartialMatchWithCompensation>>newArrayList();
             // create intersections for all n choose k partitions from k = 2 .. n
             IntStream.range(2, bestMaximumCoverageMatches.size() + 1)
                     .mapToObj(k -> ChooseK.chooseK(bestMaximumCoverageMatches, k))
@@ -275,29 +269,35 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @Nonnull
     @SuppressWarnings({"java:S1905", "java:S135"})
-    private static List<PartialMatch> maximumCoverageMatches(@Nonnull final List<? extends PartialMatch> matches, @Nonnull final Set<RequestedOrdering> interestedOrderings) {
-        final var bindingQueryPredicatesForMatches =
+    private static List<PartialMatchWithCompensation> maximumCoverageMatches(@Nonnull final List<? extends PartialMatch> matches,
+                                                                             @Nonnull final Set<RequestedOrdering> interestedOrderings) {
+        final var partialMatchesWithCompensation =
                 matches
                         .stream()
                         .filter(partialMatch -> !satisfiedOrderings(partialMatch, interestedOrderings).isEmpty())
-                        .map(partialMatch -> Pair.of(partialMatch, computeBindingQueryPredicates(partialMatch)))
-                        .sorted(Comparator.comparing((Function<Pair<? extends PartialMatch, Set<QueryPredicate>>, Integer>)p -> p.getValue().size()).reversed())
+                        .map(partialMatch -> new PartialMatchWithCompensation(partialMatch, partialMatch.compensate()))
+                        .filter(partialMatchWithCompensation -> !partialMatchWithCompensation.getCompensation().isImpossible())
+                        .sorted(Comparator.comparing((Function<PartialMatchWithCompensation, Integer>)p -> p.getPartialMatch().getBindingPredidcates().size()).reversed())
                         .collect(ImmutableList.toImmutableList());
 
-        final var maximumCoverageMatchesBuilder = ImmutableList.<PartialMatch>builder();
-        for (var i = 0; i < bindingQueryPredicatesForMatches.size(); i++) {
-            final var outerMatch = bindingQueryPredicatesForMatches.get(i).getKey();
-            final var outer = bindingQueryPredicatesForMatches.get(i).getValue();
+        final var maximumCoverageMatchesBuilder = ImmutableList.<PartialMatchWithCompensation>builder();
+        for (var i = 0; i < partialMatchesWithCompensation.size(); i++) {
+            final var outerPartialMatchWithCompensation =
+                    partialMatchesWithCompensation.get(i);
+            final var outerMatch = outerPartialMatchWithCompensation.getPartialMatch();
+            final var outerBindingPredicates = outerMatch.getBindingPredidcates();
 
             var foundContainingInner = false;
-            for (var j = 0; j < bindingQueryPredicatesForMatches.size(); j++) {
-                final var inner = bindingQueryPredicatesForMatches.get(j).getValue();
+            for (var j = 0; j < partialMatchesWithCompensation.size(); j++) {
+                final var innerPartialMatchWithCompensation =
+                        partialMatchesWithCompensation.get(j);
+                final var innerBindingPredicates = innerPartialMatchWithCompensation.getPartialMatch().getBindingPredidcates();
                 // check if outer is completely contained in inner
-                if (outer.size() >= inner.size()) {
+                if (outerBindingPredicates.size() >= innerBindingPredicates.size()) {
                     break;
                 }
 
-                if (i != j && inner.containsAll(outer)) {
+                if (i != j && innerBindingPredicates.containsAll(outerBindingPredicates)) {
                     foundContainingInner = true;
                     break;
                 }
@@ -307,7 +307,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 //
                 // no other partial match completely contained this one
                 //
-                maximumCoverageMatchesBuilder.add(outerMatch);
+                maximumCoverageMatchesBuilder.add(outerPartialMatchWithCompensation);
             }
         }
 
@@ -382,13 +382,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @Nonnull
     private static Map<PartialMatch, RelationalExpression> createScansForMatches(@Nonnull RecordMetaData recordMetaData,
-                                                                                 @Nonnull final Collection<PartialMatch> matches, @Nonnull final PlanContext planContext) {
+                                                                                 @Nonnull final Collection<PartialMatchWithCompensation> matches, @Nonnull final PlanContext planContext) {
         return matches
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
-                        Function.identity(),
-                        partialMatch -> partialMatch.getMatchCandidate()
-                                .toEquivalentExpression(recordMetaData, partialMatch, planContext)));
+                        PartialMatchWithCompensation::getPartialMatch,
+                        partialMatchWithCompensation -> {
+                            final var partialMatch = partialMatchWithCompensation.getPartialMatch();
+                            return partialMatch.getMatchCandidate()
+                                    .toEquivalentExpression(recordMetaData, partialMatch, planContext);
+                        }));
     }
 
     /**
@@ -412,54 +415,28 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     }
 
     /**
-     * Private helper method to compensate an already existing data access (a scan over materialized data).
+     * Private helper method to apply compensation for an already existing data access (a scan over materialized data).
      * Planning the data access and its compensation for a given match is a two-step approach as we compute
      * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
      * before using the resulting {@link Compensation} to compute the compensating expression for the entire
      * intersection. For single data scans that will not be used in an intersection we still follow the same
-     * two-step approach of seprately planning the scan and then computing the compensation and the compensating
+     * two-step approach of separately planning the scan and then computing the compensation and the compensating
      * expression.
-     * @param partialMatch the match the caller wants to compensate
+     * @param partialMatchWithCompensation the match the caller wants to apply compensation for
      * @param scanExpression the scan expression the caller would like to create compensation for.
      * @return a new {@link RelationalExpression} that represents the data access and its compensation
      */
     @Nonnull
-    private static RelationalExpression compensateSingleDataAccess(@Nonnull final PartialMatch partialMatch,
-                                                                   @Nonnull final RelationalExpression scanExpression) {
-        final var compensation = partialMatch.compensate(partialMatch.getBoundParameterPrefixMap());
-        return compensation.isNeeded()
-               ? compensation.apply(scanExpression)
-               : scanExpression;
+    private static Optional<RelationalExpression> applyCompensationForSingleDataAccess(@Nonnull final PartialMatchWithCompensation partialMatchWithCompensation,
+                                                                                       @Nonnull final RelationalExpression scanExpression) {
+        final var compensation = partialMatchWithCompensation.getCompensation();
+        Verify.verify(!compensation.isImpossible());
+
+        return Optional.of(compensation.isNeeded()
+                           ? compensation.apply(scanExpression)
+                           : scanExpression);
     }
-
-    @Nonnull
-    private static Set<QueryPredicate> computeBindingQueryPredicates(@Nonnull final PartialMatch partialMatch) {
-        final var matchInfo = partialMatch.getMatchInfo();
-        final var boundParameterPrefixMap = partialMatch.getBoundParameterPrefixMap();
-        final var bindingQueryPredicates = Sets.<QueryPredicate>newIdentityHashSet();
-
-        //
-        // Go through all accumulated parameter bindings -- find the query predicates binding the parameters. Those
-        // query predicates are binding the parameters by means of a placeholder on the candidate side (they themselves
-        // should be of class Placeholder). Note that there could be more than one query predicate mapping to a candidate
-        // predicate.
-        //
-        for (final var entry : matchInfo.getAccumulatedPredicateMap().entries()) {
-            final var predicateMapping = entry.getValue();
-            final var candidatePredicate = predicateMapping.getCandidatePredicate();
-            if (!(candidatePredicate instanceof Placeholder)) {
-                continue;
-            }
-
-            final var placeholder = (Placeholder)candidatePredicate;
-            if (boundParameterPrefixMap.containsKey(placeholder.getAlias())) {
-                bindingQueryPredicates.add(predicateMapping.getQueryPredicate());
-            }
-        }
-
-        return bindingQueryPredicates;
-    }
-
+    
     /**
      * Private helper method to plan an intersection and subsequently compensate it using the partial match structures
      * kept for all participating data accesses.
@@ -478,19 +455,26 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @Nonnull
     private static List<RelationalExpression> createIntersectionAndCompensation(@Nonnull final List<KeyExpression> commonPrimaryKeyParts,
                                                                                 @Nonnull final Map<PartialMatch, RelationalExpression> matchToExpressionMap,
-                                                                                @Nonnull final List<PartialMatch> partition,
+                                                                                @Nonnull final List<PartialMatchWithCompensation> partition,
                                                                                 @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
 
-        final var orderingPartialOrder = intersectionOrdering(partition);
-
-        final ImmutableSet<BoundKeyPart> equalityBoundKeyParts = partition
+        final var partitionOrderings = partition
                 .stream()
-                .map(partialMatch -> partialMatch.getMatchInfo().getOrderingKeyParts())
-                .flatMap(orderingKeyParts ->
-                        orderingKeyParts.stream()
-                                .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY))
-                .collect(ImmutableSet.toImmutableSet());
+                .map(PartialMatchWithCompensation::getPartialMatch)
+                .map(PartialMatch::getMatchInfo)
+                .map(MatchInfo::getOrderingKeyParts)
+                .collect(ImmutableList.toImmutableList());
+
+        final var orderingPartialOrder = intersectionOrdering(partitionOrderings);
+
+        final ImmutableSet<BoundKeyPart> equalityBoundKeyParts =
+                partitionOrderings
+                        .stream()
+                        .flatMap(orderingKeyParts ->
+                                orderingKeyParts.stream()
+                                        .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY))
+                        .collect(ImmutableSet.toImmutableSet());
 
         for (final var requestedOrdering : requestedOrderings) {
             final var satisfyingOrderingPartsOptional =
@@ -510,21 +494,23 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             final var compensation =
                     partition
                             .stream()
-                            .map(partialMatch -> partialMatch.compensate(partialMatch.getBoundParameterPrefixMap()))
+                            .map(PartialMatchWithCompensation::getCompensation)
                             .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
 
             final var scans =
                     partition
                             .stream()
-                            .map(partialMatch -> Objects.requireNonNull(matchToExpressionMap.get(partialMatch)))
+                            .map(partialMatch -> Objects.requireNonNull(matchToExpressionMap.get(partialMatch.getPartialMatch())))
                             .collect(ImmutableList.toImmutableList());
 
-            final var logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, comparisonKey);
-            final var compensatedIntersection =
-                    compensation.isNeeded()
-                    ? compensation.apply(logicalIntersectionExpression)
-                    : logicalIntersectionExpression;
-            expressionsBuilder.add(compensatedIntersection);
+            if (!compensation.isImpossible()) {
+                final var logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, comparisonKey);
+                final var compensatedIntersection =
+                        compensation.isNeeded()
+                        ? compensation.apply(logicalIntersectionExpression)
+                        : logicalIntersectionExpression;
+                expressionsBuilder.add(compensatedIntersection);
+            }
         }
 
         return expressionsBuilder.build();
@@ -533,28 +519,27 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     /**
      * Private helper method that computes the ordering of the intersection using matches and the common primary key
      * of the data source.
-     * @param partition partition we would like to intersect
+     * @param partitionOrderings partition we would like to intersect
      * @return a {@link PartialOrder}  of {@link BoundKeyPart} representing a common intersection ordering.
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static PartialOrder<BoundKeyPart> intersectionOrdering(@Nonnull final List<PartialMatch> partition) {
+    private static PartialOrder<BoundKeyPart> intersectionOrdering(@Nonnull final List<List<BoundKeyPart>> partitionOrderings) {
 
-        final var orderingPartialOrders = partition.stream()
-                .map(PartialMatch::getMatchInfo)
-                .map(MatchInfo::getOrderingKeyParts)
-                .map(boundKeyParts -> {
-                    final var orderingKeyParts =
-                            boundKeyParts.stream()
-                                    .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() != ComparisonRange.Type.EQUALITY)
-                                    .collect(ImmutableList.toImmutableList());
+        final var orderingPartialOrders =
+                partitionOrderings.stream()
+                        .map(boundKeyParts -> {
+                            final var orderingKeyParts =
+                                    boundKeyParts.stream()
+                                            .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() != ComparisonRange.Type.EQUALITY)
+                                            .collect(ImmutableList.toImmutableList());
 
-                    return PartialOrder.<BoundKeyPart>builder()
-                            .addListWithDependencies(orderingKeyParts)
-                            .addAll(boundKeyParts)
-                            .build();
-                })
-                .collect(ImmutableList.toImmutableList());
+                            return PartialOrder.<BoundKeyPart>builder()
+                                    .addListWithDependencies(orderingKeyParts)
+                                    .addAll(boundKeyParts)
+                                    .build();
+                        })
+                        .collect(ImmutableList.toImmutableList());
 
         return Ordering.mergePartialOrderOfOrderings(orderingPartialOrders);
     }
@@ -604,22 +589,26 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         .collect(ImmutableList.toImmutableList())));
     }
 
-    @Nonnull
-    protected static Set<Quantifier.ForEach> computeIntersectedUnmatchedForEachQuantifiers(@Nonnull RelationalExpression expression,
-                                                                                           @Nonnull List<? extends PartialMatch> completeMatches) {
-        final var completeMatchesIterator = completeMatches.iterator();
-        if (!completeMatchesIterator.hasNext()) {
-            return ImmutableSet.of();
+    private static class PartialMatchWithCompensation {
+        @Nonnull
+        private final PartialMatch partialMatch;
+        @Nonnull
+        private final Compensation compensation;
+
+        public PartialMatchWithCompensation(@Nonnull final PartialMatch partialMatch,
+                                            @Nonnull final Compensation compensation) {
+            this.partialMatch = partialMatch;
+            this.compensation = compensation;
         }
 
-        final var intersectedQuantifiers = new LinkedIdentitySet<Quantifier.ForEach>();
-        intersectedQuantifiers.addAll(expression.computeUnmatchedForEachQuantifiers(completeMatchesIterator.next()));
-
-        while (completeMatchesIterator.hasNext()) {
-            final var unmatched = expression.computeUnmatchedForEachQuantifiers(completeMatchesIterator.next());
-            intersectedQuantifiers.retainAll(unmatched);
+        @Nonnull
+        public PartialMatch getPartialMatch() {
+            return partialMatch;
         }
 
-        return intersectedQuantifiers;
+        @Nonnull
+        public Compensation getCompensation() {
+            return compensation;
+        }
     }
 }

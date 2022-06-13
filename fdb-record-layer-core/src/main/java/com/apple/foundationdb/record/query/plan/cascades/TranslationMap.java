@@ -138,9 +138,9 @@ public class TranslationMap {
     @FunctionalInterface
     public interface TranslationFunction {
         @Nonnull
-        Value apply(@Nonnull final CorrelationIdentifier sourceAlias,
-                    @Nonnull final CorrelationIdentifier targetAlias,
-                    @Nonnull final LeafValue quantifiedValue);
+        Value apply(@Nonnull CorrelationIdentifier sourceAlias,
+                    @Nonnull CorrelationIdentifier targetAlias,
+                    @Nonnull LeafValue quantifiedValue);
     }
 
     /**

@@ -548,10 +548,8 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-//                .setFilter(Query.and(Query.field("repeater").oneOfThem().equalsValue(100),
-//                        Query.field("repeater").oneOfThem().lessThan(300)))
                 .setFilter(Query.field("repeater").oneOfThem().equalsValue(100))
-                .setRemoveDuplicates(false)
+                .setRemoveDuplicates(true)
                 .build();
 
         try (FDBRecordContext context = openContext()) {
@@ -590,10 +588,10 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 assertEquals(-170585096, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
                 assertEquals(170826084, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
-                //assertThat(plan, fetch(primaryKeyDistinct(coveringIndexScan(indexScan(allOf(indexName("repeater$fanout"), bounds(hasTupleString("[[100],[100]]"))))))));
-                //assertEquals(-1199247774, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                //assertEquals(325380875, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                //assertEquals(666792055, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertThat(plan, fetch(primaryKeyDistinct(coveringIndexScan(indexScan(allOf(indexName("repeater$fanout"), bounds(hasTupleString("[[100],[100]]"))))))));
+                assertEquals(-1199247774, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(325380875, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(666792055, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             }
             final var usedTypes = UsedTypesProperty.evaluate(plan);
             final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();

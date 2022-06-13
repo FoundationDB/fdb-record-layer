@@ -70,6 +70,9 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
     <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull PlanProperty<A> planProperty);
 
     @Nonnull
+    ExpressionRef<T> translateCorrelations(@Nonnull TranslationMap translationMap);
+
+    @Nonnull
     List<PlanPartition> getPlanPartitions();
 
     /**
