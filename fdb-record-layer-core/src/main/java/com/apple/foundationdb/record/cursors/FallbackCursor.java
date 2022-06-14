@@ -31,31 +31,31 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 /**
  * Provide an alternative cursor in case the primary cursor fails. This cursor has an <code>inner</code> cursor that is
  * used to return the results in the sunny day scenarios, and an alternative provider of a <code>fallback</code> cursor
  * that will be used if the primary cursor encounters an error.
- *
- * Note that there are business rules around when a fallback may happen. For example, because of the way records are
- * returned to the consumer, once a record is returned from the primary cursor, no fallback may be permitted: This is
- * done in order to prevent the case where a few records are returned, then a failure happens and the fallback cursor
- * starts again from the beginning, resulting in duplicate records being returned.
- * In practice, since many errors are observed when the request is sent to FDB (which coincide with the cursor's
- * first <code>onNext()</code> call, many such failures will be caught by that first result.
- *
+ * In order to continue from a failed iteration, the cursor will pass the last successful result to the provider
+ * of the fallback cursor. <b>It is the responsibility</b> of the fallback cursor provider to ensure that it can resume
+ * the iteration from that point. Among other things, that it can create an iteration over the range that starts with
+ * the failure point. If it can't, it can check whether the <code>lastSuccessfulResult</code> is <code>null</code> (in
+ * which case it can start from the beginning) and reject the case where the <code>inner</code> cursor has already
+ * returned records.
+ * <p/>
  * A note about continuations: As written, the cursor assumes that the <code>inner</code> and <code>fallback</code>
  * cursors each have their own continuation to pick up from. A future enhancement can be to have this cursor store the
  * state of the failover in its continuation and then package that with the appropriate inner continuation so that it
- * can continue from that same state.
+ * can continue from that same state. It therefore makes the assumption that <code>fallback</code> iteration can be
+ * continued by an <code>inner</code> one once a new request with a continuation is executed.
  *
  * @param <T> the type of cursor result returned by the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.EXPERIMENTAL)
 public class FallbackCursor<T> implements RecordCursor<T> {
     @Nonnull
-    private final Supplier<RecordCursor<T>> fallbackCursorSupplier;
+    private final Function<RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier;
     @Nonnull
     private final Executor executor;
     @Nonnull
@@ -63,16 +63,25 @@ public class FallbackCursor<T> implements RecordCursor<T> {
     @Nullable
     private CompletableFuture<RecordCursorResult<T>> nextResultFuture;
 
+    /*
+     * This is effectively the same as nextResultFuture.get() in the case that a successful result was returned. Repeated
+     * in a separate variable to simplify handling and null cases.
+     */
+    @Nullable
+    private RecordCursorResult<T> lastSuccessfulResult;
+
     private boolean alreadyFailed = false;
-    private boolean allowedToFail = true;
 
     /**
      * Creates a new fallback cursor.
      *
      * @param inner the primary (default) cursor to be used when results are successfully returned
-     * @param fallbackCursorSupplier the fallback cursor provider to be used when the primary cursor fails
+     * @param fallbackCursorSupplier the fallback cursor provider to be used when the primary cursor fails. The function
+     * takes a parameter that is the last successful result from the primary cursor (null if none was returned). The
+     * returned cursor is expected to resume from the record following the last successful one (or fail if it does not
+     * support continuing).
      */
-    public FallbackCursor(@Nonnull RecordCursor<T> inner, @Nonnull Supplier<RecordCursor<T>> fallbackCursorSupplier) {
+    public FallbackCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier) {
         this.inner = inner;
         this.fallbackCursorSupplier = fallbackCursorSupplier;
         this.executor = inner.getExecutor();
@@ -96,16 +105,13 @@ public class FallbackCursor<T> implements RecordCursor<T> {
         return inner.onNext().handle((result, throwable) -> {
             if (throwable == null) {
                 nextResultFuture = CompletableFuture.completedFuture(result);
-                // Cannot fail after the first result was delivered
-                allowedToFail = false;
+                lastSuccessfulResult = result;
             } else {
                 if (alreadyFailed) {
                     nextResultFuture = CompletableFuture.failedFuture(wrapException("Fallback cursor failed, cannot fallback again", throwable));
-                } else if (!allowedToFail) {
-                    nextResultFuture = CompletableFuture.failedFuture(wrapException("Cannot fallback to alternate cursor since inner already produced a record", throwable));
                 } else {
                     inner.close();
-                    inner = fallbackCursorSupplier.get();
+                    inner = fallbackCursorSupplier.apply(lastSuccessfulResult);
                     nextResultFuture = inner.onNext();
                 }
                 alreadyFailed = true;

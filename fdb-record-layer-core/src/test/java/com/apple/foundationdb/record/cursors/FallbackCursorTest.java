@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,7 +55,9 @@ public class FallbackCursorTest extends FDBTestBase {
     public void testFallBackCursorNoFailure() throws Exception {
         List<Integer> integers = List.of(1, 2, 3);
         ListCursor<Integer> inner = new ListCursor<>(integers, null);
-        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> null);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> {
+            throw new RuntimeException("This should not be thrown");
+        });
 
         List<Integer> result = classUnderTest.asList().get();
         assertEquals(3, result.size());
@@ -66,7 +69,10 @@ public class FallbackCursorTest extends FDBTestBase {
         RecordCursor<Integer> inner = new FailingCursor(0);
         List<Integer> integers = List.of(1, 2, 3);
         RecordCursor<Integer> fallbackCursor = new ListCursor<>(integers, null);
-        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> {
+            assertNull(lastResult);
+            return fallbackCursor;
+        });
 
         List<Integer> result = classUnderTest.asList().get();
         assertEquals(3, result.size());
@@ -74,35 +80,54 @@ public class FallbackCursorTest extends FDBTestBase {
     }
 
     @Test
-    public void testPrimaryCursorFailureAfterFewResults() throws Exception {
+    public void testPrimaryCursorFailureAfterFewResultsNotSupported() throws Exception {
         RecordCursor<Integer> inner = new FailingCursor(2);
         List<Integer> integers = List.of(1, 2, 3);
         RecordCursor<Integer> fallbackCursor = new ListCursor<>(integers, null);
-        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> {
+            // simulate a cursor that cannot continue after a result has been returned
+            if (lastResult != null) {
+                throw new FallbackCursor.FallbackExecutionFailedException("Cannot fallback to alternate cursor since inner already produced a record", null);
+            }
+            return fallbackCursor;
+        });
 
         Exception ex = assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
         assertTrue(ex.getCause() instanceof RecordCoreException);
-        assertEquals("Cannot fallback to alternate cursor since inner already produced a record",
-                ((LoggableException)(ex.getCause())).getLogInfo().get("fallback_failed"));
+        // in this case, the cursor returns the fallback cursor's onNext() directly, which, if calling get() on,
+        // will fail immediately, not going through the wrapping mechanism of the cursor.
+        assertEquals("Cannot fallback to alternate cursor since inner already produced a record", ex.getCause().getMessage());
+    }
+
+    @Test
+    public void testPrimaryCursorFailureAfterFewResultsIsSupported() throws Exception {
+        RecordCursor<Integer> inner = new FailingCursor(2);
+        List<Integer> integers = List.of(1, 2, 3);
+        RecordCursor<Integer> fallbackCursor = new ListCursor<>(integers, null);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> fallbackCursor);
+
+        List<Integer> result = classUnderTest.asList().get();
+        assertEquals(5, result.size());
+        assertEquals(List.of(0, 1, 1, 2, 3), result);
     }
 
     @Test
     public void testFallBackCursorFailureFailsImmediately() throws Exception {
         RecordCursor<Integer> inner = new FailingCursor(0);
         RecordCursor<Integer> fallbackCursor = new FailingCursor(0);
-        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> fallbackCursor);
 
         Exception ex = assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
+        // in this case, the cursor returns the fallback cursor's onNext() directly, which, if calling get() on,
+        // will fail immediately, not going through the wrapping mechanism of the cursor.
         assertTrue(ex.getCause() instanceof RecordCoreException);
-        // in this case, the cursor returns the faallback cursor's onNext() directly, which, if calling get() on,
-        // will fail immediately, not going through the wrapping mechanism of teh cursor.
     }
 
     @Test
     public void testFallBackCursorFailureFailsAfterFewResults() throws Exception {
         RecordCursor<Integer> inner = new FailingCursor(0);
         RecordCursor<Integer> fallbackCursor = new FailingCursor(3);
-        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, () -> fallbackCursor);
+        FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> fallbackCursor);
 
         Exception ex = assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
         assertTrue(ex.getCause() instanceof RecordCoreException);
