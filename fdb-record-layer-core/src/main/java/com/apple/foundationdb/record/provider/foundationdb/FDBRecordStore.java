@@ -2010,6 +2010,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }).thenCompose(this::removeReplacedIndexesIfChanged);
     }
 
+    @SuppressWarnings("java:S3776")
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker,
                                                      @Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader,
                                                      @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info, @Nonnull boolean[] dirty) {
