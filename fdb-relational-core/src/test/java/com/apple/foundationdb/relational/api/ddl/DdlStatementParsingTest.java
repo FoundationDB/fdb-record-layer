@@ -164,7 +164,7 @@ public class DdlStatementParsingTest {
     @Test
     void createTypeWithPrimaryKeyFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template as {" +
-                "CREATE STRUCT t (a int64, b string PRIMARY KEY(b));" +
+                "CREATE STRUCT t (a int64, b string, PRIMARY KEY(b));" +
                 "}";
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractConstantActionFactory() {
             @Nonnull
@@ -254,7 +254,7 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateTableWithOnlyRecordType(List<String> columns) throws Exception {
-        final String baseTableDef = makeColumnDefinition(columns, false).replace(")", " PRIMARY KEY(RECORD TYPE))");
+        final String baseTableDef = makeColumnDefinition(columns, false).replace(")", ", PRIMARY KEY(RECORD TYPE))");
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
                 "CREATE TABLE FOO " + baseTableDef +
                 "}";
@@ -747,7 +747,7 @@ public class DdlStatementParsingTest {
         }
         if (isTable) {
             //now add a primary key
-            columnStatement.append(" PRIMARY KEY(col0)");
+            columnStatement.append(", PRIMARY KEY(col0)");
         }
         return columnStatement.append(")").toString();
     }

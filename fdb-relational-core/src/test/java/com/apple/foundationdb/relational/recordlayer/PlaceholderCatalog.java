@@ -116,7 +116,7 @@ public class PlaceholderCatalog {
                         if (o instanceof RecordMetaDataOptionsProto.FieldOptions) {
                             RecordMetaDataOptionsProto.FieldOptions fo = (RecordMetaDataOptionsProto.FieldOptions) o;
                             if (fo.getPrimaryKey()) {
-                                sb.append(" PRIMARY KEY");
+                                sb.append(", PRIMARY KEY");
                             }
                         }
                     }

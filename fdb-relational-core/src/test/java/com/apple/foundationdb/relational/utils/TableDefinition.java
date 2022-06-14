@@ -42,7 +42,7 @@ public class TableDefinition extends TypeDefinition {
 
     @Override
     protected String columnTypeDefinition() {
-        String pkDef = " PRIMARY KEY (" + String.join(",", pks) + ")";
+        String pkDef = ", PRIMARY KEY (" + String.join(",", pks) + ")";
         return super.columnTypeDefinition().replace(")", pkDef + ")");
     }
 }

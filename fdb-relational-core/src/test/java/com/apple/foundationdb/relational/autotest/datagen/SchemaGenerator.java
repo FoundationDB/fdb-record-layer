@@ -84,7 +84,7 @@ public class SchemaGenerator {
         String typeName = "table_" + random.nextAlphaNumeric(5);
         String sb = "CREATE TABLE " + typeName + "(" +
                 columns.stream().map(Object::toString).collect(Collectors.joining(",")) +
-                " PRIMARY KEY(" + String.join(",", pkColumns) + ")" +
+                ", PRIMARY KEY(" + String.join(",", pkColumns) + ")" +
                 ")";
         Map<String, String> cols = columns.stream().collect(Collectors.toMap(col -> col.name, col -> col.dataType));
         TableDescription tableDef = new TableDescription(typeName, cols, pkColumns);

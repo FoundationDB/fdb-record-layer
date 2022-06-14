@@ -63,7 +63,7 @@ public class DdlSchemaTemplateTest {
     void canDropSchemaTemplates() throws Exception {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE drop_template AS {" +
                 "CREATE STRUCT FOO_TYPE (a int64);" +
-                "CREATE TABLE FOO_TBL (b double PRIMARY KEY(b))" +
+                "CREATE TABLE FOO_TBL (b double, PRIMARY KEY(b))" +
                 "}";
 
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {

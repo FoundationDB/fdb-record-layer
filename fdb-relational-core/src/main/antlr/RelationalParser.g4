@@ -127,7 +127,7 @@ dropStatement
 // details
 
 structOrTableDefinition
-    : (STRUCT | TABLE) uid '(' columnDefinition (COMMA columnDefinition)* (primaryKeyDefinition)? ')'
+    : (STRUCT | TABLE) uid '(' columnDefinition (COMMA columnDefinition)* (COMMA primaryKeyDefinition)? ')'
     ;
 
 columnDefinition

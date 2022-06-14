@@ -87,7 +87,7 @@ public final class DdlPermutationGenerator {
             }
             //add a primary key
             if (isTable) {
-                columnStatement.append(" PRIMARY KEY(").append("col0").append(")");
+                columnStatement.append(", PRIMARY KEY(").append("col0").append(")");
             }
             return columnStatement.append(")").toString();
         }
