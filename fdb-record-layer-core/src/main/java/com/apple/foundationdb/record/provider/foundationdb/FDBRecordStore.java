@@ -1260,7 +1260,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Parse the index entries and payload and build records
         RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries, typedSerializer);
 
-        return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_REMOTE_FETCH, indexedRecordCursor);
+        return context.instrument(FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY, indexedRecordCursor);
     }
 
     @VisibleForTesting
@@ -2010,6 +2010,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }).thenCompose(this::removeReplacedIndexesIfChanged);
     }
 
+    @SuppressWarnings("java:S3776")
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker,
                                                      @Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader,
                                                      @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info, @Nonnull boolean[] dirty) {
