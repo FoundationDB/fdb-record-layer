@@ -423,7 +423,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
             // Update a record. This record will eventually be returned in a query, but we do *not* modify
             // a field in the index being scanned, so that FDB does not detect the range conflict until later
-            TestRecords1Proto.MySimpleRecord lastRecord = created.get(created.size() - 1);
+            TestRecords1Proto.MySimpleRecord lastRecord = created.get(0);
             recordStore.saveRecord(lastRecord.toBuilder()
                     .setStrValueIndexed("foo")
                     .build());
@@ -439,7 +439,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 500, (rec, i) -> {
                     int primaryKey = 499 - i;
                     int numValue = primaryKey;
-                    String strValue = (i == 0) ? "foo" : "";
+                    String strValue = (i == (created.size() - 1)) ? "foo" : "";
                     assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
                 });
             }
