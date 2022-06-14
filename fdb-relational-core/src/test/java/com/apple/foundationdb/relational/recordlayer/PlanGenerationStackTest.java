@@ -80,7 +80,7 @@ public class PlanGenerationStackTest {
                     Arguments.of(1, "select * from RestaurantRecord", null),
                     Arguments.of(2, "sElEct * FrOm RestaurantRecord", null),
                     Arguments.of(3, "   select *   from     RestaurantRecord", null),
-                    Arguments.of(4, "sElEct * FrOm RestaUrantRecord", "Unknown record type RestaUrantRecord"),
+                    Arguments.of(4, "sElEct * FrOm RestaUrantRecord", "unknown record type RestaUrantRecord"),
                     Arguments.of(5, "incorrect ", "Syntax error at line 1 position 0"),
                     Arguments.of(6, "select * union RestaurantRecord", "Syntax error at line 1 position 15"),
                     Arguments.of(7, "select * from RestaurantRecord where rest_no > 10 ", null),
@@ -140,7 +140,12 @@ public class PlanGenerationStackTest {
                     Arguments.of(61, "select * from RestaurantRecord with continuation", "Syntax error at line 1 position 48"),
                     Arguments.of(62, "select * from RestaurantRecord USE INDEX (record_name_idx) where rest_no > 10 ", null),
                     Arguments.of(63, "select * from RestaurantRecord USE INDEX (record_name_idx, reviewer_name_idx) where rest_no > 10 ", null),
-                    Arguments.of(64, "select * from RestaurantRecord USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx) where rest_no > 10 ", null)
+                    Arguments.of(64, "select * from RestaurantRecord USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx) where rest_no > 10 ", null),
+                    Arguments.of(61, "select * from RestaurantRecord with continuation", "Syntax error at line 1 position 48"),
+                    Arguments.of(62, "select X.rest_no from (select rest_no from RestaurantRecord where 42 >= rest_no OR 42 > rest_no) X", null),
+                    Arguments.of(63, "select X.UNKNOWN from (select rest_no from RestaurantRecord where 42 >= rest_no OR 42 > rest_no) X", "attempting to query non existing field UNKNOWN"),
+                    Arguments.of(64, "select X.rest_no from (select Y.rest_no from (select rest_no from RestaurantRecord where 42 >= rest_no OR 42 > rest_no) Y where 42 >= Y.rest_no OR 42 > Y.rest_no) X", null),
+                    Arguments.of(65, "select X.rating from RestaurantRecord AS Rec, (select rating from Rec.reviews) X", null)
             );
         }
     }

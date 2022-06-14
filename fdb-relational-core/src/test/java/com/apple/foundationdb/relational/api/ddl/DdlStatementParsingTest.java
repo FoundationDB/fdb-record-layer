@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.TableInfo;
@@ -40,6 +42,7 @@ import com.apple.foundationdb.relational.utils.PermutationIterator;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -62,6 +65,14 @@ import javax.annotation.Nullable;
  * that the underlying execution is correct, only that the language is parsed as expected.
  */
 public class DdlStatementParsingTest {
+
+    @BeforeAll
+    public static void setup() {
+        if (Debugger.getDebugger() == null) {
+            Debugger.setDebugger(new DebuggerWithSymbolTables());
+        }
+        Debugger.setup();
+    }
 
     private final PlanContext fakePlanContext;
 

@@ -20,10 +20,17 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Scopes;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -34,8 +41,11 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.net.URI;
@@ -43,12 +53,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
-import static com.apple.foundationdb.relational.recordlayer.query.AstVisitor.UNSUPPORTED_QUERY;
 
 /**
  * Contains a set of utility methods that are relevant for parsing the AST.
@@ -74,6 +83,13 @@ public final class ParserUtils {
             return quotedString.substring(1, quotedString.length() - 1);
         }
         return quotedString;
+    }
+
+    @Nonnull
+    public static String trimStartingDot(@Nonnull final String in) {
+        Assert.thatUnchecked(in.length() > 0);
+        Assert.thatUnchecked(in.charAt(0) == '.');
+        return in.substring(1);
     }
 
     /**
@@ -154,7 +170,7 @@ public final class ParserUtils {
             fieldPathBuilder.add(fieldName);
             return new FieldValue(((FieldValue) identifier).getChild(), fieldPathBuilder.build(), fieldType);
         } else if (identifier instanceof QuantifiedObjectValue) {
-            return new FieldValue((QuantifiedObjectValue) identifier, ImmutableList.of(fieldName), fieldType);
+            return new FieldValue(identifier, ImmutableList.of(fieldName), fieldType);
         }
         return null;
     }
@@ -164,33 +180,63 @@ public final class ParserUtils {
         Scopes.Scope scope = parserContext.getCurrentScope();
         FieldValue result = null;
         boolean matchFound = false;
-        while (scope != null)  {
-            final Map<CorrelationIdentifier, QuantifiedValue> boundIdentifiers = scope.getBoundQuantifiers();
-            for (final Value value : boundIdentifiers.values()) {
-                if (value.getResultType() instanceof Type.Record) {
-                    final Type.Record recordType = (Type.Record) value.getResultType();
-                    final Map<String, Type> fieldTypeMap = Objects.requireNonNull(recordType.getFieldTypeMap());
-                    if (fieldTypeMap.containsKey(fieldName)) {
-                        if (matchFound) {
-                            Assert.failUnchecked(UNSUPPORTED_QUERY); // ambiguous field name
-                        } else {
-                            matchFound = true;
-                        }
-                        final Type fieldType = fieldTypeMap.get(fieldName);
-                        if (value instanceof FieldValue) {
-                            ImmutableList.Builder<String> fieldPathBuilder = ImmutableList.builder();
-                            fieldPathBuilder.addAll(((FieldValue) value).getFieldPath());
-                            fieldPathBuilder.add(fieldName);
-                            result = new FieldValue(((FieldValue) value).getChild(), fieldPathBuilder.build(), fieldType);
-                        } else if (value instanceof QuantifiedObjectValue) {
-                            result = new FieldValue((QuantifiedObjectValue) value, ImmutableList.of(fieldName), fieldType);
-                        }
+        for (final var qun : scope.getAllQuantifiers()) {
+            for (final Column<? extends Value> column : qun.getFlowedColumns()) {
+                if (column.getField().getFieldName().equals(fieldName)) {
+                    if (matchFound) {
+                        Assert.failUnchecked(String.format("ambiguous field name %s", fieldName));
+                    } else {
+                        result = new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of(fieldName));
+                        matchFound = true;
                     }
                 }
             }
-            scope = scope.getParentScope();
         }
         return result;
+    }
+
+    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, the analyzer " +
+            "can not deduce that control flow leads to exception")
+    @Nonnull
+    public static RelationalExpression quantifyOver(@Nonnull final QualifiedIdentifierValue identifierValue,
+                                                    @Nonnull final RelationalParserContext parserContext,
+                                                    @Nonnull final AccessHints accessHintSet) {
+        Assert.thatUnchecked(identifierValue.getParts().length <= 2);
+        Assert.thatUnchecked(identifierValue.getParts().length > 0);
+
+        if (!identifierValue.isQualified()) {
+            final String recordTypeName = identifierValue.getParts()[0];
+            Assert.notNullUnchecked(recordTypeName);
+            final ImmutableSet<String> recordTypeNameSet = ImmutableSet.<String>builder().add(recordTypeName).build();
+            final Map<String, Descriptors.FieldDescriptor> allAvailableRecordTypes = parserContext.getScannabledRecordTypes();
+            final Set<String> allAvailableRecordTypeNames = parserContext.getScannableRecordTypeNames();
+            final Optional<Type> recordType = parserContext.getTypeRepositoryBuilder().getTypeByName(recordTypeName);
+            Assert.thatUnchecked(recordType.isPresent(), String.format("unknown record type %s", recordTypeName));
+            Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), String.format("attempt to scan non existing record type %s from record store containing (%s)",
+                    recordTypeName, String.join(",", allAvailableRecordTypeNames)));
+            parserContext.addFilteredRecord(recordTypeName);
+            return new LogicalTypeFilterExpression(recordTypeNameSet,
+                    Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypeNames,
+                            Type.Record.fromFieldDescriptorsMap(allAvailableRecordTypes),
+                            accessHintSet))),
+                    recordType.get());
+        } else {
+            final String qualifier = identifierValue.getParts()[0];
+            Assert.notNullUnchecked(qualifier);
+            final String recordTypeName = identifierValue.getParts()[1];
+            Assert.notNullUnchecked(recordTypeName);
+            // todo: check if the qualifier is actually a schema name
+            final var maybeQun = parserContext.resolveQuantifier(qualifier);
+            Assert.thatUnchecked(maybeQun.isPresent(), String.format("attempt to field %s from non-existing qualifier %s", recordTypeName, qualifier));
+            final var qun = maybeQun.get();
+            final QuantifiedValue value = qun.getFlowedObjectValue();
+            Assert.thatUnchecked(value.getResultType().getTypeCode() == Type.TypeCode.RECORD, String.format("alias is not valid %s", qualifier));
+            final Type.Record record = (Type.Record) value.getResultType();
+            Assert.thatUnchecked(record.getFieldTypeMap().containsKey(recordTypeName), String.format("field %s was not found in %s", recordTypeName, qualifier));
+            final Type fieldType = record.getFieldTypeMap().get(recordTypeName);
+            Assert.thatUnchecked(fieldType.getTypeCode() == Type.TypeCode.ARRAY, String.format("expecting an array-type field, however %s is not", recordTypeName));
+            return new ExplodeExpression(new FieldValue(value, ImmutableList.of(recordTypeName)));
+        }
     }
 
     @Nullable
@@ -237,5 +283,15 @@ public final class ParserUtils {
 
     public static boolean isProperDbUri(@Nonnull final String path) {
         return unquoteString(path).matches("/\\w[a-zA-Z0-9_/]*\\w");
+    }
+
+    public static boolean requiresCanonicalSubSelect(@Nonnull final Quantifier quantifier, @Nonnull final ParserContext parserContext) {
+        final var correlatesTo = quantifier.getCorrelatedTo();
+        if (correlatesTo.isEmpty()) {
+            return false; // all good.
+        }
+        // if one of the correlations is NOT found in parents, it means the correlation _might_ belong to a same-level subquery,
+        // in that case, push it down via canonical select to be sure we do not have same-level correlations.
+        return correlatesTo.stream().anyMatch(correlation -> parserContext.getCurrentScope().getQuantifier(correlation).isPresent());
     }
 }

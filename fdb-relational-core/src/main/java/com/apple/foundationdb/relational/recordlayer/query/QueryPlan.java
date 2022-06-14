@@ -133,14 +133,15 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             final Type innerType = relationalExpression.getResultType().getInnerType();
             Assert.notNull(innerType);
             Assert.that(innerType instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", innerType.getTypeCode()));
-            final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
             final TypeRepository.Builder builder = TypeRepository.newBuilder();
-            usedTypes.forEach(builder::addTypeIfNeeded);
+
             try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
                 final FDBRecordStore store = recordLayerSchema.loadStore();
                 final var planContext = PlanContext.Builder.create().fromDatabase(conn.getRecordLayerDatabase()).fromRecordStore(store).build();
                 recordQueryPlan = generatePhysicalPlan(query, planContext);
                 Assert.notNull(recordQueryPlan);
+                final Set<Type> usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
+                usedTypes.forEach(builder::addTypeIfNeeded);
                 final String[] fieldNames = Objects.requireNonNull(((Type.Record) innerType).getFields()).stream().sorted(Comparator.comparingInt(Type.Record.Field::getFieldIndex)).map(Type.Record.Field::getFieldName).collect(Collectors.toUnmodifiableList()).toArray(String[]::new);
                 final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan, fieldNames, EvaluationContext.forTypeRepository(builder.build()), recordLayerSchema, false /* get this information from the query plan */);
                 return new RecordLayerResultSet(queryExecutor.getFieldNames(),

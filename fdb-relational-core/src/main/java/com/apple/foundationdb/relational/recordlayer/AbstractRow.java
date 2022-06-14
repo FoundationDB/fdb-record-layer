@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceEx
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import java.util.Arrays;
@@ -35,6 +36,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
+
+import javax.annotation.Nullable;
 
 public abstract class AbstractRow implements Row {
 
@@ -146,25 +149,30 @@ public abstract class AbstractRow implements Row {
         if (other == null) {
             return false;
         }
+        if (this == other) {
+            return true;
+        }
         if (!(other instanceof Row)) {
             return false;
         }
-        Row otherTuple = (Row) other;
+        final Row otherTuple = (Row) other;
         final int numFields = this.getNumFields();
         if (numFields != otherTuple.getNumFields()) {
             return false;
         }
         for (int i = 0; i < numFields; i++) {
             try {
-                Object lhs = this.getObject(i);
-                Object rhs = otherTuple.getObject(i);
-                if (lhs instanceof Message) {
-                    lhs = new MessageTuple((Message) lhs);
+                final var lhs = this.getObject(i);
+                final var rhs = otherTuple.getObject(i);
+                if (lhs instanceof Collection && rhs instanceof Collection) {
+                    final var lhsCollection = (Collection<?>) lhs;
+                    final var rhsCollection = (Collection<?>) rhs;
+                    if (lhsCollection.size() != rhsCollection.size()) {
+                        return false;
+                    }
+                    return Streams.zip(lhsCollection.stream(), rhsCollection.stream(), AbstractRow::areEqual).allMatch(t -> t);
                 }
-                if (rhs instanceof Message) {
-                    rhs = new MessageTuple((Message) rhs);
-                }
-                if (!Objects.equals(lhs, rhs)) {
+                if (!areEqual(lhs, rhs)) {
                     return false;
                 }
             } catch (InvalidColumnReferenceException e) {
@@ -172,6 +180,18 @@ public abstract class AbstractRow implements Row {
             }
         }
         return true;
+    }
+
+    private static boolean areEqual(@Nullable final Object lhs, @Nullable final Object rhs) {
+        if (lhs == null && rhs == null) {
+            return true;
+        }
+        if (lhs == null || rhs == null) {
+            return false;
+        }
+        final var rhsMessage = rhs instanceof Message ? new MessageTuple((Message) rhs) : rhs;
+        final var lhsMessage = lhs instanceof Message ? new MessageTuple((Message) lhs) : lhs;
+        return Objects.equals(lhsMessage, rhsMessage);
     }
 
     @Override

@@ -20,9 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.Scopes;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -34,6 +35,8 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.base.VerifyException;
+
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
@@ -76,7 +79,11 @@ public interface Plan<T> {
     @Nonnull
     static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
         final RelationalParser.RootContext ast = AstVisitor.parseQuery(query);
-        final ParserContext astContext = new ParserContext(new Scopes(), TypeRepository.newBuilder(), planContext.getMetaData(), planContext.getStoreState());
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+        planContext.getMetaData().getRecordsDescriptor().getMessageTypes().forEach(message -> builder.registerTypeToTypeNameMapping(Type.Record.fromDescriptor(message), message.getName()).addMessageType(message.toProto()));
+        final RelationalParserContext astContext = new RelationalParserContext(new Scopes(), builder, planContext.getMetaData().getRecordTypes().keySet(),
+                planContext.getMetaData().getFieldDescriptorMapFromNames(planContext.getMetaData().getRecordTypes().keySet()),
+                planContext.getMetaData().getAllIndexes().stream().map(Index::getName).collect(Collectors.toSet()));
         final AstVisitor astWalker = new AstVisitor(astContext, query, planContext.getConstantActionFactory(), planContext.getDdlQueryFactory(), planContext.getDbUri());
         try {
             final Object maybePlan = astWalker.visit(ast);

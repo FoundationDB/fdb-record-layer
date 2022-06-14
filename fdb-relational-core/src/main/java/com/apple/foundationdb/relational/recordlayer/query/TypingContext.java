@@ -33,11 +33,13 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.ddl.SchemaTemplateDescriptor;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
+import com.google.protobuf.Descriptors;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.LinkedHashSet;
@@ -124,6 +126,21 @@ public final class TypingContext {
             typeDefinitions.forEach(t -> typeRepositoryBuilder.addTypeIfNeeded(ReferentialRecord.fromFieldsWithName(t.name, false,
                     IntStream.range(0, t.fields.size()).mapToObj(i -> t.fields.get(i).toField(typeRepositoryBuilder, i + 1)).collect(Collectors.toList()))));
         }
+    }
+
+    @Nonnull
+    public Set<String> getTableNames() {
+        return types.stream().filter(t -> t.isTable).map(t -> t.name).collect(Collectors.toSet());
+    }
+
+    @Nonnull
+    public Set<String> getIndexNames() {
+        return indexes.keySet();
+    }
+
+    @Nonnull
+    public TypeRepository.Builder getTypeRepositoryBuilder() {
+        return typeRepositoryBuilder;
     }
 
     public static TypingContext create() {
@@ -265,5 +282,30 @@ public final class TypingContext {
             return pbType.isPrimitive();
         }
 
+    }
+
+    @Nonnull
+    public Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMap() {
+        addAllToTypeRepository();
+        final var typeRepository = typeRepositoryBuilder.build();
+        return getTableNames().stream().map(typeRepository::getMessageDescriptor).filter(Objects::nonNull).flatMap(r -> r.getFields().stream())
+                .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
+                        Collectors.reducing(null,
+                                (fieldDescriptor, fieldDescriptor2) -> {
+                                    Verify.verify(fieldDescriptor != null || fieldDescriptor2 != null);
+                                    if (fieldDescriptor == null) {
+                                        return fieldDescriptor2;
+                                    }
+                                    if (fieldDescriptor2 == null) {
+                                        return fieldDescriptor;
+                                    }
+                                    // TODO improve
+                                    if (fieldDescriptor.getType().getJavaType() ==
+                                            fieldDescriptor2.getType().getJavaType()) {
+                                        return fieldDescriptor;
+                                    }
+
+                                    throw new IllegalArgumentException("cannot form union type of complex fields");
+                                })));
     }
 }

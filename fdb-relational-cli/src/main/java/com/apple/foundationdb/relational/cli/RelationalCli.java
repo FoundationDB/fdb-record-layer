@@ -38,7 +38,6 @@ import org.jline.reader.UserInterruptException;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
-import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
 import picocli.shell.jline3.PicocliCommands;
 
@@ -84,8 +83,6 @@ public final class RelationalCli {
                     builtins.setLineReader(reader);
                     cliManager.setReader(reader);
                     cliManager.setTerminal(terminal);
-                    TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5, TailTipWidgets.TipType.COMPLETER);
-                    widgets.enable();
                     KeyMap<Binding> keyMap = reader.getKeyMaps().get("main");
                     keyMap.bind(new Reference("tailtip-toggle"), KeyMap.alt("s"));
 
@@ -102,7 +99,7 @@ public final class RelationalCli {
                                 systemRegistry.execute(line);
                             } else {
                                 // parse SQL statement
-                                new QueryCommand(cliManager.getDbState(), line, reader.getTerminal().writer()).callInternal();
+                                new QueryCommand(cliManager.getDbState(), line, reader.getTerminal().writer()).call();
                             }
                         } catch (UserInterruptException e) {
                             // Ignore

@@ -111,11 +111,11 @@ utilityStatement
 // Data Definition Language
 
 createStatement
-   : CREATE SCHEMA schemaId WITH TEMPLATE templateId                           #createSchemaStatement
+   : CREATE SCHEMA schemaId WITH TEMPLATE templateId                                                  #createSchemaStatement
    | CREATE SCHEMA TEMPLATE schemaTemplateId AS '{'
-        (CREATE ( structOrTableDefinition | indexDefinition ))
-             (SEMI (CREATE (structOrTableDefinition | indexDefinition))?)* '}' #createSchemaTemplateStatement
-   | CREATE DATABASE path                                                      #createDatabaseStatement
+        (CREATE ( structOrTableDefinition | indexDefinition | matViewDefinition))
+             (SEMI (CREATE (structOrTableDefinition | indexDefinition | matViewDefinition))?)* '}'    #createSchemaTemplateStatement
+   | CREATE DATABASE path                                                                             #createDatabaseStatement
    ;
 
 dropStatement
@@ -146,7 +146,11 @@ indexDefinition // TODO: add more index types
     ;
 
 valueIndexDefinition
-    : UNIQUE? VALUE INDEX idxName=uid ON tblName=uid '(' ( idxField (COMMA idxField)*) ')' ( INCLUDE '(' (incField (COMMA incField)*) ')' )?
+    : UNIQUE? VALUE INDEX idxName=uid ON tblName=uid '(' ( idxField (COMMA idxField)*) ')' ( INCLUDE '(' (incField (COMMA incField)*) ')' )? // todo: provide matview syntax for this
+    ;
+
+matViewDefinition
+    : MATERIALIZED VIEW viewName=uid AS querySpecificationNointo
     ;
 
 idxField
@@ -290,7 +294,7 @@ selectStatementWithContinuation
 // done
 selectStatement
     : querySpecification lockClause?                                #simpleSelect // done
-    | queryExpression lockClause?                              #parenthesisSelect // done
+    | queryExpression lockClause?                                   #parenthesisSelect // done
     | querySpecificationNointo unionStatement+
         (
           UNION unionType=(ALL | DISTINCT)?
@@ -413,7 +417,7 @@ tableSourceItem // done
       selectStatement
       | '(' parenthesisSubquery=selectStatement ')'
       )
-      AS? alias=uid                                                 #subqueryTableItem // done (unsupported)
+      AS? alias=uid                                                 #subqueryTableItem // done
     | '(' tableSources ')'                                          #tableSourcesItem // done
     ;
 
@@ -1342,7 +1346,7 @@ describeObjectClause
 
 // done
 fullId
-    : uid (DOT_ID | '.' uid)?
+    : uid (DOT_ID)? // TODO(yhatem) we might want to replace ? with * to allow more nesting.
     ;
 
 // done
@@ -1872,7 +1876,7 @@ expressionAtom
     | BINARY expressionAtom                                         #binaryExpressionAtom // done (unsupported)
     | '(' expression (',' expression)* ')'                          #nestedExpressionAtom // done
     | ROW '(' expression (',' expression)+ ')'                      #nestedRowExpressionAtom // done (unsupported)
-    | EXISTS '(' selectStatement ')'                                #existsExpressionAtom // done (unsupported)
+    | EXISTS '(' selectStatement ')'                                #existsExpressionAtom // done
     | '(' selectStatement ')'                                       #subqueryExpressionAtom // done (unsupported)
     | INTERVAL expression intervalType                              #intervalExpressionAtom // done (unsupported)
     | left=expressionAtom bitOperator right=expressionAtom          #bitExpressionAtom // done (unsupported)
