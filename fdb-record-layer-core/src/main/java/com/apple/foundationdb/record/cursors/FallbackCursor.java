@@ -39,7 +39,7 @@ import java.util.function.Function;
  * that will be used if the primary cursor encounters an error.
  * In order to continue from a failed iteration, the cursor will pass the last successful result to the provider
  * of the fallback cursor. It is the responsibility of the fallback cursor provider to ensure that it can resume
- * the iteration from that point. Among other things, that it can create an iteration over the range that starts with
+ * the iteration from that point. Among other things, this means starting a scan over the range that starts with
  * the failure point. If it can't, it can check whether the <code>lastSuccessfulResult</code> is <code>null</code> (in
  * which case it can start from the beginning) and reject the case where the <code>inner</code> cursor has already
  * returned records.
