@@ -43,7 +43,7 @@ import java.util.function.Function;
  * the failure point. If it can't, it can check whether the <code>lastSuccessfulResult</code> is <code>null</code> (in
  * which case it can start from the beginning) and reject the case where the <code>inner</code> cursor has already
  * returned records.
- * <p/>
+ * <p></p>
  * A note about continuations: As written, the cursor assumes that the <code>inner</code> and <code>fallback</code>
  * cursors each have their own continuation to pick up from. A future enhancement can be to have this cursor store the
  * state of the failover in its continuation and then package that with the appropriate inner continuation so that it
