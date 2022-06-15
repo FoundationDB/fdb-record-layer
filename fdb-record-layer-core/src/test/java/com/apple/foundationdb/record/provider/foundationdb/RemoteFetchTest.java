@@ -69,7 +69,6 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PL
  */
 @Tag(Tags.RequiresFDB)
 class RemoteFetchTest extends RemoteFetchTestBase {
-
     protected static final RecordQuery IN_VALUE = RecordQuery.newBuilder()
             .setRecordType("MySimpleRecord")
             .setFilter(Query.field("num_value_unique").in(List.of(1000, 990, 980, 970, 960)))
