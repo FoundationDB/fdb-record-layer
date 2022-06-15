@@ -444,7 +444,6 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 });
             }
         }
-        assertCounters(fetchMethod, 1, 11);
     }
 
     @Test
