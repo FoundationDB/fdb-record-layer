@@ -268,6 +268,46 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         assertNull(continuation);
     }
 
+    @ParameterizedTest(name = "testScanLimit(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void testScanLimit(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setScannedRecordsLimit(3)
+                .build();
+
+        byte[] continuation = executeAndVerifyData(plan, null, executeProperties, 3, (rec, i) -> {
+            int primaryKey = 9 - i;
+            String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+            int numValue = 1000 - primaryKey;
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+        }, splitRecordsHook);
+
+        executeProperties = ExecuteProperties.newBuilder()
+                .setScannedRecordsLimit(1)
+                .build();
+
+        continuation = executeAndVerifyData(plan, continuation, executeProperties, 1, (rec, i) -> {
+            int primaryKey = 6 - i;
+            String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+            int numValue = 1000 - primaryKey;
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+        }, splitRecordsHook);
+
+        executeProperties = ExecuteProperties.newBuilder()
+                .setScannedRecordsLimit(100)
+                .build();
+
+        continuation = executeAndVerifyData(plan, continuation, executeProperties, 6, (rec, i) -> {
+            int primaryKey = 5 - i;
+            String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+            int numValue = 1000 - primaryKey;
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+        }, splitRecordsHook);
+
+        assertNull(continuation);
+    }
+
     @Test
     void testIndexPrefetchWithComparatorPlan() throws Exception {
         RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
