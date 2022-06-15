@@ -1359,8 +1359,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 });
             } else {
                 // Note that we always set "reverse" to false since regardless of the index scan direction, the MappedKeyValue is in non-reverse order
+                // Setting the limit manager to UNTRACKED since the KeyValueCursor already counts records, and we don't want the unsplitter to double-count
                 rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, rangeCursor, oldVersionFormat,
-                        sizeInfo, false, new CursorLimitManager(scanProperties));
+                        sizeInfo, false, CursorLimitManager.UNTRACKED);
             }
         }
         // Everything is synchronous, just get the only value from the cursor
