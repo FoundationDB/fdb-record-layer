@@ -26,11 +26,8 @@ import org.junit.jupiter.api.BeforeEach;
  * Extends {@link RemoteFetchTest} and change the configurartion to run all tests with split=false.
  */
 public class RemoteFetchWithoutSplitRecordsTest extends RemoteFetchTest {
-    @BeforeEach
     @Override
-    void setup() throws Exception {
-        this.setUseSplitRecords(false);
-        super.setup();
+    public boolean isUseSplitRecords() {
+        return false;
     }
-
 }

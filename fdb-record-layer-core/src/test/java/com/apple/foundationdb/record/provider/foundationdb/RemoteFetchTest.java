@@ -501,11 +501,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
     }
 
     public boolean isUseSplitRecords() {
-        return useSplitRecords;
-    }
-
-    public void setUseSplitRecords(final boolean useSplitRecords) {
-        this.useSplitRecords = useSplitRecords;
+        return true;
     }
 
     private KeyExpression primaryKey() {
