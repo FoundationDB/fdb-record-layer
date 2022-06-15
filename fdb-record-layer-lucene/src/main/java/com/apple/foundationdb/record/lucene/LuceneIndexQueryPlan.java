@@ -75,7 +75,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
             return entryRecordCursor
                     .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
-                            getToPartialRecord(index, recordType, scanType), false))
+                            getToPartialRecord(index, recordType, scanType), true))
                     .map(QueryResult::fromQueriedRecord);
         }
         return super.executePlan(store, context, continuation, executeProperties);
@@ -107,8 +107,19 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                     .addLogInfo(LogMessageKeys.SCAN_TYPE, scanType);
         }
 
-        builder.addRegularCopier(new LuceneIndexKeyValueToPartialRecordUtils.LuceneAutoCompleteCopier());
+        builder.addRegularCopier(new LuceneIndexKeyValueToPartialRecordUtils.LuceneAutoCompleteCopier(scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE),
+                recordType.getPrimaryKey()));
 
         return builder.build();
+    }
+
+    /**
+     * Auto-Complete and Spell-Check scan has their own implementation for {@link IndexKeyValueToPartialRecord} to build partial records,
+     * so they are not appropriate for the optimization by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan}.
+     */
+    @Override
+    public boolean allowedForCoveringIndexPlan() {
+        return !getScanType().equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)
+               && !getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK);
     }
 }

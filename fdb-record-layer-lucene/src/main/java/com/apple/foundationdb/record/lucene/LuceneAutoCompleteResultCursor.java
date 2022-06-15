@@ -537,7 +537,8 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
             // Not having the primary key is fine for auto-complete queries that just want the
             // text, but queries wanting to do something with both the auto-completed text and the
             // original record need to do something else
-            IndexEntry indexEntry = new IndexEntry(state.index, key, Tuple.from(scoreDocAndRecord.scoreDoc.score));
+            IndexEntry indexEntry = new IndexEntry(state.index, key, Tuple.from(scoreDocAndRecord.scoreDoc.score),
+                    scoreDocAndRecord.rec.getPrimaryKey());
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace(logMessage("Suggestion read as an index entry")
                         .addKeyAndValue(LogMessageKeys.INDEX_KEY, key)

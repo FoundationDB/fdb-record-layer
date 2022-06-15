@@ -80,9 +80,15 @@ public class IndexEntry {
 
     @API(API.Status.INTERNAL)
     public IndexEntry(@Nonnull Index index, @Nonnull Tuple key, @Nonnull Tuple value) {
+        this(index, key, value, null);
+    }
+
+    @API(API.Status.INTERNAL)
+    public IndexEntry(@Nonnull Index index, @Nonnull Tuple key, @Nonnull Tuple value, @Nullable Tuple primaryKey) {
         this.index = index;
         this.key = key;
         this.value = value;
+        this.primaryKey = primaryKey;
     }
 
     /**

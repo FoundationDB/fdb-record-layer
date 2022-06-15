@@ -123,4 +123,12 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
                                          @Nonnull NodeInfo nodeInfo,
                                          @Nonnull List<String> additionalDetails,
                                          @Nonnull Map<String, Attribute> additionalAttributeMap);
+
+    /**
+     * Whether this plan is appropriate for being applied with optimization by {@link RecordQueryCoveringIndexPlan},
+     * if the planner believes the required fields can be covered by this index.
+     */
+    default boolean allowedForCoveringIndexPlan() {
+        return true;
+    }
 }
