@@ -69,6 +69,8 @@ public class CursorLimitManager {
     private static final Optional<RecordCursor.NoNextReason> BYTE_LIMIT_REACHED = Optional.of(RecordCursor.NoNextReason.BYTE_LIMIT_REACHED);
     private static final Optional<RecordCursor.NoNextReason> TIME_LIMIT_REACHED = Optional.of(RecordCursor.NoNextReason.TIME_LIMIT_REACHED);
 
+    public static final CursorLimitManager UNTRACKED = new CursorLimitManager(null, false, null, null);
+
     @VisibleForTesting
     public CursorLimitManager(@Nullable RecordScanLimiter recordScanLimiter, boolean failOnScanLimitReached,
                               @Nullable ByteScanLimiter byteScanLimiter,
