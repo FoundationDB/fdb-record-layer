@@ -32,4 +32,5 @@ public class RemoteFetchWithoutSplitRecordsTest extends RemoteFetchTest {
         this.setUseSplitRecords(false);
         super.setup();
     }
+
 }
