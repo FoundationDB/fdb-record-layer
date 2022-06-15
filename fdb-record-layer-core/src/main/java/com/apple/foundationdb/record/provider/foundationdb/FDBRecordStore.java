@@ -1276,7 +1276,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
             // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
-            FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties, useOldVersionFormat());
+            FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), useOldVersionFormat());
             if (fdbRawRecord == null) {
                 return handleOrphanEntry(indexedRawRecord.getIndexEntry(), orphanBehavior);
             } else {
@@ -1335,8 +1335,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nullable
     @SuppressWarnings("PMD.CloseResource")
     private FDBRawRecord reconstructSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo,
-                                                 final MappedKeyValue mappedResult, final ScanProperties scanProperties,
-                                                 final boolean oldVersionFormat) {
+                                                 final MappedKeyValue mappedResult, final boolean oldVersionFormat) {
         List<KeyValue> scannedRange = mappedResult.getRangeResult();
         if ((scannedRange == null) || scannedRange.isEmpty()) {
             return null;
