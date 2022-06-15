@@ -100,7 +100,8 @@ public class OrdinalFieldValue implements ValueWithChild {
             return null;
         }
         final Descriptors.Descriptor descriptorForType = childMessage.getDescriptorForType();
-        final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
+        // ordinalPosition is 0-based, protobuf field numbers are 1-based -> compensate.
+        final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByNumber(ordinalPosition + 1);
         return childMessage.getField(fieldDescriptor);
     }
 
