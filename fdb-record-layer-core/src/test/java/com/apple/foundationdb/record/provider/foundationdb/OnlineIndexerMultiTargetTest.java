@@ -510,6 +510,76 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
+    public void testMultiTargetIndividualContinueByIndexAfterCrash() {
+        // After crash, finish building each index individually
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 40;
+        final int chunkSize  = 7;
+
+        List<Index> indexes = new ArrayList<>();
+        // Here: Value indexes only
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // 1. partly build multi
+        buildIndexAndCrashHalfway(chunkSize, 3, timer, OnlineIndexer.newBuilder()
+                .setTargetIndexes(indexes));
+
+        // 2. Finish building "num_value_3_indexed", to be used as a source index
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setIndex(indexes.get(0))
+                .setLimit(chunkSize)
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexReadable(indexes.get(0)));
+            context.commit();
+        }
+
+        // 3. Build "num_value_2" by index, forbid fallback to by-record
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setIndex(indexes.get(1))
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex(indexes.get(0).getName())
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .build())
+                .setLimit(chunkSize)
+                .build()) {
+            assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            // The index should be partially built
+        }
+
+        // 3. Build "num_value_2" by index, allow fallback to by-record
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setIndex(indexes.get(1))
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex(indexes.get(0).getName())
+                        .build())
+                .setLimit(chunkSize)
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexReadable(indexes.get(1)));
+            context.commit();
+        }
+    }
+
+    @Test
     public void testMultiTargetRebuild() {
         // Use inline rebuildIndex
         final FDBStoreTimer timer = new FDBStoreTimer();
