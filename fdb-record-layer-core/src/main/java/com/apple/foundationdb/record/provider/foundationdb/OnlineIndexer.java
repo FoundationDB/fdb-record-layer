@@ -227,11 +227,17 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             if (desiredAction == IndexingPolicy.DesiredAction.CONTINUE) {
-                // Make best effort to finish indexing. Attempt continuation of the previous method
+                // Make an effort to finish indexing. Attempt continuation of the previous method
                 // Here: match the policy to the previous run
                 IndexBuildProto.IndexBuildIndexingStamp.Method method = conflictingIndexingTypeStamp.getMethod();
                 if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                     // Partly built by records. The fallback indicator should handle the policy
+                    fallbackToRecordsScan = true;
+                    return indexingLauncher(indexingFunc, attemptCount);
+                }
+                if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS && !common.isMultiTarget()) {
+                    // Partly built by records, in multi target mode. We only allow a fallback from multi target
+                    // to a single target, but not to a subset.
                     fallbackToRecordsScan = true;
                     return indexingLauncher(indexingFunc, attemptCount);
                 }
