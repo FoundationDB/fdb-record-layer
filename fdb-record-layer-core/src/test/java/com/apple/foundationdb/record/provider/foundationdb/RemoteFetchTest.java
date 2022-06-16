@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -48,6 +47,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -68,7 +69,6 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_WITH_NAMES_PL
  */
 @Tag(Tags.RequiresFDB)
 class RemoteFetchTest extends RemoteFetchTestBase {
-
     protected static final RecordQuery IN_VALUE = RecordQuery.newBuilder()
             .setRecordType("MySimpleRecord")
             .setFilter(Query.field("num_value_unique").in(List.of(1000, 990, 980, 970, 960)))
@@ -342,36 +342,50 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 1);
     }
 
+    /**
+     * This test writes a value to the store within the range of the scan.
+     */
     @ParameterizedTest(name = "testReadYourWriteInRange(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void testReadYourWriteInRange(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             // Save record in range (don't commit)
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
-            recBuilder.setNumValueUnique(991);
+            recBuilder.setNumValueUnique(999);
             recBuilder.setStrValueIndexed("blah");
             recordStore.saveRecord(recBuilder.build());
 
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
-            ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
-            RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties);
 
-            // When the API_VERSION is too low (remote fetch not supported) the plan will fallback to regular scan and
-            // no exception is thrown. When in fallback mode, same thing, no exception.
-            if (context.isAPIVersionAtLeast(APIVersion.API_VERSION_7_1) && (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH)) {
-                assertThrows(RecordCoreException.class, () -> cursor.getNext());
+            if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH) {
+                assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
             } else {
-                assertNotNull(cursor.getNext());
+                executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 10, (rec, i) -> {
+                    int primaryKey = 9 - i;
+                    String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+                    if (primaryKey == 1) {
+                        strValue = "blah";
+                    }
+                    int numValue = 1000 - primaryKey;
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                });
             }
         }
         assertCounters(fetchMethod, 1, 1);
     }
 
+    /**
+     * This test writes a value to the store outside the range of the scan.
+     */
     @ParameterizedTest(name = "testReadYourWriteOutOfRangeSucceeds(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void testReadYourWriteOutOfRangeSucceeds(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             // Save record out of range (don't commit)
@@ -383,15 +397,98 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
             // Execute the query (will fail because a record in memory cannot be processed by fdb)
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
-            ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
-            List<FDBQueriedRecord<Message>> list = recordStore.executeQuery(plan, null, executeProperties).asList().get();
-            assertEquals(10, list.size());
+
+            executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 10, (rec, i) -> {
+                int primaryKey = 9 - i;
+                String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+                int numValue = 1000 - primaryKey;
+                assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+            });
+            assertCounters(fetchMethod, 1, 11);
         }
-        assertCounters(fetchMethod, 1, 11);
+    }
+
+    /**
+     * This test captures the case that FDB fails the scan after it has already returned several records. A record gets
+     * modified in the transaction at a point that would allow FDB to fetch a few pages of payload before encountering
+     * the modified range conflict. This should be recovered by the fallback mode.
+     */
+    @ParameterizedTest(name = "failAfterRecordsReturnedTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void failAfterRecordsReturnedTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
+        List<TestRecords1Proto.MySimpleRecord> created = saveManyRecords();
+
+        // Modify record and then scan unmodified index
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, splitRecordsHook);
+
+            // Update a record. This record will eventually be returned in a query, but we do *not* modify
+            // a field in the index being scanned, so that FDB does not detect the range conflict until later
+            TestRecords1Proto.MySimpleRecord lastRecord = created.get(created.size() - 1);
+            recordStore.saveRecord(lastRecord.toBuilder()
+                    .setStrValueIndexed("foo")
+                    .build());
+
+            // Use remote fetch to scan the num_value_unique index. The first few results should return
+            // data (essentially the first few pages of data from scanning the index), but once it
+            // gets to the final page, it should fail because it sees a modified range when trying to look
+            // up the record
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0, fetchMethod);
+            if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH) {
+                assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
+            } else {
+                executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 500, (rec, i) -> {
+                    int primaryKey = i;
+                    int numValue = i;
+                    String strValue = (i == created.size() - 1) ? "foo" : "";
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                });
+            }
+        }
+    }
+
+    @ParameterizedTest(name = "failAfterRecordsReturnedReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void failAfterRecordsReturnedReverseTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
+        List<TestRecords1Proto.MySimpleRecord> created = saveManyRecords();
+
+        // Modify record and then scan unmodified index
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, splitRecordsHook);
+
+            // Update a record. This record will eventually be returned in a query, but we do *not* modify
+            // a field in the index being scanned, so that FDB does not detect the range conflict until later
+            TestRecords1Proto.MySimpleRecord lastRecord = created.get(0);
+            recordStore.saveRecord(lastRecord.toBuilder()
+                    .setStrValueIndexed("foo")
+                    .build());
+
+            // Use remote fetch to scan the num_value_unique index. The first few results should return
+            // data (essentially the first few pages of data from scanning the index), but once it
+            // gets to the final page, it should fail because it sees a modified range when trying to look
+            // up the record
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0_REVERSE, fetchMethod);
+            if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH) {
+                assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
+            } else {
+                executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 500, (rec, i) -> {
+                    int primaryKey = 499 - i;
+                    int numValue = primaryKey;
+                    String strValue = (i == (created.size() - 1)) ? "foo" : "";
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                });
+            }
+        }
     }
 
     @Test
     void indexPrefetchSimpleIndexFallbackTest() throws Exception {
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
         RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
         RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
         RecordQueryPlan planWithFallback = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
@@ -404,21 +501,13 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         // This will throw an exception since SNAPSHOT is not supported
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
-            // When the API_VERSION is too low (remote fetch not supported) the plan will fallback to regular scan and
-            // no exception is thrown.
-            if (context.isAPIVersionAtLeast(APIVersion.API_VERSION_7_1)) {
-                assertThrows(UnsupportedOperationException.class, () -> recordStore.executeQuery(planWithPrefetch, null, executeProperties));
-            } else {
-                recordStore.executeQuery(planWithPrefetch, null, executeProperties);
-            }
+            assertThrows(UnsupportedOperationException.class, () -> executeToList(context, planWithPrefetch, null, executeProperties));
         }
         // This will compare the plans successfully since fallback resorts to the scan plan
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(comparatorPlan, null, executeProperties)) {
-                // Will throw exception if plans do not match
-                assertNotNull(cursor.asList().get());
-            }
+            // Will throw exception if plans do not match
+            executeToList(context, comparatorPlan, null, executeProperties);
         }
     }
 
@@ -538,5 +627,35 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         assertThat(myrec.getRecNo(), equalTo(primaryKey));
         assertThat(myrec.getStrValueIndexed(), equalTo(strValue));
         assertThat(myrec.getNumValueUnique(), equalTo(numValue));
+    }
+
+    private List<TestRecords1Proto.MySimpleRecord> saveManyRecords() {
+        List<TestRecords1Proto.MySimpleRecord> created = new ArrayList<>();
+        for (int i = 0; i < 500; i++) {
+            created.add(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(i)
+                    .setNumValue3Indexed(i % 3)
+                    .setNumValueUnique(i)
+                    .build());
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, splitRecordsHook);
+            recordStore.deleteAllRecords();
+            commit(context);
+        }
+        Iterator<TestRecords1Proto.MySimpleRecord> createdIterator = created.iterator();
+        while (createdIterator.hasNext()) {
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context, splitRecordsHook);
+                int i = 0;
+                while (i < 50 && createdIterator.hasNext()) {
+                    recordStore.saveRecord(createdIterator.next());
+                    i++;
+                }
+                commit(context);
+            }
+        }
+
+        return created;
     }
 }
