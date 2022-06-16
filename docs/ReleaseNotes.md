@@ -33,7 +33,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Feature** Improve remote fetch fallback  to allow fallback after a few records have been returned [(Issue #1727)](https://github.com/FoundationDB/fdb-record-layer/issues/1727)
 * **Feature** API version for tests changed to 7.1 [(Issue #1734)](https://github.com/FoundationDB/fdb-record-layer/issues/1734)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* Online Indexer: Index from index: allow fallback to by-record if previous stamp is multi-target [(Issue #1736)](https://github.com/FoundationDB/fdb-record-layer/issues/1736)
+* **Feature** Online Indexer: Index from index: allow fallback to by-record if previous stamp is multi-target [(Issue #1736)](https://github.com/FoundationDB/fdb-record-layer/issues/1736)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
