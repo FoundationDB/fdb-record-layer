@@ -216,6 +216,8 @@ public class LuceneIndexExpressions {
                                                                         @Nonnull T source, @Nonnull DocumentDestination<T> destination,
                                                                         @Nullable String fieldNamePrefix, int keyIndex, int groupingCount,
                                                                         @Nonnull List<Integer> overriddenKeyRanges) {
+        // Record type evaluation of primary key based on this expression for the partial record is not needed,
+        // because this partial record to build has the correct record type.
         if (expression instanceof RecordTypeKeyExpression) {
             return;
         }

@@ -54,7 +54,12 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     }
 
     /**
-     * Override here to have specific logic to build the {@link QueryResult} for lucene auto complete suggestion result.
+     * Override here to have specific logic to build the {@link QueryResult} for lucene auto-complete and spell-check results.
+     * For these 2 scan types, results are returned as partial records that have only the grouping keys, primary key,
+     * and the text fields indexed by Lucene which have matches with the search key.
+     * So other fields than the matching text field won't be able to be read from the partial records.
+     * For an indexed record that have matches from multiple text fields, matching suggestions are returned as multiple partial records with different text fields populated,
+     * which share the same grouping keys and primary key, so they are considered as multiple results.
      */
     @Nonnull
     @Override
