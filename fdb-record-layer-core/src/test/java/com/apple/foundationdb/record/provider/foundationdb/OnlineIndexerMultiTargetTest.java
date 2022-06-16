@@ -562,7 +562,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             // The index should be partially built
         }
 
-        // 3. Build "num_value_2" by index, allow fallback to by-record
+        // 4. Build "num_value_2" by index, allow fallback to by-record
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setIndex(indexes.get(1))
