@@ -39,25 +39,8 @@ public final class TestSchemas {
                     "CREATE VALUE INDEX record_name_idx on RestaurantRecord(name);" +
                     "CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name) ";
 
-    private static final String RESTAURANT_COMPLEX_SCHEMA =
-            "CREATE STRUCT Location (address string, latitude string, longitude string);" +
-                    "CREATE STRUCT ReviewerEndorsements (endorsementId int64, endorsementText string);" +
-                    "CREATE STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements ReviewerEndorsements array);" +
-                    "CREATE STRUCT RestaurantTag (tag string, weight int64);" +
-                    "CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string);" +
-                    "CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no));" +
-                    "CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id));" +
-                    "CREATE VALUE INDEX record_name_idx on RestaurantComplexRecord(name);" +
-                    "CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name);" +
-                    "CREATE MATERIALIZED VIEW mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R;" +
-                    "CREATE MATERIALIZED VIEW mv2 AS SELECT endo.endorsementText FROM RestaurantComplexRecord rec, (SELECT X.endorsementText FROM rec.reviews rev, (SELECT endorsementText from rev.endorsements) X) endo";
-
     public static String restaurant() {
         return RESTAURANT_SCHEMA;
-    }
-
-    public static String restaurantComplex() {
-        return RESTAURANT_COMPLEX_SCHEMA;
     }
 
     //TODO(bfines) the Query engine can't handle INCLUDE statements yet(TODO)
