@@ -44,6 +44,9 @@ This release also updates downstream dependency versions. Most notably, the prot
 // end next release
 -->
 
+### 3.2.268.0
+
+
 ### 3.2.267.0
 
 * **Feature** Online Indexer: allow fallback to by-record if the previous stamp is multi-target [(Issue #1736)](https://github.com/FoundationDB/fdb-record-layer/issues/1736)
