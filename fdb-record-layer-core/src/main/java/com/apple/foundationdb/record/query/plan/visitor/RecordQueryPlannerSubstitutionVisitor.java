@@ -84,6 +84,10 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                                                    @Nonnull Set<KeyExpression> requiredFields) {
         if (plan instanceof RecordQueryPlanWithIndex) {
             RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex) plan;
+            if (!indexPlan.allowedForCoveringIndexPlan()) {
+                return null;
+            }
+
             Index index = recordMetaData.getIndex(indexPlan.getIndexName());
 
             final Collection<RecordType> recordTypes = recordMetaData.recordTypesForIndex(index);

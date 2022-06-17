@@ -183,7 +183,7 @@ public class LuceneDocumentFromRecord {
         public void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable final Object value,
                              LuceneIndexExpressions.DocumentFieldType type,
                              boolean stored, boolean sorted,
-                             @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex,
+                             @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, int keyIndex,
                              @Nonnull Map<String, Object> fieldConfigs) {
             fields.add(new DocumentField(fieldName, value, type, stored, sorted, fieldConfigs));
         }

@@ -54,7 +54,12 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     }
 
     /**
-     * Override here to have specific logic to build the {@link QueryResult} for lucene auto complete suggestion result.
+     * Override here to have specific logic to build the {@link QueryResult} for lucene auto-complete and spell-check results.
+     * For these 2 scan types, results are returned as partial records that have only the grouping keys, primary key,
+     * and the text fields indexed by Lucene which have matches with the search key.
+     * So other fields than the matching text field won't be able to be read from the partial records.
+     * For an indexed record that have matches from multiple text fields, matching suggestions are returned as multiple partial records with different text fields populated,
+     * which share the same grouping keys and primary key, so they are considered as multiple results.
      */
     @Nonnull
     @Override
@@ -75,7 +80,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
             return entryRecordCursor
                     .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
-                            getToPartialRecord(index, recordType, scanType), false))
+                            getToPartialRecord(index, recordType, scanType), true))
                     .map(QueryResult::fromQueriedRecord);
         }
         return super.executePlan(store, context, continuation, executeProperties);
@@ -107,8 +112,19 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                     .addLogInfo(LogMessageKeys.SCAN_TYPE, scanType);
         }
 
-        builder.addRegularCopier(new LuceneIndexKeyValueToPartialRecordUtils.LuceneAutoCompleteCopier());
+        builder.addRegularCopier(new LuceneIndexKeyValueToPartialRecordUtils.LuceneAutoCompleteCopier(scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE),
+                recordType.getPrimaryKey()));
 
         return builder.build();
+    }
+
+    /**
+     * Auto-Complete and Spell-Check scan has their own implementation for {@link IndexKeyValueToPartialRecord} to build partial records,
+     * so they are not appropriate for the optimization by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan}.
+     */
+    @Override
+    public boolean allowedForCoveringIndexPlan() {
+        return !getScanType().equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)
+               && !getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK);
     }
 }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.google.protobuf.Descriptors;
 
@@ -91,7 +92,7 @@ public class LuceneIndexExpressions {
      * @param recordType Protobuf meta-data for record type
      */
     public static void validate(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
-        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, sorted, overriddeKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
+        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, sorted, overriddeKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
         }, null);
     }
 
@@ -152,7 +153,7 @@ public class LuceneIndexExpressions {
         final Map<String, DocumentFieldDerivation> fields = new HashMap<>();
         getFields(root,
                 new MetaDataSource(recordType),
-                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
+                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
                     List<String> path = new ArrayList<>();
                     for (MetaDataSource metaDataSource = source; metaDataSource != null; metaDataSource = metaDataSource.getParent()) {
                         if (metaDataSource.getField() != null) {
@@ -188,7 +189,7 @@ public class LuceneIndexExpressions {
     public interface DocumentDestination<T extends RecordSource<T>> {
         @SuppressWarnings("java:S107")
         void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable Object value, @Nonnull DocumentFieldType type,
-                      boolean stored, boolean sorted, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, @Nonnull Map<String, Object> fieldConfigs);
+                      boolean stored, boolean sorted, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, int keyIndex, @Nonnull Map<String, Object> fieldConfigs);
     }
 
     /**
@@ -215,6 +216,12 @@ public class LuceneIndexExpressions {
                                                                         @Nonnull T source, @Nonnull DocumentDestination<T> destination,
                                                                         @Nullable String fieldNamePrefix, int keyIndex, int groupingCount,
                                                                         @Nonnull List<Integer> overriddenKeyRanges) {
+        // Record type evaluation of primary key based on this expression for the partial record is not needed,
+        // because this partial record to build has the correct record type.
+        if (expression instanceof RecordTypeKeyExpression) {
+            return;
+        }
+
         if (expression instanceof ThenKeyExpression) {
             int count = 0;
             for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
@@ -335,7 +342,7 @@ public class LuceneIndexExpressions {
             }
             for (Object value : source.getValues(fieldExpression)) {
                 destination.addField(source, fieldName, value, fieldType, fieldStored, fieldSorted,
-                        overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1, configs);
+                        overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1, keyIndex, configs);
             }
             if (suffixOverride) {
                 // Remove the last 2 numbers added above

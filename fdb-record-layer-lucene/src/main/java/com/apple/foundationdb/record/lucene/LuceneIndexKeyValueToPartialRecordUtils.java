@@ -57,7 +57,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                                           @Nonnull String suggestion, @Nonnull Tuple groupingKey) {
         final KeyExpression expression = root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getWholeKey() : root;
         LuceneIndexExpressions.getFieldsRecursively(expression, new PartialRecordBuildSource(null, descriptor, builder),
-                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, fieldConfigsIgnored) -> {
+                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
                     if (groupingKeyIndex > - 1) {
                         if (groupingKeyIndex > groupingKey.size() - 1) {
                             throw new RecordCoreException("Invalid grouping value tuple given a grouping key")
@@ -69,6 +69,13 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                     }
                 },
                 null, 0, root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getGroupingCount() : 0, new ArrayList<>());
+    }
+
+    public static void populatePrimaryKey(@Nonnull KeyExpression primaryKey, @Nonnull Descriptors.Descriptor descriptor, @Nonnull Message.Builder builder, @Nonnull Tuple tuple) {
+        LuceneIndexExpressions.getFields(primaryKey, new PartialRecordBuildSource(null, descriptor, builder),
+                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
+                    source.buildMessage(tuple.get(keyIndex), (String) value, null, null, false);
+                }, null);
     }
 
     private static void buildIfFieldNameMatch(@Nonnull PartialRecordBuildSource source, @Nonnull String concatenatedFieldPath, @Nonnull String givenFieldName,
@@ -297,6 +304,14 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * So the suggestion can be returned as a {@link com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord} for query.
      */
     public static class LuceneAutoCompleteCopier implements IndexKeyValueToPartialRecord.Copier {
+        private boolean primaryKeyNeeded;
+        @Nonnull
+        private KeyExpression primaryKeyExpression;
+
+        public LuceneAutoCompleteCopier(boolean primaryKeyNeeded, @Nonnull KeyExpression primaryKeyExpression) {
+            this.primaryKeyNeeded = primaryKeyNeeded;
+            this.primaryKeyExpression = primaryKeyExpression;
+        }
 
         @Override
         public void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
@@ -311,6 +326,9 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             String value = (String) keyTuple.get(keyTuple.size() - 1);
             Tuple groupingKey = Tuple.fromList(keyTuple.getItems().subList(0, keyTuple.size() - 2));
             buildPartialRecord(kv.getIndex().getRootExpression(), recordDescriptor, recordBuilder, fieldName, value, groupingKey);
+            if (primaryKeyNeeded) {
+                populatePrimaryKey(primaryKeyExpression, recordDescriptor, recordBuilder, kv.getPrimaryKey());
+            }
         }
     }
 }

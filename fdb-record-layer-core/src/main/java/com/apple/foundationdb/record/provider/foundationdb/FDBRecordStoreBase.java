@@ -1758,7 +1758,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default FDBQueriedRecord<M> coveredIndexQueriedRecord(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull RecordType recordType,
                                                           @Nonnull M partialRecord, boolean hasPrimaryKey) {
         return FDBQueriedRecord.covered(index, indexEntry,
-                hasPrimaryKey ? index.getEntryPrimaryKey(indexEntry.getKey()) : TupleHelpers.EMPTY,
+                hasPrimaryKey ? indexEntry.getPrimaryKey() : TupleHelpers.EMPTY,
                 recordType, partialRecord);
     }
 
