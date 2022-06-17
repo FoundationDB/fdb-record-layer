@@ -80,7 +80,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
             return entryRecordCursor
                     .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
-                            getToPartialRecord(index, recordType, scanType), true))
+                            getToPartialRecord(index, recordType, scanType), scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)))
                     .map(QueryResult::fromQueriedRecord);
         }
         return super.executePlan(store, context, continuation, executeProperties);
