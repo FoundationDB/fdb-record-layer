@@ -63,18 +63,18 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     private final Set<String> queriedRecordTypes;
 
     @Nonnull
-    private final KeyExpression alternativeKeyExpression;
+    private final KeyExpression primaryKey;
 
     public PrimaryScanMatchCandidate(@Nonnull final ExpressionRefTraversal traversal,
                                      @Nonnull final List<CorrelationIdentifier> parameters,
                                      @Nonnull Set<String> availableRecordTypes,
                                      @Nonnull Set<String> queriedRecordTypes,
-                                     @Nonnull final KeyExpression alternativeKeyExpression) {
+                                     @Nonnull final KeyExpression primaryKey) {
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
         this.availableRecordTypes = ImmutableSet.copyOf(availableRecordTypes);
         this.queriedRecordTypes = ImmutableSet.copyOf(queriedRecordTypes);
-        this.alternativeKeyExpression = alternativeKeyExpression;
+        this.primaryKey = primaryKey;
     }
 
     @Nonnull
@@ -114,7 +114,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     @Nonnull
     @Override
     public KeyExpression getAlternativeKeyExpression() {
-        return alternativeKeyExpression;
+        return primaryKey;
     }
 
     @Nonnull
@@ -131,7 +131,8 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
                 new PrimaryScanExpression(getAvailableRecordTypes(),
                         Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(getAvailableRecordTypes())),
                         comparisonRanges,
-                        reverseScanOrder),
+                        reverseScanOrder,
+                        primaryKey),
                 Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(getQueriedRecordTypes())));
     }
 }

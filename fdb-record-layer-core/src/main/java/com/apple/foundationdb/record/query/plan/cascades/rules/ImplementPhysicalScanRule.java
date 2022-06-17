@@ -52,7 +52,7 @@ public class ImplementPhysicalScanRule extends PlannerRule<PrimaryScanExpression
         call.yield(call.ref(new RecordQueryScanPlan(
                 logical.getRecordTypes(),
                 logical.getResultValue().getResultType().narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
-                call.getContext().getCommonPrimaryKey(),
+                logical.getPrimaryKey(),
                 logical.scanComparisons(),
                 logical.isReverse())));
     }

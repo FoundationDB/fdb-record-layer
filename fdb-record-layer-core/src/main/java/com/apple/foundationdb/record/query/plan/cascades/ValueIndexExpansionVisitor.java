@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -39,6 +40,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -61,9 +63,11 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
     @Nonnull
     @Override
+    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
+        Objects.requireNonNull(primaryKey);
         Debugger.updateIndex(ValueComparisonRangePredicate.Placeholder.class, old -> 0);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
@@ -109,27 +113,25 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         final var keySize = keyValues.size();
 
-        if (primaryKey != null) {
-            // unfortunately we must copy as the returned list is not guaranteed to be mutable which is needed for the
-            // trimPrimaryKey() function as it is causing a side-effect
-            final var trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
-            index.trimPrimaryKey(trimmedPrimaryKeys);
+        // unfortunately we must copy as the returned list is not guaranteed to be mutable which is needed for the
+        // trimPrimaryKey() function as it is causing a side-effect
+        final var trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
+        index.trimPrimaryKey(trimmedPrimaryKeys);
 
-            for (int i = 0; i < trimmedPrimaryKeys.size(); i++) {
-                final KeyExpression primaryKeyPart = trimmedPrimaryKeys.get(i);
+        for (int i = 0; i < trimmedPrimaryKeys.size(); i++) {
+            final KeyExpression primaryKeyPart = trimmedPrimaryKeys.get(i);
 
-                final var initialStateForKeyPart =
-                        VisitorState.of(keyValues,
-                                Lists.newArrayList(),
-                                baseQuantifier,
-                                ImmutableList.of(),
-                                -1,
-                                keySize + i);
-                final var primaryKeyPartExpansion =
-                        pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
-                allExpansionsBuilder
-                        .add(primaryKeyPartExpansion);
-            }
+            final var initialStateForKeyPart =
+                    VisitorState.of(keyValues,
+                            Lists.newArrayList(),
+                            baseQuantifier,
+                            ImmutableList.of(),
+                            -1,
+                            keySize + i);
+            final var primaryKeyPartExpansion =
+                    pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
+            allExpansionsBuilder
+                    .add(primaryKeyPartExpansion);
         }
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
@@ -142,7 +144,8 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 baseQuantifier,
                 keyValues,
                 valueValues,
-                fullKey(index, primaryKey));
+                fullKey(index, primaryKey),
+                primaryKey);
     }
 
     /**

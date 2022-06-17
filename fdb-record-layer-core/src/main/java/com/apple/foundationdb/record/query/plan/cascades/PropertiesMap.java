@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableMap;
@@ -48,6 +49,7 @@ public class PropertiesMap {
                     .add(OrderingProperty.ORDERING)
                     .add(DistinctRecordsProperty.DISTINCT_RECORDS)
                     .add(StoredRecordProperty.STORED_RECORD)
+                    .add(PrimaryKeyProperty.PRIMARY_KEY)
                     .build();
 
     @Nonnull

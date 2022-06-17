@@ -45,7 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstra
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
@@ -78,7 +78,7 @@ import java.util.stream.StreamSupport;
  *
  * <ul>
  *     <li>a {@link PrimaryScanExpression} for a single {@link PrimaryScanMatchCandidate},</li>
- *     <li>an {@link IndexScanExpression} for a single {@link ValueIndexScanMatchCandidate}</li>
+ *     <li>an index scan/index scan + fetch for a single {@link ValueIndexScanMatchCandidate}</li>
  *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
  * </ul>
  *
@@ -230,8 +230,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         final Map<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
                 distinctMatchToScanMap(bestMatchToExpressionMap);
 
-        @Nullable final var commonPrimaryKey = call.getContext().getCommonPrimaryKey();
-        if (commonPrimaryKey != null) {
+        @Nullable final var commonPrimaryKeyOptional =
+                WithPrimaryKeyMatchCandidate.commonPrimaryKeyMaybe(
+                        bestMaximumCoverageMatches.stream()
+                                .map(PartialMatchWithCompensation::getPartialMatch)
+                                .map(PartialMatch::getMatchCandidate)
+                                .collect(ImmutableList.toImmutableList()));
+        commonPrimaryKeyOptional.ifPresent(commonPrimaryKey -> {
             final var commonPrimaryKeyParts = commonPrimaryKey.normalizeKeyForPositions();
 
             final var boundPartitions = Lists.<List<PartialMatchWithCompensation>>newArrayList();
@@ -250,7 +255,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     partition,
                                     requestedOrderings).stream())
                     .forEach(toBeInjectedReference::insert);
-        }
+        });
         call.yield(inject(expression, completeMatches, toBeInjectedReference));
     }
 
@@ -274,6 +279,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         final var partialMatchesWithCompensation =
                 matches
                         .stream()
+                        .filter(partialMatch -> partialMatch.getMatchCandidate() instanceof WithPrimaryKeyMatchCandidate)
                         .filter(partialMatch -> !satisfiedOrderings(partialMatch, interestedOrderings).isEmpty())
                         .map(partialMatch -> new PartialMatchWithCompensation(partialMatch, partialMatch.compensate()))
                         .filter(partialMatchWithCompensation -> !partialMatchWithCompensation.getCompensation().isImpossible())

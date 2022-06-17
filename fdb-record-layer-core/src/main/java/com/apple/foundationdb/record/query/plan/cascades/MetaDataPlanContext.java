@@ -160,7 +160,7 @@ public class MetaDataPlanContext implements PlanContext {
     }
 
     @Nullable
-    private static KeyExpression commonPrimaryKey(@Nonnull Collection<RecordType> recordTypes) {
+    private static KeyExpression commonPrimaryKey(@Nonnull Iterable<RecordType> recordTypes) {
         KeyExpression common = null;
         boolean first = true;
         for (RecordType recordType : recordTypes) {

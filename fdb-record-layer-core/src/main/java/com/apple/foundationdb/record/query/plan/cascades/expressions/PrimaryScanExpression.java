@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -58,15 +59,19 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
     @Nonnull
     private final List<ComparisonRange> comparisonRanges;
     private final boolean reverse;
+    @Nonnull
+    private final KeyExpression primaryKey;
 
     public PrimaryScanExpression(@Nonnull final Set<String> recordTypes,
                                  @Nonnull final Type.Record flowedType,
                                  @Nonnull final List<ComparisonRange> comparisonRanges,
-                                 final boolean reverse) {
+                                 final boolean reverse,
+                                 @Nonnull final KeyExpression primaryKey) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.comparisonRanges = ImmutableList.copyOf(comparisonRanges);
         this.reverse = reverse;
+        this.primaryKey = primaryKey;
     }
 
     @Nonnull
@@ -87,6 +92,11 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
 
     public boolean isReverse() {
         return reverse;
+    }
+
+    @Nonnull
+    public KeyExpression getPrimaryKey() {
+        return primaryKey;
     }
 
     @Nonnull

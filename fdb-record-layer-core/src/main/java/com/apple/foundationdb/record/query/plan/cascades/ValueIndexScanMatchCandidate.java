@@ -97,6 +97,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     private final KeyExpression alternativeKeyExpression;
 
+    @Nonnull
+    private final KeyExpression primaryKey;
+
     public ValueIndexScanMatchCandidate(@Nonnull Index index,
                                         @Nonnull Collection<RecordType> recordTypes,
                                         @Nonnull final ExpressionRefTraversal traversal,
@@ -104,7 +107,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                         @Nonnull final Quantifier.ForEach baseQuantifier,
                                         @Nonnull final List<Value> indexKeyValues,
                                         @Nonnull final List<Value> indexValueValues,
-                                        @Nonnull final KeyExpression alternativeKeyExpression) {
+                                        @Nonnull final KeyExpression alternativeKeyExpression,
+                                        @Nonnull final KeyExpression primaryKey) {
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.traversal = traversal;
@@ -113,6 +117,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
         this.indexValueValues = ImmutableList.copyOf(indexValueValues);
         this.alternativeKeyExpression = alternativeKeyExpression;
+        this.primaryKey = primaryKey;
     }
 
     @Nonnull
@@ -166,6 +171,12 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
+    public KeyExpression getPrimaryKey() {
+        return primaryKey;
+    }
+
+    @Nonnull
+    @Override
     public RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
                                                        @Nonnull final PartialMatch partialMatch,
                                                        @Nonnull final PlanContext planContext,
@@ -180,7 +191,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
-                                planContext.getCommonPrimaryKey(),
+                                primaryKey,
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 reverseScanOrder,
@@ -227,7 +238,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
-                        planContext.getCommonPrimaryKey(),
+                        primaryKey,
                         scanParameters,
                         planContext.getPlannerConfiguration().getIndexFetchMethod(),
                         isReverse,

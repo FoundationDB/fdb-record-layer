@@ -28,7 +28,7 @@ import java.util.Optional;
 /**
  * Interface to represent a candidate that replaces with an index scan.
  */
-public interface ScanWithFetchMatchCandidate extends MatchCandidate {
+public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidate {
     @Nonnull
     Optional<Value> pushValueThroughFetch(@Nonnull Value value,
                                           @Nonnull CorrelationIdentifier targetAlias);
