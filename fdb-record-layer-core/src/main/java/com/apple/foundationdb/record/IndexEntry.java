@@ -46,6 +46,11 @@ public class IndexEntry {
     private final Tuple key;
     @Nonnull
     private final Tuple value;
+
+    /**
+     * This primaryKey is either supplied in advance through the constructor, or determined by the index's primaryKeyComponentPositions lazily and memorized in it.
+     * Index maintainers are not obligated to supply this in advance, unless their supposed primary keys cannot be obtained from the {@link #key} tuple.
+     */
     @Nullable
     private Tuple primaryKey;
 
