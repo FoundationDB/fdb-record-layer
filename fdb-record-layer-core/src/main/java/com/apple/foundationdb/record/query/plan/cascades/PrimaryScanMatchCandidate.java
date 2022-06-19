@@ -37,7 +37,7 @@ import java.util.Set;
 /**
  * Case class to represent a match candidate that is backed by an index.
  */
-public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLikeMatchCandidate {
+public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLikeMatchCandidate, WithPrimaryKeyMatchCandidate {
     /**
      * Holds the parameter names for all necessary parameters that need to be bound during matching.
      */
@@ -113,8 +113,14 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
-    public KeyExpression getAlternativeKeyExpression() {
+    public KeyExpression getPrimaryKey() {
         return primaryKey;
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression getAlternativeKeyExpression() {
+        return getPrimaryKey();
     }
 
     @Nonnull

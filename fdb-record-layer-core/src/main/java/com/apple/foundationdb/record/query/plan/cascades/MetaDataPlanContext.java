@@ -202,12 +202,6 @@ public class MetaDataPlanContext implements PlanContext {
     }
 
     @Override
-    @Nullable
-    public KeyExpression getCommonPrimaryKey() {
-        return commonPrimaryKey;
-    }
-
-    @Override
     @Nonnull
     public RecordMetaData getMetaData() {
         return metaData;

@@ -313,43 +313,43 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<KeyExpression>>
         private Optional<KeyExpression> commonPrimaryKeyFromChildren(@Nonnull final RecordQueryPlan recordQueryPlan) {
             final var primaryKeysFromChildren = primaryKeysFromChildren(recordQueryPlan);
 
-            return commonPrimaryKeyFromOptionals(primaryKeysFromChildren);
-        }
-
-        @Nonnull
-        @SuppressWarnings("OptionalGetWithoutIsPresent")
-        private Optional<KeyExpression> commonPrimaryKeyFromOptionals(@Nonnull Iterable<Optional<KeyExpression>> primaryKeyOptionals) {
-            if (Streams.stream(primaryKeyOptionals).anyMatch(Optional::isEmpty)) {
-                return Optional.empty();
-            }
-            return commonPrimaryKeyMaybe(Streams.stream(primaryKeyOptionals).map(Optional::get).collect(ImmutableList.toImmutableList()));
-        }
-
-        @Nonnull
-        private static Optional<KeyExpression> commonPrimaryKeyMaybe(@Nonnull Iterable<KeyExpression> primaryKeys) {
-            KeyExpression common = null;
-            var first = true;
-            for (final var primaryKey : primaryKeys) {
-                if (first) {
-                    common = primaryKey;
-                    first = false;
-                } else if (!common.equals(primaryKey)) {
-                    return Optional.empty();
-                }
-            }
-            return Optional.ofNullable(common);
+            return commonPrimaryKeyMaybeFromOptionals(primaryKeysFromChildren);
         }
 
         private Optional<KeyExpression> evaluateForReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference) {
             final var memberPrimaryKeysCollection =
                     reference.getPlannerAttributeForMembers(PRIMARY_KEY).values();
 
-            return commonPrimaryKeyFromOptionals(memberPrimaryKeysCollection);
+            return commonPrimaryKeyMaybeFromOptionals(memberPrimaryKeysCollection);
         }
 
         public static Optional<KeyExpression> evaluate(@Nonnull RecordQueryPlan recordQueryPlan) {
             // Won't actually be null for relational planner expressions.
             return new PrimaryKeyVisitor().visit(recordQueryPlan);
         }
+    }
+
+    @Nonnull
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    public static Optional<KeyExpression> commonPrimaryKeyMaybeFromOptionals(@Nonnull Iterable<Optional<KeyExpression>> primaryKeyOptionals) {
+        if (Streams.stream(primaryKeyOptionals).anyMatch(Optional::isEmpty)) {
+            return Optional.empty();
+        }
+        return commonPrimaryKeyMaybe(Streams.stream(primaryKeyOptionals).map(Optional::get).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
+    private static Optional<KeyExpression> commonPrimaryKeyMaybe(@Nonnull Iterable<KeyExpression> primaryKeys) {
+        KeyExpression common = null;
+        var first = true;
+        for (final var primaryKey : primaryKeys) {
+            if (first) {
+                common = primaryKey;
+                first = false;
+            } else if (!common.equals(primaryKey)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.ofNullable(common);
     }
 }

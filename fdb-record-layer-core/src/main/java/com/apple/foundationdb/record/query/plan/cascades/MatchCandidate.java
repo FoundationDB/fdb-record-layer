@@ -256,7 +256,6 @@ public interface MatchCandidate {
         final var type = index.getType();
 
         if (IndexTypes.VALUE.equals(type)) {
-            Objects.requireNonNull(commonPrimaryKeyForIndex);
             expandIndexMatchCandidate(
                     metaData,
                     index,
@@ -268,7 +267,6 @@ public interface MatchCandidate {
         }
 
         if (IndexTypes.RANK.equals(type)) {
-            Objects.requireNonNull(commonPrimaryKeyForIndex);
             // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
             expandIndexMatchCandidate(
                     metaData,
@@ -298,7 +296,7 @@ public interface MatchCandidate {
                                                                       @Nonnull final ImmutableSet<String> recordTypeNamesForIndex,
                                                                       @Nonnull final Set<String> availableRecordTypes,
                                                                       final boolean isReverse,
-                                                                      @Nonnull final KeyExpression commonPrimaryKeyForIndex,
+                                                                      @Nullable final KeyExpression commonPrimaryKeyForIndex,
                                                                       @Nonnull final ExpansionVisitor<?> expansionVisitor) {
         final var baseRef = createBaseRef(recordMetaData, availableRecordTypes, recordTypeNamesForIndex, new IndexAccessHint(index.getName()));
         try {

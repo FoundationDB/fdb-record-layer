@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -97,7 +98,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     private final KeyExpression alternativeKeyExpression;
 
-    @Nonnull
+    @Nullable
     private final KeyExpression primaryKey;
 
     public ValueIndexScanMatchCandidate(@Nonnull Index index,
@@ -108,7 +109,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                         @Nonnull final List<Value> indexKeyValues,
                                         @Nonnull final List<Value> indexValueValues,
                                         @Nonnull final KeyExpression alternativeKeyExpression,
-                                        @Nonnull final KeyExpression primaryKey) {
+                                        @Nullable final KeyExpression primaryKey) {
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.traversal = traversal;

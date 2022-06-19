@@ -28,18 +28,19 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.google.common.collect.ImmutableList;
@@ -65,6 +66,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty.DISTINCT_RECORDS;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty.ORDERING;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty.PRIMARY_KEY;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
 
 /**
@@ -81,8 +83,9 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
 
     @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> unionLegReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
-                    rollUpTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DISTINCT_RECORDS, STORED_RECORD))));
+            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD) &&
+                                                  planPartition.getAttributeValue(PRIMARY_KEY).isPresent(),
+                    rollUpTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DISTINCT_RECORDS))));
 
     @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> unionExpressionMatcher =
@@ -108,12 +111,6 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
             return;
         }
         final var requestedOrderings = requiredOrderingsOptional.get();
-
-        final var commonPrimaryKey = context.getCommonPrimaryKey();
-        if (commonPrimaryKey == null) {
-            return;
-        }
-        final var commonPrimaryKeyParts = commonPrimaryKey.normalizeKeyForPositions();
 
         final var bindings = call.getBindings();
 
@@ -153,6 +150,18 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                     Lists.<Pair<Ordering /* merged ordering */, Ordering /* current ordering */>>newArrayList();
             while (partitionsCrossProductIterator.hasNext()) {
                 final var partitions = partitionsCrossProductIterator.next();
+
+                final var commonPrimaryKeyMaybe =
+                        PrimaryKeyProperty.commonPrimaryKeyMaybeFromOptionals(partitions.stream()
+                                .map(partition -> partition.getAttributeValue(PRIMARY_KEY))
+                                .collect(ImmutableList.toImmutableList()));
+
+                if (commonPrimaryKeyMaybe.isEmpty()) {
+                    continue;
+                }
+                final var commonPrimaryKey = commonPrimaryKeyMaybe.get();
+                final var commonPrimaryKeyParts = commonPrimaryKey.normalizeKeyForPositions();
+
                 final ImmutableList<Ordering> orderings =
                         partitions
                                 .stream()

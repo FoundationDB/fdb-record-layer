@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
@@ -30,7 +29,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -63,13 +61,7 @@ public class FakePlanContext implements PlanContext {
     public Index getIndexByName(@Nonnull String name) {
         return indexes.get(name);
     }
-
-    @Nullable
-    @Override
-    public KeyExpression getCommonPrimaryKey() {
-        throw new UnsupportedOperationException();
-    }
-
+    
     @Override
     public int getGreatestPrimaryKeyWidth() {
         return 0;
