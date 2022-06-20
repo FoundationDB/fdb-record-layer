@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
@@ -31,8 +32,9 @@ import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -41,13 +43,13 @@ import java.util.function.Supplier;
  */
 public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
-    private final Set<String> availableRecordTypes;
+    private final List<RecordType> availableRecordTypes;
     @Nonnull
-    private final Set<String> recordTypes;
+    private final List<RecordType> recordTypes;
 
-    public PrimaryAccessExpansionVisitor(@Nonnull final Set<String> availableRecordTypes, @Nonnull final Set<String> recordTypes) {
-        this.availableRecordTypes = ImmutableSet.copyOf(availableRecordTypes);
-        this.recordTypes = ImmutableSet.copyOf(recordTypes);
+    public PrimaryAccessExpansionVisitor(@Nonnull final Collection<RecordType> availableRecordTypes, @Nonnull final Collection<RecordType> recordTypes) {
+        this.availableRecordTypes = ImmutableList.copyOf(availableRecordTypes);
+        this.recordTypes = ImmutableList.copyOf(recordTypes);
     }
 
     @Nonnull

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
@@ -57,7 +56,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </ul>
  *
  * The logic that this rules delegates to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch, com.apple.foundationdb.record.query.plan.cascades.PlanContext)}
+ * {@link MatchCandidate#toEquivalentExpression(PartialMatch, com.apple.foundationdb.record.query.plan.cascades.PlanContext)}
  *
  */
 @API(API.Status.EXPERIMENTAL)

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
@@ -31,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -54,33 +56,33 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
      * Set of record types that are available in the context of the query.
      */
     @Nonnull
-    private final Set<String> availableRecordTypes;
+    private final List<RecordType> availableRecordTypes;
 
     /**
      * Set of record types that are actually queried.
      */
     @Nonnull
-    private final Set<String> queriedRecordTypes;
+    private final List<RecordType> queriedRecordTypes;
 
     @Nonnull
     private final KeyExpression primaryKey;
 
     public PrimaryScanMatchCandidate(@Nonnull final ExpressionRefTraversal traversal,
                                      @Nonnull final List<CorrelationIdentifier> parameters,
-                                     @Nonnull Set<String> availableRecordTypes,
-                                     @Nonnull Set<String> queriedRecordTypes,
+                                     @Nonnull final Collection<RecordType> availableRecordTypes,
+                                     @Nonnull final Collection<RecordType> queriedRecordTypes,
                                      @Nonnull final KeyExpression primaryKey) {
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
-        this.availableRecordTypes = ImmutableSet.copyOf(availableRecordTypes);
-        this.queriedRecordTypes = ImmutableSet.copyOf(queriedRecordTypes);
+        this.availableRecordTypes = ImmutableList.copyOf(availableRecordTypes);
+        this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.primaryKey = primaryKey;
     }
 
     @Nonnull
     @Override
     public String getName() {
-        return "primary(" + String.join(",", queriedRecordTypes) + ")";
+        return "primary(" + String.join(",", getAvailableRecordTypeNames()) + ")";
     }
 
     @Nonnull
@@ -102,12 +104,20 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     }
 
     @Nonnull
-    public Set<String> getAvailableRecordTypes() {
+    public List<RecordType> getAvailableRecordTypes() {
         return availableRecordTypes;
     }
 
     @Nonnull
-    public Set<String> getQueriedRecordTypes() {
+    public Set<String> getAvailableRecordTypeNames() {
+        return getAvailableRecordTypes().stream()
+                .map(RecordType::getName)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    @Nonnull
+    @Override
+    public List<RecordType> getQueriedRecordTypes() {
         return queriedRecordTypes;
     }
 
@@ -125,20 +135,19 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
-                                                       @Nonnull PartialMatch partialMatch,
+    public RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch,
                                                        @Nonnull final PlanContext planContext,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of can"));
-        return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
-                new PrimaryScanExpression(getAvailableRecordTypes(),
-                        Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(getAvailableRecordTypes())),
+        return new LogicalTypeFilterExpression(getQueriedRecordTypeNames(),
+                new PrimaryScanExpression(getAvailableRecordTypeNames(),
+                        Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes())),
                         comparisonRanges,
                         reverseScanOrder,
                         primaryKey),
-                Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(getQueriedRecordTypes())));
+                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getQueriedRecordTypes())));
     }
 }

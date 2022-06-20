@@ -22,22 +22,21 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
+import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
@@ -50,7 +49,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A property visitor that determines the set of record type names (as Strings) that a {@link RelationalExpression}
@@ -76,13 +74,15 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
         // shouldVisit() ensures that we only visit relational planner expressions
         // If we mess this up, better to find out sooner rather than later.
 
-        if (expression instanceof RecordQueryScanPlan ||
-                expression instanceof FullUnorderedScanExpression) {
-            return context.getMetaData().getRecordTypes().keySet();
-        } else if (expression instanceof RecordQueryPlanWithIndex) {
-            Index index = context.getIndexByName(((RecordQueryPlanWithIndex)expression).getIndexName());
-            return context.getMetaData().recordTypesForIndex(index).stream()
-                    .map(RecordType::getName).collect(Collectors.toSet());
+        if (expression instanceof RecordQueryScanPlan) {
+            final var recordTypesFromExpression = ((RecordQueryScanPlan)expression).getRecordTypes();
+            return recordTypesFromExpression == null ? ImmutableSet.of() : recordTypesFromExpression;
+        } else if (expression instanceof FullUnorderedScanExpression) {
+            return ((FullUnorderedScanExpression)expression).getRecordTypes();
+        } else if (expression instanceof RecordQueryIndexPlan) {
+            return ((RecordQueryIndexPlan)expression).getMatchCandidateOptional()
+                    .map(WithPrimaryKeyMatchCandidate::getQueriedRecordTypeNames)
+                    .orElse(ImmutableSet.of());
         } else if (expression instanceof TypeFilterExpression) {
             return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);
         } else if (expression instanceof PrimaryScanExpression) {

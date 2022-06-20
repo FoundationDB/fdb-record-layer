@@ -323,7 +323,7 @@ public class CascadesPlanner implements QueryPlanner {
         final PlanContext context = new MetaDataPlanContext(configuration, metaData, recordStoreState, query);
         try {
             planPartial(context,
-                    () -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(context, query)));
+                    () -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(context, metaData, query)));
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }

@@ -641,12 +641,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMapFromTypes(@Nonnull final Collection<RecordType> recordTypes) {
+    public static Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMapFromTypes(@Nonnull final Collection<RecordType> recordTypes) {
         return getFieldDescriptorMap(recordTypes.stream());
     }
 
     @Nonnull
-    private Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMap(@Nonnull final Stream<RecordType> recordTypeStream) {
+    private static Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMap(@Nonnull final Stream<RecordType> recordTypeStream) {
         return recordTypeStream
                 .flatMap(recordType -> recordType.getDescriptor().getFields().stream())
                 .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
@@ -661,7 +661,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                                     }
                                     // TODO improve
                                     if (fieldDescriptor.getType().getJavaType() ==
-                                            fieldDescriptor2.getType().getJavaType()) {
+                                        fieldDescriptor2.getType().getJavaType()) {
                                         return fieldDescriptor;
                                     }
 

@@ -63,7 +63,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     /**
      * Record types this index is defined over.
      */
-    private final List<RecordType> recordTypes;
+    private final List<RecordType> queriedRecordTypes;
 
     /**
      * Holds the parameter names for all necessary parameters that need to be bound during matching.
@@ -102,7 +102,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     private final KeyExpression primaryKey;
 
     public ValueIndexScanMatchCandidate(@Nonnull Index index,
-                                        @Nonnull Collection<RecordType> recordTypes,
+                                        @Nonnull Collection<RecordType> queriedRecordTypes,
                                         @Nonnull final ExpressionRefTraversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
                                         @Nonnull final Quantifier.ForEach baseQuantifier,
@@ -111,7 +111,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                         @Nonnull final KeyExpression alternativeKeyExpression,
                                         @Nullable final KeyExpression primaryKey) {
         this.index = index;
-        this.recordTypes = ImmutableList.copyOf(recordTypes);
+        this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
         this.baseQuantifier = baseQuantifier;
@@ -127,8 +127,10 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return index.getName();
     }
 
-    public List<RecordType> getRecordTypes() {
-        return recordTypes;
+    @Nonnull
+    @Override
+    public List<RecordType> getQueriedRecordTypes() {
+        return queriedRecordTypes;
     }
 
     @Nonnull
@@ -178,8 +180,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
-                                                       @Nonnull final PartialMatch partialMatch,
+    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
                                                        @Nonnull final PlanContext planContext,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
@@ -187,7 +188,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
 
-        final var baseRecordType = Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
+        final var baseRecordType =
+                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
 
         return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
@@ -207,11 +209,11 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                                                      @Nonnull final List<ComparisonRange> comparisonRanges,
                                                                      final boolean isReverse,
                                                                      @Nonnull Type.Record baseRecordType) {
-        if (recordTypes.size() > 1) {
+        if (queriedRecordTypes.size() > 1) {
             return Optional.empty();
         }
 
-        final RecordType recordType = Iterables.getOnlyElement(recordTypes);
+        final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final Value baseObjectValue = baseQuantifier.getFlowedObjectValue();
         for (int i = 0; i < indexKeyValues.size(); i++) {

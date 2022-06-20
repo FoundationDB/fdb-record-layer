@@ -56,15 +56,11 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     private final RecordStoreState recordStoreState;
     @Nonnull
-    private final RecordMetaData metaData;
-    @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
     private final BiMap<Index, String> indexes;
     @Nonnull
     private final BiMap<String, Index> indexesByName;
-    @Nullable
-    private final KeyExpression commonPrimaryKey;
     private final int greatestPrimaryKeyWidth;
 
     @Nonnull
@@ -91,13 +87,13 @@ public class MetaDataPlanContext implements PlanContext {
                                @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                final boolean isSortReverse) {
         this.plannerConfiguration = plannerConfiguration;
-        this.metaData = metaData;
         this.recordStoreState = recordStoreState;
         this.indexes = HashBiMap.create();
         this.indexesByName = indexes.inverse();
 
         recordStoreState.beginRead();
         List<Index> indexList = new ArrayList<>();
+        final KeyExpression commonPrimaryKey;
         try {
             if (recordTypeNamesOptional.isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
@@ -185,26 +181,8 @@ public class MetaDataPlanContext implements PlanContext {
 
     @Override
     @Nonnull
-    public Set<String> getRecordTypes() {
-        return recordTypes;
-    }
-
-    @Override
-    @Nonnull
-    public Set<Index> getIndexes() {
-        return indexes.keySet();
-    }
-
-    @Override
-    @Nonnull
     public Index getIndexByName(@Nonnull String name) {
         return indexesByName.get(name);
-    }
-
-    @Override
-    @Nonnull
-    public RecordMetaData getMetaData() {
-        return metaData;
     }
 
     @Nonnull

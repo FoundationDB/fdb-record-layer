@@ -52,12 +52,12 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     @Nonnull
     private final Index index;
     @Nonnull
-    private final List<RecordType> recordTypes;
+    private final List<RecordType> queriedRecordTypes;
 
-    public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
+    public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> queriedRecordTypes) {
         Preconditions.checkArgument(IndexTypes.VALUE.equals(index.getType()) || IndexTypes.RANK.equals(index.getType()));
         this.index = index;
-        this.recordTypes = ImmutableList.copyOf(recordTypes);
+        this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }
 
     @Nonnull
@@ -138,7 +138,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         final var parameters = completeExpansion.getPlaceholderAliases();
         final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, completeExpansion.buildSelect());
         return new ValueIndexScanMatchCandidate(index,
-                recordTypes,
+                queriedRecordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
                 parameters,
                 baseQuantifier,
