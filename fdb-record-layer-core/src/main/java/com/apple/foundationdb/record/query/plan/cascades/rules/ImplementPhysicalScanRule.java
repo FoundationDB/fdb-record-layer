@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 
 import javax.annotation.Nonnull;
 
+import java.util.Optional;
+
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.primaryScanExpression;
 
 /**
@@ -54,6 +56,8 @@ public class ImplementPhysicalScanRule extends PlannerRule<PrimaryScanExpression
                 logical.getResultValue().getResultType().narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
                 logical.getPrimaryKey(),
                 logical.scanComparisons(),
-                logical.isReverse())));
+                logical.isReverse(),
+                false,
+                Optional.of(logical.getMatchCandidate()))));
     }
 }

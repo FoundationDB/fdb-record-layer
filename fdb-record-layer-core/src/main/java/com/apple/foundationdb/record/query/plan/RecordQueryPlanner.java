@@ -106,6 +106,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -1401,7 +1402,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             } else {
                 possibleTypes = metaData.getRecordTypes().keySet();
             }
-            plan = new RecordQueryScanPlan(possibleTypes, new Type.Any(), candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted);
+            plan = new RecordQueryScanPlan(possibleTypes, new Type.Any(), candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted, Optional.empty());
         } else {
             plan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanComparisons, getConfiguration().getIndexFetchMethod(), candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);

@@ -80,7 +80,7 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
         } else if (expression instanceof FullUnorderedScanExpression) {
             return ((FullUnorderedScanExpression)expression).getRecordTypes();
         } else if (expression instanceof RecordQueryIndexPlan) {
-            return ((RecordQueryIndexPlan)expression).getMatchCandidateOptional()
+            return ((RecordQueryIndexPlan)expression).getMatchCandidateMaybe()
                     .map(WithPrimaryKeyMatchCandidate::getQueriedRecordTypeNames)
                     .orElse(ImmutableSet.of());
         } else if (expression instanceof TypeFilterExpression) {

@@ -38,12 +38,13 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -57,13 +58,15 @@ import javax.annotation.Nullable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * A query plan that scans records directly from the main tree within a range of primary keys.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable {
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable, RecordQueryPlanWithMatchCandidate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Scan-Plan");
 
     @Nullable
@@ -76,32 +79,19 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     private final ScanComparisons comparisons;
     private final boolean reverse;
     private final boolean strictlySorted;
+    @Nonnull
+    private final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional;
 
     /**
      * Overloaded constructor.
-     * Use the overloaded constructor {@link #RecordQueryScanPlan(Set, Type, KeyExpression, ScanComparisons, boolean, boolean)}
+     * Use the overloaded constructor
+     * {@link #RecordQueryScanPlan(Set, Type, KeyExpression, ScanComparisons, boolean, boolean, Optional)}
      * to also pass in a set of record types.
      * @param comparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      */
     public RecordQueryScanPlan(@Nonnull ScanComparisons comparisons, boolean reverse) {
-        this(null, new Type.Any(), null, comparisons, reverse, false);
-    }
-
-    /**
-     * Overloaded constructor.
-     * @param recordTypes a super set of record types of the records that this scan operator can produce
-     * @param flowedType type of scan elements
-     * @param commonPrimaryKey common primary key
-     * @param comparisons comparisons to be applied by the operator
-     * @param reverse indicator whether this scan is reverse
-     */
-    public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
-                               @Nonnull Type flowedType,
-                               @Nullable KeyExpression commonPrimaryKey,
-                               @Nonnull ScanComparisons comparisons,
-                               boolean reverse) {
-        this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, false);
+        this(null, new Type.Any(), null, comparisons, reverse, false, Optional.empty());
     }
 
     /**
@@ -118,13 +108,15 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                                @Nullable KeyExpression commonPrimaryKey,
                                @Nonnull ScanComparisons comparisons,
                                boolean reverse,
-                               boolean strictlySorted) {
+                               boolean strictlySorted,
+                               @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.commonPrimaryKey = commonPrimaryKey;
         this.comparisons = comparisons;
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
+        this.matchCandidateOptional = matchCandidateOptional;
     }
 
     @Nonnull
@@ -201,7 +193,13 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Override
     public RecordQueryScanPlan strictlySorted() {
-        return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, true);
+        return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, true, matchCandidateOptional);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<? extends WithPrimaryKeyMatchCandidate> getMatchCandidateMaybe() {
+        return matchCandidateOptional;
     }
 
     @Nonnull

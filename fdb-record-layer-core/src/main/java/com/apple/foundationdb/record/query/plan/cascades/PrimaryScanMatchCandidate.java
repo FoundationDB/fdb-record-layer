@@ -141,9 +141,10 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
                         .deriveReverseScanOrder()
-                        .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of can"));
+                        .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
         return new LogicalTypeFilterExpression(getQueriedRecordTypeNames(),
-                new PrimaryScanExpression(getAvailableRecordTypeNames(),
+                new PrimaryScanExpression(this,
+                        getAvailableRecordTypeNames(),
                         Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes())),
                         comparisonRanges,
                         reverseScanOrder,

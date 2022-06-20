@@ -117,7 +117,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                                 @Nonnull RecordQuery query) {
         query.validate(recordMetaData);
         final var allRecordTypes = recordMetaData.getRecordTypes().keySet();
-        final var queriedRecordTypes = query.getRecordTypes();
+        final var recordTypesFromQuery = query.getRecordTypes();
+        final var queriedRecordTypes = recordTypesFromQuery.isEmpty() ? allRecordTypes : recordTypesFromQuery;
 
         final GroupExpressionRef<? extends RelationalExpression> baseRef;
         Quantifier.ForEach quantifier;

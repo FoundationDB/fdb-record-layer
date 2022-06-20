@@ -145,6 +145,12 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
+    public Index getIndex() {
+        return index;
+    }
+
+    @Nonnull
+    @Override
     public String getName() {
         return index.getName();
     }

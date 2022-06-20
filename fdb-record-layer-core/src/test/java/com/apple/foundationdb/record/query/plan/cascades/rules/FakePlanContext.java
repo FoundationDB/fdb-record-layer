@@ -35,24 +35,12 @@ import java.util.TreeMap;
  * A mock implementation of a {@link PlanContext} used to test certain planner rules that don't need a full plan context.
  */
 public class FakePlanContext implements PlanContext {
-    private final Map<String, Index> indexes;
-
-    public FakePlanContext() {
-        indexes = new TreeMap<>();
-    }
-
     @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getPlannerConfiguration() {
         return RecordQueryPlannerConfiguration.builder().build();
     }
 
-    @Nonnull
-    @Override
-    public Index getIndexByName(@Nonnull String name) {
-        return indexes.get(name);
-    }
-    
     @Override
     public int getGreatestPrimaryKeyWidth() {
         return 0;

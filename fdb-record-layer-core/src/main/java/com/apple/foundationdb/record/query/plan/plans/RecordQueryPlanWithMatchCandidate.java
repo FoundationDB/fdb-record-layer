@@ -1,5 +1,5 @@
 /*
- * PlanContext.java
+ * RecordQueryPlanWithMatchCandidate.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,27 +18,24 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
+import java.util.Optional;
 
 /**
- * A basic context object that stores all of the metadata about a record store, such as the available indexes.
- * It provides access to this information to the planner and the
- * {@link PlannerRule#onMatch(PlannerRuleCall)} method.
+ * A query plan that was created using a {@link MatchCandidate} to match a physical access path.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface PlanContext {
-
+public interface RecordQueryPlanWithMatchCandidate extends RecordQueryPlan {
     @Nonnull
-    RecordQueryPlannerConfiguration getPlannerConfiguration();
+    Optional<? extends MatchCandidate> getMatchCandidateMaybe();
 
-    int getGreatestPrimaryKeyWidth();
-
-    @Nonnull
-    Set<MatchCandidate> getMatchCandidates();
+    default MatchCandidate getMatchCandidate() {
+        return getMatchCandidateMaybe().orElseThrow(() -> new RecordCoreException("called from a context where the existence of a match candidate is expected."));
+    }
 }

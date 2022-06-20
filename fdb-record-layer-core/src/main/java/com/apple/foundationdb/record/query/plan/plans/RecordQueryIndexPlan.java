@@ -114,7 +114,7 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable {
+public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable, RecordQueryPlanWithMatchCandidate {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIndexPlan.class);
     protected static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
 
@@ -372,13 +372,13 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateOptional() {
+    public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateMaybe() {
         return matchCandidateOptional;
     }
 
     @Override
     public RecordQueryIndexPlan strictlySorted() {
-        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), reverse, true);
+        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), reverse, true, matchCandidateOptional, resultType);
     }
 
     @Override
