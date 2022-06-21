@@ -2444,11 +2444,12 @@ public class VersionIndexTest extends FDBTestBase {
                     .asList().get();
         }
     }
+
     @Nonnull
     private List<FDBIndexedRecord<Message>> scanIndexToRecords(final String indexName, final ScanProperties direction) throws Exception {
-            IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
-            KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
-            return recordStore.scanIndexRemoteFetch(indexName, scanBounds, primaryKey, null, direction, IndexOrphanBehavior.ERROR)
-                    .asList().get();
+        IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
+        KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
+        return recordStore.scanIndexRemoteFetch(indexName, scanBounds, primaryKey, null, direction, IndexOrphanBehavior.ERROR)
+                .asList().get();
     }
 }
