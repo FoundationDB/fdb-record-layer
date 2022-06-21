@@ -46,9 +46,10 @@ import com.apple.foundationdb.relational.recordlayer.QueryExecutor;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
-
 import com.google.common.annotations.VisibleForTesting;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -56,9 +57,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
 
@@ -98,13 +96,12 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             final Collection<String> recordTypeNames = new LinkedHashSet<>();
             // need to do this step, so we can populate the record type names.
             final var planContextWithPostProcessing = PlanContext.Builder.unapply(planContext).withPostProcessor(astWalker -> recordTypeNames.addAll(astWalker.getFilteredRecords())).build();
-            Plan.generate(query, planContextWithPostProcessing);
+            final Plan<?> plan = Plan.generate(query, planContextWithPostProcessing);
             try {
                 return planner.planGraph(
                         () -> {
                             final RelationalExpression relationalExpression;
                             try {
-                                final Plan<?> plan = Plan.generate(query, planContextWithPostProcessing);
                                 Assert.that(plan instanceof QpQueryplan);
                                 relationalExpression = ((QpQueryplan) plan).relationalExpression;
                             } catch (RelationalException e) {
