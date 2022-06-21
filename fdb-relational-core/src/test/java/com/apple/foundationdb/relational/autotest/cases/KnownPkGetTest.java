@@ -95,7 +95,7 @@ public class KnownPkGetTest {
         private final InMemoryCatalog catalog = new InMemoryCatalog();
 
         @Override
-        public RelationalConnection connect(URI dbUri) {
+        public RelationalConnection connect(URI dbUri) throws RelationalException {
             return new InMemoryRelationalConnection(catalog, dbUri);
         }
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.memory;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -40,24 +41,27 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
-
-import java.net.URI;
-import java.sql.SQLException;
-import java.util.concurrent.CompletableFuture;
+import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.net.URI;
+import java.sql.SQLException;
+import java.util.concurrent.CompletableFuture;
 
 public class InMemoryRelationalConnection implements RelationalConnection {
     final InMemoryCatalog catalog;
     private final SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
 
     private final URI databaseUri;
+    private final RecordMetaData recordMetaData;
 
-    public InMemoryRelationalConnection(InMemoryCatalog catalog, URI databaseUri) {
+    public InMemoryRelationalConnection(InMemoryCatalog catalog, URI databaseUri) throws RelationalException {
         this.databaseUri = databaseUri;
         this.catalog = catalog;
+        this.recordMetaData = createRecordMetaData();
     }
 
     @Override
@@ -198,5 +202,21 @@ public class InMemoryRelationalConnection implements RelationalConnection {
 
     public URI getDatabaseUri() {
         return databaseUri;
+    }
+
+    public RecordMetaData getRecordMetaData() {
+        return recordMetaData;
+    }
+
+    private RecordMetaData createRecordMetaData() throws RelationalException {
+        TypingContext ctx = TypingContext.create();
+
+        SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(ctx);
+        SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(ctx);
+
+        ctx.addAllToTypeRepository();
+        SchemaTemplate schemaTemplate = ctx.generateSchemaTemplate("catalog_template");
+        Schema schema = schemaTemplate.generateSchema("__SYS", "catalog");
+        return RecordMetaData.build(schema.getMetaData());
     }
 }

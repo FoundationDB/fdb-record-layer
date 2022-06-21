@@ -80,7 +80,8 @@ public interface Plan<T> {
     static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
         final RelationalParser.RootContext ast = AstVisitor.parseQuery(query);
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
-        planContext.getMetaData().getRecordsDescriptor().getMessageTypes().forEach(message -> builder.registerTypeToTypeNameMapping(Type.Record.fromDescriptor(message), message.getName()).addMessageType(message.toProto()));
+        planContext.getMetaData().getRecordsDescriptor().getMessageTypes().forEach(
+                message -> builder.registerTypeToTypeNameMapping(Type.Record.fromDescriptor(message), message.getName()).addMessageType(message.toProto()));
         final RelationalParserContext astContext = new RelationalParserContext(new Scopes(), builder, planContext.getMetaData().getRecordTypes().keySet(),
                 planContext.getMetaData().getFieldDescriptorMapFromNames(planContext.getMetaData().getRecordTypes().keySet()),
                 planContext.getMetaData().getAllIndexes().stream().map(Index::getName).collect(Collectors.toSet()));

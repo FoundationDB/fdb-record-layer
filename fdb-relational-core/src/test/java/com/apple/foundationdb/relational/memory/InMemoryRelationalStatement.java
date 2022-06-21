@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.memory;
 
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -36,17 +37,15 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.stream.Stream;
-
-import javax.annotation.Nonnull;
 
 public class InMemoryRelationalStatement implements RelationalStatement {
 
@@ -73,6 +72,8 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                     .withConstantActionFactory(relationalConn.getConstantActionFactory())
                     .withDdlQueryFactory(relationalConn.getDdlQueryFactory())
                     .withDbUri(relationalConn.getDatabaseUri())
+                    .withMetadata(relationalConn.getRecordMetaData())
+                    .withStoreState(new RecordStoreState(null, null))
                     .build();
 
             final Plan<?> plan = Plan.generate(sql, ctx);

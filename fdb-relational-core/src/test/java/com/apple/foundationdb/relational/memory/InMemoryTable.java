@@ -97,7 +97,7 @@ public class InMemoryTable {
             byte[] start = getPrimaryKey(startKey);
             byte[] end = getPrimaryKey(endKey);
 
-            final ConcurrentNavigableMap<byte[], Message> subMap = data.subMap(start, true, end, true);
+            final ConcurrentNavigableMap<byte[], Message> subMap = data.subMap(start, true, end, false);
             return subMap.values().stream();
 
         } catch (UncheckedRelationalException uve) {
