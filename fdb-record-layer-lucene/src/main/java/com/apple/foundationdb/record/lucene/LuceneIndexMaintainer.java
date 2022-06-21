@@ -97,7 +97,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
     private final boolean autoCompleteEnabled;
-    private final boolean highlightForAutoCompleteIfEnabled;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
@@ -106,7 +105,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.indexAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.FULL_TEXT).getLeft();
         this.autoCompleteQueryAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.AUTO_COMPLETE).getRight();
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
-        this.highlightForAutoCompleteIfEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_HIGHLIGHT, false);
     }
 
     @Nonnull
@@ -150,7 +148,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
             Analyzer analyzer = autoCompleteQueryAnalyzerChooser.chooseAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
             return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
-                    executor, scanProperties, analyzer, state, scanAutoComplete.getGroupKey(), highlightForAutoCompleteIfEnabled);
+                    executor, scanProperties, analyzer, state, scanAutoComplete.getGroupKey(), scanAutoComplete.isHighlight());
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
