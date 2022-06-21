@@ -40,10 +40,10 @@ class OptionsTest {
     void simpleOptions() throws RelationalException {
         Options options = Options.builder()
                 .withOption(Options.Name.INDEX_HINT, "foo")
-                .withOption(Options.Name.ROW_LIMIT, 1)
+                .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1)
                 .build();
         assertEquals("foo", options.getOption(Options.Name.INDEX_HINT));
-        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.ROW_LIMIT));
+        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.CONTINUATION_PAGE_SIZE));
     }
 
     @Test
@@ -53,12 +53,12 @@ class OptionsTest {
                 .build();
 
         Options child = Options.builder()
-                .withOption(Options.Name.ROW_LIMIT, 1)
+                .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1)
                 .build();
 
         Options options = Options.combine(parent, child);
         assertEquals("foo", options.getOption(Options.Name.INDEX_HINT));
-        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.ROW_LIMIT));
+        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.CONTINUATION_PAGE_SIZE));
     }
 
     @Test
@@ -81,7 +81,7 @@ class OptionsTest {
                 .withOption(Options.Name.INDEX_HINT, "foo")
                 .build();
         Options parent = Options.builder()
-                .withOption(Options.Name.ROW_LIMIT, 1)
+                .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1)
                 .build();
 
         parent = Options.combine(grandParent, parent);
@@ -92,7 +92,7 @@ class OptionsTest {
 
         Options options = Options.combine(parent, child);
         assertEquals("bar", options.getOption(Options.Name.INDEX_HINT));
-        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.ROW_LIMIT));
+        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.CONTINUATION_PAGE_SIZE));
     }
 
     @Test
@@ -101,13 +101,13 @@ class OptionsTest {
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
                 .hasMessage("Option INDEX_HINT should be of type class java.lang.String but is class java.lang.Integer");
 
-        RelationalAssertions.assertThrows(() -> Options.builder().withOption(Options.Name.ROW_LIMIT, "foo"))
+        RelationalAssertions.assertThrows(() -> Options.builder().withOption(Options.Name.CONTINUATION_PAGE_SIZE, "foo"))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
-                .hasMessage("Option ROW_LIMIT should be of type class java.lang.Integer but is class java.lang.String");
+                .hasMessage("Option CONTINUATION_PAGE_SIZE should be of type class java.lang.Integer but is class java.lang.String");
 
-        RelationalAssertions.assertThrows(() -> Options.builder().withOption(Options.Name.ROW_LIMIT, -52))
+        RelationalAssertions.assertThrows(() -> Options.builder().withOption(Options.Name.CONTINUATION_PAGE_SIZE, -52))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
-                .hasMessage("Option ROW_LIMIT should be in range [0, 2147483647] but is -52");
+                .hasMessage("Option CONTINUATION_PAGE_SIZE should be in range [0, 2147483647] but is -52");
 
         RelationalAssertions.assertThrows(() -> Options.builder().withOption(Options.Name.CONTINUATION, new Object()))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)

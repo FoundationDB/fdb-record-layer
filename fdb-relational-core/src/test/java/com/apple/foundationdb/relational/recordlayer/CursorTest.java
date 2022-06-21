@@ -90,7 +90,7 @@ public class CursorTest {
             RelationalResultSet resultSet = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
-                resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.ROW_LIMIT, 1).build());
+                resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build());
                 while (true) {
                     while (resultSet.next()) {
                         actual.add(resultSet.asRow());

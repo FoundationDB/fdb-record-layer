@@ -37,13 +37,13 @@ public final class Options {
     public enum Name {
         CONTINUATION,
         INDEX_HINT,
-        ROW_LIMIT // Limit the maximum number of records to return
+        CONTINUATION_PAGE_SIZE // Limit the maximum number of records to return before prompting for continuation
     }
 
     private static final Map<Name, List<OptionContract>> contracts = Map.of(
             Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)),
             Name.INDEX_HINT, List.of(new TypeContract<>(String.class)),
-            Name.ROW_LIMIT, List.of(new TypeContract<>(Integer.class), new RangeContract<>(0, Integer.MAX_VALUE))
+            Name.CONTINUATION_PAGE_SIZE, List.of(new TypeContract<>(Integer.class), new RangeContract<>(0, Integer.MAX_VALUE))
     );
 
     public static final Options NONE = Options.builder().build();

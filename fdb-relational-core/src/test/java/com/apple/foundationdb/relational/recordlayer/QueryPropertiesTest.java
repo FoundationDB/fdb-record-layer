@@ -75,7 +75,7 @@ public class QueryPropertiesTest {
         Assertions.assertFalse(executeProperties1.isFailOnScanLimitReached());
         Assertions.assertEquals(CursorStreamingMode.ITERATOR, executeProperties1.getDefaultCursorStreamingMode());
 
-        options = Options.builder().withOption(Options.Name.ROW_LIMIT, 2).build();
+        options = Options.builder().withOption(Options.Name.CONTINUATION_PAGE_SIZE, 2).build();
         final ExecuteProperties executeProperties4 = QueryPropertiesUtils.getExecuteProperties(options);
         Assertions.assertEquals(2, executeProperties4.getReturnedRowLimit());
 
@@ -87,7 +87,7 @@ public class QueryPropertiesTest {
     @Test
     void scanWithLimit() throws RelationalException, SQLException {
         final long firstRestNo = System.currentTimeMillis();
-        final List<Long> restNoList = testScan(Options.builder().withOption(Options.Name.ROW_LIMIT, 1).build(), firstRestNo);
+        final List<Long> restNoList = testScan(Options.builder().withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build(), firstRestNo);
         // Only 1 of the 2 saved records is read, due to the limit == 1
         Assertions.assertEquals(ImmutableList.of(firstRestNo), restNoList);
     }
