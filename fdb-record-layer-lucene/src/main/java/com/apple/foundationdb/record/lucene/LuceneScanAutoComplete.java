@@ -33,15 +33,21 @@ import javax.annotation.Nonnull;
 public class LuceneScanAutoComplete extends LuceneScanBounds {
     @Nonnull
     final String keyToComplete;
+    final boolean highlight;
 
-    public LuceneScanAutoComplete(@Nonnull IndexScanType scanType, @Nonnull Tuple groupKey, @Nonnull String keyToComplete) {
+    public LuceneScanAutoComplete(@Nonnull IndexScanType scanType, @Nonnull Tuple groupKey, @Nonnull String keyToComplete, boolean highlight) {
         super(scanType, groupKey);
         this.keyToComplete = keyToComplete;
+        this.highlight = highlight;
     }
 
     @Nonnull
     public String getKeyToComplete() {
         return keyToComplete;
+    }
+
+    public boolean isHighlight() {
+        return highlight;
     }
 
     @Override

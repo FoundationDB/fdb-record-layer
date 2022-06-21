@@ -148,13 +148,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
                     LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
 
-    private static final Index SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT = new Index("Simple_with_auto_complete",
-            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-            LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
-                    LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3",
-                    LuceneIndexOptions.AUTO_COMPLETE_HIGHLIGHT, "true"));
-
     private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES = new Index("Complex$text_multipleIndexes",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
             LuceneIndexTypes.LUCENE,
@@ -345,17 +338,17 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    private LuceneScanBounds autoComplete(Index index, String search) {
+    private LuceneScanBounds autoComplete(Index index, String search, boolean highlight) {
         LuceneScanParameters scan = new LuceneScanAutoCompleteParameters(
                 ScanComparisons.EMPTY,
-                search, false);
+                search, false, highlight);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    private LuceneScanBounds groupedAutoComplete(Index index, String search, Object group) {
+    private LuceneScanBounds groupedAutoComplete(Index index, String search, Object group, boolean highlight) {
         LuceneScanParameters scan = new LuceneScanAutoCompleteParameters(
                 ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group)),
-                search, false);
+                search, false, highlight);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
@@ -401,7 +394,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void simpleEmptyAutoComplete() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_WITH_AUTO_COMPLETE);
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE, autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "something"), null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE, autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "something", false), null, ScanProperties.FORWARD_SCAN)) {
                 assertEquals(RecordCursorResult.exhausted(), cursor.getNext());
             }
         }
@@ -989,7 +982,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
 
             assertIndexEntryPrimaryKeys(Collections.emptyList(),
-                    recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE, autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "hello"), null, ScanProperties.FORWARD_SCAN));
+                    recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE, autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "hello", false), null, ScanProperties.FORWARD_SCAN));
             assertEquals(0, context.getTimer().getCount(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS));
         }
     }
@@ -1013,7 +1006,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             RecordType recordType = recordStore.saveRecord(createComplexDocument(1630L, "", "Hello FoundationDB!", 1)).getRecordType();
 
             List<IndexEntry> results = recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE,
-                    autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "good"),
+                    autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "good", false),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1046,9 +1039,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void searchForAutoCompleteWithContinueTyping() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            addIndexAndSaveRecordForAutoComplete(context, false);
+            addIndexAndSaveRecordForAutoComplete(context);
             List<IndexEntry> results = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE,
-                    autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "good mor"),
+                    autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "good mor", false),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1080,7 +1073,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
             FDBStoredRecord<Message> fdbRecord = recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
             List<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE,
-                    groupedAutoComplete(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE, "Vision", "sampleTextPhrase"),
+                    groupedAutoComplete(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE, "Vision", "sampleTextPhrase", false),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1129,42 +1122,49 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             "all the states united as a country",
                             "all the states have been united as a country",
                             "welcome to the united states of america",
-                            "The countries are united kingdom, france, the states"));
+                            "The countries are united kingdom, france, the states"),
+                    false);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with term query,
             // same as the other tokens due to the white space following it
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
                     ImmutableList.of("united states of america",
                             "united states is a country in the continent of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states\"",
                     ImmutableList.of("united states of america",
                             "united states is a country in the continent of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united state" are returned, the last token "state" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united state\"",
                     ImmutableList.of("united states of america",
                             "united states is a country in the continent of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query,
             // same as the other tokens due to the white space following it
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of \"",
                     ImmutableList.of("united states of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of\"",
                     ImmutableList.of("united states of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united states o" are returned, the last token "o" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states o\"",
                     ImmutableList.of("united states of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             commit(context);
         }
@@ -1173,7 +1173,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testAutoCompleteSearchWithHighlightForPhrase() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT;
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
 
             addIndexAndSaveRecordsForAutoCompleteOfPhrase(context, index);
 
@@ -1187,42 +1187,49 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             "all the <b>states</b> <b>united</b> as a country",
                             "all the <b>states</b> have been <b>united</b> as a country",
                             "welcome to the <b>united</b> <b>states</b> of america",
-                            "The countries are <b>united</b> kingdom, france, the <b>states</b>"));
+                            "The countries are <b>united</b> kingdom, france, the <b>states</b>"),
+                    true);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with term query,
             // same as the other tokens due to the white space following it
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
                     ImmutableList.of("<b>united</b> <b>states</b> of america",
                             "<b>united</b> <b>states</b> is a country in the continent of america",
-                            "welcome to the <b>united</b> <b>states</b> of america"));
+                            "welcome to the <b>united</b> <b>states</b> of america"),
+                    true);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states\"",
                     ImmutableList.of("<b>united</b> <b>states</b> of america",
                             "<b>united</b> <b>states</b> is a country in the continent of america",
-                            "welcome to the <b>united</b> <b>states</b> of america"));
+                            "welcome to the <b>united</b> <b>states</b> of america"),
+                    true);
 
             // Only the texts containing "united state" are returned, the last token "state" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united state\"",
                     ImmutableList.of("<b>united</b> <b>state</b>s of america",
                             "<b>united</b> <b>state</b>s is a country in the continent of america",
-                            "welcome to the <b>united</b> <b>state</b>s of america"));
+                            "welcome to the <b>united</b> <b>state</b>s of america"),
+                    true);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query,
             // same as the other tokens due to the white space following it
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of \"",
                     ImmutableList.of("<b>united</b> <b>states</b> <b>of</b> america",
-                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"));
+                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"),
+                    true);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of\"",
                     ImmutableList.of("<b>united</b> <b>states</b> <b>of</b> america",
-                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"));
+                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"),
+                    true);
 
             // Only the texts containing "united states o" are returned, the last token "o" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states o\"",
                     ImmutableList.of("<b>united</b> <b>states</b> <b>o</b>f america",
-                            "welcome to the <b>united</b> <b>states</b> <b>o</b>f america"));
+                            "welcome to the <b>united</b> <b>states</b> <b>o</b>f america"),
+                    true);
 
             commit(context);
         }
@@ -1245,7 +1252,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .build();
             recordStore.saveRecord(doc);
 
-            List<IndexEntry> entries = recordStore.scanIndex(index, autoComplete(index, "good night "), null, ScanProperties.FORWARD_SCAN)
+            List<IndexEntry> entries = recordStore.scanIndex(index, autoComplete(index, "good night ", false), null, ScanProperties.FORWARD_SCAN)
                     .asList()
                     .join();
             assertThat(entries, hasSize(2));
@@ -1273,7 +1280,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Phrase search is not supported if positions are not indexed
             assertThrows(ExecutionException.class,
                     () -> queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
-                            ImmutableList.of()));
+                            ImmutableList.of(), false));
 
             commit(context);
         }
@@ -1574,7 +1581,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             for (int group = 0; group < maxGroup; group++) {
-                List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group), null, ScanProperties.FORWARD_SCAN)
+                List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group, false), null, ScanProperties.FORWARD_SCAN)
                         .asList()
                         .join();
                 assertThat(autoCompleted, hasSize(10));
@@ -1594,7 +1601,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("group").equalsValue(groupToDelete));
 
             for (int group = 0; group < maxGroup; group++) {
-                List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group), null, ScanProperties.FORWARD_SCAN)
+                List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group, false), null, ScanProperties.FORWARD_SCAN)
                         .asList()
                         .join();
                 if (group == groupToDelete) {
@@ -1901,10 +1908,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, textSizeLimit);
         try (FDBRecordContext context = openContext(storageBuilder)) {
-            final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context, highlight);
-            final Index index = highlight ? SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT : SIMPLE_TEXT_WITH_AUTO_COMPLETE;
+            final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context);
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
             List<IndexEntry> results = recordStore.scanIndex(index,
-                    autoComplete(index, query),
+                    autoComplete(index, query, highlight),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1946,9 +1953,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, limit);
         try (FDBRecordContext context = openContext(storageBuilder)) {
-            final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context, false);
+            final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context);
             List<IndexEntry> results = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE,
-                    autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "software engineer"),
+                    autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "software engineer", false),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1979,10 +1986,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private RecordType addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context, boolean highlight) {
+    private RecordType addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context) {
         openRecordStore(context, metaDataBuilder -> {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-            metaDataBuilder.addIndex(SIMPLE_DOC, highlight ? SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT : SIMPLE_TEXT_WITH_AUTO_COMPLETE);
+            metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_WITH_AUTO_COMPLETE);
         });
 
         // Write 8 texts and 6 of them contain the key "good"
@@ -2014,9 +2021,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         recordStore.saveRecord(createSimpleDocument(1631L, "united states is a country in the continent of america", 1));
     }
 
-    private void queryAndAssertAutoCompleteSuggestionsReturned(@Nonnull Index index, @Nonnull String searchKey, @Nonnull List<String> expectedSuggestions) throws Exception {
+    private void queryAndAssertAutoCompleteSuggestionsReturned(@Nonnull Index index, @Nonnull String searchKey, @Nonnull List<String> expectedSuggestions, boolean highlight) throws Exception {
         List<IndexEntry> results = recordStore.scanIndex(index,
-                autoComplete(index, searchKey),
+                autoComplete(index, searchKey, highlight),
                 null,
                 ScanProperties.FORWARD_SCAN).asList().get();
 
