@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -38,7 +39,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -47,22 +47,24 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nonnull;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class QueryTest {
 
-    private final static String schemaTemplate =
+    private static final String schemaTemplate =
             "CREATE STRUCT Location (address string, latitude string, longitude string);" +
-            "CREATE STRUCT ReviewerEndorsements (endorsementId int64, endorsementText string);" +
-            "CREATE STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements ReviewerEndorsements array);" +
-            "CREATE STRUCT RestaurantTag (tag string, weight int64);" +
-            "CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string);" +
-            "CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no));" +
-            "CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id));" +
-            "CREATE VALUE INDEX record_name_idx on RestaurantComplexRecord(name);" +
-            "CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name);" +
-            "CREATE MATERIALIZED VIEW mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R;" +
-            "CREATE MATERIALIZED VIEW mv2 AS SELECT endo.endorsementText FROM RestaurantComplexRecord rec, (SELECT X.endorsementText FROM rec.reviews rev, (SELECT endorsementText from rev.endorsements) X) endo";
+                    "CREATE STRUCT ReviewerEndorsements (endorsementId int64, endorsementText string);" +
+                    "CREATE STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements ReviewerEndorsements array);" +
+                    "CREATE STRUCT RestaurantTag (tag string, weight int64);" +
+                    "CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string);" +
+                    "CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no));" +
+                    "CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id));" +
+                    "CREATE VALUE INDEX record_name_idx on RestaurantComplexRecord(name);" +
+                    "CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name);" +
+                    "CREATE MATERIALIZED VIEW mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R;" +
+                    "CREATE MATERIALIZED VIEW mv2 AS SELECT endo.endorsementText FROM RestaurantComplexRecord rec, (SELECT X.endorsementText FROM rec.reviews rev, (SELECT endorsementText from rev.endorsements) X) endo";
 
     @RegisterExtension
     @Order(0)
@@ -78,7 +80,7 @@ public class QueryTest {
     @Test
     void simpleSelect() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try(var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement);
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
                 try (final ResultSet resultSet = statement.getResultSet()) {
@@ -109,6 +111,45 @@ public class QueryTest {
 
                 try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
                     RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r11));
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainTableScan() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final ResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches(".*Scan.*RestaurantComplexRecord.*rest_no GREATER_THAN 10.* as rest_no, .* as name, .* as location, .* as reviews, .* as tags, .* as customer, .* as encoded_bytes.*");
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainHintedIndexScan() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final ResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord USE INDEX (record_name_idx) WHERE rest_no > 10")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches(".*Fetch.*Covering.*Index.*record_name_idx.*rest_no GREATER_THAN 10.* as rest_no, .* as name, .* as location, .* as reviews, .* as tags, .* as customer, .* as encoded_bytes.*");
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainUnhintedIndexScan() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final ResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches(".*Index.*mv1.*\\[9\\],>.* as rest_no, .* as name, .* as location, .* as reviews, .* as tags, .* as customer, .* as encoded_bytes.*");
                 }
             }
         }

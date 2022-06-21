@@ -25,13 +25,15 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
+
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class Ddl implements AutoCloseable {
     @Nonnull
@@ -87,7 +89,7 @@ public class Ddl implements AutoCloseable {
         templateRule.afterEach(extensionContext);
     }
 
-    public static class Builder {
+    public static final class Builder {
 
         @Nullable
         private URI database;
@@ -151,7 +153,7 @@ public class Ddl implements AutoCloseable {
         public Ddl build() throws Exception {
             Assert.notNull(database);
             Assert.notNull(templateDefinition);
-            if(schemaName == null) {
+            if (schemaName == null) {
                 schemaName = "testSchema";
             }
             Assert.notNull(extension);

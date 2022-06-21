@@ -55,7 +55,7 @@ ddlStatement
     ;
 
 dmlStatement
-    : selectStatementWithContinuation | insertStatement | updateStatement
+    : explainStatement | selectStatementWithContinuation | insertStatement | updateStatement
     | deleteStatement | replaceStatement | callStatement
     | loadDataStatement | loadXmlStatement | doStatement
     | handlerStatement
@@ -285,6 +285,10 @@ replaceStatement
           setFirst=updatedElement
           (',' setElements+=updatedElement)*
       )
+    ;
+
+explainStatement
+    : EXPLAIN selectStatement
     ;
 
 selectStatementWithContinuation

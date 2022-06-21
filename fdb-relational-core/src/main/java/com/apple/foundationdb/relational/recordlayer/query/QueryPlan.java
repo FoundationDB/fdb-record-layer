@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
@@ -42,15 +43,18 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.QueryExecutor;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
+import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.Objects;
@@ -69,15 +73,11 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         private final String query;
 
         @Nullable
-        private RecordQueryPlan recordQueryPlan;
-
-        @Nullable
         byte[] continuation;
 
         private QpQueryplan(@Nonnull final RelationalExpression relationalExpression, @Nonnull final String query, @Nullable byte[] continuation) {
             this.relationalExpression = relationalExpression;
             this.query = query;
-            this.recordQueryPlan = null;
             this.continuation = continuation;
         }
 
@@ -135,7 +135,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
                 final FDBRecordStore store = recordLayerSchema.loadStore();
                 final var planContext = PlanContext.Builder.create().fromDatabase(conn.getRecordLayerDatabase()).fromRecordStore(store).build();
-                recordQueryPlan = generatePhysicalPlan(query, planContext);
+                RecordQueryPlan recordQueryPlan = generatePhysicalPlan(query, planContext);
                 Assert.notNull(recordQueryPlan);
                 final Set<Type> usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
                 usedTypes.forEach(builder::addTypeIfNeeded);
@@ -195,6 +195,35 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
 
         public static MetadataQueryPlan of(DdlQuery ddlQuery) {
             return new MetadataQueryPlan(ddlQuery::executeAction, ddlQuery.getResultSetMetadata());
+        }
+    }
+
+    class ExplainPlan implements QueryPlan {
+        private final QueryPlan.QpQueryplan qpQueryPlan;
+
+        public ExplainPlan(QueryPlan.QpQueryplan qpQueryPlan) {
+            this.qpQueryPlan = qpQueryPlan;
+        }
+
+        @Nonnull
+        @Override
+        public Type getResultType() {
+            return Type.primitiveType(Type.TypeCode.STRING);
+        }
+
+        @Override
+        public RelationalResultSet execute(@Nonnull ExecutionContext context) throws RelationalException {
+            EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) context.connection;
+            try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
+                final FDBRecordStore store = recordLayerSchema.loadStore();
+                final PlanContext planContext = PlanContext.Builder.create()
+                        .fromDatabase(conn.getRecordLayerDatabase())
+                        .fromRecordStore(store)
+                        .build();
+                RecordQueryPlan physicalPlan = QpQueryplan.generatePhysicalPlan(qpQueryPlan.query, planContext);
+                Row printablePlan = new ValueTuple(physicalPlan.toString());
+                return new IteratorResultSet(new String[]{"PLAN"}, Collections.singleton(printablePlan).iterator(), 0);
+            }
         }
     }
 }

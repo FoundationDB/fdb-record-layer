@@ -69,6 +69,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -130,9 +131,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public QueryPlan.QpQueryplan visitDmlStatement(RelationalParser.DmlStatementContext ctx) {
-        Assert.notNullUnchecked(ctx.selectStatementWithContinuation(), UNSUPPORTED_QUERY);
-        return (QueryPlan.QpQueryplan) ctx.selectStatementWithContinuation().accept(this);
+    public QueryPlan visitDmlStatement(RelationalParser.DmlStatementContext ctx) {
+        Assert.thatUnchecked(ctx.selectStatementWithContinuation() != null || ctx.explainStatement() != null, UNSUPPORTED_QUERY);
+        return (QueryPlan) visitChildren(ctx);
     }
 
     @Override // not supported yet
@@ -150,7 +151,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public QueryPlan.QpQueryplan visitSelectStatementWithContinuation(RelationalParser.SelectStatementWithContinuationContext ctx) {
+    public QueryPlan visitSelectStatementWithContinuation(RelationalParser.SelectStatementWithContinuationContext ctx) {
         Assert.notNullUnchecked(ctx.selectStatement(), UNSUPPORTED_QUERY);
         RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
         if (ctx.CONTINUATION() != null) {
@@ -160,6 +161,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         } else {
             return QueryPlan.QpQueryplan.of(result, query);
         }
+    }
+
+    @Override
+    public QueryPlan visitExplainStatement(RelationalParser.ExplainStatementContext ctx) {
+        Assert.notNullUnchecked(ctx.selectStatement(), UNSUPPORTED_QUERY);
+        RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
+        Assert.thatUnchecked(query.stripLeading().toUpperCase(Locale.ROOT).startsWith("EXPLAIN"));
+        return new QueryPlan.ExplainPlan(QueryPlan.QpQueryplan.of(result, query.stripLeading().substring(7)));
     }
 
     @Override
