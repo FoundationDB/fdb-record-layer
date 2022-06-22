@@ -263,7 +263,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitSelectColumnElement(RelationalParser.SelectColumnElementContext ctx) {
-        Assert.isNullUnchecked(ctx.AS(), UNSUPPORTED_QUERY); // don't know how to handle column aliases with current API yet.
         parserContext.getCurrentScope().addProjectionColumn((Column<? extends Value>) ctx.fullColumnName().accept(this));
         return null;
     }
@@ -630,25 +629,17 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Column<? extends Value> visitFullColumnName(RelationalParser.FullColumnNameContext ctx) {
-        if (!ctx.dottedId().isEmpty()) {
-            Assert.thatUnchecked(ctx.dottedId().size() == 1, UNSUPPORTED_QUERY); // todo nesting
-            final String recordTypeName = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
-            Assert.notNullUnchecked(recordTypeName);
-            final String fieldName = ParserUtils.safeCastLiteral(visit(ctx.dottedId(0)), String.class);
-            Assert.notNullUnchecked(fieldName);
-            Assert.thatUnchecked(fieldName.length() > 0);
-            final var qun = parserContext.getCurrentScope().getQuantifier(recordTypeName);
-            Assert.thatUnchecked(qun.isPresent(), String.format("attempting to query field %s non-existing qualifier %s", fieldName, recordTypeName));
-            final FieldValue fieldValue = ParserUtils.getFieldValue(fieldName, qun.get().getFlowedObjectValue());
-            Assert.notNullUnchecked(fieldValue, String.format("attempting to query non existing field %s%s", recordTypeName, fieldName));
-            return Column.of(Type.Record.Field.of(fieldValue.getResultType(), Optional.of(fieldName), Optional.empty()), fieldValue);
-        } else {
-            final String fieldName = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
-            Assert.notNullUnchecked(fieldName);
-            final FieldValue fieldValue = ParserUtils.getFieldValue(fieldName, parserContext);
-            Assert.notNullUnchecked(fieldValue, String.format("attempting to query non existing field %s", fieldName));
-            return Column.of(Type.Record.Field.of(fieldValue.getResultType(), Optional.of(fieldName), Optional.empty()), fieldValue);
+        List<String> fieldParts = Stream.concat(
+                Stream.of(Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class))),
+                ctx.dottedId().stream().map(p -> ParserUtils.safeCastLiteral(p.accept(this), String.class))
+        ).collect(Collectors.toList());
+
+        final Quantifier qun = ParserUtils.findFieldPath(fieldParts.get(0), parserContext);
+        if (qun.getAlias().toString().equals(fieldParts.get(0))) {
+            fieldParts = fieldParts.stream().skip(1).collect(Collectors.toList());
         }
+        final FieldValue fieldValue = ParserUtils.getFieldValue(fieldParts, qun.getFlowedObjectValue());
+        return Column.of(Type.Record.Field.of(fieldValue.getResultType(), Optional.of(fieldParts.get(fieldParts.size() - 1)), Optional.empty()), fieldValue);
     }
 
     @Override // not supported yet

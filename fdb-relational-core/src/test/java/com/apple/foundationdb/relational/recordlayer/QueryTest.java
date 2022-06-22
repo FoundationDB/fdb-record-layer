@@ -42,6 +42,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
@@ -50,6 +51,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class QueryTest {
 
@@ -371,6 +373,143 @@ public class QueryTest {
         }
     }
 
+    @Test
+    void partiqlNestingWorks() throws Exception {
+        final String schema = "CREATE STRUCT A ( b B );" +
+                "CREATE STRUCT B ( c C );" +
+                "CREATE STRUCT C ( d D );" +
+                "CREATE STRUCT D ( e E );" +
+                "CREATE STRUCT E ( f int64 );" +
+                "CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id));";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                final Message result = statement.getDataBuilder("tbl1")
+                        .setField("id", 42L)
+                        .setField("c", statement.getDataBuilder("C")
+                                .setField("d", statement.getDataBuilder("D")
+                                        .setField("e", statement.getDataBuilder("E")
+                                                .setField("f", 128L)
+                                                .build())
+                                        .build())
+                                .build())
+                        .setField("a", statement.getDataBuilder("A")
+                                .setField("b", statement.getDataBuilder("B")
+                                        .setField("c", statement.getDataBuilder("C")
+                                                .setField("d", statement.getDataBuilder("D")
+                                                        .setField("e", statement.getDataBuilder("E")
+                                                                .setField("f", 128L)
+                                                                .build())
+                                                        .build())
+                                                .build())
+                                        .build())
+                                .build())
+                        .build();
+                final int cnt = statement.executeInsert("tbl1", result);
+                Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+                Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
+                try (final ResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(resultSet.getLong(1), 42L);
+                    Assertions.assertEquals(resultSet.getLong(2), 128L);
+                    Assertions.assertEquals(resultSet.getLong(3), 128L);
+                    Assertions.assertFalse(resultSet.next());
+                }
+                Assertions.assertTrue(statement.execute("SELECT c.d.e FROM tbl1"), "Did not return a result set from a select statement!");
+                try (final ResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    final Message expected = statement.getDataBuilder("E")
+                            .setField("f", 128L)
+                            .build();
+                    Assertions.assertEquals(resultSet.getObject(1), expected);
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void partiqlNestingWorksWithRepeatedLeafWork() throws Exception {
+        final String schema = "CREATE STRUCT A ( b B );" +
+                "CREATE STRUCT B ( c C );" +
+                "CREATE STRUCT C ( d D );" +
+                "CREATE STRUCT D ( e E );" +
+                "CREATE STRUCT E ( f int64 array );" +
+                "CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id));";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                final Message result = statement.getDataBuilder("tbl1")
+                        .setField("id", 42L)
+                        .setField("c", statement.getDataBuilder("C")
+                                .setField("d", statement.getDataBuilder("D")
+                                        .setField("e", statement.getDataBuilder("E")
+                                                .addRepeatedField("f", 128L)
+                                                .build())
+                                        .build())
+                                .build())
+                        .setField("a", statement.getDataBuilder("A")
+                                .setField("b", statement.getDataBuilder("B")
+                                        .setField("c", statement.getDataBuilder("C")
+                                                .setField("d", statement.getDataBuilder("D")
+                                                        .setField("e", statement.getDataBuilder("E")
+                                                                .addRepeatedField("f", 128L)
+                                                                .build())
+                                                        .build())
+                                                .build())
+                                        .build())
+                                .build())
+                        .build();
+                final int cnt = statement.executeInsert("tbl1", result);
+                Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+                Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
+                try (final ResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(resultSet.getLong(1), 42L);
+                    Assertions.assertEquals(((List) resultSet.getObject(2)).get(0), 128L);
+                    Assertions.assertEquals(((List) resultSet.getObject(3)).get(0), 128L);
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void partiqlNestingNestedPathCollisionWithAlias() throws Exception {
+        final String schema = "CREATE STRUCT A ( b B );" +
+                "CREATE STRUCT B ( c C );" +
+                "CREATE STRUCT C ( d D );" +
+                "CREATE STRUCT D ( e E );" +
+                "CREATE STRUCT E ( f int64 );" +
+                "CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id));" +
+                "CREATE TABLE tbl2 (id int64, x int64, PRIMARY KEY(id));";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                failsWith(statement, "select * from tbl1 x, tbl2 where x = 42", "ambiguous field name 'x'");
+            }
+        }
+    }
+
+    @Test
+    void partiqlAccessingNestedFieldWithInnerRepeatedFieldsFails() throws Exception {
+        final String schema = "CREATE STRUCT A ( b B );" +
+                "CREATE STRUCT B ( c C );" +
+                "CREATE STRUCT C ( d D );" +
+                "CREATE STRUCT D ( e E array );" +
+                "CREATE STRUCT E ( f int64 array );" +
+                "CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id));";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try {
+                    statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1");
+                    fail("expected an exception to be thrown by running 'SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1'");
+                    // todo refactor once https://github.com/FoundationDB/fdb-record-layer/pull/1742 is in a milestone.
+                } catch (ClassCastException cce) {
+                    cce.getMessage().contains("class com.apple.foundationdb.record.query.plan.cascades.typing.Type$Array cannot be cast to " +
+                            "class com.apple.foundationdb.record.query.plan.cascades.typing.Type$Record");
+                }
+            }
+        }
+    }
+
     @Disabled
     // until we fix the implicit fetch operator in record layer.
     void projectIndividualPredicateColumns() throws Exception {
@@ -501,5 +640,14 @@ public class QueryTest {
         RelationalAssertions.assertThat(resultSet).hasExactlyInAnyOrder(
                 rec.stream().map(MessageTuple::new).collect(Collectors.toList())
         );
+    }
+
+    private void failsWith(@Nonnull final Statement statement, @Nonnull final String query, @Nonnull final String errorMessage) {
+        try {
+            statement.execute(query);
+            fail(String.format("expected an exception to be thrown by running %s", query));
+        } catch (SQLException e) {
+            Assertions.assertTrue(e.getMessage().contains(errorMessage));
+        }
     }
 }

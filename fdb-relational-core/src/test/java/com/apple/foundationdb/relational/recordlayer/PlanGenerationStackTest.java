@@ -90,7 +90,7 @@ public class PlanGenerationStackTest {
                     Arguments.of(11, "select * from RestaurantRecord where rest_no <= 10 ", null),
                     Arguments.of(12, "select * from RestaurantRecord where rest_no is null ", null),
                     Arguments.of(13, "select * from RestaurantRecord where rest_no is not null ", null),
-                    Arguments.of(14, "select * from RestaurantRecord where NON_EXISTING > 10 ", "attempting to query non existing field NON_EXISTING"),
+                    Arguments.of(14, "select * from RestaurantRecord where NON_EXISTING > 10 ", "could not find field name 'NON_EXISTING'"),
                     Arguments.of(15, "select * from RestaurantRecord where rest_no > 'hello'", "unable to encapsulate comparison operation due to type mismatch(es)"),
                     Arguments.of(16, "select * from RestaurantRecord where rest_no > 10 AND rest_no < 20", null),
                     Arguments.of(17, "select * from RestaurantRecord where rest_no < 10 AND rest_no < 20", null),
@@ -143,7 +143,7 @@ public class PlanGenerationStackTest {
                     Arguments.of(64, "select * from RestaurantRecord USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx) where rest_no > 10 ", null),
                     Arguments.of(61, "select * from RestaurantRecord with continuation", "Syntax error at line 1 position 48"),
                     Arguments.of(62, "select X.rest_no from (select rest_no from RestaurantRecord where 42 >= rest_no OR 42 > rest_no) X", null),
-                    Arguments.of(63, "select X.UNKNOWN from (select rest_no from RestaurantRecord where 42 >= rest_no OR 42 > rest_no) X", "attempting to query non existing field UNKNOWN"),
+                    Arguments.of(63, "select X.UNKNOWN from (select rest_no from RestaurantRecord where 42 >= rest_no OR 42 > rest_no) X", "attempting to query non existing field 'UNKNOWN'"),
                     Arguments.of(64, "select X.rest_no from (select Y.rest_no from (select rest_no from RestaurantRecord where 42 >= rest_no OR 42 > rest_no) Y where 42 >= Y.rest_no OR 42 > Y.rest_no) X", null),
                     Arguments.of(65, "select X.rating from RestaurantRecord AS Rec, (select rating from Rec.reviews) X", null)
             );

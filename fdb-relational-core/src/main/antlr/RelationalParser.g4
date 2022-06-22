@@ -1360,7 +1360,7 @@ tableName
 
 // done
 fullColumnName
-    : uid (dottedId dottedId? )?
+    : uid (dottedId)*
     ;
 
 // done (unsupported)

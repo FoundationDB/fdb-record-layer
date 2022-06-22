@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Scopes;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
@@ -35,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -49,9 +49,9 @@ import com.google.protobuf.Descriptors;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -157,41 +157,45 @@ public final class ParserUtils {
         }
     }
 
-    @Nullable
-    public static FieldValue getFieldValue(@Nonnull final String fieldName, @Nonnull final Value identifier) {
+    @Nonnull
+    public static FieldValue getFieldValue(@Nonnull final List<String> fieldName, @Nonnull final Value identifier) {
         Assert.thatUnchecked(identifier.getResultType() instanceof Type.Record);
-        final Type.Record recordType = (Type.Record) identifier.getResultType();
-        final Map<String, Type> fieldTypeMap = Objects.requireNonNull(recordType.getFieldTypeMap());
-        Assert.thatUnchecked(fieldTypeMap.containsKey(fieldName), "attempting to query non existing field " + fieldName);
-        final Type fieldType = fieldTypeMap.get(fieldName);
-        if (identifier instanceof FieldValue) {
-            ImmutableList.Builder<String> fieldPathBuilder = ImmutableList.builder();
-            fieldPathBuilder.addAll(((FieldValue) identifier).getFieldPath());
-            fieldPathBuilder.add(fieldName);
-            return new FieldValue(((FieldValue) identifier).getChild(), fieldPathBuilder.build(), fieldType);
-        } else if (identifier instanceof QuantifiedObjectValue) {
-            return new FieldValue(identifier, ImmutableList.of(fieldName), fieldType);
+        try {
+            return new FieldValue(identifier, fieldName);
+        } catch (SemanticException se) {
+            if (se.getMessage().contains("record does not contain specified field")) { // todo exchange error codes
+                Assert.failUnchecked(String.format("attempting to query non existing field '%s'", fieldName.get(fieldName.size() - 1)));
+            } else {
+                Assert.failUnchecked(se.getMessage());
+            }
         }
+        assert false; // unreachable, but we should make the compiler happy.
         return null;
     }
 
-    @Nullable
-    public static FieldValue getFieldValue(@Nonnull final String fieldName, @Nonnull final ParserContext parserContext) {
-        Scopes.Scope scope = parserContext.getCurrentScope();
-        FieldValue result = null;
+    @Nonnull
+    public static Quantifier findFieldPath(@Nonnull final String topLevelFieldPart, @Nonnull final ParserContext parserContext) {
+        Quantifier result = null;
         boolean matchFound = false;
+        final var quantifier = parserContext.getCurrentScope().getQuantifier(topLevelFieldPart);
+        if (quantifier.isPresent()) {
+            result = quantifier.get();
+            matchFound = true;
+        }
+        Scopes.Scope scope = parserContext.getCurrentScope();
         for (final var qun : scope.getAllQuantifiers()) {
             for (final Column<? extends Value> column : qun.getFlowedColumns()) {
-                if (column.getField().getFieldName().equals(fieldName)) {
+                if (column.getField().getFieldName().equals(topLevelFieldPart)) {
                     if (matchFound) {
-                        Assert.failUnchecked(String.format("ambiguous field name %s", fieldName));
+                        Assert.failUnchecked(String.format("ambiguous field name '%s'", topLevelFieldPart));
                     } else {
-                        result = new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of(fieldName));
                         matchFound = true;
+                        result = qun;
                     }
                 }
             }
         }
+        Assert.notNullUnchecked(result, String.format("could not find field name '%s'", topLevelFieldPart));
         return result;
     }
 
