@@ -177,7 +177,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
         long startTime = System.nanoTime();
 
-        lookupResults = lookup().skip(skip);
+        lookupResults = lookup().skip(skip).limitRowsTo(limit);
         if (timer != null) {
             timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN, startTime);
         }
@@ -314,7 +314,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
 
         IndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader, executor);
-        TopDocs topDocs = searcher.search(finalQuery, limit);
+        TopDocs topDocs = searcher.search(finalQuery, limit + skip);
         if (timer != null) {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, topDocs.scoreDocs.length);
         }

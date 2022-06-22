@@ -542,6 +542,69 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void testLimitForAutoCompleteWithMultipleMatchingFields() {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION, Integer.MAX_VALUE);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE);
+            });
+
+            for (int i = 0; i < 200; i++) {
+                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "auto complete suggestions " + + 1623 + 2 * i + 1, 2));
+            }
+            // Only 50 results are returned, although each matching doc has 2 fields that contain the search key
+            assertEquals(50, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "complete", false), null,
+                    ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false)).getCount().join());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void testLimitAndSkipForAutoCompleteWithMultipleMatchingFields() {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION, Integer.MAX_VALUE);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE);
+            });
+
+            for (int i = 0; i < 200; i++) {
+                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "auto complete suggestions " + + 1623 + 2 * i + 1, 2));
+            }
+            // 50 results are returned, although each matching doc has 2 fields that contain the search key, and the first 10 results are skipped
+            assertEquals(50, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "complete", false), null,
+                    ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false)).getCount().join());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void testLimitAndSkipForAutoCompleteWithSingleMatchingField() {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION, Integer.MAX_VALUE);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE);
+            });
+
+            for (int i = 0; i < 200; i++) {
+                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "other suggestions " + + 1623 + 2 * i + 1, 2));
+            }
+            // 50 results are returned, with one result for each matching doc, although the first 10 results are skipped
+            assertEquals(50, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "complete", false), null,
+                    ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false)).getCount().join());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
     void testNestedFieldSearch() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, MAP_DOC, MAP_ON_VALUE_INDEX);
