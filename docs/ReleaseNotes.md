@@ -20,7 +20,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Lucene auto-complete should apply the limit to the result cursor [(Issue #1745)](https://github.com/FoundationDB/fdb-record-layer/issues/1745)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -43,6 +43,10 @@ This release also updates downstream dependency versions. Most notably, the prot
 
 // end next release
 -->
+
+### 3.2.271.0
+
+* **Bug fix** Lucene auto-complete should apply the limit to the result cursor [(Issue #1745)](https://github.com/FoundationDB/fdb-record-layer/issues/1745)
 
 ### 3.2.270.0
 
