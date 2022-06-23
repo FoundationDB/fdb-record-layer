@@ -109,6 +109,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
@@ -242,6 +243,7 @@ public class VersionIndexTest extends FDBTestBase {
     private static Stream<Arguments> formatVersionArgumentsWithRemoteFetch() {
         return formatVersionArguments()
                 .flatMap(arg -> Stream.of(RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH,
+                                RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK,
                                 RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH)
                         .map(indexFetchMethod -> Arguments.of(arg.get()[0], arg.get()[1], indexFetchMethod)));
     }
@@ -1716,10 +1718,10 @@ public class VersionIndexTest extends FDBTestBase {
         assertMaxVersionWithFunction(1, expectedMaxVersion);
     }
 
-    @ParameterizedTest(name = "queryOnVersion [formatVersion = {0}, splitLongRecords = {1}]")
-    @MethodSource("formatVersionArguments")
+    @ParameterizedTest(name = "queryOnVersion [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void queryOnVersion(int testFormatVersion, boolean testSplitLongRecords) {
+    public void queryOnVersion(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1762,14 +1764,14 @@ public class VersionIndexTest extends FDBTestBase {
 
                 if (last == null) {
                     RecordQuery query = RecordQuery.newBuilder().setSort(VersionKeyExpression.VERSION).build();
-                    plan = planner.plan(query);
+                    plan = plan(query, fetchMethod);
                     assertEquals("Index(globalVersion <,>)", plan.toString());
                 } else {
                     RecordQuery query = RecordQuery.newBuilder()
                             .setFilter(Query.version().greaterThan(last))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    plan = planner.plan(query);
+                    plan = plan(query, fetchMethod);
                     assertEquals("Index(globalVersion ([" + last.toVersionstamp() + "],>)", plan.toString());
                 }
 
@@ -1946,10 +1948,10 @@ public class VersionIndexTest extends FDBTestBase {
         }
     }
 
-    @ParameterizedTest(name = "queryOnRepeatedVersions [formatVersion = {0}, splitLongRecords = {1}]")
-    @MethodSource("formatVersionArguments")
+    @ParameterizedTest(name = "queryOnRepeatedVersions [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void queryOnRepeatedVersion(int testFormatVersion, boolean testSplitLongRecords) {
+    public void queryOnRepeatedVersion(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1993,7 +1995,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setSort(VersionKeyExpression.VERSION)
                             .setRemoveDuplicates(false)
                             .build();
-                    plan = planner.plan(query);
+                    plan = plan(query, fetchMethod);
                     assertEquals("Index(MySimpleRecord$repeater-version [[1],[1]])", plan.toString());
                 } else {
                     RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord")
@@ -2001,7 +2003,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setSort(VersionKeyExpression.VERSION)
                             .setRemoveDuplicates(false)
                             .build();
-                    plan = planner.plan(query);
+                    plan = plan(query, fetchMethod);
                     assertEquals("Index(MySimpleRecord$repeater-version ([1, " + last.toVersionstamp() + "],[1]])", plan.toString());
                 }
 
@@ -2035,10 +2037,10 @@ public class VersionIndexTest extends FDBTestBase {
         }
     }
 
-    @ParameterizedTest(name = "withMetaDataRebuilds [formatVersion = {0}, splitLongRecords = {1}]")
-    @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void withMetaDataRebuilds(int testFormatVersion, boolean testSplitLongRecords) {
+    @ParameterizedTest(name = "withMetaDataRebuilds [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArgumentsWithRemoteFetch")
+    public void withMetaDataRebuilds(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2079,7 +2081,7 @@ public class VersionIndexTest extends FDBTestBase {
             assertTrue(loadedRecord.hasVersion());
             assertEquals(version1, loadedRecord.getVersion());
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = plan(query, fetchMethod);
             assertThat(plan, indexScan("globalVersion"));
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(1, records.size());
@@ -2191,10 +2193,10 @@ public class VersionIndexTest extends FDBTestBase {
         });
     }
 
-    @ParameterizedTest(name = "upgradeFormatVersions [formatVersion = {0}, splitLongRecords = {1}]")
-    @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void upgradeFormatVersions(int testFormatVersion, boolean splitLongRecords) {
+    @ParameterizedTest(name = "upgradeFormatVersions [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArgumentsWithRemoteFetch")
+    public void upgradeFormatVersions(int testFormatVersion, boolean splitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         final RecordMetaDataHook hook = metaDataBuilder -> {
             simpleVersionHook.apply(metaDataBuilder);
@@ -2252,7 +2254,7 @@ public class VersionIndexTest extends FDBTestBase {
                 RecordQuery query = RecordQuery.newBuilder()
                         .setFilter(Query.version().equalsValue(storedRecord.getVersion()))
                         .build();
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = plan(query, fetchMethod);
                 final String endpointString = "[" + storedRecord.getVersion().toVersionstamp(false).toString() + "]";
                 assertThat(plan, indexScan(allOf(indexName("globalVersion"), bounds(hasTupleString("[" + endpointString + "," + endpointString + "]")))));
                 List<FDBStoredRecord<Message>> queriedRecords = recordStore.executeQuery(plan).map(FDBQueriedRecord::getStoredRecord).asList().join();
@@ -2451,5 +2453,14 @@ public class VersionIndexTest extends FDBTestBase {
         KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
         return recordStore.scanIndexRemoteFetch(indexName, scanBounds, primaryKey, null, direction, IndexOrphanBehavior.ERROR)
                 .asList().get();
+    }
+
+    @Nonnull
+    protected RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) {
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setIndexFetchMethod(useIndexPrefetch)
+                .build());
+        return planner.plan(query);
     }
 }
