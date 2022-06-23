@@ -109,7 +109,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
@@ -1816,7 +1815,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setFilter(Query.field("num_value_2").equalsValue(0))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    RecordQueryPlan plan = planner.plan(query);
+                    RecordQueryPlan plan = plan(query, fetchMethod);
                     assertEquals("Index(MySimpleRecord$num2-version [[0],[0]])", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
                             .asIterator();
@@ -1825,7 +1824,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setFilter(Query.and(Query.field("num_value_2").equalsValue(0), Query.version().greaterThan(last)))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    RecordQueryPlan plan = planner.plan(query);
+                    RecordQueryPlan plan = plan(query, fetchMethod);
                     assertEquals("Index(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]])", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
                             .asIterator();
@@ -1873,7 +1872,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setFilter(Query.and(Query.field("num_value_2").equalsValue(0), Query.field("num_value_3_indexed").equalsValue(0)))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    RecordQueryPlan plan = planner.plan(query);
+                    RecordQueryPlan plan = plan(query, fetchMethod);
                     assertEquals("Index(MySimpleRecord$num2-version [[0],[0]]) | num_value_3_indexed EQUALS 0", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
                             .asIterator();
@@ -1886,7 +1885,7 @@ public class VersionIndexTest extends FDBTestBase {
                             ))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    RecordQueryPlan plan = planner.plan(query);
+                    RecordQueryPlan plan = plan(query, fetchMethod);
                     assertEquals("Index(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]]) | num_value_3_indexed EQUALS 0", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
                             .asIterator();
@@ -1930,7 +1929,7 @@ public class VersionIndexTest extends FDBTestBase {
                     .setFilter(Query.version().greaterThan(chosenVersion))
                     .setSort(field("num_value_3_indexed"))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = plan(query, fetchMethod);
             assertEquals("Index(MySimpleRecord$num_value_3_indexed <,>) | version GREATER_THAN " + chosenVersion.toString(), plan.toString());
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
 
@@ -2127,7 +2126,7 @@ public class VersionIndexTest extends FDBTestBase {
             assertTrue(loadedRecord3.hasVersion());
             assertEquals(version3, loadedRecord3.getVersion());
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = plan(query, fetchMethod);
             assertThat(plan, indexScan("globalVersion2"));
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(3, records.size());
