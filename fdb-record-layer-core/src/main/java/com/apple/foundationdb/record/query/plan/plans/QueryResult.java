@@ -70,6 +70,7 @@ public class QueryResult {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @param <M> M
      * @return the object narrowed to the requested class
      */
     @Nullable
@@ -80,6 +81,7 @@ public class QueryResult {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @param <M> M
      * @return an optional that potentially contains the object narrowed to the requested class
      */
     @Nonnull
@@ -98,6 +100,8 @@ public class QueryResult {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @param <T> T
+     * @param clazz clazz
      * @return the object narrowed to the requested class
      */
     @Nonnull
@@ -107,6 +111,8 @@ public class QueryResult {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @param <T> T
+     * @param clazz clazz
      * @return an optional that potentially contains the object narrowed to the requested class
      */
     @Nonnull

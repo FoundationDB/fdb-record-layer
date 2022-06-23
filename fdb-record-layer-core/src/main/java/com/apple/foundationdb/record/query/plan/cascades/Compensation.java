@@ -370,6 +370,8 @@ public interface Compensation {
          * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
          *        used for compensation
          * @param unmappedForEachQuantifiers a set of unmapped quantifiers
+         * @param mappedQuantifiers mapped quantifiers
+         * @param remainingComputationOptional remaining computation optional
          * @return a new compensation
          */
         @Nonnull

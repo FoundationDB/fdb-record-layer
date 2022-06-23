@@ -33,6 +33,7 @@ public interface Narrowable<T> {
      * Safe-casts the {@link Narrowable} instance to another type.
      *
      * @param clazz marker object.
+     * @param <T1> T1
      * @return if cast is successful, an {@link Optional} containing the instance cast to {@link T}, otherwise an
      * empty {@link Optional}.
      */

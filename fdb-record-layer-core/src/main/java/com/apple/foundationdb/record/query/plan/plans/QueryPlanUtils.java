@@ -42,6 +42,13 @@ public class QueryPlanUtils {
 
     /**
      * The method to get a function from an {@link IndexEntry} to a {@link FDBQueriedRecord} representing a partial record.
+     * @param <M> M
+     * @param store store
+     * @param recordTypeName record type name
+     * @param indexName index name
+     * @param toRecord to record
+     * @param hasPrimaryKey has primary key
+     * @return store.coveredIndexQueriedRecord
      */
     @SuppressWarnings("unchecked")
     public static <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> getCoveringIndexEntryToPartialRecordFunction(final @Nonnull FDBRecordStoreBase<M> store,

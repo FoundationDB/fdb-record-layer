@@ -91,6 +91,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     /**
      * Overloaded constructor.
      * @param recordTypes a super set of record types of the records that this scan operator can produce
+     * @param flowedType flowed type
      * @param commonPrimaryKey common primary key
      * @param comparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
@@ -106,6 +107,8 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     /**
      * Overloaded constructor.
      * @param recordTypes a super set of record types of the records that this scan operator can produce
+     * @param flowedType flowed type
+     * @param commonPrimaryKey common primary key
      * @param comparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      * @param strictlySorted whether scan is stricted sorted for original query

@@ -72,7 +72,10 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     private final int version;
 
-    /** Sole constructor. */
+    /** Sole constructor.
+     * @param state state
+     * @throws java.io.IOException io exception
+     */
     @SuppressWarnings("PMD.CloseResource")
     public LuceneOptimizedPostingsReader(SegmentReadState state) throws IOException {
         boolean success = false;

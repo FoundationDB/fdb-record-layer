@@ -127,6 +127,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
     /**
      * Whether this plan is appropriate for being applied with optimization by {@link RecordQueryCoveringIndexPlan},
      * if the planner believes the required fields can be covered by this index.
+     * @return true
      */
     default boolean allowedForCoveringIndexPlan() {
         return true;

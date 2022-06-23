@@ -175,6 +175,7 @@ public interface MatchCandidate {
      * Creates a logical expression that represents a scan over the materialized candidate data.
      * @param recordMetaData the metadata used by the planner
      * @param partialMatch the match to be used
+     * @param planContext plan context
      * @return a new {@link RelationalExpression}
      */
     @SuppressWarnings("java:S135")
@@ -206,6 +207,7 @@ public interface MatchCandidate {
      * to be implemented by specific implementations of {@link MatchCandidate}.
      * @param recordMetaData the metadata available to the planner
      * @param partialMatch the {@link PartialMatch} that matched th query and the candidate
+     * @param planContext plan context
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
      * @return a new {@link RelationalExpression}
      */

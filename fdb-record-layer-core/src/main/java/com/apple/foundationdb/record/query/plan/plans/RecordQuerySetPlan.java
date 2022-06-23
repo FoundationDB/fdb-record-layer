@@ -58,6 +58,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      *
      * @param baseAlias the base alias to use for all external references. This is the alias of the data stream
      *        the values can be evaluated over.
+     * @param inputType input type
      * @return a list of values where each value is required to be evaluable by the set base operation
      */
     @Nonnull

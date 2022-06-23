@@ -92,6 +92,9 @@ public class StreamGrouping<M extends Message> {
      * @param store record store from which to fetch records
      * @param context evaluation context containing parameter bindings
      * @param alias the quantifier alias for the value evaluation
+     * @param groupingKeyAlias grouping key alias
+     * @param aggregateAlias aggregate alias
+     * @param completeResultValue  complete result value
      */
     public StreamGrouping(@Nullable final Value groupingKeyValue,
                           @Nonnull final AggregateValue aggregateValue,

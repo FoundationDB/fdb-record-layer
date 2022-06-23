@@ -249,6 +249,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
              * 1. For the dangling scrubber job, every index entry needs to contain the primary key of the record that
              *    generated it so that we can detect if that record is present.
              * 2. For the missing entry scrubber, the index key for the record needs to be present in the index.
+             * @return this
              */
             public Builder ignoreIndexTypeCheck() {
                 ignoreIndexTypeCheck = true;
