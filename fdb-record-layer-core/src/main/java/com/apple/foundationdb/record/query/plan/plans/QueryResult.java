@@ -70,6 +70,7 @@ public class QueryResult {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @param <M> Protobuf class for the record message type
      * @return the object narrowed to the requested class
      */
     @Nullable
@@ -80,6 +81,7 @@ public class QueryResult {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @param <M> Protobuf class for the record message type
      * @return an optional that potentially contains the object narrowed to the requested class
      */
     @Nonnull
@@ -97,7 +99,9 @@ public class QueryResult {
     }
 
     /**
-     * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * Retrieve the wrapped result by attempting it to cast it to the given class.
+     * @param <T> target type
+     * @param clazz class object for target type
      * @return the object narrowed to the requested class
      */
     @Nonnull
@@ -106,7 +110,9 @@ public class QueryResult {
     }
 
     /**
-     * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * Retrieve the wrapped result by attempting it to cast it to the given class.
+     * @param <T> target type
+     * @param clazz class object for target type
      * @return an optional that potentially contains the object narrowed to the requested class
      */
     @Nonnull

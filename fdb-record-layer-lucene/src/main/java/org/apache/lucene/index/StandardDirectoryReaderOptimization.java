@@ -40,7 +40,15 @@ public class StandardDirectoryReaderOptimization {
     private StandardDirectoryReaderOptimization() {
     }
 
-    /** called from DirectoryReader.open(...) methods */
+    /**
+     * Called from {@link DirectoryReader#open} methods.
+     * @param directory the directory to open
+     * @param commit the index changes to open
+     * @param leafSorter a comparator for sorting leaf readers
+     * @param executor executor to use to run in parallel
+     * @return an open directory reader
+     * @throws IOException if there is a problem with the underlying implementation
+     */
     public static DirectoryReader open(
             final Directory directory, final IndexCommit commit, Comparator<LeafReader> leafSorter, Executor executor) throws IOException {
         return new SegmentInfos.FindSegmentsFile<DirectoryReader>(directory) {

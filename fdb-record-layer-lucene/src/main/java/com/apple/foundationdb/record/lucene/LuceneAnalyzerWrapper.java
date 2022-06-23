@@ -42,6 +42,7 @@ public class LuceneAnalyzerWrapper {
     /**
      * This is different from {@link LuceneAnalyzerFactory#getName()}, which is used as identifier for a factory included in the meta-data.
      * This identifier is to exclusively identify the {@link Analyzer}, which could be different given different texts input.
+     * @return this analyzer's unique identifier
      */
     @Nonnull
     public String getUniqueIdentifier() {

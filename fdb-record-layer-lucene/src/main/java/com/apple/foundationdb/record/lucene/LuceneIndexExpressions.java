@@ -194,9 +194,11 @@ public class LuceneIndexExpressions {
 
     /**
      * Interpret the index key expression, either concretely for an actual record, or symbolically using meta-data.
+     * @param <T> specific kind of {@link RecordSource}
      * @param root the {@code LUCENE} index root expresison
      * @param source the record / record meta-data
      * @param destination the document / document meta-data
+     * @param fieldNamePrefix prefix for generated field names
      */
     @Nonnull
     public static <T extends RecordSource<T>> void getFields(@Nonnull KeyExpression root, @Nonnull T source,
