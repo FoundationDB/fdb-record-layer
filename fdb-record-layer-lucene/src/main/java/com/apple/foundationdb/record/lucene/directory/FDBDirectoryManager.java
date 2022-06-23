@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.annotations.VisibleForTesting;
@@ -103,10 +102,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey) {
         final Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
-        return createdDirectories.computeIfAbsent(mapKey, key -> {
-            final Subspace directorySubspace = state.indexSubspace.subspace(key);
-            return new FDBDirectoryWrapper(state, new FDBDirectory(directorySubspace, state.context), mergeDirectoryCount);
-        });
+        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount));
     }
 
     @Nonnull
