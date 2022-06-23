@@ -32,9 +32,10 @@ public interface Narrowable<T> {
     /**
      * Safe-casts the {@link Narrowable} instance to another type.
      *
-     * @param clazz marker object.
+     * @param <T1> target type
+     * @param clazz marker object
      * @return if cast is successful, an {@link Optional} containing the instance cast to {@link T}, otherwise an
-     * empty {@link Optional}.
+     * empty {@link Optional}
      */
     default <T1 extends T> Optional<T1> narrowMaybe(@Nonnull final Class<T1> clazz) {
         if (clazz.isInstance(this)) {

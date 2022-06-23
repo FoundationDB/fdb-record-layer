@@ -89,6 +89,10 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     /**
      * Get the {@link IndexKeyValueToPartialRecord} instance for an {@link IndexEntry} representing a result of Lucene auto-complete suggestion.
      * The partial record contains the suggestion in the field where it is indexed from, and the grouping keys if there are any.
+     * @param index the index being scanned
+     * @param recordType the record type for indexed records
+     * @param scanType the type of scan
+     * @return a partial record generator
      */
     @VisibleForTesting
     public static IndexKeyValueToPartialRecord getToPartialRecord(@Nonnull Index index,

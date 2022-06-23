@@ -98,6 +98,9 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
      * @param inner the quantifier that this plan owns
      * @param groupingKeyValue the {@link Value} to group by
      * @param aggregateValue the {@link AggregateValue} to aggregate by grouping key
+     * @param groupingKeyAlias the identifier of {@code groupingKeyValue}
+     * @param aggregateAlias the identifier of {@code aggregateValue}
+     * @param completeResultValue the {@link Value} of the aggregate results
      */
     private RecordQueryStreamingAggregationPlan(@Nonnull final Quantifier.Physical inner,
                                                 @Nullable final Value groupingKeyValue,

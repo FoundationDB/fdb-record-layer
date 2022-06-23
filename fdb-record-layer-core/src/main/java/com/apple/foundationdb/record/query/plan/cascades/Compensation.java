@@ -307,7 +307,7 @@ public interface Compensation {
      *        method
      * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
      *        used for compensation
-     * @param mappedQuantifiers a set of quantifiers that are mapped in the original {@link PartialMatch}.
+     * @param mappedQuantifiers a set of quantifiers that are mapped in the original {@link PartialMatch}
      * @param unmatchedQuantifiers a set of quantifiers that are not mapped in the original {@link PartialMatch}
      * @param remainingComputationOptional an optional containing (if not empty) a {@link Value} that needs to be
      *        computed by some means when this compensation is applied
@@ -369,7 +369,9 @@ public interface Compensation {
          *        method
          * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
          *        used for compensation
+         * @param mappedQuantifiers a set of quantifiers that are mapped in the original {@link PartialMatch}
          * @param unmappedForEachQuantifiers a set of unmapped quantifiers
+         * @param remainingComputationOptional any remaining computation
          * @return a new compensation
          */
         @Nonnull

@@ -91,6 +91,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
      * Protobuf messages, so that they interact properly with expressions that do.
      * @param <M> the type of record
      * @param record the record
+     * @param message the Protobuf message to evaluate against
      * @return the list of evaluated keys for the given record
      * @throws InvalidResultException if any returned result has some number of columns other
      *         than the return value of {@link #getColumnSize()}
