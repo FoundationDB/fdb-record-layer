@@ -2476,4 +2476,5 @@ public class VersionIndexTest extends FDBTestBase {
                 .build());
         return planner.plan(query);
     }
+
 }
