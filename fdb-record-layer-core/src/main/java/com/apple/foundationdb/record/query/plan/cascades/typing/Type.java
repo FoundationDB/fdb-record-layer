@@ -210,14 +210,12 @@ public interface Type extends Narrowable<Type> {
                                       @Nonnull final Optional<String> ignored,
                                       @Nonnull final FieldDescriptorProto.Label label) {
                 final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
-                // System.out.println("primitive type addProtoField fieldName:" + fieldName);
                 descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
                         .setNumber(fieldNumber)
                         .setName(fieldName)
                         .setType(protoType)
                         .setLabel(label)
                         .build());
-                // System.out.println("descriptor: " + descriptorBuilder.build());
             }
 
             @Override
@@ -323,12 +321,25 @@ public interface Type extends Narrowable<Type> {
                 return new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()));
             } else if (typeCode == TypeCode.RECORD) {
                 Objects.requireNonNull(descriptor);
-                // TODO(Pengpeng) if Type ends with "List", it might be better to use custom options
                 final var messageDescriptor = (Descriptors.Descriptor)descriptor;
                 System.out.println("record type messageDescriptor name: " + messageDescriptor.getName());
+                // TODO(Pengpeng) if Type ends with "List", it might be better to use custom options
                 if (messageDescriptor.getName().endsWith("List")) {
                     TypeCode t = TypeCode.fromProtobufType(messageDescriptor.findFieldByName("values").getType());
-                    return new Array(false, primitiveType(t, false), true);
+                    if (t.isPrimitive()) {
+                        final var primitiveType = primitiveType(t, false);
+                        return new Array(false, primitiveType, true);
+                    } //else if (t == TypeCode.ENUM) {
+                    // final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
+                    // final var enumType = new Enum(false, Enum.enumValuesFromProto(enumDescriptor.getValues()));
+                    // return new Array(false, enumType, true);
+                    else {
+                        // t is Record type
+                        Descriptors.Descriptor wrappedDescriptor = messageDescriptor.findFieldByName("values").getMessageType();
+                        Objects.requireNonNull(wrappedDescriptor);
+                        System.out.println("wrappedDescriptor:" + wrappedDescriptor.getFullName());
+                        return new Array(false, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true), true);
+                    }
                 } else {
                     return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
                 }
@@ -899,7 +910,6 @@ public interface Type extends Narrowable<Type> {
             for (final var field : fields) {
                 final var fieldType = field.getFieldType();
                 final var fieldName = field.getFieldName();
-                System.out.println("field type and name:" + fieldType.getTypeCode() + fieldName);
                 fieldType.addProtoField(typeRepositoryBuilder, recordMsgBuilder,
                         field.getFieldIndex(),
                         fieldName,
@@ -1074,7 +1084,7 @@ public interface Type extends Narrowable<Type> {
          * @return Optionally, a field that can be used as an array element type.
          */
         @Nonnull
-        private static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(@Nonnull final Descriptors.Descriptor descriptor) {
+        static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(@Nonnull final Descriptors.Descriptor descriptor) {
             final var fields = descriptor.getFields();
             if (fields.size() == 1) {
                 final var field0 = fields.get(0);
@@ -1520,7 +1530,6 @@ public interface Type extends Narrowable<Type> {
          */
         @Override
         public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
-            System.out.println("array defineProtoType called");
             // if elementType is primitive type, make it record like StringList
             Objects.requireNonNull(elementType);
             final var typeName = uniqueCompliantTypeName();
@@ -1546,39 +1555,25 @@ public interface Type extends Narrowable<Type> {
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
             Objects.requireNonNull(elementType);
-            //
-            // If the inner type is nullable, we need to create a nested helper message to keep track of
-            // nulls.
-            //
-            if (definesNestedProto()) {
-                final var fieldDescriptorProto = FieldDescriptorProto.newBuilder();
-                fieldDescriptorProto
-                        .setName(fieldName)
-                        .setNumber(fieldNumber)
-                        .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
-                typeNameOptional.ifPresent(fieldDescriptorProto::setTypeName);
-                descriptorBuilder.addField(fieldDescriptorProto.build());
+            // if inner type is not nullable we can just put the repeated field straight into its parent
+            if (needsWrapper && elementType.getTypeCode() != TypeCode.UNKNOWN) {
+                System.out.println("called:" + fieldName);
+                System.out.println("elementType getTypeCode:" + elementType.getTypeCode());
+                Type wrapperType = constructWrapperType(typeRepositoryBuilder, elementType);
+                wrapperType.addProtoField(typeRepositoryBuilder,
+                        descriptorBuilder,
+                        fieldNumber,
+                        fieldName,
+                        typeRepositoryBuilder.defineAndResolveType(wrapperType),
+                        FieldDescriptorProto.Label.LABEL_OPTIONAL);
             } else {
-                // if inner type is not nullable we can just put the repeated field straight into its parent
-                // System.out.println("Array.addProtoField elementType:" + elementType.getTypeCode());
-                if (needsWrapper && elementType.isPrimitive() && elementType.getTypeCode() != TypeCode.UNKNOWN) {
-                    System.out.println("type repository:" + typeRepositoryBuilder.build().getMessageTypes());
-                    Type wrapperType = constructWrapperType();
-                    wrapperType.addProtoField(typeRepositoryBuilder,
-                            descriptorBuilder,
-                            fieldNumber,
-                            fieldName,
-                            typeRepositoryBuilder.defineAndResolveType(wrapperType),
-                            FieldDescriptorProto.Label.LABEL_OPTIONAL);
-                } else {
-                    // put repeated field straight into its parent
-                    elementType.addProtoField(typeRepositoryBuilder,
-                            descriptorBuilder,
-                            fieldNumber,
-                            fieldName,
-                            typeRepositoryBuilder.defineAndResolveType(elementType),
-                            FieldDescriptorProto.Label.LABEL_REPEATED);
-                }
+                // put repeated field straight into its parent
+                elementType.addProtoField(typeRepositoryBuilder,
+                        descriptorBuilder,
+                        fieldNumber,
+                        fieldName,
+                        typeRepositoryBuilder.defineAndResolveType(elementType),
+                        FieldDescriptorProto.Label.LABEL_REPEATED);
             }
         }
 
@@ -1625,23 +1620,37 @@ public interface Type extends Narrowable<Type> {
             return Objects.requireNonNull(elementType).isNullable() || elementType.getTypeCode() == TypeCode.ARRAY;
         }
 
-        private Type constructWrapperType() {
+        private Type constructWrapperType(@Nonnull final TypeRepository.Builder typeRepositoryBuilder, Type elementType) {
             Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap = new HashMap<>();
-            FieldDescriptorProto fdProto = FieldDescriptorProto.newBuilder()
+            FieldDescriptorProto.Builder fdProto = FieldDescriptorProto.newBuilder()
                     .setNumber(1)
                     .setName("values")
-                    .setType(Objects.requireNonNull(elementType.getTypeCode().getProtoType()))
-                    .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
-                    .build();
+                    .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
+            if (elementType.getTypeCode() == TypeCode.RECORD) {
+                Optional<String> typeNameOptional = typeRepositoryBuilder.defineAndResolveType(elementType);
+                System.out.println("elementType:" + elementType.getTypeCode());
+                System.out.println("typeName:" + typeNameOptional.get());
+                typeNameOptional.ifPresent(fdProto::setTypeName);
+            } else {
+                fdProto.setType(elementType.getTypeCode().getProtoType());
+            }
+
             DescriptorProtos.DescriptorProto dp = DescriptorProtos.DescriptorProto.newBuilder().addField(fdProto).setName("wrapperDescriptor").build();
             DescriptorProtos.FileDescriptorProto fileProto = DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(dp).build();
+
             try {
-                Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(fileProto, new Descriptors.FileDescriptor[] {});
+                final Descriptors.FileDescriptor dep = Descriptors.FileDescriptor.buildFrom(
+                        DescriptorProtos.FileDescriptorProto.newBuilder()
+                                .addAllMessageType(typeRepositoryBuilder.build().getMessageTypes().stream().map(typeRepositoryBuilder.build()::getMessageDescriptor).filter(Objects::nonNull).map(Descriptors.Descriptor::toProto).collect(Collectors.toUnmodifiableList()))
+                                .build(),
+                        new Descriptors.FileDescriptor[] {});
+                Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(fileProto, List.of(dep).toArray(Descriptors.FileDescriptor[]::new));
                 Descriptors.FieldDescriptor fieldDescriptor = file.findMessageTypeByName("wrapperDescriptor").findFieldByName(fdProto.getName());
                 fieldDescriptorMap.put("values", fieldDescriptor);
+                System.out.println("values fieldDescriptor:" + fieldDescriptor.toProto());
                 return Record.fromFieldDescriptorsMap(true, fieldDescriptorMap);
             } catch (Descriptors.DescriptorValidationException ignored) {
-
+                System.out.println("ignored exception:" + ignored.getMessage());
             }
             return elementType;
         }
