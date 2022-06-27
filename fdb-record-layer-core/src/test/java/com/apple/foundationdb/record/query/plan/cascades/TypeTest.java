@@ -70,7 +70,7 @@ class TypeTest {
                                     .setNumValueUnique(random.nextInt())
                                     .setNumValue2(random.nextInt())
                                     .setNumValue3Indexed(random.nextInt())
-                                    .setRepeater(ArrayWrapperRecord.Int32List.newBuilder().addAllValues(List.of(random.nextInt(), random.nextInt(), random.nextInt())).build()).build()),
+                                    .setRepeater(TestRecords1WrapperProto.Int32List.newBuilder().addAllValues(List.of(random.nextInt(), random.nextInt(), random.nextInt())).build()).build()),
                     Arguments.of(
                             "TestRecords1Proto.MySimpleRecord", TestRecords1Proto.MySimpleRecord.newBuilder()
                                     .setRecNo(random.nextLong())

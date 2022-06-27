@@ -470,6 +470,7 @@ public class TypeRepository {
 
         @Nonnull
         public Builder addAllTypes(@Nonnull final Collection<Type> types) {
+            System.out.println("add all types");
             types.forEach(this::addTypeIfNeeded);
             return this;
         }
