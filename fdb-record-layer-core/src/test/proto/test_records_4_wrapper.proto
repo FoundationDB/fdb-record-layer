@@ -1,0 +1,70 @@
+/*
+ * test_records_4_wrapper.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record.test4wrapper;
+
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestRecords4WrapperProto";
+
+import "record_metadata_options.proto";
+
+message RestaurantReviewer {
+  required int64 id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  required string name = 2 [(com.apple.foundationdb.record.field).index = {}];
+  optional string email = 3;
+  optional ReviewerStats stats = 4;
+}
+
+message ReviewerStats {
+  optional int64 start_date = 1;
+  optional string school_name = 2;
+  optional string hometown = 3;
+}
+
+message RestaurantReview {
+  option (com.apple.foundationdb.record.record).usage = NESTED;
+  required int64 reviewer = 1;
+  required int32 rating = 2;
+}
+
+message RestaurantTag {
+  option (com.apple.foundationdb.record.record).usage = NESTED;
+  required string value = 1;
+  required int32 weight = 2;
+}
+
+message StringList {
+  repeated string values = 1;
+}
+
+message RestaurantRecord {
+  required int64 rest_no = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  optional string name = 2 [(com.apple.foundationdb.record.field).index = {}];
+  // repeated RestaurantReview reviews = 3;
+  // repeated RestaurantTag tags = 4;
+  optional StringList customer = 5;
+}
+
+message UnionDescriptor {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  optional RestaurantRecord _RestaurantRecord = 1;
+  optional RestaurantReviewer _RestaurantReviewer = 2;
+}

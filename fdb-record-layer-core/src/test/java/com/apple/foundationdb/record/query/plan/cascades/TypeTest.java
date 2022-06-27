@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.ArrayWrapperRecord;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords1WrapperProto;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.google.protobuf.ByteString;
@@ -64,13 +64,10 @@ class TypeTest {
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
             return Stream.of(
                     Arguments.of(
-                            "TestRecords1WrapperProto.MySimpleRecord", TestRecords1WrapperProto.MySimpleRecord.newBuilder()
-                                    .setRecNo(random.nextLong())
-                                    .setStrValueIndexed("randomString" + random.nextInt())
-                                    .setNumValueUnique(random.nextInt())
-                                    .setNumValue2(random.nextInt())
-                                    .setNumValue3Indexed(random.nextInt())
-                                    .setRepeater(TestRecords1WrapperProto.Int32List.newBuilder().addAllValues(List.of(random.nextInt(), random.nextInt(), random.nextInt())).build()).build()),
+                            "TestRecords4WrapperProto.RestaurantRecord", TestRecords4WrapperProto.RestaurantRecord.newBuilder()
+                                    .setRestNo(random.nextLong())
+                                    .setName("randomString" + random.nextInt())
+                                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder().addAllValues(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt(), "randomString" + random.nextInt())).build()).build()),
                     Arguments.of(
                             "TestRecords1Proto.MySimpleRecord", TestRecords1Proto.MySimpleRecord.newBuilder()
                                     .setRecNo(random.nextLong())
