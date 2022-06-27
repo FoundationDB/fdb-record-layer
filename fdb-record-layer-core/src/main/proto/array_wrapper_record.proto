@@ -1,0 +1,42 @@
+syntax = "proto2";
+
+package com.apple.foundationdb.record;
+option java_outer_classname = "ArrayWrapperRecord";
+
+import "google/protobuf/descriptor.proto";
+
+message WrapperOptions {
+    optional bool is_wrapper_array = 1;
+}
+
+extend google.protobuf.FieldOptions {
+    optional WrapperOptions wrapper_options = 1234;
+}
+
+message BoolList {
+  repeated bool values = 1;
+}
+
+message StringList {
+  repeated string values = 1;
+}
+
+message BytesList {
+  repeated bytes values = 1;
+}
+
+message DoubleList {
+  repeated double values = 1;
+}
+
+message FloatList {
+  repeated float values = 1;
+}
+
+message Int32List {
+  repeated int32 values = 1;
+}
+
+message Int64List {
+  repeated int64 values = 1;
+}

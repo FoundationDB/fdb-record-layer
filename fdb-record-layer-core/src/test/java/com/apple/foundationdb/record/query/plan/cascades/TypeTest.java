@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.ArrayWrapperRecord;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecords1WrapperProto;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
@@ -61,6 +63,14 @@ class TypeTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
             return Stream.of(
+                    Arguments.of(
+                            "TestRecords1WrapperProto.MySimpleRecord", TestRecords1WrapperProto.MySimpleRecord.newBuilder()
+                                    .setRecNo(random.nextLong())
+                                    .setStrValueIndexed("randomString" + random.nextInt())
+                                    .setNumValueUnique(random.nextInt())
+                                    .setNumValue2(random.nextInt())
+                                    .setNumValue3Indexed(random.nextInt())
+                                    .setRepeater(ArrayWrapperRecord.Int32List.newBuilder().addAllValues(List.of(random.nextInt(), random.nextInt(), random.nextInt())).build()).build()),
                     Arguments.of(
                             "TestRecords1Proto.MySimpleRecord", TestRecords1Proto.MySimpleRecord.newBuilder()
                                     .setRecNo(random.nextLong())

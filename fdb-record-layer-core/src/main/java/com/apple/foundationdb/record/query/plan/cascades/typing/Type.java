@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
+import com.apple.foundationdb.record.ArrayWrapperRecord;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
@@ -39,6 +40,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -203,12 +205,14 @@ public interface Type extends Narrowable<Type> {
                                       @Nonnull final Optional<String> ignored,
                                       @Nonnull final FieldDescriptorProto.Label label) {
                 final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
+                // System.out.println("primitive type addProtoField fieldName:" + fieldName);
                 descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
                         .setNumber(fieldNumber)
                         .setName(fieldName)
                         .setType(protoType)
                         .setLabel(label)
                         .build());
+                // System.out.println("descriptor: " + descriptorBuilder.build());
             }
 
             @Override
@@ -268,7 +272,9 @@ public interface Type extends Narrowable<Type> {
      * @param descriptor The protobuf descriptor.
      * @param protoType The protobuf descriptor type.
      * @param protoLabel The protobuf descriptor label.
-     * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise <code>false</code>.
+     * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise
+     * <code>false</code>.
+     *
      * @return A {@link Type} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
      */
     @Nonnull
@@ -298,7 +304,7 @@ public interface Type extends Narrowable<Type> {
                     return new Array(fromProtoType(getTypeSpecificDescriptor(elementFieldDescriptor), elementFieldDescriptor.getType(), FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
                 } else {
                     // case 3: any arbitrary sub message we don't understand
-                    return new Array(fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
+                    return new Array(fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL,false));
                 }
             }
         } else {
@@ -309,8 +315,15 @@ public interface Type extends Narrowable<Type> {
                 return new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()));
             } else if (typeCode == TypeCode.RECORD) {
                 Objects.requireNonNull(descriptor);
+                // TODO(Pengpeng) if Type ends with "List", it might be better to use custom options
                 final var messageDescriptor = (Descriptors.Descriptor)descriptor;
-                return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
+                System.out.println("record type messageDescriptor name: " + messageDescriptor.getName());
+                if (messageDescriptor.getName().endsWith("List")) {
+                    TypeCode t = TypeCode.fromProtobufType(messageDescriptor.findFieldByName("values").getType());
+                    return new Array(false, primitiveType(t, false), true);
+                } else {
+                    return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
+                }
             }
         }
 
@@ -432,6 +445,10 @@ public interface Type extends Narrowable<Type> {
          */
         public boolean isNumeric() {
             return isNumeric;
+        }
+
+        public boolean hasArrayWrapperRecordType() {
+            return isPrimitive && (this != UNKNOWN);
         }
 
         /**
@@ -859,6 +876,7 @@ public interface Type extends Narrowable<Type> {
             for (final var field : fields) {
                 final var fieldType = field.getFieldType();
                 final var fieldName = field.getFieldName();
+                System.out.println("field type and name:" + fieldType.getTypeCode() + fieldName);
                 fieldType.addProtoField(typeRepositoryBuilder, recordMsgBuilder,
                         field.getFieldIndex(),
                         fieldName,
@@ -879,13 +897,13 @@ public interface Type extends Narrowable<Type> {
                                   @Nonnull final String fieldName,
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
-            final var fieldDescriptoProto = FieldDescriptorProto.newBuilder();
-            fieldDescriptoProto
+            final var fieldDescriptorProto = FieldDescriptorProto.newBuilder();
+            fieldDescriptorProto
                     .setName(fieldName)
                     .setNumber(fieldNumber)
                     .setLabel(label);
-            typeNameOptional.ifPresent(fieldDescriptoProto::setTypeName);
-            descriptorBuilder.addField(fieldDescriptoProto.build());
+            typeNameOptional.ifPresent(fieldDescriptorProto::setTypeName);
+            descriptorBuilder.addField(fieldDescriptorProto.build());
         }
 
         @Override
@@ -1356,6 +1374,8 @@ public interface Type extends Narrowable<Type> {
         @Nullable
         private final Type elementType;
 
+        private final boolean needsWrapper;
+
         /**
          * Memoized hash function.
          */
@@ -1389,8 +1409,13 @@ public interface Type extends Narrowable<Type> {
          * @param elementType the {@link Type} of the array type elements.
          */
         public Array(final boolean isNullable, @Nullable final Type elementType) {
+            this(isNullable, elementType, false);
+        }
+
+        public Array(final boolean isNullable, @Nullable final Type elementType, final boolean needsWrapper) {
             this.isNullable = isNullable;
             this.elementType = elementType;
+            this.needsWrapper = needsWrapper;
         }
 
         /**
@@ -1448,6 +1473,8 @@ public interface Type extends Narrowable<Type> {
          */
         @Override
         public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
+            System.out.println("array defineProtoType called");
+            // if elementType is primitive type, make it record like StringList
             Objects.requireNonNull(elementType);
             final var typeName = uniqueCompliantTypeName();
             final var helperDescriptorBuilder = DescriptorProto.newBuilder();
@@ -1486,12 +1513,29 @@ public interface Type extends Narrowable<Type> {
                 descriptorBuilder.addField(fieldDescriptorProto.build());
             } else {
                 // if inner type is not nullable we can just put the repeated field straight into its parent
-                elementType.addProtoField(typeRepositoryBuilder,
-                        descriptorBuilder,
-                        fieldNumber,
-                        fieldName,
-                        typeRepositoryBuilder.defineAndResolveType(elementType),
-                        FieldDescriptorProto.Label.LABEL_REPEATED);
+                // System.out.println("Array.addProtoField elementType:" + elementType.getTypeCode());
+                if (needsWrapper && elementType.isPrimitive() && elementType.getTypeCode() != TypeCode.UNKNOWN) {
+                    System.out.println("type repository:" + typeRepositoryBuilder.build().getMessageTypes());
+                    // (Pengpeng) put repeated field in a wrapper Record
+                    Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap = new HashMap<>();
+                    fieldDescriptorMap.put("values", ArrayWrapperRecord.Int32List.getDescriptor().findFieldByName("values"));
+                    Type recordType = Record.fromFieldDescriptorsMap(true, fieldDescriptorMap);
+
+                    recordType.addProtoField(typeRepositoryBuilder,
+                            descriptorBuilder,
+                            fieldNumber,
+                            fieldName,
+                            typeRepositoryBuilder.defineAndResolveType(recordType),
+                            FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                } else {
+                    // put repeated field straight into its parent
+                    elementType.addProtoField(typeRepositoryBuilder,
+                            descriptorBuilder,
+                            fieldNumber,
+                            fieldName,
+                            typeRepositoryBuilder.defineAndResolveType(elementType),
+                            FieldDescriptorProto.Label.LABEL_REPEATED);
+                }
             }
         }
 
