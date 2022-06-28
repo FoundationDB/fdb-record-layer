@@ -21,10 +21,24 @@
 package com.apple.foundationdb.relational.api.exceptions;
 
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Nonnull;
 
 public class RelationalException extends Exception {
     private static final long serialVersionUID = 1L;
     private final ErrorCode errorCode;
+
+    /*
+     * Various different projects make assumptions about the nature of error handling, and one of those
+     * is that "context" for error messages is contained in a map which is carried along with the exception. This
+     * makes it difficult (in the shorter term) for Relational to avoid doing the same, because a great deal
+     * of logging and tooling is built around these assumptions. Therefore, we maintain this same
+     * mapping structure.
+     */
+    private Map<String, Object> errorContext;
 
     public RelationalException(String message, ErrorCode errorCode) {
         super(message);
@@ -55,7 +69,53 @@ public class RelationalException extends Exception {
         if (getCause() instanceof SQLException) {
             return (SQLException) getCause();
         }
-        return new SQLException(getMessage(), getErrorCode().getErrorCode(), this);
+        return new ContextualSQLException(getMessage(), getErrorCode().getErrorCode(), this, errorContext);
+    }
+
+    /**
+     * Add additional context to the Exception.
+     *
+     * This method is intended to carry "context" for easy logging purposes, it is <em>not</em> a replacement
+     * for proper error codes <em>or</em> for effective error messages. Any information that is held within
+     * this context should (within reason) also be contained within either the error message or the ErrorCode
+     * fields.
+     *
+     * This method exists solely for the purposes of carrying a historical error handling logic forward, and
+     * should not be relied upon for important information.
+     *
+     * @param ctxName the name of the additional context field.
+     * @param ctxValue the value of the additional context field.
+     * @return an exception holding the context.
+     */
+    public RelationalException addContext(String ctxName, Object ctxValue) {
+        if (errorContext == null) {
+            errorContext = new HashMap<>();
+        }
+        errorContext.put(ctxName, ctxValue);
+
+        return this;
+    }
+
+    /**
+     * Add additional context to the Exception.
+     *
+     * This method is intended to carry "context" for easy logging purposes, it is <em>not</em> a replacement
+     * for proper error codes <em>or</em> for effective error messages. Any information that is held within
+     * this context should (within reason) also be contained within either the error message or the ErrorCode
+     * fields.
+     *
+     * This method exists solely for the purposes of carrying a historical error handling logic forward, and
+     * should not be relied upon for important information.
+     *
+     * @param context additional context as a map.
+     * @return an exception holding the context.
+     */
+    public RelationalException withContext(@Nonnull Map<String, Object> context) {
+        if (errorContext == null) {
+            errorContext = new HashMap<>();
+        }
+        errorContext.putAll(context);
+        return this;
     }
 
     public UncheckedRelationalException toUncheckedWrappedException() {
@@ -66,4 +126,13 @@ public class RelationalException extends Exception {
         return errorCode;
     }
 
+    public Map<String, Object> getContext() {
+        Map<String, Object> ret = errorContext;
+        if (ret == null) {
+            ret = Collections.emptyMap();
+        } else {
+            ret = Collections.unmodifiableMap(ret);
+        }
+        return ret;
+    }
 }

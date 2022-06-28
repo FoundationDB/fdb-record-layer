@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer.util;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 class ExceptionUtilTest {
 
@@ -36,4 +39,14 @@ class ExceptionUtilTest {
         Assertions.assertEquals(ErrorCode.TRANSACTION_INACTIVE, converted.getErrorCode());
     }
 
+    @Test
+    @SuppressWarnings("ThrowableNotThrown") //intentional
+    void carriesRecordLayerContext() {
+        RecordCoreException rece = new RecordCoreException("this is a test error message").addLogInfo("table", "foo");
+        RelationalException converted = ExceptionUtil.toRelationalException(rece);
+        Assertions.assertEquals(ErrorCode.UNKNOWN, converted.getErrorCode(), "Incorrect error code!");
+        Map<String, Object> ctxMap = converted.getContext();
+        Assertions.assertTrue(ctxMap.containsKey("table"), "context missing key!");
+        Assertions.assertEquals(ctxMap.get("table"), "foo", "Incorrect context value!");
+    }
 }

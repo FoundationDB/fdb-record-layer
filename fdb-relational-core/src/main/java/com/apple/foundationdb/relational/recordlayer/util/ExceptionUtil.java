@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.sql.SQLException;
+import java.util.Map;
 
 public final class ExceptionUtil {
     public static RelationalException toRelationalException(Throwable re) {
@@ -33,10 +34,6 @@ public final class ExceptionUtil {
             return (RelationalException) re;
         } else if (re instanceof SQLException) {
             return new RelationalException(re.getMessage(), ErrorCode.get(((SQLException) re).getSQLState()), re);
-        } else if (re instanceof RecordCoreStorageException) {
-            if (re.getMessage().contains("Transaction is no longer active")) {
-                return new RelationalException(re.getMessage(), ErrorCode.TRANSACTION_INACTIVE);
-            }
         } else if (re instanceof RecordCoreException) {
             return recordCoreToRelationalException((RecordCoreException) re);
         }
@@ -44,7 +41,12 @@ public final class ExceptionUtil {
     }
 
     private static RelationalException recordCoreToRelationalException(RecordCoreException re) {
-        return new RelationalException(ErrorCode.UNKNOWN, re);
+        ErrorCode code = ErrorCode.UNKNOWN;
+        if (re instanceof RecordCoreStorageException) {
+            code = ErrorCode.TRANSACTION_INACTIVE;
+        }
+        Map<String, Object> extraContext = re.getLogInfo();
+        return new RelationalException(code, re).withContext(extraContext);
     }
 
     private ExceptionUtil() {

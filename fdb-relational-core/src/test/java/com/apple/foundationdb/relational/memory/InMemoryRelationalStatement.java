@@ -37,15 +37,17 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.stream.Stream;
+
+import javax.annotation.Nonnull;
 
 public class InMemoryRelationalStatement implements RelationalStatement {
 
