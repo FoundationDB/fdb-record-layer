@@ -24,13 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.lucene.search.LuceneOptimizedMultiFieldQueryParser;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
 
@@ -65,7 +65,7 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
         final Pair<AnalyzerChooser, AnalyzerChooser> analyzerChooserPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index, LuceneAnalyzerType.FULL_TEXT);
         final String[] fieldNames = LuceneScanParameters.indexTextFields(index, store.getRecordMetaData()).toArray(new String[0]);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
-        final QueryParser parser = new MultiFieldQueryParser(fieldNames, analyzerChooserPair.getRight().chooseAnalyzer(searchString).getAnalyzer());
+        final QueryParser parser = new LuceneOptimizedMultiFieldQueryParser(fieldNames, analyzerChooserPair.getRight().chooseAnalyzer(searchString).getAnalyzer());
         parser.setDefaultOperator(QueryParser.Operator.OR);
         try {
             return parser.parse(searchString);
