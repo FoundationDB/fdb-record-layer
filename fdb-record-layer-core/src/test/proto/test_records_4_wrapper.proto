@@ -26,6 +26,21 @@ option java_outer_classname = "TestRecords4WrapperProto";
 
 import "record_metadata_options.proto";
 
+message ReviewerEndorsements {
+  required int64 endorsementId = 1;
+  optional StringList endorsementText = 2;
+}
+
+message ReviewerEndorsementsList {
+  repeated ReviewerEndorsements values = 1;
+}
+
+message RestaurantComplexReview {
+  required int64 reviewer = 1;
+  required int64 rating = 2;
+  optional ReviewerEndorsementsList endorsements = 3;
+}
+
 message RestaurantReviewer {
   required int64 id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
   required string name = 2 [(com.apple.foundationdb.record.field).index = {}];
@@ -59,11 +74,22 @@ message RestaurantReviewList {
   repeated RestaurantReview values = 1;
 }
 
+message RestaurantComplexReviewList {
+  repeated RestaurantComplexReview values = 1;
+}
+
 message RestaurantRecord {
   required int64 rest_no = 1 [(com.apple.foundationdb.record.field).primary_key = true];
   optional string name = 2 [(com.apple.foundationdb.record.field).index = {}];
   optional RestaurantReviewList reviews = 3;
   // repeated RestaurantTag tags = 4;
+  optional StringList customer = 5;
+}
+
+message RestaurantComplexRecord {
+  required int64 rest_no = 1;
+  optional string name = 2;
+  optional RestaurantComplexReviewList reviews = 4;
   optional StringList customer = 5;
 }
 

@@ -71,6 +71,15 @@ class TypeTest {
                                     .setReviews(TestRecords4WrapperProto.RestaurantReviewList.newBuilder().addValues(TestRecords4WrapperProto.RestaurantReview.newBuilder().setReviewer(random.nextInt()).setRating(random.nextInt()).build()).build())
                                     .build()),
                     Arguments.of(
+                            "TestRecords4WrapperProto.RestaurantComplexRecord", TestRecords4WrapperProto.RestaurantComplexRecord.newBuilder()
+                                    .setRestNo(random.nextLong())
+                                    .setName("randomString" + random.nextInt())
+                                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder().addAllValues(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt(), "randomString" + random.nextInt())).build())
+                                    .setReviews(TestRecords4WrapperProto.RestaurantComplexReviewList.newBuilder().addValues(TestRecords4WrapperProto.RestaurantComplexReview.newBuilder().setReviewer(random.nextInt()).setRating(random.nextInt())
+                                            .setEndorsements(TestRecords4WrapperProto.ReviewerEndorsementsList.newBuilder()
+                                                    .addValues(TestRecords4WrapperProto.ReviewerEndorsements.newBuilder().setEndorsementId(random.nextInt()).setEndorsementText(TestRecords4WrapperProto.StringList.newBuilder().addAllValues(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt())))))))
+                                    .build()),
+                    Arguments.of(
                             "TestRecords1Proto.MySimpleRecord", TestRecords1Proto.MySimpleRecord.newBuilder()
                                     .setRecNo(random.nextLong())
                                     .setStrValueIndexed("randomString" + random.nextInt())
@@ -134,12 +143,12 @@ class TypeTest {
             final Object expectedValue = entry.getValue();
             final Object actualValue = actual.getField(actualDescriptor.findFieldByName(entry.getKey().getName()));
             if (entry.getKey().isRepeated()) {
-                List<Object> expectedValueList = new ArrayList<>((Collection<?>) expectedValue);
-                List<Object> actualValueList = new ArrayList<>((Collection<?>) actualValue);
+                List<Object> expectedValueList = new ArrayList<>((Collection<?>)expectedValue);
+                List<Object> actualValueList = new ArrayList<>((Collection<?>)actualValue);
                 Assertions.assertEquals(expectedValueList.size(), actualValueList.size());
                 for (int i = 0; i < expectedValueList.size(); i++) {
                     if (entry.getKey().getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
-                        areEqual((Message) expectedValueList.get(i), (Message) actualValueList.get(i), actualDescriptor.findFieldByName(entry.getKey().getName()).getMessageType());
+                        areEqual((Message)expectedValueList.get(i), (Message)actualValueList.get(i), actualDescriptor.findFieldByName(entry.getKey().getName()).getMessageType());
                     } else {
                         Assertions.assertEquals(expectedValueList.get(i), actualValueList.get(i));
                     }

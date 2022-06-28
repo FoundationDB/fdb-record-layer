@@ -1628,29 +1628,26 @@ public interface Type extends Narrowable<Type> {
                     .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
             if (elementType.getTypeCode() == TypeCode.RECORD) {
                 Optional<String> typeNameOptional = typeRepositoryBuilder.defineAndResolveType(elementType);
-                System.out.println("elementType:" + elementType.getTypeCode());
-                System.out.println("typeName:" + typeNameOptional.get());
                 typeNameOptional.ifPresent(fdProto::setTypeName);
             } else {
-                fdProto.setType(elementType.getTypeCode().getProtoType());
+                fdProto.setType(Objects.requireNonNull(elementType.getTypeCode().getProtoType()));
             }
 
             DescriptorProtos.DescriptorProto dp = DescriptorProtos.DescriptorProto.newBuilder().addField(fdProto).setName("wrapperDescriptor").build();
             DescriptorProtos.FileDescriptorProto fileProto = DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(dp).build();
 
             try {
-                final Descriptors.FileDescriptor dep = Descriptors.FileDescriptor.buildFrom(
+                // not sure if there are simpler ways
+                final Descriptors.FileDescriptor dependency = Descriptors.FileDescriptor.buildFrom(
                         DescriptorProtos.FileDescriptorProto.newBuilder()
                                 .addAllMessageType(typeRepositoryBuilder.build().getMessageTypes().stream().map(typeRepositoryBuilder.build()::getMessageDescriptor).filter(Objects::nonNull).map(Descriptors.Descriptor::toProto).collect(Collectors.toUnmodifiableList()))
                                 .build(),
                         new Descriptors.FileDescriptor[] {});
-                Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(fileProto, List.of(dep).toArray(Descriptors.FileDescriptor[]::new));
+                Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(fileProto, List.of(dependency).toArray(Descriptors.FileDescriptor[]::new));
                 Descriptors.FieldDescriptor fieldDescriptor = file.findMessageTypeByName("wrapperDescriptor").findFieldByName(fdProto.getName());
                 fieldDescriptorMap.put("values", fieldDescriptor);
-                System.out.println("values fieldDescriptor:" + fieldDescriptor.toProto());
                 return Record.fromFieldDescriptorsMap(true, fieldDescriptorMap);
             } catch (Descriptors.DescriptorValidationException ignored) {
-                System.out.println("ignored exception:" + ignored.getMessage());
             }
             return elementType;
         }
