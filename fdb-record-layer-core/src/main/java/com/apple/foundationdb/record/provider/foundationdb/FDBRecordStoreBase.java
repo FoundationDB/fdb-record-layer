@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.FallbackCursor;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -67,6 +68,8 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -120,6 +123,8 @@ import java.util.function.Supplier;
  */
 @API(API.Status.MAINTAINED)
 public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataProvider {
+
+    Logger LOGGER = LoggerFactory.getLogger(FDBRecordStoreBase.class);
 
     /**
      * Get the untyped record store associated with this possibly typed store.
@@ -995,10 +1000,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                     return new FallbackCursor<>(remoteFetchCursor,
                             lastSuccessfulResult -> remoteFetchFallbackFrom(indexName, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties, lastSuccessfulResult));
                 } catch (Exception ex) {
-                    //                    if (LOGGER.isWarnEnabled()) {
-                    //                        LOGGER.warn(KeyValueLogMessage.of("Remote Fetch execution failed, falling back to Index scan",
-                    //                                LogMessageKeys.PLAN_HASH, planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)), ex);
-                    //                    }
+                    if (LOGGER.isWarnEnabled()) {
+                        LOGGER.warn(KeyValueLogMessage.of("scanIndexRecords: Remote Fetch execution failed, falling back to Index scan",
+                                LogMessageKeys.INDEX_NAME, indexName, ex));
+                    }
                     return scanIndexRecords(indexName, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
                 }
 
