@@ -68,7 +68,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     public void testGetIncrement() {
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
-        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS,2);
+        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, 2);
         directory.getContext().commit();
 
         try (FDBRecordContext context = fdb.openContext()) {
@@ -219,7 +219,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     public void testRename() {
         assertThrows(RecordCoreArgumentException.class, () -> directory.rename("NoExist", "newName"));
 
-        assertCorrectMetricCount(LuceneEvents.Waits.WAIT_LUCENE_RENAME,1);
+        assertCorrectMetricCount(LuceneEvents.Waits.WAIT_LUCENE_RENAME, 1);
     }
 
 

@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  * @param <T> type of the tag associated with each subspace
  */
 @API(API.Status.EXPERIMENTAL)
-public class BunchedMapScanEntry<K,V,T> {
+public class BunchedMapScanEntry<K, V, T> {
     @Nonnull private final Subspace subspace;
     @Nullable private final T subspaceTag;
     @Nonnull private final K key;

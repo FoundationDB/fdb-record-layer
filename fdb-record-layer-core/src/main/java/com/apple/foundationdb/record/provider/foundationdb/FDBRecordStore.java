@@ -3833,7 +3833,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that completes to the record count for the version checker
      */
     @Nonnull
-    @SuppressWarnings({"PMD.EmptyCatchBlock","PMD.CloseResource"})
+    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.CloseResource"})
     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
                                                                       @Nonnull Map<Index, List<RecordType>> indexes,
                                                                       @Nullable RecordType singleRecordTypeWithPrefixKey) {
@@ -4355,7 +4355,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private RecordCoreException recordCoreException(@Nonnull String msg, Object...keysAndValues) {
+    private RecordCoreException recordCoreException(@Nonnull String msg, Object... keysAndValues) {
         RecordCoreException err = new RecordCoreException(msg, keysAndValues);
         err.addLogInfo(subspaceProvider.logKey().toString(), subspaceProvider.toString(context));
         return err;

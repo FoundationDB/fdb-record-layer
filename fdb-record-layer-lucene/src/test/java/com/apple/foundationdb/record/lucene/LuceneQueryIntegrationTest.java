@@ -122,8 +122,8 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
                     .build();
             final RecordQueryPlan plan = planner.plan(rq);
             Set<String> appliedIndexNames = plan.getUsedIndexes();
-            Assertions.assertEquals(1,appliedIndexNames.size(),"index selection is incorrect");
-            Assertions.assertTrue(appliedIndexNames.contains(text2Index.getName()),"Did not select the correct index");
+            Assertions.assertEquals(1, appliedIndexNames.size(), "index selection is incorrect");
+            Assertions.assertTrue(appliedIndexNames.contains(text2Index.getName()), "Did not select the correct index");
         }
     }
 
@@ -144,8 +144,8 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
                     .build();
             final RecordQueryPlan plan = planner.plan(rq);
             Set<String> appliedIndexNames = plan.getUsedIndexes();
-            Assertions.assertEquals(1,appliedIndexNames.size(),"index selection is incorrect");
-            Assertions.assertTrue(appliedIndexNames.contains(nestedDualIndex2.getName()),"Did not select the correct index");
+            Assertions.assertEquals(1, appliedIndexNames.size(), "index selection is incorrect");
+            Assertions.assertTrue(appliedIndexNames.contains(nestedDualIndex2.getName()), "Did not select the correct index");
         }
     }
 

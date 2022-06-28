@@ -649,7 +649,7 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static Pair<String,Long>[] zipKeysAndValues(List<String> keys, List<Long> values) {
+    private static Pair<String, Long>[] zipKeysAndValues(List<String> keys, List<Long> values) {
         final Iterator<Long> valuesIter = values.iterator();
         return keys.stream()
                 .map( key -> new ImmutablePair<>(key, valuesIter.next()) )

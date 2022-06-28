@@ -153,7 +153,7 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
         }
 
         long curr = 0;
-        Map<Integer,Long> ranks = new HashMap<>();
+        Map<Integer, Long> ranks = new HashMap<>();
         if (hasNull) {
             curr += 1;
         }

@@ -77,7 +77,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         return index.getBooleanOption(IndexOptions.CLEAR_WHEN_ZERO, false);
     }
 
-    @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"})
+    @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod"})
     protected static AtomicMutation getAtomicMutation(@Nonnull Index index) {
         if (IndexTypes.COUNT.equals(index.getType())) {
             return getClearWhenZero(index) ? AtomicMutation.Standard.COUNT_CLEAR_WHEN_ZERO : AtomicMutation.Standard.COUNT;
@@ -214,7 +214,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         }
         final RecordCursor<IndexEntry> cursor = scan(IndexScanType.BY_GROUP, range,
                 null, new ScanProperties(ExecuteProperties.newBuilder().setIsolationLevel(isolationveLevel).build()));
-        final BiFunction<Tuple,Tuple,Tuple> aggregator = mutation.getAggregator();
+        final BiFunction<Tuple, Tuple, Tuple> aggregator = mutation.getAggregator();
         return cursor.reduce(mutation.getIdentity(), (accum, kv) -> aggregator.apply(accum, kv.getValue()));
     }
 

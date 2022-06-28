@@ -126,7 +126,7 @@ public class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<Loggable
         }
         Object[] exportedInfo = new Object[2 * logInfo.size()];
         int i = 0;
-        for (Map.Entry<String,Object> entry : logInfo.entrySet()) {
+        for (Map.Entry<String, Object> entry : logInfo.entrySet()) {
             exportedInfo[i] = entry.getKey();
             exportedInfo[i + 1] = entry.getValue();
             i += 2;

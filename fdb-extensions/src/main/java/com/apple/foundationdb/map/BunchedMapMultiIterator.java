@@ -51,7 +51,7 @@ import java.util.concurrent.CompletableFuture;
  * @param <T> type of tags associated with each subspace
  */
 @API(API.Status.EXPERIMENTAL)
-public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<BunchedMapScanEntry<K,V,T>> {
+public class BunchedMapMultiIterator<K, V, T> implements AsyncPeekIterator<BunchedMapScanEntry<K, V, T>> {
     @Nonnull private final AsyncPeekIterator<KeyValue> underlying;
     @Nonnull private final ReadTransaction tr;
     @Nonnull private final Subspace subspace;
@@ -64,12 +64,12 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
 
     @Nullable private CompletableFuture<Boolean> hasNextFuture;
     private boolean continuationSatisfied;
-    @Nullable private BunchedMapIterator<K,V> mapIterator;
+    @Nullable private BunchedMapIterator<K, V> mapIterator;
     @Nullable private Subspace currentSubspace;
     @Nullable private byte[] currentSubspaceSuffix;
     @Nullable private byte[] currentSubspaceKey;
     @Nullable private T currentSubspaceTag;
-    @Nullable private BunchedMapScanEntry<K,V,T> nextEntry;
+    @Nullable private BunchedMapScanEntry<K, V, T> nextEntry;
     @Nullable private K lastKey;
     private boolean hasCurrent;
     private int returned;
@@ -155,7 +155,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
                         }, tr.getExecutor()).thenCompose(vignore -> getNextMapIterator());
                     }
                 }
-                BunchedMapIterator<K,V> nextMapIterator = new BunchedMapIterator<>(
+                BunchedMapIterator<K, V> nextMapIterator = new BunchedMapIterator<>(
                         underlying,
                         tr,
                         nextSubspace,
@@ -173,7 +173,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
                         currentSubspaceSuffix = nextSubspaceSuffix;
                         currentSubspaceTag = nextSubspaceTag;
                         mapIterator = nextMapIterator;
-                        Map.Entry<K,V> mapEntry = mapIterator.next();
+                        Map.Entry<K, V> mapEntry = mapIterator.next();
                         nextEntry = new BunchedMapScanEntry<>(currentSubspace, currentSubspaceTag, mapEntry.getKey(), mapEntry.getValue());
                         return AsyncUtil.READY_TRUE;
                     } else {
@@ -202,7 +202,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
             if (mapIterator != null) {
                 hasNextFuture = mapIterator.onHasNext().thenCompose(mapHasNext -> {
                     if (mapHasNext) {
-                        Map.Entry<K,V> entry = mapIterator.next();
+                        Map.Entry<K, V> entry = mapIterator.next();
                         assert currentSubspace != null;
                         assert currentSubspaceKey != null;
                         nextEntry = new BunchedMapScanEntry<>(currentSubspace, currentSubspaceTag, entry.getKey(), entry.getValue());
@@ -230,7 +230,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
 
     @Override
     @Nonnull
-    public BunchedMapScanEntry<K,V,T> peek() {
+    public BunchedMapScanEntry<K, V, T> peek() {
         if (hasNext() && nextEntry != null) {
             return nextEntry;
         } else {
@@ -240,8 +240,8 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
 
     @Override
     @Nonnull
-    public BunchedMapScanEntry<K,V,T> next() {
-        BunchedMapScanEntry<K,V,T> nextEntry = peek();
+    public BunchedMapScanEntry<K, V, T> next() {
+        BunchedMapScanEntry<K, V, T> nextEntry = peek();
         lastKey = nextEntry.getKey();
         hasCurrent = false;
         hasNextFuture = null;

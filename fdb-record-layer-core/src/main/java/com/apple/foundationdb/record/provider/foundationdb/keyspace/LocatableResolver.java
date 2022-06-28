@@ -116,7 +116,7 @@ public abstract class LocatableResolver {
     @Nonnull
     private <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer,
                                               @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable,
-                                              Object...additionalLogMessageKeyValues) {
+                                              Object... additionalLogMessageKeyValues) {
         return database.runAsync(timer, null, context ->
                         // Explicitly get a read version for instrumentation purposes
                         context.getReadVersionAsync().thenCompose(ignore -> retriable.apply(context)),
@@ -127,7 +127,7 @@ public abstract class LocatableResolver {
     @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     private <T> CompletableFuture<T> runAsyncBorrowingReadVersion(@Nonnull FDBRecordContext parentContext,
                                                                   @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable,
-                                                                  Object...additionalLogMessageKeyValues) {
+                                                                  Object... additionalLogMessageKeyValues) {
         final FDBDatabaseRunner runner = parentContext.newRunner();
         boolean started = false;
         try {

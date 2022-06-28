@@ -79,7 +79,7 @@ public class BunchedMapScanTest extends FDBTestBase {
     private static Database db;
     private static Subspace bmSubspace;
     private static List<Subspace> subSubspaces;
-    private static BunchedMap<Tuple,Tuple> map;
+    private static BunchedMap<Tuple, Tuple> map;
     private static List<Tuple> keys;
     private static Tuple value;
 
@@ -138,14 +138,14 @@ public class BunchedMapScanTest extends FDBTestBase {
         });
     }
 
-    private void testScan(int limit, boolean reverse, @Nonnull BiFunction<Transaction,byte[],BunchedMapIterator<Tuple,Tuple>> iteratorFunction) {
+    private void testScan(int limit, boolean reverse, @Nonnull BiFunction<Transaction, byte[], BunchedMapIterator<Tuple, Tuple>> iteratorFunction) {
         try (Transaction tr = db.createTransaction()) {
             byte[] continuation = null;
             List<Tuple> readKeys = new ArrayList<>();
             Tuple lastKey = null;
             do {
                 int returned = 0;
-                BunchedMapIterator<Tuple,Tuple> bunchedMapIterator = iteratorFunction.apply(tr, continuation);
+                BunchedMapIterator<Tuple, Tuple> bunchedMapIterator = iteratorFunction.apply(tr, continuation);
                 while (bunchedMapIterator.hasNext()) {
                     Tuple toAdd = bunchedMapIterator.peek().getKey();
                     readKeys.add(toAdd);
@@ -217,7 +217,7 @@ public class BunchedMapScanTest extends FDBTestBase {
         getKeysContinuationRescan(1, reverse); // Limit of 1 to test every key
 
         // Unlimited should return null continuation.
-        BunchedMapIterator<Tuple,Tuple> iterator = map.scan(tr, bmSubspace, null, ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
+        BunchedMapIterator<Tuple, Tuple> iterator = map.scan(tr, bmSubspace, null, ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
         List<Tuple> readKeys = AsyncUtil.collectRemaining(AsyncUtil.mapIterator(iterator, Map.Entry::getKey)).get();
         if (reverse) {
             readKeys = Lists.reverse(readKeys);
@@ -262,7 +262,7 @@ public class BunchedMapScanTest extends FDBTestBase {
         try (Transaction tr1 = db.createTransaction(); Transaction tr2 = db.createTransaction()) {
             CompletableFuture.allOf(tr1.getReadVersion(), tr2.getReadVersion()).get();
 
-            BunchedMapIterator<Tuple,Tuple> iterator = map.scan(tr1, bmSubspace);
+            BunchedMapIterator<Tuple, Tuple> iterator = map.scan(tr1, bmSubspace);
             int count = MoreAsyncUtil.reduce(iterator, 0, (oldCount, item) -> oldCount + 1).get();
             assertEquals(keys.size(), count);
             tr1.addWriteConflictKey(Tuple.from(count).pack());
@@ -283,7 +283,7 @@ public class BunchedMapScanTest extends FDBTestBase {
         try (Transaction tr1 = db.createTransaction(); Transaction tr2 = db.createTransaction()) {
             CompletableFuture.allOf(tr1.getReadVersion(), tr2.getReadVersion()).get();
 
-            BunchedMapIterator<Tuple,Tuple> iterator = map.scan(tr1, bmSubspace);
+            BunchedMapIterator<Tuple, Tuple> iterator = map.scan(tr1, bmSubspace);
 
         }
     }
@@ -295,7 +295,7 @@ public class BunchedMapScanTest extends FDBTestBase {
             do {
                 List<Tuple> mostRecentReadKeys = new ArrayList<>();
                 int returned = 0;
-                BunchedMapIterator<Tuple,Tuple> bunchedMapIterator = map.scan(tr, subSubspaces.get(1), continuation, limit, reverse);
+                BunchedMapIterator<Tuple, Tuple> bunchedMapIterator = map.scan(tr, subSubspaces.get(1), continuation, limit, reverse);
                 while (bunchedMapIterator.hasNext()) {
                     Tuple toAdd = bunchedMapIterator.peek().getKey();
                     assertEquals(toAdd, bunchedMapIterator.next().getKey());
@@ -343,16 +343,16 @@ public class BunchedMapScanTest extends FDBTestBase {
     }
 
     private void testScanMulti(int limit, boolean reverse, List<List<Tuple>> keyLists,
-                               @Nonnull BiFunction<Transaction,byte[],BunchedMapMultiIterator<Tuple,Tuple,Long>> iteratorFunction) {
+                               @Nonnull BiFunction<Transaction, byte[], BunchedMapMultiIterator<Tuple, Tuple, Long>> iteratorFunction) {
         try (Transaction tr = db.createTransaction()) {
             byte[] continuation = null;
-            List<BunchedMapScanEntry<Tuple,Tuple,Long>> entryList = new ArrayList<>();
-            BunchedMapScanEntry<Tuple,Tuple,Long> lastEntry = null;
+            List<BunchedMapScanEntry<Tuple, Tuple, Long>> entryList = new ArrayList<>();
+            BunchedMapScanEntry<Tuple, Tuple, Long> lastEntry = null;
             do {
-                BunchedMapMultiIterator<Tuple,Tuple,Long> iterator = iteratorFunction.apply(tr, continuation);
+                BunchedMapMultiIterator<Tuple, Tuple, Long> iterator = iteratorFunction.apply(tr, continuation);
                 int returned = 0;
                 while (iterator.hasNext()) {
-                    BunchedMapScanEntry<Tuple,Tuple,Long> toAdd = iterator.peek();
+                    BunchedMapScanEntry<Tuple, Tuple, Long> toAdd = iterator.peek();
                     assertEquals(toAdd, iterator.next());
                     if (lastEntry != null) {
                         if (toAdd.getSubspaceTag().equals(lastEntry.getSubspaceTag())) {
@@ -378,7 +378,7 @@ public class BunchedMapScanTest extends FDBTestBase {
             Long tag = null;
             int pos = 0;
             int totalRead = 0;
-            for (BunchedMapScanEntry<Tuple,Tuple,Long> entry : entryList) {
+            for (BunchedMapScanEntry<Tuple, Tuple, Long> entry : entryList) {
                 if (tag == null || !tag.equals(entry.getSubspaceTag())) {
                     if (tag != null) {
                         assertEquals(tag + 1, entry.getSubspaceTag().longValue());
@@ -549,11 +549,11 @@ public class BunchedMapScanTest extends FDBTestBase {
     }
 
     @Test
-    public void scanMultiReversed() throws InterruptedException,ExecutionException {
+    public void scanMultiReversed() throws InterruptedException, ExecutionException {
         scanMultiTest(true);
     }
 
-    private void scanMultiTest(boolean reversed) throws InterruptedException,ExecutionException {
+    private void scanMultiTest(boolean reversed) throws InterruptedException, ExecutionException {
         clearAndPopulateMulti();
         final List<Integer> limits = Arrays.asList(ReadTransaction.ROW_LIMIT_UNLIMITED, 100, 50, 10, 7, 1);
 

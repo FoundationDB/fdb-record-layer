@@ -653,15 +653,15 @@ public class FDBStoreTimer extends StoreTimer {
         /** Total number of mutation operations. */
         MUTATIONS("mutations", false),
         /** JNI Calls.*/
-        JNI_CALLS("jni calls",false),
+        JNI_CALLS("jni calls", false),
         /**Bytes read.*/
-        BYTES_FETCHED("bytes fetched",false),
+        BYTES_FETCHED("bytes fetched", false),
         /** Number of network fetches performed.*/
-        RANGE_FETCHES("range fetches",false),
+        RANGE_FETCHES("range fetches", false),
         /** Number of Key-values fetched during a range scan.*/
-        RANGE_KEYVALUES_FETCHED("range key-values ",false ),
+        RANGE_KEYVALUES_FETCHED("range key-values ", false),
         /** Number of chunk reads that failed.*/
-        CHUNK_READ_FAILURES("read fails",false ),
+        CHUNK_READ_FAILURES("read fails", false),
         /** Count of commits that failed for any reason. */
         COMMITS_FAILED("commits failed", false),
         /** Count failed due to conflict. */
@@ -734,11 +734,11 @@ public class FDBStoreTimer extends StoreTimer {
         @Nonnull
         private final Set<Count> events;
 
-        CountAggregates(@Nonnull String title, @Nonnull Count...events) {
+        CountAggregates(@Nonnull String title, @Nonnull Count... events) {
             this(title, null, events);
         }
 
-        CountAggregates(@Nonnull String title, @Nullable String logKey, @Nonnull Count...events) {
+        CountAggregates(@Nonnull String title, @Nullable String logKey, @Nonnull Count... events) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : Aggregate.super.logKey();
             this.events = ImmutableSet.copyOf(validate((first, other) -> {

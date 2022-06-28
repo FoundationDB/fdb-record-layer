@@ -93,7 +93,7 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
                 })
                 .collect(Collectors.toList());
 
-        Function<TestRecords1Proto.MySimpleRecord,Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
+        Function<TestRecords1Proto.MySimpleRecord, Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
         Map<Integer, List<Message>> valueMap = group(records, indexValue);
         Map<Long, FDBRecordVersion> versionMap = new HashMap<>(records.size() + (recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size()));
         AtomicReference<FDBRecordVersion> greatestVersion = new AtomicReference<>(null);

@@ -1105,7 +1105,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                         @Nonnull final IndexOrphanBehavior orphanBehavior,
                                                                         @Nonnull final ExecuteState executeState) {
         final Tuple primaryKey = entry.getPrimaryKey();
-        return loadRecordInternal(primaryKey, executeState,false).thenApply(rec -> {
+        return loadRecordInternal(primaryKey, executeState, false).thenApply(rec -> {
             if (rec == null) {
                 switch (orphanBehavior) {
                     case SKIP:
