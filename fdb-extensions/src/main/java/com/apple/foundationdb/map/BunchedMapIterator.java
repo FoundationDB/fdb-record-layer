@@ -46,7 +46,7 @@ import java.util.concurrent.CompletableFuture;
  * @param <V> type of values in the map
  */
 @API(API.Status.EXPERIMENTAL)
-public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>> {
+public class BunchedMapIterator<K, V> implements AsyncPeekIterator<Map.Entry<K, V>> {
     @Nonnull private final AsyncPeekIterator<KeyValue> underlying;
     @Nonnull private final Subspace subspace;
     @Nonnull private final ReadTransaction tr;
@@ -58,7 +58,7 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
 
     @Nullable private CompletableFuture<Boolean> hasNextFuture;
     private boolean continuationSatisfied;
-    @Nullable private List<Map.Entry<K,V>> currEntryList;
+    @Nullable private List<Map.Entry<K, V>> currEntryList;
     private int currEntryIndex;
     @Nullable private K lastKey;
     private int returned;
@@ -118,7 +118,7 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
                         }
                         underlying.next(); // Advance the underlying scan.
                         final K boundaryKey = bunchedMap.getSerializer().deserializeKey(underlyingNext.getKey(), subspaceKey.length);
-                        List<Map.Entry<K,V>> nextEntryList = bunchedMap.getSerializer().deserializeEntries(boundaryKey, underlyingNext.getValue());
+                        List<Map.Entry<K, V>> nextEntryList = bunchedMap.getSerializer().deserializeEntries(boundaryKey, underlyingNext.getValue());
                         if (nextEntryList.isEmpty()) {
                             // No entries in list. Try next key.
                             return underlying.onHasNext();
@@ -164,7 +164,7 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
 
     @Override
     @Nonnull
-    public Map.Entry<K,V> peek() {
+    public Map.Entry<K, V> peek() {
         if (hasNext()) {
             // The hasNext method should enforce that currEntryList is not null
             // and that currEntryIndex is in the right range.
@@ -179,8 +179,8 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
 
     @Override
     @Nonnull
-    public Map.Entry<K,V> next() {
-        Map.Entry<K,V> nextEntry = peek();
+    public Map.Entry<K, V> next() {
+        Map.Entry<K, V> nextEntry = peek();
         lastKey = nextEntry.getKey();
         hasNextFuture = null;
         currEntryIndex += reverse ? -1 : 1;

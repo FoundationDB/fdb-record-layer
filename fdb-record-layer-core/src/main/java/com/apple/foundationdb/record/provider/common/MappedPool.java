@@ -48,17 +48,17 @@ public class MappedPool<K, V, E extends Exception> {
     protected static final int DEFAULT_MAX_ENTRIES = 64;
     protected final Cache<K, Queue<V>> pool;
     protected Callable<Queue<V>> loader;
-    private final MappedPoolProvider<K,V,E> mappedPoolProvider;
+    private final MappedPoolProvider<K, V, E> mappedPoolProvider;
 
-    public MappedPool(MappedPoolProvider<K,V,E> mappedPoolProvider) {
+    public MappedPool(MappedPoolProvider<K, V, E> mappedPoolProvider) {
         this(mappedPoolProvider, DEFAULT_POOL_SIZE);
     }
 
-    public MappedPool(MappedPoolProvider<K,V,E> mappedPoolProvider, int poolSize) {
+    public MappedPool(MappedPoolProvider<K, V, E> mappedPoolProvider, int poolSize) {
         this(mappedPoolProvider, poolSize, DEFAULT_MAX_ENTRIES);
     }
 
-    public MappedPool(MappedPoolProvider<K,V,E> mappedPoolProvider, int defaultPoolSize, int maxEntries) {
+    public MappedPool(MappedPoolProvider<K, V, E> mappedPoolProvider, int defaultPoolSize, int maxEntries) {
         this.pool = CacheBuilder.newBuilder().maximumSize(maxEntries).build();
         this.loader = () -> new ArrayBlockingQueue<>(defaultPoolSize);
         this.mappedPoolProvider = mappedPoolProvider;
@@ -110,7 +110,7 @@ public class MappedPool<K, V, E extends Exception> {
      * @param <V> value type to be pooled
      * @param <E> exception that can be throw, must extend Exception
      */
-    public interface MappedPoolProvider<K,V,E extends Exception> {
+    public interface MappedPoolProvider<K, V, E extends Exception> {
         V get(K key) throws E;
     }
 

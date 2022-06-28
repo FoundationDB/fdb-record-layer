@@ -266,7 +266,7 @@ public class StoreTimer {
          * @throws RecordCoreArgumentException if the validation assumptions are violated
          */
         @SuppressWarnings("unchecked")
-        default <T extends Event> T[] validate(@Nonnull T...events) {
+        default <T extends Event> T[] validate(@Nonnull T... events) {
             return validate((a, b) -> { return; }, events);
         }
 
@@ -282,7 +282,7 @@ public class StoreTimer {
          * @throws RecordCoreArgumentException if the validation assumptions are violated
          */
         @SuppressWarnings("unchecked")
-        default <T extends Event> T[] validate(@Nonnull BiConsumer<T, T> extraCheck, @Nonnull T...events) {
+        default <T extends Event> T[] validate(@Nonnull BiConsumer<T, T> extraCheck, @Nonnull T... events) {
             if (events.length == 0) {
                 throw new RecordCoreArgumentException("At least one event must be supplied to aggregate");
             }

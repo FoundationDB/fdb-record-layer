@@ -44,15 +44,15 @@ class EventKeeperTranslator implements EventKeeper {
     // is preloaded with the old names.
     static {
         eventKeeperMap.put(EventKeeper.Events.JNI_CALL,
-                new Count("JNI_CALLS","jni calls", false));
+                new Count("JNI_CALLS", "jni calls", false));
         eventKeeperMap.put(EventKeeper.Events.RANGE_QUERY_FETCHES,
-                new Count("RANGE_FETCHES","range fetches", false));
+                new Count("RANGE_FETCHES", "range fetches", false));
         eventKeeperMap.put(EventKeeper.Events.RANGE_QUERY_RECORDS_FETCHED,
-                new Count("RANGE_KEYVALUES_FETCHED","range key-values ", false));
+                new Count("RANGE_KEYVALUES_FETCHED", "range key-values ", false));
         eventKeeperMap.put(EventKeeper.Events.RANGE_QUERY_CHUNK_FAILED,
-                new Count("CHUNK_READ_FAILURES","read fails", false));
+                new Count("CHUNK_READ_FAILURES", "read fails", false));
         eventKeeperMap.put(EventKeeper.Events.RANGE_QUERY_FETCH_TIME_NANOS,
-                new Event("FETCHES","fetches"));
+                new Event("FETCHES", "fetches"));
     }
 
     @Nullable

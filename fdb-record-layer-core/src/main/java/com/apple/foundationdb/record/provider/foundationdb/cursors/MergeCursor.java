@@ -111,7 +111,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
     // The caller always ignores the result anyway and just uses this as a signal, so it's not
     // a big loss.
     @Nonnull
-    @SuppressWarnings({"squid:S1452","PMD.CloseResource"})
+    @SuppressWarnings({"squid:S1452", "PMD.CloseResource"})
     protected static <T, S extends MergeCursorState<T>> CompletableFuture<?> whenAny(@Nonnull List<S> cursorStates) {
         List<S> nonDoneCursors = new ArrayList<>(cursorStates.size());
         for (S cursorState : cursorStates) {

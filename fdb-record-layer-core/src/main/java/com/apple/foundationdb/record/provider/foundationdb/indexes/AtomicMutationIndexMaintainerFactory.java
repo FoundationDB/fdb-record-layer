@@ -59,7 +59,7 @@ import java.util.List;
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.MAINTAINED)
 public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFactory {
-    @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"}) // Support the deprecated names for compatibility.
+    @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod"}) // Support the deprecated names for compatibility.
     static final String[] TYPES = {
             IndexTypes.COUNT, IndexTypes.COUNT_UPDATES, IndexTypes.COUNT_NOT_NULL, IndexTypes.SUM,
             IndexTypes.MIN_EVER_TUPLE, IndexTypes.MAX_EVER_TUPLE,

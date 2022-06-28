@@ -58,7 +58,7 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
     private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                               int agents, boolean overlap, boolean splitLongRecords) {
         Index index = new Index("newIndex", field("num_value_2"));
-        Function<FDBQueriedRecord<Message>,Integer> projection = rec -> {
+        Function<FDBQueriedRecord<Message>, Integer> projection = rec -> {
             TestRecords1Proto.MySimpleRecord simple = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build();
             if (simple.hasNumValue2()) {
                 return simple.getNumValue2();
@@ -79,7 +79,7 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
                 })
                 .collect(Collectors.toList());
 
-        Function<TestRecords1Proto.MySimpleRecord,Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
+        Function<TestRecords1Proto.MySimpleRecord, Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
         Map<Integer, List<Message>> valueMap = group(records, indexValue);
 
         Runnable beforeBuild = () -> {

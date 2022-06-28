@@ -650,14 +650,14 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            try (RecordCursorIterator<? extends Pair<Message,Long>> cursor =
+            try (RecordCursorIterator<? extends Pair<Message, Long>> cursor =
                          recordStore.executeQuery(plan)
                                  .mapPipelined(record -> ranker.eval(recordStore, EvaluationContext.EMPTY, record.getStoredRecord())
                                          .thenApply(rank -> new ImmutablePair<>(record.getRecord(), rank)), recordStore.getPipelineSize(PipelineOperation.RECORD_FUNCTION))
                                  .asIterator()) {
                 long rank = 0;
                 while (cursor.hasNext()) {
-                    Pair<Message,Long> recWithRank = cursor.next();
+                    Pair<Message, Long> recWithRank = cursor.next();
                     TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                     myrec.mergeFrom(recWithRank.getLeft());
                     assertEquals((Long)rank++, recWithRank.getRight());

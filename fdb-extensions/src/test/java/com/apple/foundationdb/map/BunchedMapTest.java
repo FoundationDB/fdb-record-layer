@@ -84,7 +84,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public class BunchedMapTest extends FDBTestBase {
     private static final BunchedTupleSerializer serializer = BunchedTupleSerializer.instance();
-    private static final BunchedMap<Tuple,Tuple> map;
+    private static final BunchedMap<Tuple, Tuple> map;
     private static Subspace bmSubspace;
     private static Database db;
 
@@ -182,7 +182,7 @@ public class BunchedMapTest extends FDBTestBase {
                 List<KeyValue> rangeKVs = tr.getRange(bmSubspace.range()).asList().join();
                 assertEquals(1, rangeKVs.size());
                 assertArrayEquals(bmSubspace.pack(minSoFar), rangeKVs.get(0).getKey());
-                List<Map.Entry<Tuple,Tuple>> entryList = testTuples.subList(0, i + 1).stream()
+                List<Map.Entry<Tuple, Tuple>> entryList = testTuples.subList(0, i + 1).stream()
                         .sorted()
                         .map(t -> new AbstractMap.SimpleImmutableEntry<>(t, value))
                         .collect(Collectors.toList());
@@ -262,7 +262,7 @@ public class BunchedMapTest extends FDBTestBase {
                     .map(KeyValue::getKey)
                     .map(bmSubspace::unpack)
                     .collect(Collectors.toList());
-            List<Map.Entry<Tuple,Tuple>> entryList = rangeKVs.stream()
+            List<Map.Entry<Tuple, Tuple>> entryList = rangeKVs.stream()
                     .flatMap(kv -> serializer.deserializeEntries(bmSubspace.unpack(kv.getKey()), kv.getValue()).stream())
                     .collect(Collectors.toList());
             System.out.println(entryList);
@@ -271,7 +271,7 @@ public class BunchedMapTest extends FDBTestBase {
         }
     }
 
-    private void runWithTwoTrs(@Nonnull BiConsumer<? super Transaction,? super Transaction> operation,
+    private void runWithTwoTrs(@Nonnull BiConsumer<? super Transaction, ? super Transaction> operation,
                                boolean legal,
                                @Nonnull List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
         final String id = "two-trs-" + UUID.randomUUID().toString();
@@ -502,7 +502,7 @@ public class BunchedMapTest extends FDBTestBase {
         }, false, Arrays.asList(Tuple.from(97L), Tuple.from(104L), Tuple.from(110L)));
 
         try (Transaction tr = db.createTransaction()) {
-            List<Map.Entry<Tuple,Tuple>> entryList = AsyncUtil.collectRemaining(map.scan(tr, bmSubspace)).get();
+            List<Map.Entry<Tuple, Tuple>> entryList = AsyncUtil.collectRemaining(map.scan(tr, bmSubspace)).get();
             System.out.println(entryList);
         }
     }
@@ -525,7 +525,7 @@ public class BunchedMapTest extends FDBTestBase {
 
         final List<CompletableFuture<Void>> workers = Stream.generate(() -> {
             int bunchSize = r.nextInt(15) + 1;
-            BunchedMap<Tuple,Tuple> workerMap = new BunchedMap<>(serializer, Comparator.naturalOrder(), bunchSize);
+            BunchedMap<Tuple, Tuple> workerMap = new BunchedMap<>(serializer, Comparator.naturalOrder(), bunchSize);
             AtomicInteger trCount = new AtomicInteger(0);
             return AsyncUtil.whileTrue(() -> {
                 final Transaction tr = db.createTransaction();
@@ -618,7 +618,7 @@ public class BunchedMapTest extends FDBTestBase {
                     Subspace mapLogSubspace = logSubspace.subspace(Tuple.from(mapIndex.get()));
                     CompletableFuture<List<Tuple>> logFuture = AsyncUtil.mapIterable(tr.getRange(mapLogSubspace.range()), kv -> Tuple.fromBytes(kv.getValue())).asList();
                     // Verify integrity and then grab all of the keys and values.
-                    CompletableFuture<List<Map.Entry<Tuple,Tuple>>> contentFuture = AsyncUtil.collectRemaining(map.scan(tr, mapSubspace));
+                    CompletableFuture<List<Map.Entry<Tuple, Tuple>>> contentFuture = AsyncUtil.collectRemaining(map.scan(tr, mapSubspace));
                     CompletableFuture<Void> integrityFuture = map.verifyIntegrity(tr, mapSubspace);
                     return integrityFuture.thenCompose(vignore -> contentFuture.thenCombine(logFuture, (mapContents, logEntries) -> {
                         Map<Tuple, Tuple> mapCopy = new TreeMap<>();

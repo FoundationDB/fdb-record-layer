@@ -263,7 +263,7 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
 
         // Iteration 2, start with previous continuation, reach end (before limit)
         byte[] continuation = result.getContinuation().toBytes();
-        assertSamePlansWithContinuation(planUnderTest, continuation, 0, 200,16, 1, 66, false, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
+        assertSamePlansWithContinuation(planUnderTest, continuation, 0, 200, 16, 1, 66, false, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
     }
 
     @DualPlannerTest

@@ -1323,7 +1323,7 @@ public class Comparisons {
         @Nullable
         private final Descriptors.FieldDescriptor.JavaType javaType;
 
-        @SuppressWarnings({"rawtypes","unchecked"})
+        @SuppressWarnings({"rawtypes", "unchecked"})
         public ListComparison(@Nonnull Type type, @Nonnull List comparand) {
             this.type = type;
             switch (this.type) {

@@ -40,7 +40,7 @@ public class ByteArrayUtil2 {
     private static final int MAXIMUM_PRINTABLE_CHARACTER = 127;
 
     private static final char[] HEX_CHARS =
-            { '0','1','2','3','4','5','6','7','8','9','A','B','C','D', 'E', 'F' };
+            { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
     @Nullable
     public static String toHexString(@Nullable byte[] bytes) {

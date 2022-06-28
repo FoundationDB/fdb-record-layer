@@ -123,14 +123,14 @@ public class MoreAsyncUtil {
      */
     @Nonnull
     public static <T> AsyncIterable<T> filterIterable(@Nonnull final AsyncIterable<T> iterable,
-                                                      @Nonnull final Function<T,Boolean> filter) {
+                                                      @Nonnull final Function<T, Boolean> filter) {
         return filterIterable(ForkJoinPool.commonPool(), iterable, filter);
     }
 
     @Nonnull
     public static <T> AsyncIterable<T> filterIterable(@Nonnull Executor executor,
                                                       @Nonnull final AsyncIterable<T> iterable,
-                                                      @Nonnull final Function<T,Boolean> filter) {
+                                                      @Nonnull final Function<T, Boolean> filter) {
         return new AsyncIterable<T>() {
             @Nonnull
             @Override
@@ -225,7 +225,7 @@ public class MoreAsyncUtil {
     public static <T> AsyncIterable<T> dedupIterable(@Nonnull Executor executor,
                                                      @Nonnull final AsyncIterable<T> iterable) {
         return filterIterable(executor, iterable,
-                new Function<T,Boolean>() {
+                new Function<T, Boolean>() {
                     private Object lastObj;
 
                     @Nonnull
@@ -384,17 +384,17 @@ public class MoreAsyncUtil {
      * @return the results of all the {@code AsyncIterable}s returned by func for each value of iterable, concatenated
      */
     @Nonnull
-    public static <T1,T2> AsyncIterable<T2> mapConcatIterable(@Nonnull final AsyncIterable<T1> iterable,
-                                                              @Nonnull final Function<T1,AsyncIterable<T2>> func,
-                                                              final int pipelineSize) {
+    public static <T1, T2> AsyncIterable<T2> mapConcatIterable(@Nonnull final AsyncIterable<T1> iterable,
+                                                               @Nonnull final Function<T1, AsyncIterable<T2>> func,
+                                                               final int pipelineSize) {
         return mapConcatIterable(ForkJoinPool.commonPool(), iterable, func, pipelineSize);
     }
 
     @Nonnull
-    public static <T1,T2> AsyncIterable<T2> mapConcatIterable(@Nonnull Executor executor,
-                                                              @Nonnull final AsyncIterable<T1> iterable,
-                                                              @Nonnull final Function<T1,AsyncIterable<T2>> func,
-                                                              final int pipelineSize) {
+    public static <T1, T2> AsyncIterable<T2> mapConcatIterable(@Nonnull Executor executor,
+                                                               @Nonnull final AsyncIterable<T1> iterable,
+                                                               @Nonnull final Function<T1, AsyncIterable<T2>> func,
+                                                               final int pipelineSize) {
         return new AsyncIterable<T2>() {
             @Nonnull
             @Override
@@ -540,7 +540,7 @@ public class MoreAsyncUtil {
      */
     @Nonnull
     static <T> AsyncIterable<T> filterToIterable(final T item,
-                                                 @Nonnull final Function<T,CompletableFuture<Boolean>> filter) {
+                                                 @Nonnull final Function<T, CompletableFuture<Boolean>> filter) {
         return new AsyncIterable<T>() {
             @Nullable
             @Override
@@ -620,7 +620,7 @@ public class MoreAsyncUtil {
      */
     @Nonnull
     public static <T> AsyncIterable<T> filterIterablePipelined(@Nonnull AsyncIterable<T> iterable,
-                                                               @Nonnull final Function<T,CompletableFuture<Boolean>> filter,
+                                                               @Nonnull final Function<T, CompletableFuture<Boolean>> filter,
                                                                int pipelineSize) {
         return filterIterablePipelined(ForkJoinPool.commonPool(), iterable, filter, pipelineSize);
     }
@@ -628,7 +628,7 @@ public class MoreAsyncUtil {
     @Nonnull
     public static <T> AsyncIterable<T> filterIterablePipelined(@Nonnull Executor executor,
                                                                @Nonnull AsyncIterable<T> iterable,
-                                                               @Nonnull final Function<T,CompletableFuture<Boolean>> filter,
+                                                               @Nonnull final Function<T, CompletableFuture<Boolean>> filter,
                                                                int pipelineSize) {
         return mapConcatIterable(iterable,
                 item -> filterToIterable(item, filter),
@@ -644,8 +644,8 @@ public class MoreAsyncUtil {
      * @return a new {@code AsyncIterable} containing the result of func(item)
      */
     @Nonnull
-    static <T1,T2> AsyncIterable<T2> mapToIterable(final T1 item,
-                                                   @Nonnull final Function<T1,CompletableFuture<T2>> func) {
+    static <T1, T2> AsyncIterable<T2> mapToIterable(final T1 item,
+                                                    @Nonnull final Function<T1, CompletableFuture<T2>> func) {
         return new AsyncIterable<T2>() {
             @Nullable
             @Override
@@ -726,9 +726,9 @@ public class MoreAsyncUtil {
      * @return a new {@code AsyncIterable} with the results of applying func to each of the elements of iterable
      */
     @Nonnull
-    public static <T1,T2> AsyncIterable<T2> mapIterablePipelined(@Nonnull AsyncIterable<T1> iterable,
-                                                                 @Nonnull final Function<T1,CompletableFuture<T2>> func,
-                                                                 int pipelineSize) {
+    public static <T1, T2> AsyncIterable<T2> mapIterablePipelined(@Nonnull AsyncIterable<T1> iterable,
+                                                                  @Nonnull final Function<T1, CompletableFuture<T2>> func,
+                                                                  int pipelineSize) {
         return mapConcatIterable(iterable,
                 item -> mapToIterable(item, func),
                 pipelineSize);
@@ -756,15 +756,15 @@ public class MoreAsyncUtil {
      * @return the reduced result
      */
     @Nullable
-    public static <U,T> CompletableFuture<U> reduce(@Nonnull AsyncIterator<T> iterator, U identity,
-                                                    BiFunction<U, ? super T, U> accumulator) {
+    public static <U, T> CompletableFuture<U> reduce(@Nonnull AsyncIterator<T> iterator, U identity,
+                                                     BiFunction<U, ? super T, U> accumulator) {
         return reduce(ForkJoinPool.commonPool(), iterator, identity, accumulator);
     }
 
     @Nullable
-    public static <U,T> CompletableFuture<U> reduce(@Nonnull Executor executor,
-                                                    @Nonnull AsyncIterator<T> iterator, U identity,
-                                                    BiFunction<U, ? super T, U> accumulator) {
+    public static <U, T> CompletableFuture<U> reduce(@Nonnull Executor executor,
+                                                     @Nonnull AsyncIterator<T> iterator, U identity,
+                                                     BiFunction<U, ? super T, U> accumulator) {
         Holder<U> holder = new Holder<>(identity);
         return whileTrue(() -> iterator.onHasNext().thenApply(hasNext -> {
             if (hasNext) {
@@ -869,8 +869,8 @@ public class MoreAsyncUtil {
      */
     public static <V> CompletableFuture<V> composeWhenComplete(
             @Nonnull CompletableFuture<V> future,
-            @Nonnull BiFunction<V,Throwable,CompletableFuture<Void>> handler,
-            @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
+            @Nonnull BiFunction<V, Throwable, CompletableFuture<Void>> handler,
+            @Nullable Function<Throwable, RuntimeException> exceptionMapper) {
         return composeWhenCompleteAndHandle(
                 future,
                 (result, exception) -> handler.apply(result, exception).thenApply(vignore -> result),
@@ -892,8 +892,8 @@ public class MoreAsyncUtil {
      */
     public static <V, T> CompletableFuture<T> composeWhenCompleteAndHandle(
             @Nonnull CompletableFuture<V> future,
-            @Nonnull BiFunction<V,Throwable,? extends CompletableFuture<T>> handler,
-            @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
+            @Nonnull BiFunction<V, Throwable, ? extends CompletableFuture<T>> handler,
+            @Nullable Function<Throwable, RuntimeException> exceptionMapper) {
         return AsyncUtil.composeHandle(future, (futureResult, futureException) -> {
             try {
                 return handler.apply(futureResult, futureException).handle((handlerResult, handlerAsyncException) -> {

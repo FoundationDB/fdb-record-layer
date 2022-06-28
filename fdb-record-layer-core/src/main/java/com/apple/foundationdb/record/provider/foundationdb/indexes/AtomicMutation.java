@@ -62,7 +62,7 @@ public interface AtomicMutation {
      * @see com.apple.foundationdb.record.RecordCursor#reduce
      */
     @Nonnull
-    BiFunction<Tuple,Tuple,Tuple> getAggregator();
+    BiFunction<Tuple, Tuple, Tuple> getAggregator();
 
     /**
      * Get the initial value for aggregating multiple index entries.
@@ -242,7 +242,7 @@ public interface AtomicMutation {
 
         @Override
         @Nonnull
-        public BiFunction<Tuple,Tuple,Tuple> getAggregator() {
+        public BiFunction<Tuple, Tuple, Tuple> getAggregator() {
             switch (this) {
                 case COUNT:
                 case COUNT_UPDATES:

@@ -525,15 +525,15 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Nonnull
-    public <M extends Message> CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull EvaluationContext context,
-                                                                                          @Nonnull TimeWindowForFunction timeWindow,
-                                                                                          @Nonnull FDBRecord<M> record) {
+    public <M extends Message> CompletableFuture<Pair<Long, Tuple>> timeWindowRankAndEntry(@Nonnull EvaluationContext context,
+                                                                                           @Nonnull TimeWindowForFunction timeWindow,
+                                                                                           @Nonnull FDBRecord<M> record) {
         return timeWindowRankAndEntry(record, timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context));
     }
 
     @Nonnull
-    public <M extends Message> CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull FDBRecord<M> record,
-                                                                                          int type, long timestamp) {
+    public <M extends Message> CompletableFuture<Pair<Long, Tuple>> timeWindowRankAndEntry(@Nonnull FDBRecord<M> record,
+                                                                                           int type, long timestamp) {
         final List<IndexEntry> indexEntries = evaluateIndex(record);
 
         final CompletableFuture<TimeWindowLeaderboard> leaderboardFuture = oldestLeaderboardMatching(type, timestamp);

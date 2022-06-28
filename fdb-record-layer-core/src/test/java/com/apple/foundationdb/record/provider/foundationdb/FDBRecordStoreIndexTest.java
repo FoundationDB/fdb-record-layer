@@ -329,7 +329,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         LONG,
         COMPATIBLE;
 
-        @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"})
+        @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod"})
         public String min() {
             switch (this) {
                 case TUPLE:
@@ -343,7 +343,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             }
         }
 
-        @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"})
+        @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod"})
         public String max() {
             switch (this) {
                 case TUPLE:
