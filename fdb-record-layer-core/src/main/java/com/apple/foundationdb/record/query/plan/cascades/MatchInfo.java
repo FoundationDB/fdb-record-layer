@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -102,10 +102,8 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public List<PartialMatch> getChildPartialMatches() {
-        return quantifierToPartialMatchMap.values()
-                .stream().map(Equivalence.Wrapper::get)
-                .collect(ImmutableList.toImmutableList());
+    public IdentityBiMap<Quantifier, PartialMatch> getQuantifierToPartialMatchMap() {
+        return quantifierToPartialMatchMap;
     }
 
     @Nonnull
@@ -248,7 +246,7 @@ public class MatchInfo {
                 .map(Equivalence.Wrapper::get)
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
-
+        
         final List<BoundKeyPart> orderingKeyParts;
         if (regularQuantifiers.size() == 1) {
             final var regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);

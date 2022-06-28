@@ -101,14 +101,14 @@ import javax.annotation.Nullable;
  * @param <V> type of values in the map
  */
 @API(API.Status.EXPERIMENTAL)
-public class BunchedMap<K,V> {
+public class BunchedMap<K, V> {
     private static final int MAX_VALUE_SIZE = 10_000; // The actual max value size is 100_000, but let's stay clear of that
     private static final byte[] ZERO_ARRAY = { 0x00 };
 
     @Nonnull
     private final Comparator<K> keyComparator;
     @Nonnull
-    private final BunchedSerializer<K,V> serializer;
+    private final BunchedSerializer<K, V> serializer;
     private final int bunchSize;
 
     /**
@@ -126,7 +126,7 @@ public class BunchedMap<K,V> {
      * @param keyComparator comparator used to order keys
      * @param bunchSize maximum size of bunch within the database
      */
-    public BunchedMap(@Nonnull BunchedSerializer<K,V> serializer, @Nonnull Comparator<K> keyComparator, int bunchSize) {
+    public BunchedMap(@Nonnull BunchedSerializer<K, V> serializer, @Nonnull Comparator<K> keyComparator, int bunchSize) {
         this.serializer = serializer;
         this.keyComparator = keyComparator;
         this.bunchSize = bunchSize;
@@ -140,7 +140,7 @@ public class BunchedMap<K,V> {
      *
      * @param model original {@link BunchedMap} to base the new one on
      */
-    protected BunchedMap(@Nonnull BunchedMap<K,V> model) {
+    protected BunchedMap(@Nonnull BunchedMap<K, V> model) {
         this(model.serializer, model.keyComparator, model.bunchSize);
     }
 
@@ -269,12 +269,12 @@ public class BunchedMap<K,V> {
     // comment. But in addition to proving them correct, a fair amount of testing has gone into
     // trying to verify that they work as intended through randomized testing.
 
-    private void addEntryListReadConflictRange(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes, @Nonnull List<Map.Entry<K,V>> entryList) {
+    private void addEntryListReadConflictRange(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes, @Nonnull List<Map.Entry<K, V>> entryList) {
         byte[] end = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(entryList.get(entryList.size() - 1).getKey()), ZERO_ARRAY);
         tr.addReadConflictRange(keyBytes, end);
     }
 
-    private void insertAlone(@Nonnull Transaction tr, @Nonnull byte[] keyBytes, @Nonnull Map.Entry<K,V> entry) {
+    private void insertAlone(@Nonnull Transaction tr, @Nonnull byte[] keyBytes, @Nonnull Map.Entry<K, V> entry) {
         tr.addReadConflictKey(keyBytes);
         byte[] valueBytes = serializer.serializeEntries(Collections.singletonList(entry));
         tr.set(keyBytes, valueBytes);
@@ -307,7 +307,7 @@ public class BunchedMap<K,V> {
     }
 
     private void writeEntryList(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                                @Nullable KeyValue oldKv, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K,V>> entryList,
+                                @Nullable KeyValue oldKv, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K, V>> entryList,
                                 @Nullable KeyValue kvAfter, boolean isFirst, boolean isLast) {
         byte[] serializedBytes = serializer.serializeEntries(entryList);
         if (serializedBytes.length > MAX_VALUE_SIZE) {
@@ -325,9 +325,9 @@ public class BunchedMap<K,V> {
                 // work. If either one exceeds that maximum value size, then the insertion fails and an error
                 // bubbles up to the user. This is worse than there not being an error, but it is safe.
                 int splitPoint = entryList.size() / 2;
-                List<Map.Entry<K,V>> firstEntries = entryList.subList(0, splitPoint);
+                List<Map.Entry<K, V>> firstEntries = entryList.subList(0, splitPoint);
                 byte[] firstSerialized = serializer.serializeEntries(firstEntries);
-                List<Map.Entry<K,V>> secondEntries = entryList.subList(splitPoint, entryList.size());
+                List<Map.Entry<K, V>> secondEntries = entryList.subList(splitPoint, entryList.size());
                 byte[] secondSerialized = serializer.serializeEntries(secondEntries);
                 writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, oldKv, newKey, firstEntries, firstSerialized);
                 byte[] secondKey = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(secondEntries.get(0).getKey()));
@@ -361,7 +361,7 @@ public class BunchedMap<K,V> {
     }
 
     private void insertAfter(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                             @Nullable KeyValue kvAfter, @Nonnull Map.Entry<K,V> entry) {
+                             @Nullable KeyValue kvAfter, @Nonnull Map.Entry<K, V> entry) {
         if (kvAfter == null) {
             insertAlone(tr, keyBytes, entry);
         } else {
@@ -372,7 +372,7 @@ public class BunchedMap<K,V> {
                 insertAlone(tr, keyBytes, entry);
             } else {
                 // Bunch this entry with the next one.
-                List<Map.Entry<K,V>> newEntryList = new ArrayList<>(afterEntryList.size() + 1);
+                List<Map.Entry<K, V>> newEntryList = new ArrayList<>(afterEntryList.size() + 1);
                 newEntryList.add(entry);
                 newEntryList.addAll(afterEntryList);
                 writeEntryList(tr, subspaceKey, keyBytes, kvAfter, keyBytes, newEntryList, null, true, false);
@@ -383,20 +383,20 @@ public class BunchedMap<K,V> {
     @Nonnull
     private Optional<V> insertEntry(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
                                     @Nonnull K key, @Nonnull V value, @Nullable KeyValue kvBefore, @Nullable KeyValue kvAfter,
-                                    @Nonnull Map.Entry<K,V> entry) {
+                                    @Nonnull Map.Entry<K, V> entry) {
         if (kvBefore == null) {
             insertAfter(tr, subspaceKey, keyBytes, kvAfter, entry);
             return Optional.empty();
         } else {
             K beforeKey = serializer.deserializeKey(kvBefore.getKey(), subspaceKey.length);
-            List<Map.Entry<K,V>> beforeEntryList = serializer.deserializeEntries(beforeKey, kvBefore.getValue());
+            List<Map.Entry<K, V>> beforeEntryList = serializer.deserializeEntries(beforeKey, kvBefore.getValue());
             int insertIndex = 0;
             while (insertIndex < beforeEntryList.size() && keyComparator.compare(key, beforeEntryList.get(insertIndex).getKey()) > 0) {
                 insertIndex++;
             }
             if (insertIndex < beforeEntryList.size() && keyComparator.compare(key, beforeEntryList.get(insertIndex).getKey()) == 0) {
                 // This key is already in the map, so we are going to end up re-writing it iff the value is different.
-                Map.Entry<K,V> oldEntry = beforeEntryList.get(insertIndex);
+                Map.Entry<K, V> oldEntry = beforeEntryList.get(insertIndex);
                 V oldValue = oldEntry.getValue();
                 if (!oldEntry.getValue().equals(value)) {
                     beforeEntryList = makeMutable(beforeEntryList);
@@ -425,7 +425,7 @@ public class BunchedMap<K,V> {
                     int splitPoint = beforeEntryList.size() / 2;
                     writeEntryList(tr, subspaceKey, keyBytes, kvBefore, kvBefore.getKey(),
                             beforeEntryList.subList(0, splitPoint), null, false, false);
-                    List<Map.Entry<K,V>> secondEntries = beforeEntryList.subList(splitPoint, beforeEntryList.size());
+                    List<Map.Entry<K, V>> secondEntries = beforeEntryList.subList(splitPoint, beforeEntryList.size());
                     byte[] secondKey = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(secondEntries.get(0).getKey()));
                     writeEntryList(tr, subspaceKey, keyBytes, null, secondKey, secondEntries, kvAfter, false, false);
                 }
@@ -434,7 +434,7 @@ public class BunchedMap<K,V> {
                 // This key is going to be inserted after all of the keys in the before entry.
                 if (beforeEntryList.size() < bunchSize) {
                     // Append to the end of the current list.
-                    List<Map.Entry<K,V>> newEntryList = new ArrayList<>(beforeEntryList.size() + 1);
+                    List<Map.Entry<K, V>> newEntryList = new ArrayList<>(beforeEntryList.size() + 1);
                     newEntryList.addAll(beforeEntryList);
                     newEntryList.add(entry);
                     writeEntryList(tr, subspaceKey, keyBytes, kvBefore, kvBefore.getKey(), newEntryList, kvAfter, false, true);
@@ -528,7 +528,7 @@ public class BunchedMap<K,V> {
                             .addLogInfo("kvAfter", ByteArrayUtil2.loggable(kvAfter.getKey()));
                 }
 
-                Map.Entry<K,V> newEntry = new AbstractMap.SimpleImmutableEntry<>(key, value);
+                Map.Entry<K, V> newEntry = new AbstractMap.SimpleImmutableEntry<>(key, value);
                 return insertEntry(tr, subspaceKey, keyBytes, key, value, kvBefore, kvAfter, newEntry);
             });
         });
@@ -582,7 +582,7 @@ public class BunchedMap<K,V> {
             .thenApply(optionalEntry -> optionalEntry
                 .flatMap(kv -> {
                     K mapKey = serializer.deserializeKey(kv.getKey(), subspaceKey.length);
-                    final List<Map.Entry<K,V>> entryList = serializer.deserializeEntries(mapKey, kv.getValue());
+                    final List<Map.Entry<K, V>> entryList = serializer.deserializeEntries(mapKey, kv.getValue());
                     return entryList.stream()
                             .filter(entry -> entry.getKey().equals(key))
                             .findAny()
@@ -618,7 +618,7 @@ public class BunchedMap<K,V> {
         final byte[] subspaceKey = subspace.getKey();
         return tcx.runAsync(tr -> entryForKey(tr, subspaceKey, key).thenApply(optionalEntry -> optionalEntry.flatMap((KeyValue kv) -> {
             K mapKey = serializer.deserializeKey(kv.getKey(), subspaceKey.length);
-            List<Map.Entry<K,V>> entryList = serializer.deserializeEntries(mapKey, kv.getValue());
+            List<Map.Entry<K, V>> entryList = serializer.deserializeEntries(mapKey, kv.getValue());
             int foundIndex = -1;
             for (int i = 0; i < entryList.size(); i++) {
                 if (entryList.get(i).getKey().equals(key)) {
@@ -627,7 +627,7 @@ public class BunchedMap<K,V> {
                 }
             }
             if (foundIndex != -1) {
-                final Map.Entry<K,V> oldEntry = entryList.get(foundIndex);
+                final Map.Entry<K, V> oldEntry = entryList.get(foundIndex);
                 // The value that gets written is based on the contents of the entries read, so
                 // we need to add a read range with all of the values we are currently writing.
                 addEntryListReadConflictRange(tr, subspaceKey, kv.getKey(), entryList);
@@ -704,7 +704,7 @@ public class BunchedMap<K,V> {
     }
 
     private void flushEntryList(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey,
-                                @Nonnull List<Map.Entry<K,V>> currentEntryList,
+                                @Nonnull List<Map.Entry<K, V>> currentEntryList,
                                 @Nonnull AtomicReference<K> lastKey) {
         byte[] keyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(currentEntryList.get(0).getKey()));
         writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, null, keyBytes, currentEntryList,
@@ -734,7 +734,7 @@ public class BunchedMap<K,V> {
             byte[] begin = (continuation == null) ? subspaceKey : continuation;
             byte[] end = subspace.range().end;
             final AsyncIterable<KeyValue> iterable = tr.snapshot().getRange(begin, end, keyLimit);
-            List<Map.Entry<K,V>> currentEntryList = new ArrayList<>(bunchSize);
+            List<Map.Entry<K, V>> currentEntryList = new ArrayList<>(bunchSize);
             // The estimated size can be off (and will be off for many implementations of BunchedSerializer),
             // but it is just a heuristic to know when to split, so that's fine (I claim).
             AtomicInteger currentEntrySize = new AtomicInteger(0);
@@ -743,7 +743,7 @@ public class BunchedMap<K,V> {
             AtomicReference<K> lastKey = new AtomicReference<>(null);
             return AsyncUtil.forEach(iterable, kv -> {
                 final K boundaryKey = serializer.deserializeKey(kv.getKey(), subspaceKey.length);
-                final List<Map.Entry<K,V>> entriesFromKey = serializer.deserializeEntries(boundaryKey, kv.getValue());
+                final List<Map.Entry<K,  V>> entriesFromKey = serializer.deserializeEntries(boundaryKey, kv.getValue());
                 readKeys.incrementAndGet();
                 if (entriesFromKey.size() >= bunchSize && currentEntryList.isEmpty()) {
                     // Nothing can be done. Just move on.
@@ -830,7 +830,7 @@ public class BunchedMap<K,V> {
      * @return an iterator over the entries in the map
      */
     @Nonnull
-    public BunchedMapIterator<K,V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace) {
+    public BunchedMapIterator<K, V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace) {
         return scan(tr, subspace, null, Transaction.ROW_LIMIT_UNLIMITED, false);
     }
 
@@ -846,7 +846,7 @@ public class BunchedMap<K,V> {
      * @return an iterator over the entries in the map
      */
     @Nonnull
-    public BunchedMapIterator<K,V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nullable byte[] continuation) {
+    public BunchedMapIterator<K, V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nullable byte[] continuation) {
         return scan(tr, subspace, continuation, ReadTransaction.ROW_LIMIT_UNLIMITED, false);
     }
 
@@ -867,7 +867,7 @@ public class BunchedMap<K,V> {
      * @return an iterator over the entries in the map
      */
     @Nonnull
-    public BunchedMapIterator<K,V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nullable byte[] continuation, int limit, boolean reverse) {
+    public BunchedMapIterator<K, V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nullable byte[] continuation, int limit, boolean reverse) {
         byte[] subspaceKey = subspace.getKey();
         AsyncIterable<KeyValue> rangeReadIterable;
         K continuationKey;
@@ -909,7 +909,7 @@ public class BunchedMap<K,V> {
      * @return an iterator over the entries in multiple maps
      */
     @Nonnull
-    public <T> BunchedMapMultiIterator<K,V,T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter) {
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter) {
         return scanMulti(tr, subspace, splitter, null, ReadTransaction.ROW_LIMIT_UNLIMITED, false);
     }
 
@@ -929,7 +929,7 @@ public class BunchedMap<K,V> {
      * @return an iterator over the entries in multiple maps
      */
     @Nonnull
-    public <T> BunchedMapMultiIterator<K,V,T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
                                                         @Nullable byte[] continuation, int limit, boolean reverse) {
         return scanMulti(tr, subspace, splitter, null, null, continuation, limit, reverse);
     }
@@ -986,16 +986,16 @@ public class BunchedMap<K,V> {
      * @return an iterator over the entries in multiple maps
      */
     @Nonnull
-    public <T> BunchedMapMultiIterator<K,V,T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
-                                                        @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
-                                                        @Nullable byte[] continuation, int limit, boolean reverse) {
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+                                                          @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
+                                                          @Nullable byte[] continuation, int limit, boolean reverse) {
         return scanMulti(tr, subspace, splitter, subspaceStart, subspaceEnd, continuation, limit, null, reverse);
     }
 
 
-    public <T> BunchedMapMultiIterator<K,V,T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
-                                                        @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
-                                                        @Nullable byte[] continuation, int limit, @Nullable Consumer<KeyValue> postReadCallback, boolean reverse) {
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+                                                          @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
+                                                          @Nullable byte[] continuation, int limit, @Nullable Consumer<KeyValue> postReadCallback, boolean reverse) {
         byte[] subspaceKey = subspace.getKey();
         byte[] startBytes = (subspaceStart == null ? subspaceKey : ByteArrayUtil.join(subspaceKey, subspaceStart));
         byte[] endBytes = (subspaceEnd == null ? ByteArrayUtil.strinc(subspaceKey) : ByteArrayUtil.join(subspaceKey, subspaceEnd));

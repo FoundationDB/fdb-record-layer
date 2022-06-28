@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -44,8 +45,10 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueCompari
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -53,9 +56,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -247,25 +248,27 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
 
     @Nonnull
     @Override
-    default Value rebase(@Nonnull final AliasMap translationMap) {
-        return replaceLeavesMaybe(t -> t.rebaseLeaf(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+    default Value rebase(@Nonnull final AliasMap aliasMap) {
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap));
     }
 
     @Nonnull
-    @SuppressWarnings("unused")
-    default Value rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        throw new RecordCoreException("implementor must override");
-    }
-
-    @Nonnull
-    default Optional<Value> translate(@Nonnull final Map<Value, Value> translationMap) {
-        return replaceLeavesMaybe(t -> t.translateLeaf(translationMap));
-    }
-
-    @Nonnull
-    @SuppressWarnings("unused")
-    default Value translateLeaf(@Nonnull final Map<Value, Value> translationMap) {
-        return translationMap.getOrDefault(this, this);
+    default Value translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        return replaceLeavesMaybe(value -> {
+            if (value instanceof LeafValue) {
+                final var leafValue = (LeafValue)value;
+                final var correlatedTo = value.getCorrelatedTo();
+                Verify.verify(correlatedTo.size() == 1);
+                final var sourceAlias = Iterables.getOnlyElement(correlatedTo);
+                if (translationMap.containsSourceAlias(sourceAlias)) {
+                    return translationMap.applyTranslationFunction(sourceAlias, leafValue);
+                }  else {
+                    return leafValue;
+                }
+            }
+            Verify.verify(value.getCorrelatedTo().isEmpty());
+            return value;
+        }).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nonnull

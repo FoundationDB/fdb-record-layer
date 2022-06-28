@@ -32,7 +32,11 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +46,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -155,8 +160,14 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Nonnull
         @Override
-        public Placeholder rebaseLeaf(@Nonnull final AliasMap translationMap) {
-            return new Placeholder(getValue().rebase(translationMap), alias);
+        public Placeholder translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+            return new Placeholder(getValue().translateCorrelations(translationMap), alias);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap, @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+            throw new RecordCoreException("this method should not ever be reached");
         }
 
         @Override
@@ -228,11 +239,16 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Sargable rebaseLeaf(@Nonnull final AliasMap translationMap) {
-            final var rebasedValue = getValue().rebase(translationMap);
-            final var rebasedComparisonRange = comparisonRange.rebase(translationMap);
-            if (rebasedValue != getValue() || rebasedComparisonRange != comparisonRange) {
-                return new Sargable(rebasedValue, rebasedComparisonRange);
+        public Sargable translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+            final var translatedValue = getValue().translateCorrelations(translationMap);
+            final ComparisonRange newComparisonRange;
+            if (comparisonRange.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
+                newComparisonRange = comparisonRange.translateCorrelations(translationMap);
+            } else {
+                newComparisonRange = comparisonRange;
+            }
+            if (translatedValue != getValue() || newComparisonRange != comparisonRange) {
+                return new Sargable(translatedValue, newComparisonRange);
             }
             return this;
         }
@@ -261,13 +277,17 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
                 // parameter placeholder in the candidate
                 return Optional.of(new PredicateMapping(this,
                         candidatePredicate,
-                        ((matchInfo, boundParameterPrefixMap) -> reapplyPredicateMaybe(boundParameterPrefixMap, placeHolderPredicate)),
+                        ((partialMatch, boundParameterPrefixMap) -> {
+                            if (boundParameterPrefixMap.containsKey(placeHolderPredicate.getAlias())) {
+                                return Optional.empty();
+                            }
+                            return injectCompensationFunctionMaybe();
+                        }),
                         placeHolderPredicate.getAlias()));
             } else if (candidatePredicate.isTautology()) {
                 return Optional.of(new PredicateMapping(this,
                         candidatePredicate,
-                        ((matchInfo, boundParameterPrefixMap) -> Optional.of(reapplyPredicate()))));
-
+                        ((partialMatch, boundParameterPrefixMap) -> injectCompensationFunctionMaybe())));
             }
 
             //
@@ -286,17 +306,22 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             return Optional.empty();
         }
 
-        private Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                               @Nonnull final Placeholder placeholderPredicate) {
-            if (boundParameterPrefixMap.containsKey(placeholderPredicate.getAlias())) {
-                return Optional.empty();
-            }
+        @Nonnull
+        @Override
+        public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
+                                                                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                    @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+            Verify.verify(childrenResults.isEmpty());
+            return injectCompensationFunctionMaybe();
+        }
 
+        @Nonnull
+        public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe() {
             return Optional.of(reapplyPredicate());
         }
 
-        private QueryPredicate reapplyPredicate() {
-            return toResidualPredicate();
+        private ExpandCompensationFunction reapplyPredicate() {
+            return translationMap -> GraphExpansion.ofPredicate(toResidualPredicate().translateCorrelations(translationMap));
         }
 
         @Override

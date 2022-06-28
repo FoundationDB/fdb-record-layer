@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
@@ -114,20 +115,25 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                                 @Nonnull RecordQuery query) {
         final var recordMetaData = context.getMetaData();
         query.validate(recordMetaData);
-        final var recordTypes = context.getRecordTypes();
+        final var allRecordTypes = context.getMetaData().getRecordTypes().keySet();
+        final var queriedRecordTypes = context.getRecordTypes();
 
         final GroupExpressionRef<? extends RelationalExpression> baseRef;
         Quantifier.ForEach quantifier;
-        if (recordTypes.isEmpty()) {
-            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), new AccessHints()));
+        if (queriedRecordTypes.isEmpty()) {
+            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(allRecordTypes,
+                    Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(allRecordTypes)),
+                    new AccessHints()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
-            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet(), new AccessHints()));
+            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(allRecordTypes,
+                    Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(allRecordTypes)),
+                    new AccessHints()));
             baseRef = GroupExpressionRef.of(
                     new LogicalTypeFilterExpression(
-                            new HashSet<>(recordTypes),
+                            new HashSet<>(queriedRecordTypes),
                             Quantifier.forEach(fuseRef),
-                            Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(recordTypes))));
+                            Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(queriedRecordTypes))));
             quantifier = Quantifier.forEach(baseRef);
         }
 
@@ -723,9 +729,20 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         throw new RecordCoreException("expression matched but no compensation logic implemented");
     }
 
-    default Set<Quantifier.ForEach> computeUnmatchedForEachQuantifiers(@Nonnull final PartialMatch partialMatch) {
-        return ImmutableSet.of();
+    @Nonnull
+    @Override
+    default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
+        if (getCorrelatedTo().stream().anyMatch(aliasMap::containsSource)) {
+            final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
+            final var newQuantifiers =  Quantifiers.translateCorrelations(getQuantifiers(), translationMap);
+            return translateCorrelations(translationMap, newQuantifiers);
+        } else {
+            return this;
+        }
     }
+
+    @Nonnull
+    RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap, @Nonnull List<? extends Quantifier> translatedQuantifiers);
 
     /**
      * Compute the semantic hash code of this expression. The logic computing the hash code is agnostic to the order

@@ -1260,7 +1260,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Parse the index entries and payload and build records
         RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries, typedSerializer);
 
-        return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_REMOTE_FETCH, indexedRecordCursor);
+        return context.instrument(FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY, indexedRecordCursor);
     }
 
     @VisibleForTesting
@@ -1276,7 +1276,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
             // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
-            FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), scanProperties, useOldVersionFormat());
+            FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), useOldVersionFormat());
             if (fdbRawRecord == null) {
                 return handleOrphanEntry(indexedRawRecord.getIndexEntry(), orphanBehavior);
             } else {
@@ -1335,8 +1335,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nullable
     @SuppressWarnings("PMD.CloseResource")
     private FDBRawRecord reconstructSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo,
-                                                 final MappedKeyValue mappedResult, final ScanProperties scanProperties,
-                                                 final boolean oldVersionFormat) {
+                                                 final MappedKeyValue mappedResult, final boolean oldVersionFormat) {
         List<KeyValue> scannedRange = mappedResult.getRangeResult();
         if ((scannedRange == null) || scannedRange.isEmpty()) {
             return null;
@@ -1347,8 +1346,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final RecordCursor<FDBRawRecord> rawRecords;
         if (metaData.isSplitLongRecords()) {
             // Note that we always set "reverse" to false since regardless of the index scan direction, the MappedKeyValue is in non-reverse order
+            // Setting the limit manager to UNTRACKED since the KeyValueCursor already counts records, and we don't want the unsplitter to double-count
             rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, rangeCursor, oldVersionFormat,
-                    sizeInfo, false, new CursorLimitManager(scanProperties));
+                    sizeInfo, false, CursorLimitManager.UNTRACKED);
         } else {
             if (omitUnsplitRecordSuffix) {
                 rawRecords = rangeCursor.map(kv -> {
@@ -1358,8 +1358,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 });
             } else {
                 // Note that we always set "reverse" to false since regardless of the index scan direction, the MappedKeyValue is in non-reverse order
+                // Setting the limit manager to UNTRACKED since the KeyValueCursor already counts records, and we don't want the unsplitter to double-count
                 rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordSubspace, rangeCursor, oldVersionFormat,
-                        sizeInfo, false, new CursorLimitManager(scanProperties));
+                        sizeInfo, false, CursorLimitManager.UNTRACKED);
             }
         }
         // Everything is synchronous, just get the only value from the cursor
@@ -2010,6 +2011,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }).thenCompose(this::removeReplacedIndexesIfChanged);
     }
 
+    @SuppressWarnings("java:S3776")
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker,
                                                      @Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader,
                                                      @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info, @Nonnull boolean[] dirty) {
@@ -3831,7 +3833,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that completes to the record count for the version checker
      */
     @Nonnull
-    @SuppressWarnings({"PMD.EmptyCatchBlock","PMD.CloseResource"})
+    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.CloseResource"})
     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
                                                                       @Nonnull Map<Index, List<RecordType>> indexes,
                                                                       @Nullable RecordType singleRecordTypeWithPrefixKey) {
@@ -4353,7 +4355,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private RecordCoreException recordCoreException(@Nonnull String msg, Object...keysAndValues) {
+    private RecordCoreException recordCoreException(@Nonnull String msg, Object... keysAndValues) {
         RecordCoreException err = new RecordCoreException(msg, keysAndValues);
         err.addLogInfo(subspaceProvider.logKey().toString(), subspaceProvider.toString(context));
         return err;

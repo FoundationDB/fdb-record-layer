@@ -93,7 +93,7 @@ public class TransformedRecordSerializerTest {
         storeTimer.reset();
     }
 
-    private void logMetrics(@Nonnull String staticMessage, @Nullable Object...keysAndValues) {
+    private void logMetrics(@Nonnull String staticMessage, @Nullable Object... keysAndValues) {
         KeyValueLogMessage message = KeyValueLogMessage.build(staticMessage, keysAndValues);
         message.addKeysAndValues(storeTimer.getKeysAndValues());
         LOGGER.info(message.toString());

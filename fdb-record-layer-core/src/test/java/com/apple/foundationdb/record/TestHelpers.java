@@ -130,12 +130,12 @@ public class TestHelpers {
 
     }
 
-    public static void assertThrows(Class<? extends Exception> expectedType, Callable<?> callable, Object ...keyValues) throws Exception {
+    public static void assertThrows(Class<? extends Exception> expectedType, Callable<?> callable, Object ... keyValues) throws Exception {
         assertThrows("", expectedType, callable, keyValues);
     }
 
     public static void assertThrows(String message, Class<? extends Exception> expectedType, Callable<?> callable,
-                                    Object ...keyValues) throws Exception {
+                                    Object ... keyValues) throws Exception {
         if (keyValues.length > 0) {
             if (!LoggableException.class.isAssignableFrom(expectedType)) {
                 fail("Log value checks can only be provided with a LoggableException");

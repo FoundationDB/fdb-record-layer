@@ -63,7 +63,7 @@
         <processorPath useClasspath="false">
           <entry name="$PROJECT_DIR$/fdb-extensions/.out/libs/fdb-extensions-3.2-SNAPSHOT.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.auto.service/auto-service/1.0-rc6/4586e4191111b24135ffac93d3e1a91e91bf71d3/auto-service-1.0-rc6.jar" />
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.foundationdb/fdb-java/7.1.3/40d9492ed36777fa91ea0f2d5d3a39e7801f5901/fdb-java-7.1.3.jar" />
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.foundationdb/fdb-java/7.1.10/5b63e331d6eb1758e9eacd946fb4dfd0d4ad03ca/fdb-java-7.1.10.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.auto/auto-common/0.10/c8f153ebe04a17183480ab4016098055fb474364/auto-common-0.10.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/30.1-jre/d0c3ce2311c9e36e73228da25a6e99b2ab826f/guava-30.1-jre.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/1.7.36/6c62681a2f655b49963a5983b8b0950a6120ae14/slf4j-api-1.7.36.jar" />

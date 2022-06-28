@@ -22,9 +22,11 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -39,8 +41,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 
+import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Counts.REMOTE_FETCH;
+import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Base class for RemoteFetch tests.
@@ -53,6 +58,11 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
             .setFilter(Query.field("num_value_unique").greaterThan(990))
             .build();
 
+    protected static final RecordQuery NUM_VALUES_LARGER_EQUAL_0 = RecordQuery.newBuilder()
+            .setRecordType("MySimpleRecord")
+            .setFilter(Query.field("num_value_unique").greaterThanOrEquals(0))
+            .build();
+
     protected static final RecordQuery NUM_VALUES_LARGER_THAN_1000_REVERSE = RecordQuery.newBuilder()
             .setRecordType("MySimpleRecord")
             .setFilter(Query.field("num_value_unique").greaterThan(1000))
@@ -62,6 +72,12 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
     protected static final RecordQuery NUM_VALUES_LARGER_THAN_990_REVERSE = RecordQuery.newBuilder()
             .setRecordType("MySimpleRecord")
             .setFilter(Query.field("num_value_unique").greaterThan(990))
+            .setSort(Key.Expressions.field("num_value_unique"), true)
+            .build();
+
+    protected static final RecordQuery NUM_VALUES_LARGER_EQUAL_0_REVERSE = RecordQuery.newBuilder()
+            .setRecordType("MySimpleRecord")
+            .setFilter(Query.field("num_value_unique").greaterThanOrEquals(0))
             .setSort(Key.Expressions.field("num_value_unique"), true)
             .build();
 
@@ -81,7 +97,6 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
 
         FDBRecordVersion version = rec.getStoredRecord().getVersion();
         assertThat(version.toBytes().length, equalTo(12));
-        assertThat(version.toBytes()[11], equalTo((byte)primaryKey));
     }
 
     protected void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue,
@@ -123,28 +138,57 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return planner.plan(query);
     }
 
-    protected byte[] executeAndVerifyData(RecordQueryPlan plan, int expectedRecords, BiConsumer<FDBQueriedRecord<Message>,
-            Integer> recordVerifier, final RecordMetaDataHook metaDataHook) throws Exception {
+    protected byte[] executeAndVerifyData(RecordQueryPlan plan, int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier,
+                                          final RecordMetaDataHook metaDataHook) throws Exception {
         return executeAndVerifyData(plan, null, ExecuteProperties.SERIAL_EXECUTE, expectedRecords, recordVerifier, metaDataHook);
     }
 
     protected byte[] executeAndVerifyData(RecordQueryPlan plan, byte[] continuation, ExecuteProperties executeProperties,
                                           int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier, final RecordMetaDataHook metaDataHook) throws Exception {
-        int count = 0;
         byte[] lastContinuation;
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataHook);
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
-                while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> record = cursor.next();
-                    recordVerifier.accept(record, count);
-                    count++;
-                }
-                lastContinuation = cursor.getContinuation();
-            }
+            lastContinuation = executeAndVerifyData(context, plan, continuation, executeProperties, expectedRecords, recordVerifier);
         }
+        return lastContinuation;
+    }
+
+    protected byte[] executeAndVerifyData(FDBRecordContext context, RecordQueryPlan plan, byte[] continuation, ExecuteProperties executeProperties,
+                                          int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) {
+        int count = 0;
+        byte[] lastContinuation = null;
+
+        try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
+            while (iterator.hasNext()) {
+                FDBQueriedRecord<Message> record = iterator.next();
+                recordVerifier.accept(record, count);
+                count++;
+            }
+            lastContinuation = iterator.getContinuation();
+        }
+
         assertThat(count, equalTo(expectedRecords));
         return lastContinuation;
+    }
+
+    protected void assertCounters(final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch, final int expectedRemoteFetches, final int expectedRemoteFetchEntries) {
+        if ((useIndexPrefetch != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) &&
+                (recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1))) {
+
+            StoreTimer.Counter numRemoteFetches = recordStore.getTimer().getCounter(REMOTE_FETCH);
+            StoreTimer.Counter numRemoteFetchEntries = recordStore.getTimer().getCounter(SCAN_REMOTE_FETCH_ENTRY);
+            assertEquals(expectedRemoteFetches, numRemoteFetches.getCount());
+            assertEquals(expectedRemoteFetchEntries, numRemoteFetchEntries.getCount());
+        }
+    }
+
+    protected List<FDBQueriedRecord<Message>> executeToList(FDBRecordContext context, RecordQueryPlan plan, byte[] continuation, ExecuteProperties executeProperties) throws Exception {
+        final List<FDBQueriedRecord<Message>> results;
+
+        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
+            results = cursor.asList().get();
+        }
+        return results;
     }
 }

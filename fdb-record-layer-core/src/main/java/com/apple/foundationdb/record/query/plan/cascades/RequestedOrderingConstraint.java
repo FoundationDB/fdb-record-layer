@@ -1,5 +1,5 @@
 /*
- * OrderingConstraint.java
+ * RequestedOrderingConstraint.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,8 +29,8 @@ import java.util.Set;
 /**
  * A constraint requesting a set of sort orderings.
  */
-public class OrderingConstraint implements PlannerConstraint<Set<RequestedOrdering>> {
-    public static final PlannerConstraint<Set<RequestedOrdering>> REQUESTED_ORDERING = new OrderingConstraint();
+public class RequestedOrderingConstraint implements PlannerConstraint<Set<RequestedOrdering>> {
+    public static final PlannerConstraint<Set<RequestedOrdering>> REQUESTED_ORDERING = new RequestedOrderingConstraint();
 
     @Nonnull
     @Override

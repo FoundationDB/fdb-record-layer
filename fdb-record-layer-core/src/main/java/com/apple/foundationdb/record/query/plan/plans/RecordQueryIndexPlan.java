@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.cursors.FallbackCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -48,6 +49,8 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -179,7 +182,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                     // The fallback cursor will handle failures that happen after the executeUsingIndexPrefetch call
                     return new FallbackCursor<>(
                             executeUsingRemoteFetch(store, context, continuation, executeProperties),
-                            () -> RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties));
+                            lastSuccessfulResult -> fallBackContinueFrom(store, context, continuation, executeProperties, lastSuccessfulResult));
                 } catch (Exception ex) {
                     if (LOGGER.isWarnEnabled()) {
                         LOGGER.warn(KeyValueLogMessage.of("Remote Fetch execution failed, falling back to Index scan",
@@ -307,15 +310,10 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public RecordQueryIndexPlan rebase(@Nonnull final AliasMap translationMap) {
-        return new RecordQueryIndexPlan(getIndexName(),
-                getCommonPrimaryKey(),
-                getScanParameters(),
-                getIndexFetchMethod(),
-                isReverse(),
-                isStrictlySorted(),
-                matchCandidateOptional,
-                resultType);
+    public RecordQueryIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        // TODO make return this dependent on whether the index scan is correlated according to the translation map
+        return this;
     }
 
     @Nonnull
@@ -464,6 +462,25 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                 new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, getResultType(), ImmutableList.copyOf(getUsedIndexes())),
                                 ImmutableList.of())));
     }
+
+    /*
+     * Create a fallback cursor that continues a failed remote fetch scan. The continuation will be used in case there
+     * is no lastSuccessfulResult. When lastSuccessfulResult is not null, the scan will start from it.
+     */
+    private <M extends Message> RecordCursor<QueryResult> fallBackContinueFrom(final FDBRecordStoreBase<M> store,
+                                                                               final EvaluationContext context,
+                                                                               final byte[] continuation,
+                                                                               final ExecuteProperties executeProperties,
+                                                                               final RecordCursorResult<QueryResult> lastSuccessfulResult) {
+        if (lastSuccessfulResult == null) {
+            // The fallbackCursor did not have any result from the primary yet - just fallback to the index scan
+            return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
+        } else {
+            // Use the continuation from the last result to continue from
+            return RecordQueryPlanWithIndex.super.executePlan(store, context, lastSuccessfulResult.getContinuation().toBytes(), executeProperties);
+        }
+    }
+
 
     private void logDebug(final String staticMessage) {
         if (LOGGER.isDebugEnabled()) {

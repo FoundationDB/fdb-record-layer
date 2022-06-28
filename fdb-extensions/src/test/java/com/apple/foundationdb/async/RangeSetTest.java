@@ -63,7 +63,7 @@ public class RangeSetTest extends FDBTestBase {
     private Subspace rsSubspace;
     private RangeSet rs;
 
-    private static final byte[] DEADC0DE = new byte[]{(byte)0xde,(byte)0xad,(byte)0xc0,(byte)0xde};
+    private static final byte[] DEADC0DE = new byte[]{(byte)0xde, (byte)0xad, (byte)0xc0, (byte)0xde};
 
     private List<byte[]> createKeys() {
         List<byte[]> keys = new ArrayList<>();
@@ -140,7 +140,7 @@ public class RangeSetTest extends FDBTestBase {
             tr.set(rsSubspace.pack(new byte[]{(byte)0x10}), new byte[]{(byte)0x66});
             tr.set(rsSubspace.pack(new byte[]{(byte)0x77}), new byte[]{(byte)0x88});
             tr.set(rsSubspace.pack(new byte[]{(byte)0x88}), new byte[]{(byte)0x99});
-            tr.set(rsSubspace.pack(new byte[]{(byte)0x99}), new byte[]{(byte)0x99,(byte)0x00});
+            tr.set(rsSubspace.pack(new byte[]{(byte)0x99}), new byte[]{(byte)0x99, (byte)0x00});
             return null;
         });
 
@@ -181,7 +181,7 @@ public class RangeSetTest extends FDBTestBase {
 
     @Test
     public void containsPastFF2() {
-        assertThrows(IllegalArgumentException.class, () -> rs.contains(db, new byte[]{(byte)0xff,(byte)0x00}).join());
+        assertThrows(IllegalArgumentException.class, () -> rs.contains(db, new byte[]{(byte)0xff, (byte)0x00}).join());
     }
 
     @Test
@@ -194,12 +194,12 @@ public class RangeSetTest extends FDBTestBase {
                 Range.startsWith(new byte[]{0x20}), // Step 3: A third disjoint range between them.
                 new Range(new byte[]{0x05}, new byte[]{0x10, 0x10}), // Step 4: A range overlapping the first range.
                 new Range(new byte[]{0x2f}, new byte[]{0x30, 0x10}), // Step 5: A range overlapping the third range.
-                new Range(new byte[]{0x30,0x10}, new byte[]{0x40}), // Step 6: A range overlapping the third range.
-                new Range(new byte[]{0x05,0x10}, new byte[]{0x12}), // Step 7: A range with just a little at the end.
-                new Range(new byte[]{0x20,0x14}, new byte[]{0x30,0x00}), // Step 8: A range that goes between 0x20 and 0x30 ranges.
+                new Range(new byte[]{0x30, 0x10}, new byte[]{0x40}), // Step 6: A range overlapping the third range.
+                new Range(new byte[]{0x05, 0x10}, new byte[]{0x12}), // Step 7: A range with just a little at the end.
+                new Range(new byte[]{0x20, 0x14}, new byte[]{0x30, 0x00}), // Step 8: A range that goes between 0x20 and 0x30 ranges.
                 new Range(new byte[]{0x03}, new byte[]{0x42}), // Step 9: A range that goes over whole range.
-                new Range(new byte[]{0x10,0x11}, new byte[]{0x41}), // Step 10: A range entirely within the given ranges.
-                new Range(new byte[]{0x50}, new byte[]{0x50,0x00}) // Step 11: A range that contains only 1 key.
+                new Range(new byte[]{0x10, 0x11}, new byte[]{0x41}), // Step 10: A range entirely within the given ranges.
+                new Range(new byte[]{0x50}, new byte[]{0x50, 0x00}) // Step 11: A range that contains only 1 key.
         );
         List<Range> ranges = new ArrayList<>();
         int last = 0;
@@ -294,13 +294,13 @@ public class RangeSetTest extends FDBTestBase {
         // Read during write - the reads in the range should fail.
         r1 = new Range(new byte[]{0x07}, new byte[]{0x08});
         List<byte[]> specificKeys = Arrays.asList(
-                new byte[]{0x06,(byte)0xff},
+                new byte[]{0x06, (byte)0xff},
                 new byte[]{0x07},
-                new byte[]{0x07,0x00},
-                new byte[]{0x07,0x10},
+                new byte[]{0x07, 0x00},
+                new byte[]{0x07, 0x10},
                 new byte[]{0x08},
-                new byte[]{0x08,0x00},
-                new byte[]{0x08,0x10},
+                new byte[]{0x08, 0x00},
+                new byte[]{0x08, 0x10},
                 new byte[]{0x09}
         );
 
@@ -369,9 +369,9 @@ public class RangeSetTest extends FDBTestBase {
         // Now, add some ranges to make the gaps interesting.
         List<Range> toAdd = Arrays.asList(
                 new Range(new byte[]{0x10}, new byte[]{0x20}),
-                new Range(new byte[]{0x20}, new byte[]{0x20,0x00}),
+                new Range(new byte[]{0x20}, new byte[]{0x20, 0x00}),
                 new Range(new byte[]{0x30}, new byte[]{0x40}),
-                new Range(new byte[]{0x40,0x00}, new byte[]{0x50}),
+                new Range(new byte[]{0x40, 0x00}, new byte[]{0x50}),
                 new Range(new byte[]{0x60}, new byte[]{0x6a}),
                 new Range(new byte[]{0x62}, new byte[]{0x70}),
                 new Range(new byte[]{0x71}, new byte[]{0x72}),
@@ -379,8 +379,8 @@ public class RangeSetTest extends FDBTestBase {
         );
         List<Range> expected = Arrays.asList(
                 new Range(new byte[]{0x00}, new byte[]{0x10}),
-                new Range(new byte[]{0x20,0x00}, new byte[]{0x30}),
-                new Range(new byte[]{0x40}, new byte[]{0x40,0x00}),
+                new Range(new byte[]{0x20, 0x00}, new byte[]{0x30}),
+                new Range(new byte[]{0x40}, new byte[]{0x40, 0x00}),
                 new Range(new byte[]{0x50}, new byte[]{0x60}),
                 new Range(new byte[]{0x70}, new byte[]{0x71}),
                 new Range(new byte[]{0x7f}, new byte[]{(byte)0xff})

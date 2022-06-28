@@ -186,11 +186,13 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public void onDone() {
-        final var state = Objects.requireNonNull(stateStack.peek());
-        logger.debug(KeyValueLogMessage.of("planning done",
-                "query", Objects.requireNonNull(queryAsString).substring(0, 30),
-                "duration-in-ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - state.getStartTs()),
-                "ticks", state.getCurrentTick()));
+        if (!stateStack.isEmpty() && queryAsString != null) {
+            final var state = Objects.requireNonNull(stateStack.peek());
+            logger.debug(KeyValueLogMessage.of("planning done",
+                    "query", Objects.requireNonNull(queryAsString).substring(0, 30),
+                    "duration-in-ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - state.getStartTs()),
+                    "ticks", state.getCurrentTick()));
+        }
         reset();
     }
 

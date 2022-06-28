@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
@@ -95,7 +95,7 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
             logicalDistinctExpression(exactly(unionForEachQuantifierMatcher));
 
     public ImplementDistinctUnionRule() {
-        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
+        super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
@@ -103,7 +103,7 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final var context = call.getContext();
 
-        final var requiredOrderingsOptional = call.getPlannerConstraint(OrderingConstraint.REQUESTED_ORDERING);
+        final var requiredOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requiredOrderingsOptional.isEmpty()) {
             return;
         }
@@ -275,7 +275,7 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                                 providedOrdering.isDistinct()
                                 ? RequestedOrdering.Distinctness.DISTINCT
                                 : RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
-                call.pushConstraint(unionRef, OrderingConstraint.REQUESTED_ORDERING, ImmutableSet.of(innerRequestedOrdering));
+                call.pushConstraint(unionRef, RequestedOrderingConstraint.REQUESTED_ORDERING, ImmutableSet.of(innerRequestedOrdering));
             }
         }
     }

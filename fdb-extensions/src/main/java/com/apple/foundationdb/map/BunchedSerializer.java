@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
  * @param <V> type of the values in the {@link BunchedMap}
  */
 @API(API.Status.EXPERIMENTAL)
-public interface BunchedSerializer<K,V> {
+public interface BunchedSerializer<K, V> {
 
     /**
      * Serialize a key to bytes. These bytes will be used by the {@link BunchedMap}
@@ -95,7 +95,7 @@ public interface BunchedSerializer<K,V> {
      * @throws BunchedSerializationException if serializing the entries fails
      */
     @Nonnull
-    byte[] serializeEntries(@Nonnull List<Map.Entry<K,V>> entries);
+    byte[] serializeEntries(@Nonnull List<Map.Entry<K, V>> entries);
 
     /**
      * Deserialize a byte array into a key. This assumes that the entire
@@ -156,7 +156,7 @@ public interface BunchedSerializer<K,V> {
      * @throws BunchedSerializationException if deserializing the entries fails
      */
     @Nonnull
-    List<Map.Entry<K,V>> deserializeEntries(@Nonnull K key, @Nonnull byte[] data);
+    List<Map.Entry<K, V>> deserializeEntries(@Nonnull K key, @Nonnull byte[] data);
 
     /**
      * Deserialize raw data to a list of keys. This expects that <code>data</code>

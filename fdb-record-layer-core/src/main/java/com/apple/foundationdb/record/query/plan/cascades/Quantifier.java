@@ -165,10 +165,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
-        public ForEach rebase(@Nonnull final AliasMap translationMap) {
+        public ForEach overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
             return Quantifier.forEachBuilder()
                     .from(this)
-                    .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
+                    .build(reference);
         }
 
         @Nonnull
@@ -263,10 +263,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
-        public Existential rebase(@Nonnull final AliasMap translationMap) {
+        public Existential overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
             return Quantifier.existentialBuilder()
                     .from(this)
-                    .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
+                    .build(reference);
         }
 
         @Nonnull
@@ -403,10 +403,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
-        public Physical rebase(@Nonnull final AliasMap translationMap) {
+        public Physical overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
             return Quantifier.physicalBuilder()
                     .from(this)
-                    .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
+                    .build(reference);
         }
 
         @Nonnull
@@ -536,7 +536,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      *         passed in, {@code false} otherwise
      */
     protected boolean needsRebase(@Nonnull final AliasMap translationMap) {
-
         final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
 
         // translations are usually smaller, we may want to flip this around if needed later
@@ -606,5 +605,25 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         final var resolvedTypeAcrossReference = getRangesOver().getResultType();
         Verify.verify(resolvedTypeAcrossReference.getTypeCode() == Type.TypeCode.RELATION);
         return Objects.requireNonNull(((Type.Relation)resolvedTypeAcrossReference).getInnerType());
+    }
+
+    @Nonnull
+    public abstract Quantifier overNewReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference);
+
+    @Override
+    @Nonnull
+    public Quantifier rebase(@Nonnull final AliasMap translationMap) {
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public Quantifier translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        final ExpressionRef<? extends RelationalExpression> rangesOver = getRangesOver();
+        final ExpressionRef<? extends RelationalExpression> translatedReference =
+                getRangesOver().translateCorrelations(translationMap);
+        return rangesOver == translatedReference
+               ? this
+               : overNewReference(translatedReference);
     }
 }

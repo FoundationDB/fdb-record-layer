@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -58,7 +59,7 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
+public class RecordTypesProperty implements ExpressionProperty<Set<String>>, RelationalExpressionVisitorWithDefaults<Set<String>> {
     @Nonnull
     private final PlanContext context;
     @Nonnull

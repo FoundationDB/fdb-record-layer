@@ -250,7 +250,7 @@ public class ProbableIntersectionCursorTest {
         }
     }
 
-    private void verifyResults(@Nonnull RecordCursor<Integer> cursor, @Nonnull RecordCursor.NoNextReason expectedReason, int...expectedResults) {
+    private void verifyResults(@Nonnull RecordCursor<Integer> cursor, @Nonnull RecordCursor.NoNextReason expectedReason, int... expectedResults) {
         for (int expectedResult : expectedResults) {
             RecordCursorResult<Integer> result = cursor.getNext();
             assertThat(result.hasNext(), is(true));

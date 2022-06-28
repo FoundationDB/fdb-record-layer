@@ -337,8 +337,8 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         executeQuery(query, planString, expected, FDBQueriedRecord::getRecord);
     }
 
-    <K,V extends Message> Map<K,List<Message>> group(@Nonnull List<V> values, @Nonnull Function<V, K> keyFunction) {
-        Map<K,List<Message>> map = new HashMap<>();
+    <K, V extends Message> Map<K, List<Message>> group(@Nonnull List<V> values, @Nonnull Function<V, K> keyFunction) {
+        Map<K, List<Message>> map = new HashMap<>();
         for (V value : values) {
             K key = keyFunction.apply(value);
             if (map.containsKey(key)) {
@@ -354,7 +354,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
 
     @Nonnull
     List<TestRecords1Proto.MySimpleRecord> updated(@Nonnull List<TestRecords1Proto.MySimpleRecord> origRecords, @Nonnull List<TestRecords1Proto.MySimpleRecord> addedRecords) {
-        Map<Long,TestRecords1Proto.MySimpleRecord> lastRecordWithKey = new HashMap<>();
+        Map<Long, TestRecords1Proto.MySimpleRecord> lastRecordWithKey = new HashMap<>();
         for (TestRecords1Proto.MySimpleRecord record : origRecords) {
             if (record.hasRecNo()) {
                 lastRecordWithKey.put(record.getRecNo(), record);

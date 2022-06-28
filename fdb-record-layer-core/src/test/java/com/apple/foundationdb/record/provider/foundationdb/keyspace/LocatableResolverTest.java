@@ -857,6 +857,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         // sets the timeout for all the db instances we create
         final FDBDatabaseFactory parallelFactory = new FDBDatabaseFactoryImpl();
         parallelFactory.setStateRefreshTimeMillis(100);
+        parallelFactory.setAPIVersion(FDBTestBase.getAPIVersion());
         Supplier<FDBDatabase> databaseSupplier = () -> new FDBDatabase(parallelFactory, null);
         consistently("uninitialized version is 0", () -> {
             try (FDBRecordContext context = database.openContext()) {

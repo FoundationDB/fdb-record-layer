@@ -1,5 +1,5 @@
 /*
- * PushInterestingOrderingThroughSortRule.java
+ * PushRequestedOrderingThroughDistinctRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,70 +21,55 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalSortExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 
 /**
- * A rule that pushes an ordering {@link OrderingConstraint} through a {@link LogicalSortExpression}.
+ * A rule that pushes an {@link RequestedOrderingConstraint} through a {@link LogicalDistinctExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushInterestingOrderingThroughSortRule extends PlannerRule<LogicalSortExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughDistinctRule extends PlannerRule<LogicalDistinctExpression> implements PreOrderRule {
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
-    private static final BindingMatcher<LogicalSortExpression> root =
-            logicalSortExpression(exactly(innerQuantifierMatcher));
+    private static final BindingMatcher<LogicalDistinctExpression> root =
+            logicalDistinctExpression(exactly(innerQuantifierMatcher));
 
-    public PushInterestingOrderingThroughSortRule() {
-        super(root, ImmutableSet.of(OrderingConstraint.REQUESTED_ORDERING));
+    public PushRequestedOrderingThroughDistinctRule() {
+        super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final PlannerBindings bindings = call.getBindings();
+        final Optional<Set<RequestedOrdering>> requestedOrderingOptionals = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        if (requestedOrderingOptionals.isEmpty()) {
+            return;
+        }
 
-        final LogicalSortExpression logicalSortExpression = bindings.get(root);
+        final PlannerBindings bindings = call.getBindings();
         final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
 
-        final KeyExpression sortKeyExpression = logicalSortExpression.getSort();
-        if (sortKeyExpression == null) {
-            call.pushConstraint(lowerRef,
-                    OrderingConstraint.REQUESTED_ORDERING,
-                    ImmutableSet.of(RequestedOrdering.preserve()));
-        } else {
-            final List<KeyExpression> normalizedSortKeys = sortKeyExpression.normalizeKeyForPositions();
-            final ImmutableList.Builder<KeyPart> keyPartBuilder = ImmutableList.builder();
-            for (final KeyExpression keyExpression : normalizedSortKeys) {
-                keyPartBuilder.add(KeyPart.of(keyExpression, logicalSortExpression.isReverse()));
-            }
-
-            final var orderings =
-                    ImmutableSet.of(new RequestedOrdering(keyPartBuilder.build(), RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
-
-            call.pushConstraint(lowerRef,
-                    OrderingConstraint.REQUESTED_ORDERING,
-                    orderings);
-        }
+        call.pushConstraint(lowerRef,
+                RequestedOrderingConstraint.REQUESTED_ORDERING,
+                requestedOrderingOptionals.get());
     }
 }

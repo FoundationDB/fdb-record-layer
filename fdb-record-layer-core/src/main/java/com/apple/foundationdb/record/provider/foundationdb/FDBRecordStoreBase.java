@@ -950,6 +950,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param commonPrimaryKey the common primary key for the records that would be returned
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
+     *    there is no associated record
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
@@ -972,6 +974,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param commonPrimaryKey the common primary key for the records that would be returned
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
+     *    there is no associated record
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
@@ -1035,6 +1039,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Scan the records pointed to by an index equal to indexed values using the Index Prefetch method.
      * @param indexName the name of the index
+     * @param primaryKey the primary key for the record
      * @param values a left-subset of values of indexed fields
      * @return a cursor of the records pointed to by the index
      */
@@ -1100,7 +1105,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                         @Nonnull final IndexOrphanBehavior orphanBehavior,
                                                                         @Nonnull final ExecuteState executeState) {
         final Tuple primaryKey = entry.getPrimaryKey();
-        return loadRecordInternal(primaryKey, executeState,false).thenApply(rec -> {
+        return loadRecordInternal(primaryKey, executeState, false).thenApply(rec -> {
             if (rec == null) {
                 switch (orphanBehavior) {
                     case SKIP:
@@ -1758,7 +1763,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default FDBQueriedRecord<M> coveredIndexQueriedRecord(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull RecordType recordType,
                                                           @Nonnull M partialRecord, boolean hasPrimaryKey) {
         return FDBQueriedRecord.covered(index, indexEntry,
-                hasPrimaryKey ? index.getEntryPrimaryKey(indexEntry.getKey()) : TupleHelpers.EMPTY,
+                hasPrimaryKey ? indexEntry.getPrimaryKey() : TupleHelpers.EMPTY,
                 recordType, partialRecord);
     }
 

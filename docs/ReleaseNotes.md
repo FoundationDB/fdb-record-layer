@@ -20,7 +20,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Proximity search does not works well when the term has multi-word synonyms [(Issue #1752)](https://github.com/FoundationDB/fdb-record-layer/issues/1752)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -43,6 +43,35 @@ This release also updates downstream dependency versions. Most notably, the prot
 
 // end next release
 -->
+
+### 3.2.271.0
+
+* **Bug fix** Lucene auto-complete should apply the limit to the result cursor [(Issue #1745)](https://github.com/FoundationDB/fdb-record-layer/issues/1745)
+
+### 3.2.270.0
+
+* **Bug fix** FDB Java dependency version updated to 7.1.10 to incorporate fixes over older 7.1 versions [(Issue #1743)](https://github.com/FoundationDB/fdb-record-layer/issues/1743)
+* **Feature** Use Lucene query component to pass in the parameter for auto-complete's highlighting option [(Issue #1740)](https://github.com/FoundationDB/fdb-record-layer/issues/1740)
+
+### 3.2.269.0
+
+
+### 3.2.268.0
+
+
+### 3.2.267.0
+
+* **Feature** Online Indexer: allow fallback to by-record if the previous stamp is multi-target [(Issue #1736)](https://github.com/FoundationDB/fdb-record-layer/issues/1736)
+
+### 3.2.266.0
+
+* **Bug fix** Fix double counting of limits in remote fetch [(Issue #1730)](https://github.com/FoundationDB/fdb-record-layer/issues/1730)
+* **Feature** Improve remote fetch fallback  to allow fallback after a few records have been returned [(Issue #1727)](https://github.com/FoundationDB/fdb-record-layer/issues/1727)
+* **Feature** API version for tests changed to 7.1 [(Issue #1734)](https://github.com/FoundationDB/fdb-record-layer/issues/1734)
+
+### 3.2.265.0
+
+* **Bug fix** Cascades does not reconstruct a KeyWithValue correctly [(Issue #1725)](https://github.com/FoundationDB/fdb-record-layer/issues/1725)
 
 ### 3.2.264.0
 

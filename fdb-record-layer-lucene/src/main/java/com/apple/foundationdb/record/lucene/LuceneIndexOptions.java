@@ -54,10 +54,6 @@ public class LuceneIndexOptions {
     @Deprecated
     public static final String AUTO_COMPLETE_BLENDER_EXPONENT = "autoCompleteBlenderExponent";
     /**
-     * Whether highlight suggest query in suggestions.
-     */
-    public static final String AUTO_COMPLETE_HIGHLIGHT = "autoCompleteHighlight";
-    /**
      * Whether a Lucene's EdgeNGramTokenFilter or a regular NGramTokenFilter to use for the ngram analyzer.
      */
     public static final String NGRAM_TOKEN_EDGES_ONLY = "ngramTokenEdgesOnly";

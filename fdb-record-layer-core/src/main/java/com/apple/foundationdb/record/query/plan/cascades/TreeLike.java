@@ -143,7 +143,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Note that this variant of fold does permit {@code null} values to be produced and consumed by the map and
      * fold functions passed in. This method does not guarantee the existence of a well-defined tree-fold. A {@code null}
      * that is returned by either the map function or the fold function is normally considered to be a result indicative
-     * of the absence of a well-defined fold for the respective sub tree that is being considered at the time.
+     * of the absence of a well-defined fold for the respective subtree that is being considered at the time.
      * However, this method does not enforce this view meaning that callers can react to and pass on {@code null}s as
      * they see fit (by means of the provided lambdas for map and fold functions).
      * @param mapFunction a mapping {@link Function} that computes a scalar value of type {@code M} from a node of type {@code T}.

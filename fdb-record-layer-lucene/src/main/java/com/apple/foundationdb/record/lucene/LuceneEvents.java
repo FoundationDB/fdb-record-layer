@@ -163,19 +163,19 @@ public class LuceneEvents {
      */
     public enum Counts implements StoreTimer.Count {
         /** Number of times the getIncrement() function is called in the FDBDirectory. */
-        LUCENE_GET_INCREMENT_CALLS("lucene increments",false),
+        LUCENE_GET_INCREMENT_CALLS("lucene increments", false),
         /** Number of writeFileReference calls in the FDBDirectory.*/
-        LUCENE_WRITE_FILE_REFERENCE_CALL("lucene write file references",false),
+        LUCENE_WRITE_FILE_REFERENCE_CALL("lucene write file references", false),
         /** Total number of bytes that were attempted to be written (not necessarily committed) for file references in the FDBDirectory. */
         LUCENE_WRITE_FILE_REFERENCE_SIZE("lucene write file reference size", true),
         /** Count of writeData calls in FDBDirectory. */
         LUCENE_WRITE_CALL("lucene index writes", false),
         /** Total number of bytes that were attempted to be written (not necessarily committed) to the FDBDirectory.*/
-        LUCENE_WRITE_SIZE("lucene index size",true),
+        LUCENE_WRITE_SIZE("lucene index size", true),
         /** The number of block reads that occur against the FDBDirectory.*/
         LUCENE_BLOCK_READS("lucene block reads", false),
         /** Time to write a file references in Lucene's FDBDirectory.*/
-        LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" ,false),
+        LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" , false),
         /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
         /** Matched auto complete suggestions returned from lucene auto complete suggestion lookup. **/

@@ -177,7 +177,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
         long startTime = System.nanoTime();
 
-        lookupResults = lookup().skip(skip);
+        lookupResults = lookup().skip(skip).limitRowsTo(limit);
         if (timer != null) {
             timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN, startTime);
         }
@@ -314,7 +314,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
 
         IndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader, executor);
-        TopDocs topDocs = searcher.search(finalQuery, limit);
+        TopDocs topDocs = searcher.search(finalQuery, limit + skip);
         if (timer != null) {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, topDocs.scoreDocs.length);
         }
@@ -537,7 +537,8 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
             // Not having the primary key is fine for auto-complete queries that just want the
             // text, but queries wanting to do something with both the auto-completed text and the
             // original record need to do something else
-            IndexEntry indexEntry = new IndexEntry(state.index, key, Tuple.from(scoreDocAndRecord.scoreDoc.score));
+            IndexEntry indexEntry = new IndexEntry(state.index, key, Tuple.from(scoreDocAndRecord.scoreDoc.score),
+                    scoreDocAndRecord.rec.getPrimaryKey());
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace(logMessage("Suggestion read as an index entry")
                         .addKeyAndValue(LogMessageKeys.INDEX_KEY, key)

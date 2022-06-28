@@ -40,7 +40,7 @@ public class LoggableExceptionTest {
     @Test
     public void emptyLogInfo() {
         LoggableException e = new LoggableException("this has no k/v pairs");
-        Map<String,Object> logInfo = e.getLogInfo();
+        Map<String, Object> logInfo = e.getLogInfo();
         assertNotNull(logInfo);
         assertEquals(Collections.emptyMap(), logInfo);
         Object[] logInfoArray = e.exportLogInfo();
@@ -52,7 +52,7 @@ public class LoggableExceptionTest {
     public void oneLogInfo() {
         LoggableException e = new LoggableException("this has one k/v pair")
                 .addLogInfo("key", "value");
-        Map<String,Object> logInfo = e.getLogInfo();
+        Map<String, Object> logInfo = e.getLogInfo();
         assertNotNull(logInfo);
         assertEquals(Collections.singletonMap("key", "value"), logInfo);
         Object[] logInfoArray = e.exportLogInfo();
@@ -62,12 +62,12 @@ public class LoggableExceptionTest {
 
     @Test
     public void multipleLogInfo() {
-        Map<String,Object> expectedLogInfo = new HashMap<>();
+        Map<String, Object> expectedLogInfo = new HashMap<>();
         expectedLogInfo.put("k0", "v0");
         expectedLogInfo.put("k1", "v1");
         expectedLogInfo.put("k2", "v2");
         LoggableException e = new LoggableException("this has multiple k/v pairs", "k0", "v0", "k1", "v1", "k2", "v2");
-        Map<String,Object> logInfo = e.getLogInfo();
+        Map<String, Object> logInfo = e.getLogInfo();
         assertNotNull(logInfo);
         assertEquals(expectedLogInfo, logInfo);
         Object[] logInfoArray = e.exportLogInfo();

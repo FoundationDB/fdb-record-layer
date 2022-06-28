@@ -125,6 +125,11 @@ public class PlannerBindings {
         return bindings;
     }
 
+    @Override
+    public String toString() {
+        return bindings.toString();
+    }
+
     /**
      * Build a new set of bindings containing a single binding from the given key to the given bindable.
      * @param key an expression matcher

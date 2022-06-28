@@ -304,7 +304,7 @@ public class KeyExpressionTest {
 
     @Test
     void testSubstrFunctionStaticFanout() {
-        final KeyExpression expression = function("substr", concat(field("repeat_me", FanType.FanOut),value(0), value(3)));
+        final KeyExpression expression = function("substr", concat(field("repeat_me", FanType.FanOut), value(0), value(3)));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         List<Key.Evaluated> results = evaluate(expression, plantsBoxesAndBowls);
         assertEquals(2, results.size(), "Wrong number of results");

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.combinatorics.ChooseK;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -101,5 +102,25 @@ public class ListMatcher<T> implements CollectionMatcher<T> {
     @Nonnull
     public static <T> ListMatcher<T> only(@Nonnull final BindingMatcher<? extends T> downstreams) {
         return new ListMatcher<>(ImmutableList.of(downstreams));
+    }
+
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static <E> CollectionMatcher<E> choose(@Nonnull final BindingMatcher<? extends E> downstream0,
+                                                  @Nonnull final BindingMatcher<? extends E> downstream1,
+                                                  @Nonnull final BindingMatcher<? extends E>... downstreamTail) {
+        return choose(ImmutableList.<BindingMatcher<? extends E>>builder()
+                .add(downstream0)
+                .add(downstream1)
+                .addAll(Arrays.asList(downstreamTail))
+                .build());
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <E> CollectionMatcher<E> choose(@Nonnull final List<? extends BindingMatcher<? extends E>> downstreams) {
+        return CollectionMatcher.fromBindingMatcher(
+                TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<E>>)(Class<?>)Collection.class,
+                        Extractor.of(element -> ChooseK.chooseK(element, Math.min(element.size(), downstreams.size())), name -> "choose(" + name + ", " + downstreams.size() + ")"),
+                        AnyMatcher.anyInIterable(SetMatcher.exactlyInAnyOrder(downstreams))));
     }
 }

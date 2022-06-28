@@ -279,7 +279,7 @@ public class TypeRepository {
     private TypeRepository(@Nonnull final FileDescriptorSet fileDescSet,
                            @Nonnull final Map<Type, String> typeToNameMap) throws DescriptorValidationException {
         this.fileDescSet = fileDescSet;
-        Map<String,FileDescriptor> fileDescMap = init(fileDescSet);
+        Map<String, FileDescriptor> fileDescMap = init(fileDescSet);
 
         Set<String> msgDupes = new HashSet<>();
         Set<String> enumDupes = new HashSet<>();

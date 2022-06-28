@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -65,6 +67,10 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
 
     @Nonnull
     Optional<? extends MatchCandidate> getMatchCandidateOptional();
+
+    @Nonnull
+    @Override
+    RecordQueryPlanWithIndex translateCorrelations(@Nonnull TranslationMap translationMap, @Nonnull List<? extends Quantifier> translatedQuantifiers);
 
     @Nonnull
     <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store,
@@ -117,4 +123,13 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
                                          @Nonnull NodeInfo nodeInfo,
                                          @Nonnull List<String> additionalDetails,
                                          @Nonnull Map<String, Attribute> additionalAttributeMap);
+
+    /**
+     * Whether this plan is appropriate for being applied with optimization by {@link RecordQueryCoveringIndexPlan},
+     * if the planner believes the required fields can be covered by this index.
+     * @return {@code true} if plan is allowed for covering index
+     */
+    default boolean allowedForCoveringIndexPlan() {
+        return true;
+    }
 }

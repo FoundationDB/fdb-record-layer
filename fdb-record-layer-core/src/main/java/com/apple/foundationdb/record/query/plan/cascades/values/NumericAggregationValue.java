@@ -41,7 +41,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -62,7 +61,7 @@ import static java.util.function.UnaryOperator.identity;
  * Aggregation over numeric values.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NumericAggregationValue implements Value, AggregateValue {
+public class NumericAggregationValue implements ValueWithChild, AggregateValue {
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sum-Value");
     @Nonnull
@@ -110,17 +109,17 @@ public class NumericAggregationValue implements Value, AggregateValue {
         return Type.primitiveType(operator.getResultTypeCode());
     }
 
+
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(child);
+    public Value getChild() {
+        return child;
     }
 
     @Nonnull
     @Override
-    public NumericAggregationValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == 1);
-        return new NumericAggregationValue(this.operator, Iterables.get(newChildren, 1));
+    public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+        return new NumericAggregationValue(this.operator, newChild);
     }
 
     @Override

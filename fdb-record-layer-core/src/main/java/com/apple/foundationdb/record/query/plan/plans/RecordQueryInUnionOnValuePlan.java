@@ -20,12 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.Iterables;
 
@@ -47,12 +48,14 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
                                           @Nonnull final CorrelationIdentifier baseAlias,
                                           @Nonnull final Value comparisonKeyValue,
                                           final boolean reverse,
-                                          final int maxNumberOfValuesAllowed) {
+                                          final int maxNumberOfValuesAllowed,
+                                          @Nonnull final Bindings.Internal internal) {
         super(inner,
                 inSources,
                 new ComparisonKeyFunction.OnValue(baseAlias, comparisonKeyValue),
                 reverse,
-                maxNumberOfValuesAllowed);
+                maxNumberOfValuesAllowed,
+                internal);
         this.baseAlias = baseAlias;
     }
 
@@ -75,14 +78,14 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
 
     @Nonnull
     @Override
-    public RecordQueryInUnionOnValuePlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                      @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryInUnionOnValuePlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
+    public RecordQueryInUnionOnValuePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        return new RecordQueryInUnionOnValuePlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getInSources(),
                 baseAlias,
                 getComparisonKeyValue(),
                 reverse,
-                maxNumberOfValuesAllowed);
+                maxNumberOfValuesAllowed,
+                internal);
     }
 
     @Nonnull
@@ -93,7 +96,8 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
                 baseAlias,
                 getComparisonKeyValue(),
                 reverse,
-                maxNumberOfValuesAllowed);
+                maxNumberOfValuesAllowed,
+                internal);
     }
 
     @Nonnull
@@ -101,13 +105,15 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
                                                         @Nonnull final List<? extends InSource> inSources,
                                                         @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
                                                         final boolean reverse,
-                                                        final int maxNumberOfValuesAllowed) {
+                                                        final int maxNumberOfValuesAllowed,
+                                                        @Nonnull final Bindings.Internal internal) {
         final var baseAlias = CorrelationIdentifier.uniqueID();
         return new RecordQueryInUnionOnValuePlan(inner,
                 inSources,
                 CorrelationIdentifier.uniqueID(),
                 comparisonKeyValueFunction.apply(baseAlias),
                 reverse,
-                maxNumberOfValuesAllowed);
+                maxNumberOfValuesAllowed,
+                internal);
     }
 }

@@ -62,7 +62,7 @@ class ArithmeticValueTest {
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
-    private static final ParserContext parserContext = new ParserContext(null, typeRepositoryBuilder, null, null);
+    private static final ParserContext parserContext = new ParserContext(null, typeRepositoryBuilder);
     private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.Internal.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()));
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {

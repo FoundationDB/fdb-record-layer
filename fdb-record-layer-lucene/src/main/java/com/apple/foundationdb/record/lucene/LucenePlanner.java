@@ -179,7 +179,11 @@ public class LucenePlanner extends RecordQueryPlanner {
             switch (luceneQueryComponent.getType()) {
                 case AUTO_COMPLETE:
                     scanParameters = new LuceneScanAutoCompleteParameters(state.groupingComparisons,
-                            luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter());
+                            luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter(), false);
+                    break;
+                case AUTO_COMPLETE_HIGHLIGHT:
+                    scanParameters = new LuceneScanAutoCompleteParameters(state.groupingComparisons,
+                            luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter(), true);
                     break;
                 case SPELL_CHECK:
                     scanParameters = new LuceneScanSpellCheckParameters(state.groupingComparisons,

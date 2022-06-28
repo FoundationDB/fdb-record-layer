@@ -94,11 +94,14 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> RecordCursor.fromList(store.getExecutor(), getValues(context), outerContinuation),
-                (outerValue, innerContinuation) -> getInnerPlan().executePlan(store, context.withBinding(inSource.getBindingName(), outerValue),
-                        innerContinuation, executeProperties.clearSkipAndLimit()),
-                outerObject -> Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack(),
-                continuation,
-                store.getPipelineSize(PipelineOperation.IN_JOIN))
+                        (outerValue, innerContinuation) -> {
+                            final Object bindingValue = internal == Bindings.Internal.IN ? outerValue : QueryResult.ofComputed(outerValue);
+                            return getInnerPlan().executePlan(store, context.withBinding(inSource.getBindingName(), bindingValue),
+                                    innerContinuation, executeProperties.clearSkipAndLimit());
+                        },
+                        outerObject -> Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack(),
+                        continuation,
+                        store.getPipelineSize(PipelineOperation.IN_JOIN))
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 

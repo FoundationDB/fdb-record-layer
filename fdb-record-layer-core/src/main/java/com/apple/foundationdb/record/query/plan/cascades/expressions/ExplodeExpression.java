@@ -29,16 +29,16 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -70,7 +70,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return ImmutableSet.of(collectionValue.getResultType());
+        return collectionValue.getDynamicTypes();
     }
 
     @Nonnull
@@ -115,13 +115,12 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ExplodeExpression rebase(@Nonnull final AliasMap translationMap) {
-        final Value rebasedResultValue = collectionValue.rebase(translationMap);
-        if (rebasedResultValue == this.collectionValue) {
-            return this;
-        } else {
-            return new ExplodeExpression(rebasedResultValue);
+    public ExplodeExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap);
+        if (translatedCollectionValue != collectionValue) {
+            return new ExplodeExpression(translatedCollectionValue);
         }
+        return this;
     }
 
     @Nonnull

@@ -46,20 +46,20 @@ public class FieldValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
     @Nonnull
-    private final QuantifiedValue columnValue;
+    private final Value inValue;
     @Nonnull
     private final List<String> fieldPath;
     @Nonnull
     private final Type resultType;
 
-    public FieldValue(@Nonnull QuantifiedValue columnValue, @Nonnull List<String> fieldPath) {
-        this(columnValue, fieldPath, resolveTypeForPath(columnValue.getResultType(), fieldPath));
+    public FieldValue(@Nonnull Value inValue, @Nonnull List<String> fieldPath) {
+        this(inValue, fieldPath, resolveTypeForPath(inValue.getResultType(), fieldPath));
     }
 
     @VisibleForTesting
-    public FieldValue(@Nonnull QuantifiedValue columnValue, @Nonnull List<String> fieldPath, @Nonnull Type resultType) {
+    public FieldValue(@Nonnull Value inValue, @Nonnull List<String> fieldPath, @Nonnull Type resultType) {
         Preconditions.checkArgument(!fieldPath.isEmpty());
-        this.columnValue = columnValue;
+        this.inValue = inValue;
         this.fieldPath = ImmutableList.copyOf(fieldPath);
         this.resultType = resultType;
     }
@@ -87,19 +87,19 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public QuantifiedValue getChild() {
-        return columnValue;
+    public Value getChild() {
+        return inValue;
     }
 
     @Nonnull
     @Override
     public FieldValue withNewChild(@Nonnull final Value child) {
-        return new FieldValue((QuantifiedValue)child, fieldPath);
+        return new FieldValue(child, fieldPath);
     }
 
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var childResult = columnValue.eval(store, context);
+        final var childResult = inValue.eval(store, context);
         if (!(childResult instanceof Message)) {
             return null;
         }
@@ -113,7 +113,7 @@ public class FieldValue implements ValueWithChild {
         }
 
         final var that = (FieldValue)other;
-        return columnValue.semanticEquals(that.columnValue, equivalenceMap) &&
+        return inValue.semanticEquals(that.inValue, equivalenceMap) &&
                fieldPath.equals(that.fieldPath);
     }
 
@@ -129,13 +129,18 @@ public class FieldValue implements ValueWithChild {
 
     @Override
     public String toString() {
-        return columnValue.toString() + "/" + String.join(".", fieldPath);
+        final var fieldPathString = String.join(".", fieldPath);
+        if (inValue instanceof QuantifiedValue) {
+            return inValue + "." + fieldPathString;
+        } else {
+            return "(" + inValue + ")." + fieldPathString;
+        }
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return columnValue.explain(formatter) + "." + String.join(".", fieldPath);
+        return inValue.explain(formatter) + "." + String.join(".", fieldPath);
     }
 
     @Override
@@ -147,7 +152,7 @@ public class FieldValue implements ValueWithChild {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(columnValue.getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.identitiesFor(inValue.getCorrelatedTo()));
     }
 
     private static Type resolveTypeForPath(@Nonnull final Type inputType, @Nonnull final List<String> fieldPath) {
@@ -156,7 +161,7 @@ public class FieldValue implements ValueWithChild {
             if (currentType.getTypeCode() == Type.TypeCode.ANY) {
                 return new Type.Any();
             }
-            SemanticException.check(inputType.getTypeCode() == Type.TypeCode.RECORD, "field type can only be resolved on records");
+            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD, String.format("field type '%s' can only be resolved on records", fieldName));
             final var recordType = (Type.Record)currentType;
             final var fieldTypeMap = recordType.getFieldTypeMap();
             SemanticException.check(fieldTypeMap.containsKey(fieldName), "record does not contain specified field");

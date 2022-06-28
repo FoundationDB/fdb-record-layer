@@ -64,7 +64,7 @@ public class IndexedValue implements LeafValue, Value.CompileTimeValue {
 
     @Nonnull
     @Override
-    public IndexedValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
+    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         return this;
     }
 

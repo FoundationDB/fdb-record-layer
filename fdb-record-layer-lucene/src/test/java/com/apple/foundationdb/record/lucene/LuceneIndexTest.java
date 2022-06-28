@@ -148,13 +148,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
                     LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
 
-    private static final Index SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT = new Index("Simple_with_auto_complete",
-            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-            LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
-                    LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3",
-                    LuceneIndexOptions.AUTO_COMPLETE_HIGHLIGHT, "true"));
-
     private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES = new Index("Complex$text_multipleIndexes",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
             LuceneIndexTypes.LUCENE,
@@ -345,17 +338,17 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    private LuceneScanBounds autoComplete(Index index, String search) {
+    private LuceneScanBounds autoComplete(Index index, String search, boolean highlight) {
         LuceneScanParameters scan = new LuceneScanAutoCompleteParameters(
                 ScanComparisons.EMPTY,
-                search, false);
+                search, false, highlight);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    private LuceneScanBounds groupedAutoComplete(Index index, String search, Object group) {
+    private LuceneScanBounds groupedAutoComplete(Index index, String search, Object group, boolean highlight) {
         LuceneScanParameters scan = new LuceneScanAutoCompleteParameters(
                 ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group)),
-                search, false);
+                search, false, highlight);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
@@ -379,8 +372,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"propose a Vision\""), null, ScanProperties.FORWARD_SCAN);
-            assertEquals(1, indexEntries.getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"propose a Vision\""), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
@@ -401,7 +394,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void simpleEmptyAutoComplete() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_WITH_AUTO_COMPLETE);
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE, autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "something"), null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE, autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "something", false), null, ScanProperties.FORWARD_SCAN)) {
                 assertEquals(RecordCursorResult.exhausted(), cursor.getNext());
             }
         }
@@ -413,8 +406,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN);
-            assertEquals(1, indexEntries.getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
@@ -435,8 +428,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .setScore(0.12324655F)
                     .setShard(0)
                     .build();
-            RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), continuation.toByteArray(), ScanProperties.FORWARD_SCAN);
-            assertEquals(2, recordCursor.getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1625L, 1626L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), continuation.toByteArray(), ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
         }
@@ -448,10 +441,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, 2));
             recordStore.saveRecord(createSimpleDocument(1632L, ENGINEER_JOKE, 2));
-            RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "*:* AND NOT text:[* TO *]"), null, ScanProperties.FORWARD_SCAN);
-            List<IndexEntry> indexEntries = recordCursor.asList().join();
-            assertEquals(1, indexEntries.size());
-            assertEquals(1623L, indexEntries.get(0).getKeyValue(1));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "*:* AND NOT text:[* TO *]"), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
         }
@@ -551,13 +542,76 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void testLimitForAutoCompleteWithMultipleMatchingFields() {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION, Integer.MAX_VALUE);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE);
+            });
+
+            for (int i = 0; i < 200; i++) {
+                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "auto complete suggestions " + + 1623 + 2 * i + 1, 2));
+            }
+            // Only 50 results are returned, although each matching doc has 2 fields that contain the search key
+            assertEquals(50, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "complete", false), null,
+                    ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false)).getCount().join());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void testLimitAndSkipForAutoCompleteWithMultipleMatchingFields() {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION, Integer.MAX_VALUE);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE);
+            });
+
+            for (int i = 0; i < 200; i++) {
+                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "auto complete suggestions " + + 1623 + 2 * i + 1, 2));
+            }
+            // 50 results are returned, although each matching doc has 2 fields that contain the search key, and the first 10 results are skipped
+            assertEquals(50, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "complete", false), null,
+                    ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false)).getCount().join());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void testLimitAndSkipForAutoCompleteWithSingleMatchingField() {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION, Integer.MAX_VALUE);
+        try (FDBRecordContext context = openContext(storageBuilder)) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE);
+            });
+
+            for (int i = 0; i < 200; i++) {
+                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "other suggestions " + + 1623 + 2 * i + 1, 2));
+            }
+            // 50 results are returned, with one result for each matching doc, although the first 10 results are skipped
+            assertEquals(50, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "complete", false), null,
+                    ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false)).getCount().join());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
     void testNestedFieldSearch() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, MAP_DOC, MAP_ON_VALUE_INDEX);
             recordStore.saveRecord(createComplexMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
             recordStore.saveRecord(createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase",  1));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, groupedTextSearch(MAP_ON_VALUE_INDEX, "entry_value:Vision", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN);
-            assertEquals(1, indexEntries.getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(MAP_ON_VALUE_INDEX, groupedTextSearch(MAP_ON_VALUE_INDEX, "entry_value:Vision", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MAP_ON_VALUE_INDEX).subspace(Tuple.from("sampleTextSong")), context, "_0.cfs", true);
@@ -569,8 +623,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, MAP_DOC, MAP_ON_VALUE_INDEX);
             recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, groupedTextSearch(MAP_ON_VALUE_INDEX, "entry_value:Vision", "sampleTextPhrase"), null, ScanProperties.FORWARD_SCAN);
-            assertEquals(1, indexEntries.getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(MAP_ON_VALUE_INDEX, groupedTextSearch(MAP_ON_VALUE_INDEX, "entry_value:Vision", "sampleTextPhrase"), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MAP_ON_VALUE_INDEX).subspace(Tuple.from("sampleTextPhrase")), context, "_0.cfs", true);
@@ -583,7 +637,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES);
             recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
             recordStore.saveRecord(createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
-            assertEquals(1, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, fullTextSearch(COMPLEX_MULTIPLE_TEXT_INDEXES, "text:\"Vision\" AND text2:\"john_leach@apple.com\""), null, ScanProperties.FORWARD_SCAN).getCount().join());
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(2L, 1623L)),
+                    recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, fullTextSearch(COMPLEX_MULTIPLE_TEXT_INDEXES, "text:\"Vision\" AND text2:\"john_leach@apple.com\""), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES), context, "_0.cfs", true);
         }
@@ -595,7 +650,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES);
             recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
             recordStore.saveRecord(createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
-            assertEquals(1, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, fullTextSearch(COMPLEX_MULTIPLE_TEXT_INDEXES, "text:\"Vision\" AND text2:jonleach@apple.com\\~"), null, ScanProperties.FORWARD_SCAN).getCount().join());
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(2L, 1623L)),
+                    recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, fullTextSearch(COMPLEX_MULTIPLE_TEXT_INDEXES, "text:\"Vision\" AND text2:jonleach@apple.com\\~"), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES), context, "_0.cfs", true);
         }
@@ -608,9 +664,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1624L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 2));
-            assertEquals(2, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L, 1624L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN));
             assertTrue(recordStore.deleteRecord(Tuple.from(1624L)));
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
         }
@@ -637,8 +695,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", false);
 
@@ -646,8 +704,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
         }
@@ -659,8 +717,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", false);
 
@@ -669,11 +727,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            assertEquals(0, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN));
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
         }
@@ -711,26 +769,23 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN));
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello recor layer", 1));
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "hullo record layer"), null, ScanProperties.FORWARD_SCAN));
             // "hullo" is synonym of "hello"
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX,
-                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("hullo", "record", "layer")), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("hullo", "record", "layer")), null, ScanProperties.FORWARD_SCAN));
             // it doesn't match due to the "recor"
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX,
-                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("hullo", "recor", "layer")), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("hullo", "recor", "layer")), null, ScanProperties.FORWARD_SCAN));
             // "hullo" is synonym of "hello", and "show" is synonym of "record"
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX,
-                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("hullo", "show", "layer")), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("hullo", "show", "layer")), null, ScanProperties.FORWARD_SCAN));
         }
     }
 
@@ -769,46 +824,46 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Save a document to verify synonym search based on the group {'motivation','motive','need'}
             recordStore.saveRecord(createSimpleDocument(1623L, "I think you need to search with Lucene index", 1));
             // Search for original phrase
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"you need to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"you need to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with changed order of tokens, no match is expected
-            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"need you to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"need you to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with "motivation" as synonym of "need"
             // "Motivation" is the authoritative term of the group {'motivation','motive','need'}
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"you motivation to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"you motivation to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with "motivation" with changed order of tokens, no match is expected
-            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"motivation you to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"motivation you to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with "motive" as synonym of "need"
             // "Motive" is not the authoritative term of the group {'motivation','motive','need'}
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"you motive to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"you motive to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with "motive" with changed order of tokens, no match is expected
-            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"motive you to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"motive you to\""), null, ScanProperties.FORWARD_SCAN));
             // Term query rather than phrase query, so match is expected although the order is changed
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "motivation you to"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "motivation you to"), null, ScanProperties.FORWARD_SCAN));
 
             // Save a document to verify synonym search based on the group {'departure','going','going away','leaving'}
             // This group contains multi-word term "going away", and also the single-word term "going"
             recordStore.saveRecord(createSimpleDocument(1624L, "He is leaving for New York next week", 1));
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is departure for\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1624L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is departure for\""), null, ScanProperties.FORWARD_SCAN));
 
             // Search for phrase with "going away"
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is going away for\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1624L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is going away for\""), null, ScanProperties.FORWARD_SCAN));
 
             //Search for phrase with "going"
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is going for\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1624L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is going for\""), null, ScanProperties.FORWARD_SCAN));
 
             // Search for phrase with only "away", no match is expected
-            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is away for\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"is away for\""), null, ScanProperties.FORWARD_SCAN));
         }
     }
 
@@ -819,46 +874,46 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Save a document to verify synonym search based on the group {'motivation','motive','need'}
             recordStore.saveRecord(createSimpleDocument(1623L, "I think you need to search with Lucene index", 1));
             // Search for original phrase
-            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"you need to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"you need to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with changed order of tokens, no match is expected
-            assertEquals(0, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"need you to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"need you to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with "motivation" as synonym of "need"
             // "Motivation" is the authoritative term of the group {'motivation','motive','need'}
-            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"you motivation to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"you motivation to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with "motivation" with changed order of tokens, no match is expected
-            assertEquals(0, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"motivation you to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"motivation you to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with "motive" as synonym of "need"
             // "Motive" is not the authoritative term of the group {'motivation','motive','need'}
-            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"you motive to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"you motive to\""), null, ScanProperties.FORWARD_SCAN));
             // Search for phrase with "motive" with changed order of tokens, no match is expected
-            assertEquals(0, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"motive you to\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"motive you to\""), null, ScanProperties.FORWARD_SCAN));
             // Term query rather than phrase query, so match is expected although the order is changed
-            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "motivation you to"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "motivation you to"), null, ScanProperties.FORWARD_SCAN));
 
             // Save a document to verify synonym search based on the group {'departure','going','going away','leaving'}
             // This group contains multi-word term "going away", and also the single-word term "going"
             recordStore.saveRecord(createSimpleDocument(1624L, "He is leaving for New York next week", 1));
-            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is departure for\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1624L),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is departure for\""), null, ScanProperties.FORWARD_SCAN));
 
             // Search for phrase with "going away"
-            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is going away for\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1624L),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is going away for\""), null, ScanProperties.FORWARD_SCAN));
 
             //Search for phrase with "going"
-            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is going for\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1624L),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is going for\""), null, ScanProperties.FORWARD_SCAN));
 
             // Search for phrase with only "away", the correct behavior is to return no match. But match is still hit due to the poor handling of positional data for multi-word synonym by this analyzer
-            assertEquals(1, recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is away for\""), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1624L),
+                    recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is away for\""), null, ScanProperties.FORWARD_SCAN));
         }
     }
 
@@ -912,12 +967,22 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.addIndex(SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX);
             });
             recordStore.saveRecord(createSimpleDocument(1623L, "synonym is fun", 1));
-            assertEquals(0, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX,
-                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("nonsynonym", "is", "fun")), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(1, recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX,
-                            fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX, matchAll("nonsynonym", "is", "fun")), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, matchAll("nonsynonym", "is", "fun")), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX, matchAll("nonsynonym", "is", "fun")), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    @Test
+    void proximitySearchWithMultiWordSynonym() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
+
+            // Both "hello" and "record" have multi-word synonyms
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello FoundationDB record layer", 1));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"hello record\"~10"), null, ScanProperties.FORWARD_SCAN));
         }
     }
 
@@ -926,23 +991,23 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello record layer"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hel"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "ell"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "ecord"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hel ord aye"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "ello record"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello record layer"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hel"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "ell"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "ecord"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hel ord aye"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "ello record"), null, ScanProperties.FORWARD_SCAN));
             // The term "ella" is not expected
-            assertEquals(0, recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "ella"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "ella"), null, ScanProperties.FORWARD_SCAN));
         }
     }
 
@@ -991,11 +1056,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_WITH_AUTO_COMPLETE);
             });
 
-            List<IndexEntry> results = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE,
-                    autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "hello"),
-                    null,
-                    ScanProperties.FORWARD_SCAN).asList().get();
-            assertTrue(results.isEmpty());
+            assertIndexEntryPrimaryKeys(Collections.emptyList(),
+                    recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE, autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "hello", false), null, ScanProperties.FORWARD_SCAN));
             assertEquals(0, context.getTimer().getCount(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS));
         }
     }
@@ -1019,7 +1081,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             RecordType recordType = recordStore.saveRecord(createComplexDocument(1630L, "", "Hello FoundationDB!", 1)).getRecordType();
 
             List<IndexEntry> results = recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE,
-                    autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "good"),
+                    autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "good", false),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1042,6 +1104,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             List<String> fields = results.stream().map(i -> (String) i.getKey().get(i.getKeySize() - 2)).collect(Collectors.toList());
             assertEquals(ImmutableList.of("text", "text", "text", "text", "text2", "text2"), fields);
 
+            List<Tuple> primaryKeys = results.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toList());
+            assertEquals(ImmutableList.of(Tuple.from(1L, 1623L), Tuple.from(1L, 1624L), Tuple.from(1L, 1625L), Tuple.from(1L, 1626L), Tuple.from(1L, 1627L), Tuple.from(1L, 1628L)), primaryKeys);
+
             commit(context);
         }
     }
@@ -1049,9 +1114,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void searchForAutoCompleteWithContinueTyping() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            addIndexAndSaveRecordForAutoComplete(context, false);
+            addIndexAndSaveRecordForAutoComplete(context);
             List<IndexEntry> results = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE,
-                    autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "good mor"),
+                    autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "good mor", false),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1062,6 +1127,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             IndexEntry result = results.get(0);
             assertEquals("Good morning", result.getKey().get(result.getKeySize() - 1));
             assertEquals("text", result.getKey().get(result.getKeySize() - 2));
+
+            assertEquals(1623L, result.getPrimaryKey().get(0));
 
             assertEquals(1, context.getTimer().getCounter(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE),
@@ -1076,11 +1143,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
                 metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE);
             });
             FDBStoredRecord<Message> fdbRecord = recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
             List<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE,
-                    groupedAutoComplete(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE, "Vision", "sampleTextPhrase"),
+                    groupedAutoComplete(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE, "Vision", "sampleTextPhrase", false),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1091,6 +1159,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             IndexKeyValueToPartialRecord toPartialRecord = LuceneIndexQueryPlan.getToPartialRecord(
                     MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE, fdbRecord.getRecordType(), LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE);
             Message message = toPartialRecord.toRecord(recordDescriptor, indexEntry);
+
+            Descriptors.FieldDescriptor docIdDescriptor = recordDescriptor.findFieldByName("doc_id");
+            assertEquals(1623L, message.getField(docIdDescriptor));
 
             Descriptors.FieldDescriptor entryDescriptor = recordDescriptor.findFieldByName("entry");
             Message entry = (Message)message.getRepeatedField(entryDescriptor, 0);
@@ -1126,42 +1197,49 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             "all the states united as a country",
                             "all the states have been united as a country",
                             "welcome to the united states of america",
-                            "The countries are united kingdom, france, the states"));
+                            "The countries are united kingdom, france, the states"),
+                    false);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with term query,
             // same as the other tokens due to the white space following it
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
                     ImmutableList.of("united states of america",
                             "united states is a country in the continent of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states\"",
                     ImmutableList.of("united states of america",
                             "united states is a country in the continent of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united state" are returned, the last token "state" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united state\"",
                     ImmutableList.of("united states of america",
                             "united states is a country in the continent of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query,
             // same as the other tokens due to the white space following it
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of \"",
                     ImmutableList.of("united states of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of\"",
                     ImmutableList.of("united states of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             // Only the texts containing "united states o" are returned, the last token "o" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states o\"",
                     ImmutableList.of("united states of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america"),
+                    false);
 
             commit(context);
         }
@@ -1170,7 +1248,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testAutoCompleteSearchWithHighlightForPhrase() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT;
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
 
             addIndexAndSaveRecordsForAutoCompleteOfPhrase(context, index);
 
@@ -1184,42 +1262,49 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             "all the <b>states</b> <b>united</b> as a country",
                             "all the <b>states</b> have been <b>united</b> as a country",
                             "welcome to the <b>united</b> <b>states</b> of america",
-                            "The countries are <b>united</b> kingdom, france, the <b>states</b>"));
+                            "The countries are <b>united</b> kingdom, france, the <b>states</b>"),
+                    true);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with term query,
             // same as the other tokens due to the white space following it
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
                     ImmutableList.of("<b>united</b> <b>states</b> of america",
                             "<b>united</b> <b>states</b> is a country in the continent of america",
-                            "welcome to the <b>united</b> <b>states</b> of america"));
+                            "welcome to the <b>united</b> <b>states</b> of america"),
+                    true);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states\"",
                     ImmutableList.of("<b>united</b> <b>states</b> of america",
                             "<b>united</b> <b>states</b> is a country in the continent of america",
-                            "welcome to the <b>united</b> <b>states</b> of america"));
+                            "welcome to the <b>united</b> <b>states</b> of america"),
+                    true);
 
             // Only the texts containing "united state" are returned, the last token "state" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united state\"",
                     ImmutableList.of("<b>united</b> <b>state</b>s of america",
                             "<b>united</b> <b>state</b>s is a country in the continent of america",
-                            "welcome to the <b>united</b> <b>state</b>s of america"));
+                            "welcome to the <b>united</b> <b>state</b>s of america"),
+                    true);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query,
             // same as the other tokens due to the white space following it
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of \"",
                     ImmutableList.of("<b>united</b> <b>states</b> <b>of</b> america",
-                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"));
+                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"),
+                    true);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states of\"",
                     ImmutableList.of("<b>united</b> <b>states</b> <b>of</b> america",
-                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"));
+                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"),
+                    true);
 
             // Only the texts containing "united states o" are returned, the last token "o" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states o\"",
                     ImmutableList.of("<b>united</b> <b>states</b> <b>o</b>f america",
-                            "welcome to the <b>united</b> <b>states</b> <b>o</b>f america"));
+                            "welcome to the <b>united</b> <b>states</b> <b>o</b>f america"),
+                    true);
 
             commit(context);
         }
@@ -1242,10 +1327,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .build();
             recordStore.saveRecord(doc);
 
-            List<IndexEntry> entries = recordStore.scanIndex(index, autoComplete(index, "good night "), null, ScanProperties.FORWARD_SCAN)
+            List<IndexEntry> entries = recordStore.scanIndex(index, autoComplete(index, "good night ", false), null, ScanProperties.FORWARD_SCAN)
                     .asList()
                     .join();
             assertThat(entries, hasSize(2));
+
+            // 2 matches are from the same record
+            assertEquals(List.of(Tuple.from(null, 1597L), Tuple.from(null, 1597L)),
+                    entries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toList()));
 
             List<Tuple> fieldAndText = entries.stream()
                     .map(entry -> TupleHelpers.subTuple(entry.getKey(), 0, 2))
@@ -1266,7 +1355,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Phrase search is not supported if positions are not indexed
             assertThrows(ExecutionException.class,
                     () -> queryAndAssertAutoCompleteSuggestionsReturned(index, "\"united states \"",
-                            ImmutableList.of()));
+                            ImmutableList.of(), false));
 
             commit(context);
         }
@@ -1567,13 +1656,19 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             for (int group = 0; group < maxGroup; group++) {
-                List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group), null, ScanProperties.FORWARD_SCAN)
+                List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group, false), null, ScanProperties.FORWARD_SCAN)
                         .asList()
                         .join();
                 assertThat(autoCompleted, hasSize(10));
+                int docId = 0;
                 for (IndexEntry entry : autoCompleted) {
                     Tuple key = entry.getKey();
                     assertEquals(Tuple.from("text", String.format("hello there %d", group)), TupleHelpers.subTuple(key, key.size() - 2, key.size()));
+                    Tuple primaryKey = entry.getPrimaryKey();
+                    // The 1st element is the key for the record type
+                    assertEquals((long) group, primaryKey.get(1));
+                    assertEquals((long) docId, primaryKey.get(2));
+                    docId++;
                 }
             }
 
@@ -1581,16 +1676,22 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("group").equalsValue(groupToDelete));
 
             for (int group = 0; group < maxGroup; group++) {
-                List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group), null, ScanProperties.FORWARD_SCAN)
+                List<IndexEntry> autoCompleted = recordStore.scanIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, groupedAutoComplete(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE, "hello", group, false), null, ScanProperties.FORWARD_SCAN)
                         .asList()
                         .join();
                 if (group == groupToDelete) {
                     assertThat(autoCompleted, empty());
                 } else {
                     assertThat(autoCompleted, hasSize(10));
+                    int docId = 0;
                     for (IndexEntry entry : autoCompleted) {
                         Tuple key = entry.getKey();
                         assertEquals(Tuple.from("text", String.format("hello there %d", group)), TupleHelpers.subTuple(key, key.size() - 2, key.size()));
+                        Tuple primaryKey = entry.getPrimaryKey();
+                        // The 1st element is the key for the record type
+                        assertEquals((long) group, primaryKey.get(1));
+                        assertEquals((long) docId, primaryKey.get(2));
+                        docId++;
                     }
                 }
             }
@@ -1882,10 +1983,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, textSizeLimit);
         try (FDBRecordContext context = openContext(storageBuilder)) {
-            final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context, highlight);
-            final Index index = highlight ? SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT : SIMPLE_TEXT_WITH_AUTO_COMPLETE;
+            final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context);
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
             List<IndexEntry> results = recordStore.scanIndex(index,
-                    autoComplete(index, query),
+                    autoComplete(index, query, highlight),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1927,9 +2028,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, limit);
         try (FDBRecordContext context = openContext(storageBuilder)) {
-            final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context, false);
+            final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context);
             List<IndexEntry> results = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE,
-                    autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "software engineer"),
+                    autoComplete(SIMPLE_TEXT_WITH_AUTO_COMPLETE, "software engineer", false),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1960,10 +2061,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private RecordType addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context, boolean highlight) {
+    private RecordType addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context) {
         openRecordStore(context, metaDataBuilder -> {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-            metaDataBuilder.addIndex(SIMPLE_DOC, highlight ? SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT : SIMPLE_TEXT_WITH_AUTO_COMPLETE);
+            metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_WITH_AUTO_COMPLETE);
         });
 
         // Write 8 texts and 6 of them contain the key "good"
@@ -1995,9 +2096,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         recordStore.saveRecord(createSimpleDocument(1631L, "united states is a country in the continent of america", 1));
     }
 
-    private void queryAndAssertAutoCompleteSuggestionsReturned(@Nonnull Index index, @Nonnull String searchKey, @Nonnull List<String> expectedSuggestions) throws Exception {
+    private void queryAndAssertAutoCompleteSuggestionsReturned(@Nonnull Index index, @Nonnull String searchKey, @Nonnull List<String> expectedSuggestions, boolean highlight) throws Exception {
         List<IndexEntry> results = recordStore.scanIndex(index,
-                autoComplete(index, searchKey),
+                autoComplete(index, searchKey, highlight),
                 null,
                 ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -2021,6 +2122,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(document, index);
         });
+    }
+
+    private void assertIndexEntryPrimaryKeys(List<Long> primaryKeys, RecordCursor<IndexEntry> cursor) {
+        List<IndexEntry> indexEntries = cursor.asList().join();
+        assertEquals(primaryKeys.stream().map(Tuple::from).collect(Collectors.toList()),
+                indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toList()));
+    }
+
+    private void assertIndexEntryPrimaryKeyTuples(List<Tuple> primaryKeys, RecordCursor<IndexEntry> cursor) {
+        List<IndexEntry> indexEntries = cursor.asList().join();
+        assertEquals(primaryKeys,
+                indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toList()));
     }
 
     /**

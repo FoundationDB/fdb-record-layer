@@ -32,10 +32,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.Collections2;
 import com.google.protobuf.Message;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +50,8 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
@@ -156,29 +160,39 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Verify that the planner removes duplicate filters.
-     * TODO We currently don't. Update this test when it gets implemented.
-     * TODO: Some query plans include redundant filtering operations even when the index is a complete specification (https://github.com/FoundationDB/fdb-record-layer/issues/2)
      */
-    @Test
+    @DualPlannerTest
     public void duplicateFilters() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.addIndex("MySimpleRecord", new Index("multi_index", "str_value_indexed", "num_value_3_indexed"));
         };
         complexQuerySetup(hook);
+        QueryComponent filter = Query.field("num_value_3_indexed").equalsValue(3);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.and(
                         Query.field("str_value_indexed").equalsValue("even"),
-                        Query.field("num_value_3_indexed").equalsValue(3),
-                        Query.field("num_value_3_indexed").equalsValue(3)))
+                        filter,
+                        filter))
                 .build();
 
-        // Fetch(Covering(Index(multi_index [[even, 3],[even, 3]]) -> [num_value_3_indexed: KEY[1], rec_no: KEY[2], str_value_indexed: KEY[0]]) | num_value_3_indexed EQUALS 3)
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, descendant(coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 3],[even, 3]]")))))));
-        assertEquals(-766201402, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1632715349, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1418679945, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        // Index(multi_index [[even, 3],[even, 3]]) -> [num_value_3_indexed: KEY[1], rec_no: KEY[2], str_value_indexed: KEY[0]])
+        final Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 3],[even, 3]]"))));
+        if (planner instanceof RecordQueryPlanner) {
+            // TODO: Update this test when it gets implemented for old planner.
+            //  Some query plans include redundant filtering operations even when the index is a complete specification (https://github.com/FoundationDB/fdb-record-layer/issues/2)
+            // Fetch(Covering(...) | num_value_3_indexed EQUALS 3)
+            assertThat(plan, fetch(filter(filter, coveringIndexScan(matcher))));
+            assertEquals(-766201402, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1632715349, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1418679945, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertThat(plan, matcher);
+            assertEquals(681699231, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1692140528, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(463756249, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -203,7 +217,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
      * TODO The planner does not currently coalesce the overlapping filters (>= 3 and > 0).
      * TODO: Planner does not currently coalesce overlapping filters (https://github.com/FoundationDB/fdb-record-layer/issues/1)
      */
-    @Test
+    @DualPlannerTest
     public void overlappingFilters() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.addIndex("MySimpleRecord", new Index("multi_index", "str_value_indexed", "num_value_3_indexed"));

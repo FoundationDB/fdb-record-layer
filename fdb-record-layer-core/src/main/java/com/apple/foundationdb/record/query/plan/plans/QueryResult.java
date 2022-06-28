@@ -70,6 +70,7 @@ public class QueryResult {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @param <M> Protobuf class for the record message type
      * @return the object narrowed to the requested class
      */
     @Nullable
@@ -80,6 +81,7 @@ public class QueryResult {
 
     /**
      * Retrieve the wrapped result by attempting it to cast it to the giving class.
+     * @param <M> Protobuf class for the record message type
      * @return an optional that potentially contains the object narrowed to the requested class
      */
     @Nonnull
@@ -96,6 +98,31 @@ public class QueryResult {
         return datum;
     }
 
+    /**
+     * Retrieve the wrapped result by attempting it to cast it to the given class.
+     * @param <T> target type
+     * @param clazz class object for target type
+     * @return the object narrowed to the requested class
+     */
+    @Nonnull
+    public <T> T get(@Nonnull final Class<? extends T> clazz) {
+        return clazz.cast(datum);
+    }
+
+    /**
+     * Retrieve the wrapped result by attempting it to cast it to the given class.
+     * @param <T> target type
+     * @param clazz class object for target type
+     * @return an optional that potentially contains the object narrowed to the requested class
+     */
+    @Nonnull
+    public <T> Optional<T> getMaybe(@Nonnull final Class<? extends T> clazz) {
+        if (clazz.isInstance(datum)) {
+            return Optional.of(get(clazz));
+        }
+        return Optional.empty();
+    }
+
     @SuppressWarnings("unchecked")
     public <M extends Message> M getMessage() {
         if (datum instanceof FDBQueriedRecord) {
@@ -103,7 +130,7 @@ public class QueryResult {
         } else if (datum instanceof Message) {
             return (M)datum;
         }
-        throw new RecordCoreException("cannot be retrieve message from flowed object");
+        throw new RecordCoreException("cannot retrieve message from flowed object");
     }
 
     @SuppressWarnings("unchecked")
@@ -122,13 +149,18 @@ public class QueryResult {
     }
 
     @Nullable
-    Tuple getPrimaryKey() {
+    public Tuple getPrimaryKey() {
         return primaryKey;
     }
 
     @Nullable
-    RecordType getRecordType() {
+    public RecordType getRecordType() {
         return recordType;
+    }
+
+    @Nonnull
+    public QueryResult withComputed(@Nullable final Object computed) {
+        return new QueryResult(computed, queriedRecord, indexEntry, primaryKey, recordType);
     }
 
     /**

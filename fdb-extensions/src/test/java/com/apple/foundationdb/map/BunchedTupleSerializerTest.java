@@ -124,10 +124,10 @@ public class BunchedTupleSerializerTest {
 
     @Test
     public void serializeEntries() {
-        List<Map.Entry<Tuple,Tuple>> entries = TEST_TUPLES.stream()
+        List<Map.Entry<Tuple, Tuple>> entries = TEST_TUPLES.stream()
                 .map(t -> new AbstractMap.SimpleImmutableEntry<>(t, t))
                 .collect(Collectors.toList());
-        List<Map.Entry<Tuple,Tuple>> deserializedEntries = serializer.deserializeEntries(TEST_TUPLES.get(0), serializer.serializeEntries(entries));
+        List<Map.Entry<Tuple, Tuple>> deserializedEntries = serializer.deserializeEntries(TEST_TUPLES.get(0), serializer.serializeEntries(entries));
         assertEquals(entries, deserializedEntries);
     }
 
@@ -138,11 +138,11 @@ public class BunchedTupleSerializerTest {
 
     @Test
     public void serializeAndAppend() {
-        List<Map.Entry<Tuple,Tuple>> entries = new ArrayList<>(TEST_TUPLES.size());
+        List<Map.Entry<Tuple, Tuple>> entries = new ArrayList<>(TEST_TUPLES.size());
         entries.add(new AbstractMap.SimpleImmutableEntry<>(TEST_TUPLES.get(0), TEST_TUPLES.get(1)));
         byte[] data = serializer.serializeEntries(entries);
         for (int i = 1; i < TEST_TUPLES.size(); i++) {
-            Map.Entry<Tuple,Tuple> entry = new AbstractMap.SimpleEntry<>(TEST_TUPLES.get(i), TEST_TUPLES.get((i + 1) % TEST_TUPLES.size()));
+            Map.Entry<Tuple, Tuple> entry = new AbstractMap.SimpleEntry<>(TEST_TUPLES.get(i), TEST_TUPLES.get((i + 1) % TEST_TUPLES.size()));
             entries.add(entry);
             byte[] nextData = ByteArrayUtil.join(data, serializer.serializeEntry(entry));
             assertArrayEquals(serializer.serializeEntries(entries), nextData);

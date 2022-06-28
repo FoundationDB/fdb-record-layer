@@ -44,10 +44,13 @@ public class LuceneScanAutoCompleteParameters extends LuceneScanParameters {
     final String key;
     final boolean isParameter;
 
-    protected LuceneScanAutoCompleteParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull String key, boolean isParameter) {
+    final boolean highlight;
+
+    protected LuceneScanAutoCompleteParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull String key, boolean isParameter, boolean highlight) {
         super(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE, groupComparisons);
         this.key = key;
         this.isParameter = isParameter;
+        this.highlight = highlight;
     }
 
     @Override
@@ -59,7 +62,7 @@ public class LuceneScanAutoCompleteParameters extends LuceneScanParameters {
     @Override
     public LuceneScanAutoComplete bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         String keyToComplete = isParameter ? (String)context.getBinding(key) : key;
-        return new LuceneScanAutoComplete(scanType, getGroupKey(store, context), keyToComplete);
+        return new LuceneScanAutoComplete(scanType, getGroupKey(store, context), keyToComplete, highlight);
     }
 
     @Nonnull

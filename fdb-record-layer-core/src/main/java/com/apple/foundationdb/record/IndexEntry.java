@@ -46,6 +46,11 @@ public class IndexEntry {
     private final Tuple key;
     @Nonnull
     private final Tuple value;
+
+    /**
+     * This primaryKey is either supplied in advance through the constructor, or determined by the index's primaryKeyComponentPositions lazily and memorized in it.
+     * Index maintainers are not obligated to supply this in advance, unless their supposed primary keys cannot be obtained from the {@link #key} tuple.
+     */
     @Nullable
     private Tuple primaryKey;
 
@@ -80,9 +85,15 @@ public class IndexEntry {
 
     @API(API.Status.INTERNAL)
     public IndexEntry(@Nonnull Index index, @Nonnull Tuple key, @Nonnull Tuple value) {
+        this(index, key, value, null);
+    }
+
+    @API(API.Status.INTERNAL)
+    public IndexEntry(@Nonnull Index index, @Nonnull Tuple key, @Nonnull Tuple value, @Nullable Tuple primaryKey) {
         this.index = index;
         this.key = key;
         this.value = value;
+        this.primaryKey = primaryKey;
     }
 
     /**

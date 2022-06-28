@@ -189,7 +189,7 @@ public interface Type extends Narrowable<Type> {
     @Nonnull
     static Type primitiveType(@Nonnull final TypeCode typeCode, final boolean isNullable) {
         Verify.verify(typeCode.isPrimitive());
-        final int memoizedHashCode = Objects.hash(typeCode.hashCode(), isNullable);
+        final int memoizedHashCode = Objects.hash(typeCode.name().hashCode(), isNullable);
 
         return new Type() {
             @Override
@@ -544,7 +544,7 @@ public interface Type extends Narrowable<Type> {
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private int computeHashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable());
+            return Objects.hash(getTypeCode().name().hashCode(), isNullable());
         }
 
         /**
@@ -684,7 +684,7 @@ public interface Type extends Narrowable<Type> {
 
         @Override
         public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), enumValues);
+            return Objects.hash(getTypeCode().name().hashCode(), isNullable(), enumValues);
         }
 
         @Override
@@ -785,7 +785,7 @@ public interface Type extends Narrowable<Type> {
         private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashCode);
 
         private int computeHashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), fields);
+            return Objects.hash(getTypeCode().name().hashCode(), isNullable(), fields);
         }
 
         /**
@@ -1257,6 +1257,7 @@ public interface Type extends Narrowable<Type> {
              * @param fieldType The field {@link Type}.
              * @param fieldNameOptional The field name.
              * @param fieldIndexOptional The field index.
+             * @return a new field
              */
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
                 return new Field(fieldType, fieldNameOptional, fieldIndexOptional);
@@ -1267,6 +1268,7 @@ public interface Type extends Narrowable<Type> {
              *
              * @param fieldType The field {@link Type}.
              * @param fieldNameOptional The field name.
+             * @return a new field
              */
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional) {
                 return new Field(fieldType, fieldNameOptional, Optional.empty());
@@ -1276,6 +1278,7 @@ public interface Type extends Narrowable<Type> {
              * Constructs a new field that has no name and no protobuf field index.
              *
              * @param fieldType The field {@link Type}.
+             * @return a new field
              */
             public static Field unnamedOf(@Nonnull final Type fieldType) {
                 return new Field(fieldType, Optional.empty(), Optional.empty());
@@ -1300,7 +1303,7 @@ public interface Type extends Narrowable<Type> {
         private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashFunction);
 
         private int computeHashFunction() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), innerType);
+            return Objects.hash(getTypeCode().name().hashCode(), isNullable(), innerType);
         }
 
         /**
@@ -1436,7 +1439,7 @@ public interface Type extends Narrowable<Type> {
         private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashFunction);
 
         private int computeHashFunction() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), elementType);
+            return Objects.hash(getTypeCode().name().hashCode(), isNullable(), elementType);
         }
 
         /**

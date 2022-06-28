@@ -20,14 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Context for query parsing, including meta-data, generated types, and the state of available indexes.
@@ -38,19 +35,10 @@ public class ParserContext {
     @Nonnull
     private final TypeRepository.Builder typeRepositoryBuilder;
 
-    @Nonnull
-    private final RecordMetaData recordMetaData;
-    @Nonnull
-    private final RecordStoreState recordStoreState;
-
     public ParserContext(@Nonnull final Scopes scopes,
-                         @Nonnull TypeRepository.Builder typeRepositoryBuilder,
-                         @Nonnull final RecordMetaData recordMetaData,
-                         @Nonnull final RecordStoreState recordStoreState) {
+                         @Nonnull TypeRepository.Builder typeRepositoryBuilder) {
         this.scopes = scopes;
         this.typeRepositoryBuilder = typeRepositoryBuilder;
-        this.recordMetaData = recordMetaData;
-        this.recordStoreState = recordStoreState;
     }
 
     @Nonnull
@@ -59,22 +47,12 @@ public class ParserContext {
     }
 
     @Nonnull
-    public RecordMetaData getRecordMetaData() {
-        return recordMetaData;
-    }
-
-    @Nonnull
-    public RecordStoreState getRecordStoreState() {
-        return recordStoreState;
-    }
-
-    @Nonnull
     public Scopes.Scope getCurrentScope() {
         return Objects.requireNonNull(scopes.getCurrentScope());
     }
 
-    public void pushScope(@Nonnull final Map<CorrelationIdentifier, QuantifiedValue> boundIdentifiers) {
-        scopes.push(boundIdentifiers);
+    public Scopes.Scope pushScope() {
+        return scopes.push();
     }
 
     @Nonnull
@@ -83,7 +61,17 @@ public class ParserContext {
     }
 
     @Nonnull
-    public QuantifiedValue resolveIdentifier(@Nonnull final String identifier) {
-        return scopes.resolveIdentifier(identifier);
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final String identifier) {
+        return resolveQuantifier(CorrelationIdentifier.of(identifier));
+    }
+
+    @Nonnull
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final CorrelationIdentifier identifier) {
+        return scopes.resolveQuantifier(identifier);
+    }
+
+    @Nonnull
+    public Scopes getScopes() {
+        return scopes;
     }
 }

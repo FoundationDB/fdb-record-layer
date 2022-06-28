@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -97,6 +98,9 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
      * @param inner the quantifier that this plan owns
      * @param groupingKeyValue the {@link Value} to group by
      * @param aggregateValue the {@link AggregateValue} to aggregate by grouping key
+     * @param groupingKeyAlias the identifier of {@code groupingKeyValue}
+     * @param aggregateAlias the identifier of {@code aggregateValue}
+     * @param completeResultValue the {@link Value} of the aggregate results
      */
     private RecordQueryStreamingAggregationPlan(@Nonnull final Quantifier.Physical inner,
                                                 @Nullable final Value groupingKeyValue,
@@ -169,11 +173,14 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
 
     @Nonnull
     @Override
-    public RecordQueryStreamingAggregationPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                            @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                groupingKeyValue,
-                aggregateValue,
+    public RecordQueryStreamingAggregationPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final var translatedGroupingKeyValue = groupingKeyValue == null ? null : groupingKeyValue.translateCorrelations(translationMap);
+        final var translatedAggregateValue = aggregateValue.translateCorrelations(translationMap);
+
+        return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
+                translatedGroupingKeyValue,
+                translatedAggregateValue,
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValue);

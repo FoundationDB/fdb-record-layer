@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -35,6 +38,9 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -164,8 +170,8 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), scan(unbounded())));
         assertEquals(972152650, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(38587029, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(199396889, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(877128883, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1037938743, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(Arrays.asList(1L), fetchResultValues(plan, TestRecords6Proto.MyRepeatedRecord.REC_NO_FIELD_NUMBER,
                 this::openDoublyRepeatedRecordStore,
                 context -> assertDiscardedAtMost(1, context)));
@@ -543,6 +549,7 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("repeater").oneOfThem().equalsValue(100))
+                .setRemoveDuplicates(true)
                 .build();
 
         try (FDBRecordContext context = openContext()) {
@@ -586,7 +593,11 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 assertEquals(325380875, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
                 assertEquals(666792055, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             }
-            List<Message> byQuery = recordStore.executeQuery(plan).map(FDBQueriedRecord::getRecord).asList().get();
+            final var usedTypes = UsedTypesProperty.evaluate(plan);
+            final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();
+            List<Message> byQuery =
+                    recordStore.executeQuery(plan, null, EvaluationContext.forBindingsAndTypeRepository(Bindings.EMPTY_BINDINGS, typeRepository), ExecuteProperties.SERIAL_EXECUTE)
+                            .map(QueryResult::<Message>getMessage).asList().get();
             assertEquals(1, byQuery.size());
             assertDiscardedNone(context);
             TestRecords1Proto.MySimpleRecord simpleByQuery = builder.clear().mergeFrom(byQuery.get(0)).build();

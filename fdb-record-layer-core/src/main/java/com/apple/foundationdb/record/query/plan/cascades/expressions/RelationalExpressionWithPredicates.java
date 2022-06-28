@@ -22,11 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -107,7 +108,12 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                                             .filter(v -> v instanceof FieldValue).spliterator(), false))
                             .map(value -> (FieldValue)value);
                 })
-                .map(fieldValue -> (FieldValue)fieldValue.rebase(AliasMap.of(fieldValue.getChild().getAlias(), CorrelationIdentifier.UNGROUNDED)))
+                .map(fieldValue -> {
+                    final Set<CorrelationIdentifier> fieldCorrelatedTo = fieldValue.getChild().getCorrelatedTo();
+                    // TODO make better as the field can currently only handle exactly one correlated alias
+                    final var alias = Iterables.getOnlyElement(fieldCorrelatedTo);
+                    return (FieldValue)fieldValue.rebase(AliasMap.of(alias, CorrelationIdentifier.UNGROUNDED));
+                })
                 .collect(ImmutableSet.toImmutableSet());
     }
 }

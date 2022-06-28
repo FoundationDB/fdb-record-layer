@@ -36,13 +36,6 @@ public interface TypeFilterExpression extends RelationalExpressionWithChildren {
     @Nonnull
     Collection<String> getRecordTypes();
 
-    @Nonnull
-    @Override
-    default TypeFilterExpression rebase(@Nonnull final AliasMap translationMap) {
-        // we know the following is correct, just Java doesn't
-        return (TypeFilterExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
-    }
-
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,

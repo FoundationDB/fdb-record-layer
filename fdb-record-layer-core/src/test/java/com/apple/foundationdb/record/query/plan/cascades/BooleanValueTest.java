@@ -82,7 +82,7 @@ class BooleanValueTest {
     private static final ThrowsValue THROWS_VALUE = new ThrowsValue();
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
-    private static final ParserContext parserContext = new ParserContext(null, typeRepositoryBuilder, null, null);
+    private static final ParserContext parserContext = new ParserContext(null, typeRepositoryBuilder);
 
     @SuppressWarnings("ConstantConditions")
     static class ThrowsValue implements BooleanValue {

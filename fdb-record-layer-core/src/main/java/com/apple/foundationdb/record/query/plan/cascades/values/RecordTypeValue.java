@@ -50,14 +50,11 @@ public class RecordTypeValue implements QuantifiedValue {
     public RecordTypeValue(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
     }
-
+    
     @Nonnull
     @Override
-    public RecordTypeValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(alias)) {
-            return new RecordTypeValue(translationMap.getTargetOrThrow(alias));
-        }
-        return this;
+    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
+        return new RecordTypeValue(targetAlias);
     }
 
     @Nullable

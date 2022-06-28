@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
@@ -44,7 +45,7 @@ import java.util.List;
  * indexes.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PredicateCountProperty implements ExpressionProperty<Integer> {
+public class PredicateCountProperty implements ExpressionProperty<Integer>, RelationalExpressionVisitorWithDefaults<Integer> {
     private static final PredicateCountProperty INSTANCE = new PredicateCountProperty();
 
     @Nonnull
