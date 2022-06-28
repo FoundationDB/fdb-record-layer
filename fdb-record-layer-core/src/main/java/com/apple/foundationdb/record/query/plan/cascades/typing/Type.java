@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
-import com.apple.foundationdb.record.ArrayWrapperRecord;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
