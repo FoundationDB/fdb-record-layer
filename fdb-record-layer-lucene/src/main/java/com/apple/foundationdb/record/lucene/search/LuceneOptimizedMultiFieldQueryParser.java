@@ -58,7 +58,7 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
                             q = new BoostQuery(q, boost.floatValue());
                         }
                     }
-                    q = applySlop(q,slop);
+                    q = addSlop(q, slop);
                     clauses.add(q);
                 }
             }
@@ -68,11 +68,11 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
             return getMultiFieldQuery(clauses);
         }
         Query q = super.getFieldQuery(field, queryText, true);
-        q = applySlop(q,slop);
+        q = addSlop(q, slop);
         return q;
     }
 
-    private Query applySlop(Query q, int slop) {
+    private Query addSlop(Query q, int slop) {
         if (q instanceof PhraseQuery) {
             PhraseQuery.Builder builder = new PhraseQuery.Builder();
             builder.setSlop(slop);
