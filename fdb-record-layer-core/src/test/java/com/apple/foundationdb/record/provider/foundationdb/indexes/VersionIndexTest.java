@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -2444,7 +2443,8 @@ public class VersionIndexTest extends FDBTestBase {
 
             IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
             KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
-            return recordStore.scanIndexRemoteFetch(indexName, scanBounds, primaryKey, null, direction, IndexOrphanBehavior.ERROR)
+            // Use the remote fetch / fallback and then get the keys
+            return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, primaryKey, null, IndexOrphanBehavior.ERROR, direction)
                     .map(FDBIndexedRecord::getIndexEntry)
                     .map(IndexEntry::getKey)
                     .asList().get();
@@ -2455,17 +2455,13 @@ public class VersionIndexTest extends FDBTestBase {
     private List<FDBIndexedRecord<Message>> scanIndexToRecords(final RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod,
                                                                final String indexName,
                                                                final ScanProperties direction) throws Exception {
-        if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) {
-            // same behavior as query scan and fetch
-            RecordCursor<IndexEntry> cursor = recordStore.scanIndex(metaData.getIndex(indexName), IndexScanType.BY_VALUE, TupleRange.ALL, null, direction);
-            return recordStore.fetchIndexRecords(cursor, IndexOrphanBehavior.ERROR, ExecuteState.NO_LIMITS).asList().get();
-        } else {
+        if (fetchMethod != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) {
             assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
-
-            IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
-            KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
-            return recordStore.scanIndexRemoteFetch(indexName, scanBounds, primaryKey, null, direction, IndexOrphanBehavior.ERROR).asList().get();
         }
+
+        IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
+        KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
+        return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, primaryKey, null, IndexOrphanBehavior.ERROR, direction).asList().get();
     }
 
     @Nonnull
