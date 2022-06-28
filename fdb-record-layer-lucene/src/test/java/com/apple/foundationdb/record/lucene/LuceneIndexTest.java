@@ -129,7 +129,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class LuceneIndexTest extends FDBRecordStoreTestBase {
-    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes",
+    protected static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
@@ -227,12 +227,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of(
                     LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, TestAnalyzerFactory.ANALYZER_FACTORY_NAME));
 
-    private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
+    protected static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
                                                 "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
                                                 "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
                                                 "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
 
-    private static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
+    protected static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
 
     private static final int DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT = LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT.getDefaultValue().intValue();
 
@@ -262,7 +262,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .build();
     }
 
-    private TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, String text, int group) {
+    protected TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, String text, int group) {
         return TestRecordsTextProto.SimpleDocument.newBuilder()
                 .setDocId(docId)
                 .setText(text)
@@ -331,7 +331,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return super.contextConfig(propsBuilder.addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true));
     }
 
-    private LuceneScanBounds fullTextSearch(Index index, String search) {
+    protected LuceneScanBounds fullTextSearch(Index index, String search) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(search, false));
@@ -2016,7 +2016,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         assertEquals(expectedSuggestion, message.getField(textDescriptor));
     }
 
-    private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
+    protected void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
         openRecordStore(context, metaDataBuilder -> {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(document, index);

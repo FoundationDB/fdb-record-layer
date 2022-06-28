@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.query.CustomQuery;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -44,6 +45,10 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
@@ -70,9 +75,10 @@ import java.util.function.Function;
  *
  */
 @API(API.Status.EXPERIMENTAL)
-class LuceneRecordCursor implements BaseCursor<IndexEntry> {
+public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneRecordCursor.class);
     // pagination within single instance of record cursor for lucene queries.
+    public static ThreadLocal<Function<LeafReaderContext, DocIdSetIterator>> fxnLocal = new ThreadLocal<>();
     private final int pageSize;
     @Nonnull
     private final Executor executor;
@@ -136,7 +142,15 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.skip = scanProperties.getExecuteProperties().getSkip();
         this.leftToSkip = scanProperties.getExecuteProperties().getSkip();
         this.timer = state.context.getTimer();
-        this.query = query;
+        Function<LeafReaderContext, DocIdSetIterator> fxn = fxnLocal.get();
+        if (fxn != null) {
+            BooleanQuery.Builder bq = new BooleanQuery.Builder();
+            bq.add(new CustomQuery(fxn), BooleanClause.Occur.FILTER);
+            bq.add(query, BooleanClause.Occur.MUST);
+            this.query = bq.build();
+        } else {
+            this.query = query;
+        }
         this.sort = sort;
         if (continuation != null) {
             try {
