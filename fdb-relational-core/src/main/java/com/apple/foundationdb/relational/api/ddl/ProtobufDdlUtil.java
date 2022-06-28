@@ -20,15 +20,51 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
 import java.sql.Types;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public final class ProtobufDdlUtil {
 
     private ProtobufDdlUtil() {
+    }
+
+    public static Type.Record recordFromDescriptor(Descriptors.Descriptor descriptor) throws RelationalException {
+        /*
+         * This exists because we have to make sure that fields are found by name, but sorted by their index,
+         * otherwise metadata will not find the correct columns by position.
+         */
+
+        Map<String, Descriptors.FieldDescriptor> descriptorLookupMap = descriptor.getFields().stream()
+                .collect(Collectors.toMap(Descriptors.FieldDescriptor::getName, Function.identity()));
+
+        TreeMap<String, Descriptors.FieldDescriptor> orderedFieldMap = new TreeMap<>((o1, o2) -> {
+            if (o1 == null) {
+                if (o2 == null) {
+                    return 0;
+                } else {
+                    return -1;
+                } //sort nulls first; shouldn't happen here but it's a good habit
+            } else if (o2 == null) {
+                return 1;
+            } else {
+                Descriptors.FieldDescriptor field1 = descriptorLookupMap.get(o1);
+                Descriptors.FieldDescriptor field2 = descriptorLookupMap.get(o2);
+                return Integer.compare(field1.getIndex(), field2.getIndex());
+            }
+        });
+        orderedFieldMap.putAll(descriptorLookupMap);
+        return Type.Record.fromFieldDescriptorsMap(orderedFieldMap);
     }
 
     public static String getTypeName(DescriptorProtos.FieldDescriptorProto descriptor) {
@@ -122,5 +158,28 @@ public final class ProtobufDdlUtil {
             default:
                 throw new IllegalStateException("Unexpected java type " + field.getJavaType());
         }
+    }
+
+    public static Type.Record recordFromFieldDescriptors(List<Descriptors.FieldDescriptor> fields) {
+        Map<String, Descriptors.FieldDescriptor> descriptorLookupMap = fields.stream()
+                .collect(Collectors.toMap(Descriptors.FieldDescriptor::getName, Function.identity()));
+
+        TreeMap<String, Descriptors.FieldDescriptor> orderedFieldMap = new TreeMap<>((o1, o2) -> {
+            if (o1 == null) {
+                if (o2 == null) {
+                    return 0;
+                } else {
+                    return -1;
+                } //sort nulls first; shouldn't happen here but it's a good habit
+            } else if (o2 == null) {
+                return 1;
+            } else {
+                Descriptors.FieldDescriptor field1 = descriptorLookupMap.get(o1);
+                Descriptors.FieldDescriptor field2 = descriptorLookupMap.get(o2);
+                return Integer.compare(field1.getIndex(), field2.getIndex());
+            }
+        });
+        orderedFieldMap.putAll(descriptorLookupMap);
+        return Type.Record.fromFieldDescriptorsMap(orderedFieldMap);
     }
 }

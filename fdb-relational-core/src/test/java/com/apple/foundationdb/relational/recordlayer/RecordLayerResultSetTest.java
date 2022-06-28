@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
@@ -29,7 +32,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,8 +47,12 @@ class RecordLayerResultSetTest {
     @SuppressWarnings("unchecked")
     RecordLayerResultSetTest() throws RelationalException {
         cursor = (ResumableIterator<Row>) Mockito.mock(ResumableIterator.class);
+        StructMetaData smd = new RelationalStructMetaData(
+                FieldDescription.primitive("a", Types.INTEGER, true),
+                FieldDescription.primitive("b", Types.VARCHAR, true)
+        );
         resultSet = new RecordLayerResultSet(
-                new String[]{"a", "b"},
+                smd,
                 cursor,
                 Mockito.mock(EmbeddedRelationalConnection.class));
     }
@@ -114,7 +123,9 @@ class RecordLayerResultSetTest {
     }
 
     @Test
-    void getFieldNames() {
-        assertThat(resultSet.getFieldNames()).containsExactly("a", "b");
+    void getFieldNames() throws SQLException {
+        final ResultSetMetaData metaData = resultSet.getMetaData();
+        assertThat(metaData.getColumnName(1)).isEqualToIgnoringCase("A");
+        assertThat(metaData.getColumnName(2)).isEqualToIgnoringCase("B");
     }
 }

@@ -41,10 +41,13 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
@@ -94,7 +97,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     public static final String SCHEMA = "catalog";
     public static final String SYS_DB = "/__SYS";
     private static final ExtensionRegistry EXTENSION_REGISTRY;
-    private static final String[] DATABASE_FIELDS = new String[]{"database_id"};
+    private StructMetaData dbTableMetaData;
 
     static {
         ExtensionRegistry defaultExtensionRegistry = ExtensionRegistry.newInstance();
@@ -189,7 +192,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY);
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        return new RecordLayerResultSet(DATABASE_FIELDS, RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null /* caller is responsible for managing tx state */);
+        return new RecordLayerResultSet(dbTableMetaData, RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null /* caller is responsible for managing tx state */);
     }
 
     @Override
@@ -197,8 +200,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY);
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType("Schema").getDescriptor();
-        return new RecordLayerResultSet(getFieldNames(schemaDesc),
+        Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
+        return new RecordLayerResultSet(getMetaData(schemaDesc),
                 RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
     }
 
@@ -207,8 +210,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath());
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
-        Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType("Schema").getDescriptor();
-        return new RecordLayerResultSet(getFieldNames(schemaDesc), RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
+        Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
+        return new RecordLayerResultSet(getMetaData(schemaDesc), RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
     }
 
     @Override
@@ -257,13 +260,13 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     private void updateDatabaseInfo(Schema schema, FDBRecordStore recordStore) throws RelationalException {
-        ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType("DatabaseInfo").getDescriptor());
+        ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
         Message m = pmd.setField("database_id", schema.getDatabaseId()).build();
         recordStore.saveRecord(m);
     }
 
     private void updateSchemaData(Schema schema, FDBRecordStore recordStore) throws RelationalException {
-        ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType("Schema").getDescriptor());
+        ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
         Message m = pmd.setField("database_id", schema.getDatabaseId())
                 .setField("schema_name", schema.getSchemaName())
                 .setField("template_name", schema.getSchemaTemplateName())
@@ -273,8 +276,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         recordStore.saveRecord(m);
     }
 
-    private String[] getFieldNames(Descriptors.Descriptor descriptor) {
-        return descriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
+    private StructMetaData getMetaData(Descriptors.Descriptor descriptor) throws RelationalException {
+        return SqlTypeSupport.recordToMetaData(ProtobufDdlUtil.recordFromDescriptor(descriptor));
     }
 
     @Nonnull
@@ -309,7 +312,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         }
         Message m = record.getRecord();
         final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
-        final RecordType schemaTableMD = recordMetaData.getRecordType("Schema");
+        final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);
         final Descriptors.Descriptor descriptor = schemaTableMD.getDescriptor();
         String dbId = (String) m.getField(descriptor.findFieldByName("database_id"));
         String schemaName = (String) m.getField(descriptor.findFieldByName("schema_name"));
@@ -338,7 +341,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     private Schema parseSchemaTable(Message m) throws RelationalException {
         final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
-        final RecordType schemaTableMD = recordMetaData.getRecordType("Schema");
+        final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);
         final Descriptors.Descriptor descriptor = schemaTableMD.getDescriptor();
         String dbId = (String) m.getField(descriptor.findFieldByName("database_id"));
         String schemaName = (String) m.getField(descriptor.findFieldByName("schema_name"));
@@ -355,13 +358,15 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         return new Schema(dbId, schemaName, tableDescriptor, templateName, version);
     }
 
-    private SchemaTemplate getCatalogSchemaTemplate() {
+    private SchemaTemplate getCatalogSchemaTemplate() throws RelationalException {
         TypingContext ctx = TypingContext.create();
 
         SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(ctx);
         SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(ctx);
 
         ctx.addAllToTypeRepository();
+        //TODO(bfines) unfortunate side effect--can we do this differently?
+        dbTableMetaData = SqlTypeSupport.typeToMetaData(ctx.getType(SystemTableRegistry.DATABASE_TABLE_NAME));
         return ctx.generateSchemaTemplate("catalog_template");
     }
 

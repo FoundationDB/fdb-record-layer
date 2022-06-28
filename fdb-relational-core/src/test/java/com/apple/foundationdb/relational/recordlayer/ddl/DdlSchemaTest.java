@@ -24,9 +24,11 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.DatabaseRule;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.TableDefinition;
 import com.apple.foundationdb.relational.utils.TypeDefinition;
@@ -38,9 +40,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -64,21 +66,22 @@ public class DdlSchemaTest {
     void canCreateSchema() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
-            try (Statement statement = conn.createStatement()) {
+            try (RelationalStatement statement = conn.createStatement()) {
                 //create a schema
                 final String createStatement = "CREATE SCHEMA '" + db.getDbUri() + "/testSchema' WITH TEMPLATE " + baseTemplate.getTemplateName();
                 statement.executeUpdate(createStatement);
                 //now describe the schema
-                try (ResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA '" + db.getDbUri() + "/testSchema'")) {
+                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA '" + db.getDbUri() + "/testSchema'")) {
                     while (resultSet.next()) {
                         Assertions.assertEquals(db.getDbUri().getPath(), resultSet.getString("DATABASE_PATH"), "Incorrect database name!");
                         Assertions.assertEquals("testSchema", resultSet.getString("SCHEMA_NAME"), "Incorrect schema name!");
-                        Assertions.assertTrue(resultSet instanceof RelationalResultSet);
-                        RelationalResultSet relationalResultSet = (RelationalResultSet) resultSet;
-                        Collection<?> tableInfo = relationalResultSet.getRepeated("TABLES");
-                        Assertions.assertEquals(1, tableInfo.size(), "Incorrect number of tables!");
-                        Object tbl = tableInfo.stream().findFirst().orElseThrow();
-                        Assertions.assertEquals("FOO_TBL", tbl, "Incorrect table name!");
+                        Array tableInfoArr = resultSet.getArray("TABLES");
+                        try (ResultSet rs = tableInfoArr.getResultSet()) {
+                            org.assertj.core.api.Assertions.assertThat(rs).isInstanceOf(RelationalResultSet.class);
+                            ResultSetAssert.assertThat((RelationalResultSet) rs).hasNextRow()
+                                    .hasRowExactly("FOO_TBL")
+                                    .hasNoNextRow();
+                        }
                     }
                 }
             }
@@ -127,7 +130,7 @@ public class DdlSchemaTest {
     void dropSchema() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
-            try (Statement statement = conn.createStatement()) {
+            try (RelationalStatement statement = conn.createStatement()) {
 
                 //create a schema
                 final String createStatement = "CREATE SCHEMA \"" + db.getDbUri() + "/testSchema\" WITH TEMPLATE " + baseTemplate.getTemplateName();
@@ -135,16 +138,18 @@ public class DdlSchemaTest {
 
                 //make sure it's there
                 //now describe the schema
-                try (ResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA '" + db.getDbUri() + "/testSchema'")) {
+                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA '" + db.getDbUri() + "/testSchema'")) {
                     while (resultSet.next()) {
                         Assertions.assertEquals(db.getDbUri().getPath(), resultSet.getString("DATABASE_PATH"), "Incorrect database name!");
                         Assertions.assertEquals("testSchema", resultSet.getString("SCHEMA_NAME"), "Incorrect schema name!");
-                        Assertions.assertTrue(resultSet instanceof RelationalResultSet);
-                        RelationalResultSet relationalResultSet = (RelationalResultSet) resultSet;
-                        Collection<?> tableInfo = relationalResultSet.getRepeated("TABLES");
-                        Assertions.assertEquals(1, tableInfo.size(), "Incorrect number of tables!");
-                        Object tbl = tableInfo.stream().findFirst().orElseThrow();
-                        Assertions.assertEquals("FOO_TBL", tbl, "Incorrect table name!");
+
+                        Array arr = resultSet.getArray("TABLES");
+                        try (ResultSet tableRs = arr.getResultSet()) {
+                            org.assertj.core.api.Assertions.assertThat(tableRs).isInstanceOf(RelationalResultSet.class);
+                            ResultSetAssert.assertThat((RelationalResultSet) tableRs).hasNextRow()
+                                    .hasRowExactly("FOO_TBL")
+                                    .hasNoNextRow();
+                        }
                     }
                 }
 

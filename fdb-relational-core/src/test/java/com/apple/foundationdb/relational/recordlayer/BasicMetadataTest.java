@@ -24,6 +24,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
@@ -37,7 +38,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -65,14 +68,14 @@ public class BasicMetadataTest {
 
         try (final RelationalResultSet pks = metaData.getPrimaryKeys(database.getDatabasePath().getPath(),
                 "testSchema", "RestaurantRecord")) {
-            RelationalAssertions.assertThat(pks).hasExactly(new ArrayRow(new Object[]{
-                    database.getDatabasePath().getPath(),
-                    "testSchema",
-                    "RestaurantRecord",
-                    "rest_no",
-                    1,
-                    null
-            }));
+            ResultSetAssert.assertThat(pks).hasNextRow()
+                    .hasRowExactly(
+                            database.getDatabasePath().getPath(),
+                            "testSchema",
+                            "RestaurantRecord",
+                            "rest_no",
+                            1,
+                            null);
         }
     }
 
@@ -82,13 +85,12 @@ public class BasicMetadataTest {
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
         try (final RelationalResultSet schemas = metaData.getSchemas(database.getDatabasePath().getPath(), null)) {
-            Assertions.assertNotNull(schemas, "Null schemas returned");
-            List<String> retData = new ArrayList<>(1);
-            while (schemas.next()) {
-                Assertions.assertEquals(database.getDatabasePath().getPath(), schemas.getString("TABLE_CATALOG"), "Incorrect db path returned!");
-                Assertions.assertTrue(retData.add(schemas.getString("TABLE_SCHEM")), "Saw the same schema twice");
-            }
-            assertThat(retData).containsExactlyInAnyOrder("testSchema");
+            Set<String> retData = new HashSet<>();
+            ResultSetAssert.assertThat(schemas)
+                    .meetsForAllRows(ResultSetAssert.perRowCondition(rs ->
+                            database.getDatabasePath().getPath().equals(schemas.getString("TABLE_CATALOG")) &&
+                                    retData.add(schemas.getString("TABLE_SCHEM")), "Should not see the same schema twice"));
+            org.assertj.core.api.Assertions.assertThat(retData).contains("testSchema");
         }
     }
 
@@ -159,22 +161,21 @@ public class BasicMetadataTest {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
         try (final RelationalResultSet tableData = metaData.getIndexInfo(null, "testSchema", "RestaurantReviewer", false, false)) {
-            final ArrayRow expectedRow = new ArrayRow(new Object[]{
-                    URI.create("/basic_metadata_test"), //table_cat
-                    "testSchema", //table_schem
-                    "RestaurantReviewer", //table_name
-                    false, //non_unique
-                    "value", //index_qualifier
-                    "reviewer_name_idx", //index_name
-                    (short) 3, //index_type
-                    -1, // ordinal_position
-                    null, //column_name
-                    null, //asc_or_desc
-                    -1, //cardinality
-                    -1, //pages
-                    null //filter_condition
-            });
-            RelationalAssertions.assertThat(tableData).hasExactly(expectedRow);
+            ResultSetAssert.assertThat(tableData).hasNextRow()
+                    .hasRowExactly(
+                            URI.create("/basic_metadata_test"), //table_cat
+                            "testSchema", //table_schem
+                            "RestaurantReviewer", //table_name
+                            false, //non_unique
+                            "value", //index_qualifier
+                            "reviewer_name_idx", //index_name
+                            (short) 3, //index_type
+                            -1, // ordinal_position
+                            null, //column_name
+                            null, //asc_or_desc
+                            -1, //cardinality
+                            -1, //pages
+                            null); //filter_condition
         }
     }
 

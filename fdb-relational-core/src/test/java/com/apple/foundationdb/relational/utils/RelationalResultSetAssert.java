@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 
@@ -30,11 +31,13 @@ import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.MapAssert;
 
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -44,26 +47,13 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
         super(relationalResultSet, RelationalResultSetAssert.class);
     }
 
-    public RelationalResultSetAssert hasColumns(String[] columns) throws SQLException {
-        isNotNull();
-        extracting(relationalResultSet -> {
-            try {
-                return relationalResultSet.getMetaData();
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        }, ResultSetMetaDataAssert::new).hasColumns(columns);
-
-        return this;
-    }
-
     public RelationalResultSetAssert nextRowMatches(Row expectedNextRow) {
         isNotNull();
         //make sure that there is at least one row
         hasNextRow();
         extracting(rs -> {
             try {
-                return rs.asRow();
+                return ResultSetTestUtils.currentRow(rs);
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
@@ -93,6 +83,14 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
         return nextRowMatches(theExpectedRow).hasNoNextRow();
     }
 
+    public RelationalResultSetAssert hasExactly(Iterable<Row> theExpectedRow) {
+        isNotNull();
+        for (Row row : theExpectedRow) {
+            nextRowMatches(row);
+        }
+        return hasNoNextRow();
+    }
+
     public RelationalResultSetAssert hasExactly(Map<String, Object> theExpectedRow) {
         return isNotNull().nextRowMatches(theExpectedRow).hasNoNextRow();
     }
@@ -110,7 +108,7 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
     public RelationalResultSetAssert hasExactlyInAnyOrder(Collection<Row> expectedRows) throws SQLException, RelationalException {
         Collection<Row> actualRows = new ArrayList<>(expectedRows.size());
         while (actual.next()) {
-            actualRows.add(actual.asRow());
+            actualRows.add(ResultSetTestUtils.currentRow(actual));
         }
 
         Assertions.assertThat(actualRows.size()).describedAs("Row size").isEqualTo(expectedRows.size());
@@ -139,9 +137,29 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
         return this;
     }
 
-    public RelationalResultSetAssert hasExactlyInAnyOrder(Iterable<Message> expectedRows) throws SQLException, RelationalException {
-        return hasExactlyInAnyOrder(StreamSupport.stream(expectedRows.spliterator(), false)
-                .map(MessageTuple::new).collect(Collectors.toList()));
+    public RelationalResultSetAssert hasExactlyInAnyOrder(Iterable<?> expectedRows) throws SQLException, RelationalException {
+        Iterator<?> iter = expectedRows.iterator();
+        if (!iter.hasNext()) {
+            return hasNoNextRow();
+        } else {
+            Object o = iter.next();
+            if (o instanceof Row) {
+                return hasExactlyInAnyOrder(StreamSupport.stream(expectedRows.spliterator(), false)
+                        .map(t -> (Row) t)
+                        .collect(Collectors.toList())
+                );
+            } else if (o instanceof RelationalStruct) {
+                return hasExactlyInAnyOrder(StreamSupport.stream(expectedRows.spliterator(), false)
+                        .map(t -> ResultSetTestUtils.structToRow((RelationalStruct) o))
+                        .collect(Collectors.toList())
+                );
+            } else if (o instanceof Message) {
+                return hasExactlyInAnyOrder(StreamSupport.stream(expectedRows.spliterator(), false)
+                        .map(t -> new MessageTuple((Message) o)).collect(Collectors.toList()));
+            }
+            Assertions.fail("Unable to process expected results of class " + o.getClass());
+            return this;
+        }
     }
 
     private boolean advance(RelationalResultSet rrs) {
@@ -153,8 +171,16 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
         }
     }
 
-    public void isEqualToInAnyOrder(RelationalResultSet expectedResults) {
-        failWithMessage("Unimplemented");
+    public RelationalResultSetAssert isEqualToInAnyOrder(ResultSet expectedResults) {
+        Collection<Row> expectedRows = new ArrayList<>();
+        try {
+            while (expectedResults.next()) {
+                expectedRows.add(ResultSetTestUtils.currentRow(expectedResults));
+            }
+            return hasExactlyInAnyOrder(expectedRows);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static class ResultSetMetaDataAssert extends AbstractAssert<ResultSetMetaDataAssert, ResultSetMetaData> {
@@ -179,4 +205,5 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
             return this;
         }
     }
+
 }

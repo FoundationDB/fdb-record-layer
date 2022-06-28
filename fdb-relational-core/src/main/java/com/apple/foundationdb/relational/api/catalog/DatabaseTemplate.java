@@ -48,6 +48,7 @@ public class DatabaseTemplate {
         return Collections.unmodifiableMap(schemaToTemplateNameMap);
     }
 
+    @ExcludeFromJacocoGeneratedReport //this is going to be removed soon
     public static class Builder {
         private final Map<String, String> schemaToTemplateNameMap = new HashMap<>();
 

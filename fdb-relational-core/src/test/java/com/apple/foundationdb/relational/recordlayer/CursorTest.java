@@ -22,14 +22,19 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import com.apple.foundationdb.relational.utils.ResultSetTestUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.apple.foundationdb.relational.utils.RelationalStructAssert;
 
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -40,13 +45,10 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
-import static com.apple.foundationdb.relational.utils.RelationalAssertions.assertThat;
 
 public class CursorTest {
     @RegisterExtension
@@ -75,7 +77,7 @@ public class CursorTest {
             // 1/2 scan all records
             try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),
                     Options.NONE)) {
-                assertThat(resultSet).hasExactlyInAnyOrder(records);
+                ResultSetAssert.assertThat(resultSet).containsRowsExactly(records);
             } catch (SQLException | RelationalException e) {
                 throw new RuntimeException(e);
             }
@@ -87,97 +89,66 @@ public class CursorTest {
         havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
             // 1/2 scan all records
             List<Row> actual = new ArrayList<>();
-            RelationalResultSet resultSet = null;
+            StructMetaData metaData = null;
             try {
                 TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
-                resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build());
-                while (true) {
-                    while (resultSet.next()) {
-                        actual.add(resultSet.asRow());
-                    }
-                    if (!resultSet.getContinuation().atEnd()) {
-                        resultSet.close();
-                        resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, resultSet.getContinuation()).build());
-                    } else {
-                        resultSet.close();
-                        break;
+                Continuation cont = Continuation.BEGIN;
+                while (!cont.atEnd()) {
+                    try (RelationalResultSet resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, cont).withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build())) {
+                        metaData = resultSet.getMetaData().unwrap(StructMetaData.class);
+                        while (resultSet.next()) {
+                            actual.add(ResultSetTestUtils.currentRow(resultSet));
+                        }
+
+                        cont = resultSet.getContinuation();
                     }
                 }
             } catch (SQLException | RelationalException e) {
                 throw new RuntimeException(e);
-            } finally {
-                if (resultSet != null) {
-                    try {
-                        resultSet.close();
-                    } catch (SQLException e) {
-                        Assertions.fail("Could not close resultSet", e);
-                    }
-                }
             }
-            // 2/2 make sure we've received everything
-            Collection<Row> expected = StreamSupport.stream(records.spliterator(), false).map(MessageTuple::new).collect(Collectors.toList());
-            Assertions.assertEquals(expected.size(), actual.size());
-            Assertions.assertTrue(actual.containsAll(expected)); // no dups
+            RelationalResultSet actualResults = new IteratorResultSet(metaData, actual.iterator(), 0);
+            ResultSetAssert.assertThat(actualResults).containsRowsExactly(records);
         });
     }
 
     @Test
-    public void continuationOnEdgesOfRecordCollection() throws RelationalException, SQLException {
+    public void continuationOnEdgesOfRecordCollection() throws RelationalException {
 
         havingInsertedRecordsDo(3, (Iterable<Message> records, RelationalStatement s) -> {
-            RelationalResultSet resultSet = null;
-            try {
-                TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
-                resultSet = s.executeScan(scan, Options.NONE);
-
+            TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+            try (RelationalResultSet resultSet = s.executeScan(scan, Options.NONE)) {
                 // get continuation before iterating on the result set (should point to the first record).
-                Continuation beginContinuation = resultSet.getContinuation();
+                Continuation continuation = resultSet.getContinuation();
+                Assertions.assertEquals(Continuation.BEGIN, continuation, "Incorrect starting continuation!");
 
-                resultSet.next();
-                Row firstRecord = resultSet.asRow();
-                // get continuation at the first (should point to the second record).
-                final Continuation firstContinuation = resultSet.getContinuation();
+                StructMetaData smd = resultSet.getMetaData().unwrap(StructMetaData.class);
+                boolean called = false;
+                while (resultSet.next()) {
+                    called = true;
+                    Row resumedRow = readFirstRecordWithContinuation(s, continuation);
+                    Row mainRow = ResultSetTestUtils.currentRow(resultSet);
+                    RelationalStructAssert.assertThat(new ImmutableRowStruct(mainRow, smd)).isEqualTo(new ImmutableRowStruct(resumedRow, smd));
 
-                resultSet.next();
-                Row secondRecord = resultSet.asRow();
-                // get continuation at the second element (should point to third).
-                final Continuation secondContinuation = resultSet.getContinuation();
+                    continuation = resultSet.getContinuation();
+                }
 
-                resultSet.next();
-                Row lastRecord = resultSet.asRow();
+                Assertions.assertTrue(called, "Did not return any records!");
+
                 // get continuation at the last record (should point to FINISHED).
                 Continuation lastContinuation = resultSet.getContinuation();
 
                 // verify
-                Row resumedFirstRecord = readFirstRecordWithContinuation(s, beginContinuation);
-                Assertions.assertEquals(firstRecord, resumedFirstRecord);
-
-                Row resumedSecondRecord = readFirstRecordWithContinuation(s, firstContinuation);
-                Assertions.assertEquals(secondRecord, resumedSecondRecord);
-
-                Row resumedThirdRecord = readFirstRecordWithContinuation(s, secondContinuation);
-                Assertions.assertEquals(lastRecord, resumedThirdRecord);
-
-                Assertions.assertNull(lastContinuation.getBytes());
                 Assertions.assertTrue(lastContinuation.atEnd());
+                Assertions.assertNull(lastContinuation.getBytes());
 
             } catch (RelationalException | SQLException e) {
                 Assertions.fail("failed to parse ", e);
-            } finally {
-
-                if (resultSet != null) {
-                    try {
-                        resultSet.close();
-                    } catch (SQLException e) {
-                        Assertions.fail("Could not close resultSet", e);
-                    }
-                }
             }
         });
     }
 
     @Test
-    public void continuationOnEmptyCollection() throws RelationalException, SQLException {
+    public void continuationOnEmptyCollection() throws RelationalException {
         havingInsertedRecordsDo(0, (Iterable<Message> records, RelationalStatement s) -> {
             RelationalResultSet resultSet = null;
             try {
@@ -226,19 +197,10 @@ public class CursorTest {
     }
 
     private Row readFirstRecordWithContinuation(RelationalStatement s, Continuation c) throws SQLException, RelationalException {
-        RelationalResultSet resultSet = null;
-        try {
-            TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
-            resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, c).build());
+        TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+        try (RelationalResultSet resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, c).build())) {
             resultSet.next();
-            return resultSet.asRow();
-        } catch (SQLException e) {
-            Assertions.fail("failed to parse ", e);
-        } finally {
-            if (resultSet != null) {
-                resultSet.close();
-            }
+            return ResultSetTestUtils.currentRow(resultSet);
         }
-        return null;
     }
 }

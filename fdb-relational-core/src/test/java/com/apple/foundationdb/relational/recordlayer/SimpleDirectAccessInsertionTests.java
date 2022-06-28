@@ -29,9 +29,9 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
@@ -78,7 +78,9 @@ public class SimpleDirectAccessInsertionTests {
                 KeySet key = new KeySet()
                         .setKeyColumn("id", 1L);
                 try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", key, Options.NONE)) {
-                    RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(toWrite));
+                    ResultSetAssert.assertThat(rrs).hasNextRow()
+                            .hasRow(toWrite)
+                            .hasNoNextRow();
                 }
             }
         }
@@ -129,30 +131,42 @@ public class SimpleDirectAccessInsertionTests {
 
                 //now make sure that you don't get back the other one
                 try (RelationalResultSet rrs = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", 1L), Options.NONE)) {
-                    RelationalAssertions.assertThat(rrs).hasNoNextRow();
+                    ResultSetAssert.assertThat(rrs).isEmpty();
                 }
 
                 try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", 2L), Options.NONE)) {
-                    RelationalAssertions.assertThat(rrs).hasNoNextRow();
+                    ResultSetAssert.assertThat(rrs).isEmpty();
                 }
 
                 //make sure you get back the correct rows from the correct tables
                 try (RelationalResultSet rrs = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", 2L), Options.NONE)) {
-                    RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(restaurant));
+                    ResultSetAssert.assertThat(rrs)
+                            .hasNextRow()
+                            .hasRow(restaurant)
+                            .hasNoNextRow();
                 }
                 try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", 1L), Options.NONE)) {
-                    RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(review));
+                    ResultSetAssert.assertThat(rrs)
+                            .hasNextRow()
+                            .hasRow(review)
+                            .hasNoNextRow();
                 }
 
                 //now scan the data and see if too much comes back
                 TableScan restaurantScan = new TableScan("RestaurantRecord", KeySet.EMPTY, KeySet.EMPTY);
                 try (RelationalResultSet rrs = s.executeScan(restaurantScan, Options.NONE)) {
-                    RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(restaurant));
+                    ResultSetAssert.assertThat(rrs)
+                            .hasNextRow()
+                            .hasRow(restaurant)
+                            .hasNoNextRow();
                 }
 
                 TableScan reviewScan = new TableScan("RestaurantReviewer", KeySet.EMPTY, KeySet.EMPTY);
                 try (RelationalResultSet rrs = s.executeScan(reviewScan, Options.NONE)) {
-                    RelationalAssertions.assertThat(rrs).hasExactly(new MessageTuple(review));
+                    ResultSetAssert.assertThat(rrs)
+                            .hasNextRow()
+                            .hasRow(review)
+                            .hasNoNextRow();
                 }
             }
         }

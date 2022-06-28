@@ -39,7 +39,7 @@ public class DescriptorAssert extends AbstractObjectAssert<DescriptorAssert, Des
         return this;
     }
 
-    DescriptorAssert isContainedIn(List<Descriptors.Descriptor> messages) {
+    public DescriptorAssert isContainedIn(List<Descriptors.Descriptor> messages) {
         for (Descriptors.Descriptor desc : messages) {
             SoftAssertions asserts = compareFieldsRecursive(desc, actual);
             if (asserts.wasSuccess()) {

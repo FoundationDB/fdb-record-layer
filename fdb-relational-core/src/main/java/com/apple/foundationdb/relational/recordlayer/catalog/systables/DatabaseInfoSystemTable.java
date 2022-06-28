@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
  */
 public class DatabaseInfoSystemTable implements SystemTable {
 
-    public static final String TABLE_NAME = "DatabaseInfo";
+    public static final String TABLE_NAME = SystemTableRegistry.DATABASE_TABLE_NAME;
 
     private static final String DATABASE_ID = "database_id";
 
@@ -63,8 +63,4 @@ public class DatabaseInfoSystemTable implements SystemTable {
         return Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field(DATABASE_ID));
     }
 
-    @Override
-    public long getRecordTypeKey() {
-        return SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY;
-    }
 }

@@ -20,11 +20,7 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
-import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
-
 import com.google.protobuf.DescriptorProtos;
-
-import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
@@ -38,16 +34,6 @@ public class TypeInfo {
 
     public String getTypeName() {
         return descriptor.getName();
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder("type: { name:").append(descriptor.getName()).append(", columns: { ");
-        sb.append(descriptor.getFieldList().stream()
-                .map(fd -> fd.getName() + ":" + ProtobufDdlUtil.getTypeName(fd))
-                .collect(Collectors.joining(",")));
-        sb.append("}}");
-        return sb.toString();
     }
 
     @Nonnull

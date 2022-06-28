@@ -30,11 +30,14 @@ import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpressio
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -43,7 +46,9 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -88,10 +93,31 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public String[] getFieldNames() throws RelationalException {
+    @Nonnull
+    public StructMetaData getMetaData() throws RelationalException {
         RecordType type = loadRecordType();
-        final Descriptors.Descriptor descriptor = type.getDescriptor();
-        return descriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
+
+        Map<String, Descriptors.FieldDescriptor> descriptorLookupMap = type.getDescriptor().getFields().stream()
+                .collect(Collectors.toMap(Descriptors.FieldDescriptor::getName, Function.identity()));
+
+        TreeMap<String, Descriptors.FieldDescriptor> orderedFieldMap = new TreeMap<>((o1, o2) -> {
+            if (o1 == null) {
+                if (o2 == null) {
+                    return 0;
+                } else {
+                    return -1;
+                } //sort nulls first; shouldn't happen here but it's a good habit
+            } else if (o2 == null) {
+                return 1;
+            } else {
+                Descriptors.FieldDescriptor field1 = descriptorLookupMap.get(o1);
+                Descriptors.FieldDescriptor field2 = descriptorLookupMap.get(o2);
+                return Integer.compare(field1.getIndex(), field2.getIndex());
+            }
+        });
+        orderedFieldMap.putAll(descriptorLookupMap);
+        final Type.Record record = Type.Record.fromFieldDescriptorsMap(orderedFieldMap);
+        return SqlTypeSupport.recordToMetaData(record);
     }
 
     @Override

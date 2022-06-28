@@ -20,7 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
-import java.util.Collection;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import java.util.Map;
 
 import javax.annotation.Nonnull;
@@ -30,6 +31,7 @@ import javax.annotation.Nonnull;
  * is to provide a placeholder of these tables that could be consulted e.g. during database
  * bootstrapping.
  */
+@ExcludeFromJacocoGeneratedReport //We don't need to test map accesses
 public final class SystemTableRegistry {
 
     public static final long SCHEMA_RECORD_TYPE_KEY = 0L;
@@ -43,20 +45,11 @@ public final class SystemTableRegistry {
             DATABASE_TABLE_NAME, new DatabaseInfoSystemTable()
     );
 
-    /**
-     * Returns a list of all registered system tables.
-     * @return a list of all registered system tables.
-     */
-    @Nonnull
-    public static Collection<SystemTable> getAllTables() {
-        return tablesMap.values();
-    }
-
     @Nonnull
     public static SystemTable getSystemTable(String key) {
         final SystemTable systemTable = tablesMap.get(key);
         if (systemTable == null) {
-            throw new IllegalStateException("Programmer error: messing system table named <" + key + ">");
+            throw new IllegalStateException("Programmer error: missing system table named <" + key + ">");
         }
         return systemTable;
     }

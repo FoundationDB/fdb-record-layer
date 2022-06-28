@@ -20,13 +20,20 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.RowArray;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.DdlPermutationGenerator;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 
 import com.google.common.base.Strings;
 import org.junit.jupiter.api.Assertions;
@@ -37,11 +44,14 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.net.URI;
+import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -97,27 +107,35 @@ public class DdlSchemaTemplateTest {
                 "}";
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
-            try (Statement statement = conn.createStatement()) {
+            try (RelationalStatement statement = conn.createStatement()) {
                 statement.executeUpdate(createColumnStatement);
 
-                try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + table.getName())) {
-                    Assertions.assertTrue(rs.next(), "Missing schema template description!");
-                    String name = rs.getString(1);
-                    Assertions.assertEquals(table.getName(), name, "Incorrect template name!");
-                    Assertions.assertTrue(rs instanceof RelationalResultSet);
-                    RelationalResultSet rrs = (RelationalResultSet) rs;
-                    Collection<?> tables = rrs.getRepeated(2);
-                    Collection<?> types = rrs.getRepeated(3);
-                    Assertions.assertEquals(1, types.size(), "Incorrect number of types!");
-                    Assertions.assertEquals(1, tables.size(), "Incorrect number of tables!");
-                    //TODO(bfines) String comparison sucks here, but it's a bit easier than overengineering
-                    // a whole TableDescriptor type--eventually, we'll need to do that though, probably
-                    String expectedTypeJson = table.getTypeJson("TYP");
-                    Assertions.assertEquals(expectedTypeJson, types.stream().findFirst().orElseThrow().toString(), "Incorrect type");
-                    String expectedTableJson = table.getTableJson("TBL");
-                    Assertions.assertEquals(expectedTableJson, tables.stream().findFirst().orElseThrow().toString(), "Incorrect tables");
+                try (RelationalResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + table.getName())) {
+                    Collection<Row> expectedTables = List.of(table.getPermutationAsRow("TBL"));
+                    StructMetaData expectedTableMetaData = new RelationalStructMetaData(
+                            FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, false),
+                            FieldDescription.array("COLUMNS", false,
+                                    new RelationalStructMetaData(
+                                            FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
+                                            FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
+                                    ))
+                    );
+                    Array expectedTablesArr = new RowArray(expectedTables, expectedTableMetaData);
+                    Collection<Row> expectedTypes = List.of(table.getPermutationAsRow("TYP"));
+                    StructMetaData expectedTypeMetaData = new RelationalStructMetaData(
+                            FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, false),
+                            FieldDescription.array("COLUMNS", false,
+                                    new RelationalStructMetaData(
+                                            FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
+                                            FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
+                                    ))
+                    );
+                    Array expectedTypesArr = new RowArray(expectedTypes, expectedTypeMetaData);
 
-                    Assertions.assertFalse(rrs.next(), "Too many results returned!");
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasRowExactly(table.getName(), expectedTypesArr, expectedTablesArr)
+                            .hasNoNextRow();
                 }
             }
         }

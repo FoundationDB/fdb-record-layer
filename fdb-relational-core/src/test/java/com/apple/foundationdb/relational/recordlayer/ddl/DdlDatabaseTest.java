@@ -23,25 +23,28 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.TableDefinition;
 import com.apple.foundationdb.relational.utils.TypeDefinition;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
-import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * End-to-end unit tests for the database ddl language built over RecordLayer.
@@ -77,14 +80,13 @@ public class DdlDatabaseTest {
         }
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/test_db"), Options.NONE)) {
             conn.setSchema("foo_schem");
-            try (Statement statement = conn.createStatement()) {
+            try (RelationalStatement statement = conn.createStatement()) {
 
                 //look to see if it's in the list
-                try (ResultSet rs = statement.executeQuery("SHOW DATABASES")) {
-                    RelationalAssertions.assertThat(rs).hasExactlyInAnyOrder(List.of(
-                            new ArrayRow(new Object[]{"/test_db"}),
-                            new ArrayRow(new Object[]{"/__SYS"})
-                    ));
+                Set<String> databases = Set.of("/test_db", "/__SYS");
+                try (RelationalResultSet rs = statement.executeQuery("SHOW DATABASES")) {
+                    ResultSetAssert.assertThat(rs)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(resultSet -> databases.contains(resultSet.getString(1)), "Should be a valid database"));
                 }
             }
         }
@@ -96,22 +98,21 @@ public class DdlDatabaseTest {
         final String listCommand = "SHOW DATABASES WITH PREFIX '/test_db'";
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
-            try (Statement statement = conn.createStatement()) {
+            try (RelationalStatement statement = conn.createStatement()) {
                 //create a database
                 statement.executeUpdate("CREATE DATABASE '/test_db'");
 
                 //look to see if it's in the list
-                try (ResultSet rs = statement.executeQuery(listCommand)) {
-                    RelationalAssertions.assertThat(rs).hasExactlyInAnyOrder(List.of(
-                            new ArrayRow(new Object[]{"/test_db"})
-                    ));
+                try (RelationalResultSet rs = statement.executeQuery(listCommand)) {
+                    ResultSetAssert.assertThat(rs).hasNextRow()
+                            .hasColumn("database_id", "/test_db");
                 }
                 //now drop the database
                 statement.executeUpdate("DROP DATABASE '/test_db/test_db'");
 
                 //now it should be missing
-                try (ResultSet rs = statement.executeQuery(listCommand)) {
-                    Assertions.assertFalse(rs.next(), "Found too many databases!");
+                try (RelationalResultSet rs = statement.executeQuery(listCommand)) {
+                    ResultSetAssert.assertThat(rs).isEmpty();
                 }
             }
         }
@@ -139,8 +140,10 @@ public class DdlDatabaseTest {
                 statement.executeUpdate("DROP DATABASE '/test_db/created_schema'");
 
                 //now creating a new schema should throw a DATABASE_NOT_FOUND error
-                RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate("CREATE SCHEMA /test_db/should_fail with template " + baseTemplate.getTemplateName()))
-                        .hasErrorCode(ErrorCode.DATABASE_NOT_FOUND);
+                Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE SCHEMA /test_db/should_fail with template " + baseTemplate.getTemplateName()))
+                        .isInstanceOf(SQLException.class)
+                        .extracting("SQLState")
+                        .isEqualTo(ErrorCode.DATABASE_NOT_FOUND.getErrorCode());
             }
         }
     }
@@ -161,6 +164,10 @@ public class DdlDatabaseTest {
                 statement.executeUpdate("CREATE SCHEMA '/test_db_two_schemas/schema3' with template " + baseTemplate.getTemplateName());
 
                 //creating the database a second time should fail
+                Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE DATABASE '/test_db_two_schemas'"))
+                        .isInstanceOf(SQLException.class)
+                        .extracting("SQLState")
+                        .isEqualTo(ErrorCode.DATABASE_ALREADY_EXISTS.getErrorCode());
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate("CREATE DATABASE '/test_db_two_schemas'"))
                         .hasErrorCode(ErrorCode.DATABASE_ALREADY_EXISTS);
             } finally {

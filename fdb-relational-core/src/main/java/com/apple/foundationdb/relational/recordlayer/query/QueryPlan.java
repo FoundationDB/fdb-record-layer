@@ -34,9 +34,13 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
@@ -52,6 +56,7 @@ import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import java.sql.Types;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -143,7 +148,9 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                 usedTypes.forEach(builder::addTypeIfNeeded);
                 final String[] fieldNames = Objects.requireNonNull(((Type.Record) innerType).getFields()).stream().sorted(Comparator.comparingInt(Type.Record.Field::getFieldIndex)).map(Type.Record.Field::getFieldName).collect(Collectors.toUnmodifiableList()).toArray(String[]::new);
                 final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan, fieldNames, EvaluationContext.forTypeRepository(builder.build()), recordLayerSchema, false /* get this information from the query plan */);
-                return new RecordLayerResultSet(queryExecutor.getFieldNames(),
+                Type type = queryExecutor.getQueryResultType();
+                StructMetaData metaData = SqlTypeSupport.typeToMetaData(type);
+                return new RecordLayerResultSet(metaData,
                         queryExecutor.execute(ContinuationImpl.fromBytes(continuation)),
                         conn);
             }
@@ -224,7 +231,10 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                         .build();
                 RecordQueryPlan physicalPlan = QpQueryplan.generatePhysicalPlan(qpQueryPlan.query, planContext);
                 Row printablePlan = new ValueTuple(physicalPlan.toString());
-                return new IteratorResultSet(new String[]{"PLAN"}, Collections.singleton(printablePlan).iterator(), 0);
+                StructMetaData metaData = new RelationalStructMetaData(
+                        FieldDescription.primitive("PLAN", Types.VARCHAR, false)
+                );
+                return new IteratorResultSet(metaData, Collections.singleton(printablePlan).iterator(), 0);
             }
         }
     }

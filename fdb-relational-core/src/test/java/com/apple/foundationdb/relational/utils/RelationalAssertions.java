@@ -20,20 +20,15 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.IntegerAssert;
 import org.assertj.core.api.ObjectAssert;
 import org.assertj.core.api.ThrowableAssert;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
@@ -45,43 +40,9 @@ public final class RelationalAssertions {
         return new RelationalAssert(o);
     }
 
-    public static DescriptorAssert assertThat(Descriptors.Descriptor o) {
-        return new DescriptorAssert(o);
-    }
-
-    public static FileDescriptorAssert assertThat(Descriptors.FileDescriptor o) {
-        return new FileDescriptorAssert(o);
-    }
-
-    public static MessageAssert assertThat(Message m) {
-        return new MessageAssert(m);
-    }
-
-    public static RelationalResultSetAssert assertThat(ResultSet resultSet) {
-        if (!(resultSet instanceof RelationalResultSet)) {
-            Assertions.fail(String.format("expected result set to be of type %s, however it is of type %s",
-                    RelationalResultSet.class.getSimpleName(),
-                    resultSet.getClass().getSimpleName()));
-        }
-        assert resultSet instanceof RelationalResultSet;
-        return new RelationalResultSetAssert((RelationalResultSet) resultSet);
-    }
-
-    public static RelationalResultSetAssert assertThat(RelationalResultSet resultSet) {
-        return new RelationalResultSetAssert(resultSet);
-    }
-
-    public static RelationalExceptionAssert assertThat(RelationalException ve) {
-        return new RelationalExceptionAssert(ve);
-    }
-
     public static RelationalExceptionAssert assertThrows(ThrowableAssert.ThrowingCallable shouldThrow) {
         RelationalException ve = Assertions.catchThrowableOfType(shouldThrow, RelationalException.class);
         return new RelationalExceptionAssert(ve);
-    }
-
-    public static RowAssert assertThat(Row row) {
-        return new RowAssert(row);
     }
 
     public static SQLExceptionAssert assertThrowsSqlException(ThrowableAssert.ThrowingCallable shouldThrow) {

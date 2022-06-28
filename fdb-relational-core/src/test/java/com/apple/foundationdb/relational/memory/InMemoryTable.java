@@ -23,10 +23,13 @@ package com.apple.foundationdb.relational.memory;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecordBuilder;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -37,10 +40,13 @@ import com.google.protobuf.Message;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class InMemoryTable {
@@ -128,4 +134,27 @@ public class InMemoryTable {
         return recordType.getDescriptor();
     }
 
+    public StructMetaData getMetaData() throws RelationalException {
+        Map<String, Descriptors.FieldDescriptor> descriptorLookupMap = getDescriptor().getFields().stream()
+                .collect(Collectors.toMap(Descriptors.FieldDescriptor::getName, Function.identity()));
+
+        TreeMap<String, Descriptors.FieldDescriptor> orderedFieldMap = new TreeMap<>((o1, o2) -> {
+            if (o1 == null) {
+                if (o2 == null) {
+                    return 0;
+                } else {
+                    return -1;
+                } //sort nulls first; shouldn't happen here but it's a good habit
+            } else if (o2 == null) {
+                return 1;
+            } else {
+                Descriptors.FieldDescriptor field1 = descriptorLookupMap.get(o1);
+                Descriptors.FieldDescriptor field2 = descriptorLookupMap.get(o2);
+                return Integer.compare(field1.getIndex(), field2.getIndex());
+            }
+        });
+        orderedFieldMap.putAll(descriptorLookupMap);
+        final Type.Record record = Type.Record.fromFieldDescriptorsMap(orderedFieldMap);
+        return SqlTypeSupport.recordToMetaData(record);
+    }
 }

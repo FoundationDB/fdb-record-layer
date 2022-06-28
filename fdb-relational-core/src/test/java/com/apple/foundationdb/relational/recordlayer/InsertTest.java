@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
@@ -72,24 +73,28 @@ public class InsertTest {
 
                 //now prove we can get them back out
                 try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumns(Map.of("rest_no", record.getRestNo())), Options.NONE)) {
-                    RelationalAssertions.assertThat(relationalResultSet).hasExactly(Map.of("name", record.getName(), "rest_no", record.getRestNo()));
+                    ResultSetAssert.assertThat(relationalResultSet).hasNextRow()
+                            .hasRow(Map.of("name", record.getName(), "rest_no", record.getRestNo()))
+                            .hasNoNextRow();
                 }
 
                 try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", reviewer.getId()), Options.NONE)) {
-                    RelationalAssertions.assertThat(relationalResultSet).hasExactly(Map.of("name", reviewer.getName(), "id", reviewer.getId()));
+                    ResultSetAssert.assertThat(relationalResultSet).hasNextRow()
+                            .hasRow(Map.of("name", reviewer.getName(), "id", reviewer.getId()))
+                            .hasNoNextRow();
                 }
 
                 //now make sure that they don't show up in the other table
                 try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord",
                         new KeySet().setKeyColumn("name", reviewer.getName()),
                         Options.builder().withOption(Options.Name.INDEX_HINT, "record_name_idx").build())) {
-                    RelationalAssertions.assertThat(relationalResultSet).hasNoNextRow();
+                    ResultSetAssert.assertThat(relationalResultSet).isEmpty();
                 }
 
                 try (RelationalResultSet relationalResultSet = s.executeGet("RestaurantReviewer",
                         new KeySet().setKeyColumn("name", record.getName()),
                         Options.builder().withOption(Options.Name.INDEX_HINT, "reviewer_name_idx").build())) {
-                    RelationalAssertions.assertThat(relationalResultSet).hasNoNextRow();
+                    ResultSetAssert.assertThat(relationalResultSet).isEmpty();
                 }
 
                 /*
@@ -107,7 +112,10 @@ public class InsertTest {
                             recordScan.getString("name");
                             recordScan.getLong("rest_no");
                         });
-                        RelationalAssertions.assertThrowsSqlException(() -> recordScan.getLong("id")).hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
+                        org.assertj.core.api.Assertions.assertThatThrownBy(() -> recordScan.getLong("id"))
+                                .isInstanceOf(SQLException.class)
+                                .extracting("SQLState")
+                                .isEqualTo(ErrorCode.INVALID_COLUMN_REFERENCE.getErrorCode());
                     }
                 }
 
@@ -120,7 +128,10 @@ public class InsertTest {
                             reviewerScan.getLong("id");
                         });
 
-                        RelationalAssertions.assertThrowsSqlException(() -> reviewerScan.getLong("rest_no")).hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
+                        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reviewerScan.getLong("rest_no"))
+                                .isInstanceOf(SQLException.class)
+                                .extracting("SQLState")
+                                .isEqualTo(ErrorCode.INVALID_COLUMN_REFERENCE.getErrorCode());
                     }
                 }
             }

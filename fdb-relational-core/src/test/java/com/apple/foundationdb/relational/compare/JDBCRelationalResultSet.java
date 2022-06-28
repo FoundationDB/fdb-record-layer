@@ -21,8 +21,9 @@
 package com.apple.foundationdb.relational.compare;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.io.InputStream;
@@ -31,7 +32,6 @@ import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.*;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Map;
 
 public class JDBCRelationalResultSet implements RelationalResultSet {
@@ -198,6 +198,18 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     @Override
     public BigDecimal getBigDecimal(String columnLabel) throws SQLException {
         return delegate.getBigDecimal(columnLabel);
+    }
+
+    @Override
+    public RelationalStruct getStruct(String columnLabel) throws SQLException {
+        //TODO(bfines) this almost certainly won't work
+        return (RelationalStruct) delegate.getObject(columnLabel);
+    }
+
+    @Override
+    public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
+        //TODO(bfines) this almost certainly won't work
+        return (RelationalStruct) delegate.getObject(oneBasedColumn);
     }
 
     @Override
@@ -946,21 +958,6 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Collection<?> getRepeated(int position) throws SQLException {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
-    }
-
-    @Override
-    public Collection<?> getRepeated(String fieldName) throws SQLException {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
-    }
-
-    @Override
-    public Row asRow() throws SQLException {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
-    }
-
-    @Override
     public Continuation getContinuation() throws RelationalException {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
@@ -1026,8 +1023,8 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     }
 
     @Override
-    public ResultSetMetaData getMetaData() throws SQLException {
-        return delegate.getMetaData();
+    public RelationalResultSetMetaData getMetaData() throws SQLException {
+        throw new SQLFeatureNotSupportedException("Unimplemented for JDBC wrapper");
     }
 
     @Override

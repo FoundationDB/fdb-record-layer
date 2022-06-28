@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.autotest.engine;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -35,9 +36,10 @@ import com.apple.foundationdb.relational.autotest.TableDescription;
 import com.apple.foundationdb.relational.autotest.WorkloadConfig;
 import com.apple.foundationdb.relational.autotest.datagen.DataSample;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.utils.ReservoirSample;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.DynamicTest;
@@ -175,11 +177,26 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
         super.nodeFinished(context, testDescriptor, result);
     }
 
+    private static class QueryResultSet {
+        private final List<Row> rows;
+        //TODO(bfines) we might need to make a defensive copy here to avoid lifecycle access problems
+        private final StructMetaData metaData;
+
+        public QueryResultSet(List<Row> rows, StructMetaData metaData) {
+            this.rows = rows;
+            this.metaData = metaData;
+        }
+
+        public RelationalResultSet asResultSet() {
+            return new IteratorResultSet(metaData, rows.iterator(), 0);
+        }
+    }
+
     private void runComparisonTest(ParameterizedQuery query,
                                    List<Connector> connectors,
                                    Map<String, Message> params,
                                    WorkloadReporter.TestReporter testReporter) {
-        Map<String, List<Row>> results = new HashMap<>();
+        Map<String, QueryResultSet> results = new HashMap<>();
         params.forEach((key, value) -> testReporter.publishEntry("param[" + key + "]", new MessageTuple(value).toString()));
 
         for (Connector connector : connectors) {
@@ -195,7 +212,7 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
                             }
                             data.add(new ArrayRow(arr));
                         }
-                        results.put(connector.getLabel(), data);
+                        results.put(connector.getLabel(), new QueryResultSet(data, rrs.getMetaData().unwrap(StructMetaData.class)));
                     }
                 }
             } catch (RelationalException ve) {
@@ -205,18 +222,15 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
             }
         }
         //now verify that all the rows are the same
-        for (Map.Entry<String, List<Row>> result : results.entrySet()) {
+        for (Map.Entry<String, QueryResultSet> result : results.entrySet()) {
             String resultName1 = result.getKey();
-            List<Row> dataSet1 = result.getValue();
-            for (Map.Entry<String, List<Row>> otherResult : results.entrySet()) {
+            RelationalResultSet dataSet1 = result.getValue().asResultSet();
+            for (Map.Entry<String, QueryResultSet> otherResult : results.entrySet()) {
                 if (otherResult.getKey().equals(resultName1)) {
                     continue; //skip comparing to ourselves
                 }
-                List<Row> dataSet2 = otherResult.getValue();
-                //TODO(bfines) do semantic row equality checking
-                for (Row row : dataSet1) {
-                    RelationalAssertions.assertThat(row).describedAs(resultName1 + ":" + row).isContainedIn(dataSet2, otherResult.getKey());
-                }
+                RelationalResultSet dataSet2 = result.getValue().asResultSet();
+                ResultSetAssert.assertThat(dataSet1).as(resultName1).isExactlyInAnyOrder(dataSet2);
             }
         }
     }

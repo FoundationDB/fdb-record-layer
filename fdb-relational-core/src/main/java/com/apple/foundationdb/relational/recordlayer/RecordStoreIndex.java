@@ -27,27 +27,31 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -58,7 +62,8 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     private final com.apple.foundationdb.record.metadata.Index index;
     private final RecordTypeTable table;
 
-    public RecordStoreIndex(com.apple.foundationdb.record.metadata.Index index, RecordTypeTable table) {
+    public RecordStoreIndex(com.apple.foundationdb.record.metadata.Index index,
+                            RecordTypeTable table) {
         this.index = index;
         this.table = table;
     }
@@ -67,6 +72,39 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     @Override
     public String getName() {
         return index.getName();
+    }
+
+    @Override
+    public StructMetaData getMetaData() throws RelationalException {
+        final KeyExpression indexStruct = index.getRootExpression();
+        RecordType recType = table.loadRecordType();
+        final List<Descriptors.FieldDescriptor> fields = indexStruct.validate(recType.getDescriptor());
+        Type.Record record = ProtobufDdlUtil.recordFromFieldDescriptors(fields);
+        /*
+         * If the index include a record type key, then this logic doesn't work--the returned tuples
+         * are off by one (wherever the record type key is in the key order). So we have to deal with that situation.
+         */
+        if (indexStruct.hasRecordTypeKey()) {
+            int typeKeyPos = -1;
+            final List<KeyExpression> keyExpressions = indexStruct.normalizeKeyForPositions();
+            int p = 0;
+            for (KeyExpression ke : keyExpressions) {
+                if (ke instanceof RecordTypeKeyExpression) {
+                    typeKeyPos = p;
+                    break;
+                }
+                p++;
+            }
+            Type.Record.Field typeKeyField = Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("__TYPE_KEY"), Optional.of(p + 1));
+            List<Type.Record.Field> recFields = new ArrayList<>(record.getFields());
+            if (typeKeyPos >= recFields.size()) {
+                recFields.add(typeKeyField);
+            } else {
+                recFields.add(typeKeyPos, typeKeyField);
+            }
+            record = Type.Record.fromFields(recFields);
+        }
+        return SqlTypeSupport.recordToMetaData(record);
     }
 
     @Override
@@ -108,60 +146,6 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     @Override
     public KeyBuilder getKeyBuilder() throws RelationalException {
         return new KeyBuilder(table.loadRecordType(), index.getRootExpression(), "index: <" + index.getName() + ">");
-    }
-
-    @Override
-    public String[] getFieldNames() throws RelationalException {
-        KeyExpression re = index.getRootExpression();
-        if (re instanceof KeyWithValueExpression) {
-            KeyWithValueExpression kve = (KeyWithValueExpression) re;
-            final List<KeyExpression> keyExpressions = kve.normalizeKeyForPositions();
-            String[] fields = new String[keyExpressions.size()];
-            int pos = 0;
-            for (KeyExpression ke : keyExpressions) {
-                if (ke instanceof FieldKeyExpression) {
-                    fields[pos] = ((FieldKeyExpression) ke).getFieldName();
-                }
-                pos++;
-            }
-            return fields;
-        } else {
-            return getKeyFieldNames();
-        }
-    }
-
-    public String[] getKeyFieldNames() throws RelationalException {
-        KeyExpression rootExpression = index.getRootExpression();
-        return getFields(rootExpression);
-    }
-
-    private String[] getFields(KeyExpression expression) throws RelationalException {
-        Descriptors.Descriptor descriptor = table.loadRecordType().getDescriptor();
-        if (expression instanceof KeyWithValueExpression) {
-            expression = ((KeyWithValueExpression) expression).getKeyExpression();
-        }
-
-        if (expression instanceof ThenKeyExpression) {
-            String[] fields = new String[expression.getColumnSize()];
-            //TODO(bfines) deal with more complicated KeyExpressions also
-            List<KeyExpression> children = ((ThenKeyExpression) expression).getChildren();
-            int pos = 0;
-            for (KeyExpression ke : children) {
-                List<Descriptors.FieldDescriptor> childDescriptors = ke.validate(descriptor);
-                if (childDescriptors.isEmpty()) {
-                    pos++;
-                    continue; //it doesn't actually have a field
-                }
-                for (Descriptors.FieldDescriptor childDescriptor : childDescriptors) {
-                    fields[pos] = childDescriptor.getName();
-                    pos++;
-                }
-            }
-            return fields;
-        } else {
-            final List<Descriptors.FieldDescriptor> indexedFields = expression.validate(descriptor);
-            return indexedFields.stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
-        }
     }
 
     @Override

@@ -27,8 +27,8 @@ import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -83,7 +83,9 @@ public class RecordTypeKeyTest {
                 .build();
         try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.NONE)) {
             // Only 1 RestaurantRecord is expected to be returned
-            RelationalAssertions.assertThat(resultSet).hasExactly(new ArrayRow(new Object[]{12345L, 4L}));
+            ResultSetAssert.assertThat(resultSet).hasNextRow()
+                    .hasRowExactly(12345L, 4L)
+                    .hasNoNextRow();
         }
     }
 
@@ -104,9 +106,11 @@ public class RecordTypeKeyTest {
                 .setEndKey("reviewer", review.getReviewer() + 1)
                 .build();
         // Scan is expected to rejected because it uses fields which are not included in primary key
-        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> statement.executeScan(scan, Options.NONE));
-        Assertions.assertEquals("Unknown keys for primary key of <RestaurantReview>, unknown keys: <REVIEWER>", exception.getMessage());
-        Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> statement.executeScan(scan, Options.NONE))
+                .hasMessageContaining("Unknown keys for primary key of <RestaurantReview>, unknown keys: <REVIEWER>")
+                .isInstanceOf(RelationalException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @Test
@@ -119,10 +123,9 @@ public class RecordTypeKeyTest {
         try (final RelationalResultSet rrs = statement.executeGet("RestaurantTag",
                 new KeySet().setKeyColumn("tag", tag.getTag()),
                 Options.NONE)) {
-            RelationalAssertions.assertThat(rrs).hasExactly(new ArrayRow(new Object[]{
-                    tag.getTag(),
-                    (long) tag.getWeight()
-            }));
+            ResultSetAssert.assertThat(rrs).hasNextRow()
+                    .hasRowExactly(tag.getTag(), (long) tag.getWeight())
+                    .hasNoNextRow();
         }
     }
 
@@ -140,10 +143,9 @@ public class RecordTypeKeyTest {
         try (final RelationalResultSet rrs = statement.executeGet("RestaurantReview",
                 new KeySet().setKeyColumn("reviewer", review.getReviewer()),
                 Options.builder().withOption(Options.Name.INDEX_HINT, "record_rt_covering_idx").build())) {
-            RelationalAssertions.assertThat(rrs).hasExactly(new ArrayRow(new Object[]{
-                    review.getReviewer(),
-                    (long) review.getRating()
-            }));
+            ResultSetAssert.assertThat(rrs).hasNextRow()
+                    .hasRowExactly(review.getReviewer(), (long) review.getRating())
+                    .hasNoNextRow();
         }
     }
 }

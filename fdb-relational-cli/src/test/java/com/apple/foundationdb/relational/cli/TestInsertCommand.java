@@ -61,7 +61,7 @@ class TestInsertCommand {
 
     @Test
     void testInsertArray() throws Exception {
-        final String insertRecord = "{\"rest_no\":51,\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[{\"tag\":\"aTag\",\"weight\":\"12\"}],\"customer\":[\"customer1\"]}";
+        final String insertRecord = "{\"rest_no\":51,\"name\":\"something\",\"location\":{\"address\":\"address1\",\"latitude\":\"44\",\"longitude\":\"45\"},\"reviews\":[],\"tags\":[{\"tag\":\"aTag\",\"weight\":12}],\"customer\":[\"customer1\"]}";
         TestUtils.runCommand("insertinto RestaurantRecord [" + insertRecord + "]", cli);
         final String actualRecord = TestUtils.runQueryGetOutput("select * from RestaurantRecord", cli);
         TestUtils.assertJsonObjects(insertRecord, actualRecord);

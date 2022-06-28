@@ -26,9 +26,11 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
@@ -43,6 +45,7 @@ import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Types;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -86,7 +89,11 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                 simplifiedRows.add(new ArrayRow(data));
             }
 
-            return new IteratorResultSet(new String[]{"TABLE_CATALOG", "TABLE_SCHEM"}, simplifiedRows.iterator(), 0);
+            FieldDescription[] fields = new FieldDescription[]{
+                    FieldDescription.primitive("TABLE_CATALOG", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true)
+            };
+            return new IteratorResultSet(new RelationalStructMetaData(fields), simplifiedRows.iterator(), 0);
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
@@ -120,7 +127,12 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     .map(ArrayRow::new)
                     .collect(Collectors.toList());
 
-            return new IteratorResultSet(new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME"}, tableList.iterator(), 0);
+            FieldDescription[] fields = new FieldDescription[]{
+                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true)
+            };
+            return new IteratorResultSet(new RelationalStructMetaData(fields), tableList.iterator(), 0);
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
@@ -145,7 +157,15 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                             pos + 1,
                             null
                     })));
-            return new IteratorResultSet(new String[]{"TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "KEY_SEQ", "PK_NAME"}, rows.iterator(), 0);
+            FieldDescription[] fields = new FieldDescription[]{
+                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("KEY_SEQ", Types.INTEGER, true),
+                    FieldDescription.primitive("PK_NAME", Types.VARCHAR, true),
+            };
+            return new IteratorResultSet(new RelationalStructMetaData(fields), rows.iterator(), 0);
         } catch (RelationalException e) {
             throw e.toSqlException();
         } catch (UncheckedRelationalException uve) {
@@ -218,33 +238,33 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                         return new ArrayRow(row);
                     }).collect(Collectors.toList());
 
-            String[] columnHeaders = new String[]{
-                    "TABLE_CAT",
-                    "TABLE_SCHEM",
-                    "TABLE_NAME",
-                    "COLUMN_NAME",
-                    "DATA_TYPE",
-                    "TYPE_NAME",
-                    "COLUMN_SIZE",
-                    "BUFFER_LENGTH",
-                    "DECIMAL_DIGITS",
-                    "NUM_PREC_RADIX",
-                    "NULLABLE",
-                    "REMARKS",
-                    "COLUMN_DEF",
-                    "SQL_DATA_TYPE",
-                    "SQL_DATETIME_SUB",
-                    "CHAR_OCTET_LENGTH",
-                    "ORDINAL_POSITION",
-                    "IS_NULLABLE",
-                    "SCOPE_CATALOG",
-                    "SCOPE_SCHEMA",
-                    "SCOPE_TABLE",
-                    "SOURCE_DATA_TYPE",
-                    "IS_AUTOINCREMENT",
-                    "IS_GENERATEDCOLUMN"
+            FieldDescription[] columns = new FieldDescription[]{
+                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("DATA_TYPE", Types.VARCHAR, true),
+                    FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("COLUMN_SIZE", Types.INTEGER, true),
+                    FieldDescription.primitive("BUFFER_LENGTH", Types.INTEGER, true),
+                    FieldDescription.primitive("DECIMAL_DIGITS", Types.INTEGER, true),
+                    FieldDescription.primitive("NUM_PREC_RADIX", Types.INTEGER, true),
+                    FieldDescription.primitive("NULLABLE", Types.BOOLEAN, true),
+                    FieldDescription.primitive("REMARKS", Types.VARCHAR, true),
+                    FieldDescription.primitive("COLUMN_DEF", Types.VARCHAR, true),
+                    FieldDescription.primitive("SQL_DATA_TYPE", Types.VARCHAR, true),
+                    FieldDescription.primitive("SQL_DATETIME_SUB", Types.VARCHAR, true),
+                    FieldDescription.primitive("CHAR_OCTET_LENGTH", Types.INTEGER, true),
+                    FieldDescription.primitive("ORDINAL_POSITION", Types.INTEGER, true),
+                    FieldDescription.primitive("IS_NULLABLE", Types.BOOLEAN, true),
+                    FieldDescription.primitive("SCOPE_CATALOG", Types.VARCHAR, true),
+                    FieldDescription.primitive("SCOPE_SCHEMA", Types.VARCHAR, true),
+                    FieldDescription.primitive("SCOPE_TABLE", Types.VARCHAR, true),
+                    FieldDescription.primitive("SOURCE_DATA_TYPE", Types.VARCHAR, true),
+                    FieldDescription.primitive("IS_AUTOINCREMENT", Types.BOOLEAN, true),
+                    FieldDescription.primitive("IS_GENERATEDCOLUMN", Types.BOOLEAN, true)
             };
-            return new IteratorResultSet(columnHeaders, columnDefs.iterator(), 0);
+            return new IteratorResultSet(new RelationalStructMetaData(columns), columnDefs.iterator(), 0);
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
@@ -301,22 +321,22 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                 throw new RelationalException("table <" + tablePattern + "> does not exist", ErrorCode.TABLE_NOT_FOUND);
             }
 
-            String[] columnHeaders = new String[]{
-                    "TABLE_CAT",
-                    "TABLE_SCHEM",
-                    "TABLE_NAME",
-                    "NON_UNIQUE",
-                    "INDEX_QUALIFIER",
-                    "INDEX_NAME",
-                    "TYPE",
-                    "ORDINAL_POSITION",
-                    "COLUMN_NAME",
-                    "ASC_OR_DESC",
-                    "CARDINALITY",
-                    "PAGES",
-                    "FILTER_CONDITION"
+            FieldDescription[] columns = new FieldDescription[]{
+                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("NON_UNIQUE", Types.BOOLEAN, true),
+                    FieldDescription.primitive("INDEX_QUALIFIER", Types.VARCHAR, true),
+                    FieldDescription.primitive("INDEX_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("TYPE", Types.VARCHAR, true),
+                    FieldDescription.primitive("ORDINAL_POSITION", Types.INTEGER, true),
+                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("ASC_OR_DESC", Types.VARCHAR, true),
+                    FieldDescription.primitive("CARDINALITY", Types.INTEGER, true),
+                    FieldDescription.primitive("PAGES", Types.INTEGER, true),
+                    FieldDescription.primitive("FILTER_CONDITION", Types.VARCHAR, true)
             };
-            return new IteratorResultSet(columnHeaders, indexDefs.iterator(), 0);
+            return new IteratorResultSet(new RelationalStructMetaData(columns), indexDefs.iterator(), 0);
         } catch (RelationalException e) {
             throw e.toSqlException();
         }

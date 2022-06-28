@@ -104,12 +104,8 @@ public class InMemoryRelationalStatement implements RelationalStatement {
             throw new RelationalException("Unknown table <" + scan.getTableName() + ">", ErrorCode.UNKNOWN_TYPE);
         }
         Stream<Message> m = inMemoryTable.scan(scan.getStartKey(), scan.getEndKey());
-        String[] columns = new String[inMemoryTable.getDescriptor().getFields().size()];
-        for (Descriptors.FieldDescriptor fd : inMemoryTable.getDescriptor().getFields()) {
-            columns[fd.getIndex()] = fd.getName();
-        }
         Iterator<? extends Row> iterator = m.map(MessageTuple::new).iterator();
-        return new IteratorResultSet(columns, iterator, 0);
+        return new IteratorResultSet(inMemoryTable.getMetaData(), iterator, 0);
     }
 
     @Nonnull
@@ -125,7 +121,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
             columns[fd.getIndex()] = fd.getName();
         }
         Iterator<Row> iterator = m != null ? Collections.<Row>singleton(new MessageTuple(m)).iterator() : Collections.emptyIterator();
-        return new IteratorResultSet(columns, iterator, 0);
+        return new IteratorResultSet(inMemoryTable.getMetaData(), iterator, 0);
     }
 
     @Override

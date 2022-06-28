@@ -22,11 +22,9 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
-import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import java.sql.SQLException;
 
@@ -42,34 +40,28 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Nullable
     private final EmbeddedRelationalConnection connection;
 
-    @Nonnull
-    private final String[] fieldNames;
-
     private Row currentRow;
 
-    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "internal implementation should have proper usage")
-    public RecordLayerResultSet(@Nonnull String[] fieldNames,
+    public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
-                                @Nullable final EmbeddedRelationalConnection connection) throws RelationalException {
-        this.fieldNames = fieldNames;
+                                @Nullable final EmbeddedRelationalConnection connection) {
+        super(metaData);
         this.currentCursor = iterator;
         this.connection = connection;
     }
 
     @Override
-    public boolean next() throws SQLException {
+    protected Row advanceRow() throws RelationalException {
         currentRow = null;
 
-        if (!currentCursor.hasNext()) {
-            return false;
+        if (currentCursor.hasNext()) {
+            try {
+                currentRow = currentCursor.next();
+            } catch (UncheckedRelationalException e) {
+                throw e.unwrap();
+            }
         }
-
-        try {
-            currentRow = currentCursor.next();
-        } catch (UncheckedRelationalException e) {
-            throw e.unwrap().toSqlException();
-        }
-        return true;
+        return currentRow;
     }
 
     @Override
@@ -88,37 +80,6 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         } catch (RelationalException ve) {
             throw ve.toSqlException();
         }
-    }
-
-    @Override
-    public Object getObject(int position) throws SQLException {
-        try {
-            if (currentRow == null) {
-                throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted");
-            }
-            if (position < 1 || position > (currentRow.getNumFields())) {
-                throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
-            }
-            position -= 1; // Switch to 0 based index
-            return currentRow.getObject(position);
-        } catch (RelationalException e) {
-            throw e.toSqlException();
-        }
-    }
-
-    @Override
-    protected int getZeroBasedPosition(String fieldName) throws InvalidColumnReferenceException {
-        for (int pos = 0; pos < fieldNames.length; pos++) {
-            if (fieldNames[pos] != null && fieldNames[pos].equalsIgnoreCase(fieldName)) {
-                return pos;
-            }
-        }
-        throw new InvalidColumnReferenceException(fieldName);
-    }
-
-    @Override
-    protected String[] getFieldNames() {
-        return fieldNames;
     }
 
     @Override

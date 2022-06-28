@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -167,9 +168,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         Row start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), true, true);
         Row end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), true, true);
 
-        return new RecordLayerResultSet(source.getFieldNames(),
-                source.openScan(conn.transaction, start, end, options),
-                conn);
+        StructMetaData sourceMetaData = source.getMetaData();
+        return new RecordLayerResultSet(sourceMetaData,
+                source.openScan(conn.transaction, start, end, options), conn);
     }
 
     @Override
@@ -193,7 +194,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
         final Row row = source.get(conn.transaction, tuple, options);
 
-        return new IteratorResultSet(table.getFieldNames(), row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator(), 0);
+        final Iterator<Row> rowIter = row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator();
+        return new IteratorResultSet(table.getMetaData(), rowIter, 0);
     }
 
     @Override

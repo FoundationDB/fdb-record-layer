@@ -31,6 +31,10 @@ import java.sql.SQLException;
  */
 public interface RelationalResultSetMetaData extends ResultSetMetaData {
 
+    StructMetaData getArrayMetaData(int oneBasedColumn) throws SQLException;
+
+    StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException;
+
     @Override
     @ExcludeFromJacocoGeneratedReport
     default boolean isAutoIncrement(int column) throws SQLException {
@@ -106,12 +110,6 @@ public interface RelationalResultSetMetaData extends ResultSetMetaData {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default String getCatalogName(int column) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default int getColumnType(int column) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -37,26 +37,15 @@ import javax.annotation.Nullable;
  */
 @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentionally exposed for performance reasons")
 public class IteratorResultSet extends AbstractRecordLayerResultSet {
-    private final String[] fieldNames;
+
     private final Iterator<? extends Row> rowIter;
 
     private int currentRowPosition;
-    private Row currentRow;
 
-    public IteratorResultSet(String[] fieldNames, Iterator<? extends Row> rowIter, int initialRowPosition) {
-        this.fieldNames = fieldNames;
+    public IteratorResultSet(StructMetaData metaData, Iterator<? extends Row> rowIter, int initialRowPosition) {
+        super(metaData);
         this.rowIter = rowIter;
         this.currentRowPosition = initialRowPosition;
-    }
-
-    @Override
-    protected int getZeroBasedPosition(String fieldName) throws InvalidColumnReferenceException {
-        for (int i = 0; i < fieldNames.length; i++) {
-            if (fieldNames[i].equalsIgnoreCase(fieldName)) {
-                return i;
-            }
-        }
-        throw new InvalidColumnReferenceException("No column for value <" + fieldName + ">");
     }
 
     @Override
@@ -93,31 +82,16 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    protected String[] getFieldNames() {
-        return fieldNames;
-    }
-
-    @Override
-    public boolean next() throws SQLException {
-        if (!rowIter.hasNext()) {
-            return false;
-        }
-        currentRow = rowIter.next();
-        currentRowPosition++;
-        return true;
-    }
-
-    @Override
     public void close() throws SQLException {
         //no-op at the moment
     }
 
     @Override
-    public Object getObject(int oneBasedPosition) throws SQLException {
-        try {
-            return currentRow.getObject(oneBasedPosition - 1);
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
+    protected Row advanceRow() throws RelationalException {
+        if (!rowIter.hasNext()) {
+            return null;
         }
+        currentRowPosition++;
+        return rowIter.next();
     }
 }

@@ -20,222 +20,189 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.MutableRowStruct;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.api.StructResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import com.google.protobuf.ByteString;
-
-import java.net.URI;
-import java.sql.ResultSetMetaData;
+import java.sql.Array;
 import java.sql.SQLException;
-import java.util.Collection;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
 
+    protected final StructMetaData metaData;
+
+    private final MutableRowStruct currentRow;
+
+    public AbstractRecordLayerResultSet(StructMetaData metaData) {
+        this.metaData = metaData;
+        this.currentRow = new MutableRowStruct(metaData);
+    }
+
+    protected abstract Row advanceRow() throws RelationalException;
+
+    @Override
+    public boolean next() throws SQLException {
+        try {
+            Row next = advanceRow();
+            currentRow.setRow(next);
+            return next != null;
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
+    }
+
     @Override
     public boolean getBoolean(int oneBasedPosition) throws SQLException {
-        Object o = getObject(oneBasedPosition);
-        if (o == null) {
-            return false;
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
-        if (!(o instanceof Boolean)) {
-            throw new SQLException("Boolean", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
-        }
-
-        return (Boolean) o;
+        return currentRow.getBoolean(oneBasedPosition);
     }
 
     @Override
     public boolean getBoolean(String columnLabel) throws SQLException {
-        try {
-            return getBoolean(getOneBasedPosition(columnLabel));
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow.getBoolean(columnLabel);
     }
 
     @Override
     public byte[] getBytes(int oneBasedPosition) throws SQLException {
-        Object o = getObject(oneBasedPosition);
-        if (o == null) {
-            return null;
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
-        if (o instanceof ByteString) {
-            return ((ByteString) o).toByteArray();
-        } else if (o instanceof byte[]) {
-            return (byte[]) o;
-        } else {
-            throw new SQLException("byte[]", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
-        }
+        return currentRow.getBytes(oneBasedPosition);
     }
 
     @Override
     public byte[] getBytes(String columnLabel) throws SQLException {
-        try {
-            return getBytes(getOneBasedPosition(columnLabel));
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow.getBytes(columnLabel);
     }
 
     @Override
     public long getLong(int oneBasedPosition) throws SQLException {
-        Object o = getObject(oneBasedPosition);
-        if (o == null) {
-            return 0L;
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
-        if (!(o instanceof Number)) {
-            throw new SQLException("Long", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
-        }
-
-        return ((Number) o).longValue();
+        return currentRow.getLong(oneBasedPosition);
     }
 
     @Override
     public long getLong(String columnLabel) throws SQLException {
-        try {
-            return getLong(getOneBasedPosition(columnLabel));
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow.getLong(columnLabel);
     }
 
     @Override
     public float getFloat(int oneBasedPosition) throws SQLException {
-        Object o = getObject(oneBasedPosition);
-        if (o == null) {
-            return 0L;
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
-        if (!(o instanceof Number)) {
-            throw new SQLException("Float", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
-        }
-
-        return ((Number) o).floatValue();
+        return currentRow.getFloat(oneBasedPosition);
     }
 
     @Override
     public float getFloat(String columnLabel) throws SQLException {
-        try {
-            return getFloat(getOneBasedPosition(columnLabel));
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow.getFloat(columnLabel);
     }
 
     @Override
     public double getDouble(int oneBasedPosition) throws SQLException {
-        Object o = getObject(oneBasedPosition);
-        if (o == null) {
-            return 0L;
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
-        if (!(o instanceof Number)) {
-            throw new SQLException("Double", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
-        }
-
-        return ((Number) o).doubleValue();
+        return currentRow.getDouble(oneBasedPosition);
     }
 
     @Override
     public double getDouble(String columnLabel) throws SQLException {
-        try {
-            return getDouble(getOneBasedPosition(columnLabel));
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow.getDouble(columnLabel);
     }
 
     @Override
     public Object getObject(String columnLabel) throws SQLException {
-        try {
-            return getObject(getOneBasedPosition(columnLabel));
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow.getObject(columnLabel);
+    }
+
+    @Override
+    public Object getObject(int oneBasedPosition) throws SQLException {
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
+        }
+        return currentRow.getObject(oneBasedPosition);
     }
 
     @Override
     public String getString(int oneBasedPosition) throws SQLException {
-        Object o = getObject(oneBasedPosition);
-        if (o == null) {
-            return null; //TODO(bfines) default column value here
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
-        if (o instanceof String) {
-            return (String) o;
-        } else if (o instanceof Number) {
-            return o.toString();
-        } else if (o instanceof URI) {
-            //special case for database URI fields
-            return o.toString();
-        } else {
-            throw new SQLException("String", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
-        }
+        return currentRow.getString(oneBasedPosition);
     }
 
     @Override
     public String getString(String columnLabel) throws SQLException {
-        try {
-            return getString(getOneBasedPosition(columnLabel));
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow.getString(columnLabel);
     }
 
     @Override
-    public Collection<?> getRepeated(int oneBasedPosition) throws SQLException {
-        Object o = getObject(oneBasedPosition);
-        if (o == null) {
-            return null;
+    public Array getArray(int oneBasedPosition) throws SQLException {
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
-        if (!(o instanceof Collection)) {
-            throw new SQLException("Iterable", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
-        }
-
-        return (Collection<?>) o;
+        return currentRow.getArray(oneBasedPosition);
     }
 
     @Override
-    public Collection<?> getRepeated(String columnLabel) throws SQLException {
-        try {
-            return getRepeated(getOneBasedPosition(columnLabel));
-        } catch (InvalidColumnReferenceException e) {
-            throw e.toSqlException();
+    public Array getArray(String columnLabel) throws SQLException {
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow.getArray(columnLabel);
     }
 
     @Override
-    public Row asRow() throws SQLException {
-        final ResultSetMetaData metaData = getMetaData();
-        Object[] theRow = new Object[metaData.getColumnCount()];
-        for (int i = 1; i <= metaData.getColumnCount(); i++) {
-            theRow[i - 1] = getObject(i);
+    public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
-        return new ArrayRow(theRow);
+        return currentRow.getStruct(oneBasedColumn);
     }
 
     @Override
-    public ResultSetMetaData getMetaData() {
-        return new RecordResultSetMetaData(getFieldNames());
+    public RelationalStruct getStruct(String columnLabel) throws SQLException {
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
+        }
+        return currentRow.getStruct(columnLabel);
     }
 
-    /**
-     * Returns a 0-based position number for this column label.
-     * @param columnLabel the name of the column
-     * @return The 0-based position of the field in this result set
-     * @throws InvalidColumnReferenceException if this field name does not exist
-     */
-    protected abstract int getZeroBasedPosition(String columnLabel) throws InvalidColumnReferenceException;
-
-    /**
-     * Returns a 1-based position number for this column label.
-     * @param columnLabel the name of the column
-     * @return The 1-based position of the column in this result set
-     * @throws InvalidColumnReferenceException if this field name does not exist
-     */
-    protected int getOneBasedPosition(String columnLabel) throws InvalidColumnReferenceException {
-        return getZeroBasedPosition(columnLabel) + 1;
+    @Override
+    public RelationalResultSetMetaData getMetaData() {
+        return new StructResultSetMetaData(metaData);
     }
-
-    protected abstract String[] getFieldNames();
 }

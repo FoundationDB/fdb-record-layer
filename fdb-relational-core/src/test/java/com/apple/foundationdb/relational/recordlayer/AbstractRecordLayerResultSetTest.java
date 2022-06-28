@@ -21,10 +21,15 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.Restaurant;
+import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -32,7 +37,6 @@ import org.mockito.Mockito;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,14 +44,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.withPrecision;
 
 class AbstractRecordLayerResultSetTest {
-    AbstractRecordLayerResultSet resultSet = Mockito.mock(AbstractRecordLayerResultSet.class);
 
-    private static final Set<Pair<java.lang.Class, String>> supportedConversions = Set.of(
+    private static final Set<Pair<java.lang.Class<?>, String>> supportedConversions = Set.of(
             Pair.of(null, "getBoolean"),
             Pair.of(Boolean.class, "getBoolean"),
 
@@ -76,9 +76,6 @@ class AbstractRecordLayerResultSetTest {
             Pair.of(Float.class, "getString"),
             Pair.of(Double.class, "getString"),
             Pair.of(String.class, "getString"),
-
-            Pair.of(null, "getRepeated"),
-            Pair.of(ArrayList.class, "getRepeated"),
 
             Pair.of(null, "getObject"),
             Pair.of(Boolean.class, "getObject"),
@@ -110,7 +107,6 @@ class AbstractRecordLayerResultSetTest {
                 "getFloat",
                 "getDouble",
                 "getString",
-                "getRepeated",
                 "getObject"
         );
     }
@@ -148,9 +144,6 @@ class AbstractRecordLayerResultSetTest {
                 TestCaseWithResult.of("getString", "abc", "abc"),
                 TestCaseWithResult.of("getString", null, null),
 
-                TestCaseWithResult.of("getRepeated", List.of(1, 2, 3, 4), List.of(1, 2, 3, 4)),
-                TestCaseWithResult.of("getRepeated", null, null),
-
                 TestCaseWithResult.of("getObject", null, null),
                 TestCaseWithResult.of("getObject", true, true),
                 TestCaseWithResult.of("getObject", 1, 1),
@@ -169,47 +162,75 @@ class AbstractRecordLayerResultSetTest {
                         .map(method -> TestCase.of(method, type)));
     }
 
+    private Row theRow;
+    private AbstractRecordLayerResultSet resultSet;
+
+    @BeforeEach
+    void setUp() throws SQLException {
+        StructMetaData smd = Mockito.mock(StructMetaData.class);
+        Mockito.when(smd.getColumnCount()).thenReturn(1);
+        Mockito.when(smd.getColumnName(1)).thenReturn("field1");
+
+        resultSet = new AbstractRecordLayerResultSet(smd) {
+            @Override
+            protected Row advanceRow() {
+                return theRow;
+            }
+
+            @Override
+            public Continuation getContinuation() {
+                return Continuation.BEGIN;
+            }
+
+            @Override
+            public void close() {
+                //no-op
+            }
+        };
+
+    }
+
     @ParameterizedTest
     @MethodSource("testCases")
     void get(TestCaseWithResult testCase) throws SQLException, NoSuchMethodException, InvocationTargetException, IllegalAccessException, InvalidColumnReferenceException {
+        theRow = new ArrayRow(new Object[]{testCase.field});
+        resultSet.next();
+
         Method positionMethod = AbstractRecordLayerResultSet.class.getMethod(testCase.method, int.class);
         Method fieldNameMethod = AbstractRecordLayerResultSet.class.getMethod(testCase.method, String.class);
 
         if (!"getObject".equals(testCase.method)) {
-            positionMethod.invoke(Mockito.doCallRealMethod().when(resultSet), 1);
+            positionMethod.invoke(resultSet, 1);
         }
-        fieldNameMethod.invoke(Mockito.doCallRealMethod().when(resultSet), "field1");
-
-        Mockito.when(resultSet.getObject(1)).thenReturn(testCase.field);
-        Mockito.when(resultSet.getOneBasedPosition("field1")).thenReturn(1);
+        fieldNameMethod.invoke(resultSet, "field1");
 
         Object positionResult = positionMethod.invoke(resultSet, 1);
         Object fieldNameResult = fieldNameMethod.invoke(resultSet, "field1");
 
         if (testCase.expected instanceof Float) {
-            assertThat((Float) positionResult).isEqualTo((Float) testCase.expected, withPrecision(0.001f));
-            assertThat((Float) fieldNameResult).isEqualTo((Float) testCase.expected, withPrecision(0.001f));
+            Assertions.assertThat((Float) positionResult).isEqualTo((Float) testCase.expected, Assertions.withPrecision(0.001f));
+            Assertions.assertThat((Float) fieldNameResult).isEqualTo((Float) testCase.expected, Assertions.withPrecision(0.001f));
         } else if (testCase.expected instanceof Double) {
-            assertThat((Double) positionResult).isEqualTo((Double) testCase.expected, withPrecision(0.001));
-            assertThat((Double) fieldNameResult).isEqualTo((Double) testCase.expected, withPrecision(0.001));
+            Assertions.assertThat((Double) positionResult).isEqualTo((Double) testCase.expected, Assertions.withPrecision(0.001));
+            Assertions.assertThat((Double) fieldNameResult).isEqualTo((Double) testCase.expected, Assertions.withPrecision(0.001));
         } else {
-            assertThat(positionResult).isEqualTo(testCase.expected);
-            assertThat(fieldNameResult).isEqualTo(testCase.expected);
+            Assertions.assertThat(positionResult).isEqualTo(testCase.expected);
+            Assertions.assertThat(fieldNameResult).isEqualTo(testCase.expected);
         }
     }
 
     @ParameterizedTest
     @MethodSource("cannotConvertTestCases")
-    void getThrow(TestCase testCase) throws NoSuchMethodException, SQLException, InvalidColumnReferenceException {
+    void getThrow(TestCase testCase) throws NoSuchMethodException, SQLException {
+        theRow = new ArrayRow(new Object[]{testCase.field});
+        resultSet.next();
+
         Method positionMethod = AbstractRecordLayerResultSet.class.getMethod(testCase.method, int.class);
         Method fieldNameMethod = AbstractRecordLayerResultSet.class.getMethod(testCase.method, String.class);
 
-        Mockito.when(resultSet.getObject(1)).thenReturn(testCase.field);
-        Mockito.when(resultSet.getOneBasedPosition("field1")).thenReturn(1);
-
-        assertThatThrownBy(() -> {
+        Assertions.assertThatThrownBy(() -> {
             try {
-                positionMethod.invoke(Mockito.doCallRealMethod().when(resultSet), 1);
+                positionMethod.invoke(resultSet, 1);
                 positionMethod.invoke(resultSet, 1);
             } catch (InvocationTargetException e) {
                 throw e.getCause();
@@ -219,9 +240,9 @@ class AbstractRecordLayerResultSetTest {
                 .extracting("SQLState")
                 .isEqualTo(ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
 
-        assertThatThrownBy(() -> {
+        Assertions.assertThatThrownBy(() -> {
             try {
-                fieldNameMethod.invoke(Mockito.doCallRealMethod().when(resultSet), "field1");
+                fieldNameMethod.invoke(resultSet, "field1");
                 fieldNameMethod.invoke(resultSet, "field1");
             } catch (InvocationTargetException e) {
                 throw e.getCause();
@@ -234,13 +255,17 @@ class AbstractRecordLayerResultSetTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void getThrowInvalidColumnReference(TestCase testCase) throws SQLException, InvalidColumnReferenceException, NoSuchMethodException {
+    void getThrowInvalidColumnReference(TestCase testCase) throws NoSuchMethodException, SQLException {
         Method method = AbstractRecordLayerResultSet.class.getMethod(testCase.method, String.class);
-        Mockito.when(resultSet.getOneBasedPosition("field1")).thenThrow(new InvalidColumnReferenceException("field1"));
-        assertThatThrownBy(() -> {
+        //        Mockito.when(resultSet.getOneBasedPosition("field1")).thenThrow(new InvalidColumnReferenceException("field1"));
+
+        theRow = new ArrayRow(new Object[]{testCase.field});
+
+        resultSet.next();
+        Assertions.assertThatThrownBy(() -> {
             try {
-                method.invoke(Mockito.doCallRealMethod().when(resultSet), "field1");
-                method.invoke(resultSet, "field1");
+                method.invoke(resultSet, "field2");
+                method.invoke(resultSet, "field2");
             } catch (InvocationTargetException e) {
                 throw e.getCause();
             }
@@ -255,21 +280,8 @@ class AbstractRecordLayerResultSetTest {
         Set<String> set1 = allMethods().collect(Collectors.toSet());
         Set<String> set2 = testCases().map(testCase -> testCase.method).collect(Collectors.toSet());
         Set<String> set3 = supportedConversions.stream().map(Pair::getRight).collect(Collectors.toSet());
-        assertThat(set1).isEqualTo(set2);
-        assertThat(set1).isEqualTo(set3);
-    }
-
-    @Test
-    void getMetaData() throws SQLException {
-        Mockito.doCallRealMethod().when(resultSet).getMetaData();
-        String[] mockedFieldNames = {"a", "b", "c"};
-        Mockito.when(resultSet.getFieldNames()).thenReturn(mockedFieldNames);
-
-        ResultSetMetaData metaData = resultSet.getMetaData();
-        assertThat(metaData.getColumnCount()).isEqualTo(3);
-        assertThat(metaData.getColumnName(0)).isEqualTo("a");
-        assertThat(metaData.getColumnName(1)).isEqualTo("b");
-        assertThat(metaData.getColumnName(2)).isEqualTo("c");
+        Assertions.assertThat(set1).isEqualTo(set2);
+        Assertions.assertThat(set1).isEqualTo(set3);
     }
 
     private static class TestCase {

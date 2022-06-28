@@ -20,8 +20,13 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
+
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -46,7 +51,7 @@ public final class DdlPermutationGenerator {
         private final String name;
         private final List<String> columnTypes;
 
-        private NamedPermutation(String name, List<String> columnTypes) {
+        public NamedPermutation(String name, List<String> columnTypes) {
             this.name = name;
             this.columnTypes = columnTypes;
         }
@@ -59,12 +64,18 @@ public final class DdlPermutationGenerator {
             return typeName + columnTypeDefinition(false);
         }
 
-        public String getTableJson(String tableName) {
-            return "table: {name: " + tableName + ", columns: { " + columnJson() + "}}";
-        }
-
-        public String getTypeJson(String typeName) {
-            return "type: { name:" + typeName + ", columns: { " + columnJson() + "}}";
+        public Row getPermutationAsRow(String typeName) {
+            List<Row> rows = new ArrayList<>();
+            int colNum = 0;
+            for (String col : columnTypes) {
+                int typeCode = SqlTypeSupport.recordTypeToSqlType(ParserUtils.toProtoType(col));
+                rows.add(new ArrayRow(new Object[]{"col" + colNum, typeCode}));
+                colNum++;
+            }
+            return new ArrayRow(new Object[]{
+                    typeName,
+                    rows
+            });
         }
 
         public String getName() {
@@ -92,21 +103,6 @@ public final class DdlPermutationGenerator {
             return columnStatement.append(")").toString();
         }
 
-        private String columnJson() {
-            int colNum = 0;
-            boolean isFirst = true;
-            StringBuilder sb = new StringBuilder("");
-            for (String col :columnTypes) {
-                if (isFirst) {
-                    isFirst = false;
-                } else {
-                    sb.append(",");
-                }
-                sb.append("col").append(colNum).append(":").append(col.toUpperCase(Locale.ROOT));
-                colNum++;
-            }
-            return sb.toString();
-        }
     }
 
     private DdlPermutationGenerator() {

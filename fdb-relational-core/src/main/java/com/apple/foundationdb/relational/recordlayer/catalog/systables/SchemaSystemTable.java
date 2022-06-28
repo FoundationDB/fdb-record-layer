@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
  */
 public class SchemaSystemTable implements SystemTable {
 
-    public static final String TABLE_NAME = "Schema";
+    public static final String TABLE_NAME = SystemTableRegistry.SCHEMAS_TABLE_NAME;
 
     private static final String SCHEMA_NAME = "schema_name";
 
@@ -74,8 +74,4 @@ public class SchemaSystemTable implements SystemTable {
         return Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields(DATABASE_ID, SCHEMA_NAME));
     }
 
-    @Override
-    public long getRecordTypeKey() {
-        return SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY;
-    }
 }

@@ -20,20 +20,19 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
-import com.google.protobuf.Message;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 
 import java.io.PrintWriter;
+import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import javax.annotation.Nonnull;
 
@@ -61,17 +60,16 @@ public class QueryCommand extends CommandWithConnectionAndSchema {
                     int colCount = resultSet.getMetaData().getColumnCount();
                     String[] colsMetadata = new String[colCount];
                     final ResultSetMetaData metaData = resultSet.getMetaData();
-                    for (int i = 0; i < colCount; i++) {
-                        colsMetadata[i] = metaData.getColumnName(i);
+                    for (int i = 1; i <= colCount; i++) {
+                        colsMetadata[i - 1] = metaData.getColumnName(i);
                     }
-                    Function<Object, String> columnStringifier = getStringifier();
                     Function<ResultSet, List<String>> converters = rrs -> {
                         List<String> cols = new ArrayList<>();
                         for (int i = 1; i <= colsMetadata.length; i++) {
                             Object col;
                             try {
                                 col = rrs.getObject(i);
-                                cols.add(columnStringifier.apply(col));
+                                cols.add(stringify(col));
                             } catch (SQLException e) {
                                 throw new RuntimeException(e);
                             }
@@ -87,35 +85,56 @@ public class QueryCommand extends CommandWithConnectionAndSchema {
         }
     }
 
-    private Function<Object, String> getStringifier() {
-        return new Function<>() {
-            @Override
-            public String apply(Object o) {
-                if (o == null) {
-                    return "NULL";
+    private String stringify(Object value) throws SQLException {
+        if (value == null) {
+            return "NULL";
+        }
+        if (value instanceof RelationalStruct) {
+            RelationalStruct vs = (RelationalStruct) value;
+            StructMetaData smd = vs.getMetadata();
+            StringBuilder sb = new StringBuilder("{");
+            for (int i = 1; i <= smd.getColumnCount(); i++) {
+                if (i != 1) {
+                    sb.append(",");
                 }
-                if (o instanceof Message) {
-                    try {
-                        return Utils.protoToJson((Message) o);
-                    } catch (RelationalException e) {
-                        throw e.toUncheckedWrappedException();
-                    }
-                } else if (o instanceof Number) {
-                    if (o instanceof Long || o instanceof Integer) {
-                        return Long.toString(((Number) o).longValue());
-                    } else {
-                        return Double.toString(((Number) o).doubleValue());
-                    }
-                } else if (o instanceof Iterable) {
-                    //recursively map the underlying elements
-                    return "[" + StreamSupport.stream(((Iterable<?>) o).spliterator(), false).map(this).collect(Collectors.joining(",")) + "]";
-                } else if (o instanceof String) {
-                    return "\"" + o + "\"";
+                sb.append("\"").append(smd.getColumnName(i)).append("\"").append(":").append(stringify(vs.getObject(i)));
+            }
+            return sb.append("}").toString();
+        } else if (value instanceof Array) {
+            StringBuilder sb = new StringBuilder("[");
+            RelationalResultSet rs = (RelationalResultSet) ((Array) value).getResultSet();
+            StructMetaData smd = rs.getMetaData().unwrap(StructMetaData.class);
+            boolean isFirst = true;
+            while (rs.next()) {
+                if (!isFirst) {
+                    sb.append(",");
                 } else {
-                    return o.toString();
+                    isFirst = false;
+                }
+                int colCount = smd.getColumnCount();
+                if (colCount != 1) {
+                    sb.append("{");
+                    for (int i = 1; i <= smd.getColumnCount(); i++) {
+                        if (i != 1) {
+                            sb.append(",");
+                        }
+                        sb.append("\"").append(smd.getColumnName(i)).append("\"").append(":").append(stringify(rs.getObject(i)));
+                    }
+                    sb.append("}");
+                } else {
+                    sb.append(stringify(rs.getObject(1)));
                 }
             }
-        };
+            sb.append("]");
+            return sb.toString();
+        } else if (value instanceof Number) {
+            if (value instanceof Long || value instanceof Integer) {
+                return Long.toString(((Number) value).longValue());
+            } else {
+                return Double.toString(((Number) value).doubleValue());
+            }
+        } else {
+            return "\"" + value + "\"";
+        }
     }
-
 }

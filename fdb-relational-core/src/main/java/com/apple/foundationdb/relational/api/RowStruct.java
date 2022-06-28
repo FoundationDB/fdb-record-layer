@@ -1,0 +1,264 @@
+/*
+ * RowStruct.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.api;
+
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.recordlayer.MessageTuple;
+
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
+
+import java.net.URI;
+import java.sql.Array;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Collection;
+import java.util.stream.Collectors;
+
+public abstract class RowStruct implements RelationalStruct {
+
+    private final StructMetaData metaData;
+
+    protected RowStruct(StructMetaData metaData) {
+        this.metaData = metaData;
+    }
+
+    @Override
+    public StructMetaData getMetadata() {
+        return metaData;
+    }
+
+    @Override
+    public boolean getBoolean(int oneBasedPosition) throws SQLException {
+        Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+        if (o == null) {
+            return false;
+        }
+        if (!(o instanceof Boolean)) {
+            throw new SQLException("Boolean", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return (Boolean) o;
+    }
+
+    protected abstract Object getObjectInternal(int zeroBasedPosition) throws SQLException;
+
+    @Override
+    public boolean getBoolean(String columnLabel) throws SQLException {
+        return getBoolean(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public byte[] getBytes(int oneBasedPosition) throws SQLException {
+        Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+        if (o == null) {
+            return null;
+        }
+        if (o instanceof ByteString) {
+            return ((ByteString) o).toByteArray();
+        } else if (o instanceof byte[]) {
+            return (byte[]) o;
+        } else {
+            throw new SQLException("byte[]", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+    }
+
+    @Override
+    public byte[] getBytes(String columnLabel) throws SQLException {
+        return getBytes(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public long getLong(int oneBasedPosition) throws SQLException {
+        Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+        if (o == null) {
+            return 0L;
+        }
+        if (!(o instanceof Number)) {
+            throw new SQLException("Long", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return ((Number) o).longValue();
+    }
+
+    @Override
+    public long getLong(String columnLabel) throws SQLException {
+        return getLong(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public float getFloat(int oneBasedPosition) throws SQLException {
+        Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+        if (o == null) {
+            return 0L;
+        }
+        if (!(o instanceof Number)) {
+            throw new SQLException("Float", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return ((Number) o).floatValue();
+    }
+
+    @Override
+    public float getFloat(String columnLabel) throws SQLException {
+        return getFloat(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public double getDouble(int oneBasedPosition) throws SQLException {
+        Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+        if (o == null) {
+            return 0L;
+        }
+        if (!(o instanceof Number)) {
+            throw new SQLException("Double", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return ((Number) o).doubleValue();
+    }
+
+    @Override
+    public double getDouble(String columnLabel) throws SQLException {
+        return getDouble(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public Object getObject(String columnLabel) throws SQLException {
+        return getObject(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public Object getObject(int oneBasedPosition) throws SQLException {
+        switch (metaData.getColumnType(oneBasedPosition)) {
+            case Types.STRUCT:
+                return getStruct(oneBasedPosition);
+            case Types.ARRAY:
+                return getArray(oneBasedPosition);
+            case Types.BINARY:
+                return getBytes(oneBasedPosition);
+            default:
+                return getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+        }
+    }
+
+    @Override
+    public String getString(int oneBasedPosition) throws SQLException {
+        Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+        if (o == null) {
+            return null; //TODO(bfines) default column value here
+        }
+        if (o instanceof String) {
+            return (String) o;
+        } else if (o instanceof Number) {
+            return o.toString();
+        } else if (o instanceof URI) {
+            //special case for database URI fields
+            return o.toString();
+        } else {
+            throw new SQLException("String", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+    }
+
+    @Override
+    public String getString(String columnLabel) throws SQLException {
+        return getString(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public Array getArray(int oneBasedPosition) throws SQLException {
+        if (metaData.getColumnType(oneBasedPosition) != Types.ARRAY) {
+            throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+        Object obj = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+        if (obj == null) {
+            return null;
+        }
+        if (obj instanceof Array) {
+            return (Array) obj;
+        }
+        if (!(obj instanceof Collection)) {
+            //TODO(bfines) probably not the correct error here, but whatever
+            throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+        Collection<?> coll = (Collection<?>) obj;
+        final StructMetaData arrayMetaData = metaData.getArrayMetaData(oneBasedPosition);
+        Collection<Row> rows = coll.stream().map(t -> {
+            if (t instanceof Row) {
+                return (Row) t;
+            } else if (t instanceof Message) {
+                return new MessageTuple((Message) t);
+            }
+            return new ArrayRow(new Object[]{t});
+        })
+                .collect(Collectors.toList());
+        return new RowArray(rows, arrayMetaData);
+    }
+
+    @Override
+    public Array getArray(String columnLabel) throws SQLException {
+        return getArray(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
+        if (metaData.getColumnType(oneBasedColumn) != Types.STRUCT) {
+            throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TO_MESSAGE.getErrorCode());
+        }
+        Object obj = getObjectInternal(getZeroBasedPosition(oneBasedColumn));
+        if (obj == null) {
+            return null;
+        }
+        if (obj instanceof RelationalStruct) {
+            return (RelationalStruct) obj;
+        } else if (obj instanceof Row) {
+            return new ImmutableRowStruct((Row) obj, metaData.getNestedMetaData(oneBasedColumn));
+        } else if (obj instanceof Message) {
+            return new ImmutableRowStruct(new MessageTuple((Message) obj), metaData.getNestedMetaData(oneBasedColumn));
+        } else {
+            throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TO_MESSAGE.getErrorCode());
+        }
+    }
+
+    @Override
+    public RelationalStruct getStruct(String columnLabel) throws SQLException {
+        return getStruct(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public String getSQLTypeName() {
+        return "STRUCT";
+    }
+
+    private int getOneBasedPosition(String columnLabel) throws SQLException {
+        for (int pos = 1; pos <= metaData.getColumnCount(); pos++) {
+            if (metaData.getColumnName(pos).equalsIgnoreCase(columnLabel)) {
+                return pos;
+            }
+        }
+        throw new InvalidColumnReferenceException(columnLabel).toSqlException();
+    }
+
+    private int getZeroBasedPosition(int oneBasedPosition) {
+        return metaData.getLeadingPhantomColumnCount() + oneBasedPosition - 1;
+    }
+}

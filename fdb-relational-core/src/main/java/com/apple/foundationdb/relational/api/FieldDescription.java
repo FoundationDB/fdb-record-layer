@@ -1,0 +1,154 @@
+/*
+ * FieldDescription.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.api;
+
+import java.sql.Types;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+/**
+ * A description of an individual field.
+ *
+ * Note that this representation is indicative of JDBC-API level information. That is, it is used to hold
+ * information that is necessary to represent a given column field in a JDBC MetaData API.
+ */
+public class FieldDescription {
+    private final String fieldName;
+    private final int sqlTypeCode; //taken from java.sql.Types
+
+    private final boolean isNullable;
+
+    private final StructMetaData fieldMetaData;
+
+    private final StructMetaData arrayMetaData;
+
+    //indicates a column that isn't part of the DDL for a query, but is part of the returned
+    //tuple (and therefore necessary to keep so that our positional ordering is intact)
+    private final boolean isPhantom;
+
+    /**
+     * Create a primitive field.
+     *
+     * This is a convenience factory method for a more complicated constructor. Equivalent to
+     * {@link #primitive(String, int, boolean, boolean)}, where {@code isPhantom == false}.
+     *
+     * @param fieldName the name of the field.
+     * @param sqlTypeCode the SQL type code for this field. Should match values found in {@link Types}
+     * @param isNullable if true, the column is assumed to be nullable. Otherwise is false.
+     * @return a FieldDescription for the field.
+     */
+    public static FieldDescription primitive(@Nonnull String fieldName, int sqlTypeCode, boolean isNullable) {
+        return primitive(fieldName, sqlTypeCode, isNullable, false);
+    }
+
+    /**
+     * Create a primitive field.
+     *
+     * This is a convenience factory method for a more complicated constructor.
+     *
+     * @param fieldName the name of the field.
+     * @param sqlTypeCode the SQL type code for this field. Should match values found in {@link Types}
+     * @param isNullable if true, the column is assumed to be nullable. Otherwise is false.
+     * @param isPhantom if true, this column should be treated as "phantom" in the API. That is, its entries
+     *                  are present in the returned row, but are not represented as part of the "return value". In other
+     *                  words, the values take up space in the physical arrays, but are not considered part of the actual
+     *                  return of the query, requiring the implementation to adjust for the field's position.
+     * @return a FieldDescription for the field.
+     */
+    public static FieldDescription primitive(@Nonnull String fieldName, int sqlTypeCode, boolean isNullable, boolean isPhantom) {
+        return new FieldDescription(fieldName, sqlTypeCode, isNullable, isPhantom, null, null);
+    }
+
+    /**
+     * Create a struct field.
+     *
+     * This is a convenience factory method for a more complicated constructor.
+     *
+     * @param fieldName the name of the field.
+     * @param isNullable if true, the column is assumed to be nullable. Otherwise is false.
+     * @param definition the definition of the struct value itself.
+     * @return a FieldDescription for the field.
+     */
+    public static FieldDescription struct(@Nonnull String fieldName, boolean isNullable, StructMetaData definition) {
+        return new FieldDescription(fieldName, Types.STRUCT, isNullable, false, definition, null);
+    }
+
+    /**
+     * Create an array field.
+     *
+     * This is a convenience factory method for a more complicated constructor.
+     *
+     * @param fieldName the name of the field.
+     * @param isNullable if true, the column is assumed to be nullable. Otherwise is false.
+     * @param definition the metadata description of the contents of the array.
+     * @return a FieldDescription for the field.
+     */
+    public static FieldDescription array(@Nonnull String fieldName, boolean isNullable, StructMetaData definition) {
+        return new FieldDescription(fieldName, Types.ARRAY, isNullable, false, null, definition);
+    }
+
+    public FieldDescription(String fieldName,
+                            int sqlType,
+                            boolean isNullable,
+                            boolean isPhantom,
+                            @Nullable StructMetaData fieldMetaData,
+                            @Nullable StructMetaData arrayMetaData) {
+        this.fieldName = fieldName;
+        this.sqlTypeCode = sqlType;
+        this.isNullable = isNullable;
+        this.isPhantom = isPhantom;
+        this.fieldMetaData = fieldMetaData;
+        this.arrayMetaData = arrayMetaData;
+    }
+
+    public String getName() {
+        return fieldName;
+    }
+
+    public int getSqlTypeCode() {
+        return sqlTypeCode;
+    }
+
+    public boolean isStruct() {
+        return sqlTypeCode == Types.STRUCT;
+    }
+
+    public boolean isArray() {
+        return sqlTypeCode == Types.ARRAY;
+    }
+
+    public StructMetaData getFieldMetaData() {
+        return fieldMetaData;
+    }
+
+    public StructMetaData getArrayMetaData() {
+        return arrayMetaData;
+    }
+
+    public boolean isNullable() {
+        return isNullable;
+    }
+
+    public boolean isPhantom() {
+        return isPhantom;
+    }
+}

@@ -61,9 +61,4 @@ public interface SystemTable {
     @Nonnull
     KeyExpression getPrimaryKeyDefinition();
 
-    /**
-     * Returns the record type key which is used for clustering the records of the same type.
-     * @return The record type key.
-     */
-    long getRecordTypeKey();
 }

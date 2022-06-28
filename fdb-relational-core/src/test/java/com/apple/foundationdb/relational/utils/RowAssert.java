@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
 import com.google.protobuf.ByteString;
@@ -28,11 +29,9 @@ import com.google.protobuf.Message;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ByteArrayAssert;
-import org.assertj.core.api.IterableAssert;
-import org.assertj.core.api.SoftAssertions;
 
+import java.sql.Array;
 import java.util.Collection;
-import java.util.function.Predicate;
 
 public class RowAssert extends AbstractAssert<RowAssert, Row> {
     protected RowAssert(Row row) {
@@ -56,6 +55,19 @@ public class RowAssert extends AbstractAssert<RowAssert, Row> {
                 } catch (InvalidColumnReferenceException e) {
                     throw new RuntimeException(e);
                 }
+            }
+        } else if (expected instanceof RelationalStruct) {
+            try {
+                RelationalStruct other = (RelationalStruct) expected;
+                int colCount = other.getMetadata().getColumnCount();
+                Assertions.assertThat(actual.getNumFields()).isEqualTo(colCount);
+                for (int i = 1; i <= colCount; i++) {
+                    Object actualO = getObject(actual, i - 1);
+                    Object otherO = other.getObject(i);
+                    extractAssert(actualO).isEqualTo(otherO);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
         } else {
             return super.isEqualTo(expected);
@@ -93,31 +105,11 @@ public class RowAssert extends AbstractAssert<RowAssert, Row> {
                     }
                 }
             };
+        } else if (o instanceof Array) {
+            return new ArrayAssert((Array) o);
         } else if (o instanceof Iterable) {
-            Iterable<?> objects = (Iterable<?>) o;
-
-            return new IterableAssert<Object>(objects) {
-                @Override
-                public IterableAssert<Object> isEqualTo(Object expected) {
-                    if (!(expected instanceof Iterable)) {
-                        failWithMessage("Unexpected iterable. Expected type " + expected.getClass().getName());
-                    }
-                    Iterable<?> expectedObjects = (Iterable<?>) expected;
-                    for (Object expectedObj : expectedObjects) {
-                        Predicate<? super Object> searchPredicate = expectedObj instanceof Message ? o1 -> {
-                            if (!(o1 instanceof Message)) {
-                                return false;
-                            }
-                            SoftAssertions assertions = new SoftAssertions();
-                            return MessageAssert.messagesMatch((Message) expectedObj, (Message) o1, assertions).wasSuccess();
-                        } : expectedObj::equals;
-
-                        anyMatch(searchPredicate);
-                    }
-                    return this;
-                }
-            };
-
+            Assertions.fail("Should not have an iterable return type, use Arrays instead");
+            return Assertions.assertThat(o); //won't happen, but makes the java compiler happy
         } else {
             return Assertions.assertThat(o);
         }

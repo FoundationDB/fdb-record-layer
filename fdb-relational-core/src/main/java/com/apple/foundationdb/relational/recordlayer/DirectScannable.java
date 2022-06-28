@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -46,15 +47,6 @@ public interface DirectScannable {
 
     Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException;
 
-    /**
-     * The index is the position in the row, and the value is
-     * the name of the field at that position.
-     *
-     * @return the field-name map
-     * @throws RelationalException if the field-name map cannot be retrieved.
-     */
-    String[] getFieldNames() throws RelationalException;
-
     KeyBuilder getKeyBuilder() throws RelationalException;
 
     /**
@@ -64,4 +56,6 @@ public interface DirectScannable {
      */
     @Nonnull
     String getName();
+
+    StructMetaData getMetaData() throws RelationalException;
 }

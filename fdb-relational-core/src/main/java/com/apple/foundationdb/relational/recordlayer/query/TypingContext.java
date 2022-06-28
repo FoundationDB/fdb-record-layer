@@ -100,7 +100,10 @@ public final class TypingContext {
                 .collect(Collectors.toList());
         final var typeInfos = types.stream().filter(type -> !type.isTable).map(t -> new TypeInfo(repository.getMessageDescriptor(t.name).toProto())).collect(Collectors.toSet());
         // add the rest of the types
-        final var residualTypeInfos = repository.getMessageTypes().stream().filter(type -> Stream.concat(tableInfos.stream().map(TableInfo::getTableName), typeInfos.stream().map(TypeInfo::getTypeName)).noneMatch(included -> included.equals(type))).map(t -> new TypeInfo(repository.getMessageDescriptor(t).toProto()));
+        final var residualTypeInfos = repository.getMessageTypes().stream()
+                .filter(type -> Stream.concat(tableInfos.stream().map(TableInfo::getTableName), typeInfos.stream().map(TypeInfo::getTypeName))
+                        .noneMatch(included -> included.equals(type)))
+                .map(t -> new TypeInfo(repository.getMessageDescriptor(t).toProto()));
         final var allTypeInfos = Streams.concat(typeInfos.stream(), residualTypeInfos).collect(Collectors.toSet());
         return new SchemaTemplateDescriptor(name, new LinkedHashSet<>(tableInfos), allTypeInfos, 1L);
     }
@@ -179,6 +182,10 @@ public final class TypingContext {
             var unknownFields = pair.getRight().stream().filter(indexedField -> types.stream().filter(t -> t.name.equals(table)).findFirst().get().fields.stream().map(f -> f.name).noneMatch(fName -> fName.equals(indexedField))).collect(Collectors.toSet());
             Assert.thatUnchecked(unknownFields.isEmpty(), String.format("index %s references non-existing field(s) (%s)", pair.getLeft().getName(), String.join(",", unknownFields)), ErrorCode.UNKNOWN_FIELD);
         });
+    }
+
+    public Type getType(String structName) {
+        return typeRepositoryBuilder.getTypeByName(structName).orElseThrow();
     }
 
     /**

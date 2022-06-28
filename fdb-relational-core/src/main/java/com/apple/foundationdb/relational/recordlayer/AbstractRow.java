@@ -116,6 +116,8 @@ public abstract class AbstractRow implements Row {
             return (Row) o;
         } else if (o instanceof Tuple) {
             return new FDBTuple((Tuple) o);
+        } else if (o instanceof Message) {
+            return new MessageTuple((Message) o);
         } else {
             throw new InvalidTypeException("Value <" + o + "> cannot be cast to a tuple");
         }

@@ -22,9 +22,12 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.CatalogQueryFactory;
@@ -35,7 +38,10 @@ import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
+import com.google.protobuf.Descriptors;
+
 import java.net.URI;
+import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -75,7 +81,13 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
                         indexNames,
                 });
 
-                return new IteratorResultSet(new String[]{"DATABASE_PATH", "SCHEMA_NAME", "TABLES", "INDEXES"},
+                FieldDescription[] fields = new FieldDescription[]{
+                        FieldDescription.primitive("DATABASE_PATH", Types.VARCHAR, false),
+                        FieldDescription.primitive("SCHEMA_NAME", Types.VARCHAR, true),
+                        FieldDescription.array("TABLES", true, new RelationalStructMetaData(FieldDescription.primitive("TABLE", Types.VARCHAR, false))),
+                        FieldDescription.array("INDEXES", true, new RelationalStructMetaData(FieldDescription.primitive("INDEX", Types.VARCHAR, false)))
+                };
+                return new IteratorResultSet(new RelationalStructMetaData(fields),
                         Collections.singleton(tuple).iterator(), 0);
             }
         };
@@ -94,14 +106,57 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
                 final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, schemaId);
 
+                FieldDescription[] typeDescription = new FieldDescription[]{
+                        FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, false),
+                        FieldDescription.array("COLUMNS", false, new RelationalStructMetaData(
+                                FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
+                                FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
+                        ))
+                };
+
+                FieldDescription[] tableDescription = new FieldDescription[]{
+                        FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, false),
+                        FieldDescription.array("COLUMNS", false, new RelationalStructMetaData(
+                                FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
+                                FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
+                        ))
+                };
+
+                List<Row> typeRows = schemaTemplate.getTypes().stream()
+                        .map(typeInfo -> new ArrayRow(new Object[]{
+                                typeInfo.getTypeName(),
+                                typeInfo.getDescriptor().getFieldList().stream()
+                                        .map(fieldProto -> new ArrayRow(new Object[]{
+                                                fieldProto.getName(),
+                                                SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.fromProtobufType(Descriptors.FieldDescriptor.Type.valueOf(fieldProto.getType())))
+                                        })).collect(Collectors.toList())
+                        }))
+                        .collect(Collectors.toList());
+
+                List<Row> tableRows = schemaTemplate.getTables().stream()
+                        .map(tableInfo -> new ArrayRow(new Object[]{
+                                tableInfo.getTableName(),
+                                tableInfo.toDescriptor().getFieldList().stream()
+                                        .map(field -> new ArrayRow(new Object[]{
+                                                field.getName(),
+                                                SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.fromProtobufType(Descriptors.FieldDescriptor.Type.valueOf(field.getType())))
+                                        }))
+                                        .collect(Collectors.toList())
+                        })).collect(Collectors.toList());
+
                 Object[] fields = new Object[]{
                         schemaTemplate.getUniqueId(),
-                        schemaTemplate.getTables(),
-                        schemaTemplate.getTypes()
+                        typeRows,
+                        tableRows
                 };
 
                 Row tuple = new ArrayRow(fields);
-                return new IteratorResultSet(new String[]{"TEMPLATE_NAME", "TYPES", "TABLES"}, Collections.singleton(tuple).iterator(), 0);
+                FieldDescription[] fieldDescriptions = new FieldDescription[]{
+                        FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, false),
+                        FieldDescription.array("TYPES", true, new RelationalStructMetaData(typeDescription)),
+                        FieldDescription.array("TABLES", true, new RelationalStructMetaData(tableDescription))
+                };
+                return new IteratorResultSet(new RelationalStructMetaData(fieldDescriptions), Collections.singleton(tuple).iterator(), 0);
             }
         };
     }

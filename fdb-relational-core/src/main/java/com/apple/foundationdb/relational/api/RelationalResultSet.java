@@ -43,7 +43,6 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -51,42 +50,8 @@ import java.util.Map;
  */
 public interface RelationalResultSet extends java.sql.ResultSet {
 
-    /**
-     * Get the entity at the specified position as an instance of {@link Iterable}.
-     * <p>
-     *     For columns which are not repeated, the returned Iterable will have only a single record, whose
-     *     type is the Object form of the type of the data (i.e. a {@link Long}, not {@code long}).
-     * </p>
-     * @param oneBasedPosition the column position to get a repeated element for, indexed from 1.
-     * @return the value of the column with the specified position as an Iterable.
-     * @throws SQLException if something goes wrong.
-     */
-    Collection<?> getRepeated(int oneBasedPosition) throws SQLException;
-
-    /**
-     * Get the entity at the specified position as an instance of {@link Iterable}.
-     * <p>
-     *     This is equivalent to <pre>{@code
-     *     RelationalResultSetMetaData vrsmd = getResultSetMetaData();
-     *     for( int i=1;i<=vrsmd.getNumColumns(); i++){
-     *          if(vrsmd.getColumnName(i).equalsIgnoreCase(fieldName)){
-     *              return getRepeated(i);
-     *          }
-     *     }
-     }</pre>
-     * @param fieldName the name of the column to return.
-     * @return the value of the column with the specified position as an Iterable.
-     * @throws SQLException if something goes wrong. If the field does not exist,
-     * the error code will be {@link ErrorCode#INVALID_PARAMETER}, otherwise the error code will tell you what happened.
-     */
-    Collection<?> getRepeated(String fieldName) throws SQLException;
-
-    /**
-     * Return this row as a {@link Row}.
-     * @return the row
-     * @throws SQLException if something goes wrong.
-     */
-    Row asRow() throws SQLException;
+    @Override
+    RelationalResultSetMetaData getMetaData() throws SQLException;
 
     /**
      * A {@code Continuation} that can be used for retrieving the rest of the rows.
@@ -907,18 +872,6 @@ public interface RelationalResultSet extends java.sql.ResultSet {
 
     @ExcludeFromJacocoGeneratedReport
     @Override
-    default Array getArray(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @ExcludeFromJacocoGeneratedReport
-    @Override
-    default Array getArray(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @ExcludeFromJacocoGeneratedReport
-    @Override
     default URL getURL(int columnIndex) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
@@ -1224,4 +1177,7 @@ public interface RelationalResultSet extends java.sql.ResultSet {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
+    RelationalStruct getStruct(String columnLabel) throws SQLException;
+
+    RelationalStruct getStruct(int oneBasedColumn) throws SQLException;
 }

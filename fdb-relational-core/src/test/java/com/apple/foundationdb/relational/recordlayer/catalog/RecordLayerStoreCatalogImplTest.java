@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
-import com.apple.foundationdb.relational.recordlayer.RelationalAssertions;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
 import org.junit.jupiter.api.AfterEach;
@@ -259,8 +258,10 @@ public class RecordLayerStoreCatalogImplTest {
             // commit the first write transaction
             txn3.commit();
             // assert that the second transaction couldn't be committed
-            RelationalAssertions.assertThrowsRelationalException(txn4::commit,
-                    ErrorCode.SERIALIZATION_FAILURE, "Transaction not committed due to conflict with another transaction");
+            org.assertj.core.api.Assertions.assertThatThrownBy(txn4::commit)
+                    .isInstanceOf(RelationalException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.SERIALIZATION_FAILURE);
         }
     }
 

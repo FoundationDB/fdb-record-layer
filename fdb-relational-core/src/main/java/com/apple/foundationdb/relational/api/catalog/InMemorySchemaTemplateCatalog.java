@@ -20,14 +20,17 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 
+import java.sql.Types;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,7 +75,8 @@ public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
         Iterator<Row> iter = strings.stream()
                 .map(name -> (Row) new ValueTuple(name))
                 .collect(Collectors.toList()).iterator();
-        return new IteratorResultSet(new String[]{"TEMPLATE_NAME"}, iter, 0);
+        FieldDescription field = FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, false);
+        return new IteratorResultSet(new RelationalStructMetaData(field), iter, 0);
     }
 
     @Override

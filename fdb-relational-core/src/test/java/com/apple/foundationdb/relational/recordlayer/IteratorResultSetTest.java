@@ -21,30 +21,38 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Collections;
 
 class IteratorResultSetTest {
 
     @Test
     void continuationAtBeginning() throws RelationalException, SQLException {
-        IteratorResultSet irs = new IteratorResultSet(new String[]{"testField"}, Collections.singleton((Row) (new ArrayRow(new Object[]{"test"}))).iterator(), 0);
-        Continuation shouldBeStart = irs.getContinuation();
-        Assertions.assertTrue(shouldBeStart.atBeginning(), "Is not at beginning!");
-        Assertions.assertNull(shouldBeStart.getBytes(), "Incorrect byte[] for continuation!");
+        FieldDescription[] fields = new FieldDescription[]{
+                FieldDescription.primitive("testField", Types.VARCHAR, false)
+        };
+        try (IteratorResultSet irs = new IteratorResultSet(new RelationalStructMetaData(fields), Collections.singleton((Row) (new ArrayRow(new Object[]{"test"}))).iterator(), 0)) {
+            Continuation shouldBeStart = irs.getContinuation();
+            Assertions.assertTrue(shouldBeStart.atBeginning(), "Is not at beginning!");
+            Assertions.assertNull(shouldBeStart.getBytes(), "Incorrect byte[] for continuation!");
 
-        //now iterate
-        irs.next();
+            //now iterate
+            irs.next();
 
-        //now the continuation should be at the end
-        Continuation end = irs.getContinuation();
-        Assertions.assertTrue(end.atEnd(), "Is not at end!");
-        Assertions.assertArrayEquals(new byte[]{}, end.getBytes());
+            //now the continuation should be at the end
+            Continuation end = irs.getContinuation();
+
+            Assertions.assertTrue(end.atEnd(), "Is not at end!");
+            Assertions.assertArrayEquals(new byte[]{}, end.getBytes());
+        }
     }
 }

@@ -28,7 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
+import com.apple.foundationdb.relational.utils.DescriptorAssert;
 
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
@@ -73,9 +73,10 @@ class CatalogMetaDataProviderTest {
             CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(catalog, dbUri, schemaName, txn);
             final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
             final Descriptors.FileDescriptor descriptor = recordMetaData.getRecordsDescriptor();
-            RelationalAssertions.assertThat(descriptor)
-                    .withFailMessage("Incorrect file descriptor returned!")
-                    .isSemanticallyEqual(Restaurant.getDescriptor());
+            for (Descriptors.Descriptor message : descriptor.getMessageTypes()) {
+                new DescriptorAssert(message).as("Incorrect descriptor for type %s", message.getName())
+                        .isContainedIn(Restaurant.getDescriptor().getMessageTypes());
+            }
         }
     }
 }

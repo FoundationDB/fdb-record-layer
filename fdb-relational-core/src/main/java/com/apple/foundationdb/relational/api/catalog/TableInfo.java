@@ -22,12 +22,10 @@ package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 
 import com.google.protobuf.DescriptorProtos;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class TableInfo {
     String tableName;
@@ -56,15 +54,6 @@ public class TableInfo {
 
     public List<RecordMetaDataProto.Index> getIndexes() {
         return indexes;
-    }
-
-    @Override
-    public String toString() {
-        String toStr =  "table: {name: " + descriptor.getName() + ", columns: { ";
-        toStr += descriptor.getFieldList().stream().map(field -> field.getName() + ":" + ProtobufDdlUtil.getTypeName(field)).collect(Collectors.joining(","));
-
-        toStr += "}}";
-        return toStr;
     }
 
     public KeyExpression getPrimaryKey() {

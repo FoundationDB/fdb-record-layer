@@ -23,11 +23,15 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.RowArray;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.Ddl;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -40,11 +44,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.nio.charset.StandardCharsets;
-import java.sql.ResultSet;
+import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
+import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -85,8 +90,10 @@ public class QueryTest {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement);
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
-                try (final ResultSet resultSet = statement.getResultSet()) {
-                    RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(insertedRecord));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRow(insertedRecord)
+                            .hasNoNextRow();
                 }
             }
         }
@@ -99,20 +106,28 @@ public class QueryTest {
                 insertRestaurantComplexRecord(statement);
                 Message r11 = insertRestaurantComplexRecord(statement, 11L);
 
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
-                    RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r11));
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRow(r11)
+                            .hasNoNextRow();
                 }
 
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no >= 11")) {
-                    RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r11));
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no >= 11")) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRow(r11)
+                            .hasNoNextRow();
                 }
 
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 10 < rest_no")) {
-                    RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r11));
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 10 < rest_no")) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRow(r11)
+                            .hasNoNextRow();
                 }
 
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
-                    RelationalAssertions.assertThat(resultSet).hasExactly(new MessageTuple(r11));
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRow(r11)
+                            .hasNoNextRow();
                 }
             }
         }
@@ -122,7 +137,7 @@ public class QueryTest {
     void explainTableScan() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                try (final ResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
                     assertThat(plan).matches(".*Scan.*RestaurantComplexRecord.*rest_no GREATER_THAN 10.* as rest_no, .* as name, .* as location, .* as reviews, .* as tags, .* as customer, .* as encoded_bytes.*");
@@ -135,7 +150,7 @@ public class QueryTest {
     void explainHintedIndexScan() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                try (final ResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord USE INDEX (record_name_idx) WHERE rest_no > 10")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord USE INDEX (record_name_idx) WHERE rest_no > 10")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
                     assertThat(plan).matches(".*Fetch.*Covering.*Index.*record_name_idx.*rest_no GREATER_THAN 10.* as rest_no, .* as name, .* as location, .* as reviews, .* as tags, .* as customer, .* as encoded_bytes.*");
@@ -148,7 +163,7 @@ public class QueryTest {
     void explainUnhintedIndexScan() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                try (final ResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
                     assertThat(plan).matches(".*Index.*mv1.*\\[9\\],>.* as rest_no, .* as name, .* as location, .* as reviews, .* as tags, .* as customer, .* as encoded_bytes.*");
@@ -166,29 +181,35 @@ public class QueryTest {
                 Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
                 Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
                 Message l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no > 42 AND name = 'rest1'")) {
-                    assertMatches(resultSet, List.of(l43, l44));
+                try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no > 42 AND name = 'rest1'")) {
+                    ResultSetAssert.assertThat(resultSet).describedAs("where rest_no > 42 AND name = 'rest1'")
+                            .containsRowsExactly(l43, l44);
                 }
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE name = 'rest2' OR name = 'rest1'")) {
-                    assertMatches(resultSet, List.of(l42, l43, l44, l45));
+                try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE name = 'rest2' OR name = 'rest1'")) {
+                    ResultSetAssert.assertThat(resultSet).describedAs("where name = 'rest2' OR name = 'rest1'")
+                            .containsRowsExactly(l42, l43, l44, l45);
                 }
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no = (40+2)")) {
-                    assertMatches(resultSet, List.of(l42));
+                try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no = (40+2)")) {
+                    ResultSetAssert.assertThat(resultSet).describedAs("where rest_no = (40+2)")
+                            .containsRowsExactly(l42);
                 }
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE (40+2) = rest_no")) {
-                    assertMatches(resultSet, List.of(l42));
+                try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE (40+2) = rest_no")) {
+                    ResultSetAssert.assertThat(resultSet).describedAs("where (40+2) = rest_no")
+                            .containsRowsExactly(l42);
                 }
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE (44-2) = rest_no")) {
-                    assertMatches(resultSet, List.of(l42));
+                try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE (44-2) = rest_no")) {
+                    ResultSetAssert.assertThat(resultSet).describedAs("where (44-2) = rest_no")
+                            .containsRowsExactly(l42);
                 }
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 0X2A = rest_no")) {
-                    assertMatches(resultSet, List.of(l42));
+                try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 0X2A = rest_no")) {
+                    ResultSetAssert.assertThat(resultSet).describedAs("where 0X2A = rest_no")
+                            .containsRowsExactly(l42);
                 }
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no < -1")) {
-                    assertMatches(resultSet, List.of());
+                try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no < -1")) {
+                    ResultSetAssert.assertThat(resultSet).describedAs("where rest_no < -1").isEmpty();
                 }
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 10 < -3.9")) {
-                    assertMatches(resultSet, List.of());
+                try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 10 < -3.9")) {
+                    ResultSetAssert.assertThat(resultSet).describedAs("where 10 < -3.9").isEmpty();
                 }
             }
         }
@@ -200,8 +221,8 @@ public class QueryTest {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 11L);
-                try (final ResultSet resultSet = statement.executeQuery("select * from RestaurantComplexRecord where 42 is null AND 11 = rest_no")) {
-                    RelationalAssertions.assertThat(resultSet).hasNoNextRow();
+                try (final RelationalResultSet resultSet = statement.executeQuery("select * from RestaurantComplexRecord where 42 is null AND 11 = rest_no")) {
+                    ResultSetAssert.assertThat(resultSet).isEmpty();
                 }
             }
         }
@@ -213,8 +234,8 @@ public class QueryTest {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 11L);
-                try (final ResultSet resultSet = statement.executeQuery("select * from RestaurantComplexRecord where true = false")) {
-                    RelationalAssertions.assertThat(resultSet).hasNoNextRow();
+                try (final RelationalResultSet resultSet = statement.executeQuery("select * from RestaurantComplexRecord where true = false")) {
+                    ResultSetAssert.assertThat(resultSet).isEmpty();
                 }
             }
         }
@@ -239,13 +260,13 @@ public class QueryTest {
                     if (!continuation.atBeginning()) {
                         query += " WITH CONTINUATION \"" + Base64.getEncoder().encodeToString(continuation.getBytes()) + "\"";
                     }
-                    try (final ResultSet resultSet = statement.executeQuery(query)) {
+                    try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
                         // assert result matches expected
                         Assertions.assertNotNull(resultSet, "Did not return a result set!");
-                        RelationalAssertions.assertThat(resultSet).nextRowMatches(new MessageTuple(expected.get(i)));
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .hasRow(expected.get(i));
                         // get continuation for the next query
-                        Assertions.assertTrue(resultSet instanceof RelationalResultSet);
-                        continuation = ((RelationalResultSet) resultSet).getContinuation();
+                        continuation = resultSet.getContinuation();
                         i += 1;
                     }
                 }
@@ -259,28 +280,24 @@ public class QueryTest {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 // successfully execute a query with hinted index
-                try (final ResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx)")) {
-                    while (resultSet.next()) {
-                        Assertions.assertEquals("testName", resultSet.getString(1));
-                    }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx)")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "Name should = testName"));
                 }
                 // successfully execute a query with multiple hinted indexes
-                try (final ResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx, reviewer_name_idx)")) {
-                    while (resultSet.next()) {
-                        Assertions.assertEquals("testName", resultSet.getString(1));
-                    }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx, reviewer_name_idx)")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
                 }
                 // successfully execute a query with multiple hinted indexes, different syntax
-                try (final ResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx)")) {
-                    while (resultSet.next()) {
-                        Assertions.assertEquals("testName", resultSet.getString(1));
-                    }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx)")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
                 }
                 // exception is thrown when hinted indexes don't exist
-                Exception exception = Assertions.assertThrows(SQLException.class, () -> {
-                    statement.executeQuery("SELECT * FROM RestaurantComplexRecord USE INDEX (name) WHERE 11 <= rest_no");
-                });
-                Assertions.assertEquals("Unknown index(es) name", exception.getMessage());
+                org.assertj.core.api.Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT * FROM RestaurantRecord USE INDEX (name) WHERE 11 <= rest_no"))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Unknown index(es) name");
             }
         }
     }
@@ -290,11 +307,9 @@ public class QueryTest {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                try (final ResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
-
-                    while (resultSet.next()) {
-                        Assertions.assertEquals("testName", resultSet.getString(1));
-                    }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
                 }
             }
         }
@@ -305,11 +320,9 @@ public class QueryTest {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                try (final ResultSet resultSet = statement.executeQuery("SELECT RestaurantComplexRecord.name FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
-
-                    while (resultSet.next()) {
-                        Assertions.assertEquals("testName", resultSet.getString(1));
-                    }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT RestaurantComplexRecord.name FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
                 }
             }
         }
@@ -320,11 +333,9 @@ public class QueryTest {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                try (final ResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord AS X WHERE 11 <= rest_no")) {
-
-                    while (resultSet.next()) {
-                        Assertions.assertEquals("testName", resultSet.getString(1));
-                    }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord AS X WHERE 11 <= rest_no")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
                 }
             }
         }
@@ -335,11 +346,9 @@ public class QueryTest {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                try (final ResultSet resultSet = statement.executeQuery("SELECT X.name FROM RestaurantComplexRecord AS X WHERE 11 <= rest_no")) {
-
-                    while (resultSet.next()) {
-                        Assertions.assertEquals("testName", resultSet.getString(1));
-                    }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT X.name FROM RestaurantComplexRecord AS X WHERE 11 <= rest_no")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
                 }
             }
         }
@@ -353,21 +362,19 @@ public class QueryTest {
                 insertRestaurantComplexRecord(statement, 1, "getBytes", "blob1".getBytes(StandardCharsets.UTF_8));
                 insertRestaurantComplexRecord(statement, 2, "getBytes", "".getBytes(StandardCharsets.UTF_8));
 
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE name = 'getBytes'")) {
-                    while (resultSet.next()) {
-                        byte[] bytes = resultSet.getBytes("encoded_bytes");
-                        switch ((int) resultSet.getLong("rest_no")) {
-                            case 1:
-                                assertThat(bytes).isEqualTo("blob1".getBytes(StandardCharsets.UTF_8));
-                                break;
-                            case 2:
-                                assertThat(bytes).isEqualTo("".getBytes(StandardCharsets.UTF_8));
-                                break;
-                            default:
-                                Assertions.fail("Unknown record returned by query");
-                                break;
-                        }
-                    }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE name = 'getBytes'")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> {
+                                byte[] bytes = rs.getBytes("encoded_bytes");
+                                switch ((int) resultSet.getLong("rest_no")) {
+                                    case 1:
+                                        return Arrays.equals(bytes, "blob1".getBytes(StandardCharsets.UTF_8));
+                                    case 2:
+                                        return Arrays.equals(bytes, "".getBytes(StandardCharsets.UTF_8));
+                                    default:
+                                        return false;
+                                }
+                            }, "Should find correct encoded_bytes"));
                 }
             }
         }
@@ -407,21 +414,19 @@ public class QueryTest {
                 final int cnt = statement.executeInsert("tbl1", result);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
                 Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
-                try (final ResultSet resultSet = statement.getResultSet()) {
-                    Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals(resultSet.getLong(1), 42L);
-                    Assertions.assertEquals(resultSet.getLong(2), 128L);
-                    Assertions.assertEquals(resultSet.getLong(3), 128L);
-                    Assertions.assertFalse(resultSet.next());
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(42L, 128L, 128L)
+                            .hasNoNextRow();
                 }
                 Assertions.assertTrue(statement.execute("SELECT c.d.e FROM tbl1"), "Did not return a result set from a select statement!");
-                try (final ResultSet resultSet = statement.getResultSet()) {
-                    Assertions.assertTrue(resultSet.next());
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     final Message expected = statement.getDataBuilder("E")
                             .setField("f", 128L)
                             .build();
-                    Assertions.assertEquals(resultSet.getObject(1), expected);
-                    Assertions.assertFalse(resultSet.next());
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasColumn("E", expected)
+                            .hasNoNextRow();
                 }
             }
         }
@@ -461,12 +466,18 @@ public class QueryTest {
                 final int cnt = statement.executeInsert("tbl1", result);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
                 Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
-                try (final ResultSet resultSet = statement.getResultSet()) {
-                    Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals(resultSet.getLong(1), 42L);
-                    Assertions.assertEquals(((List) resultSet.getObject(2)).get(0), 128L);
-                    Assertions.assertEquals(((List) resultSet.getObject(3)).get(0), 128L);
-                    Assertions.assertFalse(resultSet.next());
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    StructMetaData col2Meta = new RelationalStructMetaData(
+                            FieldDescription.primitive("_1", Types.BIGINT, true)
+                    );
+                    StructMetaData col3Meta = new RelationalStructMetaData(
+                            FieldDescription.primitive("_2", Types.BIGINT, true)
+                    );
+                    Array expectedCol2 = new RowArray(List.of(new ArrayRow(new Object[]{128L})), col2Meta);
+                    Array expectedCol3 = new RowArray(List.of(new ArrayRow(new Object[]{128L})), col3Meta);
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(42L, expectedCol2, expectedCol3)
+                            .hasNoNextRow();
                 }
             }
         }
@@ -516,10 +527,8 @@ public class QueryTest {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                try (final ResultSet resultSet = statement.executeQuery("SELECT rest_no FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
-                    while (resultSet.next()) {
-                        Assertions.assertEquals(11L, resultSet.getLong(1));
-                    }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT rest_no FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
+                    ResultSetAssert.assertThat(resultSet).meetsForAllRows(ResultSetAssert.perRowCondition(rs -> resultSet.getLong(1) == 11L, "rest_no should be 11L"));
                 }
             }
         }
@@ -535,8 +544,8 @@ public class QueryTest {
                 Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
                 Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
                 Message l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no > 40.5")) {
-                    assertMatches(resultSet, List.of(l42, l43, l44, l45));
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no > 40.5")) {
+                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(l42, l43, l44, l45);
                 }
             }
         }
@@ -550,8 +559,8 @@ public class QueryTest {
                 insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())));
                 Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())));
                 Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())));
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
-                    assertMatches(resultSet, List.of(l43, l44));
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
+                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(l43, l44);
                 }
             }
         }
@@ -569,8 +578,8 @@ public class QueryTest {
                                 Triple.of(2L, 5L, List.of(
                                         Pair.of(402L, "awesome"),
                                         Pair.of(401L, "wow")))));
-                try (final ResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.endorsementText='wow'))")) {
-                    assertMatches(resultSet, List.of(l42));
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.endorsementText='wow'))")) {
+                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(l42);
                 }
             }
         }
@@ -633,13 +642,6 @@ public class QueryTest {
         int cnt = s.executeInsert("RestaurantComplexRecord", result);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return result;
-    }
-
-    private <M extends Message> void assertMatches(ResultSet resultSet, Collection<M> rec) throws SQLException, RelationalException {
-        Assertions.assertNotNull(resultSet, "Did not return a result set!");
-        RelationalAssertions.assertThat(resultSet).hasExactlyInAnyOrder(
-                rec.stream().map(MessageTuple::new).collect(Collectors.toList())
-        );
     }
 
     private void failsWith(@Nonnull final Statement statement, @Nonnull final String query, @Nonnull final String errorMessage) {

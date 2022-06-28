@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.Continuation;
@@ -76,6 +77,10 @@ public class QueryExecutor {
                             .iterator(),
                     continuation);
         }
+    }
+
+    public Type getQueryResultType() {
+        return plan.getResultType().getInnerType();
     }
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP",
