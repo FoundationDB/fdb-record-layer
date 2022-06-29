@@ -45,6 +45,9 @@ This release also updates downstream dependency versions. Most notably, the prot
 // end next release
 -->
 
+### 3.2.273.0
+
+
 ### 3.2.272.0
 
 * **Bug fix** Proximity search does not works well when the term has multi-word synonyms [(Issue #1752)](https://github.com/FoundationDB/fdb-record-layer/issues/1752)
