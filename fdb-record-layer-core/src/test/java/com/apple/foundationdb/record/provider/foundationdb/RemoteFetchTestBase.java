@@ -24,19 +24,22 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
@@ -130,7 +133,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    protected RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) {
+    protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setIndexFetchMethod(useIndexPrefetch)
@@ -156,24 +159,58 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
 
     protected byte[] executeAndVerifyData(FDBRecordContext context, RecordQueryPlan plan, byte[] continuation, ExecuteProperties executeProperties,
                                           int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) {
-        int count = 0;
-        byte[] lastContinuation = null;
+        byte[] lastContinuation;
 
         try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
-            while (iterator.hasNext()) {
-                FDBQueriedRecord<Message> record = iterator.next();
-                recordVerifier.accept(record, count);
-                count++;
-            }
-            lastContinuation = iterator.getContinuation();
+            lastContinuation = verifyData(expectedRecords, recordVerifier, iterator);
         }
 
-        assertThat(count, equalTo(expectedRecords));
         return lastContinuation;
     }
 
-    protected void assertCounters(final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch, final int expectedRemoteFetches, final int expectedRemoteFetchEntries) {
-        if ((useIndexPrefetch != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) &&
+    protected byte[] scanAndVerifyData(String indexName, IndexFetchMethod fetchMethod, IndexScanBounds scanBounds,
+                                       final ScanProperties scanProperties, KeyExpression commonPrimaryKey, byte[] continuation,
+                                       int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier, RecordMetaDataHook metaDataHook) {
+        byte[] lastContinuation;
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            lastContinuation = scanAndVerifyData(context, indexName, fetchMethod, scanBounds, scanProperties, commonPrimaryKey, continuation, expectedRecords, recordVerifier);
+        }
+        return lastContinuation;
+    }
+
+    @Nullable
+    protected byte[] scanAndVerifyData(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod,
+                                     IndexScanBounds scanBounds, final ScanProperties scanProperties, final KeyExpression commonPrimaryKey, final byte[] continuation,
+                                     int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) {
+        byte[] lastContinuation;
+        try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.scanIndexRecords(
+                        indexName, fetchMethod, scanBounds, commonPrimaryKey,
+                        continuation, IndexOrphanBehavior.ERROR, scanProperties)
+                .map(FDBQueriedRecord::indexed)
+                .asIterator()) {
+            lastContinuation = verifyData(expectedRecords, recordVerifier, iterator);
+        }
+        return lastContinuation;
+    }
+
+    @Nullable
+    protected byte[] verifyData(final int expectedRecords,
+                                final BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier,
+                                final RecordCursorIterator<FDBQueriedRecord<Message>> iterator) {
+        int count = 0;
+        while (iterator.hasNext()) {
+            FDBQueriedRecord<Message> record = iterator.next();
+            recordVerifier.accept(record, count);
+            count++;
+        }
+        assertThat(count, equalTo(expectedRecords));
+        return iterator.getContinuation();
+    }
+
+    protected void assertCounters(final IndexFetchMethod useIndexPrefetch, final int expectedRemoteFetches, final int expectedRemoteFetchEntries) {
+        if ((useIndexPrefetch != IndexFetchMethod.SCAN_AND_FETCH) &&
                 (recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1))) {
 
             StoreTimer.Counter numRemoteFetches = recordStore.getTimer().getCounter(REMOTE_FETCH);
@@ -187,6 +224,18 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         final List<FDBQueriedRecord<Message>> results;
 
         try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
+            results = cursor.asList().get();
+        }
+        return results;
+    }
+
+    protected List<FDBQueriedRecord<Message>> scanToList(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod,
+                                                         IndexScanBounds scanBounds, final ScanProperties scanProperties, final KeyExpression commonPrimaryKey,
+                                                         final byte[] continuation) throws Exception {
+        final List<FDBQueriedRecord<Message>> results;
+
+        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, commonPrimaryKey, continuation, IndexOrphanBehavior.ERROR, scanProperties)
+                .map(FDBQueriedRecord::indexed)) {
             results = cursor.asList().get();
         }
         return results;

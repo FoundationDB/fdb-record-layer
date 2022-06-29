@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -39,18 +40,6 @@ import java.util.stream.Stream;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryPlannerConfiguration {
-    /**
-     * An indicator for the index fetch method to use for a query.
-     * Possible values are:
-     * <UL>
-     *     <LI>{@link IndexFetchMethod#SCAN_AND_FETCH} use regular index scan followed by fetch</LI>
-     *     <LI>{@link IndexFetchMethod#USE_REMOTE_FETCH} use remote fetch feature from FDB</LI>
-     *     <LI>{@link IndexFetchMethod#USE_REMOTE_FETCH_WITH_FALLBACK} use remote fetch ability with fallback to regular
-     *     scan and fetch in case of failure. This is a safety measure meant to be used while the
-     *     remote fetch mechanism is being tested</LI>
-     * </UL>
-     */
-    public enum IndexFetchMethod { SCAN_AND_FETCH, USE_REMOTE_FETCH, USE_REMOTE_FETCH_WITH_FALLBACK }
 
     @Nonnull
     private final QueryPlanner.IndexScanPreference indexScanPreference;
