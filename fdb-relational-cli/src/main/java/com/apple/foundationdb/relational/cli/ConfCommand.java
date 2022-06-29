@@ -24,11 +24,15 @@ import picocli.CommandLine;
 
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 /**
  * Command for common configuration of both the CLI and the database itself.
  */
 @CommandLine.Command(name = "config", description = "Control the environment configuration")
 public class ConfCommand extends Command {
+
+    private static final String allowedStatementSeparators = "#;!";
 
     @CommandLine.ArgGroup(exclusive = true, multiplicity = "1")
     Args args;
@@ -51,6 +55,15 @@ public class ConfCommand extends Command {
             }
         } else if (args.headers != null) {
             dbState.setDisplayHeaders(args.headers);
+        } else if (args.statementDelimiter != null) {
+            verifyStatementDelimiter(args.statementDelimiter);
+            dbState.setStatementDelimiter(args.statementDelimiter);
+        }
+    }
+
+    private void verifyStatementDelimiter(@Nonnull final String statementDelimiter) {
+        if (statementDelimiter.length() != 1 || !allowedStatementSeparators.contains(statementDelimiter)) {
+            throw new IllegalStateException(String.format("illegal statement separator '%s', allows statement separators are %s", statementDelimiter, allowedStatementSeparators));
         }
     }
 
@@ -66,5 +79,8 @@ public class ConfCommand extends Command {
 
         @CommandLine.Option(names = "--headers", description = "show / hide result set column headers", negatable = true)
         private Boolean headers;
+
+        @CommandLine.Option(names = "--statement-delimiter", description = "set the statement delimiter (allowed values are '#', ';', or '!')", defaultValue = ";")
+        private String statementDelimiter;
     }
 }

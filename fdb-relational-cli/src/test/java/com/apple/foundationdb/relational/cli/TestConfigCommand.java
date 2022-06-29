@@ -40,4 +40,18 @@ public class TestConfigCommand {
         String expectedMessage = "cannot set delimiter with pretty-print on";
         Assertions.assertTrue(cli.getError().contains(expectedMessage), "Missing phrase <" + expectedMessage + "> from error text <" + cli.getError() + ">");
     }
+
+    @Test
+    void cannotSetStatementDelimiterToInvalidCharacter() {
+        TestUtils.runCommand("config --statement-delimiter=#", cli);
+        TestUtils.runCommand("config --statement-delimiter=;", cli);
+        TestUtils.runCommand("config --statement-delimiter=!", cli);
+        TestUtils.runCommand("config --statement-delimiter #", cli);
+        TestUtils.runCommand("config --statement-delimiter ;", cli);
+        TestUtils.runCommand("config --statement-delimiter !", cli);
+        int exitCode = cli.getCmd().execute("config --statement-delimiter=^".split("\\s+"));
+        Assertions.assertEquals(1, exitCode, "Unexpected exit code!");
+        final String expectedMessage = "illegal statement separator '^', allows statement separators are #;!";
+        Assertions.assertTrue(cli.getError().contains(expectedMessage));
+    }
 }
