@@ -45,7 +45,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -92,7 +92,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     protected final IndexScanParameters scanParameters;
     @Nonnull
-    private RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod;
+    private IndexFetchMethod indexFetchMethod;
     protected final boolean reverse;
     protected final boolean strictlySorted;
     @Nonnull
@@ -101,13 +101,13 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private final Type resultType;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
-        this(indexName, null, scanParameters, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH, reverse, false);
+        this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, reverse, false);
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
-                                @Nonnull final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch,
+                                @Nonnull final IndexFetchMethod useIndexPrefetch,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
         this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, reverse, strictlySorted, Optional.empty(), new Type.Any());
@@ -116,7 +116,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
-                                @Nonnull final RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod,
+                                @Nonnull final IndexFetchMethod indexFetchMethod,
                                 final boolean reverse,
                                 final boolean strictlySorted,
                                 @Nonnull final ScanWithFetchMatchCandidate matchCandidate,
@@ -127,7 +127,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private RecordQueryIndexPlan(@Nonnull final String indexName,
                                  @Nullable final KeyExpression commonPrimaryKey,
                                  @Nonnull final IndexScanParameters scanParameters,
-                                 @Nonnull final RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod,
+                                 @Nonnull final IndexFetchMethod indexFetchMethod,
                                  final boolean reverse,
                                  final boolean strictlySorted,
                                  @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional,
@@ -140,14 +140,14 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
         this.resultType = resultType;
-        if (indexFetchMethod != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) {
+        if (indexFetchMethod != IndexFetchMethod.SCAN_AND_FETCH) {
             if (commonPrimaryKey == null) {
                 logDebug("Index remote fetch cannot be used without a primary key. Falling back to regular scan.");
-                this.indexFetchMethod = RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH;
+                this.indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
             }
             if (!scanParameters.getScanType().equals(IndexScanType.BY_VALUE)) {
                 logDebug("Index remote fetch can only be used with VALUE index scan. Falling back to regular scan.");
-                this.indexFetchMethod = RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH;
+                this.indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
             }
         }
     }
@@ -156,15 +156,15 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation, @Nonnull final ExecuteProperties executeProperties) {
-        RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod = indexFetchMethod;
+        IndexFetchMethod fetchMethod = indexFetchMethod;
         // Check here to allow for the store API_VERSION to change
-        if ((indexFetchMethod != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) &&
-                !store.getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
+        if ((indexFetchMethod != IndexFetchMethod.SCAN_AND_FETCH) &&
+            !store.getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
             if (LOGGER.isWarnEnabled()) {
                 LOGGER.warn(KeyValueLogMessage.of("Index remote fetch can only be used with API_VERSION of at least 7.1. Falling back to regular scan.",
                         LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)));
             }
-            fetchMethod = RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH;
+            fetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
         }
 
         switch (fetchMethod) {
@@ -241,7 +241,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     @Nonnull
-    public RecordQueryPlannerConfiguration.IndexFetchMethod getIndexFetchMethod() {
+    public IndexFetchMethod getIndexFetchMethod() {
         return indexFetchMethod;
     }
 

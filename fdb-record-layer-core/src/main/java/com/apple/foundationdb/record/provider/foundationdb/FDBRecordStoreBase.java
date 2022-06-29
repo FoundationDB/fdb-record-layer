@@ -60,8 +60,8 @@ import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
@@ -953,7 +953,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index. This version of the method can choose between various scan options as
-     * determined by the {@link RecordQueryPlannerConfiguration.IndexFetchMethod} parameter:
+     * determined by the {@link IndexFetchMethod} parameter:
      * <UL>
      *     <LI>SCAN_AND_FETCH: Scan the index and fetch each record individually</LI>
      *     <LI>USE_REMOTE_FETCH: Use FDB's remote fetch feature to scan the index and fetch the records in one call</LI>
@@ -973,13 +973,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final String indexName,
-                                                               @Nonnull final RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod,
+                                                               @Nonnull final IndexFetchMethod fetchMethod,
                                                                @Nonnull final IndexScanBounds scanBounds,
                                                                @Nullable final KeyExpression commonPrimaryKey,
                                                                @Nullable byte[] continuation,
                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
                                                                @Nonnull ScanProperties scanProperties) {
-        if ((fetchMethod != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) && (commonPrimaryKey == null)) {
+        if ((fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) && (commonPrimaryKey == null)) {
             throw new RecordCoreArgumentException("scanIndexRecords with remote fetch requires a commonPrimaryKey", LogMessageKeys.INDEX_NAME, indexName);
         }
         if (!(scanBounds instanceof IndexScanRange)) {

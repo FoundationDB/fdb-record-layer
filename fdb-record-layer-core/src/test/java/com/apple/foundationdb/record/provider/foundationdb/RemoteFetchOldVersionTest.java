@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -61,7 +61,7 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
 
     @ParameterizedTest
     @EnumSource()
-    void oldVersionFormatTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void oldVersionFormatTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
 
         int count = 0;

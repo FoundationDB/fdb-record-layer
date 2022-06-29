@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -85,7 +85,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSimpleIndexTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void indexPrefetchSimpleIndexTest(IndexFetchMethod fetchMethod) throws Exception {
         scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN,
                 primaryKey(), null, 100,
                 (rec, i) -> {
@@ -99,7 +99,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSimpleIndexReverseTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void indexPrefetchSimpleIndexReverseTest(IndexFetchMethod fetchMethod) throws Exception {
         scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.REVERSE_SCAN,
                 primaryKey(), null, 100,
                 (rec, i) -> {
@@ -113,7 +113,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchComplexIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchComplexIndexTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void indexPrefetchComplexIndexTest(IndexFetchMethod fetchMethod) throws Exception {
         scanAndVerifyData("MySimpleRecord$str_value_indexed", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN,
                 primaryKey(), null, 100,
                 (rec, i) -> {
@@ -127,7 +127,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchWithContinuationTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchWithContinuationTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void indexPrefetchWithContinuationTest(IndexFetchMethod fetchMethod) throws Exception {
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(5)
                 .build();
@@ -177,7 +177,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         ScanProperties scanProperties = new ScanProperties(executeProperties, false);
 
         // First iteration - first 4 records
-        byte[] continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH,
+        byte[] continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
                 scanBounds(), scanProperties, primaryKey(), null, 4,
                 (rec, i) -> {
                     int primaryKey = 99 - i;
@@ -187,7 +187,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 }, splitRecordsHook);
 
         // Second iteration - second 4 records
-        continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH,
+        continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.SCAN_AND_FETCH,
                 scanBounds(), scanProperties, primaryKey(), continuation, 4,
                 (rec, i) -> {
                     int primaryKey = 95 - i;
@@ -197,7 +197,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 }, splitRecordsHook);
 
         // Third iteration - last 92 records
-        continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH,
+        continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
                 scanBounds(), ScanProperties.FORWARD_SCAN, primaryKey(), continuation, 92,
                 (rec, i) -> {
                     int primaryKey = 91 - i;
@@ -207,18 +207,18 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 }, splitRecordsHook);
 
         assertNull(continuation);
-        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 2, 98);
+        assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 2, 98);
     }
 
     @ParameterizedTest(name = "testScanLimit(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void testScanLimit(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void testScanLimit(IndexFetchMethod useIndexPrefetch) throws Exception {
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setScannedRecordsLimit(3)
                 .build();
         ScanProperties scanProperties = new ScanProperties(executeProperties, false);
 
-        byte[] continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH,
+        byte[] continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
                 scanBounds(), scanProperties, primaryKey(), null, 3,
                 (rec, i) -> {
                     int primaryKey = 99 - i;
@@ -232,7 +232,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 .build();
         scanProperties = new ScanProperties(executeProperties, false);
 
-        continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH,
+        continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
                 scanBounds(), scanProperties, primaryKey(), continuation, 1,
                 (rec, i) -> {
                     int primaryKey = 96 - i;
@@ -246,7 +246,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 .build();
         scanProperties = new ScanProperties(executeProperties, false);
 
-        continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH,
+        continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
                 scanBounds(), scanProperties, primaryKey(), continuation, 96,
                 (rec, i) -> {
                     int primaryKey = 95 - i;
@@ -263,7 +263,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testReadYourWriteInRange(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void testReadYourWriteInRange(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void testReadYourWriteInRange(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         try (FDBRecordContext context = openContext()) {
@@ -275,7 +275,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
             recBuilder.setStrValueIndexed("blah");
             recordStore.saveRecord(recBuilder.build());
 
-            if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH) {
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(ExecutionException.class, () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN, primaryKey(), null));
             } else {
                 scanAndVerifyData(context, "MySimpleRecord$num_value_unique", fetchMethod,
@@ -301,7 +301,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "failAfterRecordsReturnedTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void failAfterRecordsReturnedTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void failAfterRecordsReturnedTest(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         List<TestRecords1Proto.MySimpleRecord> created = saveManyRecords();
@@ -321,7 +321,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
             // data (essentially the first few pages of data from scanning the index), but once it
             // gets to the final page, it should fail because it sees a modified range when trying to look
             // up the record
-            if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH) {
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(ExecutionException.class, () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN, primaryKey(), null));
             } else {
                 scanAndVerifyData(context, "MySimpleRecord$num_value_unique", fetchMethod,
@@ -338,7 +338,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "failAfterRecordsReturnedReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void failAfterRecordsReturnedReverseTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void failAfterRecordsReturnedReverseTest(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         List<TestRecords1Proto.MySimpleRecord> created = saveManyRecords();
@@ -358,7 +358,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
             // data (essentially the first few pages of data from scanning the index), but once it
             // gets to the final page, it should fail because it sees a modified range when trying to look
             // up the record
-            if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH) {
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(ExecutionException.class, () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.REVERSE_SCAN, primaryKey(), null));
             } else {
                 scanAndVerifyData(context, "MySimpleRecord$num_value_unique", fetchMethod,
@@ -381,7 +381,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, splitRecordsHook);
-            Exception ex = assertThrows(ExecutionException.class, () -> scanIndex(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN));
+            Exception ex = assertThrows(ExecutionException.class, () -> scanIndex(IndexFetchMethod.USE_REMOTE_FETCH, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN));
             assertTrue(ex.getCause() instanceof RecordCoreStorageException);
         }
     }
@@ -395,7 +395,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         List<FDBIndexedRecord<Message>> records;
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, splitRecordsHook);
-            records = scanIndex(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, IndexOrphanBehavior.SKIP, ScanProperties.FORWARD_SCAN);
+            records = scanIndex(IndexFetchMethod.USE_REMOTE_FETCH, IndexOrphanBehavior.SKIP, ScanProperties.FORWARD_SCAN);
         }
         assertEquals(99, records.size());
         long c = 99;
@@ -408,7 +408,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
             }
             c--;
         }
-        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 100);
+        assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 100);
     }
 
     @Test
@@ -420,7 +420,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         List<FDBIndexedRecord<Message>> records;
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, splitRecordsHook);
-            records = scanIndex(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, IndexOrphanBehavior.RETURN, ScanProperties.FORWARD_SCAN);
+            records = scanIndex(IndexFetchMethod.USE_REMOTE_FETCH, IndexOrphanBehavior.RETURN, ScanProperties.FORWARD_SCAN);
         }
         assertEquals(100, records.size());
         long c = 99;
@@ -432,10 +432,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
             }
             c--;
         }
-        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 101);
+        assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 101);
     }
 
-    private List<FDBIndexedRecord<Message>> scanIndex(final RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod,
+    private List<FDBIndexedRecord<Message>> scanIndex(final IndexFetchMethod fetchMethod,
                                                       final IndexOrphanBehavior orphanBehavior, final ScanProperties scanProperties) throws InterruptedException, ExecutionException {
         return recordStore.scanIndexRecords("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(),
                 primaryKey(), null, orphanBehavior, scanProperties).asList().get();

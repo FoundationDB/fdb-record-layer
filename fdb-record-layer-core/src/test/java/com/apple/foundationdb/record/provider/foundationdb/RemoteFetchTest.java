@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
@@ -92,7 +92,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSimpleIndexTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchSimpleIndexTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
         executeAndVerifyData(plan, 10, (rec, i) -> {
             int primaryKey = 9 - i;
@@ -105,7 +105,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSimpleIndexReverseTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchSimpleIndexReverseTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990_REVERSE, useIndexPrefetch);
         executeAndVerifyData(plan, 10, (rec, i) -> {
             int primaryKey = i;
@@ -125,7 +125,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "indexPrefetchPrimaryKeyIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchPrimaryKeyIndexTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchPrimaryKeyIndexTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(PRIMARY_KEY_EQUAL, useIndexPrefetch);
         executeAndVerifyData(plan, 1, (rec, i) -> {
             int primaryKey = 1;
@@ -138,7 +138,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchComplexIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchComplexIndexTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchComplexIndexTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(STR_VALUE_EVEN, useIndexPrefetch);
         executeAndVerifyData(plan, 50, (rec, i) -> {
             int primaryKey = i * 2;
@@ -150,7 +150,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchInQueryTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchInQueryTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchInQueryTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(IN_VALUE, useIndexPrefetch);
         executeAndVerifyData(plan, 5, (rec, i) -> {
             int primaryKey = i * 10;
@@ -161,7 +161,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchAndOrQueryTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchAndOrQueryTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchAndOrQueryTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(OR_AND_VALUE, useIndexPrefetch);
         executeAndVerifyData(plan, 10, (rec, i) -> {
             int primaryKey = (i == 9) ? 0 : (99 - i);
@@ -173,7 +173,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchWithContinuationTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchWithContinuationTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchWithContinuationTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(5)
@@ -207,8 +207,8 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      */
     @Test
     void indexPrefetchWithMixedContinuationTest() throws Exception {
-        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH);
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(4)
                 .build();
@@ -235,16 +235,16 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
         }, splitRecordsHook);
         assertNull(continuation);
-        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 2, 8);
+        assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 2, 8);
     }
 
     @ParameterizedTest(name = "indexPrefetchByteLimitContinuation(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     @Disabled("This test is inconsistently failing when running as part of the larger suite")
-    void indexPrefetchByteLimitContinuation(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchByteLimitContinuation(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
         // TODO: Why should the index prefetch take so many more bytes to scan the same number of records? Maybe the index scan counts the records and the fetch does not?
-        int scanBytesLimit = (useIndexPrefetch == RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) ? 350 : 1300;
+        int scanBytesLimit = (useIndexPrefetch == IndexFetchMethod.SCAN_AND_FETCH) ? 350 : 1300;
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setScannedBytesLimit(scanBytesLimit)
                 .build();
@@ -270,7 +270,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "testScanLimit(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void testScanLimit(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void testScanLimit(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setScannedRecordsLimit(3)
@@ -310,8 +310,8 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @Test
     void testIndexPrefetchWithComparatorPlan() throws Exception {
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
-        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH);
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH);
         ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
         RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
 
@@ -323,13 +323,13 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 assertNotNull(cursor.asList().get());
             }
         }
-        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 11);
+        assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 11);
     }
 
     @Test
     void testIndexPrefetchWithComparatorPlanFails() throws Exception {
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
-        RecordQueryPlan planWithPrefetch = plan(STR_VALUE_EVEN, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH);
+        RecordQueryPlan planWithPrefetch = plan(STR_VALUE_EVEN, IndexFetchMethod.USE_REMOTE_FETCH);
         ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
         RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
 
@@ -339,7 +339,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 assertThrows(ExecutionException.class, () -> cursor.asList().get());
             }
         }
-        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 1);
+        assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 1);
     }
 
     /**
@@ -347,7 +347,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testReadYourWriteInRange(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void testReadYourWriteInRange(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void testReadYourWriteInRange(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         try (FDBRecordContext context = openContext()) {
@@ -361,7 +361,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
 
-            if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH) {
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
             } else {
                 executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 10, (rec, i) -> {
@@ -383,7 +383,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testReadYourWriteOutOfRangeSucceeds(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void testReadYourWriteOutOfRangeSucceeds(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void testReadYourWriteOutOfRangeSucceeds(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         try (FDBRecordContext context = openContext()) {
@@ -415,7 +415,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "failAfterRecordsReturnedTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void failAfterRecordsReturnedTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void failAfterRecordsReturnedTest(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         List<TestRecords1Proto.MySimpleRecord> created = saveManyRecords();
@@ -436,7 +436,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             // gets to the final page, it should fail because it sees a modified range when trying to look
             // up the record
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0, fetchMethod);
-            if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH) {
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
             } else {
                 executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 500, (rec, i) -> {
@@ -451,7 +451,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "failAfterRecordsReturnedReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void failAfterRecordsReturnedReverseTest(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    void failAfterRecordsReturnedReverseTest(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         List<TestRecords1Proto.MySimpleRecord> created = saveManyRecords();
@@ -472,7 +472,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             // gets to the final page, it should fail because it sees a modified range when trying to look
             // up the record
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0_REVERSE, fetchMethod);
-            if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH) {
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
             } else {
                 executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 500, (rec, i) -> {
@@ -489,9 +489,9 @@ class RemoteFetchTest extends RemoteFetchTestBase {
     void indexPrefetchSimpleIndexFallbackTest() throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH);
-        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH);
-        RecordQueryPlan planWithFallback = plan(NUM_VALUES_LARGER_THAN_990, RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH);
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH);
+        RecordQueryPlan planWithFallback = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
         RecordQueryPlan comparatorPlan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithFallback), primaryKey(), 0, true);
 
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
@@ -546,7 +546,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             }
             c--;
         }
-        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 100);
+        assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 100);
     }
 
     @Test
@@ -570,7 +570,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             }
             c--;
         }
-        assertCounters(RecordQueryPlannerConfiguration.IndexFetchMethod.USE_REMOTE_FETCH, 1, 101);
+        assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 101);
     }
 
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexOrphanBehavior orphanBehavior) throws InterruptedException, ExecutionException {

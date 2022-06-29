@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -73,7 +73,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testMultiColumnPrimaryKeyNoKeyInIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    public void testMultiColumnPrimaryKeyNoKeyInIndex(RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod) throws Exception {
+    public void testMultiColumnPrimaryKeyNoKeyInIndex(IndexFetchMethod indexFetchMethod) throws Exception {
         List<FDBQueriedRecord<Message>> records = executeQuery(indexFetchMethod, recordMetadataStrValueIndex(), STR_HELLO);
         assertRecordStrIndex(records.get(0), "aaa", 1, "hello");
     }
@@ -84,7 +84,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testMultiColumnPrimaryKeyRecnoInIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    public void testMultiColumnPrimaryKeyRecnoInIndex(RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod) throws Exception {
+    public void testMultiColumnPrimaryKeyRecnoInIndex(IndexFetchMethod indexFetchMethod) throws Exception {
         List<FDBQueriedRecord<Message>> records = executeQuery(indexFetchMethod, recordMetadataRecnoIndex(), REC_NO_1);
         assertRecordRecnoIndex(records.get(0), "aaa", 1, "hello");
     }
@@ -96,12 +96,12 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testMultiColumnPrimaryKeyPathInIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    public void testMultiColumnPrimaryKeyPathInIndex(RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod) throws Exception {
+    public void testMultiColumnPrimaryKeyPathInIndex(IndexFetchMethod indexFetchMethod) throws Exception {
         List<FDBQueriedRecord<Message>> records = executeQuery(indexFetchMethod, recordMetadataPathIndex(), PATH_AAA);
         assertRecordPathIndex(records.get(0), "aaa", 1, "hello");
     }
 
-    private List<FDBQueriedRecord<Message>> executeQuery(final RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod, final RecordMetaData metaData, final RecordQuery query) throws InterruptedException, ExecutionException {
+    private List<FDBQueriedRecord<Message>> executeQuery(final IndexFetchMethod indexFetchMethod, final RecordMetaData metaData, final RecordQuery query) throws InterruptedException, ExecutionException {
         populateRecords(metaData);
         List<FDBQueriedRecord<Message>> records;
         try (FDBRecordContext context = openContext()) {

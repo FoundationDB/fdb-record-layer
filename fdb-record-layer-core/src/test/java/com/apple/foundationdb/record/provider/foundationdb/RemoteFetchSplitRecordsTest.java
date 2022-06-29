@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.TestRecords1Proto;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +46,7 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSplitRecordTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchSplitRecordTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         saveLargeRecord(1, 200, 2000);
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
 
@@ -65,7 +65,7 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSplitRecordReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchSplitRecordReverseTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchSplitRecordReverseTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         saveLargeRecord(1, 200, 2000);
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990_REVERSE, useIndexPrefetch);
 
@@ -84,7 +84,7 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchManySplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void indexPrefetchManySplitRecordTest(RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) throws Exception {
+    void indexPrefetchManySplitRecordTest(IndexFetchMethod useIndexPrefetch) throws Exception {
         // TODO: This test actually runs the API in a way that returns results that are too large: Over 50MB
         // FDB will fix the issue to limit the bytes returned and then this test would need to adjust accordingly.
         int numTransactions = 8;

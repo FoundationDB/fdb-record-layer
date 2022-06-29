@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -133,7 +133,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    protected RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) {
+    protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setIndexFetchMethod(useIndexPrefetch)
@@ -168,7 +168,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return lastContinuation;
     }
 
-    protected byte[] scanAndVerifyData(String indexName, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod, IndexScanBounds scanBounds,
+    protected byte[] scanAndVerifyData(String indexName, IndexFetchMethod fetchMethod, IndexScanBounds scanBounds,
                                        final ScanProperties scanProperties, KeyExpression commonPrimaryKey, byte[] continuation,
                                        int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier, RecordMetaDataHook metaDataHook) {
         byte[] lastContinuation;
@@ -181,7 +181,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nullable
-    protected byte[] scanAndVerifyData(FDBRecordContext context, String indexName, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod,
+    protected byte[] scanAndVerifyData(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod,
                                      IndexScanBounds scanBounds, final ScanProperties scanProperties, final KeyExpression commonPrimaryKey, final byte[] continuation,
                                      int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) {
         byte[] lastContinuation;
@@ -209,9 +209,9 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return iterator.getContinuation();
     }
 
-    protected void assertCounters(final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch, final int expectedRemoteFetches, final int expectedRemoteFetchEntries) {
-        if ((useIndexPrefetch != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) &&
-                (recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1))) {
+    protected void assertCounters(final IndexFetchMethod useIndexPrefetch, final int expectedRemoteFetches, final int expectedRemoteFetchEntries) {
+        if ((useIndexPrefetch != IndexFetchMethod.SCAN_AND_FETCH) &&
+            (recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1))) {
 
             StoreTimer.Counter numRemoteFetches = recordStore.getTimer().getCounter(REMOTE_FETCH);
             StoreTimer.Counter numRemoteFetchEntries = recordStore.getTimer().getCounter(SCAN_REMOTE_FETCH_ENTRY);
@@ -229,7 +229,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return results;
     }
 
-    protected List<FDBQueriedRecord<Message>> scanToList(FDBRecordContext context, String indexName, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod,
+    protected List<FDBQueriedRecord<Message>> scanToList(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod,
                                                          IndexScanBounds scanBounds, final ScanProperties scanProperties, final KeyExpression commonPrimaryKey,
                                                          final byte[] continuation) throws Exception {
         final List<FDBQueriedRecord<Message>> results;

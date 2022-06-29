@@ -68,8 +68,8 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -244,7 +244,7 @@ public class VersionIndexTest extends FDBTestBase {
     // Provide a combination of format versions, split and a remote fetch option
     private static Stream<Arguments> formatVersionArgumentsWithRemoteFetch() {
         return formatVersionArguments()
-                .flatMap(arg -> Arrays.stream(RecordQueryPlannerConfiguration.IndexFetchMethod.values())
+                .flatMap(arg -> Arrays.stream(IndexFetchMethod.values())
                         .map(indexFetchMethod -> Arguments.of(arg.get()[0], arg.get()[1], indexFetchMethod)));
     }
 
@@ -600,7 +600,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "saveLoadWithFunctionVersion [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void saveLoadWithFunctionVersion(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    public void saveLoadWithFunctionVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -859,7 +859,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "saveLoadWithRepeatedVersion [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void scanWithIncompleteVersion(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    public void scanWithIncompleteVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1005,7 +1005,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "updateWithinContext [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void updateWithinContext(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    public void updateWithinContext(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1721,7 +1721,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "queryOnVersion [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void queryOnVersion(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) {
+    public void queryOnVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1951,7 +1951,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "queryOnRepeatedVersions [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void queryOnRepeatedVersion(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) {
+    public void queryOnRepeatedVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2040,7 +2040,7 @@ public class VersionIndexTest extends FDBTestBase {
     @SuppressWarnings("try")
     @ParameterizedTest(name = "withMetaDataRebuilds [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
-    public void withMetaDataRebuilds(int testFormatVersion, boolean testSplitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) {
+    public void withMetaDataRebuilds(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2196,7 +2196,7 @@ public class VersionIndexTest extends FDBTestBase {
     @SuppressWarnings("try")
     @ParameterizedTest(name = "upgradeFormatVersions [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
-    public void upgradeFormatVersions(int testFormatVersion, boolean splitLongRecords, RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) {
+    public void upgradeFormatVersions(int testFormatVersion, boolean splitLongRecords, IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         final RecordMetaDataHook hook = metaDataBuilder -> {
             simpleVersionHook.apply(metaDataBuilder);
@@ -2333,8 +2333,8 @@ public class VersionIndexTest extends FDBTestBase {
     }
 
     @ParameterizedTest(name = "testScanVersionIndex [" + ARGUMENTS_PLACEHOLDER + "]")
-    @EnumSource(RecordQueryPlannerConfiguration.IndexFetchMethod.class)
-    void testScanVersionIndex(RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod) throws Exception {
+    @EnumSource(IndexFetchMethod.class)
+    void testScanVersionIndex(IndexFetchMethod fetchMethod) throws Exception {
         MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(42).setNumValue3Indexed(1).build();
         MySimpleRecord record2 = MySimpleRecord.newBuilder().setRecNo(1067L).setNumValue2(42).setNumValue3Indexed(2).build();
         MySimpleRecord record3 = MySimpleRecord.newBuilder().setRecNo(1068L).setNumValue2(43).setNumValue3Indexed(2).build();
@@ -2433,8 +2433,8 @@ public class VersionIndexTest extends FDBTestBase {
     }
 
     @Nonnull
-    private List<Tuple> scanIndexToKeys(final RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod, final String indexName, final ScanProperties direction) throws Exception {
-        if (fetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) {
+    private List<Tuple> scanIndexToKeys(final IndexFetchMethod fetchMethod, final String indexName, final ScanProperties direction) throws Exception {
+        if (fetchMethod == IndexFetchMethod.SCAN_AND_FETCH) {
             return recordStore.scanIndex(metaData.getIndex(indexName), IndexScanType.BY_VALUE, TupleRange.ALL, null, direction)
                     .map(IndexEntry::getKey)
                     .asList().get();
@@ -2452,10 +2452,10 @@ public class VersionIndexTest extends FDBTestBase {
     }
 
     @Nonnull
-    private List<FDBIndexedRecord<Message>> scanIndexToRecords(final RecordQueryPlannerConfiguration.IndexFetchMethod fetchMethod,
+    private List<FDBIndexedRecord<Message>> scanIndexToRecords(final IndexFetchMethod fetchMethod,
                                                                final String indexName,
                                                                final ScanProperties direction) throws Exception {
-        if (fetchMethod != RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) {
+        if (fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) {
             assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
         }
 
@@ -2465,7 +2465,7 @@ public class VersionIndexTest extends FDBTestBase {
     }
 
     @Nonnull
-    protected RecordQueryPlan plan(final RecordQuery query, final RecordQueryPlannerConfiguration.IndexFetchMethod useIndexPrefetch) {
+    protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setIndexFetchMethod(useIndexPrefetch)
