@@ -22,10 +22,10 @@ apply from: rootProject.file('gradle/strict.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
-    compile "org.foundationdb:fdb-java:${fdbVersion}"
-    compile "com.google.guava:guava:${guavaVersion}"
-    compile "org.slf4j:slf4j-api:${slf4jVersion}"
-    compile "com.squareup:javapoet:${javaPoetVersion}"
+    implementation "org.foundationdb:fdb-java:${fdbVersion}"
+    implementation "com.google.guava:guava:${guavaVersion}"
+    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
+    implementation "com.squareup:javapoet:${javaPoetVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
     annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
@@ -34,8 +34,8 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
-    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
-    testCompile "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
+    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
+    testImplementation "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
 }
 
 test {
