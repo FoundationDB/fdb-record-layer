@@ -159,7 +159,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         IndexFetchMethod fetchMethod = indexFetchMethod;
         // Check here to allow for the store API_VERSION to change
         if ((indexFetchMethod != IndexFetchMethod.SCAN_AND_FETCH) &&
-            !store.getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
+                !store.getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
             if (LOGGER.isWarnEnabled()) {
                 LOGGER.warn(KeyValueLogMessage.of("Index remote fetch can only be used with API_VERSION of at least 7.1. Falling back to regular scan.",
                         LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)));

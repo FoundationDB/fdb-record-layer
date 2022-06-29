@@ -34,4 +34,4 @@ import com.apple.foundationdb.annotation.API;
  * </UL>
  */
 @API(API.Status.EXPERIMENTAL)
-public enum IndexFetchMethod {SCAN_AND_FETCH, USE_REMOTE_FETCH, USE_REMOTE_FETCH_WITH_FALLBACK}
+public enum IndexFetchMethod { SCAN_AND_FETCH, USE_REMOTE_FETCH, USE_REMOTE_FETCH_WITH_FALLBACK }
