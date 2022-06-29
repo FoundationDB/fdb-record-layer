@@ -57,6 +57,7 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -672,6 +673,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Disabled
     @Test
     void threadedLuceneScanDoesntBreakPlannerAndSearch() throws Exception {
         CountingThreadFactory threadFactory = new CountingThreadFactory();
