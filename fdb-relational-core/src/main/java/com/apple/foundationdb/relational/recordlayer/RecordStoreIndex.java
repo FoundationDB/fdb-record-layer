@@ -77,7 +77,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     @Override
     public StructMetaData getMetaData() throws RelationalException {
         final KeyExpression indexStruct = index.getRootExpression();
-        RecordType recType = table.loadRecordType();
+        RecordType recType = table.loadRecordType(Options.NONE);
         final List<Descriptors.FieldDescriptor> fields = indexStruct.validate(recType.getDescriptor());
         Type.Record record = ProtobufDdlUtil.recordFromFieldDescriptors(fields);
         /*
@@ -145,7 +145,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
 
     @Override
     public KeyBuilder getKeyBuilder() throws RelationalException {
-        return new KeyBuilder(table.loadRecordType(), index.getRootExpression(), "index: <" + index.getName() + ">");
+        return new KeyBuilder(table.loadRecordType(Options.NONE), index.getRootExpression(), "index: <" + index.getName() + ">");
     }
 
     @Override
@@ -155,12 +155,12 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
 
     @Override
     protected RecordCursor<IndexEntry> openScan(FDBRecordStore store, TupleRange range,
-                                                @Nullable Continuation continuation, ScanProperties props) throws RelationalException {
+                                                @Nullable Continuation continuation, Options options) throws RelationalException {
         //TODO(bfines) get scan type from Options and/or ScanProperties
         assert continuation == null || continuation instanceof ContinuationImpl;
         try {
             return store.scanIndex(index, IndexScanType.BY_VALUE, range,
-                    continuation == null ? null : continuation.getBytes(), props);
+                    continuation == null ? null : continuation.getBytes(), QueryPropertiesUtils.getScanProperties(options));
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -177,7 +177,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    protected boolean hasConstantValueForPrimaryKey() {
+    protected boolean hasConstantValueForPrimaryKey(Options options) {
         return index.getRootExpression() instanceof RecordTypeKeyExpression;
     }
 }

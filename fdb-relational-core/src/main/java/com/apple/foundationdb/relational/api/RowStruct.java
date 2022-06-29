@@ -222,7 +222,7 @@ public abstract class RowStruct implements RelationalStruct {
     @Override
     public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
         if (metaData.getColumnType(oneBasedColumn) != Types.STRUCT) {
-            throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TO_MESSAGE.getErrorCode());
+            throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
         Object obj = getObjectInternal(getZeroBasedPosition(oneBasedColumn));
         if (obj == null) {
@@ -235,7 +235,7 @@ public abstract class RowStruct implements RelationalStruct {
         } else if (obj instanceof Message) {
             return new ImmutableRowStruct(new MessageTuple((Message) obj), metaData.getNestedMetaData(oneBasedColumn));
         } else {
-            throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TO_MESSAGE.getErrorCode());
+            throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
     }
 

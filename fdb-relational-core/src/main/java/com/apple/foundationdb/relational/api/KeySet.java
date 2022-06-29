@@ -44,6 +44,9 @@ public class KeySet {
     private Map<String, Object> keySet;
 
     public Map<String, Object> toMap() {
+        if (keySet == null) {
+            return Collections.emptyMap();
+        }
         return Collections.unmodifiableMap(keySet);
     }
 

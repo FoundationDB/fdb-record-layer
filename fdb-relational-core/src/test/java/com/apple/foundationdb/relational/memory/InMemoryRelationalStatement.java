@@ -125,7 +125,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws RelationalException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
         final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
         if (inMemoryTable == null) {
             throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
@@ -144,7 +144,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) {
         return 0;
     }
 

@@ -97,7 +97,7 @@ public class RowArray extends RelationalArray {
 
         try {
             return StreamSupport.stream(rows.spliterator(), false)
-                    .skip(oneBasedIndex-1)
+                    .skip(oneBasedIndex - 1)
                     .limit(count)
                     .map(row -> {
                         RowStruct struct = new ImmutableRowStruct(row, arrayMetaData);
@@ -119,7 +119,7 @@ public class RowArray extends RelationalArray {
     @Override
     public ResultSet getResultSet(long oneBasedIndex, int count) {
         List<Row> dataStream = StreamSupport.stream(rows.spliterator(), false)
-                .skip(oneBasedIndex-1)
+                .skip(oneBasedIndex - 1)
                 .limit(count)
                 .collect(Collectors.toList());
 

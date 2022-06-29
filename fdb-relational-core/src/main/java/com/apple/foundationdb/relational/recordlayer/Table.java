@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.ConnectionScoped;
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -59,5 +59,14 @@ public interface Table extends DirectScannable, AutoCloseable {
     @Override
     String getName();
 
-    DynamicMessageBuilder getDataBuilder() throws RelationalException;
+    /**
+     * Directly validate that this table is suitable for the operations desired, using the specified
+     * control options.
+     *
+     * If this table is not valid for the options specified, a {@link RelationalException} is thrown.
+     *
+     * @param options the options to use.
+     * @throws RelationalException if the table is invalid for these options.
+     */
+    void validateTable(@Nonnull Options options) throws RelationalException;
 }

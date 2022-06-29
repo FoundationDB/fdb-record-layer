@@ -123,14 +123,20 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         try {
             final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, conn.frl.getURI(), schema).getMetaData();
             List<Row> tableList = schemaInfo.getRecordTypesList().stream()
-                    .map(type -> new String[]{null, schema, type.getName()})
+                    .map(type -> new Object[]{
+                            null,  //TABLE_CAT
+                            schema,  //TABLE_SCHEM
+                            type.getName(), //TABLE_NAME
+                            type.hasSinceVersion() ? type.getSinceVersion() : null //TABLE_VERSION
+                    })
                     .map(ArrayRow::new)
                     .collect(Collectors.toList());
 
             FieldDescription[] fields = new FieldDescription[]{
                     FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, true),
                     FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true)
+                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_VERSION", Types.BIGINT, true)
             };
             return new IteratorResultSet(new RelationalStructMetaData(fields), tableList.iterator(), 0);
         } catch (RelationalException e) {

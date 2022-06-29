@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.relational.api.Continuation;
@@ -51,16 +50,14 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
             }
         } else if (endKey == null) {
             range = TupleRange.between(TupleUtils.toFDBTuple(startKey), null);
-        } else if (hasConstantValueForPrimaryKey() && startKey.equals(endKey)) {
+        } else if (hasConstantValueForPrimaryKey(options) && startKey.equals(endKey)) {
             range = TupleRange.allOf(TupleUtils.toFDBTuple(startKey));
         } else {
             range = TupleRange.between(TupleUtils.toFDBTuple(startKey), TupleUtils.toFDBTuple(endKey));
         }
 
         FDBRecordStore store = getSchema().loadStore();
-        //TODO(bfines) get the type index for this
-        ScanProperties props = QueryPropertiesUtils.getScanProperties(options);
-        final RecordCursor<CursorT> cursor = openScan(store, range, options.getOption(Options.Name.CONTINUATION), props);
+        final RecordCursor<CursorT> cursor = openScan(store, range, options.getOption(Options.Name.CONTINUATION), options);
         return RecordLayerIterator.create(cursor, keyValueTransform());
     }
 
@@ -68,7 +65,7 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
     /* abstract methods */
 
     protected abstract RecordCursor<CursorT> openScan(FDBRecordStore store, TupleRange range,
-                                                      @Nullable Continuation continuation, ScanProperties props) throws RelationalException;
+                                                      @Nullable Continuation continuation, Options options) throws RelationalException;
 
     protected abstract RecordLayerSchema getSchema();
 
@@ -76,5 +73,5 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
 
     protected abstract boolean supportsMessageParsing();
 
-    protected abstract boolean hasConstantValueForPrimaryKey() throws RelationalException;
+    protected abstract boolean hasConstantValueForPrimaryKey(Options options) throws RelationalException;
 }

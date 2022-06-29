@@ -81,7 +81,11 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      *   <li> TABLE_CAT = the full path of the database</li>
      *   <li> TABLE_SCHEM = the name of the schema</li>
      *   <li> TABLE_NAME = the name of the table</li>
+     *   <li> TABLE_VERSION = the version of the Schema Template where this table was created </li>
      * </ol>
+     *
+     * Note that the {@code TABLE_VERSION} field is not always known (due to data pre-existing the creation of Relational);
+     * in these cases NULL will be returned
      *
      * @param catalog the name of the database to search.
      * @param schema the name of the schema to search.

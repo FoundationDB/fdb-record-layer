@@ -82,11 +82,6 @@ public enum ErrorCode {
      * Indicates that a schema with the given name is already mapped to a schema template.
      */
     SCHEMA_MAPPING_ALREADY_EXISTS("42F06"),
-    /**
-     * Indicates that a query has timed out during execution.
-     */
-    INVALID_COLUMN_REFERENCE("42F10"), //no field of specified name in result set
-    CANNOT_CONVERT_TO_MESSAGE("42P12"), //cannot convert a ResultRow to a Message object
     INVALID_PATH("42PAT"),
     QUERY_TIMEOUT("53QTO"),
     /**
@@ -103,17 +98,21 @@ public enum ErrorCode {
     INTERNAL_ERROR("XX000"),
     SYNTAX_ERROR("22001"),
 
-    TABLE_NOT_FOUND("42P11"),
     TEMPLATE_EXISTS("42F07"),
     DATABASE_ALREADY_EXISTS("42P08"),
     SCHEMA_TEMPLATE_EXISTS("42P09"),
-    INVALID_SCHEMA_TEMPLATE("42P13"),
+    /**
+     * Indicates that a query has timed out during execution.
+     */
+    INVALID_COLUMN_REFERENCE("42F10"), //no field of specified name in result set
     INVALID_TABLE_DEFINITION("42P14"),
     SCHEMA_EXISTS("42P15"),
     UNKNOWN_TYPE("42F16"),
     INDEX_EXISTS("42P17"),
-    UNKNOWN_FIELD("42F18")
-    ;
+    UNKNOWN_FIELD("42F18"),
+    INCORRECT_METADATA_TABLE_VERSION("42P19"),
+    INVALID_SCHEMA_TEMPLATE("42P20"),
+    TABLE_NOT_FOUND("42P21");
 
     private final String errorCode;
 

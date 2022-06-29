@@ -32,9 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -80,6 +78,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     @Override
     public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException {
+        loadRecordType(options);
         FDBRecordStore store = schema.loadStore();
         try {
             final FDBStoredRecord<Message> storedRecord = store.loadRecord(TupleUtils.toFDBTuple(key));
@@ -95,7 +94,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     @Nonnull
     public StructMetaData getMetaData() throws RelationalException {
-        RecordType type = loadRecordType();
+        RecordType type = loadRecordType(Options.NONE);
 
         Map<String, Descriptors.FieldDescriptor> descriptorLookupMap = type.getDescriptor().getFields().stream()
                 .collect(Collectors.toMap(Descriptors.FieldDescriptor::getName, Function.identity()));
@@ -122,7 +121,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     @Override
     public KeyBuilder getKeyBuilder() throws RelationalException {
-        final RecordType typeForKey = loadRecordType();
+        final RecordType typeForKey = loadRecordType(Options.NONE);
         return new KeyBuilder(typeForKey, typeForKey.getPrimaryKey(), "primary key of <" + tableName + ">");
     }
 
@@ -158,7 +157,9 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     @Override
     public Set<Index> getAvailableIndexes() throws RelationalException {
-        return loadRecordType().getIndexes().stream().map((Function<com.apple.foundationdb.record.metadata.Index, Index>) index -> new RecordStoreIndex(index, this)).collect(Collectors.toSet());
+        return loadRecordType(Options.NONE).getIndexes().stream()
+                .map((Function<com.apple.foundationdb.record.metadata.Index, Index>) index -> new RecordStoreIndex(index, this))
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -173,18 +174,18 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public DynamicMessageBuilder getDataBuilder() throws RelationalException {
-        RecordType type = loadRecordType();
-        return new ProtobufDataBuilder(type.getDescriptor());
+    public void validateTable(@Nonnull Options options) throws RelationalException {
+        loadRecordType(options);
     }
 
     @Override
     protected RecordCursor<FDBStoredRecord<Message>> openScan(FDBRecordStore store, TupleRange range,
                                                               @Nullable Continuation continuation,
-                                                              ScanProperties props) throws RelationalException {
-        RecordType type = loadRecordType();
+                                                              Options options) throws RelationalException {
+        RecordType type = loadRecordType(options);
         try {
-            return store.scanRecords(range, continuation == null ? null : continuation.getBytes(), props)
+            final ScanProperties scanProps = QueryPropertiesUtils.getScanProperties(options);
+            return store.scanRecords(range, continuation == null ? null : continuation.getBytes(), scanProps)
                     .filter(record -> type.equals(record.getRecordType()));
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
@@ -202,23 +203,59 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    protected boolean hasConstantValueForPrimaryKey() throws RelationalException {
-        return loadRecordType().getPrimaryKey() instanceof RecordTypeKeyExpression;
+    protected boolean hasConstantValueForPrimaryKey(Options options) throws RelationalException {
+        return loadRecordType(options).getPrimaryKey() instanceof RecordTypeKeyExpression;
     }
 
-    RecordType loadRecordType() throws RelationalException {
+    RecordType loadRecordType(Options options) throws RelationalException {
+        FDBRecordStore store = schema.loadStore();
         if (currentTypeRef == null) {
-            FDBRecordStore store = schema.loadStore();
             try {
                 //just try to load the store, and see if it fails. If it fails, it's not there
                 currentTypeRef = store.getRecordMetaData().getRecordType(tableName);
+                validateRecordType(currentTypeRef, store, options);
                 //make sure to clear our state if the transaction ends
                 this.conn.addCloseListener(() -> currentTypeRef = null);
             } catch (MetaDataException mde) {
                 throw new RelationalException(mde.getMessage(), ErrorCode.UNKNOWN_SCHEMA, mde);
             }
+        } else {
+            //make sure that this record type is valid _for the operation we are doing now_.
+            validateRecordType(currentTypeRef, store, options);
         }
+
         return currentTypeRef;
+    }
+
+    private void validateRecordType(RecordType recordType, FDBRecordStore store, Options options) throws RelationalException {
+        Integer requiredVersion = options.getOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION);
+        if (requiredVersion != null) {
+            /*
+             * We need to check the created version stamp for the table, and ensure that it was
+             * created after the specified value.
+             *
+             * For a weird twist, sometimes we don't care what the specific value is, only that
+             * a value exists (this is done for strange historical reasons). To signify that,
+             * we use the -1 option value.
+             *
+             * The context fields here are carried over from prior implementations.
+             */
+            final Integer tableMetaDataVersion = recordType.getSinceVersion();
+            if (tableMetaDataVersion == null) {
+                final String errMsg = String.format("table <%s> is not available, creation version is missing from metadata(version <%s>)",
+                        recordType.getName(), store.getRecordMetaData().getVersion());
+                throw new RelationalException(errMsg, ErrorCode.INCORRECT_METADATA_TABLE_VERSION)
+                        .addContext("metadataVersion", store.getRecordMetaData().getVersion())
+                        .addContext("recordType", recordType.getName());
+            }
+            if (requiredVersion != -1 && requiredVersion < tableMetaDataVersion) {
+                final String errMsg = String.format("table <%s> is not available, creation version is invalid for metadata(version <%s>); Required creation version <%s>",
+                        recordType.getName(), store.getRecordMetaData().getVersion(), requiredVersion);
+                throw new RelationalException(errMsg, ErrorCode.INCORRECT_METADATA_TABLE_VERSION)
+                        .addContext("metadataVersion", store.getRecordMetaData().getVersion())
+                        .addContext("recordType", recordType.getName());
+            }
+        }
     }
 
 }

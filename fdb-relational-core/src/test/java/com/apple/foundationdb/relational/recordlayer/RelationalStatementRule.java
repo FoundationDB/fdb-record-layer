@@ -75,12 +75,12 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws RelationalException {
-        return statement.executeInsert(tableName, data);
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
+        return statement.executeInsert(tableName, data, options);
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws RelationalException {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
         return statement.executeDelete(tableName, keys);
     }
 

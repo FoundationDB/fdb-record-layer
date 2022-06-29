@@ -207,7 +207,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws RelationalException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
+        options = Options.combine(conn.getOptions(), options);
         //do this check first because otherwise we might start an expensive transaction that does nothing
         if (!data.hasNext()) {
             return 0;
@@ -219,6 +220,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
         Table table = schema.loadTable(schemaAndTable[1]);
+        table.validateTable(options);
 
         return executeMutation(() -> {
             int rowCount = 0;
@@ -233,7 +235,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws RelationalException {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
+        options = Options.combine(conn.getOptions(), options);
         if (!keys.hasNext()) {
             return 0;
         }
@@ -243,6 +246,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
         Table table = schema.loadTable(schemaAndTable[1]);
+        table.validateTable(options);
 
         return executeMutation(() -> {
             int count = 0;
