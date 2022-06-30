@@ -22,22 +22,24 @@ apply from: rootProject.file('gradle/strict.gradle')
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
-    compile project(coreProject)
-    compile "com.ibm.icu:icu4j:${icuVersion}"
-    compile "com.google.protobuf:protobuf-java:${protobufVersion}"
-    compile "org.slf4j:slf4j-api:${slf4jVersion}"
+    implementation project(coreProject)
+    implementation "com.ibm.icu:icu4j:${icuVersion}"
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+    implementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
+    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
     annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 
-    testCompile project(path: coreProject, configuration: 'tests')
+    testImplementation project(path: coreProject, configuration: 'tests')
+    testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
-    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testRuntime "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
+    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testCompile "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
