@@ -45,8 +45,8 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -65,6 +65,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,6 +98,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primar
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorderedUnion;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -151,6 +153,15 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             )
             .collect(Collectors.toList());
 
+    private List<TestRecordsTextProto.ComplexDocument> complexDocuments = IntStream.range(0, textSamples.size())
+            .mapToObj(i -> TestRecordsTextProto.ComplexDocument.newBuilder()
+                    .setDocId(i)
+                    .setGroup(i % 2)
+                    .setText(textSamples.get(i))
+                    .build()
+            )
+            .collect(Collectors.toList());
+
     private static final String MAP_DOC = "MapDocument";
 
     private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
@@ -164,6 +175,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", concat(mainExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
     private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(mainExpression, 1), LuceneIndexTypes.LUCENE);
+
+    private static final Index COMPLEX_TEXT_BY_GROUP = new Index("Complex$text_by_group", function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group")), LuceneIndexTypes.LUCENE);
 
     private ExecutorService executorService = null;
 
@@ -195,7 +208,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         IndexOptions.TEXT_TOKEN_MIN_SIZE, String.valueOf(minSize),
                         IndexOptions.TEXT_TOKEN_MAX_SIZE, String.valueOf(maxSize),
                         LuceneIndexOptions.NGRAM_TOKEN_EDGES_ONLY, String.valueOf(edgesOnly)));
-        openRecordStore(context, store -> { }, ngramIndex);
+        openRecordStore(context, md -> { }, ngramIndex);
     }
 
     protected void openRecordStoreWithSynonymIndex(FDBRecordContext context) {
@@ -203,22 +216,30 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 ImmutableMap.of(
                         LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                         LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
-        openRecordStore(context, store -> { }, ngramIndex);
+        openRecordStore(context, md -> { }, ngramIndex);
     }
 
     protected void openRecordStoreWithGroup(FDBRecordContext context) {
-        openRecordStore(context, store -> { }, TEXT_AND_GROUP);
+        openRecordStore(context, md -> { }, TEXT_AND_GROUP);
+    }
+
+    protected void openRecordStoreWithComplex(FDBRecordContext context) {
+        openRecordStore(context, md -> {
+            md.addIndex(TextIndexTestUtils.COMPLEX_DOC, COMPLEX_TEXT_BY_GROUP);
+        }, null);
     }
 
     protected void openRecordStore(FDBRecordContext context) {
-        openRecordStore(context, store -> { }, SIMPLE_TEXT_SUFFIXES);
+        openRecordStore(context, md -> { }, SIMPLE_TEXT_SUFFIXES);
     }
 
     protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook, Index simpleDocIndex) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(TextIndexTestUtils.COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
-        metaDataBuilder.removeIndex("SimpleDocument$text");
-        metaDataBuilder.addIndex(TextIndexTestUtils.SIMPLE_DOC, simpleDocIndex);
+        if (simpleDocIndex != null) {
+            metaDataBuilder.removeIndex("SimpleDocument$text");
+            metaDataBuilder.addIndex(TextIndexTestUtils.SIMPLE_DOC, simpleDocIndex);
+        }
         metaDataBuilder.addIndex(MAP_DOC, MAP_ON_LUCENE_INDEX);
         metaDataBuilder.addIndex(MAP_DOC, MAP_AND_FIELD_ON_LUCENE_INDEX);
         hook.apply(metaDataBuilder);
@@ -895,6 +916,12 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRequiredResults(List.of(field("group")))
                     .build();
             RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = coveringIndexScan(indexScan(allOf(
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    indexName(TEXT_AND_GROUP.getName()),
+                    scanParams(query(hasToString("MULTI parents")))
+            )));
+            assertThat(plan, matcher);
             List<Pair<Long, Long>> results = recordStore.executeQuery(plan).map(qr -> {
                 long pk = qr.getPrimaryKey().getLong(0);
                 TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
@@ -903,8 +930,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 return Pair.of(pk, gr);
             }).asList().get();
             assertEquals(Set.of(Pair.of(2L, 0L), Pair.of(4L, 0L), Pair.of(5L, 1L)), Set.copyOf(results));
-            // TODO: AvailableFields doesn't know about stored fields, so not really covering.
-            //assertLoadRecord(0, context);
+            assertLoadRecord(0, context);
         }
     }
 
@@ -1019,4 +1045,78 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         LuceneScanQuery scan = (LuceneScanQuery)indexPlan.getScanParameters().bind(recordStore, recordStore.getRecordMetaData().getIndex(indexPlan.getIndexName()), EvaluationContext.EMPTY);
         return scan.getQuery();
     }
+
+    @Test
+    void sortByPrimaryKey() throws Exception {
+        initializeFlat();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("parents", Lists.newArrayList("text"), true);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(filter1)
+                    .setSort(field("doc_id"), true)
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(List.of(5L, 4L, 2L), primaryKeys);
+        }
+    }
+
+    @Test
+    void sortByGroupedPrimaryKey() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithComplex(context);
+            complexDocuments.forEach(recordStore::saveRecord);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithComplex(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("parents", Lists.newArrayList("text"), true);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.COMPLEX_DOC)
+                    .setFilter(Query.and(Query.field("group").equalsValue(0L), filter1))
+                    .setSort(field("doc_id"), true)
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(1)).asList().get();
+            assertEquals(List.of(2L, 0L), primaryKeys);
+        }
+    }
+
+    @ParameterizedTest(name = "unionSearches[sorted={0}]")
+    @BooleanSource
+    void unionSearches(boolean sorted) throws Exception {
+        initializeFlat();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("parents", Lists.newArrayList("text"), true);
+            final QueryComponent filter2 = new LuceneQueryComponent("king", Lists.newArrayList("text"), true);
+            RecordQuery.Builder query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(Query.or(filter1, filter2));
+            if (sorted) {
+                query.setSort(field("doc_id"));
+            }
+            RecordQueryPlan plan = planner.plan(query.build());
+            Matcher<RecordQueryPlan> matcher1 = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
+                    indexName(SIMPLE_TEXT_SUFFIXES.getName()),
+                    scanParams(query(hasToString("MULTI parents")))));
+            Matcher<RecordQueryPlan> matcher2 = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
+                    indexName(SIMPLE_TEXT_SUFFIXES.getName()),
+                    scanParams(query(hasToString("MULTI king")))));
+            if (sorted) {
+                assertThat(plan, union(matcher1, matcher2));
+            } else {
+                assertThat(plan, primaryKeyDistinct(unorderedUnion(matcher1, matcher2)));
+            }
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            if (sorted) {
+                assertEquals(List.of(1L, 2L, 4L, 5L), primaryKeys);
+            } else {
+                assertEquals(Set.of(1L, 2L, 4L, 5L), new HashSet<>(primaryKeys));
+            }
+        }
+    }
+
 }

@@ -630,7 +630,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 p = planRank(candidateScan, index, grouping, filter);
                 indexExpr = grouping.getWholeKey(); // Plan as just value index.
             } else if (!indexTypes.getValueTypes().contains(index.getType())) {
-                p = planOther(candidateScan, index, filter, sort, sortReverse);
+                p = planOther(candidateScan, index, filter, sort, sortReverse, planContext.commonPrimaryKey);
                 if (p != null) {
                     p = planRemoveDuplicates(planContext, p);
                 }
@@ -699,7 +699,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             final RecordType recordType = Iterables.getOnlyElement(recordTypes);
             final List<QueryComponent> unsatisfiedFilters = new ArrayList<>(plan.unsatisfiedFilters);
             final AvailableFields availableFieldsFromIndex =
-                    AvailableFields.fromIndex(recordType, index, indexTypes, planContext.commonPrimaryKey);
+                    AvailableFields.fromIndex(recordType, index, indexTypes, planContext.commonPrimaryKey, indexPlan);
 
             final List<QueryComponent> indexFilters = Lists.newArrayListWithCapacity(unsatisfiedFilters.size());
             final List<QueryComponent> residualFilters = Lists.newArrayListWithCapacity(unsatisfiedFilters.size());
@@ -1345,7 +1345,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
                                    @Nonnull Index index, @Nonnull QueryComponent filter,
-                                   @Nullable KeyExpression sort, boolean sortReverse) {
+                                   @Nullable KeyExpression sort, boolean sortReverse,
+                                   @Nullable KeyExpression commonPrimaryKey) {
         if (indexTypes.getTextTypes().contains(index.getType())) {
             return planText(candidateScan, index, filter, sort, sortReverse);
         } else {

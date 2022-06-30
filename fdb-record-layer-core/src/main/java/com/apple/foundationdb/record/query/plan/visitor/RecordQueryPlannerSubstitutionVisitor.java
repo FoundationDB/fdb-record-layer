@@ -95,7 +95,7 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                 return null;
             }
             final RecordType recordType = Iterables.getOnlyElement(recordTypes);
-            AvailableFields fieldsFromIndex = AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey);
+            AvailableFields fieldsFromIndex = AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey, indexPlan);
 
             Set<KeyExpression> fields = new HashSet<>(requiredFields);
             if (commonPrimaryKey != null) {
@@ -137,7 +137,7 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                 return AvailableFields.NO_FIELDS;
             }
             final RecordType recordType = Iterables.getOnlyElement(recordTypes);
-            return AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey);
+            return AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey, indexPlan);
 
         } else if (plan instanceof RecordQueryFetchFromPartialRecordPlan) {
             RecordQueryFetchFromPartialRecordPlan fetchPlan = (RecordQueryFetchFromPartialRecordPlan) plan;

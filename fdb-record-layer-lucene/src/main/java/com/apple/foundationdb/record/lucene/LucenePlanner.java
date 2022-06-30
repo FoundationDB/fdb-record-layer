@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -76,27 +77,30 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Nullable
     protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
                                    @Nonnull Index index, @Nonnull QueryComponent filter,
-                                   @Nullable KeyExpression sort, boolean sortReverse) {
+                                   @Nullable KeyExpression sort, boolean sortReverse,
+                                   @Nullable KeyExpression commonPrimaryKey) {
         if (index.getType().equals(LuceneIndexTypes.LUCENE)) {
-            return planLucene(candidateScan, index, filter, sort, sortReverse);
+            return planLucene(candidateScan, index, filter, sort, sortReverse, commonPrimaryKey);
         } else {
-            return super.planOther(candidateScan, index, filter, sort, sortReverse);
+            return super.planOther(candidateScan, index, filter, sort, sortReverse, commonPrimaryKey);
         }
     }
 
     @Nullable
     private ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
                                   @Nonnull Index index, @Nonnull QueryComponent filter,
-                                  @Nullable KeyExpression sort, boolean sortReverse) {
+                                  @Nullable KeyExpression sort, boolean sortReverse,
+                                  @Nullable KeyExpression commonPrimaryKey) {
 
         final FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
 
         final KeyExpression rootExp = index.getRootExpression();
+        final KeyExpression groupingKey;
         final ScanComparisons groupingComparisons;
 
         // Getting grouping information from the index key and query filter
         if (rootExp instanceof GroupingKeyExpression) {
-            final KeyExpression groupingKey = ((GroupingKeyExpression)rootExp).getGroupingSubKey();
+            groupingKey = ((GroupingKeyExpression)rootExp).getGroupingSubKey();
             final QueryToKeyMatcher.Match groupingMatch = new QueryToKeyMatcher(filter).matchesCoveringKey(groupingKey, filterMask);
             if (!groupingMatch.getType().equals((QueryToKeyMatcher.MatchType.EQUALITY))) {
                 return null;
@@ -107,6 +111,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             }
             groupingComparisons = new ScanComparisons(groupingMatch.getEqualityComparisons(), Collections.emptySet());
         } else {
+            groupingKey = null;
             groupingComparisons = ScanComparisons.EMPTY;
         }
 
@@ -121,7 +126,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             if (query == null) {
                 return null;
             }
-            if (sort != null && !getSort(state, sort, sortReverse)) {
+            if (sort != null && !getSort(state, sort, sortReverse, commonPrimaryKey, groupingKey)) {
                 return null;
             }
             getStoredFields(state);
@@ -130,7 +135,8 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         // Wrap in plan.
-        LuceneIndexQueryPlan lucenePlan = new LuceneIndexQueryPlan(index.getName(), scanParameters, false);
+        LuceneIndexQueryPlan lucenePlan = new LuceneIndexQueryPlan(index.getName(), scanParameters, false,
+                state.planOrderingKey, state.storedFieldExpressions);
         RecordQueryPlan plan = lucenePlan;
         plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
         if (filterMask.allSatisfied()) {
@@ -153,6 +159,10 @@ public class LucenePlanner extends RecordQueryPlanner {
         List<String> storedFields;
         @Nullable
         List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
+        @Nullable
+        List<KeyExpression> storedFieldExpressions;
+        @Nullable
+        PlanOrderingKey planOrderingKey;
 
         Map<String, LuceneIndexExpressions.DocumentFieldDerivation> documentFields;
         boolean repeated;   // Matching a repeated field may introduce duplicates
@@ -428,12 +438,28 @@ public class LucenePlanner extends RecordQueryPlanner {
         return false;
     }
 
-    private boolean getSort(@Nonnull LucenePlanState state, @Nonnull KeyExpression sort, boolean sortReverse) {
+    private boolean getSort(@Nonnull LucenePlanState state,
+                            @Nonnull KeyExpression sort, boolean sortReverse,
+                            @Nullable KeyExpression commonPrimaryKey, @Nullable KeyExpression groupingKey) {
         final List<KeyExpression> sorts = sort.normalizeKeyForPositions();
+        if (groupingKey != null) {
+            sorts.removeAll(groupingKey.normalizeKeyForPositions());
+        }
         final SortField[] fields = new SortField[sorts.size()];
+        List<KeyExpression> primaryKeys = null;
+        int primaryKeyPosition = 0;
         for (int i = 0; i < fields.length; i++) {
+            final KeyExpression sortItem = sorts.get(i);
+            if (primaryKeys != null && primaryKeyPosition < primaryKeys.size()) {
+                // Once we have started with the primary key, we need to finish all its fields in order.
+                if (!sortItem.equals(primaryKeys.get(primaryKeyPosition))) {
+                    return false;
+                }
+                primaryKeyPosition++;
+                continue;
+            }
             for (LuceneIndexExpressions.DocumentFieldDerivation documentField : state.documentFields.values()) {
-                if (recordFieldPathMatches(sorts.get(i), documentField.getRecordFieldPath())) {
+                if (recordFieldPathMatches(sortItem, documentField.getRecordFieldPath())) {
                     final SortField.Type type;
                     switch (documentField.getType()) {
                         case STRING:
@@ -457,10 +483,37 @@ public class LucenePlanner extends RecordQueryPlanner {
                 }
             }
             if (fields[i] == null) {
+                if (primaryKeys == null && commonPrimaryKey != null) {
+                    primaryKeys = commonPrimaryKey.normalizeKeyForPositions();
+                    if (groupingKey != null) {
+                        primaryKeys.removeAll(groupingKey.normalizeKeyForPositions());
+                    }
+                    if (sortItem.equals(primaryKeys.get(primaryKeyPosition))) {
+                        // First part of primary key, sort by internal field (binary encoding of entire pkey).
+                        // Note that is it okay if the entire primary key is not all matched later; the query sort will just be overspecified.
+                        fields[i] = new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, sortReverse);
+                        primaryKeyPosition++;
+                        continue;
+                    }
+                }
                 return false;
             }
         }
         state.sort = new Sort(fields);
+        // Unlike normal indexes, entries are not additionally ordered by the primary key,
+        // except in the case where the query asked for a prefix of it and we used the whole internal field.
+        List<KeyExpression> orderingKeys = new ArrayList<>(sorts.size());
+        int prefixSize = 0;
+        if (groupingKey != null) {
+            orderingKeys.addAll(groupingKey.normalizeKeyForPositions());
+            prefixSize = orderingKeys.size();
+        }
+        orderingKeys.addAll(sorts);
+        int primaryKeyStart = orderingKeys.size();
+        if (primaryKeys != null && primaryKeyPosition < primaryKeys.size()) {
+            orderingKeys.addAll(primaryKeys.subList(primaryKeyPosition, primaryKeys.size()));
+        }
+        state.planOrderingKey = new PlanOrderingKey(orderingKeys, prefixSize, primaryKeyStart, orderingKeys.size());
         return true;
     }
 
@@ -471,11 +524,14 @@ public class LucenePlanner extends RecordQueryPlanner {
                 if (state.storedFields == null) {
                     state.storedFields = new ArrayList<>(Collections.nCopies(fields.size(), null));
                     state.storedFieldTypes = new ArrayList<>(Collections.nCopies(fields.size(), null));
+                    state.storedFieldExpressions = new ArrayList<>();
                 }
                 for (int i = 0; i < fields.size(); i++) {
-                    if (recordFieldPathMatches(fields.get(i), documentField.getRecordFieldPath())) {
+                    final KeyExpression fieldExpression = fields.get(i);
+                    if (recordFieldPathMatches(fieldExpression, documentField.getRecordFieldPath())) {
                         state.storedFields.set(i, documentField.getDocumentField());
                         state.storedFieldTypes.set(i, documentField.getType());
+                        state.storedFieldExpressions.add(fieldExpression);
                         break;
                     }
                 }
