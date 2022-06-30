@@ -22,7 +22,7 @@ apply from: rootProject.file('gradle/strict.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
-    implementation "org.foundationdb:fdb-java:${fdbVersion}"
+    api "org.foundationdb:fdb-java:${fdbVersion}"
     implementation "com.google.guava:guava:${guavaVersion}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     implementation "com.squareup:javapoet:${javaPoetVersion}"
