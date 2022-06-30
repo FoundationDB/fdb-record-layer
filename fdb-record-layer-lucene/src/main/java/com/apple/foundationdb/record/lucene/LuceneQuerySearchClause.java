@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.lucene.search.LuceneOptimizedQueryParser;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -75,7 +76,7 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
     public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         final Pair<AnalyzerChooser, AnalyzerChooser> analyzerChooserPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index, LuceneAnalyzerType.FULL_TEXT);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
-        final QueryParser parser = new QueryParser(defaultField, analyzerChooserPair.getRight().chooseAnalyzer(searchString).getAnalyzer());
+        final QueryParser parser = new LuceneOptimizedQueryParser(defaultField, analyzerChooserPair.getRight().chooseAnalyzer(searchString).getAnalyzer());
         try {
             return parser.parse(searchString);
         } catch (Exception ioe) {

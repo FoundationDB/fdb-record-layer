@@ -331,6 +331,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
+    private LuceneScanBounds specificFieldSearch(Index index, String search, String field) {
+        LuceneScanParameters scan = new LuceneScanQueryParameters(
+                ScanComparisons.EMPTY,
+                new LuceneQuerySearchClause(field, search, false));
+        return scan.bind(recordStore, index, EvaluationContext.EMPTY);
+    }
+
     private LuceneScanBounds groupedTextSearch(Index index, String search, Object group) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group)),
@@ -975,7 +982,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void proximitySearchWithMultiWordSynonym() {
+    void proximitySearchOnMultiFieldWithMultiWordSynonym() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
 
@@ -983,6 +990,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello FoundationDB record layer", 1));
             assertIndexEntryPrimaryKeys(List.of(1623L),
                     recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"hello record\"~10"), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    @Test
+    void proximitySearchOnSpecificFieldWithMultiWordSynonym() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
+
+            // Both "hello" and "record" have multi-word synonyms
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello FoundationDB record layer", 1));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, specificFieldSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"hello record\"~10", "text"), null, ScanProperties.FORWARD_SCAN));
         }
     }
 
