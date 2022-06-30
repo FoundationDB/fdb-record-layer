@@ -962,8 +962,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * This method can only be used with {@link IndexScanRange} scan bounds
      *
      * @param indexName the name of the index
-     * @param fetchMethod teh fetch method to use when getting records from the index
-     * @param scanBounds the range of the index to scan
+     * @param fetchMethod the fetch method to use when getting records from the index
+     * @param scanBounds the range of the index to scan, has to be a IndexScanRange
      * @param commonPrimaryKey the common primary key for the records that would be returned, only required for USE_REMOTE_FETCH and USE_REMOTE_FETCH_WITH_FALLBACK
      * @param continuation any continuation from a previous scan
      * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
@@ -1002,7 +1002,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                 } catch (Exception ex) {
                     if (LOGGER.isWarnEnabled()) {
                         LOGGER.warn(KeyValueLogMessage.of("scanIndexRecords: Remote Fetch execution failed, falling back to Index scan",
-                                LogMessageKeys.INDEX_NAME, indexName, ex));
+                                LogMessageKeys.INDEX_NAME, indexName), ex);
                     }
                     return scanIndexRecords(indexName, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
                 }
