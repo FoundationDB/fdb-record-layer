@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -47,6 +48,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
+import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -369,6 +371,40 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                             String strValue = (i == (created.size() - 1)) ? "foo" : "";
                             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
                         });
+            }
+        }
+    }
+
+    /**
+     * This tests the case where the call to scanIndexRecords fails immediately (and may fallback).
+     */
+    @ParameterizedTest(name = "testScanFailsImmediately(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void testScanFailsImmediately(IndexFetchMethod fetchMethod) throws Exception {
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, splitRecordsHook);
+
+            // These scan properties will throw an exception in remote fetch since SNAPSHOT is not supported
+            ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setReturnedRowLimit(Integer.MAX_VALUE)
+                    .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                    .build());
+
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
+                assertThrows(UnsupportedOperationException.class,
+                        () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), scanProperties, primaryKey(), null));
+            } else {
+                scanAndVerifyData(context, "MySimpleRecord$num_value_unique", fetchMethod,
+                        scanBounds(), scanProperties, primaryKey(), null, 100,
+                        (rec, i) -> {
+                            int primaryKey = 99 - i;
+                            String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
+                            int numValue = 1000 - primaryKey;
+                            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                        });
+                assertNull(recordStore.getTimer().getCounter(SCAN_REMOTE_FETCH_ENTRY));
             }
         }
     }
