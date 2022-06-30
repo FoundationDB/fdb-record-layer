@@ -42,8 +42,11 @@ public final class Relational {
     public static RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
         // All connection URLs should start with "jdbc" so we strip that out from the URI and pass the remainder in
         String scheme = url.getScheme();
+        if (scheme == null) {
+            throw new RelationalException("Invalid connection url <" + url + ">. A valid url must follow this pattern: <scheme>:<driver>:/<db_name>, for example: jdbc:embed:/myDatabase", ErrorCode.INVALID_PATH);
+        }
         if (!"jdbc".equalsIgnoreCase(scheme)) {
-            throw new RelationalException("Unable to connect to url <" + url + ">: invalid scheme <" + scheme + ">", ErrorCode.INVALID_PATH);
+            throw new RelationalException("Unable to connect to url <" + url + ">: invalid scheme <" + scheme + ">. Supported schemes: [jdbc]", ErrorCode.INVALID_PATH);
         }
         URI nonSchemeUri = URI.create(url.toString().substring(5));
         return getDriver(nonSchemeUri).connect(nonSchemeUri, existingTransaction, transactionConfig, connectionOptions);
@@ -53,7 +56,7 @@ public final class Relational {
         if (registeredDriver != null && registeredDriver.acceptsURL(connectionUrl)) {
             return registeredDriver;
         }
-        throw new RelationalException("No Driver registered which can interpret scheme <" + connectionUrl.getScheme() + ">", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
+        throw new RelationalException("No Driver registered which can interpret scheme <" + connectionUrl.getScheme() + ">. Supported drivers: [embed]", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
     }
 
     public static synchronized void registerDriver(@Nonnull RelationalDriver newDriver) throws RelationalException {

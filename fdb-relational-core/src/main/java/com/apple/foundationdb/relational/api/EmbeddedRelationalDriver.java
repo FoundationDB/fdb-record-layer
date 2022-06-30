@@ -52,7 +52,7 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
             }
         }
         if (frl == null) {
-            throw new RelationalException("database <" + url + "> does not exist", ErrorCode.DATABASE_NOT_FOUND);
+            throw new RelationalException("Database <" + url.getPath() + "> does not exist", ErrorCode.DATABASE_NOT_FOUND);
         }
         return frl.connect(existingTransaction, transactionConfig);
     }

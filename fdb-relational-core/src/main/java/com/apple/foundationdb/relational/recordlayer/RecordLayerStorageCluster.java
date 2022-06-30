@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
@@ -71,8 +72,12 @@ public class RecordLayerStorageCluster implements StorageCluster {
     @Nullable
     public RelationalDatabase loadDatabase(@Nonnull URI url,
                                          @Nonnull Options connOptions) throws RelationalException {
-        //TODO(bfines) validate that this is actually connected to the correct cluster for that location
-        // to do that, we will want to use the Catalog to pull database information
+
+        try (Transaction txn = getTransactionManager().createTransaction()) {
+            if (!catalog.doesDatabaseExist(txn, url)) {
+                return null;
+            }
+        }
         KeySpacePath ksPath = KeySpaceUtils.uriToPath(url, keySpace);
 
         final var constantActionFactory = new RecordLayerConstantActionFactory.Builder()
