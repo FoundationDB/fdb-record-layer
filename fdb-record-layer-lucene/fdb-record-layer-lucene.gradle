@@ -26,21 +26,25 @@ if (!hasProperty('coreNotStrict')) {
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
-    compile project(coreProject)
-    compile "org.apache.lucene:lucene-core:${luceneVersion}"
-    compile "org.apache.lucene:lucene-queryparser:${luceneVersion}"
-    compile "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
-    compile "org.apache.lucene:lucene-suggest:${luceneVersion}"
-    compile "org.apache.lucene:lucene-highlighter:${luceneVersion}"
-    testCompile project(path: coreProject, configuration: 'tests')
+    implementation project(coreProject)
+    implementation "org.apache.lucene:lucene-core:${luceneVersion}"
+    implementation "org.apache.lucene:lucene-queryparser:${luceneVersion}"
+    implementation "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
+    implementation "org.apache.lucene:lucene-suggest:${luceneVersion}"
+    implementation "org.apache.lucene:lucene-highlighter:${luceneVersion}"
+    implementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
+    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
+    testImplementation project(path: coreProject, configuration: 'tests')
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
     annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
-    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testRuntime "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
+    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testCompile "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
+    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
     testAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
