@@ -34,7 +34,7 @@ buildscript {
 }
 
 plugins {
-    id 'com.google.protobuf' version '0.8.15'
+    id 'com.google.protobuf' version '0.8.19'
     id 'com.github.ben-manes.versions' version '0.38.0'
     id 'com.github.spotbugs' version '4.6.1'
     id 'com.jfrog.artifactory' version '4.21.0'
