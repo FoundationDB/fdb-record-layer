@@ -110,6 +110,10 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
         return indexPlan;
     }
 
+    RecordQueryCoveringIndexPlan withIndexPlan(@Nonnull RecordQueryPlanWithIndex newIndexPlan) {
+        return new RecordQueryCoveringIndexPlan(newIndexPlan, recordTypeName, availableFields, toRecord);
+    }
+
     @Nonnull
     public String getIndexName() {
         return indexPlan.getIndexName();

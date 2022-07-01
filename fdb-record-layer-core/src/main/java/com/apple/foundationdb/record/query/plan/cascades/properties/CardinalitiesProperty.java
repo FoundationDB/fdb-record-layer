@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnK
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryOverscanIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
@@ -117,6 +118,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         return  new Cardinalities(
                 Cardinality.ofCardinality(valuesSize).times(childCardinalities.getMinCardinality()),
                 Cardinality.ofCardinality(valuesSize).times(childCardinalities.getMaxCardinality()));
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryOverscanIndexPlan(@Nonnull final RecordQueryOverscanIndexPlan element) {
+        return visit(element.getIndexPlan());
     }
 
     @Nonnull

@@ -526,6 +526,8 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_AGGREGATE("number of streaming aggregate plans", false),
         /** The number of query plans that include an index. */
         PLAN_INDEX("number of index plans", false),
+        /** The number of query plans that include an index scan which overscans to load additional data into a client-side cache. */
+        PLAN_OVERSCAN_INDEX("number of overscan index plans", false),
         /** The number of query plans that include an {@code IN} with parameters. */
         PLAN_IN_PARAMETER("number of in plans with parameters", false),
         /** The number of query plans that include a {@code IN} type of Union. */

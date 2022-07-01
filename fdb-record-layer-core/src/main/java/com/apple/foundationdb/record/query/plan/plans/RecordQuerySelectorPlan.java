@@ -150,6 +150,11 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         return new SelectorPlanCursor(selectedPlanIndex, innerCursor, store.getTimer());
     }
 
+    @Nonnull
+    public PlanSelector getPlanSelector() {
+        return planSelector;
+    }
+
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren(), isReverse(), planSelector);
