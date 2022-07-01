@@ -120,14 +120,6 @@ allprojects {
         appendix = null
         classifier = "sources"
         from sourceSets.main.allSource
-
-        // gradle doesn't currently support autowiring for (generated) sources dirs, so we wire manually
-        // we do this here so that we can keep codegen plugins generic/replaceable
-        dependsOn {
-            afterEvaluate {
-                tasks.compileProtobuf
-            }
-        }
     }
 
     // Create the Javadoc jar
