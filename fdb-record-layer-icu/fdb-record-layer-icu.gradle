@@ -22,7 +22,8 @@ apply from: rootProject.file('gradle/strict.gradle')
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
-    implementation project(coreProject)
+    api project(coreProject)
+    implementation project(':fdb-extensions')
     implementation "com.ibm.icu:icu4j:${icuVersion}"
     implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
     implementation "org.apache.commons:commons-lang3:${commonsLang3Version}"

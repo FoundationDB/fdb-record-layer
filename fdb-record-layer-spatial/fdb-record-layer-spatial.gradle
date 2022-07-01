@@ -26,7 +26,8 @@ if (!hasProperty('coreNotStrict')) {
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
-    implementation project(coreProject)
+    api project(coreProject)
+    implementation project(':fdb-extensions')
     implementation "org.locationtech.jts.io:jts-io-common:${jtsVersion}"
     implementation "com.geophile:geophile:${geophileVersion}"
     implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
