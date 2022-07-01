@@ -26,24 +26,28 @@ if (!hasProperty('coreNotStrict')) {
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
-    compile project(coreProject)
-    compile "org.locationtech.jts.io:jts-io-common:${jtsVersion}"
-    compile "com.geophile:geophile:${geophileVersion}"
-    compile "com.google.protobuf:protobuf-java:${protobufVersion}"
-    compile "org.slf4j:slf4j-api:${slf4jVersion}"
-    compile "org.slf4j:jul-to-slf4j:${slf4jVersion}"
+    api project(coreProject)
+    implementation project(':fdb-extensions')
+    implementation "org.locationtech.jts.io:jts-io-common:${jtsVersion}"
+    implementation "com.geophile:geophile:${geophileVersion}"
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+    implementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
+    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
+    implementation "org.slf4j:jul-to-slf4j:${slf4jVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
     annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 
-    testCompile project(path: coreProject, configuration: 'tests')
+    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
+    testImplementation project(path: coreProject, configuration: 'tests')
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
-    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testRuntime "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
+    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testCompile "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 

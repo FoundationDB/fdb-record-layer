@@ -23,7 +23,7 @@ apply plugin: 'com.github.johnrengelman.shadow'
 def coreProject = ":${ext.coreProjectName}"
 
 dependencies {
-  compile project(coreProject)
+  implementation project(coreProject)
 }
 
 shadowJar {
@@ -40,6 +40,8 @@ shadowJar {
 build.dependsOn {
     shadowJar
 }
+
+createDistribution {dependsOn('shadowJar')}
 
 task shadedSourcesJar(type: Jar) {
     description = "Assembles a Jar archive containing the main sources."

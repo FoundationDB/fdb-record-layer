@@ -34,7 +34,7 @@ buildscript {
 }
 
 plugins {
-    id 'com.google.protobuf' version '0.8.15'
+    id 'com.google.protobuf' version '0.8.19'
     id 'com.github.ben-manes.versions' version '0.38.0'
     id 'com.github.spotbugs' version '4.6.1'
     id 'com.jfrog.artifactory' version '4.21.0'
@@ -53,7 +53,7 @@ apply from: 'gradle/sonar.gradle'
 
 allprojects {
     apply plugin: 'base'
-    apply plugin: 'java'
+    apply plugin: 'java-library'
     apply plugin: 'maven-publish'
     apply plugin: 'project-reports'
     apply plugin: 'com.github.ben-manes.versions'
@@ -114,20 +114,12 @@ allprojects {
     }
 
     // Create the sources jar
-    task sourcesJar(type: Jar) {
+    task sourcesJar(type: Jar, dependsOn: 'compileJava') {
         description = "Assembles a Jar archive containing the main sources."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
         appendix = null
         classifier = "sources"
         from sourceSets.main.allSource
-
-        // gradle doesn't currently support autowiring for (generated) sources dirs, so we wire manually
-        // we do this here so that we can keep codegen plugins generic/replaceable
-        dependsOn {
-            afterEvaluate {
-                tasks.compileProtobuf
-            }
-        }
     }
 
     // Create the Javadoc jar

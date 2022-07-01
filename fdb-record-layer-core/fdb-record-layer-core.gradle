@@ -28,37 +28,37 @@ if (!hasProperty('coreNotStrict')) {
 }
 
 configurations {
-    repl.extendsFrom testRuntime
+    repl.extendsFrom testRuntimeOnly
 }
 
 dependencies {
-    compile project(':fdb-extensions')
+    implementation project(':fdb-extensions')
     annotationProcessor project(':fdb-extensions')
 
-    compile "com.google.protobuf:protobuf-java:${protobufVersion}"
-    compile "org.slf4j:slf4j-api:${slf4jVersion}"
-    compile "org.apache.commons:commons-lang3:${commonsLang3Version}"
-    compile "com.google.guava:guava:${guavaVersion}"
+    api "com.google.protobuf:protobuf-java:${protobufVersion}"
+    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
+    implementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
+    implementation "com.google.guava:guava:${guavaVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
     annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 
-    testCompile project(path: ':fdb-extensions', configuration: 'tests')
-    testCompile "org.hamcrest:hamcrest:${hamcrestVersion}"
-    testCompile "com.beust:jcommander:${jcommanderVersion}"
-    testCompile "org.apache.commons:commons-math3:${commonsMath3Version}"
-    testCompile "org.apache.commons:commons-lang3:${commonsLang3Version}"
+    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
+    testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
+    testImplementation "com.beust:jcommander:${jcommanderVersion}"
+    testImplementation "org.apache.commons:commons-math3:${commonsMath3Version}"
+    testImplementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
-    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
-    testCompile "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
+    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
+    testImplementation "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
 
-    testCompile "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testCompile "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
     testAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
-    testCompile "org.jline:jline:${jlineVersion}"
-    testCompile "org.junit.platform:junit-platform-launcher:${junitPlatformVersion}"
+    testImplementation "org.jline:jline:${jlineVersion}"
+    testImplementation "org.junit.platform:junit-platform-launcher:${junitPlatformVersion}"
     repl "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
@@ -118,7 +118,7 @@ task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     classifier = 'standalone-tests'
     from sourceSets.main.output
     from sourceSets.test.output
-    configurations = [ project.configurations.testRuntime ]
+    configurations = [ project.configurations.testRuntimeOnly ]
     manifest {
         inheritFrom project.tasks.jar.manifest
         attributes 'Main-Class': 'com.apple.foundationdb.record.provider.foundationdb.FDBRecordStorePerformanceTest',
