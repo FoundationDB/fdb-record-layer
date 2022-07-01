@@ -107,7 +107,7 @@ subprojects {
             }
         }
 
-        p.task('copyCoverageSources', type: Copy) {
+        p.task('copyCoverageSources', type: Copy, dependsOn: ['compileJava']) {
             into coverageSrcDir
             from(sourceSets.main.java) {
                 if (excludeFiles != null) {

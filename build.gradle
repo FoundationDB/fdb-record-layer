@@ -114,7 +114,7 @@ allprojects {
     }
 
     // Create the sources jar
-    task sourcesJar(type: Jar) {
+    task sourcesJar(type: Jar, dependsOn: 'compileJava') {
         description = "Assembles a Jar archive containing the main sources."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
         appendix = null

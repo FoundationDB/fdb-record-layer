@@ -41,6 +41,8 @@ build.dependsOn {
     shadowJar
 }
 
+createDistribution {dependsOn('shadowJar')}
+
 task shadedSourcesJar(type: Jar) {
     description = "Assembles a Jar archive containing the main sources."
     group = JavaBasePlugin.DOCUMENTATION_GROUP
