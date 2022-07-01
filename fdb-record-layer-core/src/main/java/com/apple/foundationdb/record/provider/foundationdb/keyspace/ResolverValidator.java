@@ -31,7 +31,9 @@ import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBReverseDirectoryCache;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -75,18 +77,22 @@ public class ResolverValidator {
                                 final int reverseLookupPipelineSize,
                                 final boolean badEntriesOnly,
                                 @Nonnull final Consumer<ValidatedEntry> entryListener) {
-        try (RecordCursor<ValidatedEntry> cursor = new AutoContinuingCursor<>(
-                resolver.getDatabase().newRunner(),
-                (context, continuation) ->
-                    validate(resolver, context, continuation, reverseLookupPipelineSize, false,
-                            new ScanProperties(executeProperties.build())),
-                3)) {
-            resolver.getDatabase().asyncToSync(timer, FDBStoreTimer.Waits.WAIT_VALIDATE_RESOLVER,
-                    cursor.forEach(validatedEntry -> {
-                        if (!badEntriesOnly || validatedEntry.getValidationResult() != ValidationResult.OK) {
-                            entryListener.accept(validatedEntry);
-                        }
-                    }));
+        try (FDBDatabaseRunner runner = resolver.database.newRunner()) {
+            runner.setContextConfigBuilder(FDBRecordContextConfig.newBuilder()
+                    .setSaveOpenStackTrace(true));
+            try (RecordCursor<ValidatedEntry> cursor = new AutoContinuingCursor<>(
+                    runner,
+                    (context, continuation) ->
+                            validate(resolver, context, continuation, reverseLookupPipelineSize, false,
+                                    new ScanProperties(executeProperties.build())),
+                    3)) {
+                resolver.getDatabase().asyncToSync(timer, FDBStoreTimer.Waits.WAIT_VALIDATE_RESOLVER,
+                        cursor.forEach(validatedEntry -> {
+                            if (!badEntriesOnly || validatedEntry.getValidationResult() != ValidationResult.OK) {
+                                entryListener.accept(validatedEntry);
+                            }
+                        }));
+            }
         }
     }
 

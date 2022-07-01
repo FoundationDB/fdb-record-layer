@@ -96,7 +96,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link LocatableResolver}.
@@ -125,7 +124,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testLookupCaching() {
+    void testLookupCaching() {
         KeySpace keySpace = new KeySpace(new KeySpaceDirectory("path", KeyType.STRING, "path"));
 
         ResolvedKeySpacePath path1;
@@ -145,7 +144,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testDirectoryIsolation() {
+    void testDirectoryIsolation() {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("path", KeyType.STRING, "path")
                         .addSubdirectory(new KeySpaceDirectory("to", KeyType.STRING, "to")
@@ -176,7 +175,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testScopedCaching() {
+    void testScopedCaching() {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("path1", KeyType.STRING, "path1"),
                 new KeySpaceDirectory("path2", KeyType.STRING, "path2")
@@ -206,7 +205,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testDirectoryCache() {
+    void testDirectoryCache() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setDirectoryCacheSize(10);
 
@@ -236,7 +235,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testDirectoryCacheWithUncommittedContext() {
+    void testDirectoryCacheWithUncommittedContext() {
         FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
         fdb.clearCaches();
 
@@ -290,7 +289,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testCachesWinnerOfConflict() {
+    void testCachesWinnerOfConflict() {
         FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
         fdb.clearCaches();
 
@@ -340,7 +339,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
      * (even possibly uncommitted data re-read from the same transaction that wrote it) might be put in the cache.
      */
     @Test
-    public void testDoesNotCacheValueReadFromReadYourWritesCache() {
+    void testDoesNotCacheValueReadFromReadYourWritesCache() {
         FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
         fdb.clearCaches();
 
@@ -382,7 +381,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testResolveUseCacheCommits() {
+    void testResolveUseCacheCommits() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setDirectoryCacheSize(10);
 
@@ -416,7 +415,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testResolveCommitsWhenCacheEnabled() {
+    void testResolveCommitsWhenCacheEnabled() {
         Map<String, Long> mappings = new HashMap<>();
         try (FDBRecordContext context = database.openContext()) {
             for (int i = 0; i < 10; i++) {
@@ -433,7 +432,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext()) {
             for (Map.Entry<String, Long> entry : mappings.entrySet()) {
                 Long value = globalScope.resolve(context.getTimer(), entry.getKey()).join();
-                String name = globalScope.reverseLookup(null, value).join();
+                String name = globalScope.reverseLookup(context, value).join();
                 assertEquals(value, entry.getValue(), "mapping is persisted even though context in arg was not committed");
                 assertEquals(name, entry.getKey(), "reverse mapping is persisted even though context in arg was not committed");
             }
@@ -448,7 +447,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
      * conflicts).
      */
     @Test
-    public void testResolveWithWeakReadSemantics() {
+    void testResolveWithWeakReadSemantics() {
         final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
         final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
         try {
@@ -479,7 +478,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testResolveWithNoMetadata() {
+    void testResolveWithNoMetadata() {
         Long value;
         ResolverResult noHookResult;
         value = globalScope.resolve("resolve-string").join();
@@ -489,20 +488,20 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testReverseLookup() {
+    void testReverseLookup() {
         Long value;
         try (FDBRecordContext context = database.openContext()) {
             value = globalScope.resolve(context.getTimer(), "something").join();
             context.commit();
         }
 
-        String lookupString = globalScope.reverseLookup(null, value).join();
+        String lookupString = globalScope.reverseLookup((FDBStoreTimer)null, value).join();
         assertThat("reverse lookup works in a new context", lookupString, is("something"));
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "testManyReverseLookup[clearInMemoryReverseCache={0}]")
     @BooleanSource
-    public void testManyReverseLookup(boolean clearInMemoryReverseCache) {
+    void testManyReverseLookup(boolean clearInMemoryReverseCache) {
         final Map<Long, String> allocatedValues = new HashMap<>();
 
         try (FDBRecordContext context = database.openContext()) {
@@ -513,7 +512,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
                 allocatedValues.put(value, name);
 
                 // Immediately do reverse lookup and verify it worked. This also places the value in the in memory reverse cache
-                assertEquals(name, globalScope.reverseLookup(context.getTimer(), value).join());
+                assertEquals(name, globalScope.reverseLookup(context, value).join());
 
                 if (clearInMemoryReverseCache) {
                     // Optionally clear the cache. A cleared cache represents the case where two separate processes
@@ -527,22 +526,19 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         for (Map.Entry<Long, String> allocatedEntry : allocatedValues.entrySet()) {
             long value = allocatedEntry.getKey();
             String name = allocatedEntry.getValue();
-            assertEquals(name, globalScope.reverseLookup(null, value).join());
+            assertEquals(name, globalScope.reverseLookup((FDBStoreTimer)null, value).join());
         }
     }
 
+    @SuppressWarnings("squid:S5778") // allow multiple calls in throws lambda
     @Test
-    public void testReverseLookupNotFound() {
-        try {
-            globalScope.reverseLookup(null, -1L).join();
-            fail("should throw CompletionException");
-        } catch (CompletionException ex) {
-            assertThat(ex.getCause(), is(instanceOf(NoSuchElementException.class)));
-        }
+    void testReverseLookupNotFound() {
+        CompletionException ex = assertThrows(CompletionException.class, () -> globalScope.reverseLookup((FDBStoreTimer)null, -1L).join());
+        assertThat(ex.getCause(), is(instanceOf(NoSuchElementException.class)));
     }
 
     @Test
-    public void testReverseLookupCaching() {
+    void testReverseLookupCaching() {
         Long value;
         try (FDBRecordContext context = database.openContext()) {
             value = globalScope.resolve(context.getTimer(), "something").join();
@@ -553,7 +549,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         long baseHitCount = database.getReverseDirectoryInMemoryCache().stats().hitCount();
         long baseMissCount = database.getReverseDirectoryInMemoryCache().stats().missCount();
 
-        String name = globalScope.reverseLookup(null, value).join();
+        String name = globalScope.reverseLookup((FDBStoreTimer)null, value).join();
         assertThat("reverse lookup gives previous result", name, is("something"));
         long hitCount = database.getReverseDirectoryInMemoryCache().stats().hitCount();
         long missCount = database.getReverseDirectoryInMemoryCache().stats().missCount();
@@ -562,7 +558,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         // repeated lookups use the in-memory cache
         for (int i = 0; i < 10; i++) {
-            name = globalScope.reverseLookup(null, value).join();
+            name = globalScope.reverseLookup((FDBStoreTimer)null, value).join();
             assertThat("reverse lookup gives the same result", name, is("something"));
         }
         hitCount = database.getReverseDirectoryInMemoryCache().stats().hitCount();
@@ -571,8 +567,48 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         assertEquals(1L, missCount - baseMissCount);
     }
 
+    /**
+     * Test reverse lookup in the same transaction that created the mapping. In particular,
+     * the following scenario:
+     * <ol>
+     *     <li>A transaction is created, then</li>
+     *     <li>An entry is added to the resolver and committed, and then</li>
+     *     <li>The transaction is used as the parent transaction during reverse lookup</li>
+     * </ol>
+     *
+     * <p>
+     * That the value written is still returned (instead of a {@link NoSuchElementException}).
+     * This is tricky because the reverse lookup will borrow the read version from the first
+     * transaction, which will necessarily be from before the entry was committed to the
+     * database, so the lookup will need to be retried with a fresher read version.
+     * </p>
+     */
     @Test
-    public void testCacheConsistency() {
+    void testReverseLookupInSameTransaction() {
+        try (FDBRecordContext context = database.openContext()) {
+            final String key = "some_key";
+            Long value = globalScope.resolve(context, key).join();
+
+            Cache<?, ?> cache = database.getReverseDirectoryInMemoryCache();
+
+            final long baseHitCount = cache.stats().hitCount();
+            final long baseMissCount = cache.stats().missCount();
+
+            // Resolve without the cache
+            database.clearCaches();
+            assertEquals(key, globalScope.reverseLookup(context, value).join());
+            assertEquals(0L, cache.stats().hitCount() - baseHitCount);
+            assertEquals(1L, cache.stats().missCount() - baseMissCount);
+
+            // Now resolve with the cache
+            assertEquals(key, globalScope.reverseLookup(context, value).join());
+            assertEquals(1L, cache.stats().hitCount() - baseHitCount);
+            assertEquals(1L, cache.stats().missCount() - baseMissCount);
+        }
+    }
+
+    @Test
+    void testCacheConsistency() {
         final AtomicBoolean keepRunning = new AtomicBoolean(true);
         final List<Pair<String, ResolverResult>> cacheHits = new ArrayList<>();
         final List<Pair<Long, String>> reverseCacheHits = new ArrayList<>();
@@ -603,7 +639,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         validateCacheHits(cacheHits, allocations,
                 (context, name) -> globalScope.resolveWithMetadata(context.getTimer(), name, ResolverCreateHooks.getDefault()));
         validateCacheHits(reverseCacheHits, reverseAllocations,
-                (context, value) -> globalScope.reverseLookup(null, value));
+                (context, value) -> globalScope.reverseLookup(context, value));
     }
 
     private <K, V> void validateCacheHits(List<Pair<K, V>> cacheHits,
@@ -626,7 +662,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testParallelSet() {
+    void testParallelSet() {
         String key = "some-random-key-" + random.nextLong();
         List<CompletableFuture<Long>> allocations = new ArrayList<>();
         for (int i = 0; i < 20; i++) {
@@ -643,7 +679,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testWriteLockCaching() {
+    void testWriteLockCaching() {
         FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = database.openContext()) {
             context.setTimer(timer);
@@ -684,7 +720,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testCachingPerDbPerResolver() {
+    void testCachingPerDbPerResolver() {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("resolver1", KeyType.STRING, "resolver1"),
                 new KeySpaceDirectory("resolver2", KeyType.STRING, "resolver2"));
@@ -723,7 +759,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testEnableDisableWriteLock() {
+    void testEnableDisableWriteLock() {
         database.setResolverStateRefreshTimeMillis(100);
 
         final Long value;
@@ -761,27 +797,24 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         }
     }
 
+    @SuppressWarnings("squid:S5778") // allow multiple calls in throws lambda
     @Test
-    public void testExclusiveLock() {
+    void testExclusiveLock() {
         // version is cached for 30 seconds by default
         database.setResolverStateRefreshTimeMillis(100);
 
         globalScope.exclusiveLock().join();
         assertLocked(database, globalScope);
 
-        try {
-            globalScope.exclusiveLock().join();
-            fail("lock already enabled, should fail");
-        } catch (CompletionException ex) {
-            assertThat("we get the correct cause", ex.getCause(), allOf(
-                    instanceOf(LocatableResolverLockedException.class),
-                    hasMessageContaining("resolver must be unlocked to get exclusive lock")
-            ));
-        }
+        CompletionException ex = assertThrows(CompletionException.class, () -> globalScope.exclusiveLock().join());
+        assertThat("we get the correct cause", ex.getCause(), allOf(
+                instanceOf(LocatableResolverLockedException.class),
+                hasMessageContaining("resolver must be unlocked to get exclusive lock")
+        ));
     }
 
     @Test
-    public void testExclusiveLockParallel() {
+    void testExclusiveLockParallel() {
         // test that when parallel threads/instances attempt to get the exclusive lock only one will win.
         List<CompletableFuture<Void>> parallelGets = new ArrayList<>();
         AtomicInteger lockGetCount = new AtomicInteger();
@@ -826,8 +859,9 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         }
     }
 
+    @SuppressWarnings("squid:S2699") // assertions in eventually block not picked up by sonar
     @Test
-    public void testGetVersion() {
+    void testGetVersion() {
         // version is cached for 30 seconds by default
         database.setResolverStateRefreshTimeMillis(100);
 
@@ -850,8 +884,9 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         }, is(2), 120, 10);
     }
 
+    @SuppressWarnings("squid:S2699") // assertions in consistently block not picked up by sonar
     @Test
-    public void testParallelDbAndScopeGetVersion() {
+    void testParallelDbAndScopeGetVersion() {
         // version is cached for 30 seconds by default
         database.setResolverStateRefreshTimeMillis(100);
         // sets the timeout for all the db instances we create
@@ -891,7 +926,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testVersionIncrementInvalidatesCache() {
+    void testVersionIncrementInvalidatesCache() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setDirectoryCacheSize(10);
         FDBStoreTimer timer = new FDBStoreTimer();
@@ -933,8 +968,9 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         }, is(0), 200, 10);
     }
 
+    @SuppressWarnings("squid:S5778") // allow multiple calls in throws lambda
     @Test
-    public void testWriteSafetyCheck() {
+    void testWriteSafetyCheck() {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("path1", KeyType.STRING, "path1"),
                 new KeySpaceDirectory("path2", KeyType.STRING, "path2")
@@ -963,17 +999,13 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         assertThat("when reading the same key it doesn't perform the check", path1Resolver.resolve("some-key", invalidHooks).join(), is(value));
 
-        try {
-            path1Resolver.resolve("another-key", invalidHooks).join();
-            fail("should throw CompletionException");
-        } catch (CompletionException ex) {
-            assertThat("it has the correct cause", ex.getCause(), is(instanceOf(LocatableResolverLockedException.class)));
-            assertThat(ex, hasMessageContaining("prewrite check failed"));
-        }
+        CompletionException ex = assertThrows(CompletionException.class, () -> path1Resolver.resolve("another-key", invalidHooks).join());
+        assertThat("it has the correct cause", ex.getCause(), is(instanceOf(LocatableResolverLockedException.class)));
+        assertThat(ex, hasMessageContaining("prewrite check failed"));
     }
 
     @Test
-    public void testResolveWithMetadata() {
+    void testResolveWithMetadata() {
         byte[] metadata = Tuple.from("some-metadata").pack();
         MetadataHook hook = ignore -> metadata;
         final ResolverResult result;
@@ -1002,7 +1034,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testUpdateMetadata() {
+    void testUpdateMetadata() {
         database.setResolverStateRefreshTimeMillis(100);
 
         final byte[] oldMetadata = Tuple.from("old").pack();
@@ -1023,7 +1055,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
-    public void testSetMapping() {
+    void testSetMapping() {
         Long value;
         try (FDBRecordContext context = database.openContext()) {
             value = globalScope.resolve(context.getTimer(), "an-existing-mapping").join();
@@ -1033,7 +1065,6 @@ public abstract class LocatableResolverTest extends FDBTestBase {
             globalScope.setMapping(context, "a-new-mapping", 99L).join();
             globalScope.setMapping(context, "an-existing-mapping", value).join();
 
-
             // need to commit before we will be able to see the mapping with resolve
             // since resolve always uses a separate transaction
             context.commit();
@@ -1041,35 +1072,40 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         try (FDBRecordContext context = database.openContext()) {
             assertThat("we can see the new mapping", globalScope.resolve(context.getTimer(), "a-new-mapping").join(), is(99L));
-            assertThat("we can see the new reverse mapping", globalScope.reverseLookup(null, 99L).join(), is("a-new-mapping"));
+            assertThat("we can see the new mapping", globalScope.resolve(context, "a-new-mapping").join(), is(99L));
+            assertThat("we can see the new reverse mapping", globalScope.reverseLookup(context.getTimer(), 99L).join(), is("a-new-mapping"));
+            assertThat("we can see the new reverse mapping", globalScope.reverseLookup(context, 99L).join(), is("a-new-mapping"));
             assertThat("we can see the existing mapping", globalScope.resolve(context.getTimer(), "an-existing-mapping").join(), is(value));
-            assertThat("we can see the existing reverse mapping", globalScope.reverseLookup(null, value).join(), is("an-existing-mapping"));
+            assertThat("we can see the existing mapping", globalScope.resolve(context, "an-existing-mapping").join(), is(value));
+            assertThat("we can see the existing reverse mapping", globalScope.reverseLookup(context.getTimer(), value).join(), is("an-existing-mapping"));
+            assertThat("we can see the existing reverse mapping", globalScope.reverseLookup(context, value).join(), is("an-existing-mapping"));
         }
     }
 
+    @SuppressWarnings("squid:S5778") // allow multiple calls in throws lambda
     @Test
-    public void testSetMappingWithConflicts() {
+    void testSetMappingWithConflicts() {
         Long value;
         try (FDBRecordContext context = database.openContext()) {
             value = globalScope.resolve(context.getTimer(), "an-existing-mapping").join();
         }
 
-        try (FDBRecordContext context = database.openContext()) {
-            globalScope.setMapping(context, "an-existing-mapping", value + 1).join();
-            fail("should throw an exception");
-        } catch (CompletionException ex) {
-            assertThat("cause is a record core exception", ex.getCause(), is(instanceOf(RecordCoreException.class)));
-            assertThat("it has a helpful message", ex.getCause(),
-                    hasMessageContaining("mapping already exists with different value"));
-        }
+        CompletionException existingMappingException = assertThrows(CompletionException.class, () -> {
+            try (FDBRecordContext context = database.openContext()) {
+                globalScope.setMapping(context, "an-existing-mapping", value + 1).join();
+            }
+        });
+        assertThat("cause is a record core exception", existingMappingException.getCause(), is(instanceOf(RecordCoreException.class)));
+        assertThat("it has a helpful message", existingMappingException.getCause(),
+                hasMessageContaining("mapping already exists with different value"));
 
         try (FDBRecordContext context = database.openContext()) {
             assertThat("will still only see the original mapping",
                     globalScope.mustResolve(context, "an-existing-mapping").join(), is(value));
             assertThat("will still only see the original reverse mapping",
-                    globalScope.reverseLookup(null, value).join(), is("an-existing-mapping"));
+                    globalScope.reverseLookup(context, value).join(), is("an-existing-mapping"));
             try {
-                String key = globalScope.reverseLookup(null, value + 1).join();
+                String key = globalScope.reverseLookup(context, value + 1).join();
                 // there is a small chance that the mapping does exist, but it should be for some other key
                 assertThat(key, is(not("an-existing-mapping")));
             } catch (CompletionException ex) {
@@ -1078,24 +1114,24 @@ public abstract class LocatableResolverTest extends FDBTestBase {
             }
         }
 
+        CompletionException differentKeyException = assertThrows(CompletionException.class, () -> {
+            try (FDBRecordContext context = database.openContext()) {
+                globalScope.setMapping(context, "a-different-key", value).join();
+            }
+        });
+        assertThat("cause is a record core exception", differentKeyException.getCause(), is(instanceOf(RecordCoreException.class)));
+        assertThat("it has a helpful message", differentKeyException.getCause(),
+                hasMessageContaining("reverse mapping already exists with different key"));
 
-        try (FDBRecordContext context = database.openContext()) {
-            globalScope.setMapping(context, "a-different-key", value).join();
-            fail("should throw an exception");
-        } catch (CompletionException ex) {
-            assertThat("cause is a record core exception", ex.getCause(), is(instanceOf(RecordCoreException.class)));
-            assertThat("it has a helpful message", ex.getCause(),
-                    hasMessageContaining("reverse mapping already exists with different key"));
-        }
-
-        try (FDBRecordContext context = database.openContext()) {
-            assertThrows(CompletionException.class, () -> globalScope.mustResolve(context, "a-different-key").join(),
-                    "nothing is added for that key");
-        }
+        assertThrows(CompletionException.class, () -> {
+            try (FDBRecordContext context = database.openContext()) {
+                globalScope.mustResolve(context, "a-different-key").join();
+            }
+        }, "nothing is added for a-different-key");
     }
 
     @Test
-    public void testSetWindow() {
+    void testSetWindow() {
         Map<String, Long> oldMappings = new HashMap<>();
         try (FDBRecordContext context = database.openContext()) {
             for (int i = 0; i < 20; i++) {
@@ -1122,7 +1158,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
     // Protected methods
     @Test
-    public void testReadCreateExists() {
+    void testReadCreateExists() {
         ResolverResult value;
         try (FDBRecordContext context = database.openContext()) {
             value = globalScope.create(context, "a-string").join();

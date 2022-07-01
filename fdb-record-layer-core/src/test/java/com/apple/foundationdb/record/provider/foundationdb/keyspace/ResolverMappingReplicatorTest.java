@@ -26,6 +26,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
@@ -255,7 +256,7 @@ public abstract class ResolverMappingReplicatorTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext()) {
             for (Map.Entry<String, ResolverResult> entry : mappings.entrySet()) {
                 ResolverResult resolved = scope.resolveWithMetadata(context.getTimer(), entry.getKey(), ResolverCreateHooks.getDefault()).join();
-                String keyFromReverseDirectoryCache = scope.reverseLookup(null, entry.getValue().getValue()).join();
+                String keyFromReverseDirectoryCache = scope.reverseLookup((FDBStoreTimer)null, entry.getValue().getValue()).join();
                 assertThat("mapping is in the directory layer", entry.getValue(), is(resolved));
                 assertThat("reverse mapping is in the reverse directory cache", entry.getKey(), is(keyFromReverseDirectoryCache));
             }
