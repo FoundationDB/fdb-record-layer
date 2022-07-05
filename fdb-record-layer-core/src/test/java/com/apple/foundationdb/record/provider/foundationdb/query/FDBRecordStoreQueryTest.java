@@ -267,7 +267,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                                 scanPlan().where(scanComparisons(unbounded())))
                                 .where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
                 assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(851655206, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(846114080, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
                 assertEquals(851655206, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             }
             byte[] continuation = null;
@@ -696,7 +696,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
                 // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
                 // assertEquals(1399455990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-                assertEquals(-1152844011, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(-1152849777, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             }
 
             assertEquals(Arrays.asList(800L, 1776L),

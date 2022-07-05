@@ -1499,6 +1499,24 @@ public interface Type extends Narrowable<Type> {
          * {@inheritDoc}
          */
         @Override
+        public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
+            Objects.requireNonNull(elementType);
+            final var typeName = uniqueCompliantTypeName();
+            final var helperDescriptorBuilder = DescriptorProto.newBuilder();
+            helperDescriptorBuilder.setName(typeName);
+            elementType.addProtoField(typeRepositoryBuilder,
+                    helperDescriptorBuilder,
+                    1, "value",
+                    typeRepositoryBuilder.defineAndResolveType(elementType),
+                    FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            typeRepositoryBuilder.addMessageType(helperDescriptorBuilder.build());
+            typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
         public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                                   @Nonnull final DescriptorProto.Builder descriptorBuilder,
                                   final int fieldNumber,

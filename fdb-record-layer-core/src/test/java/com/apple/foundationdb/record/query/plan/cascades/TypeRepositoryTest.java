@@ -180,11 +180,13 @@ class TypeRepositoryTest {
     void addSameTypeMultipleTimesShouldNotCreateMultipleMessageTypes() {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         final Type t = generateRandomStructuredType();
+        System.out.println("t:" + t);
         builder.addTypeIfNeeded(t);
         builder.addTypeIfNeeded(t);
         builder.addTypeIfNeeded(t);
         final TypeRepository actualRepository = builder.build();
         // there should be three types in the repository, but for different nested types within the tree
+        System.out.println("actual repository:" + actualRepository.getMessageTypes());
         Assertions.assertEquals(3, actualRepository.getMessageTypes().size());
     }
 
