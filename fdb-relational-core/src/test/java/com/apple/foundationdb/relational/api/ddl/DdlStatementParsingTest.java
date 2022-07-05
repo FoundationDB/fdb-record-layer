@@ -129,33 +129,33 @@ public class DdlStatementParsingTest {
 
     @Test
     void indexFailsWithNonExistingTable() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template as {" +
-                "CREATE VALUE INDEX t_idx on foo(a);" +
-                "}";
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE VALUE INDEX t_idx on foo(a)"
+                ;
         shouldFailWith(stmt, ErrorCode.UNKNOWN_TYPE);
     }
 
     @Test
     void indexFailsWithNonExistingIndexColumn() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template as {" +
-                "CREATE TABLE foo(a int64);" +
-                "CREATE VALUE INDEX t_idx on foo(NON_EXISTING);" +
-                "}";
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE foo(a int64)" +
+                " CREATE VALUE INDEX t_idx on foo(NON_EXISTING)"
+                ;
         shouldFailWith(stmt, ErrorCode.UNKNOWN_FIELD);
     }
 
     @Test
     void indexFailsWithReservedKeywordAsName() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template as {" +
-                "CREATE VALUE INDEX table on foo(a);" +
-                "}";
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE VALUE INDEX table on foo(a)"
+                ;
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
     }
 
     @Test
     void failsToParseEmptyTemplateStatements() throws Exception {
         //empty template statements are invalid, and can be rejected in the parser
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template AS {;}";
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template ";
         boolean[] visited = new boolean[]{false};
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractConstantActionFactory() {
             @Nonnull
@@ -174,9 +174,8 @@ public class DdlStatementParsingTest {
 
     @Test
     void createTypeWithPrimaryKeyFails() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template as {" +
-                "CREATE STRUCT t (a int64, b string, PRIMARY KEY(b));" +
-                "}";
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT t (a int64, b string, PRIMARY KEY(b))";
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
@@ -192,12 +191,12 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateWithOutOfOrderDefinitionsWork(List<String> columns) throws Exception {
-        final String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
+        final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 // index references a table that is not seen yet.
-                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0)) + ");" +
-                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) + ";" +
-                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) + ";" +
-                "}";
+                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0)) + ")" +
+                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
+                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
+                "";
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
             @Nonnull
@@ -239,9 +238,9 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplates(List<String> columns) throws Exception {
-        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
-                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
-                "}";
+        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false)
+                ;
         shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
@@ -266,9 +265,9 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateTableWithOnlyRecordType(List<String> columns) throws Exception {
         final String baseTableDef = makeColumnDefinition(columns, false).replace(")", ", PRIMARY KEY(RECORD TYPE))");
-        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
-                "CREATE TABLE FOO " + baseTableDef +
-                "}";
+        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template  " +
+                "CREATE TABLE FOO " + baseTableDef
+                ;
 
         shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
             @Nonnull
@@ -294,11 +293,10 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateWithDuplicateIndexesFails(List<String> columns) throws Exception {
         final String baseTableDef = makeColumnDefinition(columns, true);
-        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
+        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE FOO " + baseTableDef +
-                "; CREATE VALUE INDEX foo_idx on FOO(col0)" +
-                "; CREATE VALUE INDEX foo_idx on FOO(col1)" //duplicate with the same name  on same table should fail
-                + "}";
+                " CREATE VALUE INDEX foo_idx on FOO(col0)" +
+                " CREATE VALUE INDEX foo_idx on FOO(col1)"; //duplicate with the same name  on same table should fail
 
         shouldFailWithInjectedFactory(columnStatement, ErrorCode.INDEX_EXISTS, new AbstractConstantActionFactory() {
             @Nonnull
@@ -315,11 +313,11 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateWithIndex(List<String> columns) throws Exception {
-        final String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
-                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) + ";" +
-                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) + ";" +
-                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0)) + ");" +
-                "}";
+        final String templateStatement = "CREATE SCHEMA TEMPLATE test_template  " +
+                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
+                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
+                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0)) + ")"
+                ;
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
             @Nonnull
@@ -363,11 +361,11 @@ public class DdlStatementParsingTest {
         Assumptions.assumeTrue(columns.size() > 1); //the test only works with multiple columns
         final List<String> indexedColumns = chooseIndexColumns(columns, n -> n % 2 == 0); //choose every other column
         final List<String> unindexedColumns = chooseIndexColumns(columns, n -> n % 2 != 0);
-        final String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS { " +
-                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) + ";" +
-                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) + ";" +
-                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", indexedColumns) + ") INCLUDE (" + String.join(",", unindexedColumns) + ");" +
-                "}";
+        final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
+                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
+                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", indexedColumns) + ") INCLUDE (" + String.join(",", unindexedColumns) + ")"
+                ;
         shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
@@ -430,7 +428,7 @@ public class DdlStatementParsingTest {
 
     @Test
     void createSchemaTemplateWithNoTypesFails() throws Exception {
-        final String command = "CREATE SCHEMA TEMPLATE no_types AS {}"; // parser rules design doesn't permit this case.
+        final String command = "CREATE SCHEMA TEMPLATE no_types ;"; // parser rules design doesn't permit this case.
 
         shouldFailWithInjectedFactory(command, ErrorCode.SYNTAX_ERROR, new AbstractConstantActionFactory() {
             @Nonnull
@@ -445,9 +443,9 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createTable(List<String> columns) throws Exception {
-        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template AS { CREATE TABLE FOO " +
-                makeColumnDefinition(columns, true) +
-                "}";
+        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template CREATE TABLE FOO " +
+                makeColumnDefinition(columns, true)
+                ;
         shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
@@ -473,10 +471,10 @@ public class DdlStatementParsingTest {
     void createTableAndType(List<String> columns) throws Exception {
         final String tableDef = "CREATE TABLE tbl " + makeColumnDefinition(columns, true);
         final String typeDef = "CREATE STRUCT typ " + makeColumnDefinition(columns, false);
-        final String templateStatement = "CREATE SCHEMA TEMPLATE test_template AS {" +
-                typeDef + ";" +
-                tableDef + ";" +
-                "}";
+        final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                typeDef +
+                tableDef
+                ;
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
             @Nonnull

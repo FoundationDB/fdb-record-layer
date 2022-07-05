@@ -104,7 +104,7 @@ public class DdlSchemaTest {
             conn.setSchema("testSchema");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
-                final String createStatement = "CREATE SCHEMA TEMPLATE FOO AS { CREATE TABLE T(A string, B string); } ";
+                final String createStatement = "CREATE SCHEMA TEMPLATE FOO CREATE TABLE T(A string, B string); ";
                 statement.executeUpdate(createStatement);
             }
         }

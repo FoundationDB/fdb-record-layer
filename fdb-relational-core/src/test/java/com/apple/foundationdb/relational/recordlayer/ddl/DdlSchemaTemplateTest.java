@@ -71,10 +71,9 @@ public class DdlSchemaTemplateTest {
 
     @Test
     void canDropSchemaTemplates() throws Exception {
-        String createColumnStatement = "CREATE SCHEMA TEMPLATE drop_template AS {" +
-                "CREATE STRUCT FOO_TYPE (a int64);" +
-                "CREATE TABLE FOO_TBL (b double, PRIMARY KEY(b))" +
-                "}";
+        String createColumnStatement = "CREATE SCHEMA TEMPLATE drop_template " +
+                "CREATE STRUCT FOO_TYPE (a int64)" +
+                " CREATE TABLE FOO_TBL (b double, PRIMARY KEY(b))";
 
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
@@ -101,10 +100,9 @@ public class DdlSchemaTemplateTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void describeSchemaTemplate(DdlPermutationGenerator.NamedPermutation table) throws Exception {
-        String createColumnStatement = "CREATE SCHEMA TEMPLATE " + table.getName() + " AS { " +
-                "CREATE STRUCT " + table.getTypeDefinition("TYP") + ";" +
-                "CREATE TABLE " + table.getTableDefinition("TBL") +
-                "}";
+        String createColumnStatement = "CREATE SCHEMA TEMPLATE " + table.getName() + "  " +
+                "CREATE STRUCT " + table.getTypeDefinition("TYP") +
+                " CREATE TABLE " + table.getTableDefinition("TBL");
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (RelationalStatement statement = conn.createStatement()) {
@@ -144,9 +142,8 @@ public class DdlSchemaTemplateTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void listSchemaTemplatesWorks(DdlPermutationGenerator.NamedPermutation table) throws Exception {
-        String columnStatement = "CREATE SCHEMA TEMPLATE <TEST_TEMPLATE> AS { " +
-                "CREATE STRUCT " + table.getTypeDefinition("FOO") +
-                "}";
+        String columnStatement = "CREATE SCHEMA TEMPLATE <TEST_TEMPLATE> " +
+                "CREATE STRUCT " + table.getTypeDefinition("FOO");
 
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");

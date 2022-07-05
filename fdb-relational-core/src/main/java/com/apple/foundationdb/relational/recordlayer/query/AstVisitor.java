@@ -802,17 +802,34 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    public Void visitTemplateClause(RelationalParser.TemplateClauseContext ctx) {
+        if(ctx.structOrTableDefinition()!=null) {
+            ctx.structOrTableDefinition().accept(this);
+        }else if(ctx.indexDefinition()!=null) {
+            ctx.indexDefinition().accept(this);
+        }else {
+            typingContext.addAllToTypeRepository();
+            // reset metadata such that we can use it to resolve identifiers in subsequent materialized view definition(s).
+            parserContext = parserContext.withTypeRepositoryBuilder(typingContext.getTypeRepositoryBuilder())
+                    .withScannableRecordTypes(typingContext.getTableNames(), typingContext.getFieldDescriptorMap())
+                    .withIndexNames(typingContext.getIndexNames());
+            ctx.matViewDefinition().accept(this);
+        }
+        return null;
+    }
+
+    @Override
     public ProceduralPlan visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
         final var schemaTemplateName = ParserUtils.unquoteString(ctx.schemaTemplateId().getText());
+
         // collect all tables, their indices, and custom types definitions.
-        ctx.structOrTableDefinition().forEach(s -> s.accept(this));
-        ctx.indexDefinition().forEach(s -> s.accept(this));
+        ctx.templateClause().forEach(s->s.accept(this));
         typingContext.addAllToTypeRepository();
         // reset metadata such that we can use it to resolve identifiers in subsequent materialized view definition(s).
         parserContext = parserContext.withTypeRepositoryBuilder(typingContext.getTypeRepositoryBuilder())
                 .withScannableRecordTypes(typingContext.getTableNames(), typingContext.getFieldDescriptorMap())
                 .withIndexNames(typingContext.getIndexNames());
-        ctx.matViewDefinition().forEach(s -> s.accept(this));
+
         SchemaTemplate schemaTemplate = typingContext.generateSchemaTemplate(schemaTemplateName);
         return ProceduralPlan.of(constantActionFactory.getCreateSchemaTemplateConstantAction(schemaTemplate, Options.NONE));
     }

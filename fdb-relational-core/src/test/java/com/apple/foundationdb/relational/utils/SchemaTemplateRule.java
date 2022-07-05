@@ -82,10 +82,9 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
 
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
-        final StringBuilder createStatement = new StringBuilder("CREATE SCHEMA TEMPLATE '").append(templateName).append("' AS {");
+        final StringBuilder createStatement = new StringBuilder("CREATE SCHEMA TEMPLATE '").append(templateName).append("' ");
         createStatement.append(typeCreator.getTypeDefinition());
         createStatement.append(tableCreator.getTypeDefinition());
-        createStatement.append("}");
 
         try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             connection.setSchema("catalog");
@@ -110,7 +109,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
 
         @Override
         public String getTypeDefinition() {
-            return typeDefinitions.stream().map(td -> "CREATE " + typeName + " " + td.getDdlDefinition()).collect(Collectors.joining(";")) + ";";
+            return typeDefinitions.stream().map(td -> "CREATE " + typeName + " " + td.getDdlDefinition()).collect(Collectors.joining(" "));
         }
     }
 

@@ -110,11 +110,14 @@ utilityStatement
 
 // Data Definition Language
 
+templateClause
+    :
+        CREATE ( structOrTableDefinition | indexDefinition | matViewDefinition)
+    ;
+
 createStatement
    : CREATE SCHEMA schemaId WITH TEMPLATE templateId                                                  #createSchemaStatement
-   | CREATE SCHEMA TEMPLATE schemaTemplateId AS '{'
-        (CREATE ( structOrTableDefinition | indexDefinition | matViewDefinition))
-             (SEMI (CREATE (structOrTableDefinition | indexDefinition | matViewDefinition))?)* '}'    #createSchemaTemplateStatement
+   | CREATE SCHEMA TEMPLATE schemaTemplateId  templateClause+                            #createSchemaTemplateStatement
    | CREATE DATABASE path                                                                             #createDatabaseStatement
    ;
 

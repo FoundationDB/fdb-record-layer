@@ -30,13 +30,13 @@ public final class TestSchemas {
     }
 
     private static final String RESTAURANT_SCHEMA =
-            "CREATE STRUCT Location (address string, latitude string, longitude string);" +
-                    "CREATE STRUCT RestaurantReview (reviewer int64, rating int64);" +
-                    "CREATE STRUCT RestaurantTag (tag string, weight int64);" +
-                    "CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string);" +
-                    "CREATE TABLE RestaurantRecord (rest_no int64, name string, location Location, reviews RestaurantReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no));" +
-                    "CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id));" +
-                    "CREATE VALUE INDEX record_name_idx on RestaurantRecord(name);" +
+            "CREATE STRUCT Location (address string, latitude string, longitude string)" +
+                    "CREATE STRUCT RestaurantReview (reviewer int64, rating int64)" +
+                    "CREATE STRUCT RestaurantTag (tag string, weight int64)" +
+                    "CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
+                    "CREATE TABLE RestaurantRecord (rest_no int64, name string, location Location, reviews RestaurantReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
+                    "CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
+                    "CREATE VALUE INDEX record_name_idx on RestaurantRecord(name)" +
                     "CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name) ";
 
     public static String restaurant() {
@@ -45,6 +45,6 @@ public final class TestSchemas {
 
     //TODO(bfines) the Query engine can't handle INCLUDE statements yet(TODO)
     public static String restaurantWithCoveringIndex() {
-        return RESTAURANT_SCHEMA + "; " + "CREATE VALUE INDEX record_type_covering on RestaurantRecord(rest_no) INCLUDE (name);";
+        return RESTAURANT_SCHEMA + " " + "CREATE VALUE INDEX record_type_covering on RestaurantRecord(rest_no) INCLUDE (name)";
     }
 }
