@@ -559,6 +559,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 commit(context);
             }
         }
+
         return created;
     }
 }
