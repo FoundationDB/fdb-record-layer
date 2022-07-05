@@ -322,8 +322,7 @@ public interface Type extends Narrowable<Type> {
                         final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
                         final var enumType = new Enum(true, Enum.enumValuesFromProto(enumDescriptor.getValues()));
                         return new Array(true, enumType, true);
-                    }
-                    else {
+                    } else {
                         // t is Record type
                         Descriptors.Descriptor wrappedDescriptor = messageDescriptor.findFieldByName("values").getMessageType();
                         Objects.requireNonNull(wrappedDescriptor);
@@ -1597,8 +1596,8 @@ public interface Type extends Narrowable<Type> {
                 fieldDescriptorMap.put("values", fieldDescriptor);
                 return Record.fromFieldDescriptorsMap(null, true, fieldDescriptorMap);
             } catch (Descriptors.DescriptorValidationException ignored) {
+                return elementType;
             }
-            return elementType;
         }
     }
 }
