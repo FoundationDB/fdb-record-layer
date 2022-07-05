@@ -130,7 +130,6 @@ class TypeTest {
             if (expectedField.toProto().getLabel() == DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED) {
                 Assertions.assertEquals(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL, actualField.toProto().getLabel());
             } else {
-                System.out.println("field name:" + expectedField.getName());
                 Assertions.assertEquals(expectedField.toProto().getLabel(), actualField.toProto().getLabel());
             }
         }
@@ -185,10 +184,7 @@ class TypeTest {
                         .build(),
                 new Descriptors.FileDescriptor[] {});
         final Descriptors.Descriptor messageDescriptor = fileDescriptor.findMessageTypeByName(typeName.get());
-        System.out.println("messageDescriptor:" + messageDescriptor.toProto());
         final Message actual = DynamicMessage.parseFrom(messageDescriptor, message.toByteArray());
-        System.out.println("message:" + message);
-        System.out.println("actual:" + actual);
         areEqual(message, actual, messageDescriptor);
     }
 }

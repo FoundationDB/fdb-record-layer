@@ -41,12 +41,10 @@ public class MessageValue {
     /**
      * Get the value of the (nested) field on the path from the message defined by {@code fieldNames}.
      * The given field names define a path through the nested structure of the given message; this method traverses
-     * that path and returns the value at the leaf, using the return semantics of
-     * {@link #getFieldOnMessage(MessageOrBuilder, String)}.
+     * that path and returns the value at the leaf, using the return semantics of {@link #getFieldOnMessage(MessageOrBuilder, String)}.
      *
      * @param message a message
      * @param fieldNames a list of field names defining a path starting at {@code message}
-     *
      * @return the value at the end of hte path
      */
     @Nullable
@@ -70,10 +68,8 @@ public class MessageValue {
      * Get the value of the field with the given field name on the given message.
      * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
      * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
-     *
      * @param message a message or builder to extract the field from
      * @param fieldName the field to extract
-     *
      * @return the value of the field as described above
      */
     @Nullable
