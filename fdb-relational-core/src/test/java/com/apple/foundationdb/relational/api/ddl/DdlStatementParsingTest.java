@@ -131,7 +131,7 @@ public class DdlStatementParsingTest {
     void indexFailsWithNonExistingTable() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE VALUE INDEX t_idx on foo(a)"
-                ;
+        ;
         shouldFailWith(stmt, ErrorCode.UNKNOWN_TYPE);
     }
 
@@ -140,7 +140,7 @@ public class DdlStatementParsingTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE foo(a int64)" +
                 " CREATE VALUE INDEX t_idx on foo(NON_EXISTING)"
-                ;
+        ;
         shouldFailWith(stmt, ErrorCode.UNKNOWN_FIELD);
     }
 
@@ -148,7 +148,7 @@ public class DdlStatementParsingTest {
     void indexFailsWithReservedKeywordAsName() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE VALUE INDEX table on foo(a)"
-                ;
+        ;
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
     }
 
@@ -240,7 +240,7 @@ public class DdlStatementParsingTest {
     void createSchemaTemplates(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT FOO " + makeColumnDefinition(columns, false)
-                ;
+        ;
         shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
@@ -267,7 +267,7 @@ public class DdlStatementParsingTest {
         final String baseTableDef = makeColumnDefinition(columns, false).replace(")", ", PRIMARY KEY(RECORD TYPE))");
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template  " +
                 "CREATE TABLE FOO " + baseTableDef
-                ;
+        ;
 
         shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
             @Nonnull
@@ -317,7 +317,7 @@ public class DdlStatementParsingTest {
                 "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
                 "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0)) + ")"
-                ;
+        ;
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
             @Nonnull
@@ -365,7 +365,7 @@ public class DdlStatementParsingTest {
                 "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
                 "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", indexedColumns) + ") INCLUDE (" + String.join(",", unindexedColumns) + ")"
-                ;
+        ;
         shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
@@ -445,7 +445,7 @@ public class DdlStatementParsingTest {
     void createTable(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template CREATE TABLE FOO " +
                 makeColumnDefinition(columns, true)
-                ;
+        ;
         shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
@@ -474,7 +474,7 @@ public class DdlStatementParsingTest {
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 typeDef +
                 tableDef
-                ;
+        ;
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
             @Nonnull

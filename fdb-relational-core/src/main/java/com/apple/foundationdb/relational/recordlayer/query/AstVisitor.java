@@ -803,17 +803,17 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitTemplateClause(RelationalParser.TemplateClauseContext ctx) {
-        if(ctx.structOrTableDefinition()!=null) {
+        if (ctx.structOrTableDefinition() != null) {
             ctx.structOrTableDefinition().accept(this);
-        }else if(ctx.indexDefinition()!=null) {
+        } else if (ctx.indexDefinition() != null) {
             ctx.indexDefinition().accept(this);
-        }else {
+        } else {
             typingContext.addAllToTypeRepository();
             // reset metadata such that we can use it to resolve identifiers in subsequent materialized view definition(s).
             parserContext = parserContext.withTypeRepositoryBuilder(typingContext.getTypeRepositoryBuilder())
                     .withScannableRecordTypes(typingContext.getTableNames(), typingContext.getFieldDescriptorMap())
                     .withIndexNames(typingContext.getIndexNames());
-            ctx.matViewDefinition().accept(this);
+            ctx.indexAsSelectDefinition().accept(this);
         }
         return null;
     }
@@ -823,9 +823,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var schemaTemplateName = ParserUtils.unquoteString(ctx.schemaTemplateId().getText());
 
         // collect all tables, their indices, and custom types definitions.
-        ctx.templateClause().forEach(s->s.accept(this));
+        ctx.templateClause().forEach(s -> s.accept(this));
         typingContext.addAllToTypeRepository();
-        // reset metadata such that we can use it to resolve identifiers in subsequent materialized view definition(s).
+        // reset metadata such that we can use it to resolve identifiers in subsequent index definition(s).
         parserContext = parserContext.withTypeRepositoryBuilder(typingContext.getTypeRepositoryBuilder())
                 .withScannableRecordTypes(typingContext.getTableNames(), typingContext.getFieldDescriptorMap())
                 .withIndexNames(typingContext.getIndexNames());
@@ -891,8 +891,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitMatViewDefinition(RelationalParser.MatViewDefinitionContext ctx) {
-        final String viewName = ctx.viewName.getText();
+    public Void visitIndexAsSelectDefinition(RelationalParser.IndexAsSelectDefinitionContext ctx) {
+        final String viewName = ctx.indexName.getText();
         final RelationalExpression viewPlan = (RelationalExpression) ctx.querySpecificationNointo().accept(this);
         final var result = PlanUtils.getMaterializedViewKeyDefinition(viewPlan);
         final KeyExpression indexExpression = result.getRight();

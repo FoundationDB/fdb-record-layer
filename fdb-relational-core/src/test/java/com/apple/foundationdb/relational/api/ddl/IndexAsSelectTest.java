@@ -1,5 +1,5 @@
 /*
- * MaterializedViewTest.java
+ * IndexAsSelectTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -48,7 +48,7 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
-public class MaterializedViewTest {
+public class IndexAsSelectTest {
     @BeforeAll
     public static void setup() {
         if (Debugger.getDebugger() == null) {
@@ -63,7 +63,7 @@ public class MaterializedViewTest {
             "int64", "double", "boolean", "string", "bytes"
     };
 
-    public MaterializedViewTest() throws RelationalException {
+    public IndexAsSelectTest() throws RelationalException {
         TypingContext ctx = TypingContext.create();
         SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(ctx);
         SystemTableRegistry.getSystemTable("DATABASES").addDefinition(ctx);
@@ -72,7 +72,7 @@ public class MaterializedViewTest {
         fakePlanContext = PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
                 .withStoreState(new RecordStoreState(RecordMetaDataProto.DataStoreInfo.newBuilder().build(), null))
-                .withDbUri(URI.create("/MaterializedViewTest"))
+                .withDbUri(URI.create("/IndexAsSelectTest"))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
                 .withConstantActionFactory(NoOpConstantActionFactory.INSTANCE)
                 .build();
@@ -96,7 +96,7 @@ public class MaterializedViewTest {
         Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(constantActionFactory).build());
     }
 
-    private void matViewIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey) throws Exception {
+    private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey) throws Exception {
         shouldWorkWithInjectedFactory(stmt, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
@@ -116,65 +116,65 @@ public class MaterializedViewTest {
     }
 
     @Test
-    void createdMatViewWorksSimpleNesting() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE TABLE T(p int64, a A array, primary key(p)) " +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M) SQ"
-                ;
-        matViewIs(stmt, field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None)));
-    }
-
-    @Test
-    void createdMatViewWorksSimpleNestingAndConcat() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE TABLE T(p int64, a A array, primary key(p)) " +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ";
-        matViewIs(stmt, concat(field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None)), field("p")));
-    }
-
-    @Test
-    void createdMatViewWorksSimpleNestingAndConcatDifferentOrder() throws Exception {
+    void createdIndexAsSelectWorksSimpleNesting() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT t.p, SQ.x from T AS t, (select M.x from t.a AS M) SQ";
-        matViewIs(stmt, concat(field("p"), field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None))));
+                "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M) SQ"
+        ;
+        indexIs(stmt, field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None)));
     }
 
     @Test
-    void createdMatViewWorksDeepNesting() throws Exception {
+    void createdIndexAsSelectWorksSimpleNestingAndConcat() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT A(x int64) " +
+                "CREATE TABLE T(p int64, a A array, primary key(p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ";
+        indexIs(stmt, concat(field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None)), field("p")));
+    }
+
+    @Test
+    void createdIndexAsSelectWorksSimpleNestingAndConcatDifferentOrder() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT A(x int64) " +
+                "CREATE TABLE T(p int64, a A array, primary key(p))" +
+                "CREATE INDEX mv1 AS SELECT t.p, SQ.x from T AS t, (select M.x from t.a AS M) SQ";
+        indexIs(stmt, concat(field("p"), field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None))));
+    }
+
+    @Test
+    void createdIndexAsSelectWorksDeepNesting() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(a A array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT SQ.x from T AS t, (select M.x from t.b AS Y, (select x from Y.a) M) SQ";
-        matViewIs(stmt, field("b", KeyExpression.FanType.FanOut).nest(field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None))));
+                "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.b AS Y, (select x from Y.a) M) SQ";
+        indexIs(stmt, field("b", KeyExpression.FanType.FanOut).nest(field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None))));
     }
 
     @Test
-    void createdMatViewWorksDeepNestingAndConcat() throws Exception {
+    void createdIndexAsSelectWorksDeepNestingAndConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT C(z int64) " +
                 "CREATE STRUCT B(a A array, c C array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT SQ1.x,SQ2.z from T AS t, (select M.x from t.b AS Y, (select x from Y.a) M) SQ1, (select M.z from t.b AS Y, (select z from Y.c) M) SQ2";
-        matViewIs(stmt,
+                "CREATE INDEX mv1 AS SELECT SQ1.x,SQ2.z from T AS t, (select M.x from t.b AS Y, (select x from Y.a) M) SQ1, (select M.z from t.b AS Y, (select z from Y.c) M) SQ2";
+        indexIs(stmt,
                 concat(field("b", KeyExpression.FanType.FanOut).nest(field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None))),
                         field("b", KeyExpression.FanType.FanOut).nest(field("c", KeyExpression.FanType.FanOut).nest(field("z", KeyExpression.FanType.None)))));
     }
 
     @Test
-    void createdMatViewWorksDeepNestingAndNestedCartesianConcat() throws Exception {
+    void createdIndexAsSelectWorksDeepNestingAndNestedCartesianConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT C(z int64) " +
                 "CREATE STRUCT B(a A array, c C array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT SQ.x, SQ.z from T AS t, (select M.x, N.z from t.b AS Y, (select x from Y.a) M, (select z from Y.c) N) SQ";
-        matViewIs(stmt,
+                "CREATE INDEX mv1 AS SELECT SQ.x, SQ.z from T AS t, (select M.x, N.z from t.b AS Y, (select x from Y.a) M, (select z from Y.c) N) SQ";
+        indexIs(stmt,
                 field("b", KeyExpression.FanType.FanOut).nest(
                         concat(field("a", KeyExpression.FanType.FanOut).nest(field("x", KeyExpression.FanType.None)),
                                 field("c", KeyExpression.FanType.FanOut).nest(field("z", KeyExpression.FanType.None)))
@@ -182,44 +182,44 @@ public class MaterializedViewTest {
     }
 
     @Test
-    void createMatViewWithPredicateIsNotSupported() throws Exception {
+    void createIndexAsSelectWithPredicateIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(y string) " +
                 "CREATE TABLE T(p int64, a A array, b B array, primary key(p))" +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM T where p > 10";
+                "CREATE INDEX mv1 AS SELECT * FROM T where p > 10";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate");
     }
 
     @Test
-    void createMatViewWithImproperNestedFieldClusteringIsNotSupported() throws Exception {
+    void createIndexAsSelectWithImproperNestedFieldClusteringIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 int64, a2 A array, b2 B array, primary key(p2)) " +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT X.a1,Y.b2,X.c1 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y";
+                "CREATE INDEX mv1 AS SELECT X.a1,Y.b2,X.c1 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, improper column clustering");
     }
 
     @Test
-    void createMatViewWithJoiningMoreThanOneTableIsNotSupported() throws Exception {
+    void createIndexAsSelectWithJoiningMoreThanOneTableIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 int64, a2 A array, b2 B array, primary key(p2)) " +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM T1, T2";
+                "CREATE INDEX mv1 AS SELECT * FROM T1, T2";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found more than iteration generator");
     }
 
     @Test
-    void createMatViewWithExpressionsInProjectionIsNotSupported() throws Exception {
+    void createIndexAsSelectWithExpressionsInProjectionIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
-                "CREATE MATERIALIZED VIEW mv1 AS SELECT 5+1 FROM T1";
+                "CREATE INDEX mv1 AS SELECT 5+1 FROM T1";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, not all fields can be mapped to key expression in");
     }
 }

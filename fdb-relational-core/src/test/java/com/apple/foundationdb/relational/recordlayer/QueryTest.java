@@ -70,8 +70,8 @@ public class QueryTest {
                     " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
                     " CREATE VALUE INDEX record_name_idx on RestaurantComplexRecord(name)" +
                     " CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name)" +
-                    " CREATE MATERIALIZED VIEW mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
-                    " CREATE MATERIALIZED VIEW mv2 AS SELECT endo.endorsementText FROM RestaurantComplexRecord rec, (SELECT X.endorsementText FROM rec.reviews rev, (SELECT endorsementText from rev.endorsements) X) endo";
+                    " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
+                    " CREATE INDEX mv2 AS SELECT endo.endorsementText FROM RestaurantComplexRecord rec, (SELECT X.endorsementText FROM rec.reviews rev, (SELECT endorsementText from rev.endorsements) X) endo";
 
     @RegisterExtension
     @Order(0)

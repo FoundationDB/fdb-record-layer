@@ -142,7 +142,6 @@ LOW_PRIORITY:                        'LOW_PRIORITY';
 MASTER_BIND:                         'MASTER_BIND';
 MASTER_SSL_VERIFY_SERVER_CERT:       'MASTER_SSL_VERIFY_SERVER_CERT';
 MATCH:                               'MATCH';
-MATERIALIZED:                        'MATERIALIZED';
 MAXVALUE:                            'MAXVALUE';
 MODIFIES:                            'MODIFIES';
 NATURAL:                             'NATURAL';

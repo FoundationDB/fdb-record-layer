@@ -134,13 +134,13 @@ public final class PlanUtils {
 
         public void visitLogicalTypeFilterExpression(@Nonnull LogicalTypeFilterExpression element) {
             Assert.thatUnchecked(element.getRecordTypes().size() != 0, "type filter must scan at least one table", ErrorCode.INTERNAL_ERROR);
-            Assert.thatUnchecked(element.getRecordTypes().size() == 1, String.format("Unsupported index definition, materialized view can operate on a single table, however it is defined on more than one table '%s'", String.join(",", element.getRecordTypes())), ErrorCode.UNSUPPORTED_OPERATION);
+            Assert.thatUnchecked(element.getRecordTypes().size() == 1, String.format("Unsupported index definition, index can operate on a single table, however it is defined on more than one table '%s'", String.join(",", element.getRecordTypes())), ErrorCode.UNSUPPORTED_OPERATION);
             Assert.thatUnchecked(element.getRecordTypes().stream().findFirst().isPresent(), "type filter must scan at least one table", ErrorCode.INTERNAL_ERROR);
             final var filteredType = element.getRecordTypes().stream().findFirst().get();
             if (baseTable == null) {
                 baseTable = element.getRecordTypes().stream().findFirst().get();
             } else {
-                Assert.thatUnchecked(baseTable.equals(filteredType), String.format("Unsupported index definition, materialized view can operate on a single table, however it is defined on more than one table '%s'", String.join(",", List.of(baseTable, filteredType))), ErrorCode.UNSUPPORTED_OPERATION);
+                Assert.thatUnchecked(baseTable.equals(filteredType), String.format("Unsupported index definition, index can operate on a single table, however it is defined on more than one table '%s'", String.join(",", List.of(baseTable, filteredType))), ErrorCode.UNSUPPORTED_OPERATION);
             }
         }
 
@@ -159,8 +159,8 @@ public final class PlanUtils {
 
     @Nonnull
     static Pair<String, KeyExpression> getMaterializedViewKeyDefinition(@Nonnull final RelationalExpression relationalExpression) {
-        final String invalidMatView = "invalid materialized view definition";
-        Assert.thatUnchecked(relationalExpression instanceof SelectExpression, invalidMatView);
+        final String invalidIndexAsSelect = "invalid index definition";
+        Assert.thatUnchecked(relationalExpression instanceof SelectExpression, invalidIndexAsSelect);
         final var selectExpression = (SelectExpression) relationalExpression;
         final var result = PlanUtils.KeyGenerator.evaluate(selectExpression);
         Assert.notNullUnchecked(result.getLeft(), String.format("could not generate a key expression from '%s'", relationalExpression));

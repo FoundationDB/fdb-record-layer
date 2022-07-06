@@ -112,7 +112,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structOrTableDefinition | indexDefinition | matViewDefinition)
+        CREATE ( structOrTableDefinition | indexDefinition | indexAsSelectDefinition )
     ;
 
 createStatement
@@ -152,8 +152,8 @@ valueIndexDefinition
     : UNIQUE? VALUE INDEX idxName=uid ON tblName=uid '(' ( idxField (COMMA idxField)*) ')' ( INCLUDE '(' (incField (COMMA incField)*) ')' )? // todo: provide matview syntax for this
     ;
 
-matViewDefinition
-    : MATERIALIZED VIEW viewName=uid AS querySpecificationNointo
+indexAsSelectDefinition
+    : INDEX indexName=uid AS querySpecificationNointo
     ;
 
 idxField
