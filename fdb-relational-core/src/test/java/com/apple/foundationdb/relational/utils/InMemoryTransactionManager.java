@@ -20,15 +20,15 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
 public class InMemoryTransactionManager implements TransactionManager {
 
@@ -36,7 +36,7 @@ public class InMemoryTransactionManager implements TransactionManager {
     private final Map<Long, Transaction> openTransactions = new HashMap<>();
 
     @Override
-    public Transaction createTransaction(@Nullable TransactionConfig config) {
+    public Transaction createTransaction(@Nonnull Options options) {
         final TestTransaction testTransaction = new TestTransaction(txnId++, this);
         openTransactions.put(testTransaction.txnId, testTransaction);
         return testTransaction;

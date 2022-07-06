@@ -34,29 +34,24 @@ import javax.annotation.Nullable;
 @ExcludeFromJacocoGeneratedReport
 public interface RelationalDriver {
     default RelationalConnection connect(@Nonnull URI url) throws RelationalException {
-        return connect(url, null, TransactionConfig.DEFAULT, Options.NONE);
+        return connect(url, null, Options.NONE);
     }
 
     default RelationalConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
-        return connect(url, null, TransactionConfig.DEFAULT, connectionOptions);
-    }
-
-    default RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException {
-        return connect(url, existingTransaction, TransactionConfig.DEFAULT, connectionOptions);
+        return connect(url, null, connectionOptions);
     }
 
     /**
      * Connect to the database that is located at the specified url.
      *
      * @param url                 the url path for the database structure.
-     * @param connectionOptions   connection options that can be used to configure the connection
      * @param existingTransaction the existing Transaction for this connection to reuse
-     * @param transactionConfig   the default TransactionConfig for the transactions opened based on this RelationalConnection, if no config specified when opening
+     * @param connectionOptions   connection options that can be used to configure the connection
      * @return a connection to the specified database
      * @throws RelationalException if something goes wrong during opening the database (for example, if no
      *                           database can be found in the catalog for the specified database url)
      */
-    RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException;
+    RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException;
 
     /**
      * Determine if this driver can be used for the specified scheme string.

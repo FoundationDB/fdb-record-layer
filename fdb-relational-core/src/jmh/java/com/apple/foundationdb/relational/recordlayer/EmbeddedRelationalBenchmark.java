@@ -88,7 +88,7 @@ public abstract class EmbeddedRelationalBenchmark {
                     1
             );
             RecordLayerStoreCatalogImpl catalog = new RecordLayerStoreCatalogImpl(keySpace);
-            try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction()) {
+            try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
                 catalog.initialize(txn);
                 txn.commit();
             }

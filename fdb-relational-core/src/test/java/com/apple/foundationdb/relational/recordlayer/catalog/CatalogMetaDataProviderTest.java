@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
@@ -52,7 +53,7 @@ class CatalogMetaDataProviderTest {
         //now create a RecordStore in that Catalog
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         FdbConnection fdbConn = new DirectFdbConnection(factory.getDatabase());
-        try (Transaction txn = fdbConn.getTransactionManager().createTransaction()) {
+        try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //create the Catalog RecordStore
             catalog.initialize(txn);
             txn.commit();
@@ -60,7 +61,7 @@ class CatalogMetaDataProviderTest {
 
         URI dbUri = URI.create("/testdb");
         String schemaName = "testSchema" + System.currentTimeMillis();
-        try (Transaction txn = fdbConn.getTransactionManager().createTransaction()) {
+        try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //write schema info to the store
             Schema schema = new Schema(
                     dbUri.getPath(),

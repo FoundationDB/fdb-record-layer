@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
@@ -38,16 +37,12 @@ public class DirectFdbConnection implements FdbConnection {
     private final TransactionManager txnManager;
 
     public DirectFdbConnection(FDBDatabase fdb) {
-        this(fdb, TransactionConfig.DEFAULT, NoOpMetricRegistry.INSTANCE);
+        this(fdb, NoOpMetricRegistry.INSTANCE);
     }
 
     public DirectFdbConnection(FDBDatabase fdb, MetricRegistry metricsEngine) {
-        this(fdb, TransactionConfig.DEFAULT, metricsEngine);
-    }
-
-    public DirectFdbConnection(FDBDatabase fdb, TransactionConfig config, MetricRegistry metricsEngine) {
         this.fdb = fdb;
-        this.txnManager = new RecordLayerTransactionManager(fdb, config, getStoreTimer(metricsEngine));
+        this.txnManager = new RecordLayerTransactionManager(fdb, getStoreTimer(metricsEngine));
     }
 
     public static DirectFdbConnection connect(String clusterFile) {

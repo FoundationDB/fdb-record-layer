@@ -23,29 +23,25 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
 public class RecordLayerTransactionManager implements TransactionManager {
     private final FDBDatabase fdbDb;
-    private final TransactionConfig defaultConfig;
     private final FDBStoreTimer storeTimer;
 
-    public RecordLayerTransactionManager(FDBDatabase fdbDb, TransactionConfig defaultConfig, FDBStoreTimer storeTimer) {
+    public RecordLayerTransactionManager(FDBDatabase fdbDb, FDBStoreTimer storeTimer) {
         this.fdbDb = fdbDb;
-        this.defaultConfig = defaultConfig;
         this.storeTimer = storeTimer;
     }
 
     @Override
-    public Transaction createTransaction(@Nullable TransactionConfig config) throws RelationalException {
-        return new RecordContextTransaction(fdbDb.openContext(getFDBRecordContextConfig(config == null ? this.defaultConfig : config, storeTimer)));
+    public Transaction createTransaction(@Nonnull Options connectionOptions) throws RelationalException {
+        return new RecordContextTransaction(fdbDb.openContext(getFDBRecordContextConfig(connectionOptions, storeTimer)));
     }
 
     @Override
@@ -58,42 +54,13 @@ public class RecordLayerTransactionManager implements TransactionManager {
         txn.commit();
     }
 
-    private FDBRecordContextConfig getFDBRecordContextConfig(@Nullable TransactionConfig config, FDBStoreTimer storeTimer) throws RelationalException {
-        if (config != null) {
-            TransactionConfig.WeakReadSemantics weakReadSemantics = config.getWeakReadSemantics();
-            return FDBRecordContextConfig.newBuilder()
-                    .setTransactionId(config.getTransactionId())
-                    .setMdcContext(config.getLoggingContext())
-                    .setPriority(getPriorityForFDB(config.getTransactionPriority()))
-                    .setWeakReadSemantics(weakReadSemantics == null ? null :
-                            new FDBDatabase.WeakReadSemantics(weakReadSemantics.getMinVersion(),
-                                    weakReadSemantics.getStalenessBoundMillis(), weakReadSemantics.isCausalReadRisky()))
-                    .setTransactionTimeoutMillis(config.getTransactionTimeoutMillis())
-                    .setEnableAssertions(config.isEnableAssertions())
-                    .setLogTransaction(config.isLogTransaction())
-                    .setTrackOpen(config.isTrackOpen())
-                    .setSaveOpenStackTrace(config.isSaveOpenStackTrace())
-                    .setTimer(storeTimer)
-                    .build();
-        } else {
-            return FDBRecordContextConfig.newBuilder()
-                    .setTimer(storeTimer)
-                    .setPriority(FDBTransactionPriority.DEFAULT)
-                    .build();
+    private FDBRecordContextConfig getFDBRecordContextConfig(@Nonnull Options options, FDBStoreTimer storeTimer) {
+        FDBRecordContextConfig.Builder builder = FDBRecordContextConfig.newBuilder()
+                .setTimer(storeTimer);
+        Long transactionTimeout = options.getOption(Options.Name.TRANSACTION_TIMEOUT);
+        if (transactionTimeout != null) {
+            builder.setTransactionTimeoutMillis(transactionTimeout);
         }
-    }
-
-    private FDBTransactionPriority getPriorityForFDB(TransactionConfig.Priority priority) throws RelationalException {
-        switch (priority) {
-            case DEFAULT:
-                return FDBTransactionPriority.DEFAULT;
-            case BATCH:
-                return FDBTransactionPriority.BATCH;
-            case SYSTEM_IMMEDIATE:
-                return FDBTransactionPriority.SYSTEM_IMMEDIATE;
-            default:
-                throw new RelationalException("Invalid transaction priority in the config: <" + priority.name() + ">",
-                        ErrorCode.INVALID_PARAMETER);
-        }
+        return builder.build();
     }
 }

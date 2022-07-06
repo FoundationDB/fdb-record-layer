@@ -36,10 +36,6 @@ public final class Relational {
     }
 
     public static RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException {
-        return connect(url, existingTransaction, TransactionConfig.DEFAULT, connectionOptions);
-    }
-
-    public static RelationalConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
         // All connection URLs should start with "jdbc" so we strip that out from the URI and pass the remainder in
         String scheme = url.getScheme();
         if (scheme == null) {
@@ -49,7 +45,7 @@ public final class Relational {
             throw new RelationalException("Unable to connect to url <" + url + ">: invalid scheme <" + scheme + ">. Supported schemes: [jdbc]", ErrorCode.INVALID_PATH);
         }
         URI nonSchemeUri = URI.create(url.toString().substring(5));
-        return getDriver(nonSchemeUri).connect(nonSchemeUri, existingTransaction, transactionConfig, connectionOptions);
+        return getDriver(nonSchemeUri).connect(nonSchemeUri, existingTransaction, connectionOptions);
     }
 
     public static RelationalDriver getDriver(@Nonnull URI connectionUrl) throws RelationalException {

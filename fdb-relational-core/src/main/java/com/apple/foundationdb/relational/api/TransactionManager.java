@@ -22,15 +22,11 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
 public interface TransactionManager {
 
-    default Transaction createTransaction() throws RelationalException {
-        return createTransaction(null);
-    }
-
-    Transaction createTransaction(@Nullable TransactionConfig config) throws RelationalException;
+    Transaction createTransaction(@Nonnull Options connectionOptions) throws RelationalException;
 
     void abort(Transaction txn) throws RelationalException;
 

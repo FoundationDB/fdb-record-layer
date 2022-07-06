@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 
@@ -37,7 +36,7 @@ public class MetricsCollectionTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational, TransactionConfig.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational, MetricsCollectionTest.class, TestSchemas.restaurant());
 
     @Test
     void canRecoverFDBLevelMetrics() {

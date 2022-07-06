@@ -43,7 +43,6 @@ import java.util.Properties;
 import java.util.concurrent.Executor;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A connection to a Relational database.
@@ -73,31 +72,15 @@ public interface RelationalConnection extends java.sql.Connection {
     //TODO(bfines) We would probably want to implement and support an "AsyncStatement" here, which
     // can capture the asyncronous operations necessary
 
-
-    /**
-     * Begin a transaction using the default configuration.
-     * <p> Equivalent to {@code beginTransaction(null}</p>
-     *
-     *
-     * @throws RelationalException if the transaction cannot be completed for any reason.
-     */
-    default void beginTransaction() throws RelationalException {
-        beginTransaction(null);
-    }
-
     /**
      * Begin a transaction with the specified configuration.
      * <p>
      *     Note that transactions are typically required to last less than 5 seconds, due to constraints
      *     from underlying data storage systems (such as FDB).
      * </p>
-     * <p>
-     *     If {@code null} is passed for the configuration, then the default set at Connection time will be used.
-     * </p>
-     * @param config the configuration of the Transaction.
      * @throws RelationalException if the transaction cannot be completed for any reason.
      */
-    void beginTransaction(@Nullable TransactionConfig config) throws RelationalException;
+    void beginTransaction() throws RelationalException;
 
     @Nonnull
     Options getOptions();

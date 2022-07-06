@@ -20,21 +20,21 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
 @ExcludeFromJacocoGeneratedReport
 public class HollowTransactionManager implements TransactionManager {
     public static final HollowTransactionManager INSTANCE = new HollowTransactionManager();
 
     @Override
-    public Transaction createTransaction(@Nullable TransactionConfig config) throws RelationalException {
+    public Transaction createTransaction(@Nonnull Options options) throws RelationalException {
         throw new OperationUnsupportedException("This Transaction manager is hollow and does not support calls.");
     }
 

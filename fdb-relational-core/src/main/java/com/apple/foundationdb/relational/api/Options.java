@@ -37,22 +37,30 @@ public final class Options {
     public enum Name {
         CONTINUATION,
         INDEX_HINT,
-        CONTINUATION_PAGE_SIZE, // Limit the maximum number of records to return before prompting for continuation
-        /*
+        /**
+         * Limit the maximum number of records to return before prompting for continuation.
+         */
+        CONTINUATION_PAGE_SIZE,
+        /**
          * When set, only tables which were created at or before the specified version can be opened.
          * If this is set to -1, then it only requires that a version number exists.
          *
          * This is something of a weird carryover from development work which happened before Relational existed,
          * and should only be used sparingly except in those specific use-cases.
          */
-        REQUIRED_METADATA_TABLE_VERSION
+        REQUIRED_METADATA_TABLE_VERSION,
+        /**
+         * Transaction timeout in milliseconds.
+         */
+        TRANSACTION_TIMEOUT
     }
 
     private static final Map<Name, List<OptionContract>> contracts = Map.of(
             Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)),
             Name.INDEX_HINT, List.of(new TypeContract<>(String.class)),
             Name.CONTINUATION_PAGE_SIZE, List.of(new TypeContract<>(Integer.class), new RangeContract<>(0, Integer.MAX_VALUE)),
-            Name.REQUIRED_METADATA_TABLE_VERSION, List.of(new TypeContract<>(Integer.class), new RangeContract<>(-1, Integer.MAX_VALUE))
+            Name.REQUIRED_METADATA_TABLE_VERSION, List.of(new TypeContract<>(Integer.class), new RangeContract<>(-1, Integer.MAX_VALUE)),
+            Name.TRANSACTION_TIMEOUT, List.of(new TypeContract<>(Long.class), new RangeContract<>(-1L, Long.MAX_VALUE))
     );
 
     public static final Options NONE = Options.builder().build();

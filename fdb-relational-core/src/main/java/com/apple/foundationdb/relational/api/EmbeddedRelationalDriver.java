@@ -39,7 +39,6 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
     @Override
     public RelationalConnection connect(@Nonnull URI url,
                                       @Nullable Transaction existingTransaction,
-                                      @Nonnull TransactionConfig transactionConfig,
                                       @Nonnull Options connectionOptions) throws RelationalException {
         //first, we decide which cluster this database belongs to
 
@@ -54,7 +53,7 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
         if (frl == null) {
             throw new RelationalException("Database <" + url.getPath() + "> does not exist", ErrorCode.DATABASE_NOT_FOUND);
         }
-        return frl.connect(existingTransaction, transactionConfig);
+        return frl.connect(existingTransaction);
     }
 
     @Override

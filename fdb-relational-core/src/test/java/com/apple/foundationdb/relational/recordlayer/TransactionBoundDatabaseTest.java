@@ -63,7 +63,7 @@ public class TransactionBoundDatabaseTest {
         // First create a transaction object out of the connection and the statement
         RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("testSchema");
         FDBRecordStore store = schema.loadStore();
-        try (FDBRecordContext context = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction().unwrap(FDBRecordContext.class)) {
+        try (FDBRecordContext context = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class)) {
             try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context)) {
 
                 // Then, once we have a transaction that contains both an FDBRecordStore and an FDBRecordContext,

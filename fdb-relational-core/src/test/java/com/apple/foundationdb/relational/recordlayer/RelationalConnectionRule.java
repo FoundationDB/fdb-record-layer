@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
@@ -37,7 +36,6 @@ import java.sql.SQLException;
 import java.util.function.Supplier;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCallback, RelationalConnection {
     Supplier<URI> connFactory;
@@ -126,8 +124,8 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
-    public void beginTransaction(@Nullable TransactionConfig config) throws RelationalException {
-        connection.beginTransaction(config);
+    public void beginTransaction() throws RelationalException {
+        connection.beginTransaction();
     }
 
     @Override

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
@@ -63,7 +64,7 @@ public final class RecordLayerEngine {
 
         List<StorageCluster> clusters = databases.stream().map(db ->
                 new RecordLayerStorageCluster(new DirectFdbConnection(db, mEngine), baseKeySpace, cfg, schemaCatalog, templateCatalog)).collect(Collectors.toList());
-        try (Transaction txn = clusters.get(0).getTransactionManager().createTransaction()) {
+        try (Transaction txn = clusters.get(0).getTransactionManager().createTransaction(Options.NONE)) {
             schemaCatalog.initialize(txn);
             txn.commit();
         }

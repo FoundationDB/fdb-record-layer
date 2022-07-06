@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -37,7 +36,7 @@ import javax.annotation.Nullable;
 @ConnectionScoped
 public interface RelationalDatabase extends AutoCloseable {
 
-    RelationalConnection connect(@Nullable Transaction sharedTransaction, @Nonnull TransactionConfig txnConfig) throws RelationalException;
+    RelationalConnection connect(@Nullable Transaction sharedTransaction) throws RelationalException;
 
     /**
      * Load the specified schema for the database.

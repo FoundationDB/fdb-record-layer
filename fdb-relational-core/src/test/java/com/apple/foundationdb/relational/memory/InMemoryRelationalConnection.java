@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSeriali
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -50,7 +49,6 @@ import java.sql.SQLException;
 import java.util.concurrent.CompletableFuture;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class InMemoryRelationalConnection implements RelationalConnection {
     final InMemoryCatalog catalog;
@@ -117,7 +115,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    public void beginTransaction(@Nullable TransactionConfig config) throws RelationalException {
+    public void beginTransaction() throws RelationalException {
 
     }
 

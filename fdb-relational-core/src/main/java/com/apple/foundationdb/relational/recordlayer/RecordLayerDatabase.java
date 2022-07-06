@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
@@ -86,7 +85,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
     }
 
     @Override
-    public RelationalConnection connect(@Nullable Transaction transaction, @Nonnull TransactionConfig txnConfig) throws RelationalException {
+    public RelationalConnection connect(@Nullable Transaction transaction) throws RelationalException {
         if (transaction != null && !(transaction instanceof RecordContextTransaction)) {
             throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
         }

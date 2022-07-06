@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
@@ -47,7 +46,7 @@ import javax.annotation.Nullable;
  * itself.
  * This database cannot create new transaction and its transaction manager will throw {@link com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException}
  * if any of its methods are called.
- * A {@link RecordStoreAndRecordContextTransaction} object needs to be passed to {@link #connect(Transaction, TransactionConfig)}.
+ * A {@link RecordStoreAndRecordContextTransaction} object needs to be passed to {@link com.apple.foundationdb.relational.api.catalog.RelationalDatabase#connect(Transaction)}.
  * This object should contain a valid FDBRecordStore and a FDBRecordContext whose scope is larger than the scope of this class.
  *
  * Note: this database doesn't support DDL statements.
@@ -66,7 +65,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     }
 
     @Override
-    public RelationalConnection connect(@Nullable Transaction transaction, @Nonnull TransactionConfig txnConfig) throws RelationalException {
+    public RelationalConnection connect(@Nullable Transaction transaction) throws RelationalException {
         if (!(transaction instanceof RecordStoreAndRecordContextTransaction)) {
             throw new RelationalException("TransactionBoundDatabase.connect expects a RecordStoreAndRecordContextTransaction", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
         }

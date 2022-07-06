@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
@@ -170,10 +169,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    public void beginTransaction(@Nullable TransactionConfig config) throws RelationalException {
+    public void beginTransaction() throws RelationalException {
         try {
             if (!inActiveTransaction()) {
-                transaction = txnManager.createTransaction(config);
+                transaction = txnManager.createTransaction(options);
             }
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
