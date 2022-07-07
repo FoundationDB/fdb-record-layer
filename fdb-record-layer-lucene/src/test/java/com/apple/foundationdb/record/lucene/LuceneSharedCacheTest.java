@@ -62,7 +62,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Tag(Tags.RequiresFDB)
 public class LuceneSharedCacheTest extends FDBRecordStoreQueryTestBase {
 
-    FDBDirectorySharedCacheManager sharedCacheManager = new FDBDirectorySharedCacheManager();
+    FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.newBuilder().build();
 
     private static final List<TestRecordsTextProto.SimpleDocument> DOCUMENTS = TextIndexTestUtils.toSimpleDocuments(List.of(
             TextSamples.ANGSTROM, // 0

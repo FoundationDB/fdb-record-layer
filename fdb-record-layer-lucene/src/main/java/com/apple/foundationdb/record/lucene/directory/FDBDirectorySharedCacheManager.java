@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -45,6 +46,28 @@ public class FDBDirectorySharedCacheManager {
     public static final Object SHARED_CACHE_CONTEXT_KEY = new Object();
     @Nonnull
     private final Map<Tuple, FDBDirectorySharedCache> caches;
+    @Nullable
+    private final Subspace subspace;
+    private final int maximumSize;
+    private final int concurrencyLevel;
+    private final int initialCapacity;
+
+    @Nullable
+    public Subspace getSubspace() {
+        return subspace;
+    }
+
+    public int getMaximumSize() {
+        return maximumSize;
+    }
+
+    public int getConcurrencyLevel() {
+        return concurrencyLevel;
+    }
+
+    public int getInitialCapacity() {
+        return initialCapacity;
+    }
 
     /**
      * Get any shared cache manager for the given context.
@@ -68,8 +91,12 @@ public class FDBDirectorySharedCacheManager {
         context.putInSessionIfAbsent(SHARED_CACHE_CONTEXT_KEY, this);
     }
 
-    public FDBDirectorySharedCacheManager() {
-        caches = new ConcurrentHashMap<>();
+    protected FDBDirectorySharedCacheManager(@Nullable Subspace subspace, int maximumSize, int concurrencyLevel, int initialCapacity) {
+        this.subspace = subspace;
+        this.maximumSize = maximumSize;
+        this.concurrencyLevel = concurrencyLevel;
+        this.initialCapacity = initialCapacity;
+        this.caches = new ConcurrentHashMap<>();
     }
 
     /**
@@ -82,7 +109,8 @@ public class FDBDirectorySharedCacheManager {
     public FDBDirectorySharedCache getCache(@Nonnull Tuple key, long sequenceNumber) {
         FDBDirectorySharedCache storedCache = caches.compute(key, (ckey, cache) -> {
             if (cache == null || cache.getSequenceNumber() < sequenceNumber) {
-                cache = new FDBDirectorySharedCache(ckey, sequenceNumber);
+                cache = new FDBDirectorySharedCache(ckey, sequenceNumber,
+                        maximumSize, concurrencyLevel, initialCapacity);
             }
             return cache;
         });
@@ -91,5 +119,46 @@ public class FDBDirectorySharedCacheManager {
         }
         // Asking for a sequence number that is older than the current one. No shared cache.
         return null;
+    }
+
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    /**
+     * Builder for {@code FDBDirectorySharedCacheManager}.
+     */
+    public static class Builder {
+        private Subspace subspace;
+        private int maximumSize = 1024;
+        private int concurrencyLevel = 16;
+        private int initialCapacity = 128;
+
+        protected Builder() {
+        }
+
+        public Builder setSubspace(final Subspace subspace) {
+            this.subspace = subspace;
+            return this;
+        }
+
+        public Builder setMaximumSize(final int maximumSize) {
+            this.maximumSize = maximumSize;
+            return this;
+        }
+
+        public Builder setConcurrencyLevel(final int concurrencyLevel) {
+            this.concurrencyLevel = concurrencyLevel;
+            return this;
+        }
+
+        public Builder setInitialCapacity(final int initialCapacity) {
+            this.initialCapacity = initialCapacity;
+            return this;
+        }
+
+        public FDBDirectorySharedCacheManager build() {
+            return new FDBDirectorySharedCacheManager(subspace, maximumSize, concurrencyLevel, initialCapacity);
+        }
     }
 }

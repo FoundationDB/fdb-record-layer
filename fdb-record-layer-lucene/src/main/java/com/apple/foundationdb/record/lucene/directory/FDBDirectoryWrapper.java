@@ -63,7 +63,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
     FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount) {
         final Subspace subspace = state.indexSubspace.subspace(key);
         final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
-        final Tuple sharedCacheKey = sharedCacheManager == null ? null : state.store.getSubspace().unpack(subspace.pack());
+        final Tuple sharedCacheKey = sharedCacheManager == null ? null :
+                                     (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
 
         this.state = state;
         this.directory = new FDBDirectory(subspace, state.context, sharedCacheManager, sharedCacheKey);

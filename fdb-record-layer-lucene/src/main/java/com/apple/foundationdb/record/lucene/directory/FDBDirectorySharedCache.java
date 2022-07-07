@@ -38,9 +38,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @API(API.Status.EXPERIMENTAL)
 @ThreadSafe
 public class FDBDirectorySharedCache {
-    public static final int DEFAULT_MAXIMUM_SIZE = 1024;
-    public static final int DEFAULT_CONCURRENCY_LEVEL = 16;
-    public static final int DEFAULT_INITIAL_CAPACITY = 128;
 
     @Nonnull
     private final Tuple key;
@@ -50,14 +47,15 @@ public class FDBDirectorySharedCache {
     @Nonnull
     private final Cache<Pair<Long, Integer>, byte[]> blocks;
 
-    public FDBDirectorySharedCache(@Nonnull Tuple key, long sequenceNumber) {
+    public FDBDirectorySharedCache(@Nonnull Tuple key, long sequenceNumber,
+                                   int maximumSize, int concurrencyLevel, int initialCapacity) {
         this.key = key;
         this.sequenceNumber = sequenceNumber;
         this.fileReferences = new AtomicReference<>();
         this.blocks = CacheBuilder.newBuilder()
-                .concurrencyLevel(DEFAULT_CONCURRENCY_LEVEL)
-                .initialCapacity(DEFAULT_INITIAL_CAPACITY)
-                .maximumSize(DEFAULT_MAXIMUM_SIZE)
+                .concurrencyLevel(concurrencyLevel)
+                .initialCapacity(initialCapacity)
+                .maximumSize(maximumSize)
                 .recordStats()
                 .build();
     }
