@@ -1110,13 +1110,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
 
+    @Override
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                                 @Nullable final Tuple low, @Nullable final Tuple high,
-                                                                                 @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
-                                                                                 @Nullable byte[] continuation,
-                                                                                 @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<FDBRawRecord> scanRawRecords(@Nullable final Tuple low, @Nullable final Tuple high,
+                                                     @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
+                                                     @Nullable byte[] continuation,
+                                                     @Nonnull ScanProperties scanProperties) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Subspace recordsSubspace = recordsSubspace();
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
@@ -1165,6 +1164,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
             }
         }
+        return rawRecords;
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                 @Nullable final Tuple low, @Nullable final Tuple high,
+                                                                                 @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
+                                                                                 @Nullable byte[] continuation,
+                                                                                 @Nonnull ScanProperties scanProperties) {
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+        final RecordCursor<FDBRawRecord> rawRecords = scanRawRecords(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
         RecordCursor<FDBStoredRecord<M>> result = rawRecords.mapPipelined(rawRecord -> {
             final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional;
             if (useOldVersionFormat()) {

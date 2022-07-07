@@ -827,6 +827,24 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                  @Nonnull ScanProperties scanProperties);
 
     /**
+     * Scan the records in the database in a range.
+     *
+     * @param low low point of scan range
+     * @param high high point of scan point
+     * @param lowEndpoint whether low point is inclusive or exclusive
+     * @param highEndpoint whether high point is inclusive or exclusive
+     * @param continuation any continuation from a previous scan
+     * @param scanProperties skip, limit and other scan properties
+     *
+     * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
+     */
+    @Nonnull
+    RecordCursor<FDBRawRecord> scanRawRecords(@Nullable Tuple low, @Nullable Tuple high,
+                                              @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint,
+                                              @Nullable byte[] continuation,
+                                              @Nonnull ScanProperties scanProperties);
+
+    /**
      * Count the number of records in the database in a range.
      *
      * @param low low point of scan range
