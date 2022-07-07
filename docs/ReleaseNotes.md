@@ -45,6 +45,9 @@ This release also updates downstream dependency versions. Most notably, the prot
 // end next release
 -->
 
+### 3.2.276.0
+
+
 ### 3.2.275.0
 
 * **Bug fix** Fix fallback for scanIndexRecords [(Issue ##1761)](https://github.com/FoundationDB/fdb-record-layer/issues/#1761)
