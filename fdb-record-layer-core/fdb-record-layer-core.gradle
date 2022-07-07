@@ -32,7 +32,7 @@ configurations {
 }
 
 dependencies {
-    implementation project(':fdb-extensions')
+    api project(':fdb-extensions')
     annotationProcessor project(':fdb-extensions')
 
     api "com.google.protobuf:protobuf-java:${protobufVersion}"
