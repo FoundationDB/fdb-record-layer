@@ -182,6 +182,10 @@ public class LuceneEvents {
         LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS("lucene scan matched auto complete suggestions", false),
         /** Matched spellchecker suggestions returned from lucene spellchecker suggestion lookup. **/
         LUCENE_SCAN_SPELLCHECKER_SUGGESTIONS("lucene scan matched spellchecker suggestions", false),
+        /** Block to read came from shared cache. **/
+        LUCENE_SHARED_CACHE_HITS("lucene shared cache hits", false),
+        /** Block to read came not in shared cache. **/
+        LUCENE_SHARED_CACHE_MISSES("lucene shared cache misses", false),
         ;
 
         private final String title;

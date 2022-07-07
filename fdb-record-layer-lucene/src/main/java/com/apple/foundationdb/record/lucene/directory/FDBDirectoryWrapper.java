@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -58,9 +60,14 @@ class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile String writerAnalyzerId;
 
-    FDBDirectoryWrapper(IndexMaintainerState state, FDBDirectory directory, int mergeDirectoryCount) {
+    FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount) {
+        final Subspace subspace = state.indexSubspace.subspace(key);
+        final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
+        final Tuple sharedCacheKey = sharedCacheManager == null ? null :
+                                     (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
+
         this.state = state;
-        this.directory = directory;
+        this.directory = new FDBDirectory(subspace, state.context, sharedCacheManager, sharedCacheKey);
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
