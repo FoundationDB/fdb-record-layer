@@ -90,6 +90,7 @@ public enum ErrorCode {
      */
     UNKNOWN("XXXXX"),
     UNABLE_TO_ESTABLISH_SQL_CONNECTION("08001"),
+    CONNECTION_DOES_NOT_EXIST("08003"),
     PROTOCOL_VIOLATION("08P01"),
     /**
      * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream
@@ -112,7 +113,9 @@ public enum ErrorCode {
     UNKNOWN_FIELD("42F18"),
     INCORRECT_METADATA_TABLE_VERSION("42P19"),
     INVALID_SCHEMA_TEMPLATE("42P20"),
-    TABLE_NOT_FOUND("42P21");
+    TABLE_NOT_FOUND("42P21"),
+    FILE_NOT_FOUND("58001")
+    ;
 
     private final String errorCode;
 

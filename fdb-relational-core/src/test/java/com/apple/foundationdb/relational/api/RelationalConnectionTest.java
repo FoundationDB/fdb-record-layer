@@ -53,4 +53,14 @@ class RelationalConnectionTest {
         RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:/i_am_not_a_database"), Options.NONE))
                 .hasErrorCode(ErrorCode.DATABASE_NOT_FOUND);
     }
+
+    @Test
+    void missingLeadingSlash() {
+        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:i_am_not_a_database"), Options.NONE))
+                .hasErrorCode(ErrorCode.DATABASE_NOT_FOUND)
+                .containsInMessage("<i_am_not_a_database>")
+                .doesNotContainInMessage("<null>")
+        ;
+
+    }
 }

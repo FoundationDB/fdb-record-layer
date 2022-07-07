@@ -27,6 +27,7 @@ import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.IntegerAssert;
 import org.assertj.core.api.ObjectAssert;
+import org.assertj.core.api.StringAssert;
 import org.assertj.core.api.ThrowableAssert;
 
 import java.sql.SQLException;
@@ -61,6 +62,16 @@ public final class RelationalAssertions {
 
         public RelationalExceptionAssert hasErrorCode(ErrorCode expected) {
             extracting(RelationalException::getErrorCode, ObjectAssert::new).isEqualTo(expected);
+            return this;
+        }
+
+        public RelationalExceptionAssert containsInMessage(String text) {
+            extracting(RelationalException::getMessage, StringAssert::new).contains(text);
+            return this;
+        }
+
+        public RelationalExceptionAssert doesNotContainInMessage(String text) {
+            extracting(RelationalException::getMessage, StringAssert::new).doesNotContain(text);
             return this;
         }
     }

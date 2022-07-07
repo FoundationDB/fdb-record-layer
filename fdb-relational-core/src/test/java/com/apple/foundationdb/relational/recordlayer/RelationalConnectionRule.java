@@ -134,6 +134,11 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
         return connection.getOptions();
     }
 
+    @Override
+    public URI getPath() {
+        return connection.getPath();
+    }
+
     public RelationalConnection getUnderlying() {
         return connection;
     }

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import java.net.URI;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -84,6 +85,8 @@ public interface RelationalConnection extends java.sql.Connection {
 
     @Nonnull
     Options getOptions();
+
+    URI getPath();
 
     /* Unsupported SQL features*/
     @Override

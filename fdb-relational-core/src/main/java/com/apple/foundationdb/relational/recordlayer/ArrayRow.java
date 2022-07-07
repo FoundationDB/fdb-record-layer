@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 public class ArrayRow extends AbstractRow {
     private final Object[] data;
 
-    public ArrayRow(Object[] data) {
+    public ArrayRow(Object... data) {
         this.data = data;
     }
 

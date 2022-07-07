@@ -125,6 +125,11 @@ public class InMemoryRelationalConnection implements RelationalConnection {
         return Options.NONE;
     }
 
+    @Override
+    public URI getPath() {
+        return null;
+    }
+
     InMemoryTable loadTable(String tableName) throws RelationalException {
         String[] schemaAndTable = tableName.split("\\.");
         String schema;

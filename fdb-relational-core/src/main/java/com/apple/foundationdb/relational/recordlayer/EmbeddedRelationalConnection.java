@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import java.net.URI;
 import java.sql.SQLException;
 
 import javax.annotation.Nonnull;
@@ -183,6 +184,11 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     public Options getOptions() {
         return options;
+    }
+
+    @Override
+    public URI getPath() {
+        return this.frl.getURI();
     }
 
     boolean inActiveTransaction() {
