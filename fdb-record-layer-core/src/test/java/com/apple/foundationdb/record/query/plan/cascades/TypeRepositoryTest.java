@@ -186,7 +186,7 @@ class TypeRepositoryTest {
         builder.addTypeIfNeeded(t);
         final TypeRepository actualRepository = builder.build();
         // there should be three types in the repository, but for different nested types within the tree
-        System.out.println("actual repository:" + actualRepository.getMessageTypes());
+        System.out.println("actual repository:" + actualRepository);
         Assertions.assertEquals(3, actualRepository.getMessageTypes().size());
     }
 

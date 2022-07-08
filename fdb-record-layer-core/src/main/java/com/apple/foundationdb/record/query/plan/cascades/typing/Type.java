@@ -270,7 +270,6 @@ public interface Type extends Narrowable<Type> {
      * @param protoType The protobuf descriptor type.
      * @param protoLabel The protobuf descriptor label.
      * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise <code>false</code>.
-     *
      * @return A {@link Type} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
      */
     @Nonnull
@@ -312,8 +311,8 @@ public interface Type extends Narrowable<Type> {
             } else if (typeCode == TypeCode.RECORD) {
                 Objects.requireNonNull(descriptor);
                 final var messageDescriptor = (Descriptors.Descriptor)descriptor;
-
                 if (isWrappedArray(messageDescriptor)) {
+                    // find TypeCode of array elements
                     TypeCode t = TypeCode.fromProtobufType(messageDescriptor.findFieldByName("values").getType());
                     if (t.isPrimitive()) {
                         final var primitiveType = primitiveType(t, true);
@@ -323,7 +322,7 @@ public interface Type extends Narrowable<Type> {
                         final var enumType = new Enum(true, Enum.enumValuesFromProto(enumDescriptor.getValues()));
                         return new Array(true, enumType, true);
                     } else {
-                        // t is Record type
+                        // array elements is Record type
                         Descriptors.Descriptor wrappedDescriptor = messageDescriptor.findFieldByName("values").getMessageType();
                         Objects.requireNonNull(wrappedDescriptor);
                         return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true), true);
@@ -337,6 +336,13 @@ public interface Type extends Narrowable<Type> {
         throw new IllegalStateException("unable to translate protobuf descriptor to type");
     }
 
+    /*
+    Message that looks like:
+    message M {
+      repeated R values = 1;
+    }
+    is considered to be a wrapped array
+     */
     private static boolean isWrappedArray(Descriptors.Descriptor descriptor) {
         if (descriptor.getFields().size() == 1) {
             Descriptors.FieldDescriptor fieldDescriptor = descriptor.getFields().get(0);
@@ -821,7 +827,6 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Returns the list of {@link Record} {@link Field}s.
-         *
          * @return the list of {@link Record} {@link Field}s.
          */
         @Nonnull
@@ -934,18 +939,19 @@ public interface Type extends Narrowable<Type> {
                 return true;
             }
 
-            // ReferentialRecord and Record can be equal
+            // Record object and <? extends Record> object can be equal
             if (!(obj instanceof Record)) {
                 return false;
             }
 
             if (getClass() == obj.getClass()) {
+                // judge whether two Record are equal
                 final var otherType = (Record)obj;
                 return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                        ((isErased() && otherType.isErased()) ||
                         (Objects.requireNonNull(fields).equals(otherType.fields)));
             } else {
-                // a ReferentialRecord and a Record are equal when all variables, including name, are equal
+                // a <? extends Record> object and a Record object are equal when they satisfy rules defined in <? extends Record> class
                 return obj.equals(this);
             }
         }
@@ -987,7 +993,6 @@ public interface Type extends Narrowable<Type> {
          *
          * @param isNullable True, if the {@link Record} type instance should be nullable, otherwise <code>false</code>.
          * @param fields The list of {@link Field}s used to create the new {@link Record} type instance.
-         *
          * @return a new {@link Record} type instance using the given list of {@link Field}s.
          */
         @Nonnull
@@ -1005,7 +1010,6 @@ public interface Type extends Narrowable<Type> {
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          *
          * @param fieldDescriptorMap A map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
-         *
          * @return a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          */
@@ -1025,7 +1029,7 @@ public interface Type extends Narrowable<Type> {
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          */
         @Nonnull
-        public static Record fromFieldDescriptorsMap(@Nullable String typeName, final boolean isNullable, @Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
+        public static Record fromFieldDescriptorsMap(@Nullable final String typeName, final boolean isNullable, @Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
             final var fieldsBuilder = ImmutableList.<Field>builder();
             for (final var entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final var fieldDescriptor = entry.getValue();
@@ -1063,7 +1067,7 @@ public interface Type extends Narrowable<Type> {
          * @return Optionally, a field that can be used as an array element type.
          */
         @Nonnull
-        static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(@Nonnull final Descriptors.Descriptor descriptor) {
+        private static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(@Nonnull final Descriptors.Descriptor descriptor) {
             final var fields = descriptor.getFields();
             if (fields.size() == 1) {
                 final var field0 = fields.get(0);
@@ -1329,6 +1333,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Checks whether the stream type is erased or not.
+         * 
          * @return <code>true</code> if the stream type is erased, otherwise <code>false</code>.
          */
         public boolean isErased() {
@@ -1500,6 +1505,7 @@ public interface Type extends Narrowable<Type> {
          */
         @Override
         public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
+            /*
             Objects.requireNonNull(elementType);
             final var typeName = uniqueCompliantTypeName();
             final var helperDescriptorBuilder = DescriptorProto.newBuilder();
@@ -1511,6 +1517,8 @@ public interface Type extends Narrowable<Type> {
                     FieldDescriptorProto.Label.LABEL_OPTIONAL);
             typeRepositoryBuilder.addMessageType(helperDescriptorBuilder.build());
             typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
+
+             */
         }
 
         /**
