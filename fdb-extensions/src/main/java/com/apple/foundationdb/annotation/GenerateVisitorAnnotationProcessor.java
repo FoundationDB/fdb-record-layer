@@ -21,7 +21,6 @@
 package com.apple.foundationdb.annotation;
 
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -122,9 +121,7 @@ public class GenerateVisitorAnnotationProcessor extends AbstractProcessor {
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return ImmutableSet.<String>builder()
-                .add(GenerateVisitor.class.getCanonicalName())
-                .build();
+        return Set.of(GenerateVisitor.class.getCanonicalName());
     }
 
     @Override
