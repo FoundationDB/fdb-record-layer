@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.codahale.metrics.MetricSet;
 import com.google.common.collect.Iterators;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -47,6 +48,7 @@ public class TransactionConfigTest {
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational, TransactionConfigTest.class, TestSchemas.restaurant());
 
+    @Disabled
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
         Options options = Options.builder().withOption(Options.Name.TRANSACTION_TIMEOUT, 1L).build();
