@@ -1112,10 +1112,44 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<FDBRawRecord> scanRawRecords(@Nullable final Tuple low, @Nullable final Tuple high,
                                                      @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
                                                      @Nullable byte[] continuation,
                                                      @Nonnull ScanProperties scanProperties) {
+        final RecordCursor<FDBRawRecord> rawRecords = scanRawRecordsInternal(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+        return context.instrument(FDBStoreTimer.Events.SCAN_RAW_RECORDS, rawRecords);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                 @Nullable final Tuple low, @Nullable final Tuple high,
+                                                                                 @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
+                                                                                 @Nullable byte[] continuation,
+                                                                                 @Nonnull ScanProperties scanProperties) {
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+        final RecordCursor<FDBRawRecord> rawRecords = scanRawRecords(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+        RecordCursor<FDBStoredRecord<M>> result = rawRecords.mapPipelined(rawRecord -> {
+            final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional;
+            if (useOldVersionFormat()) {
+                // Older format versions: do a separate read to get the version.
+                versionFutureOptional = loadRecordVersionAsync(rawRecord.getPrimaryKey(), scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
+            } else {
+                // Newer format versions: the version is either in the record or it is not -- do not do another read.
+                versionFutureOptional = Optional.empty();
+            }
+            return deserializeRecord(typedSerializer, rawRecord, metaData, versionFutureOptional);
+        }, pipelineSizer.getPipelineSize(PipelineOperation.KEY_TO_RECORD));
+        return context.instrument(FDBStoreTimer.Events.SCAN_RECORDS, result);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    private RecordCursor<FDBRawRecord> scanRawRecordsInternal(@Nullable final Tuple low, @Nullable final Tuple high,
+                                                              @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
+                                                              @Nullable byte[] continuation,
+                                                              @Nonnull ScanProperties scanProperties) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Subspace recordsSubspace = recordsSubspace();
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
@@ -1129,8 +1163,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .build();
             rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordsSubspace, keyValues, useOldVersionFormat(), sizeInfo, scanProperties.isReverse(),
                     new CursorLimitManager(context, scanProperties.with(ExecuteProperties::clearReturnedRowLimit)))
-                .skip(scanProperties.getExecuteProperties().getSkip())
-                .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+                    .skip(scanProperties.getExecuteProperties().getSkip())
+                    .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
         } else {
             KeyValueCursor.Builder keyValuesBuilder = KeyValueCursor.Builder.withSubspace(recordsSubspace)
                     .setContext(context).setContinuation(continuation)
@@ -1160,34 +1194,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         .setScanProperties(finalScanProperties).build(),
                         useOldVersionFormat(), sizeInfo, scanProperties.isReverse(),
                         new CursorLimitManager(context, scanProperties.with(ExecuteProperties::clearReturnedRowLimit)))
-                    .skip(scanProperties.getExecuteProperties().getSkip())
-                    .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+                        .skip(scanProperties.getExecuteProperties().getSkip())
+                        .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
             }
         }
         return rawRecords;
-    }
-
-    @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                                 @Nullable final Tuple low, @Nullable final Tuple high,
-                                                                                 @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
-                                                                                 @Nullable byte[] continuation,
-                                                                                 @Nonnull ScanProperties scanProperties) {
-        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
-        final RecordCursor<FDBRawRecord> rawRecords = scanRawRecords(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
-        RecordCursor<FDBStoredRecord<M>> result = rawRecords.mapPipelined(rawRecord -> {
-            final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional;
-            if (useOldVersionFormat()) {
-                // Older format versions: do a separate read to get the version.
-                versionFutureOptional = loadRecordVersionAsync(rawRecord.getPrimaryKey(), scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
-            } else {
-                // Newer format versions: the version is either in the record or it is not -- do not do another read.
-                versionFutureOptional = Optional.empty();
-            }
-            return deserializeRecord(typedSerializer, rawRecord, metaData, versionFutureOptional);
-        }, pipelineSizer.getPipelineSize(PipelineOperation.KEY_TO_RECORD));
-        return context.instrument(FDBStoreTimer.Events.SCAN_RECORDS, result);
     }
 
     @Override

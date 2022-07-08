@@ -319,6 +319,15 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
         };
     }
 
+    protected static Function<FDBRecordStore, CompletableFuture<?>> scanRawRecords(int start) {
+        return store -> {
+            final int pipelineSize = store.getPipelineSize(PipelineOperation.KEY_TO_RECORD);
+            return store.scanRawRecords(Tuple.from(start), Tuple.from(start + pipelineSize),
+                    EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE, null, ScanProperties.FORWARD_SCAN)
+                    .getCount();
+        };
+    }
+
     protected static Function<FDBRecordStore, CompletableFuture<?>> loadRecords(int start) {
         return store -> {
             final int pipelineSize = store.getPipelineSize(PipelineOperation.KEY_TO_RECORD);
@@ -368,6 +377,11 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
     @Test
     public void scanRecordsTest() throws Exception {
         runTest("scan records", FDBRecordStorePerformanceTest::scanRecords, new TestParameters());
+    }
+
+    @Test
+    public void scanRawRecordsTest() throws Exception {
+        runTest("scan raw records", FDBRecordStorePerformanceTest::scanRawRecords, new TestParameters());
     }
 
     @Test
@@ -435,6 +449,8 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
             final Function<Integer, Function<FDBRecordStore, CompletableFuture<?>>> testFunction;
             if ("scanRecords".equals(testName)) {
                 testFunction = FDBRecordStorePerformanceTest::scanRecords;
+            } else if ("scanRawRecords".equals(testName)) {
+                testFunction = FDBRecordStorePerformanceTest::scanRawRecords;
             } else if ("loadRecords".equals(testName)) {
                 testFunction = FDBRecordStorePerformanceTest::loadRecords;
             } else if ("indexScan".equals(testName)) {

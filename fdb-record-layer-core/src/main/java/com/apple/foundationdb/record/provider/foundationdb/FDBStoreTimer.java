@@ -121,6 +121,8 @@ public class FDBStoreTimer extends StoreTimer {
         LOAD_RECORD("load record"),
         /** The amount of time taken scanning records directly without any index. */
         SCAN_RECORDS("scan records"),
+        /** The amount of time taken scanning raw records directly without any index. */
+        SCAN_RAW_RECORDS("scan raw records"),
         /**
          * The amount of time taken scanning the entries of an index.
          * An ordinary index scan from a query will entail both an index entry scan and {@link #LOAD_RECORD} for each record pointed to by an index entry.
