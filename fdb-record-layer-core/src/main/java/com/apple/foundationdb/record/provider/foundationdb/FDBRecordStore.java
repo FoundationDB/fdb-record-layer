@@ -1129,7 +1129,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                  @Nullable byte[] continuation,
                                                                                  @Nonnull ScanProperties scanProperties) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
-        final RecordCursor<FDBRawRecord> rawRecords = scanRawRecords(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+        final RecordCursor<FDBRawRecord> rawRecords = scanRawRecordsInternal(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
         RecordCursor<FDBStoredRecord<M>> result = rawRecords.mapPipelined(rawRecord -> {
             final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional;
             if (useOldVersionFormat()) {
