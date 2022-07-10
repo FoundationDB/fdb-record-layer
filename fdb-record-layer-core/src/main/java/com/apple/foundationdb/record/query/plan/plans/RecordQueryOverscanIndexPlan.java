@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
@@ -85,7 +86,7 @@ import java.util.Set;
  * </p>
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryOverscanIndexPlan implements RecordQueryPlanWithIndex, RecordQueryPlanWithNoChildren {
+public class RecordQueryOverscanIndexPlan implements RecordQueryPlanWithIndex, RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons {
     private final RecordQueryIndexPlan originalIndexPlan;
 
     @API(API.Status.INTERNAL)
@@ -394,5 +395,16 @@ public class RecordQueryOverscanIndexPlan implements RecordQueryPlanWithIndex, R
     @Override
     public PlannerGraph createIndexPlannerGraph(@Nonnull final RecordQueryPlan identity, @Nonnull final NodeInfo nodeInfo, @Nonnull final List<String> additionalDetails, @Nonnull final Map<String, Attribute> additionalAttributeMap) {
         return originalIndexPlan.createIndexPlannerGraph(identity, nodeInfo, additionalDetails, additionalAttributeMap);
+    }
+
+    @Override
+    public boolean hasComparisons() {
+        return originalIndexPlan.hasComparisons();
+    }
+
+    @Nonnull
+    @Override
+    public ScanComparisons getComparisons() {
+        return originalIndexPlan.getComparisons();
     }
 }
