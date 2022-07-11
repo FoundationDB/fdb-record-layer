@@ -141,7 +141,7 @@ public class DdlStatementParsingTest {
                 "CREATE TABLE foo(a int64)" +
                 " CREATE VALUE INDEX t_idx on foo(NON_EXISTING)"
         ;
-        shouldFailWith(stmt, ErrorCode.UNKNOWN_FIELD);
+        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Test
@@ -298,7 +298,7 @@ public class DdlStatementParsingTest {
                 " CREATE VALUE INDEX foo_idx on FOO(col0)" +
                 " CREATE VALUE INDEX foo_idx on FOO(col1)"; //duplicate with the same name  on same table should fail
 
-        shouldFailWithInjectedFactory(columnStatement, ErrorCode.INDEX_EXISTS, new AbstractConstantActionFactory() {
+        shouldFailWithInjectedFactory(columnStatement, ErrorCode.INDEX_ALREADY_EXISTS, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,

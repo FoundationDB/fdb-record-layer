@@ -117,7 +117,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
         } catch (NoSuchDirectoryException nsde) {
             throw new RelationalException("Uninitialized Catalog", ErrorCode.INTERNAL_ERROR, nsde);
         } catch (MetaDataException mde) {
-            throw new RelationalException(mde.getMessage(), ErrorCode.UNKNOWN_SCHEMA, mde);
+            throw new RelationalException(mde.getMessage(), ErrorCode.UNDEFINED_SCHEMA, mde);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -135,9 +135,9 @@ public class RecordLayerDatabase extends AbstractDatabase {
         } catch (RecordCoreException rce) {
             Throwable cause = Throwables.getRootCause(rce);
             if (cause instanceof RecordStoreDoesNotExistException) {
-                throw new RelationalException("Schema does not exist. Schema: <" + schemaName + ">", ErrorCode.SCHEMA_NOT_FOUND, cause);
+                throw new RelationalException("Schema does not exist. Schema: <" + schemaName + ">", ErrorCode.UNDEFINED_SCHEMA, cause);
             } else {
-                throw new RelationalException("Schema <" + schemaName + "> cannot be found", ErrorCode.UNKNOWN_SCHEMA, cause);
+                throw new RelationalException("Schema <" + schemaName + "> cannot be found", ErrorCode.UNDEFINED_SCHEMA, cause);
             }
         }
     }

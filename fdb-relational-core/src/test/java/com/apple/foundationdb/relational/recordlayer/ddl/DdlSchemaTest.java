@@ -120,7 +120,7 @@ public class DdlSchemaTest {
                 final String createStatement = "CREATE SCHEMA '" + db.getDbUri() + "/testSchema' WITH TEMPLATE " + baseTemplate.getTemplateName();
                 statement.executeUpdate(createStatement);
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createStatement))
-                        .hasErrorCode(ErrorCode.SCHEMA_EXISTS);
+                        .hasErrorCode(ErrorCode.SCHEMA_ALREADY_EXISTS);
 
             }
         }
@@ -158,7 +158,7 @@ public class DdlSchemaTest {
 
                 //now make sure that it can't be found again
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("DESCRIBE SCHEMA '" + db.getDbUri() + "/testSchema'"))
-                        .hasErrorCode(ErrorCode.SCHEMA_NOT_FOUND);
+                        .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
             }
         }
     }

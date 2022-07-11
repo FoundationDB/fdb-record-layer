@@ -63,7 +63,7 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
                     path = path.replace(url.getAuthority() + ":", "");
                 }
             }
-            throw new RelationalException("Database <" + path + "> does not exist", ErrorCode.DATABASE_NOT_FOUND);
+            throw new RelationalException("Database <" + path + "> does not exist", ErrorCode.UNDEFINED_DATABASE);
         }
         return frl.connect(existingTransaction);
     }

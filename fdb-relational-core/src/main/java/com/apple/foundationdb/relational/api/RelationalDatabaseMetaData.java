@@ -92,7 +92,7 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      * @param tableName the name of the table to search.
      * @param types the type of tables to filter.
      * @return a resultset with a schema listing.
-     * @throws SQLException with ErrorCode {@link ErrorCode#SCHEMA_NOT_FOUND} if the schema
+     * @throws SQLException with ErrorCode {@link ErrorCode#UNDEFINED_SCHEMA} if the schema
      * does not exist within this database; a different error code if something systemic goes wrong.
      */
     @Override

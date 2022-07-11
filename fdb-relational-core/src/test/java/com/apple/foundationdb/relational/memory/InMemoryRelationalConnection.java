@@ -147,7 +147,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
         }
 
         if (schema == null) {
-            throw new RelationalException("Unknown Schema ", ErrorCode.UNKNOWN_SCHEMA);
+            throw new RelationalException("Unknown Schema ", ErrorCode.UNDEFINED_SCHEMA);
         }
         return catalog.loadTable(databaseUri, schema, table);
     }

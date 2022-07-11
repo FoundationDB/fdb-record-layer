@@ -125,7 +125,7 @@ public class BasicMetadataTest {
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
         RelationalAssertions.assertThrowsSqlException(() -> metaData.getTables(null, "missingSchema", null, null))
-                .hasErrorCode(ErrorCode.SCHEMA_NOT_FOUND);
+                .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
     }
 
     @Test

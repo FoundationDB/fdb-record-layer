@@ -71,7 +71,7 @@ public class DbStateInsertCommandTest {
         factory.getConnectCommand(URI.create("jdbc:embed:/__SYS")).call(); //set connection
         SqlCommand<Integer> showComm = factory.getInsertCommand(null, "schema", Json.createArrayBuilder().build());
         SQLException sqle = Assertions.assertThrows(SQLException.class, showComm::call);
-        Assertions.assertEquals(ErrorCode.UNKNOWN_SCHEMA.getErrorCode(), sqle.getSQLState(), "Incorrect error code");
+        Assertions.assertEquals(ErrorCode.UNDEFINED_SCHEMA.getErrorCode(), sqle.getSQLState(), "Incorrect error code");
     }
 
     @Test

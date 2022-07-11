@@ -143,7 +143,7 @@ public class DdlDatabaseTest {
                 Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE SCHEMA /test_db/should_fail with template " + baseTemplate.getTemplateName()))
                         .isInstanceOf(SQLException.class)
                         .extracting("SQLState")
-                        .isEqualTo(ErrorCode.DATABASE_NOT_FOUND.getErrorCode());
+                        .isEqualTo(ErrorCode.UNDEFINED_DATABASE.getErrorCode());
             }
         }
     }

@@ -135,7 +135,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         try {
             loadSchema(transaction, URI.create(SYS_DB), SCHEMA);
         } catch (RelationalException ve) {
-            if (ve.getErrorCode() != ErrorCode.SCHEMA_NOT_FOUND) {
+            if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA) {
                 return;
             }
         }
@@ -164,7 +164,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         try {
             final FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
             if (record == null) {
-                throw new RelationalException("Schema <" + databaseId.getPath() + "/" + schemaName + "> does not exist in the catalog!", ErrorCode.SCHEMA_NOT_FOUND);
+                throw new RelationalException("Schema <" + databaseId.getPath() + "/" + schemaName + "> does not exist in the catalog!", ErrorCode.UNDEFINED_SCHEMA);
             }
             Message m = record.getRecord();
             return parseSchemaTable(m);
@@ -219,7 +219,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         try {
             FDBRecordStore recordStore = openFDBRecordStore(txn);
             Tuple primaryKey = getSchemaKey(dbUri, schemaName);
-            Assert.that(recordStore.deleteRecord(primaryKey), "Schema " + dbUri.getPath() + "/" + schemaName + " does not exist", ErrorCode.SCHEMA_NOT_FOUND);
+            Assert.that(recordStore.deleteRecord(primaryKey), "Schema " + dbUri.getPath() + "/" + schemaName + " does not exist", ErrorCode.UNDEFINED_SCHEMA);
         } catch (RecordCoreException rce) {
             throw ExceptionUtil.toRelationalException(rce);
         }
@@ -302,7 +302,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         try {
             loadSchema(txn, URI.create("/__SYS"), "catalog");
         } catch (RelationalException ve) {
-            if (ve.getErrorCode() != ErrorCode.SCHEMA_NOT_FOUND) {
+            if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA) {
                 return;
             }
         }

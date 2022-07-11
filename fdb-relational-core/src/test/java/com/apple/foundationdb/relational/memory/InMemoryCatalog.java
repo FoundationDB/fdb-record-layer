@@ -48,14 +48,14 @@ public class InMemoryCatalog implements StoreCatalog {
     public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
         final List<InMemorySchema> schemas = dbToSchemas.get(databaseId);
         if (schemas == null) {
-            throw new RelationalException("No such database <" + databaseId + ">", ErrorCode.SCHEMA_NOT_FOUND);
+            throw new RelationalException("No such database <" + databaseId + ">", ErrorCode.UNDEFINED_SCHEMA);
         }
         for (InMemorySchema schema : schemas) {
             if (schema.schema.getSchemaName().equalsIgnoreCase(schemaName)) {
                 return schema.schema;
             }
         }
-        throw new RelationalException("No such schema <" + schemaName + ">", ErrorCode.SCHEMA_NOT_FOUND);
+        throw new RelationalException("No such schema <" + schemaName + ">", ErrorCode.UNDEFINED_SCHEMA);
     }
 
     @Override

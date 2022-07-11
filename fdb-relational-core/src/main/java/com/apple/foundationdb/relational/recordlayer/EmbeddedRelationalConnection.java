@@ -135,7 +135,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
                 beginTransaction();
             }
             if (!this.backingCatalog.doesSchemaExist(transaction, frl.getURI(), schema)) {
-                throw new RelationalException(String.format("Schema %s does not exist in %s", schema, frl.getURI()), ErrorCode.SCHEMA_NOT_FOUND);
+                throw new RelationalException(String.format("Schema %s does not exist in %s", schema, frl.getURI()), ErrorCode.UNDEFINED_SCHEMA);
             }
             this.currentSchemaLabel = schema;
         } catch (RelationalException e) {

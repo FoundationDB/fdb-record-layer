@@ -82,9 +82,9 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         try {
             final Schema beforeSchema = catalog.loadSchema(txn, dbUri, schemaName);
             String schemaTemplateName = beforeSchema.getSchemaTemplateName();
-            throw new RelationalException("Schema " + schemaName + " already exists with mapping " + schemaTemplateName, ErrorCode.SCHEMA_EXISTS);
+            throw new RelationalException("Schema " + schemaName + " already exists with mapping " + schemaTemplateName, ErrorCode.SCHEMA_ALREADY_EXISTS);
         } catch (RelationalException ve) {
-            if (ve.getErrorCode() != ErrorCode.SCHEMA_NOT_FOUND) {
+            if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA) {
                 throw ve;
             }
         }
@@ -110,7 +110,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS);
         } catch (RecordStoreAlreadyExistsException rsaee) {
             // The schema already exists!
-            throw new RelationalException("Schema <" + schemaName + "> already exists", ErrorCode.SCHEMA_EXISTS);
+            throw new RelationalException("Schema <" + schemaName + "> already exists", ErrorCode.SCHEMA_ALREADY_EXISTS);
         } catch (RecordCoreException rce) {
             throw ExceptionUtil.toRelationalException(rce);
         }

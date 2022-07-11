@@ -107,7 +107,7 @@ public class RecordLayerStoreCatalogImplTest {
         try (Transaction loadTxn2 = new RecordContextTransaction(fdb.openContext())) {
             RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
                     storeCatalog.loadSchema(loadTxn2, URI.create("test_wrong_database_id"), "test_schema_name"));
-            Assertions.assertEquals(ErrorCode.SCHEMA_NOT_FOUND, exception.getErrorCode());
+            Assertions.assertEquals(ErrorCode.UNDEFINED_SCHEMA, exception.getErrorCode());
         }
     }
 
@@ -117,7 +117,7 @@ public class RecordLayerStoreCatalogImplTest {
         try (Transaction loadTxn3 = new RecordContextTransaction(fdb.openContext())) {
             RelationalException exception2 = Assertions.assertThrows(RelationalException.class, () ->
                     storeCatalog.loadSchema(loadTxn3, URI.create("test_database_id"), "test_wrong_schema_name"));
-            Assertions.assertEquals(ErrorCode.SCHEMA_NOT_FOUND, exception2.getErrorCode());
+            Assertions.assertEquals(ErrorCode.UNDEFINED_SCHEMA, exception2.getErrorCode());
         }
     }
 

@@ -53,13 +53,13 @@ class RelationalConnectionTest {
                 .hasErrorCode(ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
 
         RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:/i_am_not_a_database"), Options.NONE))
-                .hasErrorCode(ErrorCode.DATABASE_NOT_FOUND);
+                .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
     }
 
     @Test
     void missingLeadingSlash() {
         RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:i_am_not_a_database"), Options.NONE))
-                .hasErrorCode(ErrorCode.DATABASE_NOT_FOUND)
+                .hasErrorCode(ErrorCode.UNDEFINED_DATABASE)
                 .containsInMessage("<i_am_not_a_database>")
                 .doesNotContainInMessage("<null>")
         ;
@@ -70,7 +70,7 @@ class RelationalConnectionTest {
     void setWrongSchema() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             RelationalAssertions.assertThrowsSqlException(() -> conn.setSchema("foo"))
-                    .hasErrorCode(ErrorCode.SCHEMA_NOT_FOUND);
+                    .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
         }
 
     }

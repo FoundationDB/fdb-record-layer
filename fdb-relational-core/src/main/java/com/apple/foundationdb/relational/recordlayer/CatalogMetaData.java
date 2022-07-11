@@ -209,7 +209,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             try {
                 rmd.getRecordType(tablePattern);
             } catch (MetaDataException mde) {
-                throw new RelationalException("table <" + tablePattern + "> does not exist", ErrorCode.TABLE_NOT_FOUND);
+                throw new RelationalException("table <" + tablePattern + "> does not exist", ErrorCode.UNDEFINED_TABLE);
             }
             //now get its column data
             final Descriptors.Descriptor tableDescriptor = fileDesc.findMessageTypeByName(tablePattern);
@@ -324,7 +324,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                         })
                         .collect(Collectors.toList());
             } catch (MetaDataException mde) {
-                throw new RelationalException("table <" + tablePattern + "> does not exist", ErrorCode.TABLE_NOT_FOUND);
+                throw new RelationalException("table <" + tablePattern + "> does not exist", ErrorCode.UNDEFINED_TABLE);
             }
 
             FieldDescription[] columns = new FieldDescription[]{
