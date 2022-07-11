@@ -63,6 +63,7 @@ public enum ErrorCode {
      * Indicates a successful operation.
      */
     SUCCESS("00000"),
+    CONNECTION_DOES_NOT_EXIST("08003"),
     UNSUPPORTED_OPERATION("0A000"),
     CANNOT_CONVERT_TYPE("22000"),
     INVALID_PARAMETER("22023"),
@@ -90,7 +91,6 @@ public enum ErrorCode {
      */
     UNKNOWN("XXXXX"),
     UNABLE_TO_ESTABLISH_SQL_CONNECTION("08001"),
-    CONNECTION_DOES_NOT_EXIST("08003"),
     PROTOCOL_VIOLATION("08P01"),
     /**
      * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream

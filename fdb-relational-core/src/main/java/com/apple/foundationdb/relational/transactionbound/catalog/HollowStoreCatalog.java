@@ -75,6 +75,12 @@ public class HollowStoreCatalog implements StoreCatalog {
     }
 
     @Override
+    public boolean doesSchemaExist(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
+        // We do not check schema existence in this hollow catalog as it should be checked by the caller
+        return true;
+    }
+
+    @Override
     public void deleteDatabase(Transaction txn, URI dbUrl) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }

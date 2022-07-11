@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 
 class RelationalConnectionTest {
 
@@ -61,6 +63,15 @@ class RelationalConnectionTest {
                 .containsInMessage("<i_am_not_a_database>")
                 .doesNotContainInMessage("<null>")
         ;
+
+    }
+
+    @Test
+    void setWrongSchema() throws RelationalException, SQLException {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+            RelationalAssertions.assertThrowsSqlException(() -> conn.setSchema("foo"))
+                    .hasErrorCode(ErrorCode.SCHEMA_NOT_FOUND);
+        }
 
     }
 }

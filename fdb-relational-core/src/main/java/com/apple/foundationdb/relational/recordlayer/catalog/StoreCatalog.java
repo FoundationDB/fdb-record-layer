@@ -101,5 +101,7 @@ public interface StoreCatalog {
 
     boolean doesDatabaseExist(Transaction txn, URI dbUrl) throws RelationalException;
 
+    boolean doesSchemaExist(Transaction txn, URI dbUrl, String schemaName)  throws RelationalException;
+
     void deleteDatabase(Transaction txn, URI dbUrl) throws RelationalException;
 }

@@ -155,23 +155,4 @@ public class InsertTest {
             }
         }
     }
-
-    @Test
-    void cannotInsertWithMissingSchema() throws RelationalException, SQLException {
-        /*
-         * We want to make sure that we don't accidentally pick up data from different tables
-         */
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
-            conn.setSchema("doesNotExist");
-            conn.beginTransaction();
-            try (RelationalStatement s = conn.createStatement()) {
-                long id = System.currentTimeMillis();
-                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
-                RelationalAssertions.assertThrows(() -> {
-                    int inserted = s.executeInsert("RestaurantReviewer", Collections.singleton(record));
-                    Assertions.fail("did not throw an exception on insertion(inserted=" + inserted + ")");
-                }).hasErrorCode(ErrorCode.SCHEMA_NOT_FOUND);
-            }
-        }
-    }
 }

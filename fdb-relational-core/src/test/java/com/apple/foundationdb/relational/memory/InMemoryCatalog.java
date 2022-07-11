@@ -105,6 +105,11 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
+    public boolean doesSchemaExist(Transaction txn, URI dbUri, String schemaName) {
+        return doesDatabaseExist(txn, dbUri) && dbToSchemas.get(dbUri).stream().map(s -> s.schema.getSchemaName()).anyMatch(schemaName::equals);
+    }
+
+    @Override
     public void deleteDatabase(Transaction txn, URI dbUrl) {
         dbToSchemas.remove(dbUrl);
     }

@@ -125,9 +125,26 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public void setSchema(String schema) throws SQLException {
-        //open the correct record store
-        this.currentSchemaLabel = schema;
-        //TODO(bfines) validate that this schema exists
+        if (schema == null) {
+            this.currentSchemaLabel = null;
+            return;
+        }
+        boolean newTransaction = !inActiveTransaction();
+        try {
+            if (newTransaction) {
+                beginTransaction();
+            }
+            if (!this.backingCatalog.doesSchemaExist(transaction, frl.getURI(), schema)) {
+                throw new RelationalException(String.format("Schema %s does not exist in %s", schema, frl.getURI()), ErrorCode.SCHEMA_NOT_FOUND);
+            }
+            this.currentSchemaLabel = schema;
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        } finally {
+            if (newTransaction) {
+                rollback();
+            }
+        }
     }
 
     @Override

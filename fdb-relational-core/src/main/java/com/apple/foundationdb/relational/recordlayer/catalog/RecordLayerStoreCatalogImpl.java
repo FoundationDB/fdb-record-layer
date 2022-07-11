@@ -237,6 +237,17 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
+    public boolean doesSchemaExist(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
+        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        try {
+            Tuple primaryKey = getSchemaKey(dbUri, schemaName);
+            return recordStore.loadRecord(primaryKey) != null;
+        } catch (RecordCoreException rce) {
+            throw ExceptionUtil.toRelationalException(rce);
+        }
+    }
+
+    @Override
     public void deleteDatabase(Transaction txn, URI dbUrl) throws RelationalException {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         try {
