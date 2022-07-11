@@ -365,7 +365,7 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
                 try (RelationalConnection ddlConn = connector.connect(URI.create("/__SYS"));
                         RelationalStatement ddlStatement = ddlConn.createStatement()) {
                     ddlConn.setSchema("catalog");
-                    String schemaCreateStatement = String.format("CREATE SCHEMA TEMPLATE %s AS { %s }",
+                    String schemaCreateStatement = String.format("CREATE SCHEMA TEMPLATE %s %s",
                             schema.getTemplateName(),
                             schema.getTemplateDescription());
                     ddlStatement.execute(schemaCreateStatement);

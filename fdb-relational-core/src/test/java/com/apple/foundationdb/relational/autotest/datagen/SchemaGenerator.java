@@ -73,7 +73,7 @@ public class SchemaGenerator {
             tableNames.add(table.getKey());
         }
 
-        String templateDescription = String.join(";\r\n", schemaEntries);
+        String templateDescription = String.join("\r\n", schemaEntries);
 
         return new SchemaDescription(templateName, templateDescription, schemaName, templateName + "_" + schemaName, tableNames);
     }
