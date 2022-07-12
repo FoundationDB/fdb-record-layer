@@ -1333,7 +1333,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Checks whether the stream type is erased or not.
-         * 
+         *
          * @return <code>true</code> if the stream type is erased, otherwise <code>false</code>.
          */
         public boolean isErased() {
@@ -1480,6 +1480,15 @@ public interface Type extends Narrowable<Type> {
          */
         public boolean definesNestedProto() {
             return needsNestedProto(elementType);
+        }
+
+        /**
+         * Returns <code>true</code> if a nested protobuf message is required for the array, otherwise <code>false</code>.
+         *
+         * @return <code>true</code> if a nested protobuf message is required for the array, otherwise <code>false</code>.
+         */
+        public boolean needsWrapper() {
+            return needsWrapper;
         }
 
         /**

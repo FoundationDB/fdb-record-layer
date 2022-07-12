@@ -158,14 +158,27 @@ public class FieldValue implements ValueWithChild {
     private static Type resolveTypeForPath(@Nonnull final Type inputType, @Nonnull final List<String> fieldPath) {
         var currentType = inputType;
         for (final var fieldName : fieldPath) {
+            System.out.println("FieldValue currentType:" + currentType + " fieldName:" + fieldName + " fieldPath:" + fieldPath);
             if (currentType.getTypeCode() == Type.TypeCode.ANY) {
                 return new Type.Any();
             }
-            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD, String.format("field type '%s' can only be resolved on records", fieldName));
-            final var recordType = (Type.Record)currentType;
-            final var fieldTypeMap = recordType.getFieldTypeMap();
-            SemanticException.check(fieldTypeMap.containsKey(fieldName), "record does not contain specified field");
-            currentType = fieldTypeMap.get(fieldName);
+            /*
+            Before wrapping repeated fields in an array:
+            repeated T users = 1;
+            After:
+            TList users = 1;
+            message TList {
+              repeated T values = 1;
+            }
+             */
+            boolean isWrappedArray = currentType.getTypeCode() == Type.TypeCode.ARRAY && ((Type.Array)currentType).needsWrapper();
+            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD || isWrappedArray, String.format("field type '%s' can only be resolved on records", fieldName));
+            if (!isWrappedArray) {
+                final var recordType = (Type.Record)currentType;
+                final var fieldTypeMap = recordType.getFieldTypeMap();
+                SemanticException.check(fieldTypeMap != null && fieldTypeMap.containsKey(fieldName), "record does not contain specified field");
+                currentType = fieldTypeMap.get(fieldName);
+            }
         }
         return currentType;
     }

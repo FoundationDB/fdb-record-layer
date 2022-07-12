@@ -182,6 +182,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
 
         final FieldKeyExpression parent = nestingKeyExpression.getParent();
         final KeyExpression child = nestingKeyExpression.getChild();
+        System.out.println("NestingKeyExpression expand parent:" + parent + "child:" + child);
         switch (parent.getFanType()) {
             case None:
                 List<String> newPrefix = ImmutableList.<String>builder()
