@@ -147,9 +147,6 @@ public final class FDBIndexOutput extends IndexOutput {
 
     @Override
     public void writeByte(final byte b) {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("writeByte()"));
-        }
         buffer.put(b);
         crc.update(b);
         currentSize++;
