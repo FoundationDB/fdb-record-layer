@@ -248,9 +248,6 @@ public class FDBIndexInput extends IndexInput {
      */
     @Override
     public byte readByte() throws IOException {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("readByte"));
-        }
         final FDBLuceneFileReference fileReference = getFileReference();
         try {
             int probe = (int)(absolutePosition() % fileReference.getBlockSize());
