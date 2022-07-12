@@ -130,6 +130,12 @@ class EventKeeperTranslator implements EventKeeper {
             return logKey;
         }
 
+        /**
+         * Compares on class and name.
+         *
+         * @param o Object
+         * @return equals
+         */
         @Override
         public boolean equals(final Object o) {
             if (this == o) {
@@ -142,9 +148,14 @@ class EventKeeperTranslator implements EventKeeper {
             return Objects.equals(name, baseEvent.name);
         }
 
+        /**
+         * Hashes on name only.
+         *
+         * @return hashCode
+         */
         @Override
         public int hashCode() {
-            return Objects.hash(name);
+            return name.hashCode();
         }
 
         @Override
