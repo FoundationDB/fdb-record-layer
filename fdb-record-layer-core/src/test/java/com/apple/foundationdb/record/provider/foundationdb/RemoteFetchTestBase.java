@@ -49,6 +49,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Base class for RemoteFetch tests.
@@ -216,7 +217,8 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
             StoreTimer.Counter numRemoteFetches = recordStore.getTimer().getCounter(REMOTE_FETCH);
             StoreTimer.Counter numRemoteFetchEntries = recordStore.getTimer().getCounter(SCAN_REMOTE_FETCH_ENTRY);
             assertEquals(expectedRemoteFetches, numRemoteFetches.getCount());
-            assertEquals(expectedRemoteFetchEntries, numRemoteFetchEntries.getCount());
+            // Assert expected <= actual since there could be some other reads because of some set up code
+            assertTrue(expectedRemoteFetchEntries <= numRemoteFetchEntries.getCount());
         }
     }
 
