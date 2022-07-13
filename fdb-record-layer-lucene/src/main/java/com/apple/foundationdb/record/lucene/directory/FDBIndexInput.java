@@ -151,10 +151,6 @@ public class FDBIndexInput extends IndexInput {
      */
     @Override
     public long getFilePointer() {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("getFilePointer()",
-                    LuceneLogMessageKeys.POSITION, position));
-        }
         return position;
     }
 
@@ -275,11 +271,6 @@ public class FDBIndexInput extends IndexInput {
      */
     @Override
     public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("readBytes",
-                    LuceneLogMessageKeys.OFFSET, offset,
-                    LuceneLogMessageKeys.LENGTH, length));
-        }
         int bytesRead = 0;
         long blockSize = getFileReference().getBlockSize();
         while (bytesRead < length) {
