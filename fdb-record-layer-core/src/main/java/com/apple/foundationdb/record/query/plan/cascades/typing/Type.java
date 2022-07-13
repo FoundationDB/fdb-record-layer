@@ -328,7 +328,7 @@ public interface Type extends Narrowable<Type> {
                         return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true), true);
                     }
                 } else {
-                    return Record.fromFieldDescriptorsMap(messageDescriptor.getName(), isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
+                    return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
                 }
             }
         }
@@ -939,21 +939,14 @@ public interface Type extends Narrowable<Type> {
                 return true;
             }
 
-            // Record object and <? extends Record> object can be equal
-            if (!(obj instanceof Record)) {
+            if (getClass() != obj.getClass()) {
                 return false;
             }
 
-            if (getClass() == obj.getClass()) {
-                // judge whether two Record are equal
-                final var otherType = (Record)obj;
-                return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                       ((isErased() && otherType.isErased()) ||
-                        (Objects.requireNonNull(fields).equals(otherType.fields)));
-            } else {
-                // a <? extends Record> object and a Record object are equal when they satisfy rules defined in <? extends Record> class
-                return obj.equals(this);
-            }
+            final var otherType = (Record)obj;
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
+                   ((isErased() && otherType.isErased()) ||
+                    (Objects.requireNonNull(fields).equals(otherType.fields)));
         }
 
         @Override
@@ -1015,7 +1008,7 @@ public interface Type extends Narrowable<Type> {
          */
         @Nonnull
         public static Record fromFieldDescriptorsMap(@Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
-            return fromFieldDescriptorsMap(null, true, fieldDescriptorMap);
+            return fromFieldDescriptorsMap(true, fieldDescriptorMap);
         }
 
         /**
@@ -1029,7 +1022,7 @@ public interface Type extends Narrowable<Type> {
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          */
         @Nonnull
-        public static Record fromFieldDescriptorsMap(@Nullable final String typeName, final boolean isNullable, @Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
+        public static Record fromFieldDescriptorsMap(final boolean isNullable, @Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
             final var fieldsBuilder = ImmutableList.<Field>builder();
             for (final var entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final var fieldDescriptor = entry.getValue();
@@ -1041,11 +1034,7 @@ public interface Type extends Narrowable<Type> {
                                 Optional.of(entry.getKey()),
                                 Optional.of(fieldDescriptor.getNumber())));
             }
-            if (typeName == null) {
-                return fromFields(isNullable, fieldsBuilder.build());
-            } else {
-                return fromFieldsWithName(typeName, isNullable, fieldsBuilder.build());
-            }
+            return fromFields(isNullable, fieldsBuilder.build());
         }
 
         /**
@@ -1474,15 +1463,6 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * Returns <code>true</code> if a nested protobuf message is required for the array element type, otherwise <code>false</code>.
-         *
-         * @return <code>true</code> if a nested protobuf message is required for the array element type, otherwise <code>false</code>.
-         */
-        public boolean definesNestedProto() {
-            return needsNestedProto(elementType);
-        }
-
-        /**
          * Returns <code>true</code> if a nested protobuf message is required for the array, otherwise <code>false</code>.
          *
          * @return <code>true</code> if a nested protobuf message is required for the array, otherwise <code>false</code>.
@@ -1514,6 +1494,8 @@ public interface Type extends Narrowable<Type> {
          */
         @Override
         public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
+            final var typeName = uniqueCompliantTypeName();
+            typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
             /*
             Objects.requireNonNull(elementType);
             final var typeName = uniqueCompliantTypeName();
@@ -1543,7 +1525,7 @@ public interface Type extends Narrowable<Type> {
             Objects.requireNonNull(elementType);
             // if inner type is not nullable we can just put the repeated field straight into its parent
             if (needsWrapper && elementType.getTypeCode() != TypeCode.UNKNOWN) {
-                Type wrapperType = constructWrapperType(typeRepositoryBuilder, elementType);
+                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of("values"))));
                 wrapperType.addProtoField(typeRepositoryBuilder,
                         descriptorBuilder,
                         fieldNumber,
@@ -1601,38 +1583,6 @@ public interface Type extends Narrowable<Type> {
          */
         public static boolean needsNestedProto(final Type elementType) {
             return Objects.requireNonNull(elementType).isNullable() || elementType.getTypeCode() == TypeCode.ARRAY;
-        }
-
-        private Type constructWrapperType(@Nonnull final TypeRepository.Builder typeRepositoryBuilder, Type elementType) {
-            Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap = new HashMap<>();
-            FieldDescriptorProto.Builder fdProto = FieldDescriptorProto.newBuilder()
-                    .setNumber(1)
-                    .setName("values")
-                    .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
-
-            Optional<String> typeNameOptional = typeRepositoryBuilder.defineAndResolveType(elementType);
-            typeNameOptional.ifPresent(fdProto::setTypeName);
-            if (elementType.getTypeCode() != TypeCode.RECORD) {
-                fdProto.setType(Objects.requireNonNull(elementType.getTypeCode().getProtoType()));
-            }
-
-            DescriptorProtos.DescriptorProto dp = DescriptorProtos.DescriptorProto.newBuilder().addField(fdProto).setName("wrapperDescriptor").build();
-            DescriptorProtos.FileDescriptorProto fileProto = DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(dp).build();
-
-            try {
-                // not sure if there are simpler ways
-                final Descriptors.FileDescriptor dependency = Descriptors.FileDescriptor.buildFrom(
-                        DescriptorProtos.FileDescriptorProto.newBuilder()
-                                .addAllMessageType(typeRepositoryBuilder.build().getMessageTypes().stream().map(typeRepositoryBuilder.build()::getMessageDescriptor).filter(Objects::nonNull).map(Descriptors.Descriptor::toProto).collect(Collectors.toUnmodifiableList()))
-                                .build(),
-                        new Descriptors.FileDescriptor[] {});
-                Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(fileProto, List.of(dependency).toArray(Descriptors.FileDescriptor[]::new));
-                Descriptors.FieldDescriptor fieldDescriptor = file.findMessageTypeByName("wrapperDescriptor").findFieldByName(fdProto.getName());
-                fieldDescriptorMap.put("values", fieldDescriptor);
-                return Record.fromFieldDescriptorsMap(null, true, fieldDescriptorMap);
-            } catch (Descriptors.DescriptorValidationException ignored) {
-                return elementType;
-            }
         }
     }
 }
