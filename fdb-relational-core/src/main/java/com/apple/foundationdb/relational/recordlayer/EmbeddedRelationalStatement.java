@@ -189,6 +189,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
         String indexName = options.getOption(Options.Name.INDEX_HINT);
         DirectScannable source = getSourceScannable(indexName, table);
+        source.validate(options);
 
         Row tuple = source.getKeyBuilder().buildKey(key.toMap(), true, true);
 

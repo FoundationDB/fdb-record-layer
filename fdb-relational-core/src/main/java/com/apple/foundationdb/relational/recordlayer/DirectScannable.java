@@ -32,6 +32,17 @@ import javax.annotation.Nullable;
 public interface DirectScannable {
 
     /**
+     * Validate that this Scannable is able to satisfy the query options that are presented to it.
+     *
+     * This is present so that high level operations can fail quickly with different types of Unsupported errors,
+     * rather than throwing something which is not as useful.
+     *
+     * @param scanOptions the options for the scan/get.
+     * @throws RelationalException if the options are not supported by this scannable.
+     */
+    void validate(Options scanOptions) throws RelationalException;
+
+    /**
      * Open a scan against this entity.
      *
      * @param transaction    the transaction to use.

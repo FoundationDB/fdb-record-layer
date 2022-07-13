@@ -68,6 +68,11 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         this.table = table;
     }
 
+    @Override
+    public void validate(Options scanOptions) throws RelationalException {
+        table.loadRecordType(scanOptions);
+    }
+
     @Nonnull
     @Override
     public String getName() {

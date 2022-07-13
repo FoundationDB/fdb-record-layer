@@ -71,6 +71,12 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
+    public void validate(Options scanOptions) throws RelationalException {
+        //loading the record type should force the validation
+        loadRecordType(scanOptions);
+    }
+
+    @Override
     public @Nonnull
     RecordLayerSchema getSchema() {
         return schema;
