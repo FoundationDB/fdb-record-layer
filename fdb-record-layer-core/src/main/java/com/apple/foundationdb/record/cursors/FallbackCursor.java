@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.util.LoggableException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,6 +56,8 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FallbackCursor<T> implements RecordCursor<T> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(FallbackCursor.class);
+
     @Nonnull
     private final Function<RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier;
     @Nonnull
@@ -113,6 +117,9 @@ public class FallbackCursor<T> implements RecordCursor<T> {
                     inner.close();
                     inner = fallbackCursorSupplier.apply(lastSuccessfulResult);
                     nextResultFuture = inner.onNext();
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info("fallback triggered", throwable);
+                    }
                 }
                 alreadyFailed = true;
             }
