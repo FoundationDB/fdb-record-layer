@@ -445,7 +445,7 @@ public class FDBDirectory extends Directory {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
             // Only composite files are prefetched.
-            if (name.endsWith(".cfs")) {
+            if (name.endsWith(".cfs") || name.startsWith("segments_")) {
                 try {
                     readBlock(name, fileReference, 0);
                 } catch (RecordCoreException e) {
