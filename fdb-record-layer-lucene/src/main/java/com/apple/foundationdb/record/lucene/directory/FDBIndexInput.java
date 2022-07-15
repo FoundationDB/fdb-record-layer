@@ -165,10 +165,6 @@ public class FDBIndexInput extends IndexInput {
      */
     @Override
     public void seek(final long offset) throws IOException {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("seek",
-                    LuceneLogMessageKeys.OFFSET, offset));
-        }
         if (currentBlock != getBlock(offset)) {
             this.position = offset;
             this.currentBlock = getBlock(position);
@@ -190,9 +186,6 @@ public class FDBIndexInput extends IndexInput {
      */
     @Override
     public long length() {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("length"));
-        }
         return getFileReference().getSize();
     }
 
