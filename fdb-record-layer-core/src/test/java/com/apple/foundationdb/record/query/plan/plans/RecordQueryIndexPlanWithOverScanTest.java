@@ -1,5 +1,5 @@
 /*
- * RecordQueryOverscanIndexPlanTest.java
+ * RecordQueryIndexPlanWithOverScanTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -35,12 +35,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -54,7 +54,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
@@ -62,7 +61,6 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveri
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.overscanIndexScan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -70,14 +68,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests of {@link RecordQueryOverscanIndexPlan}. This plan should have identical semantics to the
- * {@link RecordQueryIndexPlan}, but it may scan additional ranges to load a cache. The primary thing
- * that these tests are designed to verify is that the behavior of an index scan is the same if one
- * is wrapped with an overscan index plan, including that continuations are compatible.
+ * Tests of {@link RecordQueryIndexPlan} with {@link com.apple.foundationdb.record.IndexScanType#BY_VALUE_OVER_SCAN}.
+ * This scan type should have identical semantics to the {@link com.apple.foundationdb.record.IndexScanType#BY_VALUE},
+ * but it may scan additional ranges to load a cache. The primary thing that these tests are designed to verify is that
+ * the behavior of the two different scan types are the same, including that continuations are compatible.
  */
 @Tag(Tags.RequiresFDB)
-class RecordQueryOverscanIndexPlanTest extends FDBRecordStoreQueryTestBase {
-    private static final ConvertToRecordQueryOverscanIndexPlanVisitor CONVERTOR = new ConvertToRecordQueryOverscanIndexPlanVisitor();
+class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
+    private static final RecordQueryPlannerConfiguration plannerConfiguration = RecordQueryPlannerConfiguration.builder()
+            .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
+            .setAttemptFailedInJoinAsOr(true)
+            .setComplexityThreshold(RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD)
+            .addValueIndexOverScanNeeded("MySimpleRecord$str_value_indexed")
+            .addValueIndexOverScanNeeded("compoundIndex")
+            .build();
 
     @ParameterizedTest(name = "basicScanTest[reverse={0}]")
     @BooleanSource
@@ -96,11 +100,10 @@ class RecordQueryOverscanIndexPlanTest extends FDBRecordStoreQueryTestBase {
             final Matcher<RecordQueryIndexPlan> indexPlanMatcher = allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([bar],[foo])")));
             RecordQueryPlan indexPlan = recordStore.planQuery(query);
             assertThat(indexPlan, indexScan(indexPlanMatcher));
-            RecordQueryPlan overscanIndexPlan = convertToOverscan(indexPlan);
-            assertThat(overscanIndexPlan, overscanIndexScan(indexPlanMatcher));
+            RecordQueryPlan indexPlanWithOverScan = recordStore.planQuery(query, ParameterRelationshipGraph.empty(), plannerConfiguration);
 
             timer.reset();
-            assertTrue(assertSameResults(recordStore, indexPlan, overscanIndexPlan, EvaluationContext.EMPTY, ExecuteProperties.SERIAL_EXECUTE, null).isEnd());
+            assertTrue(assertSameResults(recordStore, indexPlan, indexPlanWithOverScan, EvaluationContext.EMPTY, ExecuteProperties.SERIAL_EXECUTE, null).isEnd());
             // There should be 32 load records, because these values of str_value_indexed should be read:
             //    c_suffix, d_suffix, e_suffix, f_suffix
             // There are 100 records, so that corresponds to records: 3, 4, 5, 6, 29, 30, 31, 32, 55, 56, 57, 58, 81, 82, 83 and 84
@@ -128,11 +131,10 @@ class RecordQueryOverscanIndexPlanTest extends FDBRecordStoreQueryTestBase {
             final Matcher<RecordQueryIndexPlan> indexPlanMatcher = allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[foo],[foo]]")));
             RecordQueryPlan indexPlan = recordStore.planQuery(query);
             assertThat(indexPlan, coveringIndexScan(indexScan(indexPlanMatcher)));
-            RecordQueryPlan overscanIndexPlan = convertToOverscan(indexPlan);
-            assertThat(overscanIndexPlan, coveringIndexScan(overscanIndexScan(indexPlanMatcher)));
+            RecordQueryPlan indexPlanWithOverScan = recordStore.planQuery(query, ParameterRelationshipGraph.empty(), plannerConfiguration);
 
             timer.reset();
-            assertTrue(assertSameResults(recordStore, indexPlan, overscanIndexPlan, EvaluationContext.EMPTY, ExecuteProperties.SERIAL_EXECUTE, null).isEnd());
+            assertTrue(assertSameResults(recordStore, indexPlan, indexPlanWithOverScan, EvaluationContext.EMPTY, ExecuteProperties.SERIAL_EXECUTE, null).isEnd());
             assertEquals(0, timer.getCount(FDBStoreTimer.Events.LOAD_RECORD), "covering plans should load 0 records");
 
             commit(context);
@@ -140,11 +142,11 @@ class RecordQueryOverscanIndexPlanTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
-     * This simulates a case that might actually benefit from using the overscan plan to load more data into the
-     * cache. In this case, there is an index on {@code (str_value_indexed, num_value_3_indexed)}, and this wants to
+     * This simulates a case that might actually benefit from using the overscan to load more data into the cache.
+     * In this case, there is an index on {@code (str_value_indexed, num_value_3_indexed)}, and this wants to
      * load the record(s) for a bunch of different values of {@code num_value_3_indexed} for a given value of
      * {@code str_value_indexed}, some of which will have an associated record and some of which won't. When using
-     * the overscan plan, some empty ranges will be put into the cache, so if a request comes in for an  adjacent
+     * the overscan, some empty ranges will be put into the cache, so if a request comes in for an adjacent
      * value, the index can be looked up in the cache.
      *
      * @param reverse whether to execute individual scans in reverse
@@ -169,12 +171,11 @@ class RecordQueryOverscanIndexPlanTest extends FDBRecordStoreQueryTestBase {
             final Matcher<RecordQueryIndexPlan> indexPlanMatcher = allOf(indexName(compoundIndex.getName()), bounds(hasTupleString("[EQUALS even, EQUALS $val]")));
             RecordQueryPlan indexPlan = recordStore.planQuery(query);
             assertThat(indexPlan, indexScan(indexPlanMatcher));
-            RecordQueryPlan overscanPlan = convertToOverscan(indexPlan);
-            assertThat(overscanPlan, overscanIndexScan(indexPlanMatcher));
+            RecordQueryPlan indexPlanWithOverScan = recordStore.planQuery(query, ParameterRelationshipGraph.empty(), plannerConfiguration);
 
             for (int i = 0; i < 50; i++) {
                 EvaluationContext evaluationContext = EvaluationContext.EMPTY.withBinding("val", r.nextInt(100));
-                assertSameResults(recordStore, indexPlan, overscanPlan, evaluationContext, ExecuteProperties.SERIAL_EXECUTE, null);
+                assertSameResults(recordStore, indexPlan, indexPlanWithOverScan, evaluationContext, ExecuteProperties.SERIAL_EXECUTE, null);
             }
 
             commit(context);
@@ -211,8 +212,7 @@ class RecordQueryOverscanIndexPlanTest extends FDBRecordStoreQueryTestBase {
             final Matcher<RecordQueryIndexPlan> indexPlanMatcher = allOf(indexName(compoundIndex.getName()), bounds(hasTupleString("[EQUALS $num_val, EQUALS $str_val]")));
             RecordQueryPlan indexPlan = recordStore.planQuery(query);
             assertThat(indexPlan, coveringIndexScan(indexScan(indexPlanMatcher)));
-            RecordQueryPlan overscanIndexPlan = convertToOverscan(indexPlan);
-            assertThat(overscanIndexPlan, coveringIndexScan(overscanIndexScan(indexPlanMatcher)));
+            RecordQueryPlan indexPlanWithOverScan = recordStore.planQuery(query, ParameterRelationshipGraph.empty(), plannerConfiguration);
 
             ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                     .setDefaultCursorStreamingMode(CursorStreamingMode.WANT_ALL)
@@ -224,7 +224,7 @@ class RecordQueryOverscanIndexPlanTest extends FDBRecordStoreQueryTestBase {
 
             RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
             do {
-                continuation = assertSameResults(recordStore, indexPlan, overscanIndexPlan, evaluationContext, executeProperties, continuation.toBytes());
+                continuation = assertSameResults(recordStore, indexPlan, indexPlanWithOverScan, evaluationContext, executeProperties, continuation.toBytes());
             } while (!continuation.isEnd());
 
             commit(context);
@@ -260,242 +260,6 @@ class RecordQueryOverscanIndexPlanTest extends FDBRecordStoreQueryTestBase {
             } while (indexResult.hasNext());
 
             return indexResult.getContinuation();
-        }
-    }
-
-    private static RecordQueryPlan convertToOverscan(RecordQueryPlan plan) {
-        RecordQueryPlan overscanPlan = CONVERTOR.visit(plan);
-        assertEquals(plan.planHash(), overscanPlan.planHash(), () -> String.format("Plan %s should have identical plan hash after being converted to overscan index plan %s", plan, overscanPlan));
-        return overscanPlan;
-    }
-
-    /**
-     * Record query plan visitor to convert the instances of a query plan that use the overscan index plan. We
-     * may want to replace this with a call to the planner once the planner can do that, but for now, this allows
-     * us to rewrite an existing plan (perhaps one produced by a planner) and add the new plan for testing purposes.
-     */
-    private static class ConvertToRecordQueryOverscanIndexPlanVisitor implements RecordQueryPlanVisitor<RecordQueryPlan> {
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitLoadByKeysPlan(@Nonnull final RecordQueryLoadByKeysPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitOverscanIndexPlan(@Nonnull final RecordQueryOverscanIndexPlan element) {
-            return element;
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan element) {
-            RecordQueryPlanWithIndex indexPlan = element.getIndexPlan();
-            RecordQueryPlan newIndexPlan = visit(indexPlan);
-            if (newIndexPlan instanceof RecordQueryPlanWithIndex) {
-                return element.withIndexPlan((RecordQueryPlanWithIndex) newIndexPlan);
-            } else {
-                return element;
-            }
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitMapPlan(@Nonnull final RecordQueryMapPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitComparatorPlan(@Nonnull final RecordQueryComparatorPlan element) {
-            List<RecordQueryPlan> newChildren = element.getChildStream()
-                    .map(this::visit)
-                    .collect(Collectors.toList());
-            return RecordQueryComparatorPlan.from(newChildren, element.getComparisonKey(), element.getReferencePlanIndex(), element.isAbortOnComparisonFailure());
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitUnorderedDistinctPlan(@Nonnull final RecordQueryUnorderedDistinctPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitSelectorPlan(@Nonnull final RecordQuerySelectorPlan element) {
-            List<RecordQueryPlan> newChildren = element.getChildStream()
-                    .map(this::visit)
-                    .collect(Collectors.toList());
-            return RecordQuerySelectorPlan.from(newChildren, element.getPlanSelector());
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryOverscanIndexPlan visitIndexPlan(@Nonnull final RecordQueryIndexPlan element) {
-            // HERE: Convert the index plan to an overscan index plan.
-            return new RecordQueryOverscanIndexPlan(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitFilterPlan(@Nonnull final RecordQueryFilterPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitUnorderedPrimaryKeyDistinctPlan(@Nonnull final RecordQueryUnorderedPrimaryKeyDistinctPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitFetchFromPartialRecordPlan(@Nonnull final RecordQueryFetchFromPartialRecordPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitUnionOnValuePlan(@Nonnull final RecordQueryUnionOnValuePlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitScanPlan(@Nonnull final RecordQueryScanPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitInUnionOnValuePlan(@Nonnull final RecordQueryInUnionOnValuePlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitSortPlan(@Nonnull final RecordQuerySortPlan element) {
-            return visitDefault(element);
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlan visitDefault(@Nonnull final RecordQueryPlan element) {
-            if (element instanceof RecordQueryPlanWithChild) {
-                return visitPlanWithChild((RecordQueryPlanWithChild) element);
-            } else if (element instanceof RecordQuerySetPlan) {
-                return visitSetPlan((RecordQuerySetPlan) element);
-            }
-            return element;
-        }
-
-        private RecordQueryPlanWithChild visitPlanWithChild(@Nonnull RecordQueryPlanWithChild planWithChild) {
-            return planWithChild.withChild(visit(planWithChild.getChild()));
-        }
-
-        private RecordQuerySetPlan visitSetPlan(@Nonnull RecordQuerySetPlan setPlan) {
-            List<ExpressionRef<RecordQueryPlan>> newChildrenRef = setPlan.getChildren()
-                    .stream()
-                    .map(this::visit)
-                    .map(GroupExpressionRef::of)
-                    .collect(Collectors.toList());
-            return setPlan.withChildrenReferences(newChildrenRef);
         }
     }
 }

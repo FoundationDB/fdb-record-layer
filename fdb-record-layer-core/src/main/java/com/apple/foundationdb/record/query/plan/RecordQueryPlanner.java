@@ -74,7 +74,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryOverscanIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -1011,9 +1010,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (plan instanceof RecordQueryTypeFilterPlan) {
             return getPlanComparisons(((RecordQueryTypeFilterPlan) plan).getInnerPlan());
         }
-        if (plan instanceof RecordQueryOverscanIndexPlan) {
-            return ((RecordQueryOverscanIndexPlan) plan).getComparisons();
-        }
         return null;
     }
 
@@ -1407,8 +1403,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             plan = new RecordQueryScanPlan(possibleTypes, new Type.Any(), candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted);
         } else {
-            RecordQueryIndexPlan recordQueryIndexPlan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanComparisons, getConfiguration().getIndexFetchMethod(), candidateScan.reverse, strictlySorted);
-            plan = this.configuration.valueIndexOverScanNeeded(candidateScan.index.getName()) ? new RecordQueryOverscanIndexPlan(recordQueryIndexPlan) : recordQueryIndexPlan;
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanComparisons, getConfiguration().getIndexFetchMethod(), candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);
         }
         // Add a type filter if the query plan might return records of more types than the query specified
@@ -1420,7 +1415,10 @@ public class RecordQueryPlanner implements QueryPlanner {
     private RecordQueryPlan valueScan(@Nonnull CandidateScan candidateScan,
                                       @Nullable ScanComparisons scanComparisons,
                                       boolean strictlySorted) {
-        return planScan(candidateScan, IndexScanComparisons.byValue(scanComparisons), strictlySorted);
+        IndexScanType scanType = candidateScan.index != null && this.configuration.valueIndexOverScanNeeded(candidateScan.index.getName())
+                                 ? IndexScanType.BY_VALUE_OVER_SCAN
+                                 : IndexScanType.BY_VALUE;
+        return planScan(candidateScan, IndexScanComparisons.byValue(scanComparisons, scanType), strictlySorted);
     }
 
     @Nonnull

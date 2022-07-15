@@ -89,6 +89,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
@@ -1883,6 +1884,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
         final RecordQueryPlanner planner = new RecordQueryPlanner(getRecordMetaData(), getRecordStoreState());
+        return planner.plan(query, parameterRelationshipGraph);
+    }
+
+    @Override
+    @Nonnull
+    public RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
+                                     @Nonnull RecordQueryPlannerConfiguration plannerConfiguration) {
+        final RecordQueryPlanner planner = new RecordQueryPlanner(getRecordMetaData(), getRecordStoreState());
+        planner.setConfiguration(plannerConfiguration);
         return planner.plan(query, parameterRelationshipGraph);
     }
 

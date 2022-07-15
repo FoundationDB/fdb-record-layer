@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.CursorStreamingMode;
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
@@ -29,8 +32,12 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.FallbackCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -44,6 +51,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -60,15 +68,18 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +89,28 @@ import java.util.Set;
 
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
+ *
+ * <p>
+ * This scans a larger range internally when {@link IndexScanType#BY_VALUE_OVER_SCAN} is applied.
+ * Semantically, this returns the same results as a {@link IndexScanType#BY_VALUE} over the same range.
+ * However, internally, it will scan additional data for the purposes of loading that data into an
+ * in-memory cache that lives within the FDB client.
+ * </p>
+ *
+ * <p>
+ * {@link IndexScanType#BY_VALUE_OVER_SCAN} is most useful in the following situation: a query with
+ * parameters is planned once, and then executed multiple times in the same transaction with different
+ * parameter values. In this case, the first time the plan is executed, this plan will incur additional
+ * I/O in order to place entries in the cache, but subsequent executions of the plan may be able to be
+ * served from this cache, saving time overall.
+ * </p>
+ *
+ * <p>
+ * This plan's continuations are also designed to be equivalent between {@link IndexScanType#BY_VALUE}
+ * and {@link IndexScanType#BY_VALUE_OVER_SCAN} over the same scan range, so a query plan with a
+ * {@link IndexScanType#BY_VALUE} can be executed, and then the continuation from that plan can be given
+ * to an identical plan that substitutes the index scan with {@link IndexScanType#BY_VALUE_OVER_SCAN} (or vice versa).
+ * </p>
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -215,7 +248,58 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
-        return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
+        if (!IndexScanType.BY_VALUE_OVER_SCAN.equals(getScanType())) {
+            return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
+        }
+
+        // Evaluate the scan bounds. Again, this optimization can only be done if we have a scan range
+        if (!(scanBounds instanceof IndexScanRange)) {
+            return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
+        }
+
+        // Try to widen the scan range to include everything up
+        IndexScanRange indexScanRange = (IndexScanRange) scanBounds;
+        TupleRange tupleScanRange = indexScanRange.getScanRange();
+        TupleRange widenedScanRange = widenRange(tupleScanRange);
+        if (widenedScanRange == null) {
+            // Unable to widen the range. Fall back to the original execution.
+            return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));
+        }
+
+        return executeEntriesWithOverScan(tupleScanRange, widenedScanRange, store, index, continuation, executeProperties);
+    }
+
+    private <M extends Message> RecordCursor<IndexEntry> executeEntriesWithOverScan(@Nonnull TupleRange tupleScanRange, @Nonnull TupleRange widenedScanRange,
+                                                                                    @Nonnull FDBRecordStoreBase<M> store, @Nonnull Index index,
+                                                                                    @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
+        final byte[] prefixBytes = getRangePrefixBytes(tupleScanRange);
+        final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes);
+
+        // Scan a wider range, and then halt when either this scans outside the given range
+        final IndexScanRange newScanRange = new IndexScanRange(IndexScanType.BY_VALUE, widenedScanRange);
+        final Range originalKeyRange = tupleScanRange.toRange();
+        // Make sure to use ITERATOR mode so that the results are paginated (by the FDB Java bindings). This
+        // streaming mode limits the amount of data we might read beyond that which is returned to one page
+        // from the database
+        final ExecuteProperties newExecuteProperties = executeProperties
+                .setDefaultCursorStreamingMode(CursorStreamingMode.ITERATOR);
+        final ScanProperties scanProperties = newExecuteProperties.asScanProperties(isReverse());
+        return store.scanIndex(index, newScanRange, continuationConvertor.unwrapContinuation(continuation), scanProperties).mapResult(result -> {
+            if (!result.hasNext()) {
+                RecordCursorContinuation wrappedContinuation = continuationConvertor.wrapContinuation(result.getContinuation());
+                return result.withContinuation(wrappedContinuation);
+            }
+            // Check if the result is in the range the user actually cares about. If so, return it. Otherwise,
+            // terminate the scan.
+            IndexEntry entry = result.get();
+            byte[] keyBytes = entry.getKey().pack();
+            if ((isReverse() && ByteArrayUtil.compareUnsigned(originalKeyRange.begin, keyBytes) <= 0) || (!isReverse() && ByteArrayUtil.compareUnsigned(originalKeyRange.end, keyBytes) > 0)) {
+                RecordCursorContinuation wrappedContinuation = continuationConvertor.wrapContinuation(result.getContinuation());
+                return result.withContinuation(wrappedContinuation);
+            } else {
+                return RecordCursorResult.exhausted();
+            }
+        });
     }
 
     @Nonnull
@@ -487,5 +571,116 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
             LOGGER.debug(KeyValueLogMessage.of(staticMessage,
                     LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)));
         }
+    }
+
+    /**
+     * Continuation convertor to transform the continuations from the physical (wider) scan and the logical (narrower)
+     * scan.
+     */
+    private static class IndexScanContinuationConvertor implements RecordCursor.ContinuationConvertor {
+        @Nonnull
+        private final byte[] prefixBytes;
+
+        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes) {
+            this.prefixBytes = prefixBytes;
+        }
+
+        @Nullable
+        @Override
+        public byte[] unwrapContinuation(@Nullable final byte[] continuation) {
+            if (continuation == null) {
+                return null;
+            }
+            // Add the prefix back to the inner continuation
+            return ByteArrayUtil.join(prefixBytes, continuation);
+        }
+
+        @Override
+        public RecordCursorContinuation wrapContinuation(@Nonnull final RecordCursorContinuation continuation) {
+            if (continuation.isEnd()) {
+                return continuation;
+            }
+            final byte[] continuationBytes = continuation.toBytes();
+            if (continuationBytes != null && ByteArrayUtil.startsWith(continuationBytes, prefixBytes)) {
+                // Strip away the prefix. Note that ByteStrings re-use the underlying ByteArray, so this can
+                // save a copy.
+                return new IndexScanContinuationConvertor.PrefixRemovingContinuation(continuation, prefixBytes.length);
+            } else {
+                // This key does not begin with the prefix. Return an END continuation to indicate that the
+                // scan is over.
+                return RecordCursorEndContinuation.END;
+            }
+        }
+
+        private static class PrefixRemovingContinuation implements RecordCursorContinuation {
+            private final RecordCursorContinuation baseContinuation;
+            private final int prefixLength;
+
+            @SuppressWarnings("squid:S3077") // array immutable once initialized, so AtomicByteArray not necessary
+            @Nullable
+            private volatile byte[] bytes;
+
+            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength) {
+                this.baseContinuation = baseContinuation;
+                this.prefixLength = prefixLength;
+            }
+
+            @Nullable
+            @Override
+            public byte[] toBytes() {
+                if (bytes == null) {
+                    synchronized (this) {
+                        if (bytes == null) {
+                            byte[] baseContinuationBytes = baseContinuation.toBytes();
+                            if (baseContinuationBytes == null) {
+                                return null;
+                            }
+                            this.bytes = Arrays.copyOfRange(baseContinuationBytes, prefixLength, baseContinuationBytes.length);
+                        }
+                    }
+                }
+                return bytes;
+            }
+
+            @Nonnull
+            @Override
+            public ByteString toByteString() {
+                return baseContinuation.toByteString().substring(prefixLength);
+            }
+
+            @Override
+            public boolean isEnd() {
+                return false;
+            }
+        }
+    }
+
+    @Nullable
+    private TupleRange widenRange(@Nonnull TupleRange originalRange) {
+        if (originalRange.getLowEndpoint() == EndpointType.PREFIX_STRING || originalRange.getHighEndpoint() == EndpointType.PREFIX_STRING) {
+            return null;
+        }
+
+        // Widen the range so that the we can from the original location to the end of the index. Note that we will
+        // stop executing the scan once we stop getting results within the original range, so even though we're requesting
+        // a fairly large range, the actual extra work done shouldn't be this bad.
+        if (isReverse()) {
+            return new TupleRange(null, originalRange.getHigh(), EndpointType.TREE_START, originalRange.getHighEndpoint());
+        } else {
+            return new TupleRange(originalRange.getLow(), null, originalRange.getLowEndpoint(), EndpointType.TREE_END);
+        }
+    }
+
+    private static byte[] getRangePrefixBytes(TupleRange tupleRange) {
+        byte[] lowBytes = tupleRange.getLow() == null ? null : tupleRange.getLow().pack();
+        byte[] highBytes = tupleRange.getHigh() == null ? null : tupleRange.getHigh().pack();
+        if (lowBytes == null || highBytes == null) {
+            return new byte[0];
+        }
+        int i = 0;
+        while (i < lowBytes.length && i < highBytes.length && lowBytes[i] == highBytes[i]) {
+            i++;
+        }
+        return Arrays.copyOfRange(lowBytes, 0, i);
     }
 }

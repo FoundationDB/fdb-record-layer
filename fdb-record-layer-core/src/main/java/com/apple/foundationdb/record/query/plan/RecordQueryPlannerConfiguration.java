@@ -60,7 +60,8 @@ public class RecordQueryPlannerConfiguration {
     private final IndexFetchMethod indexFetchMethod;
 
     /**
-     * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryOverscanIndexPlan} is preferred to use.
+     * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
+     * {@link com.apple.foundationdb.record.IndexScanType#BY_VALUE_OVER_SCAN} is preferred to use.
      */
     private final Set<String> valueIndexesOverScanNeeded;
 

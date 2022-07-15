@@ -55,10 +55,15 @@ public class IndexScanComparisons implements IndexScanParameters {
 
     @Nonnull
     public static IndexScanComparisons byValue(@Nullable ScanComparisons scanComparisons) {
+        return byValue(scanComparisons, IndexScanType.BY_VALUE);
+    }
+
+    @Nonnull
+    public static IndexScanComparisons byValue(@Nullable ScanComparisons scanComparisons, @Nonnull IndexScanType scanType) {
         if (scanComparisons == null) {
             scanComparisons = ScanComparisons.EMPTY;
         }
-        return new IndexScanComparisons(IndexScanType.BY_VALUE, scanComparisons);
+        return new IndexScanComparisons(scanType, scanComparisons);
     }
 
     @Nonnull

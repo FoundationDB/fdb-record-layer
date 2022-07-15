@@ -176,14 +176,6 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
         return comparisonKey;
     }
 
-    public int getReferencePlanIndex() {
-        return referencePlanIndex;
-    }
-
-    public boolean isAbortOnComparisonFailure() {
-        return abortOnComparisonFailure;
-    }
-
     @Nonnull
     @Override
     public String toString() {
