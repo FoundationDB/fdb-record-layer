@@ -102,11 +102,15 @@ public class IndexKeyValueToPartialRecord {
         @Nonnull
         private final TupleSource source;
         private final int index;
+        private Descriptors.FieldDescriptor fieldDescriptor;
+        private Descriptors.Descriptor containingType;
 
-        private FieldCopier(@Nonnull String field, @Nonnull TupleSource source, int index) {
+        private FieldCopier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor, @Nonnull String field, @Nonnull TupleSource source, int index) {
             this.field = field;
             this.source = source;
             this.index = index;
+            this.fieldDescriptor = fieldDescriptor;
+            this.containingType = fieldDescriptor.getContainingType();
         }
 
         @Override
@@ -117,7 +121,10 @@ public class IndexKeyValueToPartialRecord {
             if (value == null) {
                 return;
             }
-            final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
+            if (!containingType.equals(recordDescriptor)) {
+                containingType = recordDescriptor;
+                fieldDescriptor = recordDescriptor.findFieldByName(field);
+            }
             switch (fieldDescriptor.getType()) {
                 case INT32:
                     value = ((Long)value).intValue();
@@ -261,7 +268,7 @@ public class IndexKeyValueToPartialRecord {
                     !TupleFieldsHelper.isTupleField(fieldDescriptor.getMessageType())) {
                 throw new RecordCoreException("must set nested message field-by-field: " + field);
             }
-            FieldCopier copier = new FieldCopier(field, source, index);
+            FieldCopier copier = new FieldCopier(fieldDescriptor, field, source, index);
             FieldCopier prev = fields.put(field, copier);
             if (prev != null) {
                 throw new RecordCoreException("setting field more than once: " + field);
