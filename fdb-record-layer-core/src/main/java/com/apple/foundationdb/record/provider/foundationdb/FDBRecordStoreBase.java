@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
@@ -1916,6 +1917,19 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
+
+    /**
+     * Plan a query with customized {@link RecordQueryPlannerConfiguration} rather than the default one.
+     * @param query the query to plan
+     * @param parameterRelationshipGraph a set of bindings and their relationships that provide additional information
+     *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
+     *        bindings that are used to execute the query
+     * @param plannerConfiguration an override for the {@link RecordQueryPlannerConfiguration} for the planner
+     * @return a query plan
+     * @see RecordQueryPlanner#plan
+     */
+    RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
+                              @Nonnull RecordQueryPlannerConfiguration plannerConfiguration);
 
     /**
      * Plan a query.

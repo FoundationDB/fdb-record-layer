@@ -59,6 +59,12 @@ public class RecordQueryPlannerConfiguration {
     private final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules;
     private final IndexFetchMethod indexFetchMethod;
 
+    /**
+     * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
+     * {@link com.apple.foundationdb.record.IndexScanType#BY_VALUE_OVER_SCAN} is preferred to use.
+     */
+    private final Set<String> valueIndexesOverScanNeeded;
+
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
                                             int attemptFailedInJoinAsUnionMaxSize,
@@ -72,7 +78,8 @@ public class RecordQueryPlannerConfiguration {
                                             int maxNumMatchesPerRuleCall,
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
                                             @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules,
-                                            @Nonnull final IndexFetchMethod indexFetchMethod) {
+                                            @Nonnull final IndexFetchMethod indexFetchMethod,
+                                            @Nonnull final Set<String> valueIndexesOverScanNeeded) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -87,6 +94,7 @@ public class RecordQueryPlannerConfiguration {
         this.sortConfiguration = sortConfiguration;
         this.disabledTransformationRules = ImmutableSet.copyOf(disabledTransformationRules);
         this.indexFetchMethod = indexFetchMethod;
+        this.valueIndexesOverScanNeeded = valueIndexesOverScanNeeded;
     }
 
     /**
@@ -235,6 +243,10 @@ public class RecordQueryPlannerConfiguration {
         return indexFetchMethod;
     }
 
+    public boolean valueIndexOverScanNeeded(@Nonnull String indexName) {
+        return valueIndexesOverScanNeeded.contains(indexName);
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -268,6 +280,9 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         private IndexFetchMethod indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
 
+        @Nonnull
+        private Set<String> valueIndexesOverScanNeeded = Sets.newHashSet();
+
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
             this.attemptFailedInJoinAsOr = configuration.attemptFailedInJoinAsOr;
@@ -283,6 +298,7 @@ public class RecordQueryPlannerConfiguration {
             this.sortConfiguration = configuration.sortConfiguration;
             this.disabledTransformationRules = configuration.disabledTransformationRules;
             this.indexFetchMethod = configuration.indexFetchMethod;
+            this.valueIndexesOverScanNeeded = configuration.valueIndexesOverScanNeeded;
         }
 
         public Builder() {
@@ -443,6 +459,12 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        @API(API.Status.EXPERIMENTAL)
+        public Builder addValueIndexOverScanNeeded(@Nonnull final String indexName) {
+            this.valueIndexesOverScanNeeded.add(indexName);
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
             return new RecordQueryPlannerConfiguration(indexScanPreference,
                     attemptFailedInJoinAsOr,
@@ -457,7 +479,8 @@ public class RecordQueryPlannerConfiguration {
                     maxNumMatchesPerRuleCall,
                     sortConfiguration,
                     disabledTransformationRules,
-                    indexFetchMethod);
+                    indexFetchMethod,
+                    valueIndexesOverScanNeeded);
         }
     }
 }

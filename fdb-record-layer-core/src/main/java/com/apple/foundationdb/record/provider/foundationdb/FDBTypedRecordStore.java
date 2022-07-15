@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -268,6 +269,13 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Override
     public RecordQueryPlan planQuery(@Nonnull final RecordQuery query, @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
         return untypedStore.planQuery(query, parameterRelationshipGraph);
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
+                                     @Nonnull RecordQueryPlannerConfiguration plannerConfiguration) {
+        return untypedStore.planQuery(query, parameterRelationshipGraph, plannerConfiguration);
     }
 
     @Nonnull

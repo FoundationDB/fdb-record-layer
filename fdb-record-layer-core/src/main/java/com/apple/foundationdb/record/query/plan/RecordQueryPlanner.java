@@ -1415,7 +1415,10 @@ public class RecordQueryPlanner implements QueryPlanner {
     private RecordQueryPlan valueScan(@Nonnull CandidateScan candidateScan,
                                       @Nullable ScanComparisons scanComparisons,
                                       boolean strictlySorted) {
-        return planScan(candidateScan, IndexScanComparisons.byValue(scanComparisons), strictlySorted);
+        IndexScanType scanType = candidateScan.index != null && this.configuration.valueIndexOverScanNeeded(candidateScan.index.getName())
+                                 ? IndexScanType.BY_VALUE_OVER_SCAN
+                                 : IndexScanType.BY_VALUE;
+        return planScan(candidateScan, IndexScanComparisons.byValue(scanComparisons, scanType), strictlySorted);
     }
 
     @Nonnull

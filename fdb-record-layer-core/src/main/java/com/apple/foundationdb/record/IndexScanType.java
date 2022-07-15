@@ -38,6 +38,8 @@ public class IndexScanType implements PlanHashable {
     @Nonnull
     public static final IndexScanType BY_VALUE = new IndexScanType("BY_VALUE");
     @Nonnull
+    public static final IndexScanType BY_VALUE_OVER_SCAN = new IndexScanType("BY_VALUE_OVER_SCAN");
+    @Nonnull
     public static final IndexScanType BY_RANK = new IndexScanType("BY_RANK");
     @Nonnull
     public static final IndexScanType BY_GROUP = new IndexScanType("BY_GROUP");
