@@ -27,7 +27,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** A new index scan type variant has been added that make better use of existing caches in repeated executions of the same query [(Issue #1758)](https://github.com/FoundationDB/fdb-record-layer/issues/1758)
+* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -44,6 +44,10 @@ This release also updates downstream dependency versions. Most notably, the prot
 
 // end next release
 -->
+
+### 3.2.282.0
+
+* **Performance** A new index scan type variant has been added that make better use of existing caches in repeated executions of the same query [(Issue #1758)](https://github.com/FoundationDB/fdb-record-layer/issues/1758)
 
 ### 3.2.281.0
 
