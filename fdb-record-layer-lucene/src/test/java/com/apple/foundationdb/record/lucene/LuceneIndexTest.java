@@ -432,7 +432,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             LuceneContinuationProto.LuceneIndexContinuation continuation =  LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(1)
-                    .setScore(0.12324655F)
+                    .setScore(0.22025093F)
                     .setShard(0)
                     .build();
             assertIndexEntryPrimaryKeys(List.of(1625L, 1626L),
@@ -506,7 +506,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(151)
-                    .setScore(0.0011561684F)
+                    .setScore(0.0019084287F)
                     .setShard(0)
                     .build();
             assertEquals(48, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), continuation.toByteArray(), ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
