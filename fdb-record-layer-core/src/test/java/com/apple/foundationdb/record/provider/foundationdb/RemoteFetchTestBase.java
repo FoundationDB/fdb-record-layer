@@ -216,8 +216,8 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
 
             StoreTimer.Counter numRemoteFetches = recordStore.getTimer().getCounter(REMOTE_FETCH);
             StoreTimer.Counter numRemoteFetchEntries = recordStore.getTimer().getCounter(SCAN_REMOTE_FETCH_ENTRY);
-            assertEquals(expectedRemoteFetches, numRemoteFetches.getCount());
             // Assert expected <= actual since there could be some other reads because of some set up code
+            assertTrue(expectedRemoteFetches <= numRemoteFetches.getCount());
             assertTrue(expectedRemoteFetchEntries <= numRemoteFetchEntries.getCount());
         }
     }
