@@ -512,11 +512,10 @@ class LuceneDocumentFromRecordTest {
         FDBRecord<Message> record = unstoredRecord(message);
 
         // Build the index with configuring the omit_norms boolean parameter for Lucene text field
-        KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, concat(field("text"), function(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_OMIT_NORMS, value(true))))
+        KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
                 .groupBy(field("group"));
 
-        assertEquals(ImmutableMap.of(Tuple.from(2), ImmutableList.of(textField("text", "more text",
-                        ImmutableMap.of(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_OMIT_NORMS, true)))),
+        assertEquals(ImmutableMap.of(Tuple.from(2), ImmutableList.of(textField("text", "more text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 

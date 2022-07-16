@@ -318,7 +318,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             ft.setStored(field.isStored());
             ft.setStoreTermVectors((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS), false));
             ft.setStoreTermVectorPositions((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS), false));
-            ft.setOmitNorms((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_OMIT_NORMS), false));
+            ft.setOmitNorms(true);
             ft.freeze();
         } catch (ClassCastException ex) {
             throw new RecordCoreArgumentException("Invalid value type for Lucene field config", ex);
