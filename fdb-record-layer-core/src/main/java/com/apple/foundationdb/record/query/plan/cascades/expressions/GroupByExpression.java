@@ -88,6 +88,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression other, @Nonnull final AliasMap equivalences) {
         if (this == other) {
             return true;

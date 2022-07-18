@@ -194,7 +194,6 @@ public class MatchIntermediateRule extends PlannerRule<RelationalExpression> {
                         matchWithCandidate(expression,
                                 matchCandidate,
                                 candidateExpression);
-                System.out.println("MatchIntermediateRule.onMatch called with this match candidate: " + matchCandidate.getName());
                 boundMatchInfos.forEach(boundMatchInfo ->
                         call.yieldPartialMatch(boundMatchInfo.getAliasMap(),
                                 matchCandidate,

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
