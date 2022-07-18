@@ -25,6 +25,8 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -168,5 +170,10 @@ public class FieldValue implements ValueWithChild {
             currentType = fieldTypeMap.get(fieldName);
         }
         return currentType;
+    }
+
+    @Nonnull
+    public KeyExpression toKeyExpression() {
+        return KeyExpression.fromPath(fieldPath);
     }
 }

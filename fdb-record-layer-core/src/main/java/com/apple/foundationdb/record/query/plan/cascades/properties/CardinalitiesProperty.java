@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -373,6 +374,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Nonnull
     @Override
     public Cardinalities visitFullUnorderedScanExpression(@Nonnull final FullUnorderedScanExpression element) {
+        return Cardinalities.unknownCardinalities();
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitGroupByExpression(@Nonnull final GroupByExpression element) {
         return Cardinalities.unknownCardinalities();
     }
 

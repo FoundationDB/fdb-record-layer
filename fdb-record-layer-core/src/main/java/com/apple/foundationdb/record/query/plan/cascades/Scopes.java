@@ -28,10 +28,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -92,6 +94,11 @@ public class Scopes {
      */
     public static class Scope {
 
+        /**
+         * Set of flags to control the behavior of parser.
+         */
+        public enum Flag { GENERATE_AGGREGATION }
+
         @Nullable
         private final Scope parent;
 
@@ -104,12 +111,18 @@ public class Scopes {
         @Nullable
         private QueryPredicate predicate;
 
+        private int groupingColumnOffset;
+
+        @Nonnull
+        private Set<Flag> flags;
 
         private Scope(@Nullable final Scope parent, @Nonnull final Map<CorrelationIdentifier, Quantifier> quantifiers, @Nonnull final List<Column<? extends Value>> projectionList, @Nullable final QueryPredicate predicate) {
             this.parent = parent;
             this.quantifiers = quantifiers;
             this.projectionList = projectionList;
             this.predicate = predicate;
+            this.groupingColumnOffset = -1;
+            this.flags = new HashSet<>();
         }
 
         @Nonnull
@@ -160,6 +173,27 @@ public class Scopes {
 
         public void addProjectionColumn(@Nonnull final Column<? extends Value> column) {
             projectionList.add(column);
+        }
+
+        @Nonnull
+        public List<Column<? extends Value>> getProjectList() {
+            return projectionList;
+        }
+
+        public void markGroupingColumnOffset(final int value) {
+            this.groupingColumnOffset = value;
+        }
+
+        public int getGroupingColumnOffset() {
+            return groupingColumnOffset;
+        }
+
+        public void setFlag(@Nonnull Flag flag) {
+            this.flags.add(flag);
+        }
+
+        public boolean isFlagSet(@Nonnull final Flag flag) {
+            return this.flags.contains(flag);
         }
 
         @Nullable

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -1157,6 +1158,11 @@ public interface Type extends Narrowable<Type> {
              */
             public int getFieldIndex() {
                 return getFieldIndexOptional().orElseThrow(() -> new RecordCoreException("field index should have been set"));
+            }
+
+            @Nonnull
+            public KeyExpression toKeyExpression() {
+                return KeyExpression.fromPath(List.of(getFieldName()));
             }
 
             @Override
