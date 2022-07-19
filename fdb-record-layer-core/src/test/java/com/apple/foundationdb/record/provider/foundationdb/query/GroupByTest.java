@@ -49,7 +49,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Tag;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 
@@ -96,12 +95,12 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     final var num2Value = new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_2"));
                     final var num3Value = new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_3_indexed"));
                     selectBuilder.addQuantifier(qun)
-                            .addResultValue(RecordConstructorValue.ofColumns(List.of(
+                            .addAllResultColumns(List.of(
                                     Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), num2Value),
-                                    Column.of(Type.Record.Field.of(num3Value.getResultType(), Optional.of("num_value_3_indexed")), num3Value))));
+                                    Column.of(Type.Record.Field.of(num3Value.getResultType(), Optional.of("num_value_3_indexed")), num3Value)));
                     qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect()));
 
-                    final var groupingCol = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), num2Value);
+                    final var groupingCol = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_2")));
                     final var aggCol = Column.of(Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.LONG)),
                             new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_3_indexed"))));
                     final var groupingCols = RecordConstructorValue.ofColumns(List.of(groupingCol));
@@ -114,9 +113,10 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     final var groupByQuantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
                     topSelectBuilder.addQuantifier(qun).addResultValue(groupByQuantifiedValue);
                     qun = Quantifier.forEach(GroupExpressionRef.of(topSelectBuilder.build().buildSelect()));
-                    return GroupExpressionRef.of(new LogicalSortExpression(null, false, qun));
+                    //return GroupExpressionRef.of(new LogicalSortExpression(null, false, qun));
+                    return GroupExpressionRef.of(topSelectBuilder.build().buildSelect());
                 },
-                Optional.of(ImmutableSet.of("RestaurantRecord")),
+                Optional.of(ImmutableSet.of("MySimpleRecord")),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
@@ -131,17 +131,28 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             };
             openSimpleRecordStore(context, hook);
             var rec = TestRecords1Proto.MySimpleRecord.newBuilder();
-            rec.setRecNo(1).setStrValueIndexed("1").setNumValueUnique(1).setNumValue2(1).setNumValue3Indexed(10); recordStore.saveRecord(rec.build());
-            rec.setRecNo(2).setStrValueIndexed("2").setNumValueUnique(2).setNumValue2(1).setNumValue3Indexed(20); recordStore.saveRecord(rec.build());
-            rec.setRecNo(3).setStrValueIndexed("3").setNumValueUnique(3).setNumValue2(1).setNumValue3Indexed(30); recordStore.saveRecord(rec.build());
-            rec.setRecNo(4).setStrValueIndexed("4").setNumValueUnique(4).setNumValue2(2).setNumValue3Indexed(5); recordStore.saveRecord(rec.build());
-            rec.setRecNo(5).setStrValueIndexed("5").setNumValueUnique(5).setNumValue2(2).setNumValue3Indexed(5); recordStore.saveRecord(rec.build());
-            rec.setRecNo(6).setStrValueIndexed("6").setNumValueUnique(6).setNumValue2(2).setNumValue3Indexed(5); recordStore.saveRecord(rec.build());
-            rec.setRecNo(7).setStrValueIndexed("7").setNumValueUnique(7).setNumValue2(3).setNumValue3Indexed(-10); recordStore.saveRecord(rec.build());
-            rec.setRecNo(8).setStrValueIndexed("8").setNumValueUnique(8).setNumValue2(3).setNumValue3Indexed(-20); recordStore.saveRecord(rec.build());
-            rec.setRecNo(9).setStrValueIndexed("9").setNumValueUnique(9).setNumValue2(3).setNumValue3Indexed(-30); recordStore.saveRecord(rec.build());
-            rec.setRecNo(10).setStrValueIndexed("10").setNumValueUnique(10).setNumValue2(4).setNumValue3Indexed(100); recordStore.saveRecord(rec.build());
-            rec.setRecNo(11).setStrValueIndexed("11").setNumValueUnique(11).setNumValue2(4).setNumValue3Indexed(2000); recordStore.saveRecord(rec.build());
+            rec.setRecNo(1).setStrValueIndexed("1").setNumValueUnique(1).setNumValue2(1).setNumValue3Indexed(10);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(2).setStrValueIndexed("2").setNumValueUnique(2).setNumValue2(1).setNumValue3Indexed(20);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(3).setStrValueIndexed("3").setNumValueUnique(3).setNumValue2(1).setNumValue3Indexed(30);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(4).setStrValueIndexed("4").setNumValueUnique(4).setNumValue2(2).setNumValue3Indexed(5);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(5).setStrValueIndexed("5").setNumValueUnique(5).setNumValue2(2).setNumValue3Indexed(5);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(6).setStrValueIndexed("6").setNumValueUnique(6).setNumValue2(2).setNumValue3Indexed(5);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(7).setStrValueIndexed("7").setNumValueUnique(7).setNumValue2(3).setNumValue3Indexed(-10);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(8).setStrValueIndexed("8").setNumValueUnique(8).setNumValue2(3).setNumValue3Indexed(-20);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(9).setStrValueIndexed("9").setNumValueUnique(9).setNumValue2(3).setNumValue3Indexed(-30);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(10).setStrValueIndexed("10").setNumValueUnique(10).setNumValue2(4).setNumValue3Indexed(100);
+            recordStore.saveRecord(rec.build());
+            rec.setRecNo(11).setStrValueIndexed("11").setNumValueUnique(11).setNumValue2(4).setNumValue3Indexed(2000);
+            recordStore.saveRecord(rec.build());
             commit(context);
         }
     }
