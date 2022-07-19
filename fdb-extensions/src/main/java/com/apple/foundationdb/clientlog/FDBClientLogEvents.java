@@ -64,8 +64,11 @@ public class FDBClientLogEvents {
     public static final long PROTOCOL_VERSION_6_1 = 0x0FDB00B061060001L;
     public static final long PROTOCOL_VERSION_6_2 = 0x0FDB00B062010001L;
     public static final long PROTOCOL_VERSION_6_3 = 0x0FDB00B063010001L;
+    public static final long PROTOCOL_VERSION_7_0 = 0x0FDB00B070010001L;
+    public static final long PROTOCOL_VERSION_7_1 = 0x0FDB00B071010001L;
     private static final long[] SUPPORTED_PROTOCOL_VERSIONS = {
-            PROTOCOL_VERSION_5_2, PROTOCOL_VERSION_6_0, PROTOCOL_VERSION_6_1, PROTOCOL_VERSION_6_2, PROTOCOL_VERSION_6_3
+            PROTOCOL_VERSION_5_2, PROTOCOL_VERSION_6_0, PROTOCOL_VERSION_6_1, PROTOCOL_VERSION_6_2, PROTOCOL_VERSION_6_3,
+            PROTOCOL_VERSION_7_0, PROTOCOL_VERSION_7_1
     };
 
     //                    0               1         2         3         4         5         6         7
@@ -462,6 +465,8 @@ public class FDBClientLogEvents {
         // These are not in the binding's MutationType enum.
         public static final int SET_VALUE = 0;
         public static final int CLEAR_RANGE = 1;
+        public static final int MIN_V2 = 18;
+        public static final int AND_V2 = 19;
 
         private final int type;
         @Nonnull
@@ -496,6 +501,10 @@ public class FDBClientLogEvents {
                 typeName = "SET_VALUE";
             } else if (type == CLEAR_RANGE) {
                 typeName = "CLEAR_RANGE";
+            } else if (type == MIN_V2) {
+                typeName = "MIN_V2";
+            } else if (type == AND_V2) {
+                typeName = "AND_V2";
             } else if (MUTATION_TYPE_BY_CODE.containsKey(type)) {
                 typeName = MUTATION_TYPE_BY_CODE.get(type).name();
             } else {
