@@ -160,7 +160,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Nonnull
     @Override
     public String toString() {
-        return getInnerPlan() + " | AGGREGATE BY " + aggregateValue + ", GROUP BY " + groupingKeyValue;
+        return "aggregate(" + getInnerPlan() + ") [aggregation: " + aggregateValue + ", group by " + groupingKeyValue + "]";
     }
 
     @Nonnull
@@ -352,6 +352,16 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValueSupplier.supply(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
+    }
+
+    @Nonnull
+    public AggregateValue getAggregateValue() {
+        return aggregateValue;
+    }
+
+    @Nullable
+    public Value getGroupingValue() {
+        return groupingKeyValue;
     }
 
     /**

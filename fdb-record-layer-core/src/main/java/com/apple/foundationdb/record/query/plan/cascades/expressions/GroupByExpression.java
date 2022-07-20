@@ -23,12 +23,16 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +42,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
@@ -160,5 +165,20 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     public AggregateValue getAggregateValue() {
         return aggregateValue;
+    }
+
+    /**
+     * Returns the ordering requirements of the underlying scan for the group by to work. This is used by the planner
+     * to choose a compatibly-ordered access path.
+     *
+     * @return The ordering requirements.
+     */
+    @Nonnull
+    public RequestedOrdering getOrderingRequirement() {
+        Verify.verify(getGroupingValue() instanceof RecordConstructorValue);
+        final var groupingExpr = (RecordConstructorValue)getGroupingValue();
+        return new RequestedOrdering(
+                groupingExpr.getResultType().getFields().stream().map(field -> KeyPart.of(field.toKeyExpression())).collect(Collectors.toList()),
+                RequestedOrdering.Distinctness.NOT_DISTINCT);
     }
 }

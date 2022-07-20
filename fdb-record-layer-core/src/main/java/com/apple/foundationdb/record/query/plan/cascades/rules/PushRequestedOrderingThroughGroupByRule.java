@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -31,15 +30,11 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -82,17 +77,8 @@ public class PushRequestedOrderingThroughGroupByRule extends PlannerRule<GroupBy
     }
 
     @Nonnull
-    private RequestedOrdering getGroupByOrderingRequirement(@Nonnull final GroupByExpression groupByExpression) {
-        Verify.verify(groupByExpression.getGroupingValue() instanceof RecordConstructorValue);
-        final var groupingExpr = (RecordConstructorValue)groupByExpression.getGroupingValue();
-        return new RequestedOrdering(
-                groupingExpr.getResultType().getFields().stream().map(field -> KeyPart.of(field.toKeyExpression())).collect(Collectors.toList()),
-                RequestedOrdering.Distinctness.NOT_DISTINCT);
-    }
-
-    @Nonnull
     private Set<RequestedOrdering> collectCompatibleOrderings(@Nonnull final GroupByExpression groupByExpression, @Nonnull final Set<RequestedOrdering> requestedOrderings) {
-        final var groupByOrdering = getGroupByOrderingRequirement(groupByExpression);
+        final var groupByOrdering = groupByExpression.getOrderingRequirement();
         // case 1: if no ordering is required, simply specify the group by ordering as a requirement.
         if (requestedOrderings.isEmpty()) {
             return Set.of(groupByOrdering);

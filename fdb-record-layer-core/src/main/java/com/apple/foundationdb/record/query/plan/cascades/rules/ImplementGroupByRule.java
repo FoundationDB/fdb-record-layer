@@ -36,12 +36,12 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -68,13 +68,8 @@ public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
     public void onMatch(@Nonnull final PlannerRuleCall call) {
         final var bindings = call.getBindings();
 
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
-        if (requestedOrderingsOptional.isEmpty()) {
-            return;
-        }
-
-        final var requestedOrderings = requestedOrderingsOptional.get();
         final var groupByExpression = bindings.get(root);
+        final var requestedOrderings = Set.of(groupByExpression.getOrderingRequirement());
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
@@ -83,7 +78,7 @@ public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
             for (final RequestedOrdering requestedOrdering : requestedOrderings) {
                 if (Ordering.satisfiesRequestedOrdering(providedOrdering, requestedOrdering)) {
-                    GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
+                    final var newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
                     final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
                     final var aliasMap = AliasMap.of(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
                     final var result = RecordQueryStreamingAggregationPlan.of(

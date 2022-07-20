@@ -109,6 +109,10 @@ public class NumericAggregationValue implements ValueWithChild, AggregateValue {
         return Type.primitiveType(operator.getResultTypeCode());
     }
 
+    @Nonnull
+    public String getOperatorName() {
+        return operator.logicalOperator.name();
+    }
 
     @Nonnull
     @Override
