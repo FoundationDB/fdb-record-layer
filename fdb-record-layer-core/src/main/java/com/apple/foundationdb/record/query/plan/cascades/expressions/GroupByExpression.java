@@ -109,7 +109,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return false;
         }
 
-        return resultValue.equals(other.getResultValue().getResultType());
+        return resultValue.equals(other.getResultValue());
     }
 
     @Override
