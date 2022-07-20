@@ -55,6 +55,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that implements a sort expression by removing this expression if appropriate.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = ReferenceMatchers.anyPlanPartition();

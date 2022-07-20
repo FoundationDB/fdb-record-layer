@@ -66,13 +66,9 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
     
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
-    @Nonnull
-    private final PlanContext planContext;
 
-    public CascadesCostModel(@Nonnull RecordQueryPlannerConfiguration configuration,
-                             @Nonnull PlanContext planContext) {
+    public CascadesCostModel(@Nonnull RecordQueryPlannerConfiguration configuration) {
         this.configuration = configuration;
-        this.planContext = planContext;
     }
 
     @Override
@@ -180,8 +176,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             return distinctFilterPositionCompare;
         }
 
-        int ufpA = UnmatchedFieldsCountProperty.evaluate(planContext, a);
-        int ufpB = UnmatchedFieldsCountProperty.evaluate(planContext, b);
+        int ufpA = UnmatchedFieldsCountProperty.evaluate(a);
+        int ufpB = UnmatchedFieldsCountProperty.evaluate(b);
         if (ufpA != ufpB) {
             return Integer.compare(ufpA, ufpB);
         }

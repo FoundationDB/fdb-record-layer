@@ -22,16 +22,14 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 
 import javax.annotation.Nonnull;
-
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.primaryScanExpression;
 
@@ -58,6 +56,6 @@ public class ImplementPhysicalScanRule extends PlannerRule<PrimaryScanExpression
                 logical.scanComparisons(),
                 logical.isReverse(),
                 false,
-                Optional.of(logical.getMatchCandidate()))));
+                logical.getMatchCandidate())));
     }
 }

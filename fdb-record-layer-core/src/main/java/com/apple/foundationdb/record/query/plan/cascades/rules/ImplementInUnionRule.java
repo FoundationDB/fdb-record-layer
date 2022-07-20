@@ -92,7 +92,6 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
     @SuppressWarnings({"unchecked", "java:S135"})
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final var context = call.getContext();
         final var bindings = call.getBindings();
 
         final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);

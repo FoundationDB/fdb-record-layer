@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -123,14 +124,14 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
-    public KeyExpression getPrimaryKey() {
-        return primaryKey;
+    public Optional<KeyExpression> getPrimaryKeyMaybe() {
+        return Optional.of(primaryKey);
     }
 
     @Nonnull
     @Override
     public KeyExpression getAlternativeKeyExpression() {
-        return getPrimaryKey();
+        return primaryKey;
     }
 
     @Nonnull

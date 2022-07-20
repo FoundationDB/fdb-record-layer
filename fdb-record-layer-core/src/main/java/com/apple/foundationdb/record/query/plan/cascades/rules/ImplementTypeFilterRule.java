@@ -83,7 +83,7 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
         final var unsatisfiedMapBuilder = ImmutableMultimap.<Set<String>, RecordQueryPlan>builder();
 
         for (final var innerPlan : planPartition.getPlans()) {
-            final var childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), innerPlan);
+            final var childRecordTypes = RecordTypesProperty.evaluate(call.getAliasResolver(), innerPlan);
             final var filterRecordTypes = Sets.newHashSet(logicalTypeFilterExpression.getRecordTypes());
 
             if (filterRecordTypes.containsAll(childRecordTypes)) {

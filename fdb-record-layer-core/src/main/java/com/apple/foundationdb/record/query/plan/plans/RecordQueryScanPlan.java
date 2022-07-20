@@ -84,14 +84,30 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     /**
      * Overloaded constructor.
-     * Use the overloaded constructor
-     * {@link #RecordQueryScanPlan(Set, Type, KeyExpression, ScanComparisons, boolean, boolean, Optional)}
-     * to also pass in a set of record types.
+     * Use other overloaded constructor to also pass in a set of record types.
      * @param comparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      */
     public RecordQueryScanPlan(@Nonnull ScanComparisons comparisons, boolean reverse) {
         this(null, new Type.Any(), null, comparisons, reverse, false, Optional.empty());
+    }
+
+    /**
+     * Overloaded constructor for heuristic (old planner).
+     * @param recordTypes a super set of record types of the records that this scan operator can produce
+     * @param flowedType type of scan elements
+     * @param commonPrimaryKey primary key of scanned records
+     * @param comparisons comparisons to be applied by the operator
+     * @param reverse indicator whether this scan is reverse
+     * @param strictlySorted whether scan is strictly sorted for original query
+     */
+    public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
+                               @Nonnull Type flowedType,
+                               @Nullable KeyExpression commonPrimaryKey,
+                               @Nonnull ScanComparisons comparisons,
+                               boolean reverse,
+                               boolean strictlySorted) {
+        this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.empty());
     }
 
     /**
@@ -101,7 +117,8 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      * @param commonPrimaryKey primary key of scanned records
      * @param comparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
-     * @param strictlySorted whether scan is stricted sorted for original query
+     * @param strictlySorted whether scan is strictly sorted for original query
+     * @param matchCandidate a match candidate that was matched and resulted in this scan plan
      */
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
                                @Nonnull Type flowedType,
@@ -109,7 +126,29 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                                @Nonnull ScanComparisons comparisons,
                                boolean reverse,
                                boolean strictlySorted,
-                               @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
+                               @Nonnull final WithPrimaryKeyMatchCandidate matchCandidate) {
+        this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
+    }
+
+
+    /**
+     * Overloaded constructor.
+     * @param recordTypes a super set of record types of the records that this scan operator can produce
+     * @param flowedType type of scan elements
+     * @param commonPrimaryKey primary key of scanned records
+     * @param comparisons comparisons to be applied by the operator
+     * @param reverse indicator whether this scan is reverse
+     * @param strictlySorted whether scan is strictly sorted for original query
+     * @param matchCandidateOptional a match candidate optional that if not empty contains the match candidate that was
+     *        matched and resulted in this scan plan
+     */
+    private RecordQueryScanPlan(@Nullable Set<String> recordTypes,
+                                @Nonnull Type flowedType,
+                                @Nullable KeyExpression commonPrimaryKey,
+                                @Nonnull ScanComparisons comparisons,
+                                boolean reverse,
+                                boolean strictlySorted,
+                                @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.commonPrimaryKey = commonPrimaryKey;

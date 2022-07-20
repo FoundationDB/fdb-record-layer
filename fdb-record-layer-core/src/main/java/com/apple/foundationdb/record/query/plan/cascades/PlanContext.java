@@ -37,8 +37,6 @@ public interface PlanContext {
     @Nonnull
     RecordQueryPlannerConfiguration getPlannerConfiguration();
 
-    int getGreatestPrimaryKeyWidth();
-
     @Nonnull
     Set<MatchCandidate> getMatchCandidates();
 }

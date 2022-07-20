@@ -34,7 +34,7 @@ import java.util.Set;
  */
 public interface WithPrimaryKeyMatchCandidate extends MatchCandidate {
     @Nonnull
-    KeyExpression getPrimaryKey();
+    Optional<KeyExpression> getPrimaryKeyMaybe();
 
     @Nonnull
     List<RecordType> getQueriedRecordTypes();
@@ -53,16 +53,21 @@ public interface WithPrimaryKeyMatchCandidate extends MatchCandidate {
         for (final var matchCandidate : matchCandidates) {
             if (matchCandidate instanceof WithPrimaryKeyMatchCandidate) {
                 final var withPrimaryKeyMatchCandidate = (WithPrimaryKeyMatchCandidate)matchCandidate;
+                final var primaryKeyMaybe = withPrimaryKeyMatchCandidate.getPrimaryKeyMaybe();
+                if (primaryKeyMaybe.isEmpty()) {
+                    return Optional.empty();
+                }
+                final var primaryKey = primaryKeyMaybe.get();
                 if (first) {
-                    common = withPrimaryKeyMatchCandidate.getPrimaryKey();
+                    common = primaryKey;
                     first = false;
-                } else if (!common.equals(withPrimaryKeyMatchCandidate.getPrimaryKey())) {
+                } else if (!common.equals(primaryKey)) {
                     return Optional.empty();
                 }
             } else {
                 return Optional.empty();
             }
         }
-        return Optional.ofNullable(common);
+        return Optional.ofNullable(common); // common can only be null if we didn't have any match candidates to start with
     }
 }

@@ -116,7 +116,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     private final KeyExpression alternativeKeyExpression;
 
-    @Nonnull
+    @Nullable
     private final KeyExpression primaryKey;
 
     public WindowedIndexScanMatchCandidate(@Nonnull Index index,
@@ -129,7 +129,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                            @Nonnull final List<CorrelationIdentifier> primaryKeyAliases,
                                            @Nonnull final List<Value> indexKeyValues,
                                            @Nonnull final KeyExpression alternativeKeyExpression,
-                                           @Nonnull final KeyExpression primaryKey) {
+                                           @Nullable final KeyExpression primaryKey) {
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.traversal = traversal;
@@ -197,8 +197,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public KeyExpression getPrimaryKey() {
-        return primaryKey;
+    public Optional<KeyExpression> getPrimaryKeyMaybe() {
+        return Optional.ofNullable(primaryKey);
     }
 
     @Nonnull

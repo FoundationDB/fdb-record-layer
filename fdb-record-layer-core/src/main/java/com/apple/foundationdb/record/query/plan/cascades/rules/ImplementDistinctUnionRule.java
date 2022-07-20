@@ -104,8 +104,6 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
     @Override
     @SuppressWarnings("java:S135")
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final var context = call.getContext();
-
         final var requiredOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requiredOrderingsOptional.isEmpty()) {
             return;

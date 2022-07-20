@@ -1,5 +1,5 @@
 /*
- * StoredRecordProperty.java
+ * PrimaryKeyProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -68,7 +68,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * TODO
+ * The primary key property that computes the primary key of a sub graph if it exists. A primary key may not exist,
+ * if the {@link RecordQueryPlan}s on the way from the source to the top of the graph modifies the flowing data in
+ * a way that a primary key cannot be derived anymore.
+ * This property is used by e.g. the implementation of set plans (e.g. distinct unions, intersections) to understand
+ * if a stream of records originates from the same source (i.e. table) or not.
  */
 public class PrimaryKeyProperty implements PlanProperty<Optional<KeyExpression>> {
     public static final PlanProperty<Optional<KeyExpression>> PRIMARY_KEY = new PrimaryKeyProperty();

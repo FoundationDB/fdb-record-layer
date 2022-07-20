@@ -33,6 +33,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
 
     @Nonnull
     Index getIndex();
+    
     @Nonnull
     Optional<Value> pushValueThroughFetch(@Nonnull Value value,
                                           @Nonnull CorrelationIdentifier targetAlias);

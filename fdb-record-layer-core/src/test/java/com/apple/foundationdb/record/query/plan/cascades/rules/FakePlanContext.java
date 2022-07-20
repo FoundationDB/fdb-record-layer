@@ -20,16 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
 /**
  * A mock implementation of a {@link PlanContext} used to test certain planner rules that don't need a full plan context.
@@ -39,11 +36,6 @@ public class FakePlanContext implements PlanContext {
     @Override
     public RecordQueryPlannerConfiguration getPlannerConfiguration() {
         return RecordQueryPlannerConfiguration.builder().build();
-    }
-
-    @Override
-    public int getGreatestPrimaryKeyWidth() {
-        return 0;
     }
 
     @Nonnull

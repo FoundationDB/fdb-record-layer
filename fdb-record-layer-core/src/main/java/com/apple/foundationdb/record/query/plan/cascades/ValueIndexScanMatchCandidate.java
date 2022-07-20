@@ -180,8 +180,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
-    public KeyExpression getPrimaryKey() {
-        return primaryKey;
+    public Optional<KeyExpression> getPrimaryKeyMaybe() {
+        return Optional.ofNullable(primaryKey);
     }
 
     @Nonnull

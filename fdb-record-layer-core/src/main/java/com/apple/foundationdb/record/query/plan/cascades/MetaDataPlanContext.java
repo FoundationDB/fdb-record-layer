@@ -53,7 +53,6 @@ public class MetaDataPlanContext implements PlanContext {
 
     @Nonnull
     private final RecordStoreState recordStoreState;
-    private final int greatestPrimaryKeyWidth;
 
     @Nonnull
     private final Set<MatchCandidate> matchCandidates;
@@ -88,12 +87,10 @@ public class MetaDataPlanContext implements PlanContext {
         try {
             if (queriedRecordTypeNamesOptional.isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
-                greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(metaData.getRecordTypes().values());
                 queriedRecordTypeNames = metaData.getRecordTypes().keySet();
             } else {
                 queriedRecordTypeNames = ImmutableSet.copyOf(queriedRecordTypeNamesOptional.get());
                 final List<RecordType> queriedRecordTypes = queriedRecordTypeNames.stream().map(metaData::getRecordType).collect(Collectors.toList());
-                greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(queriedRecordTypes);
                 if (queriedRecordTypes.size() == 1) {
                     final RecordType recordType = queriedRecordTypes.get(0);
                     indexList.addAll(readableOf(recordType.getIndexes()));
@@ -157,15 +154,6 @@ public class MetaDataPlanContext implements PlanContext {
             }
         }
         return common;
-    }
-
-    private static int getGreatestPrimaryKeyWidth(@Nonnull Collection<RecordType> recordTypes) {
-        return recordTypes.stream().mapToInt(recordType -> recordType.getPrimaryKey().getColumnSize()).max().orElse(0);
-    }
-
-    @Override
-    public int getGreatestPrimaryKeyWidth() {
-        return greatestPrimaryKeyWidth;
     }
 
     @Nonnull

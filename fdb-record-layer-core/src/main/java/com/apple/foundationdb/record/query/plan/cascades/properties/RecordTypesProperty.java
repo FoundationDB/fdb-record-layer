@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
@@ -58,13 +57,9 @@ import java.util.Set;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RecordTypesProperty implements ExpressionProperty<Set<String>>, RelationalExpressionVisitorWithDefaults<Set<String>> {
     @Nonnull
-    private final PlanContext context;
-    @Nonnull
     private final Optional<AliasResolver> aliasResolverOptional;
 
-    private RecordTypesProperty(@Nonnull PlanContext context,
-                                @Nonnull Optional<AliasResolver> aliasResolverOptional) {
-        this.context = context;
+    private RecordTypesProperty(@Nonnull Optional<AliasResolver> aliasResolverOptional) {
         this.aliasResolverOptional = aliasResolverOptional;
     }
 
@@ -151,22 +146,19 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context,
-                                       @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, Optional.empty())));
+    public static Set<String> evaluate(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(Optional.empty())));
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context,
-                                       @Nonnull AliasResolver aliasResolver,
+    public static Set<String> evaluate(@Nonnull AliasResolver aliasResolver,
                                        @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, Optional.of(aliasResolver))));
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(Optional.of(aliasResolver))));
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context,
-                                       @Nonnull AliasResolver aliasResolver,
+    public static Set<String> evaluate(@Nonnull AliasResolver aliasResolver,
                                        @Nonnull RelationalExpression ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, Optional.of(aliasResolver))));
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(Optional.of(aliasResolver))));
     }
 }
