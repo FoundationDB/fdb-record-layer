@@ -45,6 +45,9 @@ This release also updates downstream dependency versions. Most notably, the prot
 // end next release
 -->
 
+### 3.2.283.0
+
+
 ### 3.2.282.0
 
 * **Performance** A new index scan type variant has been added that make better use of existing caches in repeated executions of the same query [(Issue #1758)](https://github.com/FoundationDB/fdb-record-layer/issues/1758)
