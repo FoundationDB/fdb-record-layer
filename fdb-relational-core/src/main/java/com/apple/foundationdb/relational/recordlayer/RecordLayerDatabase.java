@@ -137,7 +137,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
             if (cause instanceof RecordStoreDoesNotExistException) {
                 throw new RelationalException("Schema does not exist. Schema: <" + schemaName + ">", ErrorCode.UNDEFINED_SCHEMA, cause);
             } else {
-                throw new RelationalException("Schema <" + schemaName + "> cannot be found", ErrorCode.UNDEFINED_SCHEMA, cause);
+                throw ExceptionUtil.toRelationalException(rce);
             }
         }
     }

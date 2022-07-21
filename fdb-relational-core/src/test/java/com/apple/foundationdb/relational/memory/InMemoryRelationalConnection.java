@@ -125,6 +125,9 @@ public class InMemoryRelationalConnection implements RelationalConnection {
         return Options.NONE;
     }
 
+    public void setOption(Options.Name name, Object value) {
+    }
+
     @Override
     public URI getPath() {
         return null;

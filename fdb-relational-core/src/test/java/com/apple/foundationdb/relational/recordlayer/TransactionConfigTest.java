@@ -25,14 +25,12 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
-import com.codahale.metrics.MetricSet;
-import com.google.common.collect.Iterators;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -48,24 +46,19 @@ public class TransactionConfigTest {
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational, TransactionConfigTest.class, TestSchemas.restaurant());
 
-    @Disabled
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
-        Options options = Options.builder().withOption(Options.Name.TRANSACTION_TIMEOUT, 1L).build();
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), options)) {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("testSchema");
+            conn.setOption(Options.Name.TRANSACTION_TIMEOUT, 1L);
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
-                s.executeInsert("RestaurantRecord", Iterators.singletonIterator(r));
+                RelationalAssertions.assertThrows(() ->
+                        s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(r))
+                ).hasErrorCode(ErrorCode.TRANSACTION_TIMEOUT);
             }
-        } catch (RelationalException | SQLException e) {
-            Throwable throwable = e.getCause();
-            String errorMsg = throwable.getMessage();
-            Assertions.assertEquals("Operation aborted because the transaction timed out", errorMsg);
         }
-        MetricSet metrics = relational.getEngine().getEngineMetrics();
-        Assertions.assertTrue(metrics.getMetrics().containsKey("CHECK_VERSION"));
     }
 }

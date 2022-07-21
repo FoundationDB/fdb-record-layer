@@ -86,6 +86,8 @@ public interface RelationalConnection extends java.sql.Connection {
     @Nonnull
     Options getOptions();
 
+    void setOption(Options.Name name, Object value) throws RelationalException;
+
     URI getPath();
 
     /* Unsupported SQL features*/

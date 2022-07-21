@@ -135,6 +135,11 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
+    public void setOption(Options.Name name, Object value) throws RelationalException {
+        connection.setOption(name, value);
+    }
+
+    @Override
     public URI getPath() {
         return connection.getPath();
     }

@@ -73,7 +73,7 @@ public class RecordLayerStorageCluster implements StorageCluster {
     public RelationalDatabase loadDatabase(@Nonnull URI url,
                                          @Nonnull Options connOptions) throws RelationalException {
 
-        try (Transaction txn = getTransactionManager().createTransaction(connOptions)) {
+        try (Transaction txn = getTransactionManager().createTransaction(Options.NONE)) {
             if (!catalog.doesDatabaseExist(txn, url)) {
                 return null;
             }

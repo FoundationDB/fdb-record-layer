@@ -49,7 +49,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     private boolean usingAnExistingTransaction;
     private final TransactionManager txnManager;
     @Nonnull
-    private final Options options;
+    private Options options;
 
     public EmbeddedRelationalConnection(@Nonnull AbstractDatabase frl,
                                       @Nonnull StoreCatalog backingCatalog,
@@ -201,6 +201,11 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     public Options getOptions() {
         return options;
+    }
+
+    @Override
+    public void setOption(Options.Name name, Object value) throws RelationalException {
+        options = Options.builder().fromOptions(options).withOption(name, value).build();
     }
 
     @Override

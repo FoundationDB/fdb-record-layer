@@ -117,7 +117,7 @@ public enum ErrorCode {
     INVALID_SCHEMA_TEMPLATE("42F59"),
 
     // Class 53 - Insufficient Resources
-    QUERY_TIMEOUT("53F00"),
+    TRANSACTION_TIMEOUT("53F00"),
     /**
      * Used to represent an error that we don't know more details about. This is a backup in case
      * the error handling system can't find a more accurate representation, and shouldn't be used in general.

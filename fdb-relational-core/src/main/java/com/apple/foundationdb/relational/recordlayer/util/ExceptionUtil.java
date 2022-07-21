@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -41,8 +42,14 @@ public final class ExceptionUtil {
     }
 
     private static RelationalException recordCoreToRelationalException(RecordCoreException re) {
+        if (re.getCause() instanceof RelationalException) {
+            return (RelationalException) re.getCause();
+        }
+
         ErrorCode code = ErrorCode.UNKNOWN;
-        if (re instanceof RecordCoreStorageException) {
+        if (re instanceof FDBExceptions.FDBStoreTransactionTimeoutException) {
+            code = ErrorCode.TRANSACTION_TIMEOUT;
+        } else if (re instanceof RecordCoreStorageException) {
             code = ErrorCode.TRANSACTION_INACTIVE;
         }
         Map<String, Object> extraContext = re.getLogInfo();

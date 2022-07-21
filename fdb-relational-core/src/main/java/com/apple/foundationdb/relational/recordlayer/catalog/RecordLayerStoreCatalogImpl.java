@@ -262,9 +262,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     private FDBRecordStore openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
         try {
             return FDBRecordStore.newBuilder().setKeySpacePath(keySpacePath).setContext(txn.unwrap(FDBRecordContext.class)).setMetaDataProvider(metaDataProvider).open();
-        } catch (RecordCoreStorageException ex) {
-            // there maybe other types of RecordCoreStorageException?
-            throw new RelationalException(ErrorCode.TRANSACTION_INACTIVE, ex);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

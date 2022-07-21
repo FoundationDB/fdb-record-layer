@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.options.OptionContract;
 import com.apple.foundationdb.relational.api.options.RangeContract;
 import com.apple.foundationdb.relational.api.options.TypeContract;
+import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -68,10 +69,6 @@ public final class Options {
     private final Options parentOptions;
     private final Map<Name, Object> optionsMap;
 
-    private Options(Map<Name, Object> optionsMap) {
-        this(optionsMap, null);
-    }
-
     private Options(Map<Name, Object> optionsMap, Options parentOptions) {
         this.optionsMap = optionsMap;
         this.parentOptions = parentOptions;
@@ -106,6 +103,7 @@ public final class Options {
 
     public static final class Builder {
         ImmutableMap.Builder<Name, Object> optionsMapBuilder = ImmutableMap.builder();
+        Options parentOptions;
 
         private Builder() {
         }
@@ -116,8 +114,15 @@ public final class Options {
             return this;
         }
 
+        public Builder fromOptions(Options options) throws RelationalException {
+            optionsMapBuilder.putAll(options.optionsMap);
+            Assert.that(parentOptions == null);
+            parentOptions = options.parentOptions;
+            return this;
+        }
+
         public Options build() {
-            return new Options(optionsMapBuilder.build());
+            return new Options(optionsMapBuilder.build(), parentOptions);
         }
     }
 
