@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -169,6 +171,20 @@ public class Scopes {
 
         public void setPredicate(@Nonnull final QueryPredicate predicate) {
             this.predicate = predicate;
+        }
+
+        @Nonnull
+        public QueryPredicate getPredicate() {
+            if (!hasPredicate()) {
+                throw new RecordCoreException("attempt to retrieve non-existing predicate");
+            } else {
+                Verify.verify(predicate != null);
+                return predicate;
+            }
+        }
+
+        public boolean hasPredicate() {
+            return predicate != null;
         }
 
         public void addProjectionColumn(@Nonnull final Column<? extends Value> column) {
