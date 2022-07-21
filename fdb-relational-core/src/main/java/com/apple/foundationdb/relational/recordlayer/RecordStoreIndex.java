@@ -45,18 +45,17 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.util.stream.Collectors;
 
 public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements Index {
     private final com.apple.foundationdb.record.metadata.Index index;
@@ -82,7 +81,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     @Override
     public StructMetaData getMetaData() throws RelationalException {
         final KeyExpression indexStruct = index.getRootExpression();
-        RecordType recType = table.loadRecordType(Options.NONE);
+        final RecordType recType = table.loadRecordType(Options.NONE);
         final List<Descriptors.FieldDescriptor> fields = indexStruct.validate(recType.getDescriptor());
         Type.Record record = ProtobufDdlUtil.recordFromFieldDescriptors(fields);
         /*
@@ -107,7 +106,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
             } else {
                 recFields.add(typeKeyPos, typeKeyField);
             }
-            record = Type.Record.fromFields(recFields);
+            record = Type.Record.fromFields(recFields.stream().map(f -> Type.Record.Field.of(f.getFieldType(), f.getFieldNameOptional())).collect(Collectors.toList()));
         }
         return SqlTypeSupport.recordToMetaData(record);
     }

@@ -180,6 +180,6 @@ public final class ProtobufDdlUtil {
             }
         });
         orderedFieldMap.putAll(descriptorLookupMap);
-        return Type.Record.fromFieldDescriptorsMap(orderedFieldMap);
+        return Type.Record.fromFields(Type.Record.fromFieldDescriptorsMap(orderedFieldMap).getFields().stream().map(f -> Type.Record.Field.of(f.getFieldType(), f.getFieldNameOptional())).collect(Collectors.toList()));
     }
 }

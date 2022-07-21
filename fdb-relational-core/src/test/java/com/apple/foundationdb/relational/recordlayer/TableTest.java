@@ -28,10 +28,11 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
+import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -287,6 +288,42 @@ public class TableTest {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
                     .hasRowExactly(Map.of("name", r.getName()))
                     .hasNoNextRow();
+        }
+    }
+
+    @Test
+    void testIndexCreatedUsingLastColumn() throws Exception {
+        final String schema =
+                " CREATE TABLE tbl1 (id int64, a string, b string, c string, PRIMARY KEY(id))" +
+                " CREATE VALUE INDEX c_name_idx ON tbl1(c)";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+
+                Message result = statement.getDataBuilder("tbl1").setField("id", 42L).setField("a", "valuea1").setField("b","valueb1").setField("c", "valuec1").build();
+                int cnt = statement.executeInsert("tbl1", result);
+                org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                result = statement.getDataBuilder("tbl1").setField("id", 43L).setField("a", "valuea2").setField("b","valueb2").setField("c", "valuec2").build();
+                cnt = statement.executeInsert("tbl1", result);
+                org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                result = statement.getDataBuilder("tbl1").setField("id", 44L).setField("a", "valuea3").setField("b","valueb3").setField("c", "valuec3").build();
+                cnt = statement.executeInsert("tbl1", result);
+                org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                //scan on the index
+                TableScan scan = TableScan.newBuilder()
+                        .withTableName("tbl1")
+                        .setStartKey("c", "valuec2")
+                        .setEndKey("c", "valuec2" + 1) //??
+                        .build();
+                try (RelationalResultSet resultSet = statement.executeScan(scan, Options.builder().withOption(Options.Name.INDEX_HINT, "c_name_idx").build())) {
+                    //because we are scanning the index only, the returned result only contains what's in the record_name_idx (name)
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(Map.of("c", "valuec2"))
+                            .hasNoNextRow();
+                }
+            }
         }
     }
 
