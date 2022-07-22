@@ -1344,6 +1344,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), null, FDBRecordStore.RebuildIndexReason.TEST).get();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX_TEST), "should build new index");
             assertTrue(recordStore.isIndexReadable(indexName));
             commit(context);
         }
@@ -2556,7 +2557,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             uncheckedOpenRecordStore(context, metaData.getRecordMetaData());
             timer.reset();
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
-            assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX_FEW_RECORDS));
             assertEquals(0, timer.getCount(FDBStoreTimer.Events.REMOVE_FORMER_INDEX));
             context.commit();
         }
@@ -2567,7 +2568,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             uncheckedOpenRecordStore(context, metaData.getRecordMetaData());
             timer.reset();
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
-            assertEquals(0, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX_FEW_RECORDS));
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REMOVE_FORMER_INDEX));
             context.commit();
         }
@@ -2580,7 +2581,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             uncheckedOpenRecordStore(context, metaData.getRecordMetaData());
             timer.reset();
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
-            assertEquals(0, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX_FEW_RECORDS));
             assertEquals(0, timer.getCount(FDBStoreTimer.Events.REMOVE_FORMER_INDEX));
             context.commit();
         }

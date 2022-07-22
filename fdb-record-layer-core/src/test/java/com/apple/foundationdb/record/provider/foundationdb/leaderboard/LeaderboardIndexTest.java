@@ -1009,7 +1009,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(true, 10100);
             assertFalse(result.isChanged());
             assertFalse(result.isRebuilt());
-            assertEquals(0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX_FEW_RECORDS));
 
             // NOTE: no commit.
         }
@@ -1020,7 +1020,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(true, 11500);
             assertTrue(result.isChanged());
             assertFalse(result.isRebuilt());
-            assertEquals(0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX_FEW_RECORDS));
 
             // NOTE: no commit.
         }
@@ -1037,7 +1037,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
                 assertFalse(result.isRebuilt());
             }
             assertEquals(1, metrics.getCount(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED));
-            assertEquals(rebuild ? 1 : 0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(rebuild ? 1 : 0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX_EXPLICIT));
 
             // NOTE: no commit.
         }
@@ -1069,7 +1069,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(true, 10100);
             assertTrue(result.isChanged());
             assertTrue(result.isRebuilt());
-            assertEquals(1, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(1, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX_EXPLICIT));
 
             context.commit();
         }

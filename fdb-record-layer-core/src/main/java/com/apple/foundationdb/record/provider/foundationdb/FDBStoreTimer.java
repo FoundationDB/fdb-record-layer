@@ -148,8 +148,19 @@ public class FDBStoreTimer extends StoreTimer {
         DELETE_INDEX_ENTRY("delete index entry"),
         /** The amount of time spent updating an entry in an atomic mutation index. */
         MUTATE_INDEX_ENTRY("mutate index entry"),
-        /** The amount of time spent deleting an entry from a secondary index. */
-        REBUILD_INDEX("rebuild index"),
+        /** The amount of time spent rebuilding an index for a new store. */
+        REBUILD_INDEX_NEW_STORE("rebuild index for a new store"),
+        /** The amount of time spent rebuilding an index for stores with few records. */
+        REBUILD_INDEX_FEW_RECORDS("rebuild index with few records"),
+        /** The amount of time spent rebuilding an index when count is unknown. */
+        REBUILD_INDEX_COUNTS_UNKNOWN("rebuild index with counts unknown"),
+        /** The amount of time spent rebuilding an index during rebuild all. */
+        REBUILD_INDEX_REBUILD_ALL("rebuild index during rebuild all"),
+        /** The amount of time spent rebuilding an index by explicit request. */
+        REBUILD_INDEX_EXPLICIT("rebuild index by an explicit request"),
+        /** The amount of time spent rebuilding an index during a test. */
+        REBUILD_INDEX_TEST("rebuild index during test"),
+
         /** The amount of time spent clearing the space taken by an index that has been removed from the meta-data. */
         REMOVE_FORMER_INDEX("remove former index"),
         /** The amount of time spent counting records for the deprecated record count key. */
