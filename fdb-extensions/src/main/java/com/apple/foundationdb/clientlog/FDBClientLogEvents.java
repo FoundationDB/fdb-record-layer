@@ -106,10 +106,12 @@ public class FDBClientLogEvents {
     public abstract static class Event {
         protected final double startTimestamp;
         protected final String dcId;
+        protected final String tenant;
 
-        protected Event(double startTimestamp, String dcId) {
+        protected Event(double startTimestamp, String dcId, String tenant) {
             this.startTimestamp = startTimestamp;
             this.dcId = dcId;
+            this.tenant = tenant;
         }
 
         public abstract int getType();
@@ -137,11 +139,18 @@ public class FDBClientLogEvents {
             return dcId;
         }
 
+        public String getTenant() {
+            return tenant;
+        }
+
         protected StringJoiner toStringBase() {
             StringJoiner joiner = new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
                     .add("startTimestamp=" + getStartTimestampString());
             if (dcId.length() > 0) {
                 joiner.add("dcId=" + dcId);
+            }
+            if (tenant.length() > 0) {
+                joiner.add("tenant=" + dcId);
             }
             return joiner;
         }
@@ -168,8 +177,8 @@ public class FDBClientLogEvents {
         private final int priority;
         private final long readVersion;
 
-        public EventGetVersion(double startTimestamp, String dcId, double latency, int priority, long readVersion) {
-            super(startTimestamp, dcId);
+        public EventGetVersion(double startTimestamp, String dcId, String tenant, double latency, int priority, long readVersion) {
+            super(startTimestamp, dcId, tenant);
             this.latency = latency;
             this.priority = priority;
             this.readVersion = readVersion;
@@ -212,8 +221,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final byte[] key;
 
-        public EventGet(double startTimestamp, String dcId, double latency, int size, @Nonnull byte[] key) {
-            super(startTimestamp, dcId);
+        public EventGet(double startTimestamp, String dcId, String tenant, double latency, int size, @Nonnull byte[] key) {
+            super(startTimestamp, dcId, tenant);
             this.latency = latency;
             this.size = size;
             this.key = key;
@@ -256,8 +265,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final Range range;
 
-        public EventGetRange(double startTimestamp, String dcId, double latency, int size, @Nonnull Range range) {
-            super(startTimestamp, dcId);
+        public EventGetRange(double startTimestamp, String dcId, String tenant, double latency, int size, @Nonnull Range range) {
+            super(startTimestamp, dcId, tenant);
             this.latency = latency;
             this.size = size;
             this.range = range;
@@ -302,9 +311,9 @@ public class FDBClientLogEvents {
         @Nonnull
         private final CommitRequest commitRequest;
 
-        public EventCommit(double startTimestamp, String dcId, double latency, int numMutations, int commitBytes, long commitVersion,
+        public EventCommit(double startTimestamp, String dcId, String tenant, double latency, int numMutations, int commitBytes, long commitVersion,
                            @Nonnull CommitRequest commitRequest) {
-            super(startTimestamp, dcId);
+            super(startTimestamp, dcId, tenant);
             this.latency = latency;
             this.numMutations = numMutations;
             this.commitBytes = commitBytes;
@@ -355,8 +364,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final byte[] key;
 
-        public EventGetError(double startTimestamp, String dcId, int errorCode, @Nonnull byte[] key) {
-            super(startTimestamp, dcId);
+        public EventGetError(double startTimestamp, String dcId, String tenant, int errorCode, @Nonnull byte[] key) {
+            super(startTimestamp, dcId, tenant);
             this.errorCode = errorCode;
             this.key = key;
         }
@@ -392,8 +401,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final Range range;
 
-        public EventGetRangeError(double startTimestamp, String dcId, int errorCode, @Nonnull Range range) {
-            super(startTimestamp, dcId);
+        public EventGetRangeError(double startTimestamp, String dcId, String tenant, int errorCode, @Nonnull Range range) {
+            super(startTimestamp, dcId, tenant);
             this.errorCode = errorCode;
             this.range = range;
         }
@@ -429,8 +438,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final CommitRequest commitRequest;
 
-        public EventCommitError(double startTimestamp, String dcId, int errorCode, @Nonnull CommitRequest commitRequest) {
-            super(startTimestamp, dcId);
+        public EventCommitError(double startTimestamp, String dcId, String tenant, int errorCode, @Nonnull CommitRequest commitRequest) {
+            super(startTimestamp, dcId, tenant);
             this.errorCode = errorCode;
             this.commitRequest = commitRequest;
         }
@@ -604,32 +613,51 @@ public class FDBClientLogEvents {
                     dcId = new String(dcIdBytes, StandardCharsets.UTF_8);
                 }
             }
+            String tenant = "";
+            if (protocolVersion >= PROTOCOL_VERSION_7_1) {
+                boolean present = buffer.get() != 0;
+                if (present) {
+                    int tenantLength = buffer.getInt();
+                    if (tenantLength > 0) {
+                        byte[] tenantBytes = new byte[tenantLength];
+                        buffer.get(tenantBytes);
+                        tenant = new String(tenantBytes, StandardCharsets.UTF_8);
+                    }
+                }
+            }
             final Event event;
             switch (type) {
                 case GET_VERSION_LATENCY:
-                    event = new EventGetVersion(startTime, dcId, buffer.getDouble(),
+                    event = new EventGetVersion(startTime, dcId, tenant,
+                            buffer.getDouble(),
                             protocolVersion < PROTOCOL_VERSION_6_2 ? 0 : buffer.getInt(),
                             protocolVersion < PROTOCOL_VERSION_6_3 ? 0L : buffer.getLong());
                     break;
                 case GET_LATENCY:
-                    event = new EventGet(startTime, dcId, buffer.getDouble(), buffer.getInt(), deserializeByteArray(buffer));
+                    event = new EventGet(startTime, dcId, tenant,
+                            buffer.getDouble(), buffer.getInt(), deserializeByteArray(buffer));
                     break;
                 case GET_RANGE_LATENCY:
-                    event = new EventGetRange(startTime, dcId, buffer.getDouble(), buffer.getInt(), deserializeRange(buffer));
+                    event = new EventGetRange(startTime, dcId, tenant,
+                            buffer.getDouble(), buffer.getInt(), deserializeRange(buffer));
                     break;
                 case COMMIT_LATENCY:
-                    event = new EventCommit(startTime, dcId, buffer.getDouble(), buffer.getInt(), buffer.getInt(),
+                    event = new EventCommit(startTime, dcId, tenant,
+                            buffer.getDouble(), buffer.getInt(), buffer.getInt(),
                             protocolVersion < PROTOCOL_VERSION_6_3 ? 0L : buffer.getLong(),
                             deserializeCommit(protocolVersion, buffer));
                     break;
                 case ERROR_GET:
-                    event = new EventGetError(startTime, dcId, buffer.getInt(), deserializeByteArray(buffer));
+                    event = new EventGetError(startTime, dcId, tenant,
+                            buffer.getInt(), deserializeByteArray(buffer));
                     break;
                 case ERROR_GET_RANGE:
-                    event = new EventGetRangeError(startTime, dcId, buffer.getInt(), deserializeRange(buffer));
+                    event = new EventGetRangeError(startTime, dcId, tenant,
+                            buffer.getInt(), deserializeRange(buffer));
                     break;
                 case ERROR_COMMIT:
-                    event = new EventCommitError(startTime, dcId, buffer.getInt(), deserializeCommit(protocolVersion, buffer));
+                    event = new EventCommitError(startTime, dcId, tenant,
+                            buffer.getInt(), deserializeCommit(protocolVersion, buffer));
                     break;
                 default:
                     throw new IllegalStateException("Unknown event type: " + type);
