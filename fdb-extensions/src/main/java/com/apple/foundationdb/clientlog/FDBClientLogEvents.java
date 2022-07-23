@@ -541,17 +541,24 @@ public class FDBClientLogEvents {
         private final Mutation[] mutations;
         private final long snapshotVersion;
         private final boolean reportConflictingKeys;
+        private final boolean lockAware;
+        @Nullable
+        private final SpanContext spanContext;
 
         public CommitRequest(@Nonnull Range[] readConflictRanges,
                              @Nonnull Range[] writeConflictRanges,
                              @Nonnull Mutation[] mutations,
                              long snapshotVersion,
-                             boolean reportConflictingKeys) {
+                             boolean reportConflictingKeys,
+                             boolean lockAware,
+                             @Nullable SpanContext spanContext) {
             this.readConflictRanges = readConflictRanges;
             this.writeConflictRanges = writeConflictRanges;
             this.mutations = mutations;
             this.snapshotVersion = snapshotVersion;
             this.reportConflictingKeys = reportConflictingKeys;
+            this.lockAware = lockAware;
+            this.spanContext = spanContext;
         }
 
         @Nonnull
@@ -577,15 +584,28 @@ public class FDBClientLogEvents {
             return reportConflictingKeys;
         }
 
+        public boolean isLockAware() {
+            return lockAware;
+        }
+
+        @Nullable
+        public SpanContext getSpanContext() {
+            return spanContext;
+        }
+
         @Override
         public String toString() {
-            return new StringJoiner(", ", CommitRequest.class.getSimpleName() + "[", "]")
+            final StringJoiner joiner = new StringJoiner(", ", CommitRequest.class.getSimpleName() + "[", "]")
                     .add("readConflictRanges=" + Arrays.toString(readConflictRanges))
                     .add("writeConflictRanges=" + Arrays.toString(writeConflictRanges))
                     .add("mutations=" + Arrays.toString(mutations))
                     .add("snapshotVersion=" + snapshotVersion)
                     .add("reportConflictingKeys=" + reportConflictingKeys)
-                    .toString();
+                    .add("lockAware=" + lockAware);
+            if (spanContext != null) {
+                joiner.add("spanContext=" + spanContext);
+            }
+            return joiner.toString();
         }
     }
 
@@ -706,12 +726,79 @@ public class FDBClientLogEvents {
 
     @Nonnull
     protected static CommitRequest deserializeCommit(long protocolVersion, @Nonnull ByteBuffer buffer) {
+        final Range[] readConflictRanges = deserializeRangeArray(buffer);
+        final Range[] writeConflictRanges = deserializeRangeArray(buffer);
+        final Mutation[] mutations = deserializeMutationArray(buffer);
+        final long snapshotVersion = buffer.getLong();
+        boolean reportConflictingKeys = false;
+        if (protocolVersion >= PROTOCOL_VERSION_6_3) {
+            reportConflictingKeys = buffer.get() != 0;
+        }
+        boolean lockAware = false;
+        SpanContext spanContext = null;
+        if (protocolVersion >= PROTOCOL_VERSION_7_1) {
+            lockAware = buffer.get() != 0;
+            boolean present = buffer.get() != 0;
+            if (present) {
+                spanContext = new SpanContext(new Uid(buffer.getLong(), buffer.getLong()), buffer.getLong(), buffer.get());
+            }
+        }
         return new CommitRequest(
-                deserializeRangeArray(buffer),
-                deserializeRangeArray(buffer),
-                deserializeMutationArray(buffer),
-                buffer.getLong(),
-                protocolVersion >= PROTOCOL_VERSION_6_3 && (buffer.get() != 0));
+                readConflictRanges,
+                writeConflictRanges,
+                mutations,
+                snapshotVersion,
+                reportConflictingKeys,
+                lockAware,
+                spanContext);
+    }
+
+    protected static class Uid {
+        private final long part1;
+        private final long part2;
+
+        public Uid(final long part1, final long part2) {
+            this.part1 = part1;
+            this.part2 = part2;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%016x%016x", part1, part2);
+        }
+    }
+
+    protected static class SpanContext {
+        private final Uid traceID;
+        private final long spanID;
+        private final byte flags;
+
+        public Uid getTraceID() {
+            return traceID;
+        }
+
+        public long getSpanID() {
+            return spanID;
+        }
+
+        public byte getFlags() {
+            return flags;
+        }
+
+        public SpanContext(final Uid traceID, final long spanID, final byte flags) {
+            this.traceID = traceID;
+            this.spanID = spanID;
+            this.flags = flags;
+        }
+
+        @Override
+        public String toString() {
+            return new StringJoiner(", ", CommitRequest.class.getSimpleName() + "[", "]")
+                    .add("traceID=" + traceID)
+                    .add("spanID=" + spanID)
+                    .add("flags=" + flags)
+                    .toString();
+        }
     }
 
     protected static class EventDeserializer implements AsyncConsumer<KeyValue> {
