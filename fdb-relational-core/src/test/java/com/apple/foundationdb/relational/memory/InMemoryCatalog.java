@@ -80,6 +80,10 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
+    public void createDatabase(@Nonnull Transaction txn, @Nonnull URI dbUri) {
+    }
+
+    @Override
     public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) {
         return null;
     }

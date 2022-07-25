@@ -56,6 +56,8 @@ public interface StoreCatalog {
      */
     boolean updateSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException;
 
+    void createDatabase(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException;
+
     /**
      * list databases in the entire Catalog.
      *

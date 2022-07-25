@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.compare;
 
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -61,12 +60,6 @@ public class JDBCConstantActionFactory implements ConstantActionFactory {
     @Override
     public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
         return txn -> templateCatalog.deleteTemplate(txn, templateId);
-    }
-
-    @Nonnull
-    @Override
-    public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
-        return getCreateDatabaseConstantAction(dbPath, constantActionOptions);
     }
 
     @Nonnull

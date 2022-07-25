@@ -69,6 +69,7 @@ class CatalogMetaDataProviderTest {
                     RecordMetaData.build(Restaurant.getDescriptor()).toProto(),
                     "testTemplate",
                     2);
+            catalog.createDatabase(txn, dbUri);
             catalog.updateSchema(txn, schema);
 
             CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(catalog, dbUri, schemaName, txn);

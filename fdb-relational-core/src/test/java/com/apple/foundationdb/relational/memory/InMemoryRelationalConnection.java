@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
@@ -173,12 +172,6 @@ public class InMemoryRelationalConnection implements RelationalConnection {
                     //insert the schema into the catalog
                     catalog.updateSchema(txn, schema);
                 };
-            }
-
-            @Nonnull
-            @Override
-            public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
-                return super.getCreateDatabaseConstantAction(dbPath, template, constantActionOptions);
             }
 
             @Nonnull

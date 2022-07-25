@@ -20,39 +20,25 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import java.net.URI;
-import java.util.Map;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class CreateDatabaseConstantAction implements ConstantAction {
     private final URI dbUrl;
-    private final DatabaseTemplate dbTemplate;
-    private final Options constantActionOptions;
 
-    private final ConstantActionFactory caFactory;
     private final StoreCatalog storeCatalog;
 
     public CreateDatabaseConstantAction(@Nonnull URI dbUrl,
-                                        @Nullable DatabaseTemplate dbTemplate,
-                                        Options constantActionOptions,
-                                        @Nonnull StoreCatalog storeCatalog,
-                                        @Nonnull ConstantActionFactory caFactory) {
+                                        @Nonnull StoreCatalog storeCatalog) {
         this.dbUrl = dbUrl;
-        this.dbTemplate = dbTemplate;
-        this.constantActionOptions = constantActionOptions;
         this.storeCatalog = storeCatalog;
-        this.caFactory = caFactory;
     }
 
     @Override
@@ -61,10 +47,6 @@ public class CreateDatabaseConstantAction implements ConstantAction {
         if (storeCatalog.doesDatabaseExist(txn, dbUrl)) {
             throw new RelationalException("Database " + dbUrl + " already exists", ErrorCode.DATABASE_ALREADY_EXISTS);
         }
-        if (dbTemplate != null) {
-            for (Map.Entry<String, String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
-                caFactory.getCreateSchemaConstantAction(dbUrl, schemaData.getKey(), schemaData.getValue(), constantActionOptions).execute(txn);
-            }
-        }
+        storeCatalog.createDatabase(txn, dbUrl);
     }
 }

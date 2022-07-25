@@ -91,7 +91,7 @@ public class DbStateInsertCommandTest {
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");
         Assertions.assertEquals(0, (Integer) o, "Did not return the correct modification count");
 
-        factory.getQueryCommand("create database '/test'").call();
+        factory.getQueryCommand("create database '/test_db'").call();
         try {
             factory.getQueryCommand("create schema '/test_db/test_schema' with template test_template").call();
             factory.getDisconnectCommand().call();
@@ -125,7 +125,7 @@ public class DbStateInsertCommandTest {
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");
         Assertions.assertEquals(0, (Integer) o, "Did not return the correct modification count");
 
-        factory.getQueryCommand("create database '/test'").call();
+        factory.getQueryCommand("create database '/test_db'").call();
         try {
             factory.getQueryCommand("create schema '/test_db/test_schema' with template test_template").call();
             factory.getDisconnectCommand().call();
@@ -159,7 +159,7 @@ public class DbStateInsertCommandTest {
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");
         Assertions.assertEquals(0, (Integer) o, "Did not return the correct modification count");
 
-        factory.getQueryCommand("create database '/test'").call();
+        factory.getQueryCommand("create database '/test_db'").call();
         try {
             factory.getQueryCommand("create schema '/test_db/test_schema' with template test_template").call();
             factory.getDisconnectCommand().call();
@@ -235,7 +235,7 @@ public class DbStateInsertCommandTest {
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");
         Assertions.assertEquals(0, (Integer) o, "Did not return the correct modification count");
 
-        factory.getQueryCommand("create database '/test'").call();
+        factory.getQueryCommand("create database '/test_db'").call();
         try {
             factory.getQueryCommand("create schema '/test_db/test_schema' with template test_template").call();
             factory.getDisconnectCommand().call();

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 
 import java.net.URI;
@@ -37,10 +36,6 @@ public interface ConstantActionFactory {
 
     @Nonnull
     ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options);
-
-    @Nonnull
-    @Deprecated //"remove once it's been transformed to use the language"
-    ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions);
 
     @Nonnull
     ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions);

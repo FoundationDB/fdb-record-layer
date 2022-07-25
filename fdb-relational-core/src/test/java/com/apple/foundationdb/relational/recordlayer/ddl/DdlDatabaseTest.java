@@ -108,7 +108,7 @@ public class DdlDatabaseTest {
                             .hasColumn("database_id", "/test_db");
                 }
                 //now drop the database
-                statement.executeUpdate("DROP DATABASE '/test_db/test_db'");
+                statement.executeUpdate("DROP DATABASE '/test_db'");
 
                 //now it should be missing
                 try (RelationalResultSet rs = statement.executeQuery(listCommand)) {
@@ -119,7 +119,6 @@ public class DdlDatabaseTest {
     }
 
     @Test
-    @Disabled("Catalog behavior w.r.t databases that have no schemas needs to be addressed(TODO)")
     public void cannotCreateSchemaFromDroppedDatabase() throws Exception {
         /*
          * a sort-of-dirty way of verifying that a database was created: if you can create
@@ -137,10 +136,10 @@ public class DdlDatabaseTest {
                 statement.executeUpdate("CREATE SCHEMA '/test_db/created_schema' with template " + baseTemplate.getTemplateName());
 
                 //now drop the database
-                statement.executeUpdate("DROP DATABASE '/test_db/created_schema'");
+                statement.executeUpdate("DROP DATABASE '/test_db'");
 
                 //now creating a new schema should throw a DATABASE_NOT_FOUND error
-                Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE SCHEMA /test_db/should_fail with template " + baseTemplate.getTemplateName()))
+                Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE SCHEMA '/test_db/should_fail' with template " + baseTemplate.getTemplateName()))
                         .isInstanceOf(SQLException.class)
                         .extracting("SQLState")
                         .isEqualTo(ErrorCode.UNDEFINED_DATABASE.getErrorCode());
@@ -149,34 +148,34 @@ public class DdlDatabaseTest {
     }
 
     @Test
-    public void cannotCreateSameDatabaseTwice() throws Exception {
-        /*
-         * a sort-of-dirty way of verifying that a database was created: if you can create
-         * a schema inside the database, then it is created.  Then try to create it again, it should fail
-         *
-         */
+    public void cannotCreateDatabaseIfExists() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("catalog");
             try (Statement statement = conn.createStatement()) {
                 //create a database
-                statement.executeUpdate("CREATE DATABASE '/test_db_two_schemas'");
-                //TODO(bfines) the catalog doesn't currently detect a database unless it has a schema, which is probably not right
-                statement.executeUpdate("CREATE SCHEMA '/test_db_two_schemas/schema3' with template " + baseTemplate.getTemplateName());
-
-                //creating the database a second time should fail
-                Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE DATABASE '/test_db_two_schemas'"))
-                        .isInstanceOf(SQLException.class)
-                        .extracting("SQLState")
-                        .isEqualTo(ErrorCode.DATABASE_ALREADY_EXISTS.getErrorCode());
-                RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate("CREATE DATABASE '/test_db_two_schemas'"))
+                statement.executeUpdate("CREATE DATABASE '/test_db'");
+                RelationalAssertions.assertThrowsSqlException(() ->
+                        statement.executeUpdate("CREATE DATABASE '/test_db'"))
                         .hasErrorCode(ErrorCode.DATABASE_ALREADY_EXISTS);
             } finally {
                 try (Statement statement = conn.createStatement()) {
                     //try to drop the db for test cleanliness
-                    statement.executeUpdate("DROP DATABASE '/test_db_two_schemas'");
+                    statement.executeUpdate("DROP DATABASE '/test_db'");
                 }
             }
         }
     }
 
+    @Test
+    public void cannotCreateSchemaWithoutDatabase() throws Exception {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+            conn.setSchema("catalog");
+            try (Statement statement = conn.createStatement()) {
+                //create a database
+                RelationalAssertions.assertThrowsSqlException(() ->
+                        statement.executeUpdate("CREATE SCHEMA '/database_that_does_not_exist/schema_that_cannot_be_created' with template " + baseTemplate.getTemplateName()))
+                        .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
+            }
+        }
+    }
 }

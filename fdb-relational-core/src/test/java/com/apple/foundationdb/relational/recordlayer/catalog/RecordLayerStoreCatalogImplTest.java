@@ -85,6 +85,7 @@ public class RecordLayerStoreCatalogImplTest {
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+            storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseId()));
             storeCatalog.updateSchema(txn, schema1);
             txn.commit();
         }
@@ -207,6 +208,7 @@ public class RecordLayerStoreCatalogImplTest {
         // update with schema1 (version = 1)
         boolean updateSuccess1;
         try (Transaction txn1 = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.createDatabase(txn1, URI.create(schema1.getDatabaseId()));
             updateSuccess1 = storeCatalog.updateSchema(txn1, schema1);
             // commit and close the write transaction
             txn1.commit();
@@ -250,6 +252,11 @@ public class RecordLayerStoreCatalogImplTest {
         final Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
         final Schema schema2 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 2, Arrays.asList("test_table1", "test_table2"));
 
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseId()));
+            txn.commit();
+        }
+
         // test 2 conflicting transactions
         try (Transaction txn3 = new RecordContextTransaction(fdb.openContext()); Transaction txn4 = new RecordContextTransaction(fdb.openContext())) {
             // update with 2 different schemas
@@ -283,6 +290,8 @@ public class RecordLayerStoreCatalogImplTest {
         final Schema schema1 = generateTestSchema("test_schema_name1", "test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
         final Schema schema2 = generateTestSchema("test_schema_name2", "test_database_id2", "test_template_name", 1, Arrays.asList("test_table3", "test_table4"));
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseId()));
+            storeCatalog.createDatabase(txn, URI.create(schema2.getDatabaseId()));
             storeCatalog.updateSchema(txn, schema1);
             storeCatalog.updateSchema(txn, schema2);
             txn.commit();
@@ -309,6 +318,7 @@ public class RecordLayerStoreCatalogImplTest {
     void testDoesDatabaseExist() throws RelationalException {
         final Schema schema1 = generateTestSchema("test_schema_name1", "/test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseId()));
             storeCatalog.updateSchema(txn, schema1);
             txn.commit();
         }
@@ -323,6 +333,7 @@ public class RecordLayerStoreCatalogImplTest {
     void testDeleteDatabaseWorks() throws RelationalException {
         final Schema schema1 = generateTestSchema("test_schema_name1", "/test_database_id1", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseId()));
             storeCatalog.updateSchema(txn, schema1);
             txn.commit();
         }
@@ -350,6 +361,7 @@ public class RecordLayerStoreCatalogImplTest {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             for (int i = 0; i < n; i++) {
                 Schema schema = generateTestSchema("test_schema_name" + i, "test_database_id" + i / 2, "test_template_name", 1, List.of("test_table" + i));
+                storeCatalog.createDatabase(txn, URI.create(schema.getDatabaseId()));
                 storeCatalog.updateSchema(txn, schema);
             }
             txn.commit();

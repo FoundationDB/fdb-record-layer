@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
@@ -39,12 +38,6 @@ public abstract class AbstractConstantActionFactory implements ConstantActionFac
     @Override
     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
         return NoOpConstantActionFactory.INSTANCE.getCreateSchemaTemplateConstantAction(template, templateProperties);
-    }
-
-    @Nonnull
-    @Override
-    public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
-        return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, template, constantActionOptions);
     }
 
     @Nonnull

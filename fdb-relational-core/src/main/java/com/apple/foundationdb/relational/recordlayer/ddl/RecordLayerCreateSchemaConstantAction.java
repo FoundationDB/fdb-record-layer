@@ -76,7 +76,9 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         /*
          *
          */
-        //TODO(Bfines) verify that the database exists
+        if (!catalog.doesDatabaseExist(txn, dbUri)) {
+            throw new RelationalException(String.format("Database %s does not exist", dbUri.getPath()), ErrorCode.UNDEFINED_DATABASE);
+        }
         //verify that the schema doesn't already exist
         // This is a bit awkward--perhaps we should adjust the behavior of the StoreCatalog?
         try {

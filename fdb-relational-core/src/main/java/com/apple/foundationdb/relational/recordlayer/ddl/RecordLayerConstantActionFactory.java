@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -66,14 +65,8 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
 
     @Nonnull
     @Override
-    public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
-        return new CreateDatabaseConstantAction(dbPath, template, constantActionOptions, catalog, this);
-    }
-
-    @Nonnull
-    @Override
     public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
-        return new CreateDatabaseConstantAction(dbPath, null, constantActionOptions, catalog, this);
+        return new CreateDatabaseConstantAction(dbPath, catalog);
     }
 
     @Nonnull

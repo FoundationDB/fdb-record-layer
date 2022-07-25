@@ -116,7 +116,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Nonnull
     private RecordMetaDataProvider setupMetadataProvider() throws RelationalException {
-        final Schema schema = getCatalogSchemaTemplate().generateSchema("__SYS", "catalog");
+        final Schema schema = getCatalogSchemaTemplate().generateSchema("__SYS", SCHEMA);
         RecordMetaDataProto.MetaData proto = schema.getMetaData();
         return RecordMetaData.build(proto);
     }
@@ -132,14 +132,28 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
         // poor man's approach for checking SYS schema existence
         // TODO this needs careful design to solve a spectrum of issues pertaining concurrent bootstrapping.
+        URI dbUri = URI.create(SYS_DB);
         try {
-            loadSchema(transaction, URI.create(SYS_DB), SCHEMA);
+            loadSchema(transaction, dbUri, SCHEMA);
         } catch (RelationalException ve) {
             if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA) {
                 return;
             }
         }
-        prepareSysDb(transaction);
+
+        if (!doesDatabaseExist(transaction, dbUri)) {
+            createDatabase(transaction, dbUri);
+        }
+
+        if (!doesSchemaExist(transaction, dbUri, SCHEMA)) {
+            final SchemaTemplate schemaTemplate = getCatalogSchemaTemplate();
+
+            //map the schema to the template
+            final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), SCHEMA);
+
+            //insert the schema into the catalog
+            updateSchema(transaction, schema);
+        }
     }
 
     public void initialize(@Nonnull final Transaction createTxn) throws RelationalException {
@@ -176,12 +190,26 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     @Override
     public boolean updateSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException {
         CatalogValidator.validateSchema(dataToWrite);
+        Assert.that(doesDatabaseExist(txn, URI.create(dataToWrite.getDatabaseId())),
+                String.format("Cannot create schema %s because database %s does not exist.", dataToWrite.getSchemaName(), dataToWrite.getDatabaseId()),
+                ErrorCode.UNDEFINED_DATABASE);
         try {
             // open FDBRecordStore
             FDBRecordStore recordStore = openFDBRecordStore(txn);
-            updateDatabaseInfo(dataToWrite, recordStore);
             updateSchemaData(dataToWrite, recordStore);
             return true;
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
+    }
+
+    @Override
+    public void createDatabase(@Nonnull Transaction txn, URI dbUri) throws RelationalException {
+        try {
+            FDBRecordStore recordStore = openFDBRecordStore(txn);
+            ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
+            Message m = pmd.setField("database_id", dbUri.getPath()).build();
+            recordStore.saveRecord(m);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -267,12 +295,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         }
     }
 
-    private void updateDatabaseInfo(Schema schema, FDBRecordStore recordStore) throws RelationalException {
-        ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
-        Message m = pmd.setField("database_id", schema.getDatabaseId()).build();
-        recordStore.saveRecord(m);
-    }
-
     private void updateSchemaData(Schema schema, FDBRecordStore recordStore) throws RelationalException {
         ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
         Message m = pmd.setField("database_id", schema.getDatabaseId())
@@ -291,26 +313,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     @Nonnull
     private Tuple getSchemaKey(@Nonnull URI databaseId, @Nonnull String schemaName) {
         return Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath(), schemaName);
-    }
-
-    private void prepareSysDb(Transaction txn) throws RelationalException {
-
-        // poor man's approach for checking SYS schema existence.
-        try {
-            loadSchema(txn, URI.create("/__SYS"), "catalog");
-        } catch (RelationalException ve) {
-            if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA) {
-                return;
-            }
-        }
-
-        final SchemaTemplate schemaTemplate = getCatalogSchemaTemplate();
-
-        //map the schema to the template
-        final Schema schema = schemaTemplate.generateSchema("/__SYS", "catalog");
-
-        //insert the schema into the catalog
-        updateSchema(txn, schema);
     }
 
     @Nullable

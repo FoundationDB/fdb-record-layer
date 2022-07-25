@@ -49,6 +49,11 @@ public class HollowStoreCatalog implements StoreCatalog {
     }
 
     @Override
+    public void createDatabase(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException {
+        throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
+    }
+
+    @Override
     public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
