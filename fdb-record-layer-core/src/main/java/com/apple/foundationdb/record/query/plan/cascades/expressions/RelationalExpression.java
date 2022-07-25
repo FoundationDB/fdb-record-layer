@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.GenerateVisitor;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
@@ -112,11 +113,12 @@ import java.util.stream.StreamSupport;
 public interface RelationalExpression extends Correlated<RelationalExpression>, Typed, Narrowable<RelationalExpression> {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
+                                                @Nonnull RecordMetaData recordMetaData,
                                                 @Nonnull RecordQuery query) {
-        final var recordMetaData = context.getMetaData();
         query.validate(recordMetaData);
-        final var allRecordTypes = context.getMetaData().getRecordTypes().keySet();
-        final var queriedRecordTypes = context.getRecordTypes();
+        final var allRecordTypes = recordMetaData.getRecordTypes().keySet();
+        final var recordTypesFromQuery = query.getRecordTypes();
+        final var queriedRecordTypes = recordTypesFromQuery.isEmpty() ? allRecordTypes : recordTypesFromQuery;
 
         final GroupExpressionRef<? extends RelationalExpression> baseRef;
         Quantifier.ForEach quantifier;

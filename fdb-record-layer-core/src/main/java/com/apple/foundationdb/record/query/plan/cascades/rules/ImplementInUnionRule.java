@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -91,7 +92,6 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
     @SuppressWarnings({"unchecked", "java:S135"})
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final var context = call.getContext();
         final var bindings = call.getBindings();
 
         final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
@@ -100,11 +100,6 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         }
 
         final var requestedOrderings = requestedOrderingsOptional.get();
-
-        final var commonPrimaryKey = context.getCommonPrimaryKey();
-        if (commonPrimaryKey == null) {
-            return;
-        }
 
         final var selectExpression = bindings.get(root);
         if (!selectExpression.getPredicates().isEmpty()) {
@@ -169,7 +164,8 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                 PlanPartition.rollUpTo(
                         innerReference.getPlanPartitions()
                                 .stream()
-                                .filter(planPartition -> planPartition.getAttributeValue(StoredRecordProperty.STORED_RECORD))
+                                .filter(planPartition -> planPartition.getAttributeValue(StoredRecordProperty.STORED_RECORD) &&
+                                                         planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent())
                                 .collect(ImmutableList.toImmutableList()),
                         OrderingProperty.ORDERING);
 

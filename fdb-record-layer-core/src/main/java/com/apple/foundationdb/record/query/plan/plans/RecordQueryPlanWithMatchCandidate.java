@@ -1,5 +1,5 @@
 /*
- * FakePlanContext.java
+ * RecordQueryPlanWithMatchCandidate.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,29 +18,24 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.rules;
+package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
+import java.util.Optional;
 
 /**
- * A mock implementation of a {@link PlanContext} used to test certain planner rules that don't need a full plan context.
+ * A query plan that was created using a {@link MatchCandidate} to match a physical access path.
  */
-public class FakePlanContext implements PlanContext {
+@API(API.Status.EXPERIMENTAL)
+public interface RecordQueryPlanWithMatchCandidate extends RecordQueryPlan {
     @Nonnull
-    @Override
-    public RecordQueryPlannerConfiguration getPlannerConfiguration() {
-        return RecordQueryPlannerConfiguration.builder().build();
-    }
+    Optional<? extends MatchCandidate> getMatchCandidateMaybe();
 
-    @Nonnull
-    @Override
-    public Set<MatchCandidate> getMatchCandidates() {
-        return ImmutableSet.of();
+    default MatchCandidate getMatchCandidate() {
+        return getMatchCandidateMaybe().orElseThrow(() -> new RecordCoreException("called from a context where the existence of a match candidate is expected."));
     }
 }

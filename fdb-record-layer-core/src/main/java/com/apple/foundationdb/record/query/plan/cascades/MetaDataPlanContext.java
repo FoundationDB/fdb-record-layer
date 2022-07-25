@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -55,17 +53,6 @@ public class MetaDataPlanContext implements PlanContext {
 
     @Nonnull
     private final RecordStoreState recordStoreState;
-    @Nonnull
-    private final RecordMetaData metaData;
-    @Nonnull
-    private final Set<String> recordTypes;
-    @Nonnull
-    private final BiMap<Index, String> indexes;
-    @Nonnull
-    private final BiMap<String, Index> indexesByName;
-    @Nullable
-    private final KeyExpression commonPrimaryKey;
-    private final int greatestPrimaryKeyWidth;
 
     @Nonnull
     private final Set<MatchCandidate> matchCandidates;
@@ -86,36 +73,32 @@ public class MetaDataPlanContext implements PlanContext {
     public MetaDataPlanContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                                @Nonnull final RecordMetaData metaData,
                                @Nonnull final RecordStoreState recordStoreState,
-                               @Nonnull final Optional<Collection<String>> recordTypeNamesOptional,
+                               @Nonnull final Optional<Collection<String>> queriedRecordTypeNamesOptional,
                                @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                final boolean isSortReverse) {
         this.plannerConfiguration = plannerConfiguration;
-        this.metaData = metaData;
         this.recordStoreState = recordStoreState;
-        this.indexes = HashBiMap.create();
-        this.indexesByName = indexes.inverse();
 
         recordStoreState.beginRead();
         List<Index> indexList = new ArrayList<>();
+        final Set<String> queriedRecordTypeNames;
+        final KeyExpression commonPrimaryKey;
         try {
-            if (recordTypeNamesOptional.isEmpty()) { // ALL_TYPES
+            if (queriedRecordTypeNamesOptional.isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
-                greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(metaData.getRecordTypes().values());
-                this.recordTypes = metaData.getRecordTypes().keySet();
+                queriedRecordTypeNames = metaData.getRecordTypes().keySet();
             } else {
-                final var recordTypeNames = recordTypeNamesOptional.get();
-                this.recordTypes = ImmutableSet.copyOf(recordTypeNames);
-                final List<RecordType> recordTypes = recordTypeNames.stream().map(metaData::getRecordType).collect(Collectors.toList());
-                greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(recordTypes);
-                if (recordTypes.size() == 1) {
-                    final RecordType recordType = recordTypes.get(0);
+                queriedRecordTypeNames = ImmutableSet.copyOf(queriedRecordTypeNamesOptional.get());
+                final List<RecordType> queriedRecordTypes = queriedRecordTypeNames.stream().map(metaData::getRecordType).collect(Collectors.toList());
+                if (queriedRecordTypes.size() == 1) {
+                    final RecordType recordType = queriedRecordTypes.get(0);
                     indexList.addAll(readableOf(recordType.getIndexes()));
                     indexList.addAll(readableOf((recordType.getMultiTypeIndexes())));
                     commonPrimaryKey = recordType.getPrimaryKey();
                 } else {
                     boolean first = true;
-                    for (RecordType recordType : recordTypes) {
+                    for (RecordType recordType : queriedRecordTypes) {
                         if (first) {
                             indexList.addAll(readableOf(recordType.getMultiTypeIndexes()));
                             first = false;
@@ -123,7 +106,7 @@ public class MetaDataPlanContext implements PlanContext {
                             indexList.retainAll(readableOf(recordType.getMultiTypeIndexes()));
                         }
                     }
-                    commonPrimaryKey = commonPrimaryKey(recordTypes);
+                    commonPrimaryKey = commonPrimaryKey(queriedRecordTypes);
                 }
             }
 
@@ -141,13 +124,12 @@ public class MetaDataPlanContext implements PlanContext {
 
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (Index index : indexList) {
-            indexes.put(index, index.getName());
             final Iterable<MatchCandidate> candidatesForIndex =
                     MatchCandidate.fromIndexDefinition(metaData, index, isSortReverse);
             matchCandidatesBuilder.addAll(candidatesForIndex);
         }
 
-        MatchCandidate.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey, isSortReverse)
+        MatchCandidate.fromPrimaryDefinition(metaData, queriedRecordTypeNames, commonPrimaryKey, isSortReverse)
                 .ifPresent(matchCandidatesBuilder::add);
 
         this.matchCandidates = matchCandidatesBuilder.build();
@@ -160,7 +142,7 @@ public class MetaDataPlanContext implements PlanContext {
     }
 
     @Nullable
-    private static KeyExpression commonPrimaryKey(@Nonnull Collection<RecordType> recordTypes) {
+    private static KeyExpression commonPrimaryKey(@Nonnull Iterable<RecordType> recordTypes) {
         KeyExpression common = null;
         boolean first = true;
         for (RecordType recordType : recordTypes) {
@@ -172,45 +154,6 @@ public class MetaDataPlanContext implements PlanContext {
             }
         }
         return common;
-    }
-
-    private static int getGreatestPrimaryKeyWidth(@Nonnull Collection<RecordType> recordTypes) {
-        return recordTypes.stream().mapToInt(recordType -> recordType.getPrimaryKey().getColumnSize()).max().orElse(0);
-    }
-
-    @Override
-    public int getGreatestPrimaryKeyWidth() {
-        return greatestPrimaryKeyWidth;
-    }
-
-    @Override
-    @Nonnull
-    public Set<String> getRecordTypes() {
-        return recordTypes;
-    }
-
-    @Override
-    @Nonnull
-    public Set<Index> getIndexes() {
-        return indexes.keySet();
-    }
-
-    @Override
-    @Nonnull
-    public Index getIndexByName(@Nonnull String name) {
-        return indexesByName.get(name);
-    }
-
-    @Override
-    @Nullable
-    public KeyExpression getCommonPrimaryKey() {
-        return commonPrimaryKey;
-    }
-
-    @Override
-    @Nonnull
-    public RecordMetaData getMetaData() {
-        return metaData;
     }
 
     @Nonnull

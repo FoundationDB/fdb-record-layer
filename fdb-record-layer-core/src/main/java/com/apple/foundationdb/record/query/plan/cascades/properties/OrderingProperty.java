@@ -252,7 +252,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
             final var scanComparisons = indexPlan.getComparisons();
-            return indexPlan.getMatchCandidateOptional()
+            return indexPlan.getMatchCandidateMaybe()
                     .map(matchCandidate -> matchCandidate.computeOrderingFromScanComparisons(scanComparisons, indexPlan.isReverse(), indexPlan.isStrictlySorted()))
                     .orElse(Ordering.emptyOrder());
         }

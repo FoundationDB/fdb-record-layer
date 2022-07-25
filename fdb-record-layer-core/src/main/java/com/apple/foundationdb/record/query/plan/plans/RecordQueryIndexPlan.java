@@ -383,13 +383,13 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateOptional() {
+    public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateMaybe() {
         return matchCandidateOptional;
     }
 
     @Override
     public RecordQueryIndexPlan strictlySorted() {
-        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), reverse, true);
+        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), reverse, true, matchCandidateOptional, resultType);
     }
 
     @Override

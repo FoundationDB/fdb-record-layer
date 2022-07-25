@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
-import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -43,7 +42,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * A query plan that uses a single index. This is usually by scanning
@@ -52,7 +50,7 @@ import java.util.Optional;
  * through one of their child plans will not implement this interface.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
+public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPlanWithMatchCandidate {
 
     /**
      * Gets the name of the index used by this plan.
@@ -64,9 +62,6 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
 
     @Nonnull
     IndexScanType getScanType();
-
-    @Nonnull
-    Optional<? extends MatchCandidate> getMatchCandidateOptional();
 
     @Nonnull
     @Override

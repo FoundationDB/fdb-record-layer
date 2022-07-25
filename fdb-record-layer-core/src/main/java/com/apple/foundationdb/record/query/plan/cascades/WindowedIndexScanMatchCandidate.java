@@ -69,7 +69,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     /**
      * Record types this index is defined over.
      */
-    private final List<RecordType> recordTypes;
+    private final List<RecordType> queriedRecordTypes;
 
     /**
      * Base quantifier.
@@ -116,8 +116,11 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     private final KeyExpression alternativeKeyExpression;
 
+    @Nullable
+    private final KeyExpression primaryKey;
+
     public WindowedIndexScanMatchCandidate(@Nonnull Index index,
-                                           @Nonnull Collection<RecordType> recordTypes,
+                                           @Nonnull Collection<RecordType> queriedRecordTypes,
                                            @Nonnull final ExpressionRefTraversal traversal,
                                            @Nonnull final CorrelationIdentifier baseAlias,
                                            @Nonnull final List<CorrelationIdentifier> groupingAliases,
@@ -125,9 +128,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                            @Nonnull final CorrelationIdentifier rankAlias,
                                            @Nonnull final List<CorrelationIdentifier> primaryKeyAliases,
                                            @Nonnull final List<Value> indexKeyValues,
-                                           @Nonnull final KeyExpression alternativeKeyExpression) {
+                                           @Nonnull final KeyExpression alternativeKeyExpression,
+                                           @Nullable final KeyExpression primaryKey) {
         this.index = index;
-        this.recordTypes = ImmutableList.copyOf(recordTypes);
+        this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.traversal = traversal;
         this.baseAlias = baseAlias;
         this.groupingAliases = ImmutableList.copyOf(groupingAliases);
@@ -136,6 +140,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         this.primaryKeyAliases = ImmutableList.copyOf(primaryKeyAliases);
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
         this.alternativeKeyExpression = alternativeKeyExpression;
+        this.primaryKey = primaryKey;
+    }
+
+    @Nonnull
+    @Override
+    public Index getIndex() {
+        return index;
     }
 
     @Nonnull
@@ -144,8 +155,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         return index.getName();
     }
 
-    public List<RecordType> getRecordTypes() {
-        return recordTypes;
+    @Nonnull
+    @Override
+    public List<RecordType> getQueriedRecordTypes() {
+        return queriedRecordTypes;
     }
 
     @Nonnull
@@ -180,6 +193,12 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Override
     public KeyExpression getAlternativeKeyExpression() {
         return alternativeKeyExpression;
+    }
+
+    @Nonnull
+    @Override
+    public Optional<KeyExpression> getPrimaryKeyMaybe() {
+        return Optional.ofNullable(primaryKey);
     }
 
     @Nonnull
@@ -272,8 +291,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull final RecordMetaData recordMetaData,
-                                                       @Nonnull final PartialMatch partialMatch,
+    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
                                                        @Nonnull final PlanContext planContext,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
@@ -281,12 +299,12 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
 
-        final var baseRecordType = Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
+        final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
 
         return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
-                                planContext.getCommonPrimaryKey(),
+                                primaryKey,
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 reverseScanOrder,
@@ -301,11 +319,11 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                                                      @Nonnull final List<ComparisonRange> comparisonRanges,
                                                                      final boolean isReverse,
                                                                      @Nonnull final Type.Record baseRecordType) {
-        if (recordTypes.size() > 1) {
+        if (queriedRecordTypes.size() > 1) {
             return Optional.empty();
         }
 
-        final RecordType recordType = Iterables.getOnlyElement(recordTypes);
+        final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias);
         for (int i = 0; i < indexKeyValues.size(); i++) {
@@ -324,7 +342,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         final IndexScanParameters scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges));
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
-                        planContext.getCommonPrimaryKey(),
+                        primaryKey,
                         scanParameters,
                         planContext.getPlannerConfiguration().getIndexFetchMethod(),
                         isReverse,

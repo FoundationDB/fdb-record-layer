@@ -24,19 +24,18 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A property for counting the total number of {@link KeyExpression} columns (i.e., field-like {@code KeyExpression}s
@@ -44,8 +43,8 @@ import java.util.List;
  * {@link com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression}) that are not matched with at
  * least one {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} in a planner expression
  * tree. This is computed over all {@link KeyExpression}s in various scan expressions over indexes
- * (e.g. {@link IndexScanExpression}, {@link RecordQueryScanPlan}), and also primary scans
- * (e.g. {@link RecordQueryScanPlan}).
+ * (e.g. {@link RecordQueryCoveringIndexPlan}, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan}),
+ * and also primary scans (e.g. {@link RecordQueryScanPlan}).
  *
  * <p>
  * For example, suppose that a planner expression scans two indexes:
@@ -57,13 +56,6 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer>, RelationalExpressionVisitorWithDefaults<Integer> {
-    @Nonnull
-    private final PlanContext planContext;
-
-    public UnmatchedFieldsCountProperty(@Nonnull PlanContext context) {
-        this.planContext = context;
-    }
-
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
@@ -81,16 +73,20 @@ public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer>
         final int columnSize;
         if (expression instanceof RecordQueryPlanWithComparisons) {
             final ScanComparisons comparisons = ((RecordQueryPlanWithComparisons)expression).getComparisons();
+            final int numComparisons = comparisons.getEqualitySize() + (comparisons.isEquality() ? 0 : 1);
             if (expression instanceof RecordQueryPlanWithIndex) {
-                final String indexName = ((RecordQueryPlanWithIndex)expression).getIndexName();
-                columnSize = planContext.getIndexByName(indexName).getRootExpression().getColumnSize();
+                final var matchCandidateOptional =
+                        ((RecordQueryPlanWithIndex)expression).getMatchCandidateMaybe();
+                final var matchCandidate = matchCandidateOptional.orElseThrow(() -> new RecordCoreException("expected match candidate to be present"));
+                columnSize = matchCandidate.getSargableAliases().size();
             } else if (expression instanceof RecordQueryScanPlan) {
-                columnSize = planContext.getGreatestPrimaryKeyWidth();
+                final RecordQueryScanPlan scanPlan = (RecordQueryScanPlan)expression;
+                final KeyExpression primaryKey = Objects.requireNonNull(scanPlan.getCommonPrimaryKey());
+                columnSize = primaryKey.getColumnSize();
             } else {
                 throw new RecordCoreException("unhandled plan with comparisons: can't find key expression");
             }
-            return total + columnSize - (comparisons.getEqualitySize() +
-                                                            (comparisons.isEquality() ? 0 : 1));
+            return total + columnSize - numComparisons;
         } else {
             return total;
         }
@@ -108,8 +104,8 @@ public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer>
         return min;
     }
 
-    public static int evaluate(@Nonnull PlanContext context, @Nonnull RelationalExpression expression) {
-        Integer result = expression.acceptPropertyVisitor(new UnmatchedFieldsCountProperty(context));
+    public static int evaluate(@Nonnull RelationalExpression expression) {
+        Integer result = expression.acceptPropertyVisitor(new UnmatchedFieldsCountProperty());
         if (result == null) {
             return Integer.MAX_VALUE;
         }
