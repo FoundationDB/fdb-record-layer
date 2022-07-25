@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
@@ -117,7 +116,10 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     @Override
-    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties, @Nonnull final KeyExpression commonPrimaryKey) {
-        return super.scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKey);
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+                                                             @Nullable final byte[] continuation,
+                                                             @Nonnull final ScanProperties scanProperties,
+                                                             int commonPrimaryKeyLength) {
+        return super.scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
     }
 }

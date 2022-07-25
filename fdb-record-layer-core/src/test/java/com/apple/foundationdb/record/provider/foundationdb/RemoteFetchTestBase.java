@@ -169,24 +169,24 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     protected byte[] scanAndVerifyData(String indexName, IndexFetchMethod fetchMethod, IndexScanBounds scanBounds,
-                                       final ScanProperties scanProperties, KeyExpression commonPrimaryKey, byte[] continuation,
+                                       final ScanProperties scanProperties, byte[] continuation,
                                        int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier, RecordMetaDataHook metaDataHook) {
         byte[] lastContinuation;
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataHook);
-            lastContinuation = scanAndVerifyData(context, indexName, fetchMethod, scanBounds, scanProperties, commonPrimaryKey, continuation, expectedRecords, recordVerifier);
+            lastContinuation = scanAndVerifyData(context, indexName, fetchMethod, scanBounds, scanProperties, continuation, expectedRecords, recordVerifier);
         }
         return lastContinuation;
     }
 
     @Nullable
     protected byte[] scanAndVerifyData(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod,
-                                     IndexScanBounds scanBounds, final ScanProperties scanProperties, final KeyExpression commonPrimaryKey, final byte[] continuation,
-                                     int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) {
+                                       IndexScanBounds scanBounds, final ScanProperties scanProperties, final byte[] continuation,
+                                       int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) {
         byte[] lastContinuation;
         try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.scanIndexRecords(
-                        indexName, fetchMethod, scanBounds, commonPrimaryKey,
+                        indexName, fetchMethod, scanBounds,
                         continuation, IndexOrphanBehavior.ERROR, scanProperties)
                 .map(FDBQueriedRecord::indexed)
                 .asIterator()) {
@@ -235,7 +235,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
                                                          final byte[] continuation) throws Exception {
         final List<FDBQueriedRecord<Message>> results;
 
-        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, commonPrimaryKey, continuation, IndexOrphanBehavior.ERROR, scanProperties)
+        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, commonPrimaryKey.getColumnSize(), continuation, IndexOrphanBehavior.ERROR, scanProperties)
                 .map(FDBQueriedRecord::indexed)) {
             results = cursor.asList().get();
         }

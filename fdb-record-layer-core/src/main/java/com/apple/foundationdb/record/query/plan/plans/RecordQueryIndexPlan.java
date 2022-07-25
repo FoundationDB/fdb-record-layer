@@ -248,7 +248,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
 
         // CommonPrimaryKey is nullable but is protected by the constructor in the case pf index prefetch
-        return store.scanIndexRemoteFetch(index, scanBounds, Objects.requireNonNull(getCommonPrimaryKey()), continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
+        return store.scanIndexRemoteFetch(index, scanBounds, Objects.requireNonNull(getCommonPrimaryKey()).getColumnSize(), continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
                 .map(QueryResult::fromQueriedRecord);
     }

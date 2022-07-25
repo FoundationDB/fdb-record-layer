@@ -133,7 +133,10 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     @Override
-    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties, @Nonnull final KeyExpression commonPrimaryKey) {
-        return scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKey);
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+                                                             @Nullable final byte[] continuation,
+                                                             @Nonnull final ScanProperties scanProperties,
+                                                             int commonPrimaryKeyLength) {
+        return scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
     }
 }
