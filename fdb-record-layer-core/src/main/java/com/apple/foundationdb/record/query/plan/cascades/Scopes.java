@@ -99,7 +99,7 @@ public class Scopes {
         /**
          * Set of flags to control the behavior of parser.
          */
-        public enum Flag { GENERATE_AGGREGATION }
+        public enum Flag { WITH_GROUP_BY_CLAUSE, RESOLVING_AGGREGATION, RESOLVING_NON_AGGREGATION }
 
         @Nullable
         private final Scope parent;
@@ -113,8 +113,6 @@ public class Scopes {
         @Nullable
         private QueryPredicate predicate;
 
-        private int groupingColumnOffset;
-
         @Nonnull
         private Set<Flag> flags;
 
@@ -123,7 +121,6 @@ public class Scopes {
             this.quantifiers = quantifiers;
             this.projectionList = projectionList;
             this.predicate = predicate;
-            this.groupingColumnOffset = -1;
             this.flags = new HashSet<>();
         }
 
@@ -196,16 +193,16 @@ public class Scopes {
             return projectionList;
         }
 
-        public void markGroupingColumnOffset(final int value) {
-            this.groupingColumnOffset = value;
-        }
-
-        public int getGroupingColumnOffset() {
-            return groupingColumnOffset;
-        }
-
         public void setFlag(@Nonnull Flag flag) {
             this.flags.add(flag);
+        }
+
+        public void unsetFlag(@Nonnull Flag flag) {
+            this.flags.remove(flag);
+        }
+
+        public void resetFlags() {
+            this.flags.clear();
         }
 
         public boolean isFlagSet(@Nonnull final Flag flag) {
