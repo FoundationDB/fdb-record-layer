@@ -69,13 +69,11 @@ public final class DdlPermutationGenerator {
             int colNum = 0;
             for (String col : columnTypes) {
                 int typeCode = SqlTypeSupport.recordTypeToSqlType(ParserUtils.toProtoType(col));
-                rows.add(new ArrayRow(new Object[]{"col" + colNum, typeCode}));
+                rows.add(new ArrayRow("COL" + colNum, typeCode));
                 colNum++;
             }
-            return new ArrayRow(new Object[]{
-                    typeName,
-                    rows
-            });
+            return new ArrayRow(typeName,
+                    rows);
         }
 
         public String getName() {
@@ -98,7 +96,7 @@ public final class DdlPermutationGenerator {
             }
             //add a primary key
             if (isTable) {
-                columnStatement.append(", PRIMARY KEY(").append("col0").append(")");
+                columnStatement.append(", PRIMARY KEY(").append("COL0").append(")");
             }
             return columnStatement.append(")").toString();
         }

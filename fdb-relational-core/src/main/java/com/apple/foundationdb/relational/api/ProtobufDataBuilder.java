@@ -104,7 +104,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     @Override
     public DynamicMessageBuilder getNestedMessageBuilder(String fieldName) throws RelationalException {
         for (Descriptors.FieldDescriptor fd : typeDescriptor.getFields()) {
-            if (fd.getName().equalsIgnoreCase(fieldName)) {
+            if (fd.getName().equals(fieldName)) {
                 if (fd.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                     throw new RelationalException("Cannot get Nested data builder for field " + fieldName + " as it is not a nested structure", ErrorCode.INVALID_PARAMETER);
                 }

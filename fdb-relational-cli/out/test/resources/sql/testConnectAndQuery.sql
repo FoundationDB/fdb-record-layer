@@ -27,20 +27,20 @@ execute '/Users/scottfines/workspace/relational/fdb-relational-cli/src/test/reso
 
 -- ok, let's look at some simple table data
 set schema 'catalog';
-select * from 'SCHEMAS';
+select * from "SCHEMAS";
 -- that table looks a little tight, let's widen it
 config 'consoleWidth'='180';
-select * from 'SCHEMAS';
+select * from "SCHEMAS";
 
 -- ok, but what if we want it in JSON?
 
 config 'format'='json';
-select * from 'SCHEMAS';
+select * from "SCHEMAS";
 
 -- pretty json is bad for machines, lets make it more compact
 config 'prettyPrint'='false';
-select * from 'SCHEMAS';
+select * from "SCHEMAS";
 
 -- I wonder if we can limit the rows to oblivion?
 config 'displayLimit'='0';
-select * from 'SCHEMAS';
+select * from "SCHEMAS";

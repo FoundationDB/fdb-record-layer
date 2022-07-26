@@ -118,7 +118,7 @@ public class RecordLayerSchema implements DatabaseSchema {
     public DynamicMessageBuilder getDataBuilder(String typeName) throws RelationalException {
         final Descriptors.FileDescriptor recordsDescriptor = loadStore().getRecordMetaData().getRecordsDescriptor();
         for (Descriptors.Descriptor typeDescriptor : recordsDescriptor.getMessageTypes()) {
-            if (typeDescriptor.getName().equalsIgnoreCase(typeName)) {
+            if (typeDescriptor.getName().equals(typeName)) {
                 return new ProtobufDataBuilder(typeDescriptor);
             }
         }

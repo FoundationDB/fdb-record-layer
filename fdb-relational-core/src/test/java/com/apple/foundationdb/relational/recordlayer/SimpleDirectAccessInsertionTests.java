@@ -61,23 +61,23 @@ public class SimpleDirectAccessInsertionTests {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
-                final DynamicMessageBuilder builder = s.getDataBuilder("RestaurantReviewer");
-                builder.setField("id", 1L);
-                builder.setField("name", "Anthony Bourdain");
-                builder.setField("email", "abourdain@apple.com");
-                builder.setField("stats",
-                        s.getDataBuilder("ReviewerStats")
-                                .setField("school_name", "Truman High School")
-                                .setField("hometown", "Boise, Indiana")
-                                .setField("start_date", 0L)
+                final DynamicMessageBuilder builder = s.getDataBuilder("RESTAURANT_REVIEWER");
+                builder.setField("ID", 1L);
+                builder.setField("NAME", "Anthony Bourdain");
+                builder.setField("EMAIL", "abourdain@apple.com");
+                builder.setField("STATS",
+                        s.getDataBuilder("REVIEWER_STATS")
+                                .setField("SCHOOL_NAME", "Truman High School")
+                                .setField("HOMETOWN", "Boise, Indiana")
+                                .setField("START_DATE", 0L)
                                 .build());
                 Message toWrite = builder.build();
 
-                int inserted = s.executeInsert("RestaurantReviewer", toWrite);
+                int inserted = s.executeInsert("RESTAURANT_REVIEWER", toWrite);
                 Assertions.assertThat(inserted).withFailMessage("incorrect insertion number!").isEqualTo(1);
                 KeySet key = new KeySet()
-                        .setKeyColumn("id", 1L);
-                try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", key, Options.NONE)) {
+                        .setKeyColumn("ID", 1L);
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", key, Options.NONE)) {
                     ResultSetAssert.assertThat(rrs).hasNextRow()
                             .hasRow(toWrite)
                             .hasNoNextRow();
@@ -97,55 +97,55 @@ public class SimpleDirectAccessInsertionTests {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
-                Message review = s.getDataBuilder("RestaurantReviewer")
-                        .setField("id", 1L)
-                        .setField("name", "Jane Doe")
-                        .setField("email", "isabel.hawthowrne@apples.com")
-                        .setField("stats", s.getDataBuilder("ReviewerStats")
-                                .setField("school_name", "l'ecole populaire")
-                                .setField("hometown", "Athens, GA")
-                                .setField("start_date", 12L)
+                Message review = s.getDataBuilder("RESTAURANT_REVIEWER")
+                        .setField("ID", 1L)
+                        .setField("NAME", "Jane Doe")
+                        .setField("EMAIL", "isabel.hawthowrne@apples.com")
+                        .setField("STATS", s.getDataBuilder("REVIEWER_STATS")
+                                .setField("SCHOOL_NAME", "l'ecole populaire")
+                                .setField("HOMETOWN", "Athens, GA")
+                                .setField("START_DATE", 12L)
                                 .build())
                         .build();
 
-                Message restaurant = s.getDataBuilder("RestaurantRecord")
-                        .setField("rest_no", 2L)
-                        .setField("name", "Burgers Burgers")
-                        .setField("location", s.getDataBuilder("Location")
-                                .setField("address", "12345 Easy Street")
+                Message restaurant = s.getDataBuilder("RESTAURANT")
+                        .setField("REST_NO", 2L)
+                        .setField("NAME", "Burgers Burgers")
+                        .setField("LOCATION", s.getDataBuilder("LOCATION")
+                                .setField("ADDRESS", "12345 Easy Street")
                                 .build())
-                        .addRepeatedField("tags", s.getDataBuilder("RestaurantTag")
-                                .setField("tag", "title-123")
-                                .setField("weight", 1L)
+                        .addRepeatedField("TAGS", s.getDataBuilder("RESTAURANT_TAG")
+                                .setField("TAG", "title-123")
+                                .setField("WEIGHT", 1L)
                                 .build())
-                        .addRepeatedField("reviews", s.getDataBuilder("RestaurantReview")
-                                .setField("reviewer", 1L)
-                                .setField("rating", 1L)
+                        .addRepeatedField("REVIEWS", s.getDataBuilder("RESTAURANT_REVIEW")
+                                .setField("REVIEWER", 1L)
+                                .setField("RATING", 1L)
                                 .build())
                         .build();
 
                 //insert the review
-                Assertions.assertThat(s.executeInsert("RestaurantReviewer", review)).isEqualTo(1);
+                Assertions.assertThat(s.executeInsert("RESTAURANT_REVIEWER", review)).isEqualTo(1);
                 //insert the restaurant
-                Assertions.assertThat(s.executeInsert("RestaurantRecord", restaurant)).isEqualTo(1);
+                Assertions.assertThat(s.executeInsert("RESTAURANT", restaurant)).isEqualTo(1);
 
                 //now make sure that you don't get back the other one
-                try (RelationalResultSet rrs = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", 1L), Options.NONE)) {
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT", new KeySet().setKeyColumn("REST_NO", 1L), Options.NONE)) {
                     ResultSetAssert.assertThat(rrs).isEmpty();
                 }
 
-                try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", 2L), Options.NONE)) {
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("id", 2L), Options.NONE)) {
                     ResultSetAssert.assertThat(rrs).isEmpty();
                 }
 
                 //make sure you get back the correct rows from the correct tables
-                try (RelationalResultSet rrs = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", 2L), Options.NONE)) {
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT", new KeySet().setKeyColumn("REST_NO", 2L), Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
                             .hasRow(restaurant)
                             .hasNoNextRow();
                 }
-                try (RelationalResultSet rrs = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("id", 1L), Options.NONE)) {
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("id", 1L), Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
                             .hasRow(review)
@@ -153,7 +153,7 @@ public class SimpleDirectAccessInsertionTests {
                 }
 
                 //now scan the data and see if too much comes back
-                TableScan restaurantScan = new TableScan("RestaurantRecord", KeySet.EMPTY, KeySet.EMPTY);
+                TableScan restaurantScan = new TableScan("RESTAURANT", KeySet.EMPTY, KeySet.EMPTY);
                 try (RelationalResultSet rrs = s.executeScan(restaurantScan, Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
@@ -161,7 +161,7 @@ public class SimpleDirectAccessInsertionTests {
                             .hasNoNextRow();
                 }
 
-                TableScan reviewScan = new TableScan("RestaurantReviewer", KeySet.EMPTY, KeySet.EMPTY);
+                TableScan reviewScan = new TableScan("RESTAURANT_REVIEWER", KeySet.EMPTY, KeySet.EMPTY);
                 try (RelationalResultSet rrs = s.executeScan(reviewScan, Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()

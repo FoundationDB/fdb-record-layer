@@ -123,12 +123,12 @@ public class KeySpacePathParsingTest {
                         .addSubdirectory(new KeySpaceDirectory("db", STRING)));
 
         KeySpacePath dbPath = KeySpaceUtils.uriToPath(URI.create("/prod/testDb"), keySpace);
-        KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "testSchema");
+        KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "TEST_SCHEMA");
         String keySpaceString = extended.toString();
-        Assertions.assertEquals("/ (NULL)\n    +- env (STRING)\n       +- db (STRING)\n          +- testSchema (STRING=testSchema)\n", keySpaceString);
+        Assertions.assertEquals("/ (NULL)\n    +- env (STRING)\n       +- db (STRING)\n          +- TEST_SCHEMA (STRING=TEST_SCHEMA)\n", keySpaceString);
 
-        KeySpaceDirectory schemaDirectory = extended.getDirectory("env").getSubdirectory("db").getSubdirectory("testSchema");
-        Assertions.assertEquals("testSchema", schemaDirectory.getValue());
+        KeySpaceDirectory schemaDirectory = extended.getDirectory("env").getSubdirectory("db").getSubdirectory("TEST_SCHEMA");
+        Assertions.assertEquals("TEST_SCHEMA", schemaDirectory.getValue());
     }
 
     @Test
@@ -136,11 +136,11 @@ public class KeySpacePathParsingTest {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("env", STRING)
                         .addSubdirectory(new KeySpaceDirectory("db", STRING)
-                                .addSubdirectory(new KeySpaceDirectory("testSchema", STRING, "T"))));
+                                .addSubdirectory(new KeySpaceDirectory("TEST_SCHEMA", STRING, "T"))));
 
         KeySpacePath dbPath = KeySpaceUtils.uriToPath(URI.create("/prod/testDb"), keySpace);
-        KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "testSchema");
-        KeySpaceDirectory schemaDirectory = extended.getDirectory("env").getSubdirectory("db").getSubdirectory("testSchema");
+        KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "TEST_SCHEMA");
+        KeySpaceDirectory schemaDirectory = extended.getDirectory("env").getSubdirectory("db").getSubdirectory("TEST_SCHEMA");
         Assertions.assertEquals("T", schemaDirectory.getValue());
     }
 

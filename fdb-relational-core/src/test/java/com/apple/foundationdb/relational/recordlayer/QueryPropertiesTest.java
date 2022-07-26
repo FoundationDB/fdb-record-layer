@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
-import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TableScan;
@@ -39,6 +38,7 @@ import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -95,20 +95,21 @@ public class QueryPropertiesTest {
     List<Long> testScan(Options options, long firstRestNo) throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), options)) {
             conn.beginTransaction();
-            conn.setSchema("testSchema");
+            conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
-                long id1 = firstRestNo;
-                Restaurant.RestaurantRecord r1 = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id1).setRestNo(id1).build();
-                s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(r1));
-
-                long id2 = id1 + 1;
-                Restaurant.RestaurantRecord r2 = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id2).setRestNo(id2).build();
-                s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(r2));
+                for (long i = 0; i < 2; i++) {
+                    long id = firstRestNo + i;
+                    Message restaurant = s.getDataBuilder("RESTAURANT")
+                            .setField("NAME", "testRest" + id)
+                            .setField("REST_NO", id)
+                            .build();
+                    s.executeInsert("RESTAURANT", restaurant);
+                }
 
                 TableScan scan = TableScan.newBuilder()
-                        .withTableName("RestaurantRecord")
-                        .setStartKey("rest_no", id1)
-                        .setEndKey("rest_no", id2 + 1)
+                        .withTableName("RESTAURANT")
+                        .setStartKey("REST_NO", firstRestNo)
+                        .setEndKey("REST_NO", firstRestNo + 1)
                         .build();
                 final RelationalResultSet resultSet = s.executeScan(scan, Options.NONE);
                 return getRestNoList(resultSet);
@@ -126,7 +127,7 @@ public class QueryPropertiesTest {
     List<Long> getRestNoList(@Nonnull RelationalResultSet resultSet) throws SQLException {
         List<Long> numbers = new ArrayList<>();
         while (resultSet.next()) {
-            numbers.add(resultSet.getLong("rest_no"));
+            numbers.add(resultSet.getLong("REST_NO"));
         }
         return numbers;
     }

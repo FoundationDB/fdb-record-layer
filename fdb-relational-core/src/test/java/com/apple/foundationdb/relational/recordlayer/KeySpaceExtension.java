@@ -63,7 +63,7 @@ public class KeySpaceExtension implements BeforeAllCallback {
         KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
         KeySpaceDirectory schemaDir = new KeySpaceDirectory("schema", KeySpaceDirectory.KeyType.STRING);
         dbDirectory.addSubdirectory(schemaDir);
-        KeySpaceDirectory catalogDirectory = new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL);
+        KeySpaceDirectory catalogDirectory = new KeySpaceDirectory("CATALOG", KeySpaceDirectory.KeyType.NULL);
         return new KeySpace(dbDirectory, catalogDirectory);
     }
 }

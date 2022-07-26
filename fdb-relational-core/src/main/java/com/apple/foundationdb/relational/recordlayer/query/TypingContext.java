@@ -176,7 +176,7 @@ public final class TypingContext {
         Assert.thatUnchecked(duplicateIndexNames.isEmpty(), String.format("indices are duplicated %s", String.join(",", duplicateIndexNames)), ErrorCode.INDEX_ALREADY_EXISTS);
         // check that indexes reference existing tables.
         final var unknownTables = indexes.keySet().stream().filter(ref -> !(types.stream().filter(t -> t.isTable).map(t -> t.name).collect(Collectors.toSet()).contains(ref))).collect(Collectors.toSet());
-        Assert.thatUnchecked(unknownTables.isEmpty(), String.format("unknown table(s) referenced in index definition(s) '%s'", String.join(",", unknownTables)), ErrorCode.UNKNOWN_TYPE);
+        Assert.thatUnchecked(unknownTables.isEmpty(), String.format("unknown table(s) referenced in index definition(s) '%s'", String.join(",", unknownTables)), ErrorCode.UNDEFINED_TABLE);
         // indexes should reference non-existing columns
         indexes.forEach((table, pair) -> {
             var unknownFields = pair.getRight().stream().filter(indexedField -> types.stream().filter(t -> t.name.equals(table)).findFirst().get().fields.stream().map(f -> f.name).noneMatch(fName -> fName.equals(indexedField))).collect(Collectors.toSet());

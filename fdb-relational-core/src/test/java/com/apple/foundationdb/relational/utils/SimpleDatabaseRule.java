@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
  * A JUnit extension that automatically creates all the framework necessary for a unique database and schema.
  *
  * This creates a SchemaTemplate with the specified configuration, then creates a database with the specified name. Once
- * this is done, it automatically creates a schema called 'testSchema' which has the specified template.
+ * this is done, it automatically creates a schema called 'TEST_SCHEMA' which has the specified template.
  *
  * Use this whenever you want a SQL-style database for testing (i.e. you just want a single database with a single
  * schema format).
@@ -47,7 +47,7 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
 
     public SimpleDatabaseRule(RelationalExtension relationalExtension, @Nonnull URI dbPath,
                               @Nonnull String templateDefinition) {
-        final String schemaName = "testSchema";
+        final String schemaName = "TEST_SCHEMA";
         final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
         this.relationalExtension = relationalExtension;

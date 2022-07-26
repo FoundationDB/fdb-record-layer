@@ -1188,7 +1188,7 @@ setStatement
 // details
 
 variableClause
-    : LOCAL_ID | GLOBAL_ID | ( ('@' '@')? (GLOBAL | SESSION | LOCAL)  )? uid
+    : LOCAL_ID | ( ('@' '@')? (GLOBAL | SESSION | LOCAL)  )? uid
     ;
 
 //    Other administrative statements
@@ -1353,7 +1353,7 @@ describeObjectClause
 
 // done
 fullId
-    : uid (DOT_ID)? // TODO(yhatem) we might want to replace ? with * to allow more nesting.
+    : uid (DOT uid)* // TODO(yhatem) we might want to replace ? with * to allow more nesting.
     ;
 
 // done
@@ -1363,7 +1363,7 @@ tableName
 
 // done
 fullColumnName
-    : uid (dottedId)*
+    : fullId
     ;
 
 // done (unsupported)
@@ -1378,7 +1378,6 @@ userName
 // done (unsupported)
 mysqlVariable
     : LOCAL_ID
-    | GLOBAL_ID
     ;
 
 // done (unsupported)
@@ -1424,7 +1423,7 @@ authPlugin
 // done
 uid
     : simpleId
-    | STRING_LITERAL
+    | DOUBLE_QUOTE_ID
     ;
 
 // done
@@ -1441,8 +1440,8 @@ simpleId
 
 // done
 dottedId
-    : DOT_ID
-    | '.' uid
+    : //DOT_ID
+     '.' uid
     ;
 
 

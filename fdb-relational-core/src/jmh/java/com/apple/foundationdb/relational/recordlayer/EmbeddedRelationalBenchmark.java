@@ -56,15 +56,14 @@ import java.util.stream.IntStream;
 
 public abstract class EmbeddedRelationalBenchmark {
     private static final String templateDefinition =
-            "CREATE STRUCT Location (address string, latitude string, longitude string);" +
-                    "CREATE STRUCT RestaurantReview (reviewer int64, rating int64);" +
-                    "CREATE STRUCT RestaurantTag (tag string, weight int64);" +
-                    "CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string);" +
-                    "CREATE TABLE RestaurantRecord (rest_no int64, name string, location Location, reviews RestaurantReview ARRAY, tags RestaurantTag ARRAY, customer string ARRAY, PRIMARY KEY(rest_no));" +
-                    "CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id));" +
-                    //"CREATE VALUE INDEX record_type_covering on RestaurantRecord(rest_no) INCLUDE (name);" +
-                    "CREATE VALUE INDEX record_name_idx on RestaurantRecord(name);" +
-                    "CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name) ";
+            "CREATE STRUCT \"Location\" (\"address\" string, \"latitude\" string, \"longitude\" string) " +
+                    "CREATE STRUCT \"RestaurantReview\" (\"reviewer\" int64, \"rating\" int64) " +
+                    "CREATE STRUCT \"RestaurantTag\" (\"tag\" string, \"weight\" int64) " +
+                    "CREATE STRUCT \"ReviewerStats\" (\"start_date\" int64, \"school_name\" string, \"hometown\" string) " +
+                    "CREATE TABLE \"RestaurantRecord\" (\"rest_no\" int64, \"name\" string, \"location\" \"Location\", \"reviews\" \"RestaurantReview\" ARRAY, \"tags\" \"RestaurantTag\" ARRAY, \"customer\" string ARRAY, PRIMARY KEY(\"rest_no\")) " +
+                    "CREATE TABLE \"RestaurantReviewer\" (\"id\" int64, \"name\" string, \"email\" string, \"stats\" \"ReviewerStats\", PRIMARY KEY(\"id\")) " +
+                    "CREATE VALUE INDEX \"record_name_idx\" on \"RestaurantRecord\"(\"name\") " +
+                    "CREATE VALUE INDEX \"reviewer_name_idx\" on \"RestaurantReviewer\"(\"name\") ";
 
     static final String restaurantRecordTable = "RestaurantRecord";
 
@@ -78,7 +77,7 @@ public abstract class EmbeddedRelationalBenchmark {
         public void up() throws RelationalException, SQLException {
             KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
             dbDirectory.addSubdirectory(new KeySpaceDirectory("schema", KeySpaceDirectory.KeyType.STRING));
-            KeySpaceDirectory catalogDir = new KeySpaceDirectory("catalog", KeySpaceDirectory.KeyType.NULL);
+            KeySpaceDirectory catalogDir = new KeySpaceDirectory("CATALOG", KeySpaceDirectory.KeyType.NULL);
             keySpace = new KeySpace(dbDirectory, catalogDir);
             final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
             fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
@@ -104,9 +103,9 @@ public abstract class EmbeddedRelationalBenchmark {
 
         private void createSchemaTemplate() throws RelationalException, SQLException {
             try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-                conn.setSchema("catalog");
+                conn.setSchema("CATALOG");
                 try (Statement statement = conn.createStatement()) {
-                    statement.executeUpdate("CREATE SCHEMA TEMPLATE " + schemaTemplateName + " AS { " + templateDefinition + "}");
+                    statement.executeUpdate("CREATE SCHEMA TEMPLATE \"" + schemaTemplateName + "\" " + templateDefinition);
                 }
             }
         }
@@ -170,11 +169,11 @@ public abstract class EmbeddedRelationalBenchmark {
 
     private static void createDatabase(DatabaseTemplate dbTemplate, URI dbUri) throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
-                statement.executeUpdate("CREATE DATABASE '" + dbUri.getPath() + "'");
+                statement.executeUpdate("CREATE DATABASE \"" + dbUri.getPath() + "\"");
                 for (Map.Entry<String, String> schemaTemplateEntry : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
-                    statement.executeUpdate("CREATE SCHEMA '" + dbUri.getPath() + "/" + schemaTemplateEntry.getKey() + "' WITH TEMPLATE " + schemaTemplateEntry.getValue());
+                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schemaTemplateEntry.getKey() + "\" WITH TEMPLATE \"" + schemaTemplateEntry.getValue() + "\"");
                 }
             }
         }
@@ -182,9 +181,9 @@ public abstract class EmbeddedRelationalBenchmark {
 
     private static void deleteDatabase(URI dbUri) throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
-                statement.executeUpdate("DROP DATABASE '" + dbUri.getPath() + "'");
+                statement.executeUpdate("DROP DATABASE \"" + dbUri.getPath() + "\"");
             }
         }
     }

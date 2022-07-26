@@ -58,7 +58,7 @@ public class TableMetadataVersionTest {
         try (RelationalStatement vs = dbConn.createStatement()) {
             Options opts = Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
 
-            RelationalAssertions.assertThrows(() -> vs.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", 1L), opts))
+            RelationalAssertions.assertThrows(() -> vs.executeGet("RESTAURANT", new KeySet().setKeyColumn("REST_NO", 1L), opts))
                     .hasErrorCode(ErrorCode.INCORRECT_METADATA_TABLE_VERSION);
         }
     }
@@ -69,7 +69,7 @@ public class TableMetadataVersionTest {
         try (RelationalStatement vs = dbConn.createStatement()) {
             Options opts = Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
 
-            TableScan ts = new TableScan("RestaurantRecord", new KeySet(), new KeySet());
+            TableScan ts = new TableScan("RESTAURANT", new KeySet(), new KeySet());
             RelationalAssertions.assertThrows(() -> vs.executeScan(ts, opts))
                     .hasErrorCode(ErrorCode.INCORRECT_METADATA_TABLE_VERSION);
         }
@@ -81,8 +81,8 @@ public class TableMetadataVersionTest {
         try (RelationalStatement vs = dbConn.createStatement()) {
             Options opts = Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
             RelationalAssertions.assertThrows(() -> {
-                Message message = vs.getDataBuilder("RestaurantRecord").setField("rest_no", 1L).build();
-                vs.executeInsert("RestaurantRecord", message, opts);
+                Message message = vs.getDataBuilder("RESTAURANT").setField("REST_NO", 1L).build();
+                vs.executeInsert("RESTAURANT", message, opts);
             }).hasErrorCode(ErrorCode.INCORRECT_METADATA_TABLE_VERSION);
         }
     }
@@ -93,7 +93,7 @@ public class TableMetadataVersionTest {
         try (RelationalStatement vs = dbConn.createStatement()) {
             Options opts = Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
             RelationalAssertions.assertThrows(() ->
-                    vs.executeDelete("RestaurantRecord", Collections.singleton(new KeySet().setKeyColumn("rest_no", 1L)), opts))
+                    vs.executeDelete("RESTAURANT", Collections.singleton(new KeySet().setKeyColumn("REST_NO", 1L)), opts))
                     .hasErrorCode(ErrorCode.INCORRECT_METADATA_TABLE_VERSION);
         }
     }

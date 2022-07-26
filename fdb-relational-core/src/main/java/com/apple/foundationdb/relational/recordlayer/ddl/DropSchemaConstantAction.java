@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
@@ -52,6 +53,9 @@ public class DropSchemaConstantAction implements ConstantAction {
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
+        if ("/__SYS".equals(dbUri.getPath())) {
+            throw new RelationalException("Cannot drop /__SYS schemas", ErrorCode.INSUFFICIENT_PRIVILEGE);
+        }
         KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUri, keySpace);
         final KeySpacePath schemaPath = dbPath.add("schema", schemaName);
         FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);

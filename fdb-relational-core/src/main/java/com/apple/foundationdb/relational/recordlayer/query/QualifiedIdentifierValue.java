@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 
@@ -33,11 +32,9 @@ public class QualifiedIdentifierValue extends LiteralValue<String> {
     @Nonnull
     private final String[] parts;
 
-    public QualifiedIdentifierValue(@Nonnull String value, String... remaining) {
-        super(Stream.concat(Stream.of(value), Stream.of(remaining)).collect(Collectors.joining(".")));
-        parts = new String[1 + remaining.length];
-        parts[0] = value;
-        System.arraycopy(remaining, 0, parts, 1, remaining.length);
+    public QualifiedIdentifierValue(@Nonnull String... values) {
+        super(Arrays.stream(values).collect(Collectors.joining(".")));
+        parts = values;
     }
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "intentional")
@@ -51,8 +48,8 @@ public class QualifiedIdentifierValue extends LiteralValue<String> {
     }
 
     @Nonnull
-    public static QualifiedIdentifierValue of(@Nonnull String value, String... remaining) {
-        return new QualifiedIdentifierValue(value, remaining);
+    public static QualifiedIdentifierValue of(@Nonnull String... values) {
+        return new QualifiedIdentifierValue(values);
     }
 
     @Override

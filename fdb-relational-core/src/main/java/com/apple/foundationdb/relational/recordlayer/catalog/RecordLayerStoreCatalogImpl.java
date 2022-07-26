@@ -94,7 +94,7 @@ import javax.annotation.Nullable;
  */
 public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
-    public static final String SCHEMA = "catalog";
+    public static final String SCHEMA = "CATALOG";
     public static final String SYS_DB = "/__SYS";
     private static final ExtensionRegistry EXTENSION_REGISTRY;
     private StructMetaData dbTableMetaData;
@@ -208,7 +208,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         try {
             FDBRecordStore recordStore = openFDBRecordStore(txn);
             ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
-            Message m = pmd.setField("database_id", dbUri.getPath()).build();
+            Message m = pmd.setField("DATABASE_ID", dbUri.getPath()).build();
             recordStore.saveRecord(m);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
@@ -297,11 +297,11 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     private void updateSchemaData(Schema schema, FDBRecordStore recordStore) throws RelationalException {
         ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
-        Message m = pmd.setField("database_id", schema.getDatabaseId())
-                .setField("schema_name", schema.getSchemaName())
-                .setField("template_name", schema.getSchemaTemplateName())
-                .setField("template_version", schema.getTemplateVersion())
-                .setField("meta_data", schema.getMetaData().toByteString())
+        Message m = pmd.setField("DATABASE_ID", schema.getDatabaseId())
+                .setField("SCHEMA_NAME", schema.getSchemaName())
+                .setField("TEMPLATE_NAME", schema.getSchemaTemplateName())
+                .setField("TEMPLATE_VERSION", schema.getTemplateVersion())
+                .setField("META_DATA", schema.getMetaData().toByteString())
                 .build();
         recordStore.saveRecord(m);
     }
@@ -324,11 +324,11 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
         final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);
         final Descriptors.Descriptor descriptor = schemaTableMD.getDescriptor();
-        String dbId = (String) m.getField(descriptor.findFieldByName("database_id"));
-        String schemaName = (String) m.getField(descriptor.findFieldByName("schema_name"));
-        String templateName = (String) m.getField(descriptor.findFieldByName("template_name"));
-        long version = (Long) m.getField(descriptor.findFieldByName("template_version"));
-        ByteString tableDescBytes = (ByteString) m.getField(descriptor.findFieldByName("meta_data"));
+        String dbId = (String) m.getField(descriptor.findFieldByName("DATABASE_ID"));
+        String schemaName = (String) m.getField(descriptor.findFieldByName("SCHEMA_NAME"));
+        String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
+        long version = (Long) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
+        ByteString tableDescBytes = (ByteString) m.getField(descriptor.findFieldByName("META_DATA"));
 
         RecordMetaDataProto.MetaData tableDescriptor;
         try {
@@ -353,11 +353,11 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
         final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);
         final Descriptors.Descriptor descriptor = schemaTableMD.getDescriptor();
-        String dbId = (String) m.getField(descriptor.findFieldByName("database_id"));
-        String schemaName = (String) m.getField(descriptor.findFieldByName("schema_name"));
-        String templateName = (String) m.getField(descriptor.findFieldByName("template_name"));
-        long version = (Long) m.getField(descriptor.findFieldByName("template_version"));
-        ByteString tableDescBytes = (ByteString) m.getField(descriptor.findFieldByName("meta_data"));
+        String dbId = (String) m.getField(descriptor.findFieldByName("DATABASE_ID"));
+        String schemaName = (String) m.getField(descriptor.findFieldByName("SCHEMA_NAME"));
+        String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
+        long version = (Long) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
+        ByteString tableDescBytes = (ByteString) m.getField(descriptor.findFieldByName("META_DATA"));
         RecordMetaDataProto.MetaData tableDescriptor;
         try {
             tableDescriptor = RecordMetaDataProto.MetaData.parseFrom(tableDescBytes, EXTENSION_REGISTRY);
@@ -377,7 +377,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         ctx.addAllToTypeRepository();
         //TODO(bfines) unfortunate side effect--can we do this differently?
         dbTableMetaData = SqlTypeSupport.typeToMetaData(ctx.getType(SystemTableRegistry.DATABASE_TABLE_NAME));
-        return ctx.generateSchemaTemplate("catalog_template");
+        return ctx.generateSchemaTemplate("CATALOG_TEMPLATE");
     }
 
 }

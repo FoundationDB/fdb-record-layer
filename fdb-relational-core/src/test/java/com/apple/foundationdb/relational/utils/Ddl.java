@@ -59,15 +59,20 @@ public class Ddl implements AutoCloseable {
         this.relationalExtension = relationalExtension;
         this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", templateDefinition);
         this.databaseRule = new DatabaseRule(this.relationalExtension, dbPath);
-        this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
-        this.extensionContext = extensionContext;
+        try {
+            this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
+            this.extensionContext = extensionContext;
 
-        templateRule.beforeEach(extensionContext);
-        databaseRule.beforeEach(extensionContext);
-        schemaRule.beforeEach(extensionContext);
+            templateRule.beforeEach(extensionContext);
+            databaseRule.beforeEach(extensionContext);
+            schemaRule.beforeEach(extensionContext);
 
-        this.connection = Relational.connect(URI.create("jdbc:embed://" + databaseRule.getDbUri()), Options.NONE);
-        this.connection.beginTransaction();
+            this.connection = Relational.connect(URI.create("jdbc:embed://" + databaseRule.getDbUri()), Options.NONE);
+            this.connection.beginTransaction();
+        } catch (Exception e) {
+            this.databaseRule.afterEach(extensionContext);
+            throw e;
+        }
     }
 
     @Nonnull
@@ -154,7 +159,7 @@ public class Ddl implements AutoCloseable {
             Assert.notNull(database);
             Assert.notNull(templateDefinition);
             if (schemaName == null) {
-                schemaName = "testSchema";
+                schemaName = "TEST_SCHEMA";
             }
             Assert.notNull(extension);
             return new Ddl(extension, database, schemaName, templateDefinition, extensionContext);

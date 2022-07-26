@@ -64,7 +64,7 @@ public class StructDataTypeTest {
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withOptions(Options.NONE)
-            .withSchema("testSchema");
+            .withSchema("TEST_SCHEMA");
 
     @RegisterExtension
     @Order(3)
@@ -72,49 +72,49 @@ public class StructDataTypeTest {
 
     @BeforeEach
     void setUp() throws RelationalException {
-        final DynamicMessageBuilder t1 = statement.getDataBuilder("t");
-        Message m = t1.setField("name", "test_record_1")
-                .setField("st1", t1.getNestedMessageBuilder("st1").setField("a", "Hello").build())
+        final DynamicMessageBuilder t1 = statement.getDataBuilder("T");
+        Message m = t1.setField("NAME", "test_record_1")
+                .setField("ST1", t1.getNestedMessageBuilder("ST1").setField("A", "Hello").build())
                 .build();
 
-        statement.executeInsert("t", m);
+        statement.executeInsert("T", m);
 
-        final DynamicMessageBuilder ntBuilder = statement.getDataBuilder("nt");
-        final DynamicMessageBuilder stBuilder = ntBuilder.getNestedMessageBuilder("st1");
-        m = ntBuilder.setField("t_name", "nt_record")
-                .setField("st1", stBuilder
-                        .setField("c", 1234L)
-                        .setField("d", stBuilder.getNestedMessageBuilder("d")
-                                .setField("a", "Goodbye").build())
+        final DynamicMessageBuilder ntBuilder = statement.getDataBuilder("NT");
+        final DynamicMessageBuilder stBuilder = ntBuilder.getNestedMessageBuilder("ST1");
+        m = ntBuilder.setField("T_NAME", "nt_record")
+                .setField("ST1", stBuilder
+                        .setField("C", 1234L)
+                        .setField("D", stBuilder.getNestedMessageBuilder("D")
+                                .setField("A", "Goodbye").build())
                         .build())
                 .build();
 
-        statement.executeInsert("nt", m);
+        statement.executeInsert("NT", m);
 
-        final DynamicMessageBuilder atBuilder = statement.getDataBuilder("at");
-        final DynamicMessageBuilder st2Builder = atBuilder.getNestedMessageBuilder("st2");
-        m = atBuilder.setField("a_name", "a_test_rec")
-                .addRepeatedField("st2", st2Builder.setField("c", "Hello".getBytes(StandardCharsets.UTF_8))
-                        .setField("d", true)
+        final DynamicMessageBuilder atBuilder = statement.getDataBuilder("AT");
+        final DynamicMessageBuilder st2Builder = atBuilder.getNestedMessageBuilder("ST2");
+        m = atBuilder.setField("A_NAME", "a_test_rec")
+                .addRepeatedField("ST2", st2Builder.setField("C", "Hello".getBytes(StandardCharsets.UTF_8))
+                        .setField("D", true)
                         .build())
-                .addRepeatedField("st2", st2Builder.setField("c", "Bonjour".getBytes(StandardCharsets.UTF_8))
-                        .setField("d", false)
+                .addRepeatedField("ST2", st2Builder.setField("C", "Bonjour".getBytes(StandardCharsets.UTF_8))
+                        .setField("D", false)
                         .build())
                 .build();
 
-        statement.executeInsert("at", m);
+        statement.executeInsert("AT", m);
 
     }
 
     @Test
     void canReadSingleStruct() throws Exception {
-        final KeySet key = new KeySet().setKeyColumn("name", "test_record_1");
-        try (final RelationalResultSet resultSet = statement.executeGet("t", key, Options.NONE)) {
+        final KeySet key = new KeySet().setKeyColumn("NAME", "test_record_1");
+        try (final RelationalResultSet resultSet = statement.executeGet("T", key, Options.NONE)) {
             Assertions.assertTrue(resultSet.next(), "Did not find a record!");
-            RelationalStruct struct = resultSet.getStruct("st1");
+            RelationalStruct struct = resultSet.getStruct("ST1");
             Assertions.assertNotNull(struct, "No struct found for column!");
             Assertions.assertEquals("Hello", struct.getString(1), "Incorrect value for nested struct!");
-            Assertions.assertEquals("Hello", struct.getString("a"), "Incorrect value for nested struct!");
+            Assertions.assertEquals("Hello", struct.getString("A"), "Incorrect value for nested struct!");
 
             //check that the JDBC attributes methods work properly
             Assertions.assertArrayEquals(struct.getAttributes(), new Object[]{"Hello"}, "Incorrect attributes!");
@@ -123,55 +123,55 @@ public class StructDataTypeTest {
 
     @Test
     void canReadNestedStruct() throws Exception {
-        final KeySet key = new KeySet().setKeyColumn("t_name", "nt_record");
-        try (final RelationalResultSet resultSet = statement.executeGet("nt", key, Options.NONE)) {
+        final KeySet key = new KeySet().setKeyColumn("T_NAME", "nt_record");
+        try (final RelationalResultSet resultSet = statement.executeGet("NT", key, Options.NONE)) {
             Assertions.assertTrue(resultSet.next(), "Did not find a record!");
-            RelationalStruct struct = resultSet.getStruct("st1");
+            RelationalStruct struct = resultSet.getStruct("ST1");
             Assertions.assertNotNull(struct, "No struct found for column!");
             Assertions.assertEquals(1234L, struct.getLong(1), "Incorrect value for nested struct!");
-            Assertions.assertEquals(1234L, struct.getLong("c"), "Incorrect value for nested struct!");
-            RelationalStruct nestedStruct = struct.getStruct("d");
+            Assertions.assertEquals(1234L, struct.getLong("C"), "Incorrect value for nested struct!");
+            RelationalStruct nestedStruct = struct.getStruct("D");
             Assertions.assertNotNull(nestedStruct);
             Assertions.assertEquals("Goodbye", nestedStruct.getString(1), "Incorrect doubly-nested struct");
-            Assertions.assertEquals("Goodbye", nestedStruct.getString("a"), "Incorrect doubly-nested struct");
+            Assertions.assertEquals("Goodbye", nestedStruct.getString("A"), "Incorrect doubly-nested struct");
 
             nestedStruct = struct.getStruct(2);
             Assertions.assertNotNull(nestedStruct);
             Assertions.assertEquals("Goodbye", nestedStruct.getString(1), "Incorrect doubly-nested struct");
-            Assertions.assertEquals("Goodbye", nestedStruct.getString("a"), "Incorrect doubly-nested struct");
+            Assertions.assertEquals("Goodbye", nestedStruct.getString("A"), "Incorrect doubly-nested struct");
             //use get object to make sure it returns the correct type
             nestedStruct = (RelationalStruct) struct.getObject(2);
             Assertions.assertEquals("Goodbye", nestedStruct.getString(1), "Incorrect doubly-nested struct");
-            Assertions.assertEquals("Goodbye", nestedStruct.getString("a"), "Incorrect doubly-nested struct");
+            Assertions.assertEquals("Goodbye", nestedStruct.getString("A"), "Incorrect doubly-nested struct");
         }
     }
 
     @SuppressWarnings("SuspiciousMethodCalls")
     @Test
     void canReadRepeatedStruct() throws Exception {
-        final KeySet key = new KeySet().setKeyColumn("a_name", "a_test_rec");
-        try (final RelationalResultSet resultSet = statement.executeGet("at", key, Options.NONE)) {
+        final KeySet key = new KeySet().setKeyColumn("A_NAME", "a_test_rec");
+        try (final RelationalResultSet resultSet = statement.executeGet("AT", key, Options.NONE)) {
             Assertions.assertTrue(resultSet.next(), "Did not find a record!");
-            Assertions.assertEquals("a_test_rec", resultSet.getString("a_name"), "Incorrect name!");
+            Assertions.assertEquals("a_test_rec", resultSet.getString("A_NAME"), "Incorrect name!");
             Assertions.assertEquals("a_test_rec", resultSet.getString(1), "Incorrect name!");
 
-            final Array st2 = resultSet.getArray("st2");
+            final Array st2 = resultSet.getArray("ST2");
             Assertions.assertNotNull(st2, "Array is missing!");
 
             try (ResultSet arrayRs = st2.getResultSet()) {
                 Assertions.assertTrue(arrayRs.next(), "No array records returned!");
                 Assertions.assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes(1), "Incorrect bytes column!");
-                Assertions.assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes("c"), "Incorrect bytes column!");
+                Assertions.assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes("C"), "Incorrect bytes column!");
 
                 Assertions.assertTrue(arrayRs.getBoolean(2), "Incorrect boolean column!");
-                Assertions.assertTrue(arrayRs.getBoolean("d"), "Incorrect boolean column!");
+                Assertions.assertTrue(arrayRs.getBoolean("D"), "Incorrect boolean column!");
 
                 Assertions.assertTrue(arrayRs.next(), "too few array records returned!");
                 Assertions.assertArrayEquals("Bonjour".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes(1), "Incorrect bytes column!");
-                Assertions.assertArrayEquals("Bonjour".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes("c"), "Incorrect bytes column!");
+                Assertions.assertArrayEquals("Bonjour".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes("C"), "Incorrect bytes column!");
 
                 Assertions.assertFalse(arrayRs.getBoolean(2), "Incorrect boolean column!");
-                Assertions.assertFalse(arrayRs.getBoolean("d"), "Incorrect boolean column!");
+                Assertions.assertFalse(arrayRs.getBoolean("D"), "Incorrect boolean column!");
 
                 Assertions.assertFalse(arrayRs.next(), "too many array records returned!");
             }
@@ -181,13 +181,13 @@ public class StructDataTypeTest {
 
     @Test
     void canReadRepeatedStructWithArray() throws RelationalException, SQLException {
-        final KeySet key = new KeySet().setKeyColumn("a_name", "a_test_rec");
-        try (final RelationalResultSet resultSet = statement.executeGet("at", key, Options.NONE)) {
+        final KeySet key = new KeySet().setKeyColumn("A_NAME", "a_test_rec");
+        try (final RelationalResultSet resultSet = statement.executeGet("AT", key, Options.NONE)) {
             Assertions.assertTrue(resultSet.next(), "Did not find a record!");
-            Assertions.assertEquals("a_test_rec", resultSet.getString("a_name"), "Incorrect name!");
+            Assertions.assertEquals("a_test_rec", resultSet.getString("A_NAME"), "Incorrect name!");
             Assertions.assertEquals("a_test_rec", resultSet.getString(1), "Incorrect name!");
 
-            final Array st2 = resultSet.getArray("st2");
+            final Array st2 = resultSet.getArray("ST2");
             Assertions.assertNotNull(st2, "Array is missing!");
 
             //now check that the Object[] functionality also works

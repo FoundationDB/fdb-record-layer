@@ -74,7 +74,7 @@ public class RecordLayerStoreCatalogImplTest {
     void deleteAllRecords() throws RelationalException {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
 
-            final KeySpacePath keySpacePath = KeySpaceUtils.uriToPath(URI.create("/__SYS/catalog"), keySpaceExt.getKeySpace());
+            final KeySpacePath keySpacePath = KeySpaceUtils.uriToPath(URI.create("/__SYS/CATALOG"), keySpaceExt.getKeySpace());
             FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), keySpacePath);
             txn.commit();
         }
@@ -127,7 +127,7 @@ public class RecordLayerStoreCatalogImplTest {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             final RelationalResultSet relationalResultSet = storeCatalog.listSchemas(txn, Continuation.BEGIN);
             while (relationalResultSet.next()) {
-                System.out.println(relationalResultSet.getString("schema_name"));
+                System.out.println(relationalResultSet.getString("SCHEMA_NAME"));
             }
         }
     }
@@ -303,7 +303,7 @@ public class RecordLayerStoreCatalogImplTest {
             do {
                 RelationalResultSet result = storeCatalog.listDatabases(listTxn, continuation);
                 while (result.next()) {
-                    databases.add(result.getString("database_id"));
+                    databases.add(result.getString("DATABASE_ID"));
                 }
                 continuation = result.getContinuation();
             } while (!continuation.atEnd());
@@ -374,7 +374,7 @@ public class RecordLayerStoreCatalogImplTest {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
                     // to test continuation, only read 1 result at once
                     if (result.next()) {
-                        fullSchemaNames.add(result.getString("database_id") + "/" + result.getString("schema_name"));
+                        fullSchemaNames.add(result.getString("DATABASE_ID") + "/" + result.getString("SCHEMA_NAME"));
                     }
                     continuation = result.getContinuation();
                 }
@@ -385,7 +385,7 @@ public class RecordLayerStoreCatalogImplTest {
             Assertions.assertTrue(fullSchemaNames.contains("test_database_id" + i / 2 + "/test_schema_name" + i));
         }
         //should also contain the sys catalog schema
-        Assertions.assertTrue(fullSchemaNames.contains("/__SYS/catalog"));
+        Assertions.assertTrue(fullSchemaNames.contains("/__SYS/CATALOG"));
         // list schemas of 1 database
         Set<String> resultSet = new HashSet<>();
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
@@ -393,7 +393,7 @@ public class RecordLayerStoreCatalogImplTest {
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, URI.create("test_database_id1"), continuation)) {
                     if (result.next()) {
-                        resultSet.add(result.getString("database_id") + "/" + result.getString("schema_name"));
+                        resultSet.add(result.getString("DATABASE_ID") + "/" + result.getString("SCHEMA_NAME"));
                     }
                     continuation = result.getContinuation();
                 }
@@ -413,7 +413,7 @@ public class RecordLayerStoreCatalogImplTest {
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
                     if (result.next()) {
-                        fullSchemaNames.add(result.getString("database_id") + "/" + result.getString("schema_name"));
+                        fullSchemaNames.add(result.getString("DATABASE_ID") + "/" + result.getString("SCHEMA_NAME"));
                     }
                     continuation = result.getContinuation();
                 }
@@ -422,7 +422,7 @@ public class RecordLayerStoreCatalogImplTest {
         // assert
         Assertions.assertEquals(1, fullSchemaNames.size());
         //the only entry should be the catalog
-        Assertions.assertTrue(fullSchemaNames.contains("/__SYS/catalog"));
+        Assertions.assertTrue(fullSchemaNames.contains("/__SYS/CATALOG"));
     }
 
     @SuppressWarnings({"SameParameterValue", "unused"})

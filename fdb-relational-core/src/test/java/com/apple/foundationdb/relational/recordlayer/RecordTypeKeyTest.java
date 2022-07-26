@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -46,15 +47,15 @@ public class RecordTypeKeyTest {
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
             RecordTypeKeyTest.class,
-            "CREATE TABLE RestaurantReview (reviewer int64, rating int64, PRIMARY KEY(RECORD TYPE))" +
-                    " CREATE TABLE RestaurantTag (tag string, weight int64, PRIMARY KEY(RECORD TYPE,tag))" +
-                    " CREATE VALUE INDEX record_rt_covering_idx on RestaurantReview(reviewer)");
+            "CREATE TABLE restaurant_review (reviewer int64, rating int64, PRIMARY KEY(RECORD TYPE))" +
+                    " CREATE TABLE restaurant_tag (tag string, weight int64, PRIMARY KEY(RECORD TYPE,tag))" +
+                    " CREATE VALUE INDEX record_rt_covering_idx on restaurant_review(reviewer)");
 
     @RegisterExtension
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withOptions(Options.NONE)
-            .withSchema("testSchema");
+            .withSchema("TEST_SCHEMA");
 
     @RegisterExtension
     @Order(3)
@@ -62,24 +63,23 @@ public class RecordTypeKeyTest {
 
     @Test
     void testPrimaryKeyWithOnlyRecordTypeKey() throws RelationalException, SQLException {
-        Restaurant.RestaurantReview review = Restaurant.RestaurantReview.newBuilder()
-                .setReviewer(12345)
-                .setRating(4)
+        Message review = statement.getDataBuilder("RESTAURANT_REVIEW")
+                .setField("REVIEWER", 12345)
+                .setField("RATING", 4)
                 .build();
-        Restaurant.RestaurantTag tag = Restaurant.RestaurantTag.newBuilder().setTag("Awesome Burgers").setWeight(23).build();
-        int count = statement.executeInsert("RestaurantReview",
-                statement.getDataBuilder("RestaurantReview").convertMessage(review)
-        );
+        Message tag = statement.getDataBuilder("RESTAURANT_TAG")
+                .setField("TAG", "Awesome Burgers")
+                .setField("WEIGHT", 23)
+                .build();
+        int count = statement.executeInsert("RESTAURANT_REVIEW", review);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-        count = statement.executeInsert("RestaurantTag",
-                statement.getDataBuilder("RestaurantTag").convertMessage(tag)
-        );
+        count = statement.executeInsert("RESTAURANT_TAG", tag);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-        // Only scan the "RestaurantRecord" table
+        // Only scan the "RESTAURANT" table
         TableScan scan = TableScan.newBuilder()
-                .withTableName("RestaurantReview")
+                .withTableName("RESTAURANT_REVIEW")
                 .build();
         try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.NONE)) {
             // Only 1 RestaurantRecord is expected to be returned
@@ -95,19 +95,19 @@ public class RecordTypeKeyTest {
                 .setReviewer(678910)
                 .setRating(2)
                 .build();
-        int count = statement.executeInsert("RestaurantReview",
-                statement.getDataBuilder("RestaurantReview").convertMessage(review)
+        int count = statement.executeInsert("RESTAURANT_REVIEW",
+                statement.getDataBuilder("RESTAURANT_REVIEW").convertMessage(review)
         );
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
         TableScan scan = TableScan.newBuilder()
-                .withTableName("RestaurantReview")
-                .setStartKey("reviewer", review.getReviewer())
-                .setEndKey("reviewer", review.getReviewer() + 1)
+                .withTableName("RESTAURANT_REVIEW")
+                .setStartKey("REVIEWER", review.getReviewer())
+                .setEndKey("REVIEWER", review.getReviewer() + 1)
                 .build();
         // Scan is expected to rejected because it uses fields which are not included in primary key
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> statement.executeScan(scan, Options.NONE))
-                .hasMessageContaining("Unknown keys for primary key of <RestaurantReview>, unknown keys: <REVIEWER>")
+                .hasMessageContaining("Unknown keys for primary key of <RESTAURANT_REVIEW>, unknown keys: <REVIEWER>")
                 .isInstanceOf(RelationalException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
@@ -115,36 +115,36 @@ public class RecordTypeKeyTest {
 
     @Test
     void canGetWithRecordTypeInPrimaryKey() throws RelationalException, SQLException {
-        Restaurant.RestaurantTag tag = Restaurant.RestaurantTag.newBuilder().setTag("culvers").setWeight(23).build();
-        int count = statement.executeInsert("RestaurantTag",
-                statement.getDataBuilder("RestaurantTag").convertMessage(tag));
+        Message tag = statement.getDataBuilder("RESTAURANT_TAG")
+                .setField("TAG", "culvers")
+                .setField("WEIGHT", 23)
+                .build();
+        int count = statement.executeInsert("RESTAURANT_TAG", tag);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-        try (final RelationalResultSet rrs = statement.executeGet("RestaurantTag",
-                new KeySet().setKeyColumn("tag", tag.getTag()),
+        try (final RelationalResultSet rrs = statement.executeGet("RESTAURANT_TAG",
+                new KeySet().setKeyColumn("TAG", "culvers"),
                 Options.NONE)) {
             ResultSetAssert.assertThat(rrs).hasNextRow()
-                    .hasRowExactly(tag.getTag(), (long) tag.getWeight())
+                    .hasRowExactly("culvers", 23L)
                     .hasNoNextRow();
         }
     }
 
     @Test
     void canGetWithRecordTypeKeyIndex() throws RelationalException, SQLException {
-        Restaurant.RestaurantReview review = Restaurant.RestaurantReview.newBuilder()
-                .setReviewer(678910)
-                .setRating(2)
+        Message review = statement.getDataBuilder("RESTAURANT_REVIEW")
+                .setField("REVIEWER", 678910)
+                .setField("RATING", 2)
                 .build();
-        int count = statement.executeInsert("RestaurantReview",
-                statement.getDataBuilder("RestaurantReview").convertMessage(review)
-        );
+        int count = statement.executeInsert("RESTAURANT_REVIEW", review);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-        try (final RelationalResultSet rrs = statement.executeGet("RestaurantReview",
-                new KeySet().setKeyColumn("reviewer", review.getReviewer()),
-                Options.builder().withOption(Options.Name.INDEX_HINT, "record_rt_covering_idx").build())) {
+        try (final RelationalResultSet rrs = statement.executeGet("RESTAURANT_REVIEW",
+                new KeySet().setKeyColumn("REVIEWER", 678910),
+                Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_RT_COVERING_IDX").build())) {
             ResultSetAssert.assertThat(rrs).hasNextRow()
-                    .hasRowExactly(review.getReviewer(), (long) review.getRating())
+                    .hasRowExactly(678910L, 2L)
                     .hasNoNextRow();
         }
     }

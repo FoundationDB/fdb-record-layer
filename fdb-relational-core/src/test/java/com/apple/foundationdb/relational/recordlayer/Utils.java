@@ -50,13 +50,13 @@ public final class Utils {
         int numCustomers = r.nextInt(5) + 1;
 
         try {
-            return statement.getDataBuilder("RestaurantRecord")
-                    .setField("rest_no", sequencer.incrementAndGet())
-                    .setField("name", "restName" + r.nextInt())
-                    .setField("location", generateLocation(statement))
-                    .addRepeatedFields("reviews", generateReviews(statement, numReviews))
-                    .addRepeatedFields("tags", generateTags(statement, numTags))
-                    .addRepeatedFields("customer", generateList(numCustomers, () -> "cust" + r.nextInt()))
+            return statement.getDataBuilder("RESTAURANT")
+                    .setField("REST_NO", sequencer.incrementAndGet())
+                    .setField("NAME", "restName" + r.nextInt())
+                    .setField("LOCATION", generateLocation(statement))
+                    .addRepeatedFields("REVIEWS", generateReviews(statement, numReviews))
+                    .addRepeatedFields("TAGS", generateTags(statement, numTags))
+                    .addRepeatedFields("CUSTOMER", generateList(numCustomers, () -> "cust" + r.nextInt()))
                     .build();
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
@@ -65,10 +65,10 @@ public final class Utils {
 
     private static Message generateLocation(RelationalStatement statement) {
         try {
-            return statement.getDataBuilder("Location")
-                    .setField("address", "addr" + r.nextInt())
-                    .setField("latitude", "lat" + r.nextInt())
-                    .setField("longitude", "long" + r.nextInt())
+            return statement.getDataBuilder("LOCATION")
+                    .setField("ADDRESS", "addr" + r.nextInt())
+                    .setField("LATITUDE", "lat" + r.nextInt())
+                    .setField("LONGITUDE", "long" + r.nextInt())
                     .build();
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
@@ -77,9 +77,9 @@ public final class Utils {
 
     private static Message generateReview(RelationalStatement statement) {
         try {
-            return statement.getDataBuilder("RestaurantReview")
-                    .setField("rating", r.nextInt(5))
-                    .setField("reviewer", r.nextInt())
+            return statement.getDataBuilder("RESTAURANT_REVIEW")
+                    .setField("RATING", r.nextInt(5))
+                    .setField("REVIEWER", r.nextInt())
                     .build();
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
@@ -92,9 +92,9 @@ public final class Utils {
 
     private static Message generateTag(RelationalStatement statement) {
         try {
-            return statement.getDataBuilder("RestaurantTag")
-                    .setField("tag", "tag" + r.nextInt())
-                    .setField("weight", r.nextInt())
+            return statement.getDataBuilder("RESTAURANT_TAG")
+                    .setField("TAG", "tag" + r.nextInt())
+                    .setField("WEIGHT", r.nextInt())
                     .build();
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();

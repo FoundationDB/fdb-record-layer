@@ -62,7 +62,7 @@ public abstract class ResultSetMetaDataTest {
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withOptions(Options.NONE)
-            .withSchema("testSchema");
+            .withSchema("TEST_SCHEMA");
 
     @RegisterExtension
     @Order(3)
@@ -71,22 +71,22 @@ public abstract class ResultSetMetaDataTest {
     @BeforeEach
     void setUp() throws Exception {
         List<Message> data = new ArrayList<>();
-        final DynamicMessageBuilder messageBuilder = statement.getDataBuilder("RestaurantRecord");
+        final DynamicMessageBuilder messageBuilder = statement.getDataBuilder("RESTAURANT");
         data.add(messageBuilder
-                .setField("name", "testRestaurant0")
-                .setField("rest_no", System.currentTimeMillis())
+                .setField("NAME", "testRestaurant0")
+                .setField("REST_NO", System.currentTimeMillis())
                 .build());
 
-        int insertCount = statement.executeInsert("RestaurantRecord", data.iterator());
+        int insertCount = statement.executeInsert("RESTAURANT", data.iterator());
         Assertions.assertEquals(1, insertCount, "Did not count insertions correctly!");
     }
 
     @Test
     void canGetColumnNamesCorrectly() throws SQLException, RelationalException {
         String[] expectedColums = new String[]{
-                "rest_no", "name", "location", "reviews", "tags", "customer", "encoded_bytes"
+                "REST_NO", "NAME", "LOCATION", "REVIEWS", "TAGS", "CUSTOMER", "ENCODED_BYTES"
         };
-        try (RelationalResultSet r = selectAll(statement, "RestaurantRecord")) {
+        try (RelationalResultSet r = selectAll(statement, "RESTAURANT")) {
             ResultSetAssert.assertThat(r).metaData().hasColumnsExactlyInOrder(expectedColums);
         }
     }
@@ -94,41 +94,41 @@ public abstract class ResultSetMetaDataTest {
     @Test
     void canGetColumnTypesCorrectly() throws SQLException, RelationalException {
         Map<String, Integer> columnTypes = Map.of(
-                "rest_no", Types.BIGINT,
-                "name", Types.VARCHAR,
-                "location", Types.STRUCT,
-                "reviews", Types.ARRAY,
-                "tags", Types.ARRAY,
-                "customer", Types.ARRAY,
-                "encoded_bytes", Types.BINARY
+                "REST_NO", Types.BIGINT,
+                "NAME", Types.VARCHAR,
+                "LOCATION", Types.STRUCT,
+                "REVIEWS", Types.ARRAY,
+                "TAGS", Types.ARRAY,
+                "CUSTOMER", Types.ARRAY,
+                "ENCODED_BYTES", Types.BINARY
         );
-        try (RelationalResultSet r = selectAll(statement, "RestaurantRecord")) {
+        try (RelationalResultSet r = selectAll(statement, "RESTAURANT")) {
             ResultSetAssert.assertThat(r).metaData().hasColumnTypes(columnTypes);
         }
     }
 
     @Test
     void canGetArrayMetaDataCorrectly() throws Exception {
-        try (RelationalResultSet r = selectAll(statement, "RestaurantRecord")) {
+        try (RelationalResultSet r = selectAll(statement, "RESTAURANT")) {
             final ResultSetMetaDataAssert mdAssert = ResultSetAssert.assertThat(r).metaData();
-            mdAssert.hasArrayMetaData("customer")
-                    .hasColumnTypes(Map.of("customer", Types.VARCHAR));
-            mdAssert.hasArrayMetaData("tags")
-                    .hasColumnTypes(Map.of("tag", Types.VARCHAR, "weight", Types.BIGINT));
-            mdAssert.hasArrayMetaData("reviews")
-                    .hasColumnTypes(Map.of("reviewer", Types.BIGINT, "rating", Types.BIGINT));
+            mdAssert.hasArrayMetaData("CUSTOMER")
+                    .hasColumnTypes(Map.of("CUSTOMER", Types.VARCHAR));
+            mdAssert.hasArrayMetaData("TAGS")
+                    .hasColumnTypes(Map.of("TAG", Types.VARCHAR, "WEIGHT", Types.BIGINT));
+            mdAssert.hasArrayMetaData("REVIEWS")
+                    .hasColumnTypes(Map.of("REVIEWER", Types.BIGINT, "RATING", Types.BIGINT));
         }
     }
 
     @Test
     void canGetStructMetaDataCorrectly() throws Exception {
-        try (RelationalResultSet r = selectAll(statement, "RestaurantRecord")) {
+        try (RelationalResultSet r = selectAll(statement, "RESTAURANT")) {
             final ResultSetMetaDataAssert mdAssert = ResultSetAssert.assertThat(r).metaData();
-            mdAssert.hasStructMetaData("location")
+            mdAssert.hasStructMetaData("LOCATION")
                     .hasColumnCount(3)
-                    .hasColumnTypes(Map.of("address", Types.VARCHAR,
-                            "latitude", Types.VARCHAR,
-                            "longitude", Types.VARCHAR));
+                    .hasColumnTypes(Map.of("ADDRESS", Types.VARCHAR,
+                            "LATITUDE", Types.VARCHAR,
+                            "LONGITUDE", Types.VARCHAR));
         }
     }
 

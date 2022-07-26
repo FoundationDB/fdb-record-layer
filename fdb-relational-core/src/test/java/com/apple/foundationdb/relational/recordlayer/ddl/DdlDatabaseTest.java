@@ -61,9 +61,9 @@ public class DdlDatabaseTest {
     @AfterEach
     void tearDown() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
-                statement.execute("DROP DATABASE '/test_db'");
+                statement.execute("DROP DATABASE /test_db");
             }
         }
     }
@@ -71,19 +71,19 @@ public class DdlDatabaseTest {
     @Test
     public void canCreateDatabase() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a database
-                statement.executeUpdate("CREATE DATABASE '/test_db'");
-                statement.executeUpdate("CREATE SCHEMA '/test_db/foo_schem' with template " + baseTemplate.getTemplateName());
+                statement.executeUpdate("CREATE DATABASE /test_db");
+                statement.executeUpdate("CREATE SCHEMA /test_db/foo_schem with template \"" + baseTemplate.getTemplateName() + "\"");
             }
         }
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/test_db"), Options.NONE)) {
-            conn.setSchema("foo_schem");
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/TEST_DB"), Options.NONE)) {
+            conn.setSchema("FOO_SCHEM");
             try (RelationalStatement statement = conn.createStatement()) {
 
                 //look to see if it's in the list
-                Set<String> databases = Set.of("/test_db", "/__SYS");
+                Set<String> databases = Set.of("/TEST_DB", "/__SYS");
                 try (RelationalResultSet rs = statement.executeQuery("SHOW DATABASES")) {
                     ResultSetAssert.assertThat(rs)
                             .meetsForAllRows(ResultSetAssert.perRowCondition(resultSet -> databases.contains(resultSet.getString(1)), "Should be a valid database"));
@@ -95,12 +95,12 @@ public class DdlDatabaseTest {
     @Test
     @Disabled("TODO")
     public void dropDatabaseRemovesFromList() throws Exception {
-        final String listCommand = "SHOW DATABASES WITH PREFIX '/test_db'";
+        final String listCommand = "SHOW DATABASES WITH PREFIX /test_db";
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (RelationalStatement statement = conn.createStatement()) {
                 //create a database
-                statement.executeUpdate("CREATE DATABASE '/test_db'");
+                statement.executeUpdate("CREATE DATABASE /test_db");
 
                 //look to see if it's in the list
                 try (RelationalResultSet rs = statement.executeQuery(listCommand)) {
@@ -108,7 +108,7 @@ public class DdlDatabaseTest {
                             .hasColumn("database_id", "/test_db");
                 }
                 //now drop the database
-                statement.executeUpdate("DROP DATABASE '/test_db'");
+                statement.executeUpdate("DROP DATABASE /test_db");
 
                 //now it should be missing
                 try (RelationalResultSet rs = statement.executeQuery(listCommand)) {
@@ -127,19 +127,19 @@ public class DdlDatabaseTest {
          * This is a drop database test that doesn't require listing the database
          */
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a database
-                statement.executeUpdate("CREATE DATABASE '/test_db'");
+                statement.executeUpdate("CREATE DATABASE /test_db");
 
                 //create a schema --this should just "work" in that it won't throw an error
-                statement.executeUpdate("CREATE SCHEMA '/test_db/created_schema' with template " + baseTemplate.getTemplateName());
+                statement.executeUpdate("CREATE SCHEMA /test_db/created_schema with template \"" + baseTemplate.getTemplateName() + "\"");
 
                 //now drop the database
-                statement.executeUpdate("DROP DATABASE '/test_db'");
+                statement.executeUpdate("DROP DATABASE /test_db");
 
                 //now creating a new schema should throw a DATABASE_NOT_FOUND error
-                Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE SCHEMA '/test_db/should_fail' with template " + baseTemplate.getTemplateName()))
+                Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE SCHEMA /test_db/should_fail with template " + baseTemplate.getTemplateName()))
                         .isInstanceOf(SQLException.class)
                         .extracting("SQLState")
                         .isEqualTo(ErrorCode.UNDEFINED_DATABASE.getErrorCode());
@@ -150,17 +150,17 @@ public class DdlDatabaseTest {
     @Test
     public void cannotCreateDatabaseIfExists() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a database
-                statement.executeUpdate("CREATE DATABASE '/test_db'");
+                statement.executeUpdate("CREATE DATABASE /test_db");
                 RelationalAssertions.assertThrowsSqlException(() ->
-                        statement.executeUpdate("CREATE DATABASE '/test_db'"))
+                        statement.executeUpdate("CREATE DATABASE /test_db"))
                         .hasErrorCode(ErrorCode.DATABASE_ALREADY_EXISTS);
             } finally {
                 try (Statement statement = conn.createStatement()) {
                     //try to drop the db for test cleanliness
-                    statement.executeUpdate("DROP DATABASE '/test_db'");
+                    statement.executeUpdate("DROP DATABASE /test_db");
                 }
             }
         }
@@ -169,11 +169,11 @@ public class DdlDatabaseTest {
     @Test
     public void cannotCreateSchemaWithoutDatabase() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a database
                 RelationalAssertions.assertThrowsSqlException(() ->
-                        statement.executeUpdate("CREATE SCHEMA '/database_that_does_not_exist/schema_that_cannot_be_created' with template " + baseTemplate.getTemplateName()))
+                        statement.executeUpdate("CREATE SCHEMA /database_that_does_not_exist/schema_that_cannot_be_created with template " + baseTemplate.getTemplateName()))
                         .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
             }
         }

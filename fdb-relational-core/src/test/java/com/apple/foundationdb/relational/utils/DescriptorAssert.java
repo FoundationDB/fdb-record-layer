@@ -54,7 +54,7 @@ public class DescriptorAssert extends AbstractObjectAssert<DescriptorAssert, Des
     @SuppressWarnings("ResultOfMethodCallIgnored")
     SoftAssertions compareFieldsRecursive(Descriptors.Descriptor other, Descriptors.Descriptor actual) {
         SoftAssertions asserts = new SoftAssertions();
-        if (!other.getName().equalsIgnoreCase(actual.getName())) {
+        if (!other.getName().equals(actual.getName())) {
             asserts.fail("Incorrect descriptor name");
         }
 

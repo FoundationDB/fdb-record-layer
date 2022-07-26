@@ -336,7 +336,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 }
             }
             if (index == null) {
-                throw new RelationalException("Unknown index: <" + indexName + "> on type <" + table.getName() + ">", ErrorCode.UNKNOWN_INDEX);
+                throw new RelationalException("Unknown index: <" + indexName + "> on type <" + table.getName() + ">", ErrorCode.UNDEFINED_INDEX);
             }
             return index;
         } else {

@@ -65,7 +65,7 @@ public class CursorTest {
     @Order(2)
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withOptions(Options.NONE)
-            .withSchema("testSchema");
+            .withSchema("TEST_SCHEMA");
 
     @RegisterExtension
     @Order(3)
@@ -75,7 +75,7 @@ public class CursorTest {
     public void canIterateOverAllResults() throws RelationalException {
         havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
             // 1/2 scan all records
-            try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),
+            try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RESTAURANT").build(),
                     Options.NONE)) {
                 ResultSetAssert.assertThat(resultSet).containsRowsExactly(records);
             } catch (SQLException | RelationalException e) {
@@ -91,7 +91,7 @@ public class CursorTest {
             List<Row> actual = new ArrayList<>();
             StructMetaData metaData = null;
             try {
-                TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+                TableScan scan = TableScan.newBuilder().withTableName("RESTAURANT").build();
                 Continuation cont = Continuation.BEGIN;
                 while (!cont.atEnd()) {
                     try (RelationalResultSet resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, cont).withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build())) {
@@ -115,7 +115,7 @@ public class CursorTest {
     public void continuationOnEdgesOfRecordCollection() throws RelationalException {
 
         havingInsertedRecordsDo(3, (Iterable<Message> records, RelationalStatement s) -> {
-            TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+            TableScan scan = TableScan.newBuilder().withTableName("RESTAURANT").build();
             try (RelationalResultSet resultSet = s.executeScan(scan, Options.NONE)) {
                 // get continuation before iterating on the result set (should point to the first record).
                 Continuation continuation = resultSet.getContinuation();
@@ -152,7 +152,7 @@ public class CursorTest {
         havingInsertedRecordsDo(0, (Iterable<Message> records, RelationalStatement s) -> {
             RelationalResultSet resultSet = null;
             try {
-                TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+                TableScan scan = TableScan.newBuilder().withTableName("RESTAURANT").build();
                 resultSet = s.executeScan(scan, Options.NONE);
                 Continuation continuation = resultSet.getContinuation();
                 Assertions.assertNull(continuation.getBytes());
@@ -177,9 +177,9 @@ public class CursorTest {
 
     private void havingInsertedRecordsDo(int numRecords,
                                          BiConsumer<Iterable<Message>, RelationalStatement> test) throws RelationalException {
-        // 1/2 add all records to table insert_test.main.Restaurant.RestaurantRecord
+        // 1/2 add all records to table insert_test.main.Restaurant.RESTAURANT
         Iterable<Message> records = Utils.generateRestaurantRecords(numRecords, statement);
-        final DynamicMessageBuilder dataBuilder = statement.getDataBuilder("RestaurantRecord");
+        final DynamicMessageBuilder dataBuilder = statement.getDataBuilder("RESTAURANT");
         Iterable<Message> convertedRecords = StreamSupport.stream(records.spliterator(), false)
                 .map(m -> {
                     try {
@@ -189,7 +189,7 @@ public class CursorTest {
                     }
                 })
                 .collect(Collectors.toList());
-        int count = statement.executeInsert("RestaurantRecord", convertedRecords);
+        int count = statement.executeInsert("RESTAURANT", convertedRecords);
         Assertions.assertEquals(numRecords, count);
 
         // 2/2 test logic follows
@@ -197,7 +197,7 @@ public class CursorTest {
     }
 
     private Row readFirstRecordWithContinuation(RelationalStatement s, Continuation c) throws SQLException, RelationalException {
-        TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+        TableScan scan = TableScan.newBuilder().withTableName("RESTAURANT").build();
         try (RelationalResultSet resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, c).build())) {
             resultSet.next();
             return ResultSetTestUtils.currentRow(resultSet);

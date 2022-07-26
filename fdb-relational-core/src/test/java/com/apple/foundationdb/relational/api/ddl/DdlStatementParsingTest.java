@@ -85,7 +85,7 @@ public class DdlStatementParsingTest {
         SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(ctx);
         SystemTableRegistry.getSystemTable("DATABASES").addDefinition(ctx);
         ctx.addAllToTypeRepository();
-        RecordMetaDataProto.MetaData md = ctx.generateSchemaTemplate("catalog_template").generateSchema("__SYS", "catalog").getMetaData();
+        RecordMetaDataProto.MetaData md = ctx.generateSchemaTemplate("CATALOG_TEMPLATE").generateSchema("__SYS", "CATALOG").getMetaData();
         fakePlanContext = PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
                 .withStoreState(new RecordStoreState(RecordMetaDataProto.DataStoreInfo.newBuilder().build(), null))
@@ -132,7 +132,7 @@ public class DdlStatementParsingTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE VALUE INDEX t_idx on foo(a)"
         ;
-        shouldFailWith(stmt, ErrorCode.UNKNOWN_TYPE);
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_TABLE);
     }
 
     @Test
@@ -207,7 +207,7 @@ public class DdlStatementParsingTest {
                 TableInfo info = template.getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final RecordMetaDataProto.Index index = info.getIndexes().get(0);
-                Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
+                Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
                 RecordMetaDataProto.KeyExpression actualKe = index.getRootExpression();
                 List<RecordMetaDataProto.KeyExpression> keys = null;
@@ -246,7 +246,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals("test_template", template.getUniqueId(), "incorrect template name!");
+                Assertions.assertEquals("TEST_TEMPLATE", template.getUniqueId(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
                 Assertions.assertEquals(0, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -274,7 +274,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals("test_template", template.getUniqueId(), "incorrect template name!");
+                Assertions.assertEquals("TEST_TEMPLATE", template.getUniqueId(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -328,7 +328,7 @@ public class DdlStatementParsingTest {
                 TableInfo info = template.getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final RecordMetaDataProto.Index index = info.getIndexes().get(0);
-                Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
+                Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
                 RecordMetaDataProto.KeyExpression actualKe = index.getRootExpression();
                 List<RecordMetaDataProto.KeyExpression> keys = null;
@@ -375,7 +375,7 @@ public class DdlStatementParsingTest {
                 TableInfo info = template.getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final RecordMetaDataProto.Index index = info.getIndexes().get(0);
-                Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
+                Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
                 RecordMetaDataProto.KeyExpression actualKe = index.getRootExpression();
                 Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
@@ -417,7 +417,7 @@ public class DdlStatementParsingTest {
             @Nonnull
             @Override
             public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
-                Assertions.assertEquals("test_template", templateId, "Incorrect schema template name!");
+                Assertions.assertEquals("TEST_TEMPLATE", templateId, "Incorrect schema template name!");
                 called[0] = true;
                 return txn -> {
                 };
@@ -451,7 +451,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals("test_template", template.getUniqueId(), "incorrect template name!");
+                Assertions.assertEquals("TEST_TEMPLATE", template.getUniqueId(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -481,7 +481,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals("test_template", template.getUniqueId(), "incorrect template name!");
+                Assertions.assertEquals("TEST_TEMPLATE", template.getUniqueId(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -499,13 +499,13 @@ public class DdlStatementParsingTest {
     /*Database tests*/
     @Test
     void createDatabase() throws Exception {
-        final String command = "CREATE DATABASE '/db_path'";
+        final String command = "CREATE DATABASE /db_path";
 
         shouldWorkWithInjectedFactory(command, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
-                Assertions.assertEquals(URI.create("/db_path"), dbPath, "Incorrect database path!");
+                Assertions.assertEquals(URI.create("/DB_PATH"), dbPath, "Incorrect database path!");
                 return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
             }
         });
@@ -527,7 +527,7 @@ public class DdlStatementParsingTest {
 
     @Test
     void dropDatabase() throws Exception {
-        final String command = "DROP DATABASE '/db_path'";
+        final String command = "DROP DATABASE \"/db_path\"";
 
         shouldWorkWithInjectedFactory(command, new AbstractConstantActionFactory() {
             @Nonnull
@@ -573,7 +573,7 @@ public class DdlStatementParsingTest {
 
     @Test
     void listDatabasesWithPrefixParsesCorrectly() throws Exception {
-        final String command = "SHOW DATABASES WITH PREFIX '/prefix'";
+        final String command = "SHOW DATABASES WITH PREFIX /prefix";
 
         boolean[] called = new boolean[]{false};
         shouldWorkWithInjectedQueryFactory(command, new AbstractQueryFactory() {
@@ -582,7 +582,7 @@ public class DdlStatementParsingTest {
             public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
                 called[0] = true;
                 Assertions.assertNotNull(prefixPath, "Null URI passed!");
-                Assertions.assertEquals(URI.create("/prefix"), prefixPath, "incorrect prefixed path specified!");
+                Assertions.assertEquals(URI.create("/PREFIX"), prefixPath, "incorrect prefixed path specified!");
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
 
@@ -626,7 +626,7 @@ public class DdlStatementParsingTest {
 
     @Test
     void describeSchemaTemplate() throws Exception {
-        final String templateName = "test_template";
+        final String templateName = "TEST_TEMPLATE";
 
         boolean[] called = new boolean[]{false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA TEMPLATE " + templateName, new AbstractQueryFactory() {
@@ -669,7 +669,7 @@ public class DdlStatementParsingTest {
 
     @Test
     void describeSchemaSucceedsWithoutDatabase() throws Exception { // because parser falls back to connection's database.
-        final String templateName = "test_template";
+        final String templateName = "TEST_TEMPLATE";
 
         boolean[] called = new boolean[]{false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + templateName, new AbstractQueryFactory() {
@@ -687,10 +687,10 @@ public class DdlStatementParsingTest {
 
     @Test
     void describeSchemaPathSucceeds() throws Exception {
-        final String templateName = "test_template";
+        final String templateName = "TEST_TEMPLATE";
 
         boolean[] called = new boolean[]{false};
-        shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + "'/test_db/" + templateName + "'", new AbstractQueryFactory() {
+        shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + "/test_db/" + templateName, new AbstractQueryFactory() {
             @Override
             public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
                 called[0] = true;
@@ -705,7 +705,7 @@ public class DdlStatementParsingTest {
 
     @Test
     void describeSchemaWithSetDatabaseSucceeds() throws Exception {
-        final String templateName = "test_template";
+        final String templateName = "TEST_TEMPLATE";
 
         boolean[] called = new boolean[]{false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + templateName, new AbstractQueryFactory() {
@@ -726,7 +726,7 @@ public class DdlStatementParsingTest {
         final String templateName = "test_template";
 
         boolean[] called = new boolean[]{false};
-        shouldWorkWithInjectedFactory("CREATE SCHEMA " + "'/test_db/" + templateName + "' WITH TEMPLATE " + templateName, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory("CREATE SCHEMA /test_db/" + templateName + " WITH TEMPLATE " + templateName, new AbstractConstantActionFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri,
@@ -765,7 +765,7 @@ public class DdlStatementParsingTest {
         //choose every other column
         return IntStream.range(0, columns.size())
                 .filter(indexChoice)
-                .mapToObj(n -> "col" + n)
+                .mapToObj(n -> "COL" + n)
                 .collect(Collectors.toList());
     }
 

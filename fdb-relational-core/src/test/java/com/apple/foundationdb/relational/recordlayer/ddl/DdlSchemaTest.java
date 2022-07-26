@@ -45,6 +45,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class DdlSchemaTest {
     @RegisterExtension
@@ -54,27 +55,27 @@ public class DdlSchemaTest {
     @RegisterExtension
     @Order(1)
     public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational,
-            DdlSchemaTest.class.getSimpleName() + "_TEMPLATE",
+            DdlSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT) + "_TEMPLATE",
             Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col0"))),
             Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "int64"))));
 
     @RegisterExtension
     @Order(2)
-    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/" + DdlSchemaTest.class.getSimpleName()));
+    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/" + DdlSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT)));
 
     @Test
     void canCreateSchema() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (RelationalStatement statement = conn.createStatement()) {
                 //create a schema
-                final String createStatement = "CREATE SCHEMA '" + db.getDbUri() + "/testSchema' WITH TEMPLATE " + baseTemplate.getTemplateName();
+                final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getTemplateName();
                 statement.executeUpdate(createStatement);
                 //now describe the schema
-                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA '" + db.getDbUri() + "/testSchema'")) {
+                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA")) {
                     while (resultSet.next()) {
                         Assertions.assertEquals(db.getDbUri().getPath(), resultSet.getString("DATABASE_PATH"), "Incorrect database name!");
-                        Assertions.assertEquals("testSchema", resultSet.getString("SCHEMA_NAME"), "Incorrect schema name!");
+                        Assertions.assertEquals("TEST_SCHEMA", resultSet.getString("SCHEMA_NAME"), "Incorrect schema name!");
                         Array tableInfoArr = resultSet.getArray("TABLES");
                         try (ResultSet rs = tableInfoArr.getResultSet()) {
                             org.assertj.core.api.Assertions.assertThat(rs).isInstanceOf(RelationalResultSet.class);
@@ -91,17 +92,17 @@ public class DdlSchemaTest {
     @Test
     void canCreateSchemaTemplateWhenConnectedToNonCatalogSchema() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
-                final String createStatement = "CREATE SCHEMA '" + db.getDbUri() + "/testSchema' WITH TEMPLATE " + baseTemplate.getTemplateName();
+                final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getTemplateName();
                 statement.executeUpdate(createStatement);
 
             }
         }
         //now create a new schema in the same db but using a different connection
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:" + db.getDbUri()), Options.NONE)) {
-            conn.setSchema("testSchema");
+            conn.setSchema("TEST_SCHEMA");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
                 final String createStatement = "CREATE SCHEMA TEMPLATE FOO CREATE TABLE T(A string, B string); ";
@@ -113,11 +114,11 @@ public class DdlSchemaTest {
     @Test
     void cannotCreateSchemaTwice() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
 
                 //create a schema
-                final String createStatement = "CREATE SCHEMA '" + db.getDbUri() + "/testSchema' WITH TEMPLATE " + baseTemplate.getTemplateName();
+                final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getTemplateName();
                 statement.executeUpdate(createStatement);
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createStatement))
                         .hasErrorCode(ErrorCode.SCHEMA_ALREADY_EXISTS);
@@ -129,19 +130,19 @@ public class DdlSchemaTest {
     @Test
     void dropSchema() throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (RelationalStatement statement = conn.createStatement()) {
 
                 //create a schema
-                final String createStatement = "CREATE SCHEMA \"" + db.getDbUri() + "/testSchema\" WITH TEMPLATE " + baseTemplate.getTemplateName();
+                final String createStatement = "CREATE SCHEMA \"" + db.getDbUri() + "/TEST_SCHEMA\" WITH TEMPLATE " + baseTemplate.getTemplateName();
                 statement.executeUpdate(createStatement);
 
                 //make sure it's there
                 //now describe the schema
-                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA '" + db.getDbUri() + "/testSchema'")) {
+                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA")) {
                     while (resultSet.next()) {
                         Assertions.assertEquals(db.getDbUri().getPath(), resultSet.getString("DATABASE_PATH"), "Incorrect database name!");
-                        Assertions.assertEquals("testSchema", resultSet.getString("SCHEMA_NAME"), "Incorrect schema name!");
+                        Assertions.assertEquals("TEST_SCHEMA", resultSet.getString("SCHEMA_NAME"), "Incorrect schema name!");
 
                         Array arr = resultSet.getArray("TABLES");
                         try (ResultSet tableRs = arr.getResultSet()) {
@@ -154,10 +155,10 @@ public class DdlSchemaTest {
                 }
 
                 //drop the schema
-                statement.executeUpdate("DROP SCHEMA \"" + db.getDbUri() + "/testSchema\"");
+                statement.executeUpdate("DROP SCHEMA \"" + db.getDbUri() + "/TEST_SCHEMA\"");
 
                 //now make sure that it can't be found again
-                RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("DESCRIBE SCHEMA '" + db.getDbUri() + "/testSchema'"))
+                RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("DESCRIBE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA"))
                         .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
             }
         }

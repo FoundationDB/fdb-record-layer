@@ -29,9 +29,11 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -62,8 +64,8 @@ public class QueryTest {
 
     private static final String schemaTemplate =
             "CREATE STRUCT Location (address string, latitude string, longitude string)" +
-                    " CREATE STRUCT ReviewerEndorsements (endorsementId int64, endorsementText string)" +
-                    " CREATE STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements ReviewerEndorsements array)" +
+                    " CREATE STRUCT \"ReviewerEndorsements\" (\"endorsementId\" int64, \"endorsementText\" string)" +
+                    " CREATE STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements \"ReviewerEndorsements\" array)" +
                     " CREATE STRUCT RestaurantTag (tag string, weight int64)" +
                     " CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
@@ -71,7 +73,7 @@ public class QueryTest {
                     " CREATE VALUE INDEX record_name_idx on RestaurantComplexRecord(name)" +
                     " CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name)" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
-                    " CREATE INDEX mv2 AS SELECT endo.endorsementText FROM RestaurantComplexRecord rec, (SELECT X.endorsementText FROM rec.reviews rev, (SELECT endorsementText from rev.endorsements) X) endo";
+                    " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 
     @RegisterExtension
     @Order(0)
@@ -140,7 +142,7 @@ public class QueryTest {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches(".*Scan.*RestaurantComplexRecord.*rest_no GREATER_THAN 10.* as rest_no, .* as name, .* as location, .* as reviews, .* as tags, .* as customer, .* as encoded_bytes.*");
+                    assertThat(plan).matches(".*Scan.*RESTAURANTCOMPLEXRECORD.*REST_NO GREATER_THAN 10.* as REST_NO, .* as NAME, .* as LOCATION, .* as REVIEWS, .* as TAGS, .* as CUSTOMER, .* as ENCODED_BYTES.*");
                 }
             }
         }
@@ -153,7 +155,7 @@ public class QueryTest {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord USE INDEX (record_name_idx) WHERE rest_no > 10")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches(".*Fetch.*Covering.*Index.*record_name_idx.*rest_no GREATER_THAN 10.* as rest_no, .* as name, .* as location, .* as reviews, .* as tags, .* as customer, .* as encoded_bytes.*");
+                    assertThat(plan).matches(".*Fetch.*Covering.*Index.*RECORD_NAME_IDX.*REST_NO GREATER_THAN 10.* as REST_NO, .* as NAME, .* as LOCATION, .* as REVIEWS, .* as TAGS, .* as CUSTOMER, .* as ENCODED_BYTES.*");
                 }
             }
         }
@@ -166,7 +168,7 @@ public class QueryTest {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches(".*Index.*mv1.*\\[9\\],>.* as rest_no, .* as name, .* as location, .* as reviews, .* as tags, .* as customer, .* as encoded_bytes.*");
+                    assertThat(plan).matches(".*Index.*MV1.*\\[9\\],>.* as REST_NO, .* as NAME, .* as LOCATION, .* as REVIEWS, .* as TAGS, .* as CUSTOMER, .* as ENCODED_BYTES.*");
                 }
             }
         }
@@ -258,7 +260,7 @@ public class QueryTest {
                 while (!continuation.atEnd()) {
                     String query = initialQuery;
                     if (!continuation.atBeginning()) {
-                        query += " WITH CONTINUATION \"" + Base64.getEncoder().encodeToString(continuation.getBytes()) + "\"";
+                        query += " WITH CONTINUATION '" + Base64.getEncoder().encodeToString(continuation.getBytes()) + "'";
                     }
                     try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
                         // assert result matches expected
@@ -295,9 +297,9 @@ public class QueryTest {
                             .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
                 }
                 // exception is thrown when hinted indexes don't exist
-                org.assertj.core.api.Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT * FROM RestaurantRecord USE INDEX (name) WHERE 11 <= rest_no"))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Unknown index(es) name");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("SELECT * FROM RestaurantRecord USE INDEX (name) WHERE 11 <= rest_no"))
+                        .hasErrorCode(ErrorCode.UNDEFINED_INDEX)
+                        .hasMessage("Unknown index(es) NAME");
             }
         }
     }
@@ -365,8 +367,8 @@ public class QueryTest {
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE name = 'getBytes'")) {
                     ResultSetAssert.assertThat(resultSet)
                             .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> {
-                                byte[] bytes = rs.getBytes("encoded_bytes");
-                                switch ((int) resultSet.getLong("rest_no")) {
+                                byte[] bytes = rs.getBytes("ENCODED_BYTES");
+                                switch ((int) resultSet.getLong("REST_NO")) {
                                     case 1:
                                         return Arrays.equals(bytes, "blob1".getBytes(StandardCharsets.UTF_8));
                                     case 2:
@@ -390,28 +392,28 @@ public class QueryTest {
                 " CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                final Message result = statement.getDataBuilder("tbl1")
-                        .setField("id", 42L)
-                        .setField("c", statement.getDataBuilder("C")
-                                .setField("d", statement.getDataBuilder("D")
-                                        .setField("e", statement.getDataBuilder("E")
-                                                .setField("f", 128L)
+                final Message result = statement.getDataBuilder("TBL1")
+                        .setField("ID", 42L)
+                        .setField("C", statement.getDataBuilder("C")
+                                .setField("D", statement.getDataBuilder("D")
+                                        .setField("E", statement.getDataBuilder("E")
+                                                .setField("F", 128L)
                                                 .build())
                                         .build())
                                 .build())
-                        .setField("a", statement.getDataBuilder("A")
-                                .setField("b", statement.getDataBuilder("B")
-                                        .setField("c", statement.getDataBuilder("C")
-                                                .setField("d", statement.getDataBuilder("D")
-                                                        .setField("e", statement.getDataBuilder("E")
-                                                                .setField("f", 128L)
+                        .setField("A", statement.getDataBuilder("A")
+                                .setField("B", statement.getDataBuilder("B")
+                                        .setField("C", statement.getDataBuilder("C")
+                                                .setField("D", statement.getDataBuilder("D")
+                                                        .setField("E", statement.getDataBuilder("E")
+                                                                .setField("F", 128L)
                                                                 .build())
                                                         .build())
                                                 .build())
                                         .build())
                                 .build())
                         .build();
-                final int cnt = statement.executeInsert("tbl1", result);
+                final int cnt = statement.executeInsert("TBL1", result);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
                 Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
@@ -422,7 +424,7 @@ public class QueryTest {
                 Assertions.assertTrue(statement.execute("SELECT c.d.e FROM tbl1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     final Message expected = statement.getDataBuilder("E")
-                            .setField("f", 128L)
+                            .setField("F", 128L)
                             .build();
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasColumn("E", expected)
@@ -442,28 +444,28 @@ public class QueryTest {
                 " CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                final Message result = statement.getDataBuilder("tbl1")
-                        .setField("id", 42L)
-                        .setField("c", statement.getDataBuilder("C")
-                                .setField("d", statement.getDataBuilder("D")
-                                        .setField("e", statement.getDataBuilder("E")
-                                                .addRepeatedField("f", 128L)
+                final Message result = statement.getDataBuilder("TBL1")
+                        .setField("ID", 42L)
+                        .setField("C", statement.getDataBuilder("C")
+                                .setField("D", statement.getDataBuilder("D")
+                                        .setField("E", statement.getDataBuilder("E")
+                                                .addRepeatedField("F", 128L)
                                                 .build())
                                         .build())
                                 .build())
-                        .setField("a", statement.getDataBuilder("A")
-                                .setField("b", statement.getDataBuilder("B")
-                                        .setField("c", statement.getDataBuilder("C")
-                                                .setField("d", statement.getDataBuilder("D")
-                                                        .setField("e", statement.getDataBuilder("E")
-                                                                .addRepeatedField("f", 128L)
+                        .setField("A", statement.getDataBuilder("A")
+                                .setField("B", statement.getDataBuilder("B")
+                                        .setField("C", statement.getDataBuilder("C")
+                                                .setField("D", statement.getDataBuilder("D")
+                                                        .setField("E", statement.getDataBuilder("E")
+                                                                .addRepeatedField("F", 128L)
                                                                 .build())
                                                         .build())
                                                 .build())
                                         .build())
                                 .build())
                         .build();
-                final int cnt = statement.executeInsert("tbl1", result);
+                final int cnt = statement.executeInsert("TBL1", result);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
                 Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
@@ -494,7 +496,9 @@ public class QueryTest {
                 " CREATE TABLE tbl2 (id int64, x int64, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                failsWith(statement, "select * from tbl1 x, tbl2 where x = 42", "ambiguous field name 'x'");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from tbl1 x, tbl2 where x = 42"))
+                        .hasErrorCode(ErrorCode.AMBIGUOUS_COLUMN)
+                        .hasMessage("ambiguous column name 'X'");
             }
         }
     }
@@ -576,7 +580,7 @@ public class QueryTest {
                                 Triple.of(2L, 5L, List.of(
                                         Pair.of(402L, "awesome"),
                                         Pair.of(401L, "wow")))));
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.endorsementText='wow'))")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.\"endorsementText\"='wow'))")) {
                     ResultSetAssert.assertThat(resultSet).containsRowsExactly(l42);
                 }
             }
@@ -598,20 +602,20 @@ public class QueryTest {
     }
 
     private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews) throws RelationalException {
-        final var recBuilder2 = s.getDataBuilder("RestaurantComplexRecord")
-                .setField("rest_no", recordNumber)
-                .setField("name", recordName)
-                .setField("location", s.getDataBuilder("Location")
-                        .setField("address", "address")
-                        .setField("latitude", 1)
-                        .setField("longitude", 1)
+        final var recBuilder2 = s.getDataBuilder("RESTAURANTCOMPLEXRECORD")
+                .setField("REST_NO", recordNumber)
+                .setField("NAME", recordName)
+                .setField("LOCATION", s.getDataBuilder("LOCATION")
+                        .setField("ADDRESS", "address")
+                        .setField("LATITUDE", 1)
+                        .setField("LONGITUDE", 1)
                         .build());
 
         for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
-            recBuilder2.addRepeatedField("reviews", s.getDataBuilder("RestaurantComplexReview")
-                    .setField("reviewer", review.getLeft())
-                    .setField("rating", review.getMiddle())
-                    .addRepeatedFields("endorsements", review.getRight().stream().map(endo -> {
+            recBuilder2.addRepeatedField("REVIEWS", s.getDataBuilder("RESTAURANTCOMPLEXREVIEW")
+                    .setField("REVIEWER", review.getLeft())
+                    .setField("RATING", review.getMiddle())
+                    .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
                         try {
                             return s.getDataBuilder("ReviewerEndorsements").setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
                         } catch (RelationalException e) {
@@ -623,21 +627,21 @@ public class QueryTest {
         }
 
         final Message rec = recBuilder2.build();
-        int cnt = s.executeInsert("RestaurantComplexRecord", rec);
+        int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", rec);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return rec;
     }
 
     private Message insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws RelationalException {
-        Message result = s.getDataBuilder("RestaurantComplexRecord")
-                .setField("rest_no", recordNumber)
-                .setField("name", recordName)
-                .setField("encoded_bytes", ByteString.copyFrom(blob))
-                .setField("location", s.getDataBuilder("Location")
-                        .setField("address", "address")
+        Message result = s.getDataBuilder("RESTAURANTCOMPLEXRECORD")
+                .setField("REST_NO", recordNumber)
+                .setField("NAME", recordName)
+                .setField("ENCODED_BYTES", ByteString.copyFrom(blob))
+                .setField("LOCATION", s.getDataBuilder("LOCATION")
+                        .setField("ADDRESS", "address")
                         .build()).build();
 
-        int cnt = s.executeInsert("RestaurantComplexRecord", result);
+        int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", result);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return result;
     }

@@ -38,7 +38,7 @@ public class DatabaseInfoSystemTable implements SystemTable {
 
     public static final String TABLE_NAME = SystemTableRegistry.DATABASE_TABLE_NAME;
 
-    private static final String DATABASE_ID = "database_id";
+    private static final String DATABASE_ID = "DATABASE_ID";
 
     @Nonnull
     @Override

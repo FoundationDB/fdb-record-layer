@@ -60,7 +60,7 @@ public class DbStateInsertCommandTest {
     @Test
     void insertCommandWithoutConnectionFails() {
         DbStateCommandFactory factory = new DbStateCommandFactory(dbState);
-        SqlCommand<Integer> showComm = factory.getInsertCommand("catalog", "schema", Json.createArrayBuilder().build());
+        SqlCommand<Integer> showComm = factory.getInsertCommand("CATALOG", "SCHEMA", Json.createArrayBuilder().build());
         SQLException sqle = Assertions.assertThrows(SQLException.class, showComm::call);
         Assertions.assertEquals(ErrorCode.CONNECTION_DOES_NOT_EXIST.getErrorCode(), sqle.getSQLState(), "Incorrect error code");
     }
@@ -83,7 +83,7 @@ public class DbStateInsertCommandTest {
          * Test weirdness alert: We have to create a table here to make sure that we can insert data, so
          * we go through some effort here to create a table
          */
-        factory.getSetSchemaCommand("catalog").call(); //set schema
+        factory.getSetSchemaCommand("CATALOG").call(); //set schema
 
         final String cmd =  "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE test_table (rest_no int64, name string, PRIMARY KEY(rest_no));" ;
@@ -91,20 +91,20 @@ public class DbStateInsertCommandTest {
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");
         Assertions.assertEquals(0, (Integer) o, "Did not return the correct modification count");
 
-        factory.getQueryCommand("create database '/test_db'").call();
+        factory.getQueryCommand("create database \"/test_db\"").call();
         try {
-            factory.getQueryCommand("create schema '/test_db/test_schema' with template test_template").call();
+            factory.getQueryCommand("create schema \"/test_db/test_schema\" with template test_template").call();
             factory.getDisconnectCommand().call();
             factory.getConnectCommand(URI.create("jdbc:embed:/test_db")).call();
             factory.getSetSchemaCommand("test_schema").call();
 
-            int insertCount = factory.getInsertCommand(null, "test_table", Json.createArrayBuilder().build()).call();
+            int insertCount = factory.getInsertCommand(null, "TEST_TABLE", Json.createArrayBuilder().build()).call();
             Assertions.assertEquals(0, insertCount, "Inserted records when it shouldn't have");
         } finally {
             factory.getDisconnectCommand().call();
             factory.getConnectCommand(URI.create("jdbc:embed:/__SYS")).call(); //set connection
-            factory.getSetSchemaCommand("catalog").call(); //set schema
-            factory.getQueryCommand("Drop database '/test_db'").call();
+            factory.getSetSchemaCommand("CATALOG").call(); //set schema
+            factory.getQueryCommand("Drop database \"/test_db\"").call();
         }
     }
 
@@ -117,7 +117,7 @@ public class DbStateInsertCommandTest {
          * Test weirdness alert: We have to create a table here to make sure that we can insert data, so
          * we go through some effort here to create a table
          */
-        factory.getSetSchemaCommand("catalog").call(); //set schema
+        factory.getSetSchemaCommand("CATALOG").call(); //set schema
 
         final String cmd =  "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE test_table (rest_no int64, name string, PRIMARY KEY(rest_no));";
@@ -125,19 +125,19 @@ public class DbStateInsertCommandTest {
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");
         Assertions.assertEquals(0, (Integer) o, "Did not return the correct modification count");
 
-        factory.getQueryCommand("create database '/test_db'").call();
+        factory.getQueryCommand("create database \"/test_db\"").call();
         try {
-            factory.getQueryCommand("create schema '/test_db/test_schema' with template test_template").call();
+            factory.getQueryCommand("create schema \"/test_db/test_schema\" with template test_template").call();
             factory.getDisconnectCommand().call();
             factory.getConnectCommand(URI.create("jdbc:embed:/test_db")).call();
 
-            int insertCount = factory.getInsertCommand("test_schema", "test_table", Json.createArrayBuilder().build()).call();
+            int insertCount = factory.getInsertCommand("test_schema", "TEST_TABLE", Json.createArrayBuilder().build()).call();
             Assertions.assertEquals(0, insertCount, "Inserted records when it shouldn't have");
         } finally {
             factory.getDisconnectCommand().call();
             factory.getConnectCommand(URI.create("jdbc:embed:/__SYS")).call(); //set connection
-            factory.getSetSchemaCommand("catalog").call(); //set schema
-            factory.getQueryCommand("Drop database '/test_db'").call();
+            factory.getSetSchemaCommand("CATALOG").call(); //set schema
+            factory.getQueryCommand("Drop database \"/test_db\"").call();
         }
     }
 
@@ -150,7 +150,7 @@ public class DbStateInsertCommandTest {
          * Test weirdness alert: We have to create a table here to make sure that we can insert data, so
          * we go through some effort here to create a table
          */
-        factory.getSetSchemaCommand("catalog").call(); //set schema
+        factory.getSetSchemaCommand("CATALOG").call(); //set schema
 
         final String cmd = "CREATE SCHEMA TEMPLATE test_template " +
                 " CREATE STRUCT nested_type (k string, b boolean)" +
@@ -159,39 +159,39 @@ public class DbStateInsertCommandTest {
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");
         Assertions.assertEquals(0, (Integer) o, "Did not return the correct modification count");
 
-        factory.getQueryCommand("create database '/test_db'").call();
+        factory.getQueryCommand("create database \"/test_db\"").call();
         try {
-            factory.getQueryCommand("create schema '/test_db/test_schema' with template test_template").call();
+            factory.getQueryCommand("create schema \"/test_db/test_schema\" with template test_template").call();
             factory.getDisconnectCommand().call();
             factory.getConnectCommand(URI.create("jdbc:embed:/test_db")).call();
 
             final JsonObject row = Json.createObjectBuilder()
-                    .add("rest_no", 1)
-                    .add("name", "testRecord")
-                    .add("arr", Json.createArrayBuilder()
+                    .add("REST_NO", 1)
+                    .add("NAME", "testRecord")
+                    .add("ARR", Json.createArrayBuilder()
                             .add(Json.createObjectBuilder()
-                                    .add("k", "hello")
-                                    .add("b", false)
+                                    .add("K", "hello")
+                                    .add("B", false)
                                     .build())
                             .add(Json.createObjectBuilder()
-                                    .add("k", "goodbye")
-                                    .add("b", true)
+                                    .add("K", "goodbye")
+                                    .add("B", true)
                                     .build())
                             .build())
                     .build();
             JsonArray data = Json.createArrayBuilder()
                     .add(row)
                     .build();
-            int insertCount = factory.getInsertCommand("test_schema", "test_table", data).call();
+            int insertCount = factory.getInsertCommand("test_schema", "TEST_TABLE", data).call();
             Assertions.assertEquals(1, insertCount, "Inserted records when it shouldn't have");
 
             factory.getSetSchemaCommand("test_schema").call();
             try (ResultSet rs = (ResultSet) factory.getQueryCommand("select * from test_table").call()) {
                 //TODO(bfines) import the ResultSetAssert logic into CLI so that we don't have to do this nonsense
                 Assertions.assertTrue(rs.next(), "Did not return records!");
-                Assertions.assertEquals(1, rs.getLong("rest_no"), "Incorrect rest no");
-                Assertions.assertEquals("testRecord", rs.getString("name"), "Incorrect name!");
-                Array arrValue = rs.getArray("arr");
+                Assertions.assertEquals(1, rs.getLong("REST_NO"), "Incorrect rest no");
+                Assertions.assertEquals("testRecord", rs.getString("NAME"), "Incorrect name!");
+                Array arrValue = rs.getArray("ARR");
                 //this will only work if you don't add columns to the nested type
                 Map<String, Boolean> expectedRows = Map.of("hello", false, "goodbye", true);
                 Set<String> visitedTracker = new HashSet<>();
@@ -213,8 +213,8 @@ public class DbStateInsertCommandTest {
         } finally {
             factory.getDisconnectCommand().call();
             factory.getConnectCommand(URI.create("jdbc:embed:/__SYS")).call(); //set connection
-            factory.getSetSchemaCommand("catalog").call(); //set schema
-            factory.getQueryCommand("Drop database '/test_db'").call();
+            factory.getSetSchemaCommand("CATALOG").call(); //set schema
+            factory.getQueryCommand("Drop database \"/test_db\"").call();
         }
     }
 
@@ -227,7 +227,7 @@ public class DbStateInsertCommandTest {
          * Test weirdness alert: We have to create a table here to make sure that we can insert data, so
          * we go through some effort here to create a table
          */
-        factory.getSetSchemaCommand("catalog").call(); //set schema
+        factory.getSetSchemaCommand("CATALOG").call(); //set schema
 
         final String cmd = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE test_table (rest_no int64, name string,nt string ARRAY, PRIMARY KEY(rest_no))";
@@ -235,24 +235,24 @@ public class DbStateInsertCommandTest {
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");
         Assertions.assertEquals(0, (Integer) o, "Did not return the correct modification count");
 
-        factory.getQueryCommand("create database '/test_db'").call();
+        factory.getQueryCommand("create database \"/test_db\"").call();
         try {
-            factory.getQueryCommand("create schema '/test_db/test_schema' with template test_template").call();
+            factory.getQueryCommand("create schema \"/test_db/test_schema\" with template test_template").call();
             factory.getDisconnectCommand().call();
             factory.getConnectCommand(URI.create("jdbc:embed:/test_db")).call();
 
             JsonArray data = Json.createArrayBuilder()
                     .add(Json.createObjectBuilder()
-                            .add("rest_no", "a string?")
+                            .add("REST_NO", "a string?")
                             .build())
                     .build();
-            final SqlCommand<Integer> insertCommand = factory.getInsertCommand("test_schema", "test_table", data);
+            final SqlCommand<Integer> insertCommand = factory.getInsertCommand("test_schema", "TEST_TABLE", data);
             Assertions.assertThrows(NumberFormatException.class, insertCommand::call);
         } finally {
             factory.getDisconnectCommand().call();
             factory.getConnectCommand(URI.create("jdbc:embed:/__SYS")).call(); //set connection
-            factory.getSetSchemaCommand("catalog").call(); //set schema
-            factory.getQueryCommand("Drop database '/test_db'").call();
+            factory.getSetSchemaCommand("CATALOG").call(); //set schema
+            factory.getQueryCommand("Drop database \"/test_db\"").call();
         }
     }
 }

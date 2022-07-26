@@ -82,9 +82,9 @@ public class SchemaGenerator {
         List<ColumnDesc> columns = generateColumns(availableColumnTypes);
         List<String> pkColumns = selectPrimaryKeys(columns);
         String typeName = "table_" + random.nextAlphaNumeric(5);
-        String sb = "CREATE TABLE " + typeName + "(" +
+        String sb = "CREATE TABLE \"" + typeName + "\"(" +
                 columns.stream().map(Object::toString).collect(Collectors.joining(",")) +
-                ", PRIMARY KEY(" + String.join(",", pkColumns) + ")" +
+                ", PRIMARY KEY(" + pkColumns.stream().map(pk -> "\"" + pk + "\"").collect(Collectors.joining(",")) + ")" +
                 ")";
         Map<String, String> cols = columns.stream().collect(Collectors.toMap(col -> col.name, col -> col.dataType));
         TableDescription tableDef = new TableDescription(typeName, cols, pkColumns);
@@ -94,7 +94,7 @@ public class SchemaGenerator {
     private Map.Entry<String, String> generateStruct(List<String> availableColumnTypes) {
         List<ColumnDesc> columns = generateColumns(availableColumnTypes);
         String typeName = "struct_" + random.nextAlphaNumeric(5);
-        String sb = "CREATE STRUCT " + typeName + "(" +
+        String sb = "CREATE STRUCT \"" + typeName + "\" (" +
                 columns.stream().map(Object::toString).collect(Collectors.joining(",")) +
                 ")";
         return new AbstractMap.SimpleEntry<>(typeName, sb);
@@ -190,7 +190,7 @@ public class SchemaGenerator {
         @Override
         public String toString() {
             String type = " " + dataType + (isRepeated ? " ARRAY" : "");
-            return name +  type;
+            return "\"" + name + "\"" + type;
         }
     }
 }

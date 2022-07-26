@@ -65,7 +65,7 @@ public class DdlSchemaTemplateTest {
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
     public static Stream<Arguments> columnTypePermutations() {
-        return DdlPermutationGenerator.generateTables("schemaTemplateTest", 2)
+        return DdlPermutationGenerator.generateTables("SCHEMA_TEMPLATE_TEST", 2)
                 .map(Arguments::of);
     }
 
@@ -76,14 +76,14 @@ public class DdlSchemaTemplateTest {
                 " CREATE TABLE FOO_TBL (b double, PRIMARY KEY(b))";
 
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate(createColumnStatement);
 
                 //verify that it's there
                 try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template")) {
                     Assertions.assertTrue(rs.next(), "Didn't find created template!");
-                    Assertions.assertEquals("drop_template", rs.getString(1));
+                    Assertions.assertEquals("DROP_TEMPLATE", rs.getString(1));
                     Assertions.assertFalse(rs.next(), "too many schema templates!");
                 }
                 //now drop it
@@ -104,7 +104,7 @@ public class DdlSchemaTemplateTest {
                 "CREATE STRUCT " + table.getTypeDefinition("TYP") +
                 " CREATE TABLE " + table.getTableDefinition("TBL");
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (RelationalStatement statement = conn.createStatement()) {
                 statement.executeUpdate(createColumnStatement);
 
@@ -146,7 +146,7 @@ public class DdlSchemaTemplateTest {
                 "CREATE STRUCT " + table.getTypeDefinition("FOO");
 
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //do a scan of template names first, to see if there are any in there. This is mostly a protection
                 // against test contamination

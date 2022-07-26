@@ -67,13 +67,13 @@ public class BasicMetadataTest {
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
         try (final RelationalResultSet pks = metaData.getPrimaryKeys(database.getDatabasePath().getPath(),
-                "testSchema", "RestaurantRecord")) {
+                "TEST_SCHEMA", "RESTAURANT")) {
             ResultSetAssert.assertThat(pks).hasNextRow()
                     .hasRowExactly(
                             database.getDatabasePath().getPath(),
-                            "testSchema",
-                            "RestaurantRecord",
-                            "rest_no",
+                            "TEST_SCHEMA",
+                            "RESTAURANT",
+                            "REST_NO",
                             1,
                             null);
         }
@@ -90,7 +90,7 @@ public class BasicMetadataTest {
                     .meetsForAllRows(ResultSetAssert.perRowCondition(rs ->
                             database.getDatabasePath().getPath().equals(schemas.getString("TABLE_CATALOG")) &&
                                     retData.add(schemas.getString("TABLE_SCHEM")), "Should not see the same schema twice"));
-            org.assertj.core.api.Assertions.assertThat(retData).contains("testSchema");
+            org.assertj.core.api.Assertions.assertThat(retData).contains("TEST_SCHEMA");
         }
     }
 
@@ -109,13 +109,13 @@ public class BasicMetadataTest {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
-        try (final RelationalResultSet tables = metaData.getTables(null, "testSchema", null, null)) {
+        try (final RelationalResultSet tables = metaData.getTables(null, "TEST_SCHEMA", null, null)) {
             Assertions.assertNotNull(tables, "Null tables returned");
             List<String> retTableNames = new ArrayList<>();
             while (tables.next()) {
                 retTableNames.add(tables.getString("TABLE_NAME"));
             }
-            assertThat(retTableNames).containsExactlyInAnyOrder("RestaurantRecord", "RestaurantReviewer");
+            assertThat(retTableNames).containsExactlyInAnyOrder("RESTAURANT", "RESTAURANT_REVIEWER");
         }
     }
 
@@ -133,7 +133,7 @@ public class BasicMetadataTest {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
-        try (final RelationalResultSet tableData = metaData.getColumns(null, "testSchema", "RestaurantRecord", null)) {
+        try (final RelationalResultSet tableData = metaData.getColumns(null, "TEST_SCHEMA", "RESTAURANT", null)) {
             List<Tuple> rows = new ArrayList<>();
             while (tableData.next()) {
                 rows.add(new Tuple()
@@ -146,11 +146,11 @@ public class BasicMetadataTest {
             }
 
             assertThat(rows).flatExtracting((Tuple t) -> t.getString(0)).containsOnly(database.getDatabasePath().getPath());
-            assertThat(rows).flatExtracting((Tuple t) -> t.getString(1)).containsOnly("testSchema");
-            assertThat(rows).flatExtracting((Tuple t) -> t.getString(2)).containsOnly("RestaurantRecord");
-            assertThat(rows).flatExtracting((Tuple t) -> t.getString(3)).isEqualTo(List.of("rest_no", "name", "location", "reviews", "tags", "customer", "encoded_bytes"));
+            assertThat(rows).flatExtracting((Tuple t) -> t.getString(1)).containsOnly("TEST_SCHEMA");
+            assertThat(rows).flatExtracting((Tuple t) -> t.getString(2)).containsOnly("RESTAURANT");
+            assertThat(rows).flatExtracting((Tuple t) -> t.getString(3)).isEqualTo(List.of("REST_NO", "NAME", "LOCATION", "REVIEWS", "TAGS", "CUSTOMER", "ENCODED_BYTES"));
             assertThat(rows).flatExtracting((Tuple t) -> t.getString(4)).isEqualTo(List.of(
-                    "INT64", "STRING", "LOCATION", "RESTAURANTREVIEW ARRAY", "RESTAURANTTAG ARRAY", "STRING ARRAY", "BYTES"));
+                    "INT64", "STRING", "LOCATION", "RESTAURANT_REVIEW ARRAY", "RESTAURANT_TAG ARRAY", "STRING ARRAY", "BYTES"));
             //the JDBC spec says this should be 1-indexed :( what a bummer
             assertThat(rows).flatExtracting((Tuple t) -> t.getLong(5)).isEqualTo(List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L));
         }
@@ -160,15 +160,15 @@ public class BasicMetadataTest {
     void canGetTableIndexes() throws SQLException {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
-        try (final RelationalResultSet tableData = metaData.getIndexInfo(null, "testSchema", "RestaurantReviewer", false, false)) {
+        try (final RelationalResultSet tableData = metaData.getIndexInfo(null, "TEST_SCHEMA", "RESTAURANT_REVIEWER", false, false)) {
             ResultSetAssert.assertThat(tableData).hasNextRow()
                     .hasRowExactly(
                             URI.create("/basic_metadata_test"), //table_cat
-                            "testSchema", //table_schem
-                            "RestaurantReviewer", //table_name
+                            "TEST_SCHEMA", //table_schem
+                            "RESTAURANT_REVIEWER", //table_name
                             false, //non_unique
                             "value", //index_qualifier
-                            "reviewer_name_idx", //index_name
+                            "REVIEWER_NAME_IDX", //index_name
                             (short) 3, //index_type
                             -1, // ordinal_position
                             null, //column_name
@@ -199,16 +199,13 @@ public class BasicMetadataTest {
     void notSupportedGetTables() throws SQLException {
         RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         RelationalAssertions.assertThrowsSqlException(
-                () -> metaData.getTables("foo", "testSchema", null, null))
-                .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
-        RelationalAssertions.assertThrowsSqlException(
                 () -> metaData.getTables(null, null, null, null))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
         RelationalAssertions.assertThrowsSqlException(
-                () -> metaData.getTables(null, "testSchema", "foo", null))
+                () -> metaData.getTables(null, "TEST_SCHEMA", "foo", null))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
         RelationalAssertions.assertThrowsSqlException(
-                () -> metaData.getTables(null, "testSchema", null, new String[]{"foo"}))
+                () -> metaData.getTables(null, "TEST_SCHEMA", null, new String[]{"foo"}))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
     }
 
@@ -216,22 +213,19 @@ public class BasicMetadataTest {
     void notSupportedGetColumns() throws SQLException {
         RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         RelationalAssertions.assertThrowsSqlException(
-                () -> metaData.getColumns("foo", "testSchema", "RestaurantRecord", null))
+                () -> metaData.getColumns(null, null, "RESTAURANT", null))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
         RelationalAssertions.assertThrowsSqlException(
-                () -> metaData.getColumns(null, null, "RestaurantRecord", null))
+                () -> metaData.getColumns(null, "", "RESTAURANT", null))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
         RelationalAssertions.assertThrowsSqlException(
-                () -> metaData.getColumns(null, "", "RestaurantRecord", null))
+                () -> metaData.getColumns(null, "TEST_SCHEMA", null, null))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
         RelationalAssertions.assertThrowsSqlException(
-                () -> metaData.getColumns(null, "testSchema", null, null))
+                () -> metaData.getColumns(null, "TEST_SCHEMA", "", null))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
         RelationalAssertions.assertThrowsSqlException(
-                () -> metaData.getColumns(null, "testSchema", "", null))
-                .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
-        RelationalAssertions.assertThrowsSqlException(
-                () -> metaData.getColumns(null, "testSchema", "RestaurantRecord", "foo"))
+                () -> metaData.getColumns(null, "TEST_SCHEMA", "RESTAURANT", "foo"))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
     }
 }

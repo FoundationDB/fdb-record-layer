@@ -103,7 +103,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
             dbConn.setSchema(schema);
             long restId = ThreadLocalRandom.current().nextInt(1, dbSize + 1);
             try (RelationalStatement stmt = dbConn.createStatement();
-                    ResultSet resultSet = stmt.executeQuery("SELECT * from RestaurantRecord where rest_no = " + restId)) {
+                    ResultSet resultSet = stmt.executeQuery("SELECT * from \"RestaurantRecord\" where \"rest_no\" = " + restId)) {
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
                 bh.consume(resultSet.getString("name"));

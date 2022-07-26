@@ -112,7 +112,7 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.NONE)) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
-                    ResultSet resultSet = stmt.executeQuery("SELECT * FROM RestaurantRecord WHERE rest_no = 42")) {
+                    ResultSet resultSet = stmt.executeQuery("SELECT * FROM \"RestaurantRecord\" WHERE \"rest_no\" = 42")) {
 
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
@@ -125,7 +125,7 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.NONE)) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
-                    ResultSet resultSet = stmt.executeQuery("SELECT * from RestaurantRecord WHERE name = 'testName'")) {
+                    ResultSet resultSet = stmt.executeQuery("SELECT * from \"RestaurantRecord\" WHERE \"name\" = 'testName'")) {
                 resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
             }

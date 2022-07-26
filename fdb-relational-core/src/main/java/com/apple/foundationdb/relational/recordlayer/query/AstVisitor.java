@@ -59,7 +59,6 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.common.collect.Sets;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.RuleContext;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.math.BigInteger;
@@ -282,7 +281,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.thatUnchecked(expressionObj instanceof Value, UNSUPPORTED_QUERY);
         final var expression = (Value) expressionObj;
         if (ctx.AS() != null) {
-            final var alias = ParserUtils.unquoteString(ParserUtils.safeCastLiteral(ctx.uid().accept(this), String.class));
+            final String alias = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
             Assert.notNullUnchecked(alias, UNSUPPORTED_QUERY);
             parserContext.getCurrentScope().addProjectionColumn(Column.of(Type.Record.Field.of(expression.getResultType(), Optional.of(alias), Optional.empty()), expression));
         } else {
@@ -346,14 +345,16 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             hintedIndexes.addAll(visitIndexHint(indexHintContext));
         }
         // check if all hinted indexes exist
-        Assert.thatUnchecked(Sets.difference(hintedIndexes, allIndexes).isEmpty(), String.format("Unknown index(es) %s", String.join(",", Sets.difference(hintedIndexes, allIndexes)),
-                ErrorCode.SYNTAX_ERROR));
+        Assert.thatUnchecked(
+                Sets.difference(hintedIndexes, allIndexes).isEmpty(),
+                String.format("Unknown index(es) %s", String.join(",", Sets.difference(hintedIndexes, allIndexes))),
+                ErrorCode.UNDEFINED_INDEX);
         Set<AccessHint> accessHintSet = hintedIndexes.stream().map(IndexAccessHint::new).collect(Collectors.toSet());
 
         final RelationalExpression from = ParserUtils.quantifyOver((QualifiedIdentifierValue) tableName, parserContext, new AccessHints(accessHintSet.toArray(AccessHint[]::new)));
         final var quantifierAlias = ctx.alias != null ?
-                ParserUtils.unquoteString(ParserUtils.safeCastLiteral(visit(ctx.alias), String.class)) :
-                ParserUtils.unquoteString(ParserUtils.safeCastLiteral(tableName, String.class));
+                ParserUtils.safeCastLiteral(visit(ctx.alias), String.class) :
+                ParserUtils.safeCastLiteral(tableName, String.class);
         final CorrelationIdentifier aliasId = CorrelationIdentifier.of(quantifierAlias);
         final Quantifier.ForEach forEachQuantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(GroupExpressionRef.of(from));
         parserContext.getCurrentScope().addQuantifier(forEachQuantifier);
@@ -368,13 +369,13 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.KEY(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.FOR(), UNSUPPORTED_QUERY);
 
-        return ctx.uidList().uid().stream().map(RuleContext::getText).collect(Collectors.toSet());
+        return ctx.uidList().uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toSet());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public Typed visitSubqueryTableItem(RelationalParser.SubqueryTableItemContext ctx) {
-        final var subqueryAlias = ParserUtils.unquoteString(ctx.alias.getText());
+        final var subqueryAlias = ParserUtils.safeCastLiteral(visit(ctx.alias), String.class);
         Assert.notNullUnchecked(subqueryAlias);
         final var relationalExpression = ctx.selectStatement() != null ?
                 ctx.selectStatement().accept(this) :
@@ -602,14 +603,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Typed visitFullId(RelationalParser.FullIdContext ctx) {
         Assert.thatUnchecked(!ctx.uid().isEmpty());
-        final String firstPart = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
-        Assert.notNullUnchecked(firstPart);
-        if (ctx.DOT_ID() != null) {
-            final String secondPart = ctx.DOT_ID().getText();
-            Assert.notNullUnchecked(secondPart);
-            return QualifiedIdentifierValue.of(firstPart, secondPart.substring(1));
-        }
-        return QualifiedIdentifierValue.of(firstPart);
+        Assert.thatUnchecked(ctx.uid().size() > 0);
+        final List<String> ids = ctx.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).map(Assert::notNullUnchecked).collect(Collectors.toList());
+        return QualifiedIdentifierValue.of(ids.toArray(new String[0]));
     }
 
     @Override
@@ -629,17 +625,16 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Column<? extends Value> visitFullColumnName(RelationalParser.FullColumnNameContext ctx) {
-        List<String> fieldParts = Stream.concat(
-                Stream.of(Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class))),
-                ctx.dottedId().stream().map(p -> ParserUtils.safeCastLiteral(p.accept(this), String.class))
-        ).collect(Collectors.toList());
+        QualifiedIdentifierValue fullId = (QualifiedIdentifierValue) visit(ctx.fullId());
 
-        final Quantifier qun = ParserUtils.findFieldPath(fieldParts.get(0), parserContext);
-        if (qun.getAlias().toString().equals(fieldParts.get(0))) {
-            fieldParts = fieldParts.stream().skip(1).collect(Collectors.toList());
+        final Quantifier qun = ParserUtils.findFieldPath(fullId.getParts()[0], parserContext);
+        List<String> remainingIdParts = new ArrayList<>(List.of(fullId.getParts()));
+        if (qun.getAlias().toString().equals(fullId.getParts()[0])) {
+            remainingIdParts.remove(0);
         }
-        final FieldValue fieldValue = ParserUtils.getFieldValue(fieldParts, qun.getFlowedObjectValue());
-        return Column.of(Type.Record.Field.of(fieldValue.getResultType(), Optional.of(fieldParts.get(fieldParts.size() - 1)), Optional.empty()), fieldValue);
+        final FieldValue fieldValue = ParserUtils.getFieldValue(remainingIdParts, qun.getFlowedObjectValue());
+
+        return Column.of(Type.Record.Field.of(fieldValue.getResultType(), Optional.of(fullId.getParts()[fullId.getParts().length - 1]), Optional.empty()), fieldValue);
     }
 
     @Override // not supported yet
@@ -716,18 +711,18 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Typed visitSimpleId(RelationalParser.SimpleIdContext ctx) {
-        return LiteralValue.ofScalar(ParserUtils.unquoteString(ctx.getText()));
+        return LiteralValue.ofScalar(ctx.getText().toUpperCase(Locale.ROOT));
     }
 
-    @Override
-    public Typed visitDottedId(RelationalParser.DottedIdContext ctx) {
-        if (ctx.DOT_ID() != null) {
-            final var unquoted = ParserUtils.unquoteString(ctx.getText());
-            Assert.notNullUnchecked(unquoted);
-            return LiteralValue.ofScalar(ParserUtils.trimStartingDot(unquoted));
-        }
-        return LiteralValue.ofScalar(ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class));
-    }
+    //@Override
+    //public Typed visitDottedId(RelationalParser.DottedIdContext ctx) {
+        //if (ctx.DOT_ID() != null) {
+        //    final var unquoted = ParserUtils.unquoteString(ctx.getText());
+        //    Assert.notNullUnchecked(unquoted);
+        //    return LiteralValue.ofScalar(ParserUtils.trimStartingDot(unquoted));
+        //}
+        //return LiteralValue.ofScalar(ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class));
+    //}
 
     //// Literals ////
 
@@ -795,8 +790,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public ProceduralPlan visitCreateSchemaStatement(RelationalParser.CreateSchemaStatementContext ctx) {
-        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(ctx.schemaId().getText());
-        final String templateId = ParserUtils.unquoteString(ctx.templateId().getText());
+        final String schemaId = ParserUtils.safeCastLiteral(visit(ctx.schemaId()), String.class);
+        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(schemaId);
+        final String templateId = ParserUtils.safeCastLiteral(visit(ctx.templateId()), String.class);
         return ProceduralPlan.of(constantActionFactory.getCreateSchemaConstantAction(dbAndSchema.getLeft().orElse(dbUri),
                 dbAndSchema.getRight(), templateId, Options.NONE));
     }
@@ -820,7 +816,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public ProceduralPlan visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
-        final var schemaTemplateName = ParserUtils.unquoteString(ctx.schemaTemplateId().getText());
+        final var schemaTemplateName = ParserUtils.safeCastLiteral(visit(ctx.schemaTemplateId()), String.class);
 
         // collect all tables, their indices, and custom types definitions.
         ctx.templateClause().forEach(s -> s.accept(this));
@@ -836,7 +832,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public ProceduralPlan visitCreateDatabaseStatement(RelationalParser.CreateDatabaseStatementContext ctx) {
-        final var dbName = ParserUtils.unquoteString(ctx.path().getText());
+        final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
         Assert.notNullUnchecked(dbName);
         Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
         return ProceduralPlan.of(constantActionFactory.getCreateDatabaseConstantAction(URI.create(dbName), Options.NONE));
@@ -846,7 +842,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Void visitStructOrTableDefinition(RelationalParser.StructOrTableDefinitionContext ctx) {
         Assert.thatUnchecked(ctx.STRUCT() == null || ctx.primaryKeyDefinition() == null,
                 String.format("Illegal struct definition '%s'", ctx.uid().getText()), ErrorCode.SYNTAX_ERROR);
-        final var name = ctx.uid().getText();
+        final var name = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
         final List<TypingContext.FieldDefinition> fields = ctx.columnDefinition().stream().map(c ->
                 (TypingContext.FieldDefinition) c.accept(this)).collect(Collectors.toList());
         final var isTable = ctx.STRUCT() == null;
@@ -860,21 +856,26 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public TypingContext.FieldDefinition visitColumnDefinition(RelationalParser.ColumnDefinitionContext ctx) {
-        final var fieldType = ParserUtils.toProtoType(ctx.columnType().getText());
-        return new TypingContext.FieldDefinition(ctx.colName.getText(), fieldType, ctx.columnType().getText(), ctx.ARRAY() != null);
+        String fieldType = (ctx.columnType().customType == null) ?
+                ctx.columnType().getText() :
+                ParserUtils.safeCastLiteral(visit(ctx.columnType().customType), String.class);
+        final String columnName = ParserUtils.safeCastLiteral(visit(ctx.colName), String.class);
+        return new TypingContext.FieldDefinition(columnName, ParserUtils.toProtoType(fieldType), fieldType, ctx.ARRAY() != null);
     }
 
     @Override
     public List<String> visitPrimaryKeyDefinition(RelationalParser.PrimaryKeyDefinitionContext ctx) {
-        return ctx.uid().stream().map(RuleContext::getText).collect(Collectors.toList());
+        return ctx.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toList());
     }
 
     @Override
     public Void visitValueIndexDefinition(RelationalParser.ValueIndexDefinitionContext ctx) {
-        final String tableName = ctx.tblName.getText();
-        final String indexName = ctx.idxName.getText();
-        final List<KeyExpression> fieldExpressions = ctx.idxField().stream().map(RuleContext::getText).map(Key.Expressions::field).collect(Collectors.toList());
-        final List<KeyExpression> includeExpressions = ctx.incField().stream().map(RuleContext::getText).map(Key.Expressions::field).collect(Collectors.toList());
+        final String tableName = ParserUtils.safeCastLiteral(visit(ctx.tblName), String.class);
+        final String indexName = ParserUtils.safeCastLiteral(visit(ctx.idxName), String.class);
+        final List<String> fieldNames = ctx.idxField().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toList());
+        final List<String> includeNames = ctx.incField().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toList());
+        final List<KeyExpression> fieldExpressions = fieldNames.stream().map(Key.Expressions::field).collect(Collectors.toList());
+        final List<KeyExpression> includeExpressions = includeNames.stream().map(Key.Expressions::field).collect(Collectors.toList());
         fieldExpressions.add(0, Key.Expressions.recordType());
         KeyExpression rootExpression;
         if (includeExpressions.isEmpty()) {
@@ -886,24 +887,24 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             rootExpression = Key.Expressions.keyWithValue(Key.Expressions.concat(allFields), fieldExpressions.size());
         }
         typingContext.addIndex(tableName, RecordMetaDataProto.Index.newBuilder().setRootExpression(rootExpression.toKeyExpression())
-                .setName(indexName).setType("value").build(), Stream.concat(ctx.idxField().stream().map(RuleContext::getText), ctx.incField().stream().map(RuleContext::getText)).collect(Collectors.toList()));
+                .setName(indexName).setType("value").build(), Stream.concat(fieldNames.stream(), includeNames.stream()).collect(Collectors.toList()));
         return null;
     }
 
     @Override
     public Void visitIndexAsSelectDefinition(RelationalParser.IndexAsSelectDefinitionContext ctx) {
-        final String viewName = ctx.indexName.getText();
+        final String indexName = ParserUtils.safeCastLiteral(visit(ctx.indexName), String.class);
         final RelationalExpression viewPlan = (RelationalExpression) ctx.querySpecificationNointo().accept(this);
         final var result = PlanUtils.getMaterializedViewKeyDefinition(viewPlan);
         final KeyExpression indexExpression = result.getRight();
         typingContext.addIndex(result.getLeft(), RecordMetaDataProto.Index.newBuilder().setRootExpression(indexExpression.toKeyExpression())
-                .setName(viewName).setType("value").build(), List.of());
+                .setName(indexName).setType("value").build(), List.of());
         return null;
     }
 
     @Override
     public ProceduralPlan visitDropDatabaseStatement(RelationalParser.DropDatabaseStatementContext ctx) {
-        final var dbName = ParserUtils.unquoteString(ctx.path().getText());
+        final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
         Assert.notNullUnchecked(dbName);
         Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
         return ProceduralPlan.of(constantActionFactory.getDropDatabaseConstantAction(URI.create(dbName), Options.NONE));
@@ -911,12 +912,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public ProceduralPlan visitDropSchemaTemplateStatement(RelationalParser.DropSchemaTemplateStatementContext ctx) {
-        return ProceduralPlan.of(constantActionFactory.getDropSchemaTemplateConstantAction(ctx.uid().getText(), Options.NONE));
+        final String id = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
+        return ProceduralPlan.of(constantActionFactory.getDropSchemaTemplateConstantAction(id, Options.NONE));
     }
 
     @Override
     public ProceduralPlan visitDropSchemaStatement(RelationalParser.DropSchemaStatementContext ctx) {
-        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(ctx.uid().getText());
+        final String schemaId = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
+        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(schemaId);
         Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), String.format("invalid database identifier in '%s'", ctx.uid().getText()));
         return ProceduralPlan.of(constantActionFactory.getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.NONE));
     }
@@ -926,7 +929,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Object visitShowDatabasesStatement(RelationalParser.ShowDatabasesStatementContext ctx) {
         if (ctx.path() != null) {
-            final var dbName = ParserUtils.unquoteString(ctx.path().getText());
+            final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
             Assert.notNullUnchecked(dbName);
             Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
             return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getListDatabasesQueryAction(URI.create(dbName)));
@@ -943,13 +946,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public QueryPlan visitSimpleDescribeSchemaStatement(RelationalParser.SimpleDescribeSchemaStatementContext ctx) {
-        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(ctx.schemaId().getText());
+        final String schemaId = ParserUtils.safeCastLiteral(visit(ctx.schemaId()), String.class);
+        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(schemaId);
         return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getDescribeSchemaQueryAction(dbAndSchema.getLeft().orElse(dbUri), dbAndSchema.getRight()));
     }
 
     @Override
     public QueryPlan visitSimpleDescribeSchemaTemplateStatement(RelationalParser.SimpleDescribeSchemaTemplateStatementContext ctx) {
-        final var schemaTemplateName = ctx.uid().getText();
+        final var schemaTemplateName = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
         return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getDescribeSchemaTemplateQueryAction(schemaTemplateName));
     }
 

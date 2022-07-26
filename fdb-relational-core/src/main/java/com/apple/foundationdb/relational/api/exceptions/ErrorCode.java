@@ -91,8 +91,10 @@ public enum ErrorCode {
 
     // Class 42 - Syntax Error or Access Rule Violation
     SYNTAX_OR_ACCESS_VIOLATION("42000"),
+    INSUFFICIENT_PRIVILEGE("42501"),
     SYNTAX_ERROR("42601"),
     COLUMN_ALREADY_EXISTS("42701"),
+    AMBIGUOUS_COLUMN("42702"),
     UNDEFINED_DATABASE("42F00"),
     UNDEFINED_TABLE("42F01"),
     DATABASE_ALREADY_EXISTS("42F04"),
@@ -100,16 +102,13 @@ public enum ErrorCode {
     TABLE_ALREADY_EXISTS("42F07"),
     INVALID_COLUMN_REFERENCE("42F10"), //no field of specified name in result set
     INVALID_TABLE_DEFINITION("42F16"),
-    /**
-     * Indicates that a query has timed out during execution.
-     */
     UNKNOWN_TYPE("42F18"),
     /**
      * Indicates that a schema with the given name is already mapped to a schema template.
      */
     SCHEMA_MAPPING_ALREADY_EXISTS("42F50"),
     UNDEFINED_SCHEMA("42F51"),
-    UNKNOWN_INDEX("42F54"),
+    UNDEFINED_INDEX("42F54"),
     UNKNOWN_SCHEMA_TEMPLATE("42F55"),
     ANNOTATION_ALREADY_EXISTS("42F56"),
     INDEX_ALREADY_EXISTS("42F57"),

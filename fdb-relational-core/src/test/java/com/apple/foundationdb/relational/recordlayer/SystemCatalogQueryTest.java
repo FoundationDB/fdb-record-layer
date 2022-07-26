@@ -75,7 +75,7 @@ public class SystemCatalogQueryTest {
 
     private static void runDdl(@Nonnull final String ddl) throws Exception {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate(ddl);
             }
@@ -83,26 +83,26 @@ public class SystemCatalogQueryTest {
     }
 
     private static void createDb(@Nonnull final String dbName) throws Exception {
-        runDdl(String.format("CREATE DATABASE '%s'", dbName));
+        runDdl(String.format("CREATE DATABASE %s", dbName));
     }
 
     private static void createSchema(@Nonnull final String dbName, @Nonnull final String schemaName) throws Exception {
-        runDdl(String.format("CREATE SCHEMA '%s%s' WITH TEMPLATE st", dbName, schemaName));
+        runDdl(String.format("CREATE SCHEMA %s%s WITH TEMPLATE st", dbName, schemaName));
     }
 
     private static void dropDb(@Nonnull final String dbName) throws Exception {
-        runDdl(String.format("DROP DATABASE '%s'", dbName));
+        runDdl(String.format("DROP DATABASE %s", dbName));
     }
 
     @Test
     @SuppressWarnings("checkstyle:Indentation")
     public void selectSchemasWorks() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
+            conn.setSchema("CATALOG");
             //we are selective here to make it easier to check the correctness of the row (otherwise we'd have to put
             //MetaData objects in for equality)
             try (RelationalStatement statement = conn.createStatement();
-                 RelationalResultSet rs = statement.executeQuery("SELECT schema_name,database_id FROM 'SCHEMAS'")) {
+                 RelationalResultSet rs = statement.executeQuery("SELECT schema_name,database_id FROM \"SCHEMAS\"")) {
                 ResultSetAssert.assertThat(rs).containsRowsExactly(List.of(
                         new Object[]{"S11", "/DB1"},
                         new Object[]{"S12", "/DB2"},
@@ -110,7 +110,7 @@ public class SystemCatalogQueryTest {
                         new Object[]{"S31", "/DB3"},
                         new Object[]{"S32", "/DB3"},
                         new Object[]{"S33", "/DB3"},
-                        new Object[]{"catalog", "/__SYS"}
+                        new Object[]{"CATALOG", "/__SYS"}
                 ));
             }
         }
@@ -119,10 +119,10 @@ public class SystemCatalogQueryTest {
     @Test
     public void selectSchemasWithPredicateAndProjectionWorks() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
-            try (Statement statement = conn.createStatement(); ResultSet rs = statement.executeQuery("SELECT schema_name FROM 'SCHEMAS' WHERE database_id = '/__SYS'")) {
+            conn.setSchema("CATALOG");
+            try (Statement statement = conn.createStatement(); ResultSet rs = statement.executeQuery("SELECT schema_name FROM \"SCHEMAS\" WHERE database_id = '/__SYS'")) {
                 shouldBe(rs, Set.of(
-                        List.of("catalog")
+                        List.of("CATALOG")
                 ));
             }
         }
@@ -131,8 +131,8 @@ public class SystemCatalogQueryTest {
     @Test
     public void selectDatabaseInfoWorks() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
-            try (Statement statement = conn.createStatement(); ResultSet rs = statement.executeQuery("SELECT * FROM 'DATABASES'")) {
+            conn.setSchema("CATALOG");
+            try (Statement statement = conn.createStatement(); ResultSet rs = statement.executeQuery("SELECT * FROM \"DATABASES\"")) {
                 shouldBe(rs, Set.of(
                         List.of("/DB1"),
                         List.of("/DB2"),
@@ -146,8 +146,8 @@ public class SystemCatalogQueryTest {
     @Test
     public void selectDatabaseInfoWithPredicateAndProjectionWorks() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("catalog");
-            try (Statement statement = conn.createStatement(); ResultSet rs = statement.executeQuery("SELECT database_id FROM 'DATABASES' WHERE database_id != '/__SYS'")) {
+            conn.setSchema("CATALOG");
+            try (Statement statement = conn.createStatement(); ResultSet rs = statement.executeQuery("SELECT database_id FROM \"DATABASES\" WHERE database_id != '/__SYS'")) {
                 shouldBe(rs, Set.of(
                         List.of("/DB1"),
                         List.of("/DB2"),

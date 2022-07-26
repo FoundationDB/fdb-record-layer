@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -49,15 +48,14 @@ public class TransactionConfigTest {
     @Test
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
-            conn.setSchema("testSchema");
+            conn.setSchema("TEST_SCHEMA");
             conn.setOption(Options.Name.TRANSACTION_TIMEOUT, 1L);
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
-                Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.newBuilder().setName("testRest" + id).setRestNo(id).build();
-                RelationalAssertions.assertThrows(() ->
-                        s.executeInsert("RestaurantRecord", s.getDataBuilder("RestaurantRecord").convertMessage(r))
-                ).hasErrorCode(ErrorCode.TRANSACTION_TIMEOUT);
+                RelationalAssertions.assertThrows(
+                        () -> s.getDataBuilder("RESTAURANT").setField("NAME", "testRest" + id).setField("REST_NO", id).build())
+                        .hasErrorCode(ErrorCode.TRANSACTION_TIMEOUT);
             }
         }
     }

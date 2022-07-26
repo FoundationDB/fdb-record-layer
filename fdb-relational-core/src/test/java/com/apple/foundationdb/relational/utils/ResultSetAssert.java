@@ -329,7 +329,7 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                 expectedStruct.setRow(expectedRow);
                 final Iterator<RelationalStruct> iterator = getRelationalStructIterator(actualMetaData, actualRows);
                 caughtAssertions.proxy(RelationalStructAssert.class, RelationalStruct.class, expectedStruct)
-                        .as("Expecting Row %d", p).isContainedIn(iterator);
+                        .as(expectedRow.toString()).isContainedIn(iterator);
                 p++;
             }
 

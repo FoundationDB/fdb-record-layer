@@ -95,7 +95,7 @@ public abstract class RowStruct implements RelationalStruct {
             return 0L;
         }
         if (!(o instanceof Number)) {
-            throw new SQLException("Long", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+            throw new SQLException(String.format("Cannot convert %s to Long", o.getClass().toString()), ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return ((Number) o).longValue();
@@ -251,7 +251,7 @@ public abstract class RowStruct implements RelationalStruct {
 
     private int getOneBasedPosition(String columnLabel) throws SQLException {
         for (int pos = 1; pos <= metaData.getColumnCount(); pos++) {
-            if (metaData.getColumnName(pos).equalsIgnoreCase(columnLabel)) {
+            if (metaData.getColumnName(pos).equals(columnLabel)) {
                 return pos;
             }
         }

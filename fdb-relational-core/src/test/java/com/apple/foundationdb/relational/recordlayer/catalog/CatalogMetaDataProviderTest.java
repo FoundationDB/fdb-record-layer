@@ -60,7 +60,7 @@ class CatalogMetaDataProviderTest {
         }
 
         URI dbUri = URI.create("/testdb");
-        String schemaName = "testSchema" + System.currentTimeMillis();
+        String schemaName = "TEST_SCHEMA" + System.currentTimeMillis();
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //write schema info to the store
             Schema schema = new Schema(

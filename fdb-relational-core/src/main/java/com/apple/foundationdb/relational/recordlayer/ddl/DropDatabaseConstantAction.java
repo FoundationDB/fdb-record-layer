@@ -51,9 +51,13 @@ public class DropDatabaseConstantAction implements ConstantAction {
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
+        if ("/__SYS".equals(dbUrl.getPath())) {
+            throw new RelationalException("Cannot drop /__SYS database", ErrorCode.INSUFFICIENT_PRIVILEGE);
+        }
+
         try (RelationalResultSet schemas = catalog.listSchemas(txn, dbUrl, Continuation.BEGIN)) {
             while (schemas.next()) {
-                String schemaName = schemas.getString("schema_name");
+                String schemaName = schemas.getString("SCHEMA_NAME");
                 constantActionFactory.getDropSchemaConstantAction(dbUrl, schemaName, options).execute(txn);
             }
         } catch (SQLException se) {

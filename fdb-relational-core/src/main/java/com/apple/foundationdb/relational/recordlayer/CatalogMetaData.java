@@ -84,7 +84,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             while (rrs.next()) {
                 Object[] data = new Object[]{
                         conn.frl.getURI(),
-                        rrs.getString("schema_name"),
+                        rrs.getString("SCHEMA_NAME"),
                 };
                 simplifiedRows.add(new ArrayRow(data));
             }
@@ -107,9 +107,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
          * yet (or do not plan to ever support), so we through UNSUPPORTED_OPERATION errors for these. As we add in the
          * feature support, we should remove these checks.
          */
-        if (catalog != null) {
-            throw new SQLFeatureNotSupportedException("Specified catalogs not supported", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
+        URI catalogUri = catalog == null ? conn.frl.getURI() : URI.create(catalog);
         if (schema == null) {
             throw new SQLFeatureNotSupportedException("Cannot scan across Schemas yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
@@ -121,10 +119,10 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         }
         ensureActiveTransaction();
         try {
-            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, conn.frl.getURI(), schema).getMetaData();
+            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, catalogUri, schema).getMetaData();
             List<Row> tableList = schemaInfo.getRecordTypesList().stream()
                     .map(type -> new Object[]{
-                            null,  //TABLE_CAT
+                            catalogUri.getPath(),  //TABLE_CAT
                             schema,  //TABLE_SCHEM
                             type.getName(), //TABLE_NAME
                             type.hasSinceVersion() ? type.getSinceVersion() : null //TABLE_VERSION
@@ -188,9 +186,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
          * yet (or do not plan to ever support), so we through UNSUPPORTED_OPERATION errors for these. As we add in the
          * feature support, we should remove these checks.
          */
-        if (catalog != null) {
-            throw new SQLFeatureNotSupportedException("Specified catalogs not supported", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
+        URI catalogUri = catalog == null ? conn.frl.getURI() : URI.create(catalog);
         if (schema == null || schema.isEmpty()) {
             throw new SQLFeatureNotSupportedException("Cannot scan across Schemas yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
@@ -203,7 +199,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         ensureActiveTransaction();
         try {
             //TODO(bfines) this is a weird way of doing this, is there a better way?
-            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, conn.frl.getURI(), schema, conn.transaction).getRecordMetaData();
+            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, catalogUri, schema, conn.transaction).getRecordMetaData();
             Descriptors.FileDescriptor fileDesc = rmd.getRecordsDescriptor();
             //verify that it is in fact a table
             try {
@@ -216,7 +212,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             final List<Row> columnDefs = tableDescriptor.getFields().stream()
                     .map(field -> {
                         Object[] row = new Object[]{
-                                conn.frl.getURI(),
+                                catalogUri.getPath(),
                                 schema,
                                 tablePattern,
                                 field.getName(),

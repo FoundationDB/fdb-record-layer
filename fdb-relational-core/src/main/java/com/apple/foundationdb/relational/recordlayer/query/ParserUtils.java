@@ -187,7 +187,7 @@ public final class ParserUtils {
             for (final Column<? extends Value> column : qun.getFlowedColumns()) {
                 if (column.getField().getFieldName().equals(topLevelFieldPart)) {
                     if (matchFound) {
-                        Assert.failUnchecked(String.format("ambiguous field name '%s'", topLevelFieldPart));
+                        Assert.failUnchecked(String.format("ambiguous column name '%s'", topLevelFieldPart), ErrorCode.AMBIGUOUS_COLUMN);
                     } else {
                         matchFound = true;
                         result = qun;
@@ -215,7 +215,7 @@ public final class ParserUtils {
             final Map<String, Descriptors.FieldDescriptor> allAvailableRecordTypes = parserContext.getScannabledRecordTypes();
             final Set<String> allAvailableRecordTypeNames = parserContext.getScannableRecordTypeNames();
             final Optional<Type> recordType = parserContext.getTypeRepositoryBuilder().getTypeByName(recordTypeName);
-            Assert.thatUnchecked(recordType.isPresent(), String.format("unknown record type %s", recordTypeName));
+            Assert.thatUnchecked(recordType.isPresent(), String.format("Unknown table %s", recordTypeName), ErrorCode.UNDEFINED_TABLE);
             Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), String.format("attempt to scan non existing record type %s from record store containing (%s)",
                     recordTypeName, String.join(",", allAvailableRecordTypeNames)));
             parserContext.addFilteredRecord(recordTypeName);
@@ -254,8 +254,7 @@ public final class ParserUtils {
     }
 
     @Nonnull
-    public static Pair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final String identifier) {
-        final var id = unquoteString(identifier);
+    public static Pair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final String id) {
         Assert.notNullUnchecked(id);
         if (id.startsWith("/")) {
             Assert.thatUnchecked(isProperDbUri(id), String.format("invalid database path '%s'", id), ErrorCode.INVALID_PATH);

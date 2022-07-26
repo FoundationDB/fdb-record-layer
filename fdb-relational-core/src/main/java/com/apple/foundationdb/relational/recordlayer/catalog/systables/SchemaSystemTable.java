@@ -38,12 +38,12 @@ public class SchemaSystemTable implements SystemTable {
 
     public static final String TABLE_NAME = SystemTableRegistry.SCHEMAS_TABLE_NAME;
 
-    private static final String SCHEMA_NAME = "schema_name";
+    private static final String SCHEMA_NAME = "SCHEMA_NAME";
 
-    private static final String DATABASE_ID = "database_id";
-    private static final String TEMPLATE_NAME = "template_name";
-    private static final String TEMPLATE_VERSION = "template_version";
-    private static final String METADATA = "meta_data";
+    private static final String DATABASE_ID = "DATABASE_ID";
+    private static final String TEMPLATE_NAME = "TEMPLATE_NAME";
+    private static final String TEMPLATE_VERSION = "TEMPLATE_VERSION";
+    private static final String METADATA = "META_DATA";
 
     @Nonnull
     @Override

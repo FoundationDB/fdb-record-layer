@@ -240,9 +240,9 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
         for (Connector connector : workload.getConnectors()) {
             try (RelationalConnection ddlConn = connector.connect(URI.create("/__SYS"));
                     RelationalStatement ddlStatement = ddlConn.createStatement()) {
-                ddlConn.setSchema("catalog");
+                ddlConn.setSchema("CATALOG");
 
-                ddlStatement.execute("DROP DATABASE '" + workload.getDatabasePath() + "'");
+                ddlStatement.execute("DROP DATABASE \"" + workload.getDatabasePath() + "\"");
                 ddlConn.commit();
             } catch (RelationalException | SQLException se) {
                 if (t != null) {
@@ -364,18 +364,18 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
             for (Connector connector : connectors) {
                 try (RelationalConnection ddlConn = connector.connect(URI.create("/__SYS"));
                         RelationalStatement ddlStatement = ddlConn.createStatement()) {
-                    ddlConn.setSchema("catalog");
-                    String schemaCreateStatement = String.format("CREATE SCHEMA TEMPLATE %s %s",
+                    ddlConn.setSchema("CATALOG");
+                    String schemaCreateStatement = String.format("CREATE SCHEMA TEMPLATE \"%s\" %s",
                             schema.getTemplateName(),
                             schema.getTemplateDescription());
                     ddlStatement.execute(schemaCreateStatement);
 
                     //now create the database
-                    ddlStatement.execute("CREATE DATABASE '" + databasePath.getPath() + "'");
+                    ddlStatement.execute("CREATE DATABASE \"" + databasePath.getPath() + "\"");
 
                     //create the schema
-                    String fullSchemaName = "'" + databasePath.getPath() + "/" + schema.getSchemaName() + "'";
-                    ddlStatement.execute("CREATE SCHEMA " + fullSchemaName + " WITH TEMPLATE " + schema.getTemplateName());
+                    String fullSchemaName = "\"" + databasePath.getPath() + "/" + schema.getSchemaName() + "\"";
+                    ddlStatement.execute("CREATE SCHEMA " + fullSchemaName + " WITH TEMPLATE \"" + schema.getTemplateName() + "\"");
                 }
             }
         } catch (RelationalException | SQLException e) {
