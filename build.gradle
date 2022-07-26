@@ -55,6 +55,7 @@ allprojects {
     apply plugin: 'base'
     apply plugin: 'java-library'
     apply plugin: 'maven-publish'
+    apply plugin: 'signing'
     apply plugin: 'project-reports'
     apply plugin: 'com.github.ben-manes.versions'
     apply plugin: 'de.undercouch.download'
@@ -145,6 +146,16 @@ allprojects {
 
     build {
         dependsOn tasks.jar, tasks.package
+    }
+
+    signing {
+        if (System.getenv("GPG_KEY_ID") != null) {
+            def signingKeyId = System.getenv('GPG_KEY_ID')
+            def signingKey = System.getenv('GPG_KEY')
+            def signingPassword = System.getenv('GPG_PASSPHRASE')
+            useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
+            sign configurations.archives
+        }
     }
 
     repositories {
