@@ -696,7 +696,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     private static Stream<Integer> threadCount() {
-        return Stream.of(1, 100);
+        return Stream.of(1, 10);
     }
 
     @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
