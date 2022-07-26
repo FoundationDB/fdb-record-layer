@@ -99,9 +99,7 @@ public class OrdinalFieldValue implements ValueWithChild {
         if (childMessage == null) {
             return null;
         }
-        final Descriptors.Descriptor descriptorForType = childMessage.getDescriptorForType();
-        final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
-        return childMessage.getField(fieldDescriptor);
+        return MessageValue.getFieldOnMessage(childMessage, field.getFieldIndex());
     }
 
     @Override
