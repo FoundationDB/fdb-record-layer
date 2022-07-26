@@ -699,11 +699,11 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         return Stream.of(1, 100);
     }
 
-    @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-ExecutorThreadCount={0}")
+    @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
     @MethodSource("threadCount")
-    void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Object value) throws Exception {
+    void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
         CountingThreadFactory threadFactory = new CountingThreadFactory();
-        executorService = Executors.newFixedThreadPool((Integer)value, threadFactory);
+        executorService = Executors.newFixedThreadPool(value, threadFactory);
         initializeFlat();
         for (int i = 0; i < 200; i++) {
             try (FDBRecordContext context = openContext()) {
@@ -738,12 +738,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
         @Override
         public Thread newThread(Runnable r) {
-            var t = delegate.newThread(() -> {
+            return delegate.newThread(() -> {
                 threadCounts.merge(Thread.currentThread().getName(), 1, Integer::sum);
                 r.run();
             });
-            t.setName("COUNTING_THREAD_FACTORY_THREAD");
-            return t;
         }
     }
 
