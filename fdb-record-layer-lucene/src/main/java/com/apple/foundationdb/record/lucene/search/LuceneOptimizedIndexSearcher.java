@@ -77,11 +77,17 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
      * NOTE: this method executes the searches on all given leaves exclusively.
      * To search across all the searchers leaves use {@link #leafContexts}.
      *
+     * P.S. most of this code is copied verbatim from {@link IndexSearcher#search(Query, CollectorManager)}, the
+     * refactored code is, as explained above, takes care of parallelizing database access in FDB for each collector in
+     * {@code collectorManager}.
+     *
      * @param query
      *          the search query
      * @param collectorManager
      *          manager of collectors that receive hits
      */
+    @Override
+    @SuppressWarnings("PMD.EmptyCatchBlock")
     public <C extends Collector, T> T search(Query query, CollectorManager<C, T> collectorManager) throws IOException {
         final var leafSlices = getSlices();
         final var executor = getExecutor();
@@ -147,10 +153,9 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
             // execute the last on the caller thread
             search(Arrays.asList(leaves), weight, collector);
             topDocsFutures.add(CompletableFuture.completedFuture(collector));
-            final List<C> collectedCollectors = new ArrayList<>();
             for (Future<C> future : topDocsFutures) {
                 try {
-                    collectedCollectors.add(future.get());
+                    future.get();
                 } catch (InterruptedException e) {
                     throw new ThreadInterruptedException(e);
                 } catch (ExecutionException e) {
