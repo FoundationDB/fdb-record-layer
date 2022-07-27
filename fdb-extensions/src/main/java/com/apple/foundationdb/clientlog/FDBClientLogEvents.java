@@ -150,7 +150,7 @@ public class FDBClientLogEvents {
                 joiner.add("dcId=" + dcId);
             }
             if (tenant.length() > 0) {
-                joiner.add("tenant=" + dcId);
+                joiner.add("tenant=" + tenant);
             }
             return joiner;
         }
