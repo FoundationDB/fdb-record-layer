@@ -96,7 +96,7 @@ public class MessageValue {
         }
         if (field.hasDefaultValue() || message.hasField(field)) {
             if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE &&
-                TupleFieldsHelper.isTupleField(field.getMessageType())) {
+                    TupleFieldsHelper.isTupleField(field.getMessageType())) {
                 return TupleFieldsHelper.fromProto((Message)message.getField(field), field.getMessageType());
             } else {
                 return message.getField(field);
@@ -128,8 +128,8 @@ public class MessageValue {
     private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldName);
         if (!field.isRepeated() &&
-            (field.hasDefaultValue() || message.hasField(field)) &&
-            field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+                (field.hasDefaultValue() || message.hasField(field)) &&
+                field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
             return (Message)message.getField(field);
         }
         return null;
