@@ -1329,7 +1329,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param recordSubspace the subspace for the record to allow the record keys to be identified from the splits
      * @param sizeInfo Size Info to collect metrics
      * @param mappedResult the record splits, packed into a KeyValueAndMappedReqAndResult
-     * @param scanProperties the scam properties to use
      * @param oldVersionFormat whether to use the old version record format when reading the records
      * @return an instance of {@link FDBRawRecord} reconstructed from the given record splits, null if no record entries found
      */
@@ -3658,7 +3657,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     return null;
                 });
 
-        return context.instrument(reason.event, future, startTime);
+        return CompletableFuture.allOf(context.instrument(reason.event, future, startTime),
+                context.instrument(FDBStoreTimer.Events.REBUILD_INDEX, future, startTime));
     }
 
     @SuppressWarnings("PMD.GuardLogStatement") // Already is, but around several call.
