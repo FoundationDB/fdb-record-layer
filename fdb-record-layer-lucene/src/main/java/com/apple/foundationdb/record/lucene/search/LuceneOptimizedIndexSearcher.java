@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.lucene.search;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BulkScorer;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.CollectorManager;
@@ -36,6 +38,7 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.ThreadInterruptedException;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,6 +68,26 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         super(r, executor);
     }
 
+    /** Lower-level search API.
+     *
+     * <p>{@link LeafCollector#collect(int)} is called for every matching document.
+     *
+     * @throws BooleanQuery.TooManyClauses If a query would exceed
+     *         {@link BooleanQuery#getMaxClauseCount()} clauses.
+     */
+    @Override
+    public void search(Query query, Collector results)
+            throws IOException {
+        query = rewrite(query);
+        final var executor = getExecutor();
+        final var weight = createWeight(query, results.scoreMode(), 1);
+        if (executor == null) {
+            search(leafContexts, weight, results);
+        } else {
+            searchOptimized(executor, weight, leafContexts, results).join();
+        }
+    }
+
     /**
      * Lower-level search API.
      *
@@ -77,7 +100,8 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
      * NOTE: this method executes the searches on all given leaves exclusively.
      * To search across all the searchers leaves use {@link #leafContexts}.
      *
-     * P.S. most of this code is copied verbatim from {@link IndexSearcher#search(Query, CollectorManager)}, the
+     * <p>
+     * most of this code is copied verbatim from {@link IndexSearcher#search(Query, CollectorManager)}, the
      * refactored code is, as explained above, takes care of parallelizing database access in FDB for each collector in
      * {@code collectorManager}.
      *
@@ -115,44 +139,12 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
             final Weight weight = createWeight(query, scoreMode, 1);
             final List<Future<C>> topDocsFutures = new ArrayList<>(leafSlices.length);
 
-            for (int i = 0; i < leafSlices.length - 1; ++i) {
+            for (int i = 0; i < leafSlices.length; ++i) {
                 final LeafReaderContext[] leaves = leafSlices[i].leaves;
                 final C collector = collectors.get(i);
-
-                // 1. spawn a list of parallel tasks that interact with the DB for better throughput.
-                final List<CompletableFuture<Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>>>> dependencies = Arrays.stream(leaves).map(ctx -> CompletableFuture.supplyAsync(() -> {
-                    try {
-                        final var result = Pair.of(collector.getLeafCollector(ctx), weight.bulkScorer(ctx));
-                        return Pair.of(ctx, result);
-                    } catch (IOException e) {
-                        return null;
-                    }
-                }, getExecutor())).collect(Collectors.toList());
-
-                // 2. once we finish processing all of them, we can proceed with the final scoring task.
-                final var future = CompletableFuture.allOf(dependencies.toArray(new CompletableFuture[dependencies.size()])).thenApplyAsync(ignored -> {
-                    dependencies.stream().map(CompletableFuture::join).collect(Collectors.toList())
-                            .forEach((Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>> result) -> {
-                                final Pair<LeafCollector, BulkScorer> scorer = result.getRight();
-                                final LeafReaderContext ctx = result.getLeft();
-                                if (scorer != null && scorer.getLeft() != null && scorer.getRight() != null) {
-                                    try {
-                                        scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());
-                                    } catch (IOException e) {
-                                        // no-op just ignore.
-                                    }
-                                }
-                            });
-                    return collector;
-                }, getExecutor());
+                final CompletableFuture<C> future = searchOptimized(executor, weight, Arrays.asList(leaves), collector);
                 topDocsFutures.add(future);
             }
-
-            final LeafReaderContext[] leaves = leafSlices[leafSlices.length - 1].leaves;
-            final C collector = collectors.get(leafSlices.length - 1);
-            // execute the last on the caller thread
-            search(Arrays.asList(leaves), weight, collector);
-            topDocsFutures.add(CompletableFuture.completedFuture(collector));
             for (Future<C> future : topDocsFutures) {
                 try {
                     future.get();
@@ -164,6 +156,37 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
             }
             return collectorManager.reduce(collectors);
         }
+    }
+
+    @Nonnull
+    @SuppressWarnings({"PMD.EmptyCatchBlock"})
+    private <C extends Collector> CompletableFuture<C> searchOptimized(@Nonnull final Executor executor, @Nonnull final Weight weight, @Nonnull final List<LeafReaderContext> leaves, @Nonnull final C collector) {
+        // 1. spawn a list of parallel tasks that interact with the DB for better throughput.
+        final List<CompletableFuture<Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>>>> dependencies = leaves.stream().map(ctx -> CompletableFuture.supplyAsync(() -> {
+            try {
+                final var result = Pair.of(collector.getLeafCollector(ctx), weight.bulkScorer(ctx));
+                return Pair.of(ctx, result);
+            } catch (IOException e) {
+                return null;
+            }
+        }, executor)).collect(Collectors.toList());
+
+        // 2. once we finish processing all of them, we can proceed with the final scoring task.
+        return AsyncUtil.whenAll(dependencies).thenApplyAsync(ignored -> {
+            dependencies.stream().map(CompletableFuture::join).collect(Collectors.toList())
+                    .forEach((Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>> result) -> {
+                        final Pair<LeafCollector, BulkScorer> scorer = result.getRight();
+                        final LeafReaderContext ctx = result.getLeft();
+                        if (scorer != null && scorer.getLeft() != null && scorer.getRight() != null) {
+                            try {
+                                scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());
+                            } catch (IOException e) {
+                                // no-op just ignore.
+                            }
+                        }
+                    });
+            return collector;
+        }, executor);
     }
 
     /**
