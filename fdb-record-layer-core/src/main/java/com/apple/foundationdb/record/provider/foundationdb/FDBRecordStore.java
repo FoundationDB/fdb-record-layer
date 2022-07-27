@@ -771,7 +771,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    public Subspace indexStateSubspace() {
+    public Subspace indexStateSubspace(String indexName, String callingMethod, String targetState) {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("index state change",
+                    LogMessageKeys.INDEX_NAME, indexName,
+                    LogMessageKeys.CALLING_METHOD, callingMethod,
+                    LogMessageKeys.TARGET_INDEX_STATE, targetState
+            ));
+        }
         return getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
     }
 
@@ -1520,7 +1527,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Clear out all data except for the store header key and the index state space.
         // Those two subspaces are determined by the configuration of the record store rather then
         // the records.
-        Range indexStateRange = indexStateSubspace().range();
+        Range indexStateRange =
+                indexStateSubspace("<none>", "deleteAllRecords", "<none>").range();
         tr.clear(recordsSubspace().getKey(), indexStateRange.begin);
         tr.clear(indexStateRange.end, getSubspace().range().end);
     }
@@ -2784,7 +2792,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         try {
             // A read is done before the write in order to avoid having unnecessary
             // updates cause spurious not_committed errors.
-            byte[] indexKey = indexStateSubspace().pack(indexName);
+            byte[] indexKey = indexStateSubspace(indexName, "markIndexNotReadable", indexState.name()).pack(indexName);
             Transaction tr = context.ensureActive();
             CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
                 if (previous == null) {
@@ -2970,7 +2978,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         boolean haveFuture = false;
         try {
             Transaction tr = ensureContextActive();
-            byte[] indexKey = indexStateSubspace().pack(index.getName());
+            byte[] indexKey = indexStateSubspace(index.getName(), "markIndexReadable", "readable").pack(index.getName());
             CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
                 if (previous != null) {
                     CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
@@ -3068,7 +3076,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         boolean haveFuture = false;
         try {
             Transaction tr = ensureContextActive();
-            byte[] indexKey = indexStateSubspace().pack(indexName);
+            byte[] indexKey = indexStateSubspace(indexName, "uncheckedMarkIndexReadable", "readable").pack(indexName);
             CompletableFuture<Boolean> future = tr.get(indexKey).thenApply(previous -> {
                 if (previous != null) {
                     updateIndexState(indexName, indexKey, IndexState.READABLE);
