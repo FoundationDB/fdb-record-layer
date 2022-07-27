@@ -32,15 +32,18 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -74,6 +77,20 @@ public abstract class EmbeddedRelationalBenchmark {
         KeySpace keySpace;
         FdbConnection fdbDatabase;
 
+        private final String templateName;
+        private final String templateDef;
+        public StoreCatalog catalog;
+
+
+        public Driver() {
+            this(schemaTemplateName, templateDefinition);
+        }
+
+        public Driver(String templateName, String templateDef) {
+            this.templateName = templateName;
+            this.templateDef = templateDef;
+        }
+
         public void up() throws RelationalException, SQLException {
             KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
             dbDirectory.addSubdirectory(new KeySpaceDirectory("schema", KeySpaceDirectory.KeyType.STRING));
@@ -86,11 +103,12 @@ public abstract class EmbeddedRelationalBenchmark {
                     storePath -> DynamicMessageRecordSerializer.instance(),
                     1
             );
-            RecordLayerStoreCatalogImpl catalog = new RecordLayerStoreCatalogImpl(keySpace);
+            RecordLayerStoreCatalogImpl rlCatalog = new RecordLayerStoreCatalogImpl(keySpace);
             try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
-                catalog.initialize(txn);
+                rlCatalog.initialize(txn);
                 txn.commit();
             }
+            catalog = rlCatalog;
             engine = RecordLayerEngine.makeEngine(rlConfig, Collections.singletonList(fdbDb), keySpace, InMemorySchemaTemplateCatalog::new);
             engine.registerDriver();
 
@@ -105,7 +123,7 @@ public abstract class EmbeddedRelationalBenchmark {
             try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
                 conn.setSchema("CATALOG");
                 try (Statement statement = conn.createStatement()) {
-                    statement.executeUpdate("CREATE SCHEMA TEMPLATE \"" + schemaTemplateName + "\" " + templateDefinition);
+                    statement.executeUpdate("CREATE SCHEMA TEMPLATE \"" + templateName + "\" " + templateDef);
                 }
             }
         }
@@ -123,6 +141,11 @@ public abstract class EmbeddedRelationalBenchmark {
         public void createDatabase(DatabaseTemplate dbTemplate, String dbName) throws RelationalException, SQLException {
             EmbeddedRelationalBenchmark.createDatabase(dbTemplate, getUri(dbName, false));
             databases.add(dbName);
+        }
+
+        public void createDatabase(URI path, String templateName, String... schemas) throws RelationalException, SQLException {
+            EmbeddedRelationalBenchmark.createDatabase(path, templateName, schemas);
+            databases.add(path.getPath());
         }
     }
 
@@ -179,7 +202,28 @@ public abstract class EmbeddedRelationalBenchmark {
         }
     }
 
-    private static void deleteDatabase(URI dbUri) throws RelationalException, SQLException {
+    public static void createDatabase(@Nonnull URI dbUri, String templateName, String... schemas) throws RelationalException, SQLException {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+            conn.setSchema("CATALOG");
+            try (Statement statement = conn.createStatement()) {
+                try {
+                    statement.executeUpdate("CREATE DATABASE \"" + dbUri.getPath() + "\"");
+                } catch (SQLException se) {
+                    if (se.getSQLState().equals(ErrorCode.DATABASE_ALREADY_EXISTS.getErrorCode())) {
+                        statement.executeUpdate("DROP DATABASE \"" + dbUri.getPath() + "\"");
+                        statement.executeUpdate("CREATE DATABASE \"" + dbUri.getPath() + "\"");
+                    } else {
+                        throw se;
+                    }
+                }
+                for (String schema : schemas) {
+                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schema + "\" WITH TEMPLATE \"" + templateName + "\"");
+                }
+            }
+        }
+    }
+
+    public static void deleteDatabase(URI dbUri) throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
