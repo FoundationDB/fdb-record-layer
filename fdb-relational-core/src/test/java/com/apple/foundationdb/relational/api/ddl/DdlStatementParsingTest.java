@@ -390,11 +390,10 @@ public class DdlStatementParsingTest {
                 KeyExpression keyExpr = then.getSubKey(0, splitPoint);
                 KeyExpression valueExpr = then.getSubKey(splitPoint, then.getColumnSize());
 
-                //account for the record type key
-                Assertions.assertEquals(indexedColumns.size(), keyExpr.getColumnSize() - 1, "Incorrect number of parsed columns!");
-                for (int i = 1; i <= indexedColumns.size(); i++) {
+                Assertions.assertEquals(indexedColumns.size(), keyExpr.getColumnSize(), "Incorrect number of parsed columns!");
+                for (int i = 0; i < indexedColumns.size(); i++) {
                     final RecordMetaDataProto.KeyExpression ke = keyExpr.getSubKey(i, i + 1).toKeyExpression();
-                    Assertions.assertEquals(indexedColumns.get(i - 1), ke.getField().getFieldName(), "Incorrect column at position " + (i - 1));
+                    Assertions.assertEquals(indexedColumns.get(i), ke.getField().getFieldName(), "Incorrect column at position " + i);
                 }
 
                 Assertions.assertEquals(unindexedColumns.size(), valueExpr.getColumnSize(), "Incorrect number of parsed columns!");

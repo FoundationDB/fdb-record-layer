@@ -343,6 +343,42 @@ public class TableTest {
     }
 
     @Test
+    void testIndexCreatedUsingMultipleColumns() throws Exception {
+        final String schema =
+                " CREATE TABLE tbl1 (id int64, a string, b string, c string, d string, PRIMARY KEY(id))" +
+                        " CREATE VALUE INDEX c_name_idx ON tbl1(c, d)";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+
+                Message result = statement.getDataBuilder("TBL1").setField("ID", 42L).setField("A", "valuea1").setField("B", "valueb1").setField("C", "valuec1").setField("D", "valued1").build();
+                int cnt = statement.executeInsert("TBL1", result);
+                org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                result = statement.getDataBuilder("TBL1").setField("ID", 43L).setField("A", "valuea2").setField("B", "valueb2").setField("C", "valuec2").setField("D", "valued2").build();
+                cnt = statement.executeInsert("TBL1", result);
+                org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                result = statement.getDataBuilder("TBL1").setField("ID", 44L).setField("A", "valuea3").setField("B", "valueb3").setField("C", "valuec3").setField("D", "valued3").build();
+                cnt = statement.executeInsert("TBL1", result);
+                org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                //scan on the index
+                TableScan scan = TableScan.newBuilder()
+                        .withTableName("TBL1")
+                        .setStartKey("C", "valuec2")
+                        .setEndKey("C", "valuec2" + 1) //??
+                        .build();
+                try (RelationalResultSet resultSet = statement.executeScan(scan, Options.builder().withOption(Options.Name.INDEX_HINT, "C_NAME_IDX").build())) {
+                    //because we are scanning the index only, the returned result only contains what's in the record_name_idx (name)
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(Map.of("C", "valuec2", "D", "valued2"))
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
     void delete() throws RelationalException, SQLException {
         long restNo = newRestNo();
         insertRestaurantRecord(statement, restNo);

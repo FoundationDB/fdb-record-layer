@@ -876,10 +876,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final List<String> includeNames = ctx.incField().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toList());
         final List<KeyExpression> fieldExpressions = fieldNames.stream().map(Key.Expressions::field).collect(Collectors.toList());
         final List<KeyExpression> includeExpressions = includeNames.stream().map(Key.Expressions::field).collect(Collectors.toList());
-        fieldExpressions.add(0, Key.Expressions.recordType());
         KeyExpression rootExpression;
         if (includeExpressions.isEmpty()) {
-            rootExpression = Key.Expressions.concat(fieldExpressions);
+            rootExpression = fieldExpressions.size() == 1 ? fieldExpressions.get(0) : Key.Expressions.concat(fieldExpressions);
         } else {
             List<KeyExpression> allFields = new ArrayList<>(fieldExpressions.size() + includeExpressions.size());
             allFields.addAll(fieldExpressions);

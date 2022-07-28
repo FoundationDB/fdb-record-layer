@@ -94,8 +94,8 @@ public final class SqlTypeSupport {
     @Nonnull
     public static StructMetaData recordToMetaData(@Nonnull Type.Record record) throws RelationalException {
         FieldDescription[] fields = new FieldDescription[record.getFields().size()];
-        for (Type.Record.Field field : record.getFields()) {
-            FieldDescription fieldDescription = fieldToDescription(field);
+        for (final Type.Record.Field field : record.getFields()) {
+            final FieldDescription fieldDescription = fieldToDescription(field);
             fields[field.getFieldIndex() - 1] = fieldDescription;
         }
         return new RelationalStructMetaData(fields);

@@ -49,12 +49,9 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -85,31 +82,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         final KeyExpression indexStruct = index.getRootExpression();
         final RecordType recType = table.loadRecordType(Options.NONE);
         final List<Descriptors.FieldDescriptor> fields = indexStruct.validate(recType.getDescriptor());
-        Type.Record record = ProtobufDdlUtil.recordFromFieldDescriptors(fields);
-        /*
-         * If the index include a record type key, then this logic doesn't work--the returned tuples
-         * are off by one (wherever the record type key is in the key order). So we have to deal with that situation.
-         */
-        if (indexStruct.hasRecordTypeKey()) {
-            int typeKeyPos = -1;
-            final List<KeyExpression> keyExpressions = indexStruct.normalizeKeyForPositions();
-            int p = 0;
-            for (KeyExpression ke : keyExpressions) {
-                if (ke instanceof RecordTypeKeyExpression) {
-                    typeKeyPos = p;
-                    break;
-                }
-                p++;
-            }
-            Type.Record.Field typeKeyField = Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("__TYPE_KEY"), Optional.of(p + 1));
-            List<Type.Record.Field> recFields = new ArrayList<>(record.getFields());
-            if (typeKeyPos >= recFields.size()) {
-                recFields.add(typeKeyField);
-            } else {
-                recFields.add(typeKeyPos, typeKeyField);
-            }
-            record = Type.Record.fromFields(recFields.stream().map(f -> Type.Record.Field.of(f.getFieldType(), f.getFieldNameOptional())).collect(Collectors.toList()));
-        }
+        final Type.Record record = ProtobufDdlUtil.recordFromFieldDescriptors(fields);
         return SqlTypeSupport.recordToMetaData(record);
     }
 
