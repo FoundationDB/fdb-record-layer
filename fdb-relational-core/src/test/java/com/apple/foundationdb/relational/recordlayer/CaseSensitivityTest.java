@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -255,6 +256,82 @@ public class CaseSensitivityTest {
                     for (String column : columns) {
                         statement.executeUpdate("DROP DATABASE /various_columns_db");
                         statement.executeUpdate("DROP SCHEMA TEMPLATE temp_various_column_" + column);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    public void overload() throws Exception {
+        List<String> databases = List.of("/database", "/DATABASE", "/Database", "/DaTaBaSe");
+        List<String> schemas = List.of("schema", "SCHEMA", "Schema", "ScHeMa");
+        List<String> tables = List.of("table", "TABLE", "Table", "TaBlE");
+        List<String> columns = List.of("column", "COLUMN", "Column", "CoLuMn");
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+            conn.setSchema("CATALOG");
+            try {
+                for (String database : databases) {
+                    // DDL
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate(String.format(
+                                "CREATE DATABASE \"%s\"",
+                                database)
+                        );
+                        for (String schema : schemas) {
+                            StringBuilder template = new StringBuilder();
+                            template.append("CREATE SCHEMA TEMPLATE \"").append(schema).append("_template\" ");
+                            for (String table : tables) {
+                                template.append("CREATE TABLE \"").append(table).append("\" (");
+                                template.append(columns.stream().map(c -> "\"" + c + "\" int64").collect(Collectors.joining(",")));
+                                template.append(") ");
+                            }
+                            statement.executeUpdate(template.toString());
+                            statement.executeUpdate(String.format("CREATE SCHEMA \"%s/%s\" WITH TEMPLATE \"%s_template\"", database, schema, schema));
+                        }
+                    }
+                    int value = 0;
+                    // Data insertion
+                    try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:" + database), Options.NONE)) {
+                        try (RelationalStatement statement = dbConn.createStatement()) {
+                            for (String schema : schemas) {
+                                dbConn.setSchema(schema);
+                                for (String table : tables) {
+                                    DynamicMessageBuilder rowBuilder = statement.getDataBuilder(table);
+                                    for (String column : columns) {
+                                        rowBuilder.setField(column, value++);
+                                    }
+                                    statement.executeInsert(table, rowBuilder.build());
+                                }
+                            }
+                        }
+                    }
+                    value = 0;
+                    // Data retrieval
+                    // Disabled until TODO is fixed
+                    //try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:" + database), Options.NONE)) {
+                    //    try (RelationalStatement statement = dbConn.createStatement()) {
+                    //        for (String schema : schemas) {
+                    //            dbConn.setSchema(schema);
+                    //            for (String table : tables) {
+                    //                for (String column : columns) {
+                    //                    try (RelationalResultSet rs = statement.executeQuery(String.format("SELECT \"%s\" from \"%s\"", column, table))) {
+                    //                        ResultSetAssert.assertThat(rs).hasNextRow().hasColumn(column, value++);
+                    //                    }
+                    //                }
+                    //            }
+                    //        }
+                    //    }
+                    //}
+                }
+            } finally {
+                // Cleanup
+                try (RelationalStatement statement = conn.createStatement()) {
+                    for (String database : databases) {
+                        statement.executeUpdate(String.format("DROP DATABASE \"%s\"", database));
+                    }
+                    for (String schema : schemas) {
+                        statement.executeUpdate(String.format("DROP SCHEMA TEMPLATE \"%s_template\"", schema));
                     }
                 }
             }

@@ -1322,7 +1322,7 @@ fragment CHARSET_NAME:               ARMSCII8 | ASCII | BIG5 | BINARY | CP1250
                                      | UTF8 | UTF8MB3 | UTF8MB4;
 
 fragment EXPONENT_NUM_PART:          'E' [-+]? DEC_DIGIT+;
-fragment ID_LITERAL:                 [A-Z_/$0-9\u0080-\uFFFF]*?[A-Z_/$\u0080-\uFFFF]+?[A-Z_/$0-9\u0080-\uFFFF]*;
+fragment ID_LITERAL:                 [A-Za-z/][A-Za-z0-9_/]*;
 fragment DQUOTA_STRING:              '"' ( '\\'. | '""' | ~('"'| '\\') )* '"';
 fragment SQUOTA_STRING:              '\'' ('\\'. | '\'\'' | ~('\'' | '\\'))* '\'';
 fragment BQUOTA_STRING:              '`' ( '\\'. | '``' | ~('`'|'\\'))* '`';

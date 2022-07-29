@@ -1103,9 +1103,7 @@ privilegeLevel
     : '*'                                                           #currentSchemaPriviLevel
     | '*' '.' '*'                                                   #globalPrivLevel
     | uid '.' '*'                                                   #definiteSchemaPrivLevel
-    | uid '.' uid                                                   #definiteFullTablePrivLevel
-    | uid dottedId                                                  #definiteFullTablePrivLevel2
-    | uid                                                           #definiteTablePrivLevel
+    | fullId                                                        #definiteFullTable
     ;
 
 renameUserClause
@@ -1353,7 +1351,7 @@ describeObjectClause
 
 // done
 fullId
-    : uid (DOT uid)* // TODO(yhatem) we might want to replace ? with * to allow more nesting.
+    : uid (DOT uid)*
     ;
 
 // done
@@ -1437,13 +1435,6 @@ simpleId
     | keywordsCanBeId
     | functionNameBase
     ;
-
-// done
-dottedId
-    : //DOT_ID
-     '.' uid
-    ;
-
 
 //    Literals
 

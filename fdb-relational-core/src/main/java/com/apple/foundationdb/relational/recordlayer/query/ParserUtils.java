@@ -70,19 +70,20 @@ public final class ParserUtils {
     }
 
     /**
-     * If a string is single- or double-quoted, removes the quotation, otherwise, returns the string as-is.
-     * @param quotedString The quoted string.
-     * @return same string without quotes (if any).
+     * If a string is single- or double-quoted, removes the quotation, otherwise, upper-case it.
+     * @param string The input string
+     * @return the normalized string
      */
     @Nullable
-    public static String unquoteString(@Nullable final String quotedString) {
-        if (quotedString == null) {
+    public static String normalizeString(@Nullable final String string) {
+        if (string == null) {
             return null;
         }
-        if (isQuoted(quotedString, "'") || isQuoted(quotedString, "\"")) {
-            return quotedString.substring(1, quotedString.length() - 1);
+        if (isQuoted(string, "'") || isQuoted(string, "\"")) {
+            return string.substring(1, string.length() - 1);
+        } else {
+            return string.toUpperCase(Locale.ROOT);
         }
-        return quotedString;
     }
 
     @Nonnull
@@ -285,7 +286,7 @@ public final class ParserUtils {
     }
 
     public static boolean isProperDbUri(@Nonnull final String path) {
-        return unquoteString(path).matches("/\\w[a-zA-Z0-9_/]*\\w");
+        return normalizeString(path).matches("/\\w[a-zA-Z0-9_/]*\\w");
     }
 
     public static boolean requiresCanonicalSubSelect(@Nonnull final Quantifier quantifier, @Nonnull final ParserContext parserContext) {

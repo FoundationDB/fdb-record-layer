@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import java.util.Arrays;
@@ -28,11 +29,11 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
-public class QualifiedIdentifierValue extends LiteralValue<String> {
+public final class QualifiedIdentifierValue extends LiteralValue<String> {
     @Nonnull
     private final String[] parts;
 
-    public QualifiedIdentifierValue(@Nonnull String... values) {
+    private QualifiedIdentifierValue(@Nonnull String... values) {
         super(Arrays.stream(values).collect(Collectors.joining(".")));
         parts = values;
     }
@@ -49,6 +50,7 @@ public class QualifiedIdentifierValue extends LiteralValue<String> {
 
     @Nonnull
     public static QualifiedIdentifierValue of(@Nonnull String... values) {
+        Assert.thatUnchecked(values.length > 0, "QualifiedIdentifierValue should be created with at least one value");
         return new QualifiedIdentifierValue(values);
     }
 

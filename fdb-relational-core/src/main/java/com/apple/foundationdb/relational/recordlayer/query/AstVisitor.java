@@ -705,24 +705,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.simpleId() != null) {
             return LiteralValue.ofScalar(ParserUtils.safeCastLiteral(visit(ctx.simpleId()), String.class));
         } else {
-            return LiteralValue.ofScalar(ParserUtils.unquoteString(ctx.getText()));
+            return LiteralValue.ofScalar(ParserUtils.normalizeString(ctx.getText()));
         }
     }
 
     @Override
     public Typed visitSimpleId(RelationalParser.SimpleIdContext ctx) {
-        return LiteralValue.ofScalar(ctx.getText().toUpperCase(Locale.ROOT));
+        return LiteralValue.ofScalar(ParserUtils.normalizeString(ctx.getText()));
     }
-
-    //@Override
-    //public Typed visitDottedId(RelationalParser.DottedIdContext ctx) {
-        //if (ctx.DOT_ID() != null) {
-        //    final var unquoted = ParserUtils.unquoteString(ctx.getText());
-        //    Assert.notNullUnchecked(unquoted);
-        //    return LiteralValue.ofScalar(ParserUtils.trimStartingDot(unquoted));
-        //}
-        //return LiteralValue.ofScalar(ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class));
-    //}
 
     //// Literals ////
 
@@ -772,7 +762,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.STRING_CHARSET_NAME(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.START_NATIONAL_STRING_LITERAL(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.COLLATE(), UNSUPPORTED_QUERY);
-        return new LiteralValue<>(ParserUtils.unquoteString(ctx.getText()));
+        return new LiteralValue<>(ParserUtils.normalizeString(ctx.getText()));
     }
 
     @Override
