@@ -592,12 +592,9 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
-            if (event instanceof Debugger.AbstractEventWithState) {
-                final Deque<CascadesPlanner.Task> taskStack = ((Debugger.AbstractEventWithState)event).getTaskStack();
-                final int size = taskStack.size();
-
-                int i = 0;
-                for (final Iterator<CascadesPlanner.Task> iterator = taskStack.descendingIterator(); iterator.hasNext(); i ++) {
+            if (event instanceof EventWithState) {
+                final Deque<CascadesPlanner.Task> taskStack = ((Debugger.EventWithState)event).getTaskStack();
+                for (final Iterator<CascadesPlanner.Task> iterator = taskStack.descendingIterator(); iterator.hasNext();) {
                     final CascadesPlanner.Task task = iterator.next();
                     final Event e = task.toTaskEvent(Location.ANY);
 
