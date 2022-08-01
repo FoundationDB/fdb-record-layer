@@ -3657,8 +3657,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     return null;
                 });
 
-        return CompletableFuture.allOf(context.instrument(reason.event, future, startTime),
-                context.instrument(FDBStoreTimer.Events.REBUILD_INDEX, future, startTime));
+        return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX,
+                context.instrument(reason.event, future, startTime),
+                startTime);
     }
 
     @SuppressWarnings("PMD.GuardLogStatement") // Already is, but around several call.
