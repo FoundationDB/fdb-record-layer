@@ -2741,6 +2741,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     @SuppressWarnings("PMD.CloseResource")
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("index state change",
+                    LogMessageKeys.INDEX_NAME, indexName,
+                    LogMessageKeys.TARGET_INDEX_STATE, indexState.name()
+            ));
+        }
         if (recordStoreStateRef.get() == null) {
             throw uninitializedStoreException("cannot update index state on an uninitialized store");
         }
