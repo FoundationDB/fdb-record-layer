@@ -508,16 +508,15 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     /**
      * Tests the scanIndexRecords method that takes a commonPrimaryKeyLength - this is the same as the other tests for index scans
-     * except that it provides a pre-calculated primary key length
+     * except that it provides a pre-calculated primary key length.
      */
-    @ParameterizedTest(name = "testIntegerPKLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void testIntegerPKLength(IndexFetchMethod fetchMethod) throws Exception {
+    void testIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.scanIndexRecords(
                             "MySimpleRecord$str_value_indexed", fetchMethod, scanBounds(),
-                            1,
                             null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
                     .map(FDBQueriedRecord::indexed)
                     .asIterator()) {
@@ -532,31 +531,31 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         assertCounters(fetchMethod, 1, 101);
     }
 
-    @ParameterizedTest(name = "testIntegerPKLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void testInvalidIntegerPKLength(IndexFetchMethod fetchMethod) throws Exception {
+    void testInvalidIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(fetchMethod != IndexFetchMethod.SCAN_AND_FETCH);
 
         assertThrows(RecordCoreArgumentException.class, () -> recordStore.scanIndexRecords(
-                "MySimpleRecord$str_value_indexed", fetchMethod, scanBounds(),
+                recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"), fetchMethod, scanBounds(),
                 -1,
                 null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN));
     }
 
-    @ParameterizedTest(name = "testIntegerPKLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    void testTooLargeIntegerPKLength(IndexFetchMethod fetchMethod) throws Exception {
+    void testTooLargeIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(fetchMethod != IndexFetchMethod.SCAN_AND_FETCH);
 
         assertThrows(RecordCoreStorageException.class, () -> recordStore.scanIndexRecords(
-                "MySimpleRecord$str_value_indexed", fetchMethod, scanBounds(),
+                recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"), fetchMethod, scanBounds(),
                 86,
                 null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN));
     }
 
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexFetchMethod fetchMethod,
                                                       final IndexOrphanBehavior orphanBehavior, final ScanProperties scanProperties) throws InterruptedException, ExecutionException {
-        return recordStore.scanIndexRecords("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(),
+        return recordStore.scanIndexRecords(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique"), fetchMethod, scanBounds(),
                 primaryKey().getColumnSize(), null, orphanBehavior, scanProperties).asList().get();
     }
 

@@ -476,6 +476,27 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     /**
+     * Calculate and return the length common to all the PKs of the given types. The common PK length is calculated by
+     * ensuring ALL PKs for the given types have the same length (number of fields). If there is no common length, 0 is
+     * returned.
+     * @param recordTypes the (non-null) collection of record types to calculate the common PK length for
+     * @return the common length for all given types, 0 if not found
+     */
+    public static int commonPrimaryKeyLength(@Nonnull Collection<RecordType> recordTypes) {
+        int common = 0;
+        boolean first = true;
+        for (RecordType recordType : recordTypes) {
+            if (first) {
+                common = recordType.getPrimaryKey().getColumnSize();
+                first = false;
+            } else if (common != recordType.getPrimaryKey().getColumnSize()) {
+                return 0;
+            }
+        }
+        return common;
+    }
+
+    /**
      * Get this <code>RecordMetaData</code> instance.
      *
      * @return this <code>RecordMetaData</code> instance

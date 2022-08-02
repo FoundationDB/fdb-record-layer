@@ -150,7 +150,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                                                                        @Nullable final byte[] continuation,
                                                                        @Nonnull final ScanProperties scanProperties,
                                                                        int commonPrimaryKeyLength) {
-        if (commonPrimaryKeyLength <=0) {
+        if (commonPrimaryKeyLength <= 0) {
             throw new RecordCoreArgumentException("scanRemoteFetch requires a positive commonPrimaryKeyLength");
         }
         if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE) || (!(scanBounds instanceof IndexScanRange))) {

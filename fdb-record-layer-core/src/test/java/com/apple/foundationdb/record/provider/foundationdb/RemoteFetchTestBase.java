@@ -235,7 +235,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
                                                          final byte[] continuation) throws Exception {
         final List<FDBQueriedRecord<Message>> results;
 
-        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, commonPrimaryKey.getColumnSize(), continuation, IndexOrphanBehavior.ERROR, scanProperties)
+        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, continuation, IndexOrphanBehavior.ERROR, scanProperties)
                 .map(FDBQueriedRecord::indexed)) {
             results = cursor.asList().get();
         }

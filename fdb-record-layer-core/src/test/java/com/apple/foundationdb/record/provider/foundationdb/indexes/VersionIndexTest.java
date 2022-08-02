@@ -2446,9 +2446,8 @@ public class VersionIndexTest extends FDBTestBase {
             assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
             IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
-            KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
             // Use the remote fetch / fallback and then get the keys
-            return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, primaryKey.getColumnSize(), null, IndexOrphanBehavior.ERROR, direction)
+            return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction)
                     .map(FDBIndexedRecord::getIndexEntry)
                     .map(IndexEntry::getKey)
                     .asList().get();
@@ -2464,8 +2463,7 @@ public class VersionIndexTest extends FDBTestBase {
         }
 
         IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
-        KeyExpression primaryKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
-        return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, primaryKey.getColumnSize(), null, IndexOrphanBehavior.ERROR, direction).asList().get();
+        return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction).asList().get();
     }
 
     @Nonnull

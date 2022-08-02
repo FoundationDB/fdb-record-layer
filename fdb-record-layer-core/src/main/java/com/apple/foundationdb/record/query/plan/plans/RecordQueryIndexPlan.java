@@ -178,10 +178,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this.matchCandidateOptional = matchCandidateOptional;
         this.resultType = resultType;
         if (indexFetchMethod != IndexFetchMethod.SCAN_AND_FETCH) {
-            if (commonPrimaryKey == null) {
-                logDebug("Index remote fetch cannot be used without a primary key. Falling back to regular scan.");
-                this.indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
-            }
             if (!scanParameters.getScanType().equals(IndexScanType.BY_VALUE)) {
                 logDebug("Index remote fetch can only be used with VALUE index scan. Falling back to regular scan.");
                 this.indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
@@ -247,8 +243,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
 
-        // CommonPrimaryKey is nullable but is protected by the constructor in the case pf index prefetch
-        return store.scanIndexRemoteFetch(index, scanBounds, Objects.requireNonNull(getCommonPrimaryKey()).getColumnSize(), continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
+        return store.scanIndexRemoteFetch(index, scanBounds, continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
                 .map(QueryResult::fromQueriedRecord);
     }
