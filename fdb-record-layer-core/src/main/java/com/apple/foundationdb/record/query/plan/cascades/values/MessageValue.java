@@ -42,6 +42,7 @@ public class MessageValue {
      * Get the value of the (nested) field on the path from the message defined by {@code fieldNames}.
      * The given field names define a path through the nested structure of the given message; this method traverses
      * that path and returns the value at the leaf, using the return semantics of {@link #getFieldOnMessage(MessageOrBuilder, String)}.
+     *
      * @param message a message
      * @param fieldNames a list of field names defining a path starting at {@code message}
      * @return the value at the end of hte path
@@ -74,6 +75,25 @@ public class MessageValue {
     @Nullable
     public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldName);
+        return getFieldOnMessage(message, field);
+    }
+
+    /**
+     * Get the value of the field with the given field name on the given message.
+     * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
+     * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
+     * @param message a message or builder to extract the field from
+     * @param fieldNumber the field number to extract
+     * @return the value of the field as described above
+     */
+    @Nullable
+    public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, int fieldNumber) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldNumber);
+        return getFieldOnMessage(message, field);
+    }
+
+    @Nullable
+    private static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull Descriptors.FieldDescriptor field) {
         if (field.isRepeated()) {
             int count = message.getRepeatedFieldCount(field);
             List<Object> list = new ArrayList<>(count);
@@ -94,6 +114,24 @@ public class MessageValue {
         }
     }
 
+    @Nonnull
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
+        final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
+        if (field == null) {
+            throw new Query.InvalidExpressionException("Missing field " + fieldName);
+        }
+        return field;
+    }
+
+    @Nonnull
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, int fieldNumber) {
+        final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByNumber(fieldNumber);
+        if (field == null) {
+            throw new Query.InvalidExpressionException("Missing field " + fieldNumber);
+        }
+        return field;
+    }
+
     @Nullable
     private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldName);
@@ -103,15 +141,6 @@ public class MessageValue {
             return (Message)message.getField(field);
         }
         return null;
-    }
-
-    @Nonnull
-    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
-        final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
-        if (field == null) {
-            throw new Query.InvalidExpressionException("Missing field " + fieldName);
-        }
-        return field;
     }
 
     private MessageValue() {

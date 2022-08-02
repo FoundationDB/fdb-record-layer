@@ -56,15 +56,14 @@ class ContextRestoringExecutor extends TaskNotifyingExecutor {
     }
 
     static void restoreMdc(@Nonnull Map<String, String> mdcContext) {
-        MDC.clear();
-        for (Map.Entry<String, String> entry : mdcContext.entrySet()) {
-            MDC.put(entry.getKey(), entry.getValue());
-        }
+        MDC.setContextMap(mdcContext);
     }
 
     static void clearMdc(@Nonnull Map<String, String> mdcContext) {
+        Map<String, String> map = MDC.getMDCAdapter().getCopyOfContextMap();
         for (String key : mdcContext.keySet()) {
-            MDC.remove(key);
+            map.remove(key);
         }
+        MDC.setContextMap(map);
     }
 }

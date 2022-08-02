@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -53,22 +54,22 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -284,6 +285,16 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         final ExecuteProperties newExecuteProperties = executeProperties
                 .setDefaultCursorStreamingMode(CursorStreamingMode.ITERATOR);
         final ScanProperties scanProperties = newExecuteProperties.asScanProperties(isReverse());
+
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.of("Executing value index plan with over-scan",
+                    LogMessageKeys.INDEX_NAME, indexName,
+                    LogMessageKeys.NEXT_CONTINUATION, continuation == null ? "null" : ByteArrayUtil2.loggable(continuation),
+                    LogMessageKeys.SCAN_PROPERTIES, scanProperties.toString(),
+                    LogMessageKeys.ORIGINAL_RANGE, tupleScanRange.toString(),
+                    LogMessageKeys.WIDENED_TUPLE_RANGE, widenedScanRange.toString()));
+        }
+
         return store.scanIndex(index, newScanRange, continuationConvertor.unwrapContinuation(continuation), scanProperties).mapResult(result -> {
             if (!result.hasNext()) {
                 RecordCursorContinuation wrappedContinuation = continuationConvertor.wrapContinuation(result.getContinuation());
@@ -372,13 +383,13 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateOptional() {
+    public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateMaybe() {
         return matchCandidateOptional;
     }
 
     @Override
     public RecordQueryIndexPlan strictlySorted() {
-        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), reverse, true);
+        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), reverse, true, matchCandidateOptional, resultType);
     }
 
     @Override

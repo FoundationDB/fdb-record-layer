@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -99,9 +98,7 @@ public class OrdinalFieldValue implements ValueWithChild {
         if (childMessage == null) {
             return null;
         }
-        final Descriptors.Descriptor descriptorForType = childMessage.getDescriptorForType();
-        final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
-        return childMessage.getField(fieldDescriptor);
+        return MessageValue.getFieldOnMessage(childMessage, field.getFieldIndex());
     }
 
     @Override

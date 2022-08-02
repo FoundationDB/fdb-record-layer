@@ -20,10 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -52,27 +54,40 @@ import java.util.Set;
  */
 public class PrimaryScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
+    private final PrimaryScanMatchCandidate matchCandidate;
+    @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
     private final Type.Record flowedType;
     @Nonnull
     private final List<ComparisonRange> comparisonRanges;
     private final boolean reverse;
+    @Nonnull
+    private final KeyExpression primaryKey;
 
-    public PrimaryScanExpression(@Nonnull final Set<String> recordTypes,
+    public PrimaryScanExpression(@Nonnull final PrimaryScanMatchCandidate matchCandidate,
+                                 @Nonnull final Set<String> recordTypes,
                                  @Nonnull final Type.Record flowedType,
                                  @Nonnull final List<ComparisonRange> comparisonRanges,
-                                 final boolean reverse) {
+                                 final boolean reverse,
+                                 @Nonnull final KeyExpression primaryKey) {
+        this.matchCandidate = matchCandidate;
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.comparisonRanges = ImmutableList.copyOf(comparisonRanges);
         this.reverse = reverse;
+        this.primaryKey = primaryKey;
     }
 
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of();
+    }
+
+    @Nonnull
+    public PrimaryScanMatchCandidate getMatchCandidate() {
+        return matchCandidate;
     }
 
     @Nonnull
@@ -87,6 +102,11 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
 
     public boolean isReverse() {
         return reverse;
+    }
+
+    @Nonnull
+    public KeyExpression getPrimaryKey() {
+        return primaryKey;
     }
 
     @Nonnull

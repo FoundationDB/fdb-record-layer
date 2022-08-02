@@ -60,6 +60,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -76,6 +77,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.generateRandomWords;
@@ -693,10 +695,15 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
-    void threadedLuceneScanDoesntBreakPlannerAndSearch() throws Exception {
+    private static Stream<Integer> threadCount() {
+        return Stream.of(1, 10);
+    }
+
+    @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
+    @MethodSource("threadCount")
+    void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
         CountingThreadFactory threadFactory = new CountingThreadFactory();
-        executorService = Executors.newFixedThreadPool(10, threadFactory);
+        executorService = Executors.newFixedThreadPool(value, threadFactory);
         initializeFlat();
         for (int i = 0; i < 200; i++) {
             try (FDBRecordContext context = openContext()) {

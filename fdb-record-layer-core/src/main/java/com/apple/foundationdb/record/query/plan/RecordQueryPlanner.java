@@ -62,6 +62,8 @@ import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithCom
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithOneOfComparison;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithComparison;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
@@ -84,8 +86,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimar
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.UnorderedPrimaryKeyDistinctVisitor;

@@ -181,7 +181,8 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 rankAlias,
                 primaryKeyAliases,
                 indexKeyValues,
-                ValueIndexExpansionVisitor.fullKey(index, primaryKey));
+                ValueIndexExpansionVisitor.fullKey(index, primaryKey),
+                primaryKey);
     }
 
     @Nonnull
