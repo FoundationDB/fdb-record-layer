@@ -162,7 +162,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 .setScanProperties(scanProperties)
                 .build();
         // Hard cast - Not ideal but likely needed to avoid complex implementation of specific cursor
-        RecordCursor<MappedKeyValue> mappedResults = keyValues.map(kv -> (MappedKeyValue)kv);
+        RecordCursor<MappedKeyValue> mappedResults = keyValues.map(MappedKeyValue.class::cast);
         return mappedResults.map(this::unpackRemoteFetchRecord);
     }
 
@@ -367,7 +367,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 state.store.countKeyValue(FDBStoreTimer.Counts.DELETE_INDEX_KEY, FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES, FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES,
                         keyBytes, valueBytes);
             }
-            if (state.store.isIndexWriteOnly(state.index) && state.index.isUnique()) {
+            if (isWriteOnlyOrUniquePending() && state.index.isUnique()) {
                 return removeUniquenessViolationsAsync(valueKey, savedRecord.getPrimaryKey());
             } else {
                 return AsyncUtil.DONE;
@@ -415,6 +415,10 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 }, getExecutor()));
         // Add a pre-commit check to prevent accidentally committing and getting into an invalid state.
         state.store.addIndexUniquenessCommitCheck(state.index, checker);
+    }
+
+    private boolean isWriteOnlyOrUniquePending() {
+        return state.store.isIndexWriteOnly(state.index) || state.store.isIndexReadableUniquePending(state.index);
     }
 
     /**

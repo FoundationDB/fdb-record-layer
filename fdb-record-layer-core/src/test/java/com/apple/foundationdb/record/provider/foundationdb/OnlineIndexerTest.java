@@ -125,6 +125,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData)
                 .setContext(context)
+                .setFormatVersion(FDBRecordStore.READABLE_UNIQUE_PENDING_FORMAT_VERSION)
                 .setSubspace(subspace);
         if (checked) {
             recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
