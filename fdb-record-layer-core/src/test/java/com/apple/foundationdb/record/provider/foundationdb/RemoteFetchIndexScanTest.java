@@ -556,7 +556,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexFetchMethod fetchMethod,
                                                       final IndexOrphanBehavior orphanBehavior, final ScanProperties scanProperties) throws InterruptedException, ExecutionException {
         return recordStore.scanIndexRecords(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique"), fetchMethod, scanBounds(),
-                primaryKey().getColumnSize(), null, orphanBehavior, scanProperties).asList().get();
+                null, orphanBehavior, scanProperties).asList().get();
     }
 
     private void createOrphanEntry() throws Exception {
