@@ -20,22 +20,36 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.IntUnaryOperator;
 
 class State {
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(State.class);
+
     @Nonnull
     private final Map<Class<?>, Integer> classToIndexMap;
 
@@ -48,6 +62,12 @@ class State {
     @Nonnull private final Cache<Quantifier, Integer> invertedQuantifierCache;
 
     @Nonnull private final List<Debugger.Event> events;
+
+    @Nonnull private final Map<Class<? extends Debugger.Event>, Stats> eventClassStatsMap;
+
+    @Nonnull private final Map<Class<? extends PlannerRule<?>>, Stats> plannerRuleClassStatsMap;
+
+    @Nonnull private final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack;
 
     private int currentTick;
     private long startTs;
@@ -78,6 +98,9 @@ class State {
                 copyQuantifierCache,
                 copyInvertedQuantifierCache,
                 Lists.newArrayList(source.getEvents()),
+                Maps.newLinkedHashMap(source.eventClassStatsMap),
+                Maps.newLinkedHashMap(source.plannerRuleClassStatsMap),
+                new ArrayDeque<>(source.eventProfilingStack),
                 source.getCurrentTick(),
                 source.getStartTs());
     }
@@ -91,6 +114,9 @@ class State {
                 CacheBuilder.newBuilder().weakValues().build(),
                 CacheBuilder.newBuilder().weakKeys().build(),
                 Lists.newArrayList(),
+                Maps.newLinkedHashMap(),
+                Maps.newLinkedHashMap(),
+                new ArrayDeque<>(),
                 -1,
                 System.nanoTime());
     }
@@ -103,6 +129,9 @@ class State {
                   @Nonnull final Cache<Integer, Quantifier> quantifierCache,
                   @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
                   @Nonnull final List<Debugger.Event> events,
+                  @Nonnull final LinkedHashMap<Class<? extends Debugger.Event>, Stats> eventClassStatsMap,
+                  @Nonnull final LinkedHashMap<Class<? extends PlannerRule<?>>, Stats> plannerRuleClassStatsMap,
+                  @Nonnull final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack,
                   final int currentTick,
                   final long startTs) {
         this.classToIndexMap = Maps.newHashMap(classToIndexMap);
@@ -113,6 +142,9 @@ class State {
         this.quantifierCache = quantifierCache;
         this.invertedQuantifierCache = invertedQuantifierCache;
         this.events = events;
+        this.eventClassStatsMap = eventClassStatsMap;
+        this.plannerRuleClassStatsMap = plannerRuleClassStatsMap;
+        this.eventProfilingStack = eventProfilingStack;
         this.currentTick = currentTick;
         this.startTs = startTs;
     }
@@ -201,8 +233,224 @@ class State {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public void addCurrentEvent(@Nonnull final Debugger.Event event) {
         events.add(event);
         currentTick = events.size() - 1;
+        final long currentTsInNs = System.nanoTime();
+
+        final Class<? extends Debugger.Event> currentEventClass = event.getClass();
+        switch (event.getLocation()) {
+            case BEGIN:
+                eventProfilingStack.push(Pair.of(currentEventClass, new EventDurations(currentTsInNs)));
+                updateCounts(event);
+                break;
+            case END:
+                Pair<Class<? extends Debugger.Event>, EventDurations> profilingPair = eventProfilingStack.pop();
+                final Class<? extends Debugger.Event> eventClass = profilingPair.getKey();
+                EventDurations eventDurations = profilingPair.getValue();
+                if (logger.isWarnEnabled() && currentEventClass != eventClass) {
+                    //
+                    // This is a severe problem, however, we don't want to further increase the noise by
+                    // throwing an exception here.
+                    //
+                    logger.warn(KeyValueLogMessage.of("unable to unwind stack properly",
+                            "expected event class", eventClass.getSimpleName(),
+                            "current event class", currentEventClass.getSimpleName()));
+                }
+
+                final long totalTime = currentTsInNs - eventDurations.getStartTsInNs();
+                final long ownTime = totalTime - eventDurations.getAdjustmentForOwnTimeInNs();
+
+                final Stats forEventClass = getEventStatsForEventClass(currentEventClass);
+                forEventClass.increaseTotalTimeInNs(totalTime);
+                forEventClass.increaseOwnTimeInNs(ownTime);
+                if (event instanceof Debugger.TransformRuleCallEvent) {
+                    final PlannerRule<?> rule = ((Debugger.TransformRuleCallEvent)event).getRule();
+                    final Class<? extends PlannerRule<?>> ruleClass = (Class<? extends PlannerRule<?>>)rule.getClass();
+                    final Stats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
+                    forPlannerRuleClass.increaseTotalTimeInNs(totalTime);
+                    forPlannerRuleClass.increaseOwnTimeInNs(ownTime);
+                }
+
+                // adjust the parent's own time info
+                profilingPair = eventProfilingStack.peek();
+                if (profilingPair != null) {
+                    eventDurations = profilingPair.getValue();
+                    eventDurations.increaseAdjustmentForOwnTimeInNs(totalTime);
+                }
+                break;
+            default:
+                updateCounts(event);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void updateCounts(@Nonnull final Debugger.Event event) {
+        final Stats forEventClass = getEventStatsForEventClass(event.getClass());
+        forEventClass.increaseCount(event.getLocation(), 1L);
+        if (event instanceof Debugger.TransformRuleCallEvent) {
+            final PlannerRule<?> rule = ((Debugger.TransformRuleCallEvent)event).getRule();
+            final Class<? extends PlannerRule<?>> ruleClass = (Class<? extends PlannerRule<?>>)rule.getClass();
+            final Stats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
+            forPlannerRuleClass.increaseCount(event.getLocation(), 1L);
+        }
+    }
+
+    private Stats getEventStatsForEventClass(@Nonnull Class<? extends Debugger.Event> eventClass) {
+        return eventClassStatsMap.compute(eventClass, (eC, stats) -> stats != null ? stats : new Stats());
+    }
+
+    private Stats getEventStatsForPlannerRuleClass(@Nonnull Class<? extends PlannerRule<?>> plannerRuleClass) {
+        return plannerRuleClassStatsMap.compute(plannerRuleClass, (eC, stats) -> stats != null ? stats : new Stats());
+    }
+
+    public String showStats() {
+        StringBuilder tableBuilder = new StringBuilder();
+        tableBuilder.append("<table class=\"table\">");
+        tableHeader(tableBuilder, "Event");
+        final ImmutableMap<String, Stats> eventStatsMap =
+                eventClassStatsMap.entrySet()
+                        .stream()
+                        .map(entry -> Pair.of(entry.getKey().getSimpleName(), entry.getValue()))
+                        .sorted(Map.Entry.comparingByKey())
+                        .collect(ImmutableMap.toImmutableMap(Pair::getKey, Pair::getValue));
+        tableBody(tableBuilder, eventStatsMap);
+        tableBuilder.append("</table>");
+
+        final String eventProfilingString = tableBuilder.toString();
+
+        tableBuilder = new StringBuilder();
+        tableBuilder.append("<table class=\"table\">");
+        tableHeader(tableBuilder, "Planner Rule");
+        final ImmutableMap<String, Stats> plannerRuleStatsMap =
+                plannerRuleClassStatsMap.entrySet()
+                        .stream()
+                        .map(entry -> Pair.of(entry.getKey().getSimpleName(), entry.getValue()))
+                        .sorted(Map.Entry.comparingByKey())
+                        .collect(ImmutableMap.toImmutableMap(Pair::getKey, Pair::getValue));
+        tableBody(tableBuilder, plannerRuleStatsMap);
+        tableBuilder.append("</table>");
+
+        final String plannerRuleProfilingString = tableBuilder.toString();
+
+        return BrowserHelper.browse("/showProfilingReport.html",
+                ImmutableMap.of("$EVENT_PROFILING", eventProfilingString,
+                        "$PLANNER_RULE_PROFILING", plannerRuleProfilingString));
+    }
+
+    private void tableHeader(@Nonnull final StringBuilder stringBuilder, @Nonnull final String category) {
+        stringBuilder.append("<thead>");
+        stringBuilder.append("<tr>");
+        stringBuilder.append("<th scope=\"col\">").append(category).append("</th>");
+        stringBuilder.append("<th scope=\"col\">Location</th>");
+        stringBuilder.append("<th scope=\"col\">Count</th>");
+        stringBuilder.append("<th scope=\"col\">Total Time (micros)</th>");
+        stringBuilder.append("<th scope=\"col\">Own Time (micros)</th>");
+        stringBuilder.append("</tr>");
+        stringBuilder.append("</thead>");
+    }
+
+    private void tableBody(@Nonnull final StringBuilder stringBuilder, @Nonnull final Map<String, Stats> statsMap) {
+        stringBuilder.append("<tbody class=\"table-group-divider\">");
+        for (final Map.Entry<String, Stats> entry : statsMap.entrySet()) {
+            final Stats stats = entry.getValue();
+            for (final Map.Entry<Debugger.Location, Long> locationEntry : stats.locationCountMap.entrySet()) {
+                stringBuilder.append("<tr>");
+                stringBuilder.append("<td>").append(entry.getKey()).append("</td>");
+                if (locationEntry.getKey() == Debugger.Location.BEGIN) {
+                    stringBuilder.append("<td></td>");
+                } else {
+                    stringBuilder.append("<td>").append(locationEntry.getKey().name()).append("</td>");
+                }
+                stringBuilder.append("<td class=\"text-end\">").append(locationEntry.getValue()).append("</td>");
+                if (locationEntry.getKey() == Debugger.Location.BEGIN) {
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getTotalTimeInNs())).append("</td>");
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getOwnTimeInNs())).append("</td>");
+                } else {
+                    stringBuilder.append("<td></td>");
+                    stringBuilder.append("<td></td>");
+                }
+                stringBuilder.append("</tr>");
+            }
+        }
+        stringBuilder.append("</tbody>");
+    }
+
+    @Nonnull
+    private String formatNsInMicros(final long ns) {
+        final long micros = TimeUnit.NANOSECONDS.toMicros(ns);
+        return String.format("%,d", micros);
+    }
+
+    private static class Stats {
+        @Nonnull private final Map<Debugger.Location, Long> locationCountMap;
+        private long totalTimeInNs;
+        private long ownTimeInNs;
+
+        public Stats() {
+            this.locationCountMap = Maps.newLinkedHashMap();
+        }
+
+        public long getCount(@Nonnull Debugger.Location location) {
+            return locationCountMap.getOrDefault(location, 0L);
+        }
+
+        public void setCount(@Nonnull Debugger.Location location, final long count) {
+            locationCountMap.put(location, count);
+        }
+
+        public void increaseCount(@Nonnull Debugger.Location location, final long increase) {
+            setCount(location, getCount(location) + increase);
+        }
+
+        public long getTotalTimeInNs() {
+            return totalTimeInNs;
+        }
+
+        public void setTotalTimeInNs(final long totalTimeInNs) {
+            this.totalTimeInNs = totalTimeInNs;
+        }
+
+        public void increaseTotalTimeInNs(final long increaseInNs) {
+            setTotalTimeInNs(getTotalTimeInNs() + increaseInNs);
+        }
+
+        public long getOwnTimeInNs() {
+            return ownTimeInNs;
+        }
+
+        public void setOwnTimeInNs(final long ownTimeInNs) {
+            this.ownTimeInNs = ownTimeInNs;
+        }
+
+        public void increaseOwnTimeInNs(final long increaseInNs) {
+            setOwnTimeInNs(getOwnTimeInNs() + increaseInNs);
+        }
+    }
+
+    private static class EventDurations {
+        private final long startTsInNs;
+        private long adjustmentForOwnTimeInNs;
+
+        public EventDurations(final long startTsInNs) {
+            this.startTsInNs = startTsInNs;
+        }
+
+        public long getStartTsInNs() {
+            return startTsInNs;
+        }
+
+        public long getAdjustmentForOwnTimeInNs() {
+            return adjustmentForOwnTimeInNs;
+        }
+
+        public void setAdjustmentForOwnTimeInNs(final long adjustmentForOwnTimeInNs) {
+            this.adjustmentForOwnTimeInNs = adjustmentForOwnTimeInNs;
+        }
+
+        public void increaseAdjustmentForOwnTimeInNs(final long increaseInNs) {
+            setAdjustmentForOwnTimeInNs(getAdjustmentForOwnTimeInNs() + increaseInNs);
+        }
     }
 }
