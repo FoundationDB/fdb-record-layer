@@ -30,7 +30,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Reverse directory lookups can now borrow a read version from another transaction to avoid GRV costs [(Issue #1714)](https://github.com/FoundationDB/fdb-record-layer/issues/1714)
 * **Feature** Query returns null for unset non-repeated fields [(Issue #1718)](https://github.com/FoundationDB/fdb-record-layer/issues/1718)
 * **Feature** Emit a different KPI for each reason of index rebuilds [(Issue #1798)](https://github.com/FoundationDB/fdb-record-layer/issues/1798)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
