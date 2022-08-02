@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
@@ -35,6 +36,10 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerCatalogQuery
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
 import java.net.URI;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -62,6 +67,23 @@ public class RecordLayerStorageCluster implements StorageCluster {
         this.rlConfiguration = rlConfig;
     }
 
+    private Map<String, String> parseConnectionQueryString(@Nullable String queryStr) {
+        if (queryStr == null) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, String> queryFields = new HashMap<>();
+        String[] connQuery = queryStr.split(",");
+        for (String connStr : connQuery) {
+            String[] kvPair = connStr.split("=");
+            if (kvPair.length < 2) {
+                continue; //skip those that aren't in the form key=value
+            }
+            queryFields.put(kvPair[0].toUpperCase(Locale.ROOT), kvPair[1]);
+        }
+        return queryFields;
+    }
+
     /**
      * Load the database from the cluster.
      *
@@ -72,9 +94,25 @@ public class RecordLayerStorageCluster implements StorageCluster {
     @Nullable
     public RelationalDatabase loadDatabase(@Nonnull URI url,
                                          @Nonnull Options connOptions) throws RelationalException {
-
+        Map<String, String> connectionOptions = parseConnectionQueryString(url.getQuery());
+        String presetSchema = connectionOptions.get("SCHEMA");
         try (Transaction txn = getTransactionManager().createTransaction(Options.NONE)) {
-            if (!catalog.doesDatabaseExist(txn, url)) {
+            if (presetSchema != null) {
+                //if the schema does not exist, then an error will be thrown, and the schema can't
+                //exist if the database doesn't, so we get two calls for the price of one
+                try {
+                    catalog.loadSchema(txn, url, presetSchema);
+                } catch (RelationalException ve) {
+                    if (ve.getErrorCode() == ErrorCode.UNDEFINED_SCHEMA) {
+                        //this could be because the database doesn't exist, OR it could be because the schema
+                        //doesn't exist within this database. Let's find out which
+                        if (!catalog.doesDatabaseExist(txn, url)) {
+                            return null; // the database doesn't exist either
+                        }
+                    }
+                    throw ve;
+                }
+            } else if (!catalog.doesDatabaseExist(txn, url)) {
                 return null;
             }
         }
@@ -91,10 +129,12 @@ public class RecordLayerStorageCluster implements StorageCluster {
 
         return new RecordLayerDatabase(fdb, new CatalogMetaDataStore(catalog),
                 catalog,
-                rlConfiguration.getUserVersionChecker(),
-                rlConfiguration.getFormatVersion(),
-                rlConfiguration.getSerializerRegistry(),
-                ksPath, constantActionFactory, ddlQueryFactory, connOptions);
+                rlConfiguration,
+                ksPath,
+                constantActionFactory,
+                ddlQueryFactory,
+                presetSchema,
+                connOptions);
     }
 
     @Override

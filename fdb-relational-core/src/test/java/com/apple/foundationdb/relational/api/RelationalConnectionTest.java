@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -72,6 +73,24 @@ class RelationalConnectionTest {
             RelationalAssertions.assertThrowsSqlException(() -> conn.setSchema("foo"))
                     .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
         }
+    }
 
+    @Test
+    void canConnectDirectlyToSchema() throws RelationalException, SQLException {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"), Options.NONE)) {
+            Assertions.assertThat(conn.getSchema()).isEqualTo("CATALOG");
+        }
+    }
+
+    @Test
+    void connectDirectlyToNonexistentDatabaseBlowsUp() throws RelationalException, SQLException {
+        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:/notADatabase?schema=CATALOG"), Options.NONE))
+                .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
+    }
+
+    @Test
+    void connectDirectlyToNonexistentSchemaBlowsUp() throws RelationalException, SQLException {
+        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:/__SYS?schema=noSuchSchema"), Options.NONE))
+                .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
     }
 }

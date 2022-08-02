@@ -174,7 +174,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
         final FDBRecordStore recordStore = openFDBRecordStore(txn);
         Assert.notNull(recordStore);
-        final Tuple primaryKey = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.toString(), schemaName);
+        final Tuple primaryKey = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath(), schemaName);
         try {
             final FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
             if (record == null) {

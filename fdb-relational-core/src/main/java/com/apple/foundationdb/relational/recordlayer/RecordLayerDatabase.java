@@ -45,6 +45,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.common.base.Throwables;
 
 import java.net.URI;
+import java.sql.SQLException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,24 +64,40 @@ public class RecordLayerDatabase extends AbstractDatabase {
     @Nonnull
     private final Options options;
 
+    @Nullable
+    private final String defaultSchema;
+
+    /**
+     * Create a new RecordLayerDatabase instance.
+     *
+     * @param fdbDb                 the connection to FDB
+     * @param metaDataStore         a store to fetch RecordMetaData objects from
+     * @param storeCatalog          the catalog when we need to do catalog lookups
+     * @param config                general RecordLayer configurations
+     * @param dbPathPrefix          the path to the database that this represents
+     * @param constantActionFactory a factory for constant actions
+     * @param ddlQueryFactory       a factory for DDL queries
+     * @param defaultSchema         if not null, then a pre-validated schema to start all connections with.
+     * @param options               any database-level options.
+     */
     public RecordLayerDatabase(FdbConnection fdbDb,
                                RecordMetaDataStore metaDataStore,
                                StoreCatalog storeCatalog,
-                               FDBRecordStoreBase.UserVersionChecker userVersionChecker,
-                               int formatVersion,
-                               SerializerRegistry serializerRegistry,
+                               RecordLayerConfig config,
                                KeySpacePath dbPathPrefix,
                                @Nonnull final ConstantActionFactory constantActionFactory,
                                @Nonnull final DdlQueryFactory ddlQueryFactory,
+                               @Nullable String defaultSchema,
                                @Nonnull Options options) {
         super(constantActionFactory, ddlQueryFactory);
         this.fdbDb = fdbDb;
         this.metaDataStore = new CachedMetaDataStore(metaDataStore);
         this.storeCatalog = storeCatalog;
-        this.userVersionChecker = userVersionChecker;
-        this.formatVersion = formatVersion;
-        this.serializerRegistry = serializerRegistry;
+        this.userVersionChecker = config.getUserVersionChecker();
+        this.formatVersion = config.getFormatVersion();
+        this.serializerRegistry = config.getSerializerRegistry();
         this.ksPath = dbPathPrefix;
+        this.defaultSchema = defaultSchema;
         this.options = options;
     }
 
@@ -91,6 +108,17 @@ public class RecordLayerDatabase extends AbstractDatabase {
         }
         EmbeddedRelationalConnection conn = new EmbeddedRelationalConnection(this, storeCatalog, transaction, options);
         setConnection(conn);
+        if (defaultSchema != null) {
+            /**
+             * If we have set a default schema here, then we should have already validated that it is correct and exists
+             * and everything, so we don't duplicate the checking here.
+             */
+            try {
+                conn.setSchema(defaultSchema, false);
+            } catch (SQLException e) {
+                throw new RelationalException(e);
+            }
+        }
         return conn;
     }
 
@@ -107,7 +135,8 @@ public class RecordLayerDatabase extends AbstractDatabase {
         schemas.clear();
     }
 
-    @SuppressWarnings("PMD.PreserveStackTrace") //we actually do, the PMD linter just doesn't seem to be able to tell
+    @SuppressWarnings("PMD.PreserveStackTrace")
+        //we actually do, the PMD linter just doesn't seem to be able to tell
     FDBRecordStore loadStore(@Nonnull Transaction txn, @Nonnull String schemaName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
 
