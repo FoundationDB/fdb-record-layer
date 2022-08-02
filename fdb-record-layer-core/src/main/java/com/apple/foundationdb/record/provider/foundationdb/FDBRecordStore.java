@@ -1329,7 +1329,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param recordSubspace the subspace for the record to allow the record keys to be identified from the splits
      * @param sizeInfo Size Info to collect metrics
      * @param mappedResult the record splits, packed into a KeyValueAndMappedReqAndResult
-     * @param scanProperties the scam properties to use
      * @param oldVersionFormat whether to use the old version record format when reading the records
      * @return an instance of {@link FDBRawRecord} reconstructed from the given record splits, null if no record entries found
      */
@@ -3535,7 +3534,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Reason that an index is being rebuilt now.
      */
     public enum RebuildIndexReason {
-        NEW_STORE, FEW_RECORDS, COUNTS_UNKNOWN, REBUILD_ALL, EXPLICIT, TEST
+        NEW_STORE(FDBStoreTimer.Events.REBUILD_INDEX_NEW_STORE),
+        FEW_RECORDS(FDBStoreTimer.Events.REBUILD_INDEX_FEW_RECORDS),
+        COUNTS_UNKNOWN(FDBStoreTimer.Events.REBUILD_INDEX_COUNTS_UNKNOWN),
+        REBUILD_ALL(FDBStoreTimer.Events.REBUILD_INDEX_REBUILD_ALL),
+        EXPLICIT(FDBStoreTimer.Events.REBUILD_INDEX_EXPLICIT),
+        TEST(FDBStoreTimer.Events.REBUILD_INDEX_TEST);
+
+        public final FDBStoreTimer.Events event;
+
+        RebuildIndexReason(FDBStoreTimer.Events event) {
+            this.event = event;
+        }
     }
 
     private boolean areAllRecordTypesSince(@Nullable Collection<RecordType> recordTypes, @Nullable Integer oldMetaDataVersion) {
@@ -3653,7 +3663,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     return null;
                 });
 
-        return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX, future, startTime);
+        return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX,
+                context.instrument(reason.event, future, startTime),
+                startTime);
     }
 
     @SuppressWarnings("PMD.GuardLogStatement") // Already is, but around several call.

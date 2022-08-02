@@ -32,7 +32,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Query returns null for unset non-repeated fields [(Issue #1718)](https://github.com/FoundationDB/fdb-record-layer/issues/1718)
-* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Emit a different KPI for each reason of index rebuilds [(Issue #1798)](https://github.com/FoundationDB/fdb-record-layer/issues/1798)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Trigger a log message for every index state change [(Issue #1809)](https://github.com/FoundationDB/fdb-record-layer/issues/1809)
