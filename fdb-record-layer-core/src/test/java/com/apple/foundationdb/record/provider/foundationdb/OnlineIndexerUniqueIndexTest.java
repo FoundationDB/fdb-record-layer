@@ -22,11 +22,15 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -489,13 +493,24 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 buildIndexAssertThrowUniquenessViolation(indexBuilder);
             }
         }
+
         try (FDBRecordContext context = openContext()) {
             // unique index with uniqueness violation:
             assertEquals(10, (int)recordStore.scanUniquenessViolations(indexes.get(0)).getCount().join());
             if (allowUniquePending) {
                 assertTrue(recordStore.isIndexReadableUniquePending(indexes.get(0)));
+                final List<IndexEntry> scanned = recordStore.scanIndex(indexes.get(0), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                        .asList().join();
+                assertEquals(scanned.size(), records.size());
+                List<Long> numValues = records.stream().map(TestRecords1Proto.MySimpleRecord::getNumValue2).map(Integer::longValue).collect(Collectors.toList());
+                List<Long> scannedValues = scanned.stream().map(IndexEntry::getKey).map(tuple -> tuple.getLong(0)).collect(Collectors.toList());
+                assertTrue(numValues.containsAll(scannedValues));
+                assertTrue(scannedValues.containsAll(numValues));
             } else {
                 assertTrue(recordStore.isIndexWriteOnly(indexes.get(0)));
+                RecordCoreException e = assertThrows(ScanNonReadableIndexException.class,
+                        () -> recordStore.scanIndex(indexes.get(0), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN));
+                assertTrue(e.getMessage().contains("Cannot scan non-readable index"));
             }
             // non-unique index:
             assertTrue(recordStore.isIndexReadable(indexes.get(1)));
