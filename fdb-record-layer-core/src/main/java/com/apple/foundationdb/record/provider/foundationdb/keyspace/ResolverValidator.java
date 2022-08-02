@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBReverseDirectoryCache;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -78,8 +77,6 @@ public class ResolverValidator {
                                 final boolean badEntriesOnly,
                                 @Nonnull final Consumer<ValidatedEntry> entryListener) {
         try (FDBDatabaseRunner runner = resolver.database.newRunner()) {
-            runner.setContextConfigBuilder(FDBRecordContextConfig.newBuilder()
-                    .setSaveOpenStackTrace(true));
             try (RecordCursor<ValidatedEntry> cursor = new AutoContinuingCursor<>(
                     runner,
                     (context, continuation) ->
