@@ -222,12 +222,13 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
         Table table = schema.loadTable(schemaAndTable[1]);
         table.validateTable(options);
+        final Boolean replaceOnDuplicate = options.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
 
         return executeMutation(() -> {
             int rowCount = 0;
             while (data.hasNext()) {
                 Message message = data.next();
-                if (table.insertRecord(message)) {
+                if (table.insertRecord(message, replaceOnDuplicate != null && replaceOnDuplicate)) {
                     rowCount++;
                 }
             }

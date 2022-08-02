@@ -48,7 +48,7 @@ public interface Table extends DirectScannable, AutoCloseable {
     boolean deleteRecord(@Nonnull Row key) throws RelationalException;
 
     //TODO(bfines) should we really use a Protobuf here? Or a KV pair instead? For now, Message will work
-    boolean insertRecord(@Nonnull Message message) throws RelationalException;
+    boolean insertRecord(@Nonnull Message message, boolean replaceOnDuplicate) throws RelationalException;
 
     Set<Index> getAvailableIndexes() throws RelationalException;
 

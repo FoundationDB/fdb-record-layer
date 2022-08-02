@@ -40,18 +40,16 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A table implementation based on a specific record type.
@@ -143,14 +141,17 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //we are intentionally destroying the stack trace here
-    public boolean insertRecord(@Nonnull Message message) throws RelationalException {
+    public boolean insertRecord(@Nonnull Message message, boolean replaceOnDuplicate) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
         try {
             if (!store.getRecordMetaData().getRecordType(this.tableName).getDescriptor().equals(message.getDescriptorForType())) {
                 throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", ErrorCode.INVALID_PARAMETER);
             }
-            //TODO(bfines) maybe this should return something other than boolean?
-            store.insertRecord(message);
+            if (replaceOnDuplicate) {
+                store.saveRecord(message);
+            } else {
+                store.insertRecord(message);
+            }
         } catch (MetaDataException mde) {
             throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", ErrorCode.INVALID_PARAMETER, mde);
         } catch (RecordAlreadyExistsException raee) {
@@ -158,6 +159,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
+        //TODO(bfines) maybe this should return something other than boolean?
         return true;
     }
 

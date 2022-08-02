@@ -20,14 +20,16 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.Restaurant;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -42,7 +44,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
-import java.util.Collections;
+import java.sql.Types;
+import java.util.List;
 import java.util.Map;
 
 public class InsertTest {
@@ -155,10 +158,63 @@ public class InsertTest {
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
-                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("restRecord" + id).build();
+                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", id).setField("NAME", "restRecord" + id).build();
                 RelationalAssertions.assertThrows(
-                        () -> s.executeInsert("RESTAURANT_REVIEWER", Collections.singleton(record)))
+                        () -> s.executeInsert("RESTAURANT_REVIEWER", record))
                         .hasErrorCode(ErrorCode.INVALID_PARAMETER);
+            }
+        }
+    }
+
+    @Test
+    void cannotInsertDuplicatePrimaryKey() throws SQLException, RelationalException {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema("TEST_SCHEMA");
+            conn.beginTransaction();
+            try (RelationalStatement s = conn.createStatement()) {
+                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).build();
+                s.executeInsert("RESTAURANT", record);
+                RelationalAssertions.assertThrows(() -> s.executeInsert("RESTAURANT", record))
+                        .hasErrorCode(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
+            }
+        }
+    }
+
+    @Test
+    void replaceOnInsert() throws SQLException, RelationalException {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema("TEST_SCHEMA");
+            conn.beginTransaction();
+            try (RelationalStatement s = conn.createStatement()) {
+                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).setField("NAME", "before").addRepeatedField("CUSTOMER", "cust1").build();
+                s.executeInsert("RESTAURANT", record);
+                record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).setField("NAME", "after").build();
+                s.executeInsert("RESTAURANT", record, Options.builder().withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true).build());
+                try (RelationalResultSet rs = s.executeGet("RESTAURANT", new KeySet().setKeyColumn("REST_NO", 0), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("NAME", "after")
+                            .hasColumn("CUSTOMER", new RowArray(List.of(), new RelationalStructMetaData(FieldDescription.primitive("CUSTOMER", Types.VARCHAR, true))))
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void replaceOnFirstInsert() throws SQLException, RelationalException {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema("TEST_SCHEMA");
+            conn.beginTransaction();
+            try (RelationalStatement s = conn.createStatement()) {
+                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).build();
+                s.executeInsert("RESTAURANT", record, Options.builder().withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true).build());
+                try (RelationalResultSet rs = s.executeGet("RESTAURANT", new KeySet().setKeyColumn("REST_NO", 0), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("REST_NO", 0L)
+                            .hasNoNextRow();
+                }
             }
         }
     }
