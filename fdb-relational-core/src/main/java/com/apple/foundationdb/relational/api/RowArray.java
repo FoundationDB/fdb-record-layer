@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
@@ -117,7 +116,7 @@ public class RowArray extends RelationalArray {
     }
 
     @Override
-    public ResultSet getResultSet(long oneBasedIndex, int count) {
+    public RelationalResultSet getResultSet(long oneBasedIndex, int count) {
         List<Row> dataStream = StreamSupport.stream(rows.spliterator(), false)
                 .skip(oneBasedIndex - 1)
                 .limit(count)

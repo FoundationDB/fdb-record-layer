@@ -29,7 +29,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 import java.net.URI;
-import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Collection;
@@ -185,7 +184,7 @@ public abstract class RowStruct implements RelationalStruct {
     }
 
     @Override
-    public Array getArray(int oneBasedPosition) throws SQLException {
+    public RelationalArray getArray(int oneBasedPosition) throws SQLException {
         if (metaData.getColumnType(oneBasedPosition) != Types.ARRAY) {
             throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
@@ -193,8 +192,8 @@ public abstract class RowStruct implements RelationalStruct {
         if (obj == null) {
             return null;
         }
-        if (obj instanceof Array) {
-            return (Array) obj;
+        if (obj instanceof RelationalArray) {
+            return (RelationalArray) obj;
         }
         if (!(obj instanceof Collection)) {
             //TODO(bfines) probably not the correct error here, but whatever
@@ -215,7 +214,7 @@ public abstract class RowStruct implements RelationalStruct {
     }
 
     @Override
-    public Array getArray(String columnLabel) throws SQLException {
+    public RelationalArray getArray(String columnLabel) throws SQLException {
         return getArray(getOneBasedPosition(columnLabel));
     }
 

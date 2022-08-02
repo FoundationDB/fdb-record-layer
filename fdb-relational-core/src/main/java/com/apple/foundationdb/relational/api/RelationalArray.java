@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api;
 
 import java.sql.Array;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Map;
@@ -44,17 +43,20 @@ public abstract class RelationalArray implements Array {
     }
 
     @Override
-    public ResultSet getResultSet() throws SQLException {
+    public abstract RelationalResultSet getResultSet(long index, int count) throws SQLException;
+
+    @Override
+    public RelationalResultSet getResultSet() throws SQLException {
         return getResultSet(1L, Integer.MAX_VALUE);
     }
 
     @Override
-    public ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
+    public RelationalResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
         throw new SQLFeatureNotSupportedException("Custom type mapping is not supported in Relational Arrays");
     }
 
     @Override
-    public ResultSet getResultSet(long index, int count, Map<String, Class<?>> map) throws SQLException {
+    public RelationalResultSet getResultSet(long index, int count, Map<String, Class<?>> map) throws SQLException {
         throw new SQLFeatureNotSupportedException("Custom type mapping is not supported in Relational Arrays");
     }
 

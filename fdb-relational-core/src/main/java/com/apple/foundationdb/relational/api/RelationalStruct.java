@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
-import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.Map;
@@ -63,9 +62,9 @@ public interface RelationalStruct extends Struct {
 
     RelationalStruct getStruct(String fieldName) throws SQLException;
 
-    Array getArray(int oneBasedPosition) throws SQLException;
+    RelationalArray getArray(int oneBasedPosition) throws SQLException;
 
-    Array getArray(String fieldName) throws SQLException;
+    RelationalArray getArray(String fieldName) throws SQLException;
 
     @Override
     default Object[] getAttributes() throws SQLException {
