@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 
-import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
 
 import java.sql.Connection;
@@ -165,8 +164,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         DirectScannable source = getSourceScannable(indexName, table);
 
         final KeyBuilder keyBuilder = source.getKeyBuilder();
-        Row start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), true, true);
-        Row end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), true, true);
+        Row start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), false);
+        Row end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), false);
 
         StructMetaData sourceMetaData = source.getMetaData();
         return new RecordLayerResultSet(sourceMetaData,
@@ -178,8 +177,6 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
         options = Options.combine(conn.getOptions(), options);
 
-        //check that the key is valid
-        Preconditions.checkArgument(key.toMap().size() != 0, "Cannot perform a GET without specifying a key");
         ensureTransactionActive();
 
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
@@ -191,7 +188,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         DirectScannable source = getSourceScannable(indexName, table);
         source.validate(options);
 
-        Row tuple = source.getKeyBuilder().buildKey(key.toMap(), true, true);
+        Row tuple = source.getKeyBuilder().buildKey(key.toMap(), true);
 
         final Row row = source.get(conn.transaction, tuple, options);
 
@@ -252,14 +249,14 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
         return executeMutation(() -> {
             int count = 0;
-            Row toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
+            Row toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
             while (toDelete != null) {
                 if (table.deleteRecord(toDelete)) {
                     count++;
                 }
                 toDelete = null;
                 if (keys.hasNext()) {
-                    toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
+                    toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
                 }
             }
             return count;

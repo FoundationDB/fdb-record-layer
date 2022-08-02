@@ -142,6 +142,7 @@ columnType
 
 primaryKeyDefinition
     : PRIMARY KEY '(' (RECORD TYPE | uid) (COMMA uid)* ')'
+    | SINGLE ROW ONLY
     ;
 
 indexDefinition // TODO: add more index types

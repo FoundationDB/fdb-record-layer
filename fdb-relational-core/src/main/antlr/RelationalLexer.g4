@@ -650,6 +650,7 @@ SHARE:                               'SHARE';
 SHARED:                              'SHARED';
 SIGNED:                              'SIGNED';
 SIMPLE:                              'SIMPLE';
+SINGLE:                              'SINGLE';
 SLAVE:                               'SLAVE';
 SLOW:                                'SLOW';
 SNAPSHOT:                            'SNAPSHOT';

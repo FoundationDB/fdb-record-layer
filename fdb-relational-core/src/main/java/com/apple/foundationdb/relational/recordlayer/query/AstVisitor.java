@@ -832,12 +832,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Void visitStructOrTableDefinition(RelationalParser.StructOrTableDefinitionContext ctx) {
         Assert.thatUnchecked(ctx.STRUCT() == null || ctx.primaryKeyDefinition() == null,
                 String.format("Illegal struct definition '%s'", ctx.uid().getText()), ErrorCode.SYNTAX_ERROR);
+        Assert.thatUnchecked(ctx.TABLE() == null || ctx.primaryKeyDefinition() != null,
+                String.format("Illegal table definition '%s'. Include either a PRIMARY KEY clause OR A SINGLE ROW ONLY clause.", ctx.uid().getText()), ErrorCode.SYNTAX_ERROR);
         final var name = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
         final List<TypingContext.FieldDefinition> fields = ctx.columnDefinition().stream().map(c ->
                 (TypingContext.FieldDefinition) c.accept(this)).collect(Collectors.toList());
         final var isTable = ctx.STRUCT() == null;
         if (ctx.primaryKeyDefinition() != null) {
-            typingContext.addType(new TypingContext.TypeDefinition(name, fields, isTable, Optional.of(((List<String>) ctx.primaryKeyDefinition().accept(this)))));
+            typingContext.addType(new TypingContext.TypeDefinition(name, fields, isTable, (Optional<List<String>>) visit(ctx.primaryKeyDefinition())));
         } else {
             typingContext.addType(new TypingContext.TypeDefinition(name, fields, isTable, Optional.empty()));
         }
@@ -854,8 +856,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public List<String> visitPrimaryKeyDefinition(RelationalParser.PrimaryKeyDefinitionContext ctx) {
-        return ctx.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toList());
+    public Optional<List<String>> visitPrimaryKeyDefinition(RelationalParser.PrimaryKeyDefinitionContext ctx) {
+        if (ctx.uid().size() == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(ctx.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toList()));
     }
 
     @Override

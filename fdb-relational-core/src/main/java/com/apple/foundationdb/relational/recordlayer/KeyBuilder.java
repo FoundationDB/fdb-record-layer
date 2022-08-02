@@ -56,14 +56,16 @@ public class KeyBuilder {
     }
 
     @Nonnull
-    public Row buildKey(Map<String, Object> keyFields, boolean failOnMissingColumn, boolean failOnUnknownColumn) throws RelationalException {
+    public Row buildKey(Map<String, Object> keyFields, boolean failOnIncompleteKey) throws RelationalException {
         Object[] flattenedFields = new Object[key.getColumnSize()];
         Map<String, Object> keysNotPicked = new HashMap<>(keyFields);
         buildKeyRecursive(key, keyFields, flattenedFields, keysNotPicked, 0);
 
-        if (failOnMissingColumn) {
-            for (int i = 0; i < flattenedFields.length; i++) {
-                if (flattenedFields[i] == null) {
+        for (int i = 0; i < flattenedFields.length; i++) {
+            if (flattenedFields[i] == null) {
+                if (failOnIncompleteKey) {
+                    throw new RelationalException("Cannot form incomplete key: missing key at position <" + i + ">", ErrorCode.INVALID_PARAMETER);
+                } else {
                     //check to see if this is the tail of the key, in which case this is still fine
                     for (int j = i + 1; j < flattenedFields.length; j++) {
                         if (flattenedFields[j] != null) {
@@ -78,7 +80,7 @@ public class KeyBuilder {
             }
         }
 
-        if (failOnUnknownColumn && !keysNotPicked.isEmpty()) {
+        if (!keysNotPicked.isEmpty()) {
             throw new RelationalException("Unknown keys for " + scannableNameForMessage + ", unknown keys: <" + Joiner.on(",").join(keysNotPicked.keySet()) + ">",
                     ErrorCode.INVALID_PARAMETER);
         }

@@ -138,7 +138,7 @@ public class DdlStatementParsingTest {
     @Test
     void indexFailsWithNonExistingIndexColumn() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TABLE foo(a int64)" +
+                "CREATE TABLE foo(a int64, PRIMARY KEY(a))" +
                 " CREATE VALUE INDEX t_idx on foo(NON_EXISTING)"
         ;
         shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE);

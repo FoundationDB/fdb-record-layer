@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
@@ -81,6 +82,24 @@ public class TableTest {
                     .hasNextRow()
                     .hasRow(inserted)
                     .hasNoNextRow();
+        }
+    }
+
+    @Test
+    void wrongSizeOfPrimaryKeyInGet() throws Exception {
+        RelationalAssertions.assertThrows(() -> statement.executeGet("RESTAURANT", new KeySet(), Options.NONE))
+                .hasErrorCode(ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Test
+    void wrongSizeOfPrimaryKeyInGetLongerKey() throws Exception {
+        try (var ddl = Ddl.builder().database("TableTest2").relationalExtension(relationalExtension).schemaTemplate("CREATE TABLE FOO(A int64, B int64, C int64, PRIMARY KEY(C, A))").build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                RelationalAssertions.assertThrows(() -> statement.executeGet("FOO", new KeySet().setKeyColumn("C", 5), Options.NONE))
+                        .hasErrorCode(ErrorCode.INVALID_PARAMETER);
+                RelationalAssertions.assertThrows(() -> statement.executeGet("FOO", new KeySet().setKeyColumn("A", 5), Options.NONE))
+                        .hasErrorCode(ErrorCode.INVALID_PARAMETER);
+            }
         }
     }
 
