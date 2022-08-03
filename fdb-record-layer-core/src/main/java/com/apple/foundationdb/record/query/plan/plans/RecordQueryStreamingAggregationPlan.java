@@ -105,7 +105,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
      * @param aggregateAlias the identifier of {@code aggregateValue}
      * @param completeResultValue the {@link Value} of the aggregate results
      */
-    public RecordQueryStreamingAggregationPlan(@Nonnull final Quantifier.Physical inner,
+    private RecordQueryStreamingAggregationPlan(@Nonnull final Quantifier.Physical inner,
                                                 @Nullable final Value groupingKeyValue,
                                                 @Nonnull final AggregateValue aggregateValue,
                                                 @Nonnull final CorrelationIdentifier groupingKeyAlias,
@@ -362,12 +362,22 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
         final var aggregateAlias = CorrelationIdentifier.uniqueID();
 
-        return new RecordQueryStreamingAggregationPlan(inner,
+        return RecordQueryStreamingAggregationPlan.of(inner,
                 groupingKeyValue,
                 aggregateValue,
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValueSupplier.supply(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
+    }
+
+    @Nonnull
+    public static RecordQueryStreamingAggregationPlan of(@Nonnull final Quantifier.Physical inner,
+                                                         @Nullable final Value groupingKeyValue,
+                                                         @Nonnull final AggregateValue aggregateValue,
+                                                         @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                                                         @Nonnull final CorrelationIdentifier aggregateAlias,
+                                                         @Nonnull final Value completeResultValue) {
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue);
     }
 
     @Nonnull

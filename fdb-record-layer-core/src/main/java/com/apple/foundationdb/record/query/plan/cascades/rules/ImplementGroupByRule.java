@@ -85,13 +85,16 @@ public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
                     final var newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
                     final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
                     final var aliasMap = AliasMap.of(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
-                    final var result = new RecordQueryStreamingAggregationPlan(
+                    final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);
+                    final var rebasedGroupingValue = groupByExpression.getGroupingValue().rebase(aliasMap);
+                    final var rebasedResultValue = groupByExpression.getResultValue().rebase(aliasMap);
+                    final var result = RecordQueryStreamingAggregationPlan.of(
                             newPlanQuantifier,
-                            groupByExpression.getGroupingValue().rebase(aliasMap),
-                            (AggregateValue)groupByExpression.getAggregateValue().rebase(aliasMap),
-                            getAlias(groupByExpression.getGroupingValue().rebase(aliasMap)),
+                            rebasedGroupingValue,
+                            (AggregateValue)rebasedAggregatedValue,
+                            getAlias(rebasedGroupingValue),
                             getAlias(groupByExpression.getAggregateValue().rebase(aliasMap)),
-                            groupByExpression.getResultValue().rebase(aliasMap));
+                            rebasedResultValue);
                     call.yield(GroupExpressionRef.of(result));
                 }
             }

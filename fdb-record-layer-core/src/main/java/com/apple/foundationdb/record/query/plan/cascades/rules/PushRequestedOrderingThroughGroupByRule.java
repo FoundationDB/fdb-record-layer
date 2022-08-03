@@ -90,8 +90,7 @@ public class PushRequestedOrderingThroughGroupByRule extends PlannerRule<GroupBy
                 // ignore preserve as it might cause e.g. an underlying FUSE operator to be substituted with an access path that is incompatibly-ordered.
                 continue; // ignore
             }
-            // todo this looks too strict, if requested ordering is more specific (e.g. (a,b,c)) than the requested group by ordering (e.g. (a,b))
-            // it should still be accepted.
+            // todo this looks too strict, if requested ordering is more specific (e.g. (a,b,c)) than the requested group by ordering (e.g. (a,b)) should still be accepted.
             if (!new LinkedHashSet<>(requestedOrdering.getOrderingKeyParts()).equals(groupByOrderingAsSet)) {
                 // case 2: if an incompatible ordering is found, fail.
                 return Set.of(); // fail

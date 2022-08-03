@@ -385,6 +385,12 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
         return root;
     }
 
+    /**
+     * Constructs a {@link KeyExpression} from a path.
+     *
+     * @param path The path to use for constructing the {@link KeyExpression}.
+     * @return The resulting {@link KeyExpression}.
+     */
     @Nonnull
     static KeyExpression fromPath(@Nonnull final List<String> path) {
         if (path.isEmpty()) {
