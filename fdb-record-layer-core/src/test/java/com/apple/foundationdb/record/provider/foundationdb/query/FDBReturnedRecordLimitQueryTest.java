@@ -182,7 +182,7 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
             assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(846114080, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(851655206, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(846114080, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -222,7 +222,7 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, scan(unbounded()));
             assertEquals(2, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-268895783, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-268717037, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-268895783, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {

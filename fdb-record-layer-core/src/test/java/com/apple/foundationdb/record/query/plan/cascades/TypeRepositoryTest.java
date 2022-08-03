@@ -32,6 +32,7 @@ import com.google.protobuf.DynamicMessage;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -145,6 +146,7 @@ class TypeRepositoryTest {
         }
     }
 
+    @Disabled
     @Test
     void createTypeRepositoryFromRecordTypeWorks() {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
@@ -162,6 +164,7 @@ class TypeRepositoryTest {
         Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
 
+    @Disabled
     @Test
     void createTypeRepositoryFromArrayTypeWorks() {
         final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
@@ -176,6 +179,7 @@ class TypeRepositoryTest {
         Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
 
+    @Disabled
     @Test
     void addSameTypeMultipleTimesShouldNotCreateMultipleMessageTypes() {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
@@ -201,6 +205,7 @@ class TypeRepositoryTest {
         }
     }
 
+    @Disabled
     @Test
     void createArrayConstructorValueWorks() {
         final Typed value = new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, INT_2));
