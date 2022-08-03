@@ -25,10 +25,13 @@ import javax.annotation.Nullable;
 public interface Continuation {
 
     Continuation END = new Continuation() {
+        @SuppressWarnings("PMD.FieldNamingConventions")
+        private final byte[] empty = new byte[]{};
+
         @Nullable
         @Override
         public byte[] getBytes() {
-            return null;
+            return empty;
         }
 
         @Override
@@ -78,10 +81,22 @@ public interface Continuation {
         }
     };
 
+    /**
+     * Get the continuation as a sequence of bytes.
+     *
+     * @return the continuation as a byte array. If the returned array is {@code null}, then this continuation
+     * is treated as being at the <em>beginning</em> (equivalent to {@link #BEGIN}). If the returned array is empty
+     * then this should be treated as equivalent to {@link #END}.
+     */
     @Nullable
     byte[] getBytes();
 
-    boolean atBeginning();
+    default boolean atBeginning() {
+        return getBytes() == null;
+    }
 
-    boolean atEnd();
+    default boolean atEnd() {
+        byte[] bytes = getBytes();
+        return bytes != null && bytes.length == 0;
+    }
 }

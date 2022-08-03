@@ -68,6 +68,8 @@ public final class ContinuationImpl implements Continuation {
 
     public static Continuation fromBytes(@Nullable byte[] bytes) {
         if (bytes == null) {
+            return Continuation.BEGIN;
+        } else if (bytes.length == 0) {
             return Continuation.END;
         }
         return new ContinuationImpl(Arrays.copyOf(bytes, bytes.length));

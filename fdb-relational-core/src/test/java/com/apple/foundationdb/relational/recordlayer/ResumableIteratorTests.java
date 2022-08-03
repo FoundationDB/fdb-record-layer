@@ -115,7 +115,7 @@ public class ResumableIteratorTests {
         Assertions.assertTrue(beginContinuation.atBeginning());
         iteratorWithContinuationShouldPointTo(list, beginContinuation, 1);
         // if we attempt to use the endContinuation, the iterator will seek to the end.
-        Assertions.assertNull(endContinuation.getBytes());
+        Assertions.assertEquals(endContinuation.getBytes(), Continuation.END.getBytes());
         Assertions.assertTrue(endContinuation.atEnd());
         ResumableIteratorImpl<Integer> endIt = new ResumableIteratorImpl<>(list.listIterator(), endContinuation);
         Assertions.assertFalse(endIt.hasNext());

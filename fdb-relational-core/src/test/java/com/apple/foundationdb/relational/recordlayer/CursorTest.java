@@ -139,7 +139,7 @@ public class CursorTest {
 
                 // verify
                 Assertions.assertTrue(lastContinuation.atEnd());
-                Assertions.assertNull(lastContinuation.getBytes());
+                Assertions.assertEquals(lastContinuation.getBytes(), Continuation.END.getBytes());
 
             } catch (RelationalException | SQLException e) {
                 Assertions.fail("failed to parse ", e);
