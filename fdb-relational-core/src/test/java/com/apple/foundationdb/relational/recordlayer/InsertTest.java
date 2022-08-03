@@ -36,7 +36,6 @@ import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -160,8 +159,44 @@ public class InsertTest {
                 long id = System.currentTimeMillis();
                 Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", id).setField("NAME", "restRecord" + id).build();
                 RelationalAssertions.assertThrows(
-                        () -> s.executeInsert("RESTAURANT_REVIEWER", record))
+                                () -> s.executeInsert("RESTAURANT_REVIEWER", record))
                         .hasErrorCode(ErrorCode.INVALID_PARAMETER);
+            }
+        }
+    }
+
+    @Test
+    void canDifferentiateNullAndDefaultValue() throws RelationalException, SQLException {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema("TEST_SCHEMA");
+            conn.beginTransaction();
+            try (RelationalStatement s = conn.createStatement()) {
+                long id = System.currentTimeMillis();
+                // string type field NAME is unset
+                Message restaurant1 = s.getDataBuilder("RESTAURANT")
+                        .setField("REST_NO", id)
+                        .build();
+                int inserted1 = s.executeInsert("RESTAURANT", restaurant1);
+                Assertions.assertEquals(1, inserted1, "Did not insert properly!");
+                // string type field NAME is set to empty string
+                Message restaurant2 = s.getDataBuilder("RESTAURANT")
+                        .setField("REST_NO", id + 1)
+                        .setField("NAME", "")
+                        .build();
+                int inserted2 = s.executeInsert("RESTAURANT", restaurant2);
+                Assertions.assertEquals(1, inserted2, "Did not insert properly!");
+
+                //now prove we can get them back out
+                try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT", new KeySet().setKeyColumns(Map.of("REST_NO", id)), Options.NONE)) {
+                    ResultSetAssert.assertThat(relationalResultSet).hasNextRow()
+                            .hasRow(Map.of("REST_NO", id))
+                            .hasNoNextRow();
+                }
+
+                try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT", new KeySet().setKeyColumns(Map.of("REST_NO", id + 1)), Options.NONE)) {
+                    ResultSetAssert.assertThat(relationalResultSet).hasNextRow()
+                            .hasRow(Map.of("REST_NO", id + 1, "NAME", ""));
+                }
             }
         }
     }

@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 public class MessageTuple extends AbstractRow {
@@ -41,7 +42,12 @@ public class MessageTuple extends AbstractRow {
         if (position < 0 || position >= getNumFields()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
-        return message.getField(message.getDescriptorForType().findFieldByNumber(position + 1));
+        Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByNumber(position + 1);
+        if (fieldDescriptor.isRepeated() || message.hasField(fieldDescriptor)) {
+            return message.getField(message.getDescriptorForType().findFieldByNumber(position + 1));
+        } else {
+            return null;
+        }
     }
 
     @SuppressWarnings("unchecked")

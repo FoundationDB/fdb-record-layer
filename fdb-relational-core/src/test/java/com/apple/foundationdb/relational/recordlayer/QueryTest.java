@@ -102,6 +102,21 @@ public class QueryTest {
     }
 
     @Test
+    void canQueryPKZero() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                var insertedRecord = insertRestaurantComplexRecord(statement, 0L, "");
+                Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRow(insertedRecord)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
     void selectWithPredicateVariants() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

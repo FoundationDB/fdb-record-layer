@@ -43,9 +43,13 @@ class MessageTupleTest {
 
     @Test
     void getObject() throws InvalidColumnReferenceException {
-        assertThat(tuple.getObject(0)).isEqualTo(0L);
-        assertThat(tuple.getObject(1)).isEqualTo("");
-        assertThat(tuple.getObject(2)).isEqualTo(Restaurant.Location.getDefaultInstance());
+        // position 0: int64 rest_no, is null if unset
+        assertThat(tuple.getObject(0)).isEqualTo(null);
+        // position 1: string name, is null if unset
+        assertThat(tuple.getObject(1)).isEqualTo(null);
+        // position 2: Location location, is null if unset
+        assertThat(tuple.getObject(2)).isEqualTo(null);
+        // position 3-5 are repeated fields, is empty list if unset
         assertThat(tuple.getObject(3)).isEqualTo(Collections.emptyList());
         assertThat(tuple.getObject(4)).isEqualTo(Collections.emptyList());
         assertThat(tuple.getObject(5)).isEqualTo(Collections.emptyList());

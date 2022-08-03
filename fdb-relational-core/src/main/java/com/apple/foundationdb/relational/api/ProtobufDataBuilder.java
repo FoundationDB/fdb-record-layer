@@ -158,8 +158,10 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
                         newMessage.addRepeatedField(field, converted);
                     }
                 } else {
-                    Message converted = convert((Message) m.getField(messageField), messageDesc);
-                    newMessage.setField(field, converted);
+                    if (m.hasField(messageField)) {
+                        Message converted = convert((Message) m.getField(messageField), messageDesc);
+                        newMessage.setField(field, converted);
+                    }
                 }
             } else {
                 if (field.isRepeated()) {
@@ -168,8 +170,10 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
                         newMessage.addRepeatedField(field, coerced);
                     }
                 } else {
-                    Object coerced = coerceObject(m.getField(messageField), field.getJavaType());
-                    newMessage.setField(field, coerced);
+                    if (m.hasField(messageField)) {
+                        Object coerced = coerceObject(m.getField(messageField), field.getJavaType());
+                        newMessage.setField(field, coerced);
+                    }
                 }
             }
         }

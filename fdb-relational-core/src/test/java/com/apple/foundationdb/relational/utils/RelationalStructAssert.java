@@ -181,6 +181,10 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
     }
 
     public RelationalStructAssert isEqualTo(RelationalStruct expected) {
+        if (actual == null) {
+            Assertions.assertThat(expected).isNull();
+            return this;
+        }
         isNotNull();
         SoftAssertions assertions = new SoftAssertions();
         /*
