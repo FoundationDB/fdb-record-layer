@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -39,18 +40,6 @@ import java.util.stream.Stream;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryPlannerConfiguration {
-    /**
-     * An indicator for the index fetch method to use for a query.
-     * Possible values are:
-     * <UL>
-     *     <LI>{@link IndexFetchMethod#SCAN_AND_FETCH} use regular index scan followed by fetch</LI>
-     *     <LI>{@link IndexFetchMethod#USE_REMOTE_FETCH} use remote fetch feature from FDB</LI>
-     *     <LI>{@link IndexFetchMethod#USE_REMOTE_FETCH_WITH_FALLBACK} use remote fetch ability with fallback to regular
-     *     scan and fetch in case of failure. This is a safety measure meant to be used while the
-     *     remote fetch mechanism is being tested</LI>
-     * </UL>
-     */
-    public enum IndexFetchMethod { SCAN_AND_FETCH, USE_REMOTE_FETCH, USE_REMOTE_FETCH_WITH_FALLBACK }
 
     @Nonnull
     private final QueryPlanner.IndexScanPreference indexScanPreference;
@@ -70,6 +59,12 @@ public class RecordQueryPlannerConfiguration {
     private final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules;
     private final IndexFetchMethod indexFetchMethod;
 
+    /**
+     * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
+     * {@link com.apple.foundationdb.record.IndexScanType#BY_VALUE_OVER_SCAN} is preferred to use.
+     */
+    private final Set<String> valueIndexesOverScanNeeded;
+
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
                                             int attemptFailedInJoinAsUnionMaxSize,
@@ -83,7 +78,8 @@ public class RecordQueryPlannerConfiguration {
                                             int maxNumMatchesPerRuleCall,
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
                                             @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules,
-                                            @Nonnull final IndexFetchMethod indexFetchMethod) {
+                                            @Nonnull final IndexFetchMethod indexFetchMethod,
+                                            @Nonnull final Set<String> valueIndexesOverScanNeeded) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -98,6 +94,7 @@ public class RecordQueryPlannerConfiguration {
         this.sortConfiguration = sortConfiguration;
         this.disabledTransformationRules = ImmutableSet.copyOf(disabledTransformationRules);
         this.indexFetchMethod = indexFetchMethod;
+        this.valueIndexesOverScanNeeded = valueIndexesOverScanNeeded;
     }
 
     /**
@@ -246,6 +243,10 @@ public class RecordQueryPlannerConfiguration {
         return indexFetchMethod;
     }
 
+    public boolean valueIndexOverScanNeeded(@Nonnull String indexName) {
+        return valueIndexesOverScanNeeded.contains(indexName);
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -279,6 +280,9 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         private IndexFetchMethod indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
 
+        @Nonnull
+        private Set<String> valueIndexesOverScanNeeded = Sets.newHashSet();
+
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
             this.attemptFailedInJoinAsOr = configuration.attemptFailedInJoinAsOr;
@@ -294,6 +298,7 @@ public class RecordQueryPlannerConfiguration {
             this.sortConfiguration = configuration.sortConfiguration;
             this.disabledTransformationRules = configuration.disabledTransformationRules;
             this.indexFetchMethod = configuration.indexFetchMethod;
+            this.valueIndexesOverScanNeeded = configuration.valueIndexesOverScanNeeded;
         }
 
         public Builder() {
@@ -454,6 +459,12 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        @API(API.Status.EXPERIMENTAL)
+        public Builder addValueIndexOverScanNeeded(@Nonnull final String indexName) {
+            this.valueIndexesOverScanNeeded.add(indexName);
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
             return new RecordQueryPlannerConfiguration(indexScanPreference,
                     attemptFailedInJoinAsOr,
@@ -468,7 +479,8 @@ public class RecordQueryPlannerConfiguration {
                     maxNumMatchesPerRuleCall,
                     sortConfiguration,
                     disabledTransformationRules,
-                    indexFetchMethod);
+                    indexFetchMethod,
+                    valueIndexesOverScanNeeded);
         }
     }
 }

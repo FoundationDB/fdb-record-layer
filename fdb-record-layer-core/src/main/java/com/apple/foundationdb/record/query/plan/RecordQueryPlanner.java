@@ -62,6 +62,8 @@ import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithCom
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithOneOfComparison;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithComparison;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
@@ -84,8 +86,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimar
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.UnorderedPrimaryKeyDistinctVisitor;
@@ -630,7 +630,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 p = planRank(candidateScan, index, grouping, filter);
                 indexExpr = grouping.getWholeKey(); // Plan as just value index.
             } else if (!indexTypes.getValueTypes().contains(index.getType())) {
-                p = planOther(candidateScan, index, filter, sort, sortReverse);
+                p = planOther(candidateScan, index, filter, sort, sortReverse, planContext.commonPrimaryKey);
                 if (p != null) {
                     p = planRemoveDuplicates(planContext, p);
                 }
@@ -699,7 +699,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             final RecordType recordType = Iterables.getOnlyElement(recordTypes);
             final List<QueryComponent> unsatisfiedFilters = new ArrayList<>(plan.unsatisfiedFilters);
             final AvailableFields availableFieldsFromIndex =
-                    AvailableFields.fromIndex(recordType, index, indexTypes, planContext.commonPrimaryKey);
+                    AvailableFields.fromIndex(recordType, index, indexTypes, planContext.commonPrimaryKey, indexPlan);
 
             final List<QueryComponent> indexFilters = Lists.newArrayListWithCapacity(unsatisfiedFilters.size());
             final List<QueryComponent> residualFilters = Lists.newArrayListWithCapacity(unsatisfiedFilters.size());
@@ -1345,7 +1345,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
                                    @Nonnull Index index, @Nonnull QueryComponent filter,
-                                   @Nullable KeyExpression sort, boolean sortReverse) {
+                                   @Nullable KeyExpression sort, boolean sortReverse,
+                                   @Nullable KeyExpression commonPrimaryKey) {
         if (indexTypes.getTextTypes().contains(index.getType())) {
             return planText(candidateScan, index, filter, sort, sortReverse);
         } else {
@@ -1414,7 +1415,10 @@ public class RecordQueryPlanner implements QueryPlanner {
     private RecordQueryPlan valueScan(@Nonnull CandidateScan candidateScan,
                                       @Nullable ScanComparisons scanComparisons,
                                       boolean strictlySorted) {
-        return planScan(candidateScan, IndexScanComparisons.byValue(scanComparisons), strictlySorted);
+        IndexScanType scanType = candidateScan.index != null && this.configuration.valueIndexOverScanNeeded(candidateScan.index.getName())
+                                 ? IndexScanType.BY_VALUE_OVER_SCAN
+                                 : IndexScanType.BY_VALUE;
+        return planScan(candidateScan, IndexScanComparisons.byValue(scanComparisons, scanType), strictlySorted);
     }
 
     @Nonnull

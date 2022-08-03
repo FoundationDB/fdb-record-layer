@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -62,7 +63,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     /**
      * Record types this index is defined over.
      */
-    private final List<RecordType> recordTypes;
+    private final List<RecordType> queriedRecordTypes;
 
     /**
      * Holds the parameter names for all necessary parameters that need to be bound during matching.
@@ -97,22 +98,33 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     private final KeyExpression alternativeKeyExpression;
 
+    @Nullable
+    private final KeyExpression primaryKey;
+
     public ValueIndexScanMatchCandidate(@Nonnull Index index,
-                                        @Nonnull Collection<RecordType> recordTypes,
+                                        @Nonnull Collection<RecordType> queriedRecordTypes,
                                         @Nonnull final ExpressionRefTraversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
                                         @Nonnull final Quantifier.ForEach baseQuantifier,
                                         @Nonnull final List<Value> indexKeyValues,
                                         @Nonnull final List<Value> indexValueValues,
-                                        @Nonnull final KeyExpression alternativeKeyExpression) {
+                                        @Nonnull final KeyExpression alternativeKeyExpression,
+                                        @Nullable final KeyExpression primaryKey) {
         this.index = index;
-        this.recordTypes = ImmutableList.copyOf(recordTypes);
+        this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
         this.baseQuantifier = baseQuantifier;
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
         this.indexValueValues = ImmutableList.copyOf(indexValueValues);
         this.alternativeKeyExpression = alternativeKeyExpression;
+        this.primaryKey = primaryKey;
+    }
+
+    @Nonnull
+    @Override
+    public Index getIndex() {
+        return index;
     }
 
     @Nonnull
@@ -121,8 +133,10 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return index.getName();
     }
 
-    public List<RecordType> getRecordTypes() {
-        return recordTypes;
+    @Nonnull
+    @Override
+    public List<RecordType> getQueriedRecordTypes() {
+        return queriedRecordTypes;
     }
 
     @Nonnull
@@ -166,8 +180,13 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
-                                                       @Nonnull final PartialMatch partialMatch,
+    public Optional<KeyExpression> getPrimaryKeyMaybe() {
+        return Optional.ofNullable(primaryKey);
+    }
+
+    @Nonnull
+    @Override
+    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
                                                        @Nonnull final PlanContext planContext,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
@@ -175,12 +194,13 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
 
-        final var baseRecordType = Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
+        final var baseRecordType =
+                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
 
         return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
-                                planContext.getCommonPrimaryKey(),
+                                primaryKey,
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 reverseScanOrder,
@@ -195,11 +215,11 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                                                      @Nonnull final List<ComparisonRange> comparisonRanges,
                                                                      final boolean isReverse,
                                                                      @Nonnull Type.Record baseRecordType) {
-        if (recordTypes.size() > 1) {
+        if (queriedRecordTypes.size() > 1) {
             return Optional.empty();
         }
 
-        final RecordType recordType = Iterables.getOnlyElement(recordTypes);
+        final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final Value baseObjectValue = baseQuantifier.getFlowedObjectValue();
         for (int i = 0; i < indexKeyValues.size(); i++) {
@@ -227,7 +247,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
-                        planContext.getCommonPrimaryKey(),
+                        primaryKey,
                         scanParameters,
                         planContext.getPlannerConfiguration().getIndexFetchMethod(),
                         isReverse,

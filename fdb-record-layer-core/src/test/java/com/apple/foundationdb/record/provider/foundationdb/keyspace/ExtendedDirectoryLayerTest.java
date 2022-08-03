@@ -104,7 +104,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
 
         for (Map.Entry<String, Long> entry : allocations.entrySet()) {
             Long value = reader.resolve(entry.getKey()).join();
-            String reverseLookup = reader.reverseLookup(null, entry.getValue()).join();
+            String reverseLookup = reader.reverseLookup((FDBStoreTimer)null, entry.getValue()).join();
             assertEquals(value, entry.getValue());
             assertEquals(reverseLookup, entry.getKey());
         }
@@ -249,7 +249,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
         resolver.getDatabase().clearCaches();
         resolver.getDatabase().getReverseDirectoryCache().clearStats();
         assertThat(resolver.getClass().getName() + " sees the reverse mapping",
-                resolver.reverseLookup(null, value).join(), is(key));
+                resolver.reverseLookup((FDBStoreTimer)null, value).join(), is(key));
         assertThat("we find the value in the reverse cache key space",
                 resolver.getDatabase().getReverseDirectoryCache().getPersistentCacheHitCount(), is(1L));
         assertThat("we don't get a hard cache miss",

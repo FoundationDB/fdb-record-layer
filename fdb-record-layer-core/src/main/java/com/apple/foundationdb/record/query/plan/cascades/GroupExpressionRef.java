@@ -115,16 +115,22 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @Override
     public boolean insert(@Nonnull T newValue) {
-        if (!containsInMemo(newValue)) {
-            // Call debugger hook to potentially register this new expression.
-            Debugger.registerExpression(newValue);
-            members.add(newValue);
-            if (newValue instanceof RecordQueryPlan) {
-                Verify.verify(propertiesMap.insert(newValue)); // this must return true
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.BEGIN)));
+        try {
+            final boolean containsInMemo = containsInMemo(newValue);
+            if (!containsInMemo) {
+                // Call debugger hook to potentially register this new expression.
+                Debugger.registerExpression(newValue);
+                members.add(newValue);
+                if (newValue instanceof RecordQueryPlan) {
+                    Verify.verify(propertiesMap.insert(newValue)); // this must return true
+                }
+                return true;
             }
-            return true;
+            return false;
+        } finally {
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.END)));
         }
-        return false;
     }
 
     public boolean containsExactly(@Nonnull T expression) {

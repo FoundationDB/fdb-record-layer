@@ -47,7 +47,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -62,7 +61,7 @@ public class ImplementSimpleSelectRule extends PlannerRule<SelectExpression> {
 
     @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
-            planPartitions(rollUp(any(innerPlanPartitionMatcher)));
+            planPartitions(any(innerPlanPartitionMatcher));
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);

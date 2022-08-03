@@ -102,6 +102,9 @@ public class PlanOrderingKey {
         while (queryPlan instanceof RecordQueryFilterPlan) {
             queryPlan = ((RecordQueryFilterPlan)queryPlan).getInnerPlan();
         }
+        if (queryPlan instanceof PlanWithOrderingKey) {
+            return ((PlanWithOrderingKey)queryPlan).getPlanOrderingKey();
+        }
         if (queryPlan instanceof RecordQueryPlanWithIndex) {
             final RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex)queryPlan;
             final Index index = metaData.getIndex(indexPlan.getIndexName());

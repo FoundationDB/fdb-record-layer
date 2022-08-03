@@ -331,6 +331,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
+    private LuceneScanBounds specificFieldSearch(Index index, String search, String field) {
+        LuceneScanParameters scan = new LuceneScanQueryParameters(
+                ScanComparisons.EMPTY,
+                new LuceneQuerySearchClause(field, search, false));
+        return scan.bind(recordStore, index, EvaluationContext.EMPTY);
+    }
+
     private LuceneScanBounds groupedTextSearch(Index index, String search, Object group) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group)),
@@ -425,7 +432,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             LuceneContinuationProto.LuceneIndexContinuation continuation =  LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(1)
-                    .setScore(0.12324655F)
+                    .setScore(0.22025093F)
                     .setShard(0)
                     .build();
             assertIndexEntryPrimaryKeys(List.of(1625L, 1626L),
@@ -499,7 +506,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(151)
-                    .setScore(0.0011561684F)
+                    .setScore(0.0019084287F)
                     .setShard(0)
                     .build();
             assertEquals(48, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), continuation.toByteArray(), ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
@@ -975,7 +982,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void proximitySearchWithMultiWordSynonym() {
+    void proximitySearchOnMultiFieldWithMultiWordSynonym() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
 
@@ -983,6 +990,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello FoundationDB record layer", 1));
             assertIndexEntryPrimaryKeys(List.of(1623L),
                     recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"hello record\"~10"), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    @Test
+    void proximitySearchOnSpecificFieldWithMultiWordSynonym() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
+
+            // Both "hello" and "record" have multi-word synonyms
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello FoundationDB record layer", 1));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, specificFieldSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"hello record\"~10", "text"), null, ScanProperties.FORWARD_SCAN));
         }
     }
 

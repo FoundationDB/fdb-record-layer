@@ -20,71 +20,22 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
 /**
  * A mock implementation of a {@link PlanContext} used to test certain planner rules that don't need a full plan context.
  */
 public class FakePlanContext implements PlanContext {
-    private final Map<String, Index> indexes;
-
-    public FakePlanContext() {
-        indexes = new TreeMap<>();
-    }
-
     @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getPlannerConfiguration() {
         return RecordQueryPlannerConfiguration.builder().build();
-    }
-
-    @Nonnull
-    @Override
-    public Set<Index> getIndexes() {
-        return Sets.newHashSet(indexes.values());
-    }
-
-    @Nonnull
-    @Override
-    public Index getIndexByName(@Nonnull String name) {
-        return indexes.get(name);
-    }
-
-    @Nullable
-    @Override
-    public KeyExpression getCommonPrimaryKey() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int getGreatestPrimaryKeyWidth() {
-        return 0;
-    }
-
-    @Nonnull
-    @Override
-    public RecordMetaData getMetaData() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Nonnull
-    @Override
-    public Set<String> getRecordTypes() {
-        return Collections.emptySet();
     }
 
     @Nonnull

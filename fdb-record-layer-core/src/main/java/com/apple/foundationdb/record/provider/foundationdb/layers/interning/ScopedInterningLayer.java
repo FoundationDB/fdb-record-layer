@@ -119,12 +119,26 @@ public class ScopedInterningLayer extends LocatableResolver {
     }
 
     @Override
+    protected CompletableFuture<Optional<String>> readReverse(@Nonnull final FDBRecordContext context, final Long value) {
+        return interningLayerFuture.thenCompose(layer -> layer.readReverse(context, value));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param timer a timer to use to instrument this operation
+     * @param value the value returned by this resolver
+     * @return a future returning an optional set to the key associated with the given value or {@link Optional#empty()}
+     *     if there is no such value in the map
+     * @deprecated implementors should switch to using {@link #readReverse(FDBRecordContext, Long)} instead
+     */
+    @Deprecated
+    @Override
     @SuppressWarnings("PMD.CloseResource")
     protected CompletableFuture<Optional<String>> readReverse(FDBStoreTimer timer, Long value) {
         FDBRecordContext context = database.openContext();
         context.setTimer(timer);
-        return interningLayerFuture
-                .thenCompose(layer -> layer.readReverse(context, value))
+        return readReverse(context, value)
                 .whenComplete((ignored, th) -> context.close());
     }
 

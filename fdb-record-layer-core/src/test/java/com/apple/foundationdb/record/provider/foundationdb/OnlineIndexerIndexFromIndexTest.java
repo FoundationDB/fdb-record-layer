@@ -272,7 +272,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
 
             IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("source index is not readable"));
+            assertTrue(e.getMessage().contains("source index is not scannable"));
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));

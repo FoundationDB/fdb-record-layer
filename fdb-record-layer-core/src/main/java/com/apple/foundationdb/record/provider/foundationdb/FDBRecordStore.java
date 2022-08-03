@@ -89,6 +89,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
@@ -189,8 +190,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // 8 - add custom fields to store header
     public static final int HEADER_USER_FIELDS_FORMAT_VERSION = 8;
 
+    public static final int READABLE_UNIQUE_PENDING_FORMAT_VERSION = 9;
+
     // The current code can read and write up to the format version below
-    public static final int MAX_SUPPORTED_FORMAT_VERSION = HEADER_USER_FIELDS_FORMAT_VERSION;
+    public static final int MAX_SUPPORTED_FORMAT_VERSION = READABLE_UNIQUE_PENDING_FORMAT_VERSION;
 
     // By default, record stores attempt to upgrade to this version
     // NOTE: Updating this can break certain users during upgrades.
@@ -1209,7 +1212,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanBounds scanBounds,
                                               @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
-        if (!isIndexReadable(index)) {
+        if (!isIndexScannable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
@@ -1239,7 +1242,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                                  @Nonnull RecordSerializer<M> typedSerializer,
                                                                                                  @Nonnull final ScanProperties scanProperties,
                                                                                                  @Nonnull final IndexOrphanBehavior orphanBehavior) {
-        if (!isIndexReadable(index)) {
+        if (!isIndexScannable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
@@ -1328,7 +1331,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param recordSubspace the subspace for the record to allow the record keys to be identified from the splits
      * @param sizeInfo Size Info to collect metrics
      * @param mappedResult the record splits, packed into a KeyValueAndMappedReqAndResult
-     * @param scanProperties the scam properties to use
      * @param oldVersionFormat whether to use the old version record format when reading the records
      * @return an instance of {@link FDBRawRecord} reconstructed from the given record splits, null if no record entries found
      */
@@ -1886,6 +1888,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return planner.plan(query, parameterRelationshipGraph);
     }
 
+    @Override
+    @Nonnull
+    public RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
+                                     @Nonnull RecordQueryPlannerConfiguration plannerConfiguration) {
+        final RecordQueryPlanner planner = new RecordQueryPlanner(getRecordMetaData(), getRecordStoreState());
+        planner.setConfiguration(plannerConfiguration);
+        return planner.plan(query, parameterRelationshipGraph);
+    }
+
     /**
      * Utility method to be used to specify that new indexes should be {@link IndexState#WRITE_ONLY}
      * if an index is not on new record types and there are too many records to build in-line. This method
@@ -2011,7 +2022,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }).thenCompose(this::removeReplacedIndexesIfChanged);
     }
 
-    @SuppressWarnings("java:S3776")
+    @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker,
                                                      @Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader,
                                                      @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info, @Nonnull boolean[] dirty) {
@@ -2731,6 +2742,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     @SuppressWarnings("PMD.CloseResource")
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("index state change",
+                    LogMessageKeys.INDEX_NAME, indexName,
+                    LogMessageKeys.TARGET_INDEX_STATE, indexState.name()
+            ));
+        }
         if (recordStoreStateRef.get() == null) {
             throw uninitializedStoreException("cannot update index state on an uninitialized store");
         }
@@ -2938,6 +2955,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Marks an index as readable, but if uniqueness violations are found - mark the index
+     * as unique pending instead of throwing a {@link RecordIndexUniquenessViolation} exception.
+     *
+     * @param index the index to mark readable
+     * @return a future that will either complete exceptionally if the index can not
+     * be made readable/unique-pending or will contain <code>true</code> if the store was modified
+     * and <code>false</code> otherwise
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexReadableOrUniquePending(@Nonnull Index index) {
+        return markIndexReadable(index, true);
+    }
+
+    /**
      * Marks an index as readable. See the version of
      * {@link #markIndexReadable(String) markIndexReadable()}
      * that takes a {@link String} as a parameter for more details.
@@ -2950,6 +2981,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Boolean> markIndexReadable(@Nonnull Index index) {
+        return markIndexReadable(index, false);
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> markIndexReadable(@Nonnull Index index, boolean allowUniquePending) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexReadable(index));
         }
@@ -2959,37 +2995,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         beginRecordStoreStateWrite();
         boolean haveFuture = false;
         try {
+            @SuppressWarnings("PMD.CloseResource")
             Transaction tr = ensureContextActive();
             byte[] indexKey = indexStateSubspace().pack(index.getName());
             CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
                 if (previous != null) {
-                    CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
-                    CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
-                            .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
-                    return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
-                        Optional<Range> firstUnbuilt = context.join(builtFuture);
-                        Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
-
-                        if (firstUnbuilt.isPresent()) {
-                            throw new IndexNotBuiltException("Attempted to make unbuilt index readable" , firstUnbuilt.get(),
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
-                                    "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context),
-                                    LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
-                        } else if (uniquenessViolation.isPresent()) {
-                            RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
-                                                                                                        uniquenessViolation.get());
-                            wrapped.addLogInfo(
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                            throw wrapped;
-                        } else {
-                            updateIndexState(index.getName(), indexKey, IndexState.READABLE);
-                            clearReadableIndexBuildData(tr, index);
-                            return true;
-                        }
-                    });
+                    return checkAndUpdateBuiltIndexState(index, indexKey, allowUniquePending);
                 } else {
                     return AsyncUtil.READY_FALSE;
                 }
@@ -3021,6 +3032,46 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<Boolean> markIndexReadable(@Nonnull String indexName) {
         return markIndexReadable(getRecordMetaData().getIndex(indexName));
+    }
+
+    private CompletableFuture<Boolean> checkAndUpdateBuiltIndexState(Index index, byte[] indexKey, boolean allowUniquePending) {
+        // An extension function to reduce markIndexReadable's complexity
+        CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
+        CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
+                .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
+        return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
+            Optional<Range> firstUnbuilt = context.join(builtFuture);
+            Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
+
+            if (firstUnbuilt.isPresent()) {
+                throw new IndexNotBuiltException("Attempted to make unbuilt index readable" , firstUnbuilt.get(),
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
+                        "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
+                        subspaceProvider.logKey(), subspaceProvider.toString(context),
+                        LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
+            } else if (uniquenessViolation.isPresent()) {
+                if (allowUniquePending) {
+                    if (isIndexReadableUniquePending(index)) {
+                        return false;   // Unchanged
+                    }
+                    updateIndexState(index.getName(), indexKey, IndexState.READABLE_UNIQUE_PENDING);
+                    // Keeping the index build data until the uniqueness violations are resolved. The build data will be
+                    // cleared only at READABLE state.
+                    return true;
+                }
+                RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
+                        uniquenessViolation.get());
+                wrapped.addLogInfo(
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        subspaceProvider.logKey(), subspaceProvider.toString(context));
+                throw wrapped;
+            } else {
+                updateIndexState(index.getName(), indexKey, IndexState.READABLE);
+                clearReadableIndexBuildData(ensureContextActive(), index);
+                return true;
+            }
+        });
     }
 
     private void logExceptionAsWarn(KeyValueLogMessage message, Throwable exception) {
@@ -3298,6 +3349,68 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Determine if the index is readable-unique-pending for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     * The readable-unique-pending index state may happen after a unique index is built, but duplications are
+     * found. The index will be maintained in this mode until the last duplication is resolved, then its state
+     * will be changed to READABLE.
+     *
+     * @param index the index to check for readability
+     * @return <code>true</code> if the index is readable-unique-pending and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the same name as this index
+     */
+    public boolean isIndexReadableUniquePending(@Nonnull Index index) {
+        return isIndexReadableUniquePending(index.getName());
+    }
+
+    /**
+     * Determine if the index with the given name is readable-unique-pending for this record store.
+     * This method will not perform any queries to the underlying database and instead
+     * satisfies the answer based on the in-memory cache of store state.
+     * The readable-unique-pending index state may happen after a unique index is built, but duplications are
+     * found. The index will be maintained in this mode until the last duplication is resolved, then its state
+     * will be changed to READABLE.
+     *
+     * @param indexName the name of the index to check for readability
+     * @return <code>true</code> if the named index is readable-unique-pending and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
+    public boolean isIndexReadableUniquePending(@Nonnull String indexName) {
+        return getIndexState(indexName).equals(IndexState.READABLE_UNIQUE_PENDING);
+    }
+
+    /**
+     * Determine if the index with the given name is scannable - i.e. either {@link #isIndexReadable(Index)} or
+     * {@link #isIndexReadableUniquePending(Index)} for this record store.
+     * This method will not perform any queries to the underlying database and instead
+     * satisfies the answer based on the in-memory cache of store state.
+     *
+     * @param index the index to check
+     * @return <code>true</code> if the named index is scannable and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
+    public boolean isIndexScannable(@Nonnull Index index) {
+        return isIndexScannable(index.getName());
+    }
+
+    /**
+     * Determine if the index with the given name is scannable - i.e. either {@link #isIndexReadable(String)} or
+     * {@link #isIndexReadableUniquePending(String)} for this record store.
+     * This method will not perform any queries to the underlying database and instead
+     * satisfies the answer based on the in-memory cache of store state.
+     *
+     * @param indexName the name of the index to check
+     * @return <code>true</code> if the named index is scannable and <code>false</code> otherwise
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
+    public boolean isIndexScannable(@Nonnull String indexName) {
+        return getIndexState(indexName).isScannable();
+    }
+
+    /**
      * Determine if the index is write-only for this record store. This method will not perform
      * any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
@@ -3519,7 +3632,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Reason that an index is being rebuilt now.
      */
     public enum RebuildIndexReason {
-        NEW_STORE, FEW_RECORDS, COUNTS_UNKNOWN, REBUILD_ALL, EXPLICIT, TEST
+        NEW_STORE(FDBStoreTimer.Events.REBUILD_INDEX_NEW_STORE),
+        FEW_RECORDS(FDBStoreTimer.Events.REBUILD_INDEX_FEW_RECORDS),
+        COUNTS_UNKNOWN(FDBStoreTimer.Events.REBUILD_INDEX_COUNTS_UNKNOWN),
+        REBUILD_ALL(FDBStoreTimer.Events.REBUILD_INDEX_REBUILD_ALL),
+        EXPLICIT(FDBStoreTimer.Events.REBUILD_INDEX_EXPLICIT),
+        TEST(FDBStoreTimer.Events.REBUILD_INDEX_TEST);
+
+        public final FDBStoreTimer.Events event;
+
+        RebuildIndexReason(FDBStoreTimer.Events event) {
+            this.event = event;
+        }
     }
 
     private boolean areAllRecordTypesSince(@Nullable Collection<RecordType> recordTypes, @Nullable Integer oldMetaDataVersion) {
@@ -3637,7 +3761,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     return null;
                 });
 
-        return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX, future, startTime);
+        return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX,
+                context.instrument(reason.event, future, startTime),
+                startTime);
     }
 
     @SuppressWarnings("PMD.GuardLogStatement") // Already is, but around several call.

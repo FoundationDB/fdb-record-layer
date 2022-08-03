@@ -170,7 +170,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
-            final var matchCandidateOptional = indexPlan.getMatchCandidateOptional();
+            final var matchCandidateOptional = indexPlan.getMatchCandidateMaybe();
             if (matchCandidateOptional.isEmpty()) {
                 return false;
             }

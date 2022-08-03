@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -62,7 +63,7 @@ import java.util.function.Function;
  * A query plan that reconstructs records from the entries in a covering index.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildren {
+public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Covering-Index-Plan");
 
     @Nonnull
@@ -163,6 +164,12 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
+    public Optional<? extends MatchCandidate> getMatchCandidateMaybe() {
+        return indexPlan.getMatchCandidateMaybe();
+    }
+
+    @Nonnull
+    @Override
     public AvailableFields getAvailableFields() {
         return availableFields;
     }
@@ -208,7 +215,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
                                                  @Nonnull CorrelationIdentifier baseAlias) {
-        return indexPlan.getMatchCandidateOptional()
+        return indexPlan.getMatchCandidateMaybe()
                 .flatMap(matchCandidate -> matchCandidate instanceof ScanWithFetchMatchCandidate ? Optional.of((ScanWithFetchMatchCandidate)matchCandidate) : Optional.empty())
                 .flatMap(scanWithFetchMatchCandidate -> scanWithFetchMatchCandidate.pushValueThroughFetch(value, baseAlias));
     }

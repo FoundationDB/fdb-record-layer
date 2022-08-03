@@ -22,26 +22,23 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
+import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
@@ -51,7 +48,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A property visitor that determines the set of record type names (as Strings) that a {@link RelationalExpression}
@@ -61,13 +57,9 @@ import java.util.stream.Collectors;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RecordTypesProperty implements ExpressionProperty<Set<String>>, RelationalExpressionVisitorWithDefaults<Set<String>> {
     @Nonnull
-    private final PlanContext context;
-    @Nonnull
     private final Optional<AliasResolver> aliasResolverOptional;
 
-    private RecordTypesProperty(@Nonnull PlanContext context,
-                                @Nonnull Optional<AliasResolver> aliasResolverOptional) {
-        this.context = context;
+    private RecordTypesProperty(@Nonnull Optional<AliasResolver> aliasResolverOptional) {
         this.aliasResolverOptional = aliasResolverOptional;
     }
 
@@ -77,20 +69,17 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
         // shouldVisit() ensures that we only visit relational planner expressions
         // If we mess this up, better to find out sooner rather than later.
 
-        if (expression instanceof RecordQueryScanPlan ||
-                expression instanceof FullUnorderedScanExpression) {
-            return context.getMetaData().getRecordTypes().keySet();
-        } else if (expression instanceof RecordQueryPlanWithIndex) {
-            Index index = context.getIndexByName(((RecordQueryPlanWithIndex)expression).getIndexName());
-            return context.getMetaData().recordTypesForIndex(index).stream()
-                    .map(RecordType::getName).collect(Collectors.toSet());
+        if (expression instanceof RecordQueryScanPlan) {
+            final var recordTypesFromExpression = ((RecordQueryScanPlan)expression).getRecordTypes();
+            return recordTypesFromExpression == null ? ImmutableSet.of() : recordTypesFromExpression;
+        } else if (expression instanceof FullUnorderedScanExpression) {
+            return ((FullUnorderedScanExpression)expression).getRecordTypes();
+        } else if (expression instanceof RecordQueryIndexPlan) {
+            return ((RecordQueryIndexPlan)expression).getMatchCandidateMaybe()
+                    .map(WithPrimaryKeyMatchCandidate::getQueriedRecordTypeNames)
+                    .orElse(ImmutableSet.of());
         } else if (expression instanceof TypeFilterExpression) {
             return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);
-        } else if (expression instanceof IndexScanExpression) {
-            final String indexName = ((IndexScanExpression)expression).getIndexName();
-            Index index = context.getIndexByName(indexName);
-            return context.getMetaData().recordTypesForIndex(index).stream()
-                    .map(RecordType::getName).collect(Collectors.toSet());
         } else if (expression instanceof PrimaryScanExpression) {
             return ((PrimaryScanExpression)expression).getRecordTypes();
         } else if (childResults.isEmpty()) {
@@ -157,22 +146,19 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context,
-                                       @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, Optional.empty())));
+    public static Set<String> evaluate(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(Optional.empty())));
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context,
-                                       @Nonnull AliasResolver aliasResolver,
+    public static Set<String> evaluate(@Nonnull AliasResolver aliasResolver,
                                        @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, Optional.of(aliasResolver))));
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(Optional.of(aliasResolver))));
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context,
-                                       @Nonnull AliasResolver aliasResolver,
+    public static Set<String> evaluate(@Nonnull AliasResolver aliasResolver,
                                        @Nonnull RelationalExpression ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, Optional.of(aliasResolver))));
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(Optional.of(aliasResolver))));
     }
 }

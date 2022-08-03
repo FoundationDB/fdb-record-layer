@@ -199,7 +199,7 @@ public class FDBReverseDirectoryCache {
      */
     @Nonnull
     public CompletableFuture<Optional<String>> get(@Nonnull final ScopedValue<Long> scopedReverseDirectoryKey) {
-        return get(null, scopedReverseDirectoryKey);
+        return get((FDBStoreTimer)null, scopedReverseDirectoryKey);
     }
 
     /**
@@ -217,12 +217,16 @@ public class FDBReverseDirectoryCache {
     @Nonnull
     @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Don't realize that the context is closed in the returned future
     public CompletableFuture<Optional<String>> get(@Nullable FDBStoreTimer timer, @Nonnull final ScopedValue<Long> scopedReverseDirectoryKey) {
-        FDBRecordContext context = fdb.openContext();
-        context.setTimer(timer);
+        FDBRecordContext context = fdb.openContext(null, timer);
+        return get(context, scopedReverseDirectoryKey)
+                .whenComplete((result, exception) -> context.close());
+    }
+
+    @Nonnull
+    public CompletableFuture<Optional<String>> get(@Nonnull FDBRecordContext context, @Nonnull final ScopedValue<Long> scopedReverseDirectoryKey) {
         CompletableFuture<Subspace> reverseCacheSubspaceFuture = getReverseCacheSubspace(scopedReverseDirectoryKey.getScope());
         return reverseCacheSubspaceFuture
-                .thenCompose(subspace -> getFromSubspace(context, subspace, scopedReverseDirectoryKey))
-                .whenComplete((result, exception) -> context.close());
+                .thenCompose(subspace -> getFromSubspace(context, subspace, scopedReverseDirectoryKey));
     }
 
     /**
@@ -250,7 +254,6 @@ public class FDBReverseDirectoryCache {
                 }
                 persistentCacheHitCount.incrementAndGet();
                 logStatsToStoreTimer(context, FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT);
-                context.close();
                 return Optional.of(dirString);
             }
             persistentCacheMissCount.incrementAndGet();

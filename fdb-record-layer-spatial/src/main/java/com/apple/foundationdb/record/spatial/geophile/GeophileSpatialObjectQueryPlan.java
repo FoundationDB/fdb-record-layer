@@ -125,7 +125,7 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
 
     @Nonnull
     @Override
-    public Optional<? extends MatchCandidate> getMatchCandidateOptional() {
+    public Optional<? extends MatchCandidate> getMatchCandidateMaybe() {
         return Optional.empty();
     }
 

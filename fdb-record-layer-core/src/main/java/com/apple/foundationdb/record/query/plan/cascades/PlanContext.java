@@ -21,13 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Set;
 
 /**
@@ -40,23 +36,6 @@ public interface PlanContext {
 
     @Nonnull
     RecordQueryPlannerConfiguration getPlannerConfiguration();
-
-    @Nonnull
-    Set<String> getRecordTypes();
-
-    @Nonnull
-    Set<Index> getIndexes();
-
-    @Nonnull
-    Index getIndexByName(@Nonnull String name);
-
-    @Nullable
-    KeyExpression getCommonPrimaryKey();
-
-    int getGreatestPrimaryKeyWidth();
-
-    @Nonnull
-    RecordMetaData getMetaData();
 
     @Nonnull
     Set<MatchCandidate> getMatchCandidates();

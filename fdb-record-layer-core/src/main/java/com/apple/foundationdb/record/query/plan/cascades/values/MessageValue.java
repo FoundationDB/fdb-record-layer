@@ -78,6 +78,14 @@ public class MessageValue {
         return getFieldOnMessage(message, field);
     }
 
+    /**
+     * Get the value of the field with the given field name on the given message.
+     * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
+     * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
+     * @param message a message or builder to extract the field from
+     * @param fieldNumber the field number to extract
+     * @return the value of the field as described above
+     */
     @Nullable
     public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, int fieldNumber) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldNumber);

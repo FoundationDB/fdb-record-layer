@@ -124,6 +124,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenNestedRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).join();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX_FEW_RECORDS), "should build new index");
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX), "should build new index");
             commit(context);
         }
@@ -188,6 +189,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).join();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX_FEW_RECORDS), "should build new index");
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX), "should build new index");
             commit(context);
         }

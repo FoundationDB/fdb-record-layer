@@ -22,12 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 
 import javax.annotation.Nonnull;
 
@@ -52,8 +52,10 @@ public class ImplementPhysicalScanRule extends PlannerRule<PrimaryScanExpression
         call.yield(call.ref(new RecordQueryScanPlan(
                 logical.getRecordTypes(),
                 logical.getResultValue().getResultType().narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
-                call.getContext().getCommonPrimaryKey(),
+                logical.getPrimaryKey(),
                 logical.scanComparisons(),
-                logical.isReverse())));
+                logical.isReverse(),
+                false,
+                logical.getMatchCandidate())));
     }
 }

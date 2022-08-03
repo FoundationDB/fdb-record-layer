@@ -133,15 +133,35 @@ public class FDBDirectory extends Directory {
     private final boolean compressionEnabled;
     private final boolean encryptionEnabled;
 
+    // The shared cache is initialized when first listing the directory, if a manager is present, and cleared before writing.
+    @Nullable
+    private final FDBDirectorySharedCacheManager sharedCacheManager;
+    @Nullable
+    private final Tuple sharedCacheKey;
+    @Nullable
+    private FDBDirectorySharedCache sharedCache;
+    // True if sharedCacheManager is present until sharedCache has been set (or not).
+    private boolean sharedCachePending;
+
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
-        this(subspace, context, NoLockFactory.INSTANCE);
+        this(subspace, context, null, null);
     }
 
-    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory) {
-        this(subspace, context, lockFactory, DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL);
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+                        @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey) {
+        this(subspace, context, sharedCacheManager, sharedCacheKey, NoLockFactory.INSTANCE);
     }
 
-    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory,
+    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+                 @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
+                 @Nonnull LockFactory lockFactory) {
+        this(subspace, context, sharedCacheManager, sharedCacheKey, lockFactory,
+                DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL);
+    }
+
+    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+                 @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
+                 @Nonnull LockFactory lockFactory,
                  int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel) {
         Verify.verify(subspace != null);
         Verify.verify(context != null);
@@ -165,6 +185,9 @@ public class FDBDirectory extends Directory {
         this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
         this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
+        this.sharedCacheManager = sharedCacheManager;
+        this.sharedCacheKey = sharedCacheKey;
+        this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
     }
 
     private long deserializeFileSequenceCounter(@Nullable byte[] value) {
@@ -197,6 +220,10 @@ public class FDBDirectory extends Directory {
      * @return current increment value
      */
     public long getIncrement() {
+        // Stop using any shared cache.
+        sharedCachePending = false;
+        sharedCache = null;
+
         context.increment(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS);
 
         // Make sure the file counter is loaded from the database into the fileSequenceCounter, then
@@ -362,14 +389,30 @@ public class FDBDirectory extends Directory {
             exceptionalFuture.completeExceptionally(new RecordCoreArgumentException(String.format("No reference with name %s was found", resourceDescription)));
             return exceptionalFuture;
         }
-        Long id = reference.getId();
+        final long id = reference.getId();
+        return context.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(Pair.of(id, block), ignore -> {
+                    if (sharedCache == null) {
+                        return readData(id, block);
+                    }
+                    final byte[] fromShared = sharedCache.getBlockIfPresent(id, block);
+                    if (fromShared != null) {
+                        context.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_HITS);
+                        return CompletableFuture.completedFuture(fromShared);
+                    } else {
+                        context.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_MISSES);
+                        return readData(id, block).thenApply(data -> {
+                            sharedCache.putBlockIfAbsent(id, block, data);
+                            return data;
+                        });
+                    }
+                }
+        ));
+    }
 
-        long start = System.nanoTime();
-        return context.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(Pair.of(id, block),
-                ignore -> context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
-                        context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
-                                .thenApply(LuceneSerializer::decode))
-        ), start);
+    private CompletableFuture<byte[]> readData(long id, int block) {
+        return context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
+                context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
+                        .thenApply(LuceneSerializer::decode));
     }
 
     /**
@@ -402,7 +445,7 @@ public class FDBDirectory extends Directory {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
             // Only composite files are prefetched.
-            if (name.endsWith(".cfs")) {
+            if (name.endsWith(".cfs") || name.startsWith("segments_")) {
                 try {
                     readBlock(name, fileReference, 0);
                 } catch (RecordCoreException e) {
@@ -439,10 +482,34 @@ public class FDBDirectory extends Directory {
 
     @Nonnull
     private CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
+        if (fileReferenceCache.get() != null) {
+            return CompletableFuture.completedFuture(fileReferenceCache.get());
+        }
+        if (sharedCachePending) {
+            return loadFileSequenceCounter().thenCompose(vignore -> {
+                sharedCache = sharedCacheManager.getCache(sharedCacheKey, fileSequenceCounter.get());
+                if (sharedCache == null) {
+                    sharedCachePending = false;
+                    return getFileReferenceCacheAsync();
+                }
+                Map<String, FDBLuceneFileReference> fromShared = sharedCache.getFileReferencesIfPresent();
+                if (fromShared != null) {
+                    ConcurrentSkipListMap<String, FDBLuceneFileReference> copy = new ConcurrentSkipListMap<>(fromShared);
+                    fileReferenceCache.compareAndSet(null, copy);
+                    sharedCachePending = false;
+                    return CompletableFuture.completedFuture(fromShared);
+                }
+                return fileReferenceMapSupplier.get().thenApply(ignore -> {
+                    final ConcurrentSkipListMap<String, FDBLuceneFileReference> fromSupplier = fileReferenceCache.get();
+                    sharedCache.setFileReferencesIfAbsent(fromSupplier);
+                    sharedCachePending = false;
+                    return fromSupplier;
+                });
+            });
+        }
         // Call the supplier to make sure the file reference cache has been loaded into fileReferenceCache, then
         // always return the value that has been memoized in this class
-        return fileReferenceMapSupplier.get()
-                .thenApply(ignore -> fileReferenceCache.get());
+        return fileReferenceMapSupplier.get().thenApply(ignore -> fileReferenceCache.get());
     }
 
     @Nonnull

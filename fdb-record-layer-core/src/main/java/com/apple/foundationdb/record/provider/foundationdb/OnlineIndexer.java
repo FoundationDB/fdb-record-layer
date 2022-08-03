@@ -66,6 +66,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
+import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.READABLE_UNIQUE_PENDING_FORMAT_VERSION;
 
 /**
  * Builds an index online, i.e., concurrently with other database operations. In order to minimize
@@ -1982,6 +1983,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final DesiredAction ifWriteOnly;
         private final DesiredAction ifMismatchPrevious;
         private final DesiredAction ifReadable;
+        private final boolean allowUniquePendingState;
 
         /**
          * Possible actions when an index is already partially built.
@@ -1990,6 +1992,7 @@ public class OnlineIndexer implements AutoCloseable {
             ERROR,
             REBUILD,
             CONTINUE,
+            MARK_READABLE,
         }
 
         /**
@@ -2001,9 +2004,12 @@ public class OnlineIndexer implements AutoCloseable {
          * @param ifWriteOnly desired action if the existing index state is WRITE_ONLY (i.e. partly built)
          * @param ifMismatchPrevious desired action if the index is partly built, but by a different method then currently requested
          * @param ifReadable desired action if the existing index state is READABLE (i.e. already built)
+         * @param allowUniquePendingState if false, forbid {@link IndexState#READABLE_UNIQUE_PENDING} state.
          */
+        @SuppressWarnings("squid:S00107") // too many parameters
         public IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
-                              DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable) {
+                              DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
+                              boolean allowUniquePendingState) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -2011,6 +2017,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.ifWriteOnly = ifWriteOnly;
             this.ifMismatchPrevious = ifMismatchPrevious;
             this.ifReadable = ifReadable;
+            this.allowUniquePendingState = allowUniquePendingState;
         }
 
         /**
@@ -2110,8 +2117,18 @@ public class OnlineIndexer implements AutoCloseable {
                 case DISABLED:      return getIfDisabled();
                 case WRITE_ONLY:    return getIfWriteOnly();
                 case READABLE:      return getIfReadable();
-                default: throw new RecordCoreException("bad index state: ", state);
+                case READABLE_UNIQUE_PENDING: return DesiredAction.MARK_READABLE;
+                default: throw new RecordCoreException("bad index state: " + state.toString());
             }
+        }
+
+        /**
+         * If true, mark readable (after indexing) should allow the {@link IndexState#READABLE_UNIQUE_PENDING} index state.
+         * @param store the relevant store - used to check if matching format-version.
+         * @return true if allowed
+         */
+        public boolean shouldAllowUniquePendingState(FDBRecordStore store) {
+            return allowUniquePendingState && store.formatVersion >= READABLE_UNIQUE_PENDING_FORMAT_VERSION;
         }
 
         /**
@@ -2136,6 +2153,7 @@ public class OnlineIndexer implements AutoCloseable {
             private DesiredAction ifWriteOnly = DesiredAction.CONTINUE;
             private DesiredAction ifMismatchPrevious = DesiredAction.CONTINUE;
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
+            private boolean doAllowUniqueuPendingState = false;
 
             protected Builder() {
             }
@@ -2236,9 +2254,34 @@ public class OnlineIndexer implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * Call {@link #allowUniquePendingState(boolean)} with default true.
+             * @return this builder
+             */
+            public Builder allowUniquePendingState() {
+                return this.allowUniquePendingState(true);
+            }
+
+            /**
+             * After indexing a unique index, if requested to mark the index as readable ({@link #buildIndex() }), but
+             * the index contain duplicates, this function will determine the next behavior:
+             *    allow=true: mark the index as {@link IndexState#READABLE_UNIQUE_PENDING}.
+             *    allow=false (default, backward compatible): throw  an exception. Note that if multiple indexes
+             *                have duplications, the exception will only refer to an arbitrary one. Other target indexes (if
+             *                indexed successfully) will be marked as readable.
+             *    This state might not be compatible with older code. Please verify that all instances are up-to-date before allowing it.
+             * @param allow allow a {@link IndexState#READABLE_UNIQUE_PENDING} index states.
+             * @return this builder
+             */
+            public Builder allowUniquePendingState(boolean allow) {
+                this.doAllowUniqueuPendingState = allow;
+                return this;
+            }
+
             public IndexingPolicy build() {
                 return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan,
-                        ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable);
+                        ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
+                        doAllowUniqueuPendingState);
             }
         }
     }

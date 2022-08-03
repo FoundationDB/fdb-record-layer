@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.ScanProperties;
@@ -60,7 +61,7 @@ import java.util.stream.Collectors;
  * that is rooted at some location in the FDB key space. Resolvers that are located at different positions will allocate
  * String to Long mappings independently. Subclasses of <code>LocatableResolver</code> are responsible for implementing
  * {@link #create(FDBRecordContext, String)}, {@link #read(FDBRecordContext, String)}
- * and {@link #readReverse(FDBStoreTimer, Long)} operations. See {@link ScopedDirectoryLayer}
+ * and {@link #readReverse(FDBRecordContext, Long)} operations. See {@link ScopedDirectoryLayer}
  * for an implementation that leverages the FDB directory layer.
  *
  * When initializing, a <code>defaultWriteSafetyCheck</code> can be specified that will be evaluated on writes to determine
@@ -404,6 +405,7 @@ public abstract class LocatableResolver {
      * @throws NoSuchElementException if the value is not found
      */
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<String> reverseLookup(@Nullable FDBStoreTimer timer, @Nonnull Long value) {
         Cache<ScopedValue<Long>, String> inMemoryReverseCache = database.getReverseDirectoryInMemoryCache();
         String cachedValue = inMemoryReverseCache.getIfPresent(wrap(value));
@@ -411,12 +413,53 @@ public abstract class LocatableResolver {
             return CompletableFuture.completedFuture(cachedValue);
         }
 
-        return readReverse(timer, value)
-                .thenApply(maybeRead ->
-                        maybeRead.map(read -> {
-                            inMemoryReverseCache.put(wrap(value), read);
-                            return read;
-                        }).orElseThrow(() -> new NoSuchElementException("reverse lookup of " + wrap(value))));
+        FDBRecordContext context = database.openContext(null, timer);
+        return reverseLookupFromDatabase(context, value)
+                .whenComplete((vignore, eignore) -> context.close());
+    }
+
+    /**
+     * Lookup the String that maps to the provided value within the scope of the path that this object was constructed with.
+     * This will base child transactions needed to access the database on the provided {@code parentContext}, including
+     * borrowing an initial {@linkplain FDBRecordContext#getReadVersion() read version} to avoid needing to pay the
+     * cost of initializing a new transaction with every reverse lookup.
+     *
+     * @param parentContext the {@link FDBRecordContext} used to base possible child transactions on
+     * @param value the value of the mapping to lookup
+     * @return a future for the name that maps to this value
+     * @throws NoSuchElementException if the value is not found
+     */
+    @Nonnull
+    public CompletableFuture<String> reverseLookup(@Nonnull FDBRecordContext parentContext, @Nonnull Long value) {
+        Cache<ScopedValue<Long>, String> inMemoryReverseCache = database.getReverseDirectoryInMemoryCache();
+        String cachedValue = inMemoryReverseCache.getIfPresent(wrap(value));
+        if (cachedValue != null) {
+            return CompletableFuture.completedFuture(cachedValue);
+        }
+
+        return reverseLookupFromDatabase(parentContext, value);
+    }
+
+    private CompletableFuture<String> reverseLookupFromDatabase(@Nonnull FDBRecordContext parentContext, @Nonnull Long value) {
+        AtomicBoolean maybeStale = new AtomicBoolean(true);
+        return runAsyncBorrowingReadVersion(parentContext, childContext -> readReverse(childContext, value).thenApply(maybeRead -> {
+            if (maybeStale.get()) {
+                maybeStale.set(false);
+                if (maybeRead.isEmpty()) {
+                    // Because we are borrowing the read version from the parent transaction, the reverse
+                    // directory entry may return empty() because it is based off of an older read version,
+                    // and there may actually be a key associated with this value that was added after the
+                    // parentContext was created. To handle that case, remap a empty() value on the first
+                    // execution of the retry loop to a retriable error so that this tries again with a
+                    // more up-to-date read version
+                    throw new RecordCoreRetriableTransactionException("reverse lookup failed on potentially stale read");
+                }
+            }
+            return maybeRead;
+        })).thenApply(maybeRead -> maybeRead.map(read -> {
+            parentContext.getDatabase().getReverseDirectoryInMemoryCache().put(wrap(value), read);
+            return read;
+        }).orElseThrow(() -> new NoSuchElementException("reverse lookup of " + wrap(value))));
     }
 
     private CompletableFuture<ResolverResult> resolveWithCache(@Nonnull FDBRecordContext context,
@@ -448,6 +491,7 @@ public abstract class LocatableResolver {
                         .orElseGet(() -> createIfNotLocked(context, name, hooks)));
     }
 
+    @SuppressWarnings("squid:S1066") // do not collapse if statements with LOGGER statements
     private CompletableFuture<ResolverResult> createIfNotLocked(@Nonnull FDBRecordContext context,
                                                                 @Nonnull String key,
                                                                 @Nonnull final ResolverCreateHooks hooks) {
@@ -701,10 +745,33 @@ public abstract class LocatableResolver {
         return create(context, key, null);
     }
 
-    protected CompletableFuture<Optional<String>> readReverse(@Nonnull FDBRecordContext parentContext, Long value) {
-        return readReverse(parentContext.getTimer(), value);
+    /**
+     * Resolve the key associated with a given value saved in this locatable resolver. Implementors should
+     * implement this to support {@link #reverseLookup(FDBStoreTimer, Long)}.
+     *
+     * @param context the transaction to perform the reverse lookup in
+     * @param value the value returned by this resolver
+     * @return a future returning an optional set to the key associated with the given value or {@link Optional#empty()}
+     *     if there is no such value in the map
+     * @see #reverseLookup(FDBStoreTimer, Long)
+     * @see #reverseLookup(FDBRecordContext, Long)
+     */
+    @SuppressWarnings("squid:S1874") // old deprecated code used as default implementation until removed
+    protected CompletableFuture<Optional<String>> readReverse(@Nonnull FDBRecordContext context, Long value) {
+        return readReverse(context.getTimer(), value);
     }
 
+    /**
+     * Resolve the key associated with a given value saved in this locatable resolver. Implementors should switch
+     * to implementing the {@link #readReverse(FDBRecordContext, Long)} overload that takes a transaction.
+     *
+     * @param timer a timer to use to instrument this operation
+     * @param value the value returned by this resolver
+     * @return a future returning an optional set to the key associated with the given value or {@link Optional#empty()}
+     *     if there is no such value in the map
+     * @deprecated implementors should switch to using {@link #readReverse(FDBRecordContext, Long)} instead
+     */
+    @Deprecated
     protected abstract CompletableFuture<Optional<String>> readReverse(FDBStoreTimer timer, Long value);
 
     protected abstract CompletableFuture<Void> updateMetadata(FDBRecordContext context, String key, byte[] metadata);

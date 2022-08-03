@@ -1037,6 +1037,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
                 assertFalse(result.isRebuilt());
             }
             assertEquals(1, metrics.getCount(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED));
+            assertEquals(rebuild ? 1 : 0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX_EXPLICIT));
             assertEquals(rebuild ? 1 : 0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
 
             // NOTE: no commit.
@@ -1069,6 +1070,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(true, 10100);
             assertTrue(result.isChanged());
             assertTrue(result.isRebuilt());
+            assertEquals(1, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX_EXPLICIT));
             assertEquals(1, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
 
             context.commit();

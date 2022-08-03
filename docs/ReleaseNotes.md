@@ -1,3 +1,4 @@
+
 # Release Notes
 
 This document contains a log of changes to the FoundationDB Record Layer. It aims to include mostly user-visible changes or improvements. Within each minor release, larger or more involved changes are highlighted first before detailing the changes that were included in each build or patch version. Users should especially take note of any breaking changes or special upgrade instructions which should always be included as a preface to the minor version as a whole before looking at changes at a version-by-version level.
@@ -9,6 +10,13 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 ### Features
 
 This version of the Record Layer allows the FDB API version to be configured through the `FDBDatabaseFactory`. This means that while this version allows the client to be configured to use 7.1 features, it also supports connecting to 6.3 FDB clusters if the API version is set appropriately. Note that setting the API version does restrict the set of potential FDB server versions that can be connected to, so this configuration change should only be made if the FDB server has already been updated.
+ 
+New index state "READABLE_UNIQUE_PENDING" - the proper way to roll this feature out is: 
+1. The adopter should upgrade to the new Record Layer version and deploy the version everywhere.
+2. The format version should be set READABLE_UNIQUE_PENDING_FORMAT_VERSION.
+3. Only after all the possible clients are upgraded to support the new state, the adopter may set the allowPendingState on the indexing policy of new index builds. 
+An index may be in this new state if it is fully built, the unique flag is set, and duplications were found during online indexing. From the code point of view, it is defined as scannable but not readable.  
+
 
 ### Breaking Changes
 
@@ -20,7 +28,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Proximity search does not works well when the term has multi-word synonyms [(Issue #1752)](https://github.com/FoundationDB/fdb-record-layer/issues/1752)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -43,6 +51,57 @@ This release also updates downstream dependency versions. Most notably, the prot
 
 // end next release
 -->
+
+### 3.2.285.0
+
+* **Bug fix** Fix flaky test by allowing larger than expected scans [(Issue #1788)](https://github.com/FoundationDB/fdb-record-layer/issues/1788)
+* **Performance** Reverse directory lookups can now borrow a read version from another transaction to avoid GRV costs [(Issue #1714)](https://github.com/FoundationDB/fdb-record-layer/issues/1714)
+* **Feature** Query returns null for unset non-repeated fields [(Issue #1718)](https://github.com/FoundationDB/fdb-record-layer/issues/1718)
+* **Feature** Emit a different KPI for each reason of index rebuilds [(Issue #1798)](https://github.com/FoundationDB/fdb-record-layer/issues/1798)
+* **Feature** Trigger a log message for every index state change [(Issue #1809)](https://github.com/FoundationDB/fdb-record-layer/issues/1809)
+* **Feature** Support READABLE_UNIQUE_PENDING IndexState [(Issue #1611)](https://github.com/FoundationDB/fdb-record-layer/issues/1611)
+
+### 3.2.284.0
+
+* **Bug fix** Update client event parsing to handle tenant [(Issue #1802)](https://github.com/FoundationDB/fdb-record-layer/issues/1802)
+
+### 3.2.283.0
+
+
+### 3.2.282.0
+
+* **Performance** A new index scan type variant has been added that make better use of existing caches in repeated executions of the same query [(Issue #1758)](https://github.com/FoundationDB/fdb-record-layer/issues/1758)
+
+### 3.2.281.0
+
+* **Bug fix** Add log for fallback triggered [(Issue #1782)](https://github.com/FoundationDB/fdb-record-layer/issues/1782)
+
+### 3.2.280.0
+
+
+### 3.2.279.0
+
+
+### 3.2.278.0
+
+
+### 3.2.277.0
+
+
+### 3.2.276.0
+
+
+### 3.2.275.0
+
+* **Bug fix** Fix fallback for scanIndexRecords [(Issue ##1761)](https://github.com/FoundationDB/fdb-record-layer/issues/#1761)
+
+### 3.2.273.0
+
+
+### 3.2.272.0
+
+* **Bug fix** Proximity search does not works well when the term has multi-word synonyms [(Issue #1752)](https://github.com/FoundationDB/fdb-record-layer/issues/1752)
+* **Feature** Index Remote Fetch for index scan methods [(Issue #1751)](https://github.com/FoundationDB/fdb-record-layer/issues/1751)
 
 ### 3.2.271.0
 
