@@ -2004,6 +2004,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param ifWriteOnly desired action if the existing index state is WRITE_ONLY (i.e. partly built)
          * @param ifMismatchPrevious desired action if the index is partly built, but by a different method then currently requested
          * @param ifReadable desired action if the existing index state is READABLE (i.e. already built)
+         * @param allowUniquePendingState if false, forbid {@link IndexState#READABLE_UNIQUE_PENDING} state.
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         public IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
@@ -2123,6 +2124,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If true, mark readable (after indexing) should allow the {@link IndexState#READABLE_UNIQUE_PENDING} index state.
+         * @param store the relevant store - used to check if matching format-version.
          * @return true if allowed
          */
         public boolean shouldAllowUniquePendingState(FDBRecordStore store) {
