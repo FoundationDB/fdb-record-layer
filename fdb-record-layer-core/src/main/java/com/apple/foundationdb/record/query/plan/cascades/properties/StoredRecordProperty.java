@@ -123,7 +123,7 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
-            return storedRecordsFromChildren(mapPlan).stream().allMatch(s -> s);
+            return storedRecordsFromSingleChild(mapPlan);
         }
 
         @Nonnull
@@ -263,7 +263,7 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitInUnionOnValuePlan(@Nonnull final RecordQueryInUnionOnValuePlan inUnionOnValuePlan) {
-            return storedRecordsFromChildren(inUnionOnValuePlan).stream().allMatch(s -> s);
+            return storedRecordsFromSingleChild(inUnionOnValuePlan);
         }
 
         @Nonnull

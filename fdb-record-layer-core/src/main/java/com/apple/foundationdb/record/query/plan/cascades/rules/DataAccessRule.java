@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
@@ -29,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -53,12 +51,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  * <ul>
  *     <li>a {@link PrimaryScanExpression} for a single {@link PrimaryScanMatchCandidate},</li>
- *     <li>an {@link IndexScanExpression} for a single {@link ValueIndexScanMatchCandidate}</li>
+ *     <li>an index scan/index scan + fetch for a single {@link ValueIndexScanMatchCandidate}</li>
  *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
  * </ul>
  *
  * The logic that this rules delegates to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(RecordMetaData, PartialMatch, com.apple.foundationdb.record.query.plan.cascades.PlanContext)}
+ * {@link MatchCandidate#toEquivalentExpression(PartialMatch, com.apple.foundationdb.record.query.plan.cascades.PlanContext)}
  *
  */
 @API(API.Status.EXPERIMENTAL)

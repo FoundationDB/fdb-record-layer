@@ -314,13 +314,6 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitIndexScanExpression(@Nonnull final IndexScanExpression element) {
-        // TODO do better
-        return Cardinalities.unknownCardinalities();
-    }
-
-    @Nonnull
-    @Override
     public Cardinalities visitPrimaryScanExpression(@Nonnull final PrimaryScanExpression element) {
         // TODO do better
         return Cardinalities.unknownCardinalities();

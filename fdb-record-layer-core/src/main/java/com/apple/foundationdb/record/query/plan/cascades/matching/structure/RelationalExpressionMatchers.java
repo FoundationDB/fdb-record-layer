@@ -110,11 +110,6 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<IndexScanExpression> indexScanExpression() {
-        return ofTypeOwning(IndexScanExpression.class, CollectionMatcher.empty());
-    }
-
-    @Nonnull
     public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalDistinctExpression.class, AnyMatcher.any(downstream));
     }

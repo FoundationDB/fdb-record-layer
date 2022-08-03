@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementFilterRu
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementGroupByRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIndexScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysicalScanRule;
@@ -64,7 +63,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrde
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushSetOperationThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushTypeFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveProjectionRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveRedundantTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SelectDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SplitSelectExtractIndependentQuantifiersRule;
@@ -98,7 +96,6 @@ public class PlannerRuleSet {
     );
     private static final List<PlannerRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
-            new RemoveRedundantTypeFilterRule(),
             new OrToLogicalUnionRule(),
             new InComparisonToExplodeRule(),
             new SplitSelectExtractIndependentQuantifiersRule()
@@ -124,9 +121,7 @@ public class PlannerRuleSet {
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
-            new ImplementIndexScanRule(),
             new ImplementPhysicalScanRule(),
-            //new FullUnorderedExpressionToScanPlanRule(),
             new ImplementIntersectionRule(),
             new ImplementDistinctUnionRule(),
             new ImplementUnorderedUnionRule(),

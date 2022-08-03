@@ -244,7 +244,8 @@ public class VersionIndexTest extends FDBTestBase {
     // Provide a combination of format versions, split and a remote fetch option
     private static Stream<Arguments> formatVersionArgumentsWithRemoteFetch() {
         return formatVersionArguments()
-                .flatMap(arg -> Arrays.stream(IndexFetchMethod.values())
+                // USE_REMOTE_FETCH is skipped for now in order to allow the test to pass when running with fdb < 7.1.10
+                .flatMap(arg -> Stream.of(IndexFetchMethod.SCAN_AND_FETCH, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK)
                         .map(indexFetchMethod -> Arguments.of(arg.get()[0], arg.get()[1], indexFetchMethod)));
     }
 
@@ -2335,6 +2336,9 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "testScanVersionIndex [" + ARGUMENTS_PLACEHOLDER + "]")
     @EnumSource(IndexFetchMethod.class)
     void testScanVersionIndex(IndexFetchMethod fetchMethod) throws Exception {
+        // This is skipped for now in order to allow the test to pass when running with fdb < 7.1.10
+        Assumptions.assumeTrue(fetchMethod != IndexFetchMethod.USE_REMOTE_FETCH);
+
         MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(42).setNumValue3Indexed(1).build();
         MySimpleRecord record2 = MySimpleRecord.newBuilder().setRecNo(1067L).setNumValue2(42).setNumValue3Indexed(2).build();
         MySimpleRecord record3 = MySimpleRecord.newBuilder().setRecNo(1068L).setNumValue2(43).setNumValue3Indexed(2).build();

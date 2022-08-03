@@ -323,12 +323,12 @@ public class CascadesPlanner implements QueryPlanner {
         final PlanContext context = new MetaDataPlanContext(configuration, metaData, recordStoreState, query);
         try {
             planPartial(context,
-                    () -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(context, query)));
+                    () -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(context, metaData, query)));
+            return resultOrFail();
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
-        
-        return resultOrFail();
+
     }
 
     @Nonnull
@@ -347,11 +347,11 @@ public class CascadesPlanner implements QueryPlanner {
                 isSortReverse);
         try {
             planPartial(context, expressionRefSupplier);
+            return resultOrFail();
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
 
-        return resultOrFail();
     }
 
     private RecordQueryPlan resultOrFail() {
@@ -393,8 +393,11 @@ public class CascadesPlanner implements QueryPlanner {
                 }
 
                 Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
-                nextTask.execute();
-                Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
+                try {
+                    nextTask.execute();
+                } finally {
+                    Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
+                }
 
                 if (logger.isTraceEnabled()) {
                     logger.trace(KeyValueLogMessage.of("planner state",
@@ -501,7 +504,7 @@ public class CascadesPlanner implements QueryPlanner {
                 // TODO this is very Volcano-style rather than Cascades, because there's no branch-and-bound pruning.
                 RelationalExpression bestMember = null;
                 for (RelationalExpression member : group.getMembers()) {
-                    if (bestMember == null || new CascadesCostModel(configuration, context).compare(member, bestMember) < 0) {
+                    if (bestMember == null || new CascadesCostModel(configuration).compare(member, bestMember) < 0) {
                         bestMember = member;
                     }
                 }
@@ -835,10 +838,13 @@ public class CascadesPlanner implements QueryPlanner {
                         }
                         // we notify the debugger (if installed) that the transform task is succeeding and
                         // about begin and end of the rule call event
-                        Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(Location.SUCCESS)));
+                        Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(Location.MATCH_PRE)));
                         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.BEGIN, group, getBindable(), rule, ruleCall)));
-                        executeRuleCall(ruleCall);
-                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.END, group, getBindable(), rule, ruleCall)));
+                        try {
+                            executeRuleCall(ruleCall);
+                        } finally {
+                            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.END, group, getBindable(), rule, ruleCall)));
+                        }
                     });
         }
 
@@ -849,10 +855,12 @@ public class CascadesPlanner implements QueryPlanner {
             // Handle produced artifacts (through yield...() calls)
             //
             for (final PartialMatch newPartialMatch : ruleCall.getNewPartialMatches()) {
+                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.YIELD, group, getBindable(), rule, ruleCall)));
                 taskStack.push(new AdjustMatch(getContext(), getGroup(), getExpression(), newPartialMatch));
             }
 
             for (final RelationalExpression newExpression : ruleCall.getNewExpressions()) {
+                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.YIELD, group, getBindable(), rule, ruleCall)));
                 exploreExpressionAndOptimizeInputs(getContext(), getGroup(), newExpression, true);
             }
 

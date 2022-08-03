@@ -167,7 +167,7 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
 
     @Nonnull
     @Override
-    public Optional<? extends MatchCandidate> getMatchCandidateOptional() {
+    public Optional<? extends MatchCandidate> getMatchCandidateMaybe() {
         return Optional.empty();
     }
 

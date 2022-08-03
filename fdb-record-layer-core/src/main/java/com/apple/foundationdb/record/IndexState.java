@@ -55,7 +55,15 @@ public enum IndexState {
      * reads or queries and it is not maintained
      * by the record store.
      */
-    DISABLED(2L, "indexesDisabled");
+    DISABLED(2L, "indexesDisabled"),
+    /**
+     * Indicates that this unique index is fully "indexed", but
+     * some uniqueness violations still exist. This may happen
+     * when the online indexer finds some duplicating records.
+     * In this mode, it is safe to consider an index as {@link #READABLE}
+     * for queries as long as uniqueness is not assumed.
+     */
+    READABLE_UNIQUE_PENDING(3L, "indexesReadableUniquePending");
 
     private final long id;
     private final String logName;
@@ -81,6 +89,10 @@ public enum IndexState {
 
     public String getLogName() {
         return logName;
+    }
+
+    public boolean isScannable() {
+        return this.equals(READABLE) || this.equals(READABLE_UNIQUE_PENDING);
     }
 
     public static IndexState fromCode(@Nonnull Object code) {

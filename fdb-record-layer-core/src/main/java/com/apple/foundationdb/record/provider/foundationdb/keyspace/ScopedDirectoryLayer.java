@@ -150,6 +150,22 @@ public class ScopedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
+    protected CompletableFuture<Optional<String>> readReverse(@Nonnull FDBRecordContext context, Long value) {
+        FDBReverseDirectoryCache reverseCache = database.getReverseDirectoryCache();
+        return reverseCache.get(context, wrap(value));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @param timer a timer to use to instrument this operation
+     * @param value the value returned by this resolver
+     * @return a future returning an optional set to the key associated with the given value or {@link Optional#empty()}
+     *     if there is no such value in the map
+     * @deprecated implementors should switch to using {@link #readReverse(FDBRecordContext, Long)} instead
+     */
+    @Deprecated
+    @Override
     protected CompletableFuture<Optional<String>> readReverse(FDBStoreTimer timer, Long value) {
         FDBReverseDirectoryCache reverseCache = database.getReverseDirectoryCache();
         return reverseCache.get(timer, wrap(value));

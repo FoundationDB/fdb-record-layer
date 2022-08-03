@@ -21,19 +21,20 @@
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRefTraversal;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.GraphExporter.Cluster;
 import com.apple.foundationdb.record.query.plan.cascades.explain.GraphExporter.ComponentIdProvider;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.Edge;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.Node;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.PartialMatchEdge;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
@@ -45,19 +46,11 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.Network;
-import com.google.common.io.CharStreams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.awt.Desktop;
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -226,42 +219,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
      */
     @Nonnull
     private static String show(final String dotString) {
-        try {
-            final URI uri = PlannerGraphProperty.createHtmlLauncher(dotString);
-            Desktop.getDesktop().browse(uri);
-            return "done";
-        } catch (final Exception ex) {
-            Throwables.throwIfUnchecked(ex);
-            throw new RuntimeException(ex);
-        }
-    }
-
-    /**
-     * For debugging only! This method locates a template html launcher file from the resources folder and writes a
-     * specific launcher html file into a temp directory. If wanted the caller can open the html in a browser of
-     * choice.
-     *
-     * @param dotString -- a serialized planner graph
-     * @return a URI pointing to an html file in a temp location which renders the graph
-     * @throws Exception -- thrown from methods called in here.
-     */
-    @Nonnull
-    public static URI createHtmlLauncher(@Nonnull final String dotString) throws Exception {
-        final String launcherHtmlString;
-        try (InputStream launcherHtmlInputStream = PlannerGraphProperty.class.getResourceAsStream("/showPlannerExpression.html")) {
-            launcherHtmlString = CharStreams.toString(new InputStreamReader(launcherHtmlInputStream, StandardCharsets.UTF_8))
-                .replace("$DOT", dotString);
-        }
-        final File launcherTempFile = File.createTempFile("local_launcher-", ".html", new File(System.getProperty("java.io.tmpdir")));
-        final String launcherTempFileName = launcherTempFile.toString();
-        try {
-            try (PrintWriter writer = new PrintWriter(launcherTempFile, "UTF-8")) {
-                writer.print(launcherHtmlString);
-            }
-        } catch (Exception e) {
-            throw new Exception("Error writing file: " + launcherTempFile.getAbsolutePath() + " : " + e.getMessage(), e);
-        }
-        return new URI("file:///" + launcherTempFileName.replace("\\", "/"));
+        return BrowserHelper.browse("/showPlannerExpression.html", ImmutableMap.of("$DOT", dotString));
     }
 
     /**

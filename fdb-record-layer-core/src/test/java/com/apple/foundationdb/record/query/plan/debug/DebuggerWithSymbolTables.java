@@ -125,12 +125,11 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public void onEvent(final Event event) {
-        Objects.requireNonNull(queryAsString);
-        Objects.requireNonNull(planContext);
+        if ((queryAsString == null) || (planContext == null) || stateStack.isEmpty()) {
+            return;
+        }
         getCurrentState().addCurrentEvent(event);
     }
-
-
 
     @Nullable
     private static <T> T lookupInCache(final Cache<Integer, T> cache, final String identifier, final String prefix) {
@@ -194,6 +193,15 @@ public class DebuggerWithSymbolTables implements Debugger {
                     "ticks", state.getCurrentTick()));
         }
         reset();
+    }
+
+    @Override
+    public String showStats() {
+        State currentState = stateStack.peek();
+        if (currentState != null) {
+            return currentState.showStats();
+        }
+        return "no stats";
     }
 
     private void reset() {

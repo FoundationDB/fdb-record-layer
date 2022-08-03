@@ -165,6 +165,8 @@ public interface Debugger {
 
     void onQuery(String queryAsString, PlanContext planContext);
 
+    String showStats();
+
     /**
      * Shorthands to identify a kind of event.
      */
@@ -187,7 +189,8 @@ public interface Debugger {
         ANY,
         BEGIN,
         END,
-        SUCCESS,
+        MATCH_PRE,
+        YIELD,
         FAILURE
     }
 
@@ -230,7 +233,6 @@ public interface Debugger {
          */
         @Nonnull
         GroupExpressionRef<? extends RelationalExpression> getRootReference();
-
 
         /**
          * Getter.
@@ -632,6 +634,47 @@ public interface Debugger {
         @Nonnull
         public RelationalExpression getExpression() {
             return expression;
+        }
+    }
+
+    /**
+     * Events of this class are generated when the planner attempts to insert a new expression into the memoization
+     * structures of the planner.
+     */
+    class InsertIntoMemoEvent implements Event {
+        @Nonnull
+        private final RelationalExpression expression;
+
+        @Nonnull
+        private final Location location;
+
+        public InsertIntoMemoEvent(@Nonnull final RelationalExpression expression,
+                                   @Nonnull final Location location) {
+            this.expression = expression;
+            this.location = location;
+        }
+
+        @Override
+        @Nonnull
+        public String getDescription() {
+            return "optimize inputs";
+        }
+
+        @Nonnull
+        @Override
+        public Shorthand getShorthand() {
+            return Shorthand.OPTINPUTS;
+        }
+
+        @Nonnull
+        public RelationalExpression getExpression() {
+            return expression;
+        }
+
+        @Nonnull
+        @Override
+        public Location getLocation() {
+            return location;
         }
     }
 }

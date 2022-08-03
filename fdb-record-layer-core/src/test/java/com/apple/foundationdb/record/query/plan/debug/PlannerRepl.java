@@ -424,6 +424,15 @@ public class PlannerRepl implements Debugger {
         reset();
     }
 
+    @Override
+    public String showStats() {
+        State currentState = stateStack.peek();
+        if (currentState != null) {
+            return currentState.showStats();
+        }
+        return "no stats";
+    }
+
     private void reset() {
         this.stateStack.clear();
         this.stateStack.push(State.initial());

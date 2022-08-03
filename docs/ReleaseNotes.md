@@ -10,6 +10,13 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 ### Features
 
 This version of the Record Layer allows the FDB API version to be configured through the `FDBDatabaseFactory`. This means that while this version allows the client to be configured to use 7.1 features, it also supports connecting to 6.3 FDB clusters if the API version is set appropriately. Note that setting the API version does restrict the set of potential FDB server versions that can be connected to, so this configuration change should only be made if the FDB server has already been updated.
+ 
+New index state "READABLE_UNIQUE_PENDING" - the proper way to roll this feature out is: 
+1. The adopter should upgrade to the new Record Layer version and deploy the version everywhere.
+2. The format version should be set READABLE_UNIQUE_PENDING_FORMAT_VERSION.
+3. Only after all the possible clients are upgraded to support the new state, the adopter may set the allowPendingState on the indexing policy of new index builds. 
+An index may be in this new state if it is fully built, the unique flag is set, and duplications were found during online indexing. From the code point of view, it is defined as scannable but not readable.  
+
 
 ### Breaking Changes
 
@@ -44,6 +51,22 @@ This release also updates downstream dependency versions. Most notably, the prot
 
 // end next release
 -->
+
+### 3.2.285.0
+
+* **Bug fix** Fix flaky test by allowing larger than expected scans [(Issue #1788)](https://github.com/FoundationDB/fdb-record-layer/issues/1788)
+* **Performance** Reverse directory lookups can now borrow a read version from another transaction to avoid GRV costs [(Issue #1714)](https://github.com/FoundationDB/fdb-record-layer/issues/1714)
+* **Feature** Query returns null for unset non-repeated fields [(Issue #1718)](https://github.com/FoundationDB/fdb-record-layer/issues/1718)
+* **Feature** Emit a different KPI for each reason of index rebuilds [(Issue #1798)](https://github.com/FoundationDB/fdb-record-layer/issues/1798)
+* **Feature** Trigger a log message for every index state change [(Issue #1809)](https://github.com/FoundationDB/fdb-record-layer/issues/1809)
+* **Feature** Support READABLE_UNIQUE_PENDING IndexState [(Issue #1611)](https://github.com/FoundationDB/fdb-record-layer/issues/1611)
+
+### 3.2.284.0
+
+* **Bug fix** Update client event parsing to handle tenant [(Issue #1802)](https://github.com/FoundationDB/fdb-record-layer/issues/1802)
+
+### 3.2.283.0
+
 
 ### 3.2.282.0
 
