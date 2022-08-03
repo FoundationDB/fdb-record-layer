@@ -31,9 +31,11 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.DdlPermutationGenerator;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.common.base.Strings;
 import org.junit.jupiter.api.Assertions;
@@ -143,7 +145,8 @@ public class DdlSchemaTemplateTest {
     @MethodSource("columnTypePermutations")
     void listSchemaTemplatesWorks(DdlPermutationGenerator.NamedPermutation table) throws Exception {
         String columnStatement = "CREATE SCHEMA TEMPLATE <TEST_TEMPLATE> " +
-                "CREATE STRUCT " + table.getTypeDefinition("FOO");
+                "CREATE STRUCT " + table.getTypeDefinition("FOO") +
+                " CREATE TABLE the_table(col0 int64, col1 foo, PRIMARY KEY(col0))";
 
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("CATALOG");
@@ -176,6 +179,20 @@ public class DdlSchemaTemplateTest {
 
                 oldTemplateNames.add(unique);
                 Assertions.assertEquals(oldTemplateNames, templateNames, "Incorrect returned Schema template list!");
+            }
+        }
+    }
+
+    @Test
+    void createSchemaTemplateWithNoTable() throws SQLException, RelationalException {
+        String createColumnStatement = "CREATE SCHEMA TEMPLATE no_table " +
+                "CREATE STRUCT not_a_table(a int64);";
+
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+            conn.setSchema("CATALOG");
+            try (Statement statement = conn.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createColumnStatement))
+                        .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE);
             }
         }
     }

@@ -239,7 +239,8 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createSchemaTemplates(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false)
+                " CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
+                " CREATE TABLE BAR (col0 int64, col1 FOO, PRIMARY KEY(col0))"
         ;
         shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
             @Nonnull
@@ -248,7 +249,7 @@ public class DdlStatementParsingTest {
                                                                         @Nonnull Options templateProperties) {
                 Assertions.assertEquals("TEST_TEMPLATE", template.getUniqueId(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
-                Assertions.assertEquals(0, schema.getTables().size(), "Incorrect number of tables");
+                Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
                     try {
                         final DdlTestUtil.ParsedType type = schema.getType("foo");

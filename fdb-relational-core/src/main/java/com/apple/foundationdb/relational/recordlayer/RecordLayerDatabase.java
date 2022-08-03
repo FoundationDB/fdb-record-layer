@@ -136,7 +136,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
     }
 
     @SuppressWarnings("PMD.PreserveStackTrace")
-        //we actually do, the PMD linter just doesn't seem to be able to tell
+    //we actually do, the PMD linter just doesn't seem to be able to tell
     FDBRecordStore loadStore(@Nonnull Transaction txn, @Nonnull String schemaName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
 

@@ -98,6 +98,7 @@ public final class TypingContext {
                             tableIndexes, Objects.requireNonNull(repository.getMessageDescriptor(typeDef.name)).toProto());
                 })
                 .collect(Collectors.toList());
+        Assert.thatUnchecked(!tableInfos.isEmpty(), "A schema template must declare at least one table", ErrorCode.INVALID_SCHEMA_TEMPLATE);
         final var typeInfos = types.stream().filter(type -> !type.isTable).map(t -> new TypeInfo(repository.getMessageDescriptor(t.name).toProto())).collect(Collectors.toSet());
         // add the rest of the types
         final var residualTypeInfos = repository.getMessageTypes().stream()
