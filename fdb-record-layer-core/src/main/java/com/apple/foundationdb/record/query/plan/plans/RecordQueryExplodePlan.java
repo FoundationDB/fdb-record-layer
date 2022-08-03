@@ -64,8 +64,6 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     private final Value collectionValue;
 
     public RecordQueryExplodePlan(@Nonnull Value collectionValue) {
-        System.out.println("RecordQueryExplodePlan value:" + collectionValue);
-        System.out.println("RecordQueryExplodePlan value class:" + collectionValue.getClass());
         this.collectionValue = collectionValue;
     }
 
@@ -86,7 +84,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
             return RecordCursor.fromList(List.of())
                     .map(QueryResult::ofComputed);
         } else {
-            return RecordCursor.fromList((List<?>)Objects.requireNonNull(collectionValue.eval(store, context)))
+            return RecordCursor.fromList((List<?>)Objects.requireNonNull(result))
                     .map(QueryResult::ofComputed);
         }
     }
