@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -129,13 +130,13 @@ public class StreamGrouping<M extends Message> {
      *
      * @return true if and only if the next object provided constitutes a group break
      */
-    public boolean apply(@Nullable Object currentObject) {
+    public boolean apply(@Nullable Object currentObject, @Nullable Object previousResult) {
         final boolean groupBreak;
         if (groupingKeyValue != null) {
             Object nextGroup = evalGroupingKey(currentObject);
             groupBreak = isGroupBreak(currentGroup, nextGroup);
             if (groupBreak) {
-                finalizeGroup(nextGroup);
+                finalizeGroup(previousResult, nextGroup);
             } else {
                 // for the case where we have no current group. In most cases, this changes nothing
                 currentGroup = nextGroup;
@@ -167,14 +168,15 @@ public class StreamGrouping<M extends Message> {
         }
     }
 
-    public void finalizeGroup() {
-        finalizeGroup(null);
+    public void finalizeGroup(final Object currentObject) {
+        finalizeGroup(currentObject, null);
     }
 
-    private void finalizeGroup(Object nextGroup) {
+    private void finalizeGroup(final Object currentObject, Object nextGroup) {
         final EvaluationContext nestedContext = context.childBuilder()
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
+                .setBinding(alias, currentObject)
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
 

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
@@ -35,12 +36,17 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -81,14 +87,25 @@ public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
                     final var newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
                     final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
                     final var aliasMap = AliasMap.of(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
-                    final var result = RecordQueryStreamingAggregationPlan.of(
+                    final var result = new RecordQueryStreamingAggregationPlan(
                             newPlanQuantifier,
                             groupByExpression.getGroupingValue().rebase(aliasMap),
                             (AggregateValue)groupByExpression.getAggregateValue().rebase(aliasMap),
-                            RecordQueryStreamingAggregationPlan::flattenedResults);
+                            getAlias(groupByExpression.getGroupingValue().rebase(aliasMap)),
+                            getAlias(groupByExpression.getAggregateValue().rebase(aliasMap)),
+                            groupByExpression.getResultValue().rebase(aliasMap));
                     call.yield(GroupExpressionRef.of(result));
                 }
             }
         }
+    }
+
+    @Nonnull
+    private static CorrelationIdentifier getAlias(@Nonnull final Value value) {
+        Verify.verify(value.getResultType().getTypeCode() == Type.TypeCode.RECORD);
+        Type.Record resultType = (Type.Record)value.getResultType();
+        Verify.verify(resultType.getFields().size() == 1);
+        Verify.verify(resultType.getFields().get(0).getFieldNameOptional().isPresent());
+        return CorrelationIdentifier.of(resultType.getFields().get(0).getFieldName());
     }
 }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -176,9 +178,24 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     public RequestedOrdering getOrderingRequirement() {
         Verify.verify(getGroupingValue() instanceof RecordConstructorValue);
+        // deriving the ordering columns correctly requires fix for https://github.com/FoundationDB/fdb-record-layer/issues/1212
+        // perform pseudo-derivation until we have a fix.
         final var groupingExpr = (RecordConstructorValue)getGroupingValue();
+        Verify.verify(groupingExpr.getResultType().getFields().size() == 1);
+        final var field = groupingExpr.getResultType().getFields().get(0);
+        Verify.verify(field.getFieldType() instanceof Type.Record);
+        final var recordType = (Type.Record)field.getFieldType();
         return new RequestedOrdering(
-                groupingExpr.getResultType().getFields().stream().map(field -> KeyPart.of(field.toKeyExpression())).collect(Collectors.toList()),
+                recordType.getFields().stream().map(innerField -> KeyPart.of(innerField.toKeyExpression())).collect(Collectors.toList()),
                 RequestedOrdering.Distinctness.NOT_DISTINCT);
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getGroupingAlias() {
+        Verify.verify(getGroupingValue() instanceof RecordConstructorValue);
+        final var groupingExpr = (RecordConstructorValue)getGroupingValue();
+        Verify.verify(groupingExpr.getResultType().getFields().size() == 1);
+        final var field = groupingExpr.getResultType().getFields().get(0);
+        return CorrelationIdentifier.of(field.getFieldName());
     }
 }

@@ -72,12 +72,12 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                streamGrouping.finalizeGroup();
+                streamGrouping.finalizeGroup(previousValidResult == null ? null : previousValidResult.get());
                 return false;
             } else {
-                previousValidResult = innerResult;
                 final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
-                boolean groupBreak = streamGrouping.apply(queryResult);
+                boolean groupBreak = streamGrouping.apply(queryResult, previousValidResult == null ? null : previousValidResult.get());
+                previousValidResult = innerResult;
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {
