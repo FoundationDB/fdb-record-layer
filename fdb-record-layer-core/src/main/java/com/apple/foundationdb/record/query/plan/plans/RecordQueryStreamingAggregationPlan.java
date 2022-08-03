@@ -329,7 +329,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Nonnull
     private static ImmutableList<Value> flatten(@Nonnull final ImmutableList<Value> values) {
         var result = values.asList();
-        final int threshold = 10000;
+        final int threshold = 10_000;
         int counter = 0;
         while (result.stream().anyMatch( v -> v.getResultType().getTypeCode() == Type.TypeCode.RECORD)) {
             // can not reach fixpoint, could happen with (in)directly-recursive records I think.

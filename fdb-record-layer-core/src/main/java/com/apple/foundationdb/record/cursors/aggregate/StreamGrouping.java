@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -127,6 +126,7 @@ public class StreamGrouping<M extends Message> {
      * </UL>
      *
      * @param currentObject the next object to process
+     * @param previousResult the previous object, used to construct base record of finalized group.
      *
      * @return true if and only if the next object provided constitutes a group break
      */
