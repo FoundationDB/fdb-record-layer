@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -56,11 +57,12 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.choose;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -75,11 +77,11 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
     @Nonnull
     private static final BindingMatcher<PlanPartition> outerPlanPartitionsMatcher = anyPlanPartition();
     @Nonnull
-    private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(planPartitions(any(outerPlanPartitionsMatcher)));
+    private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(planPartitions(rollUp(all(outerPlanPartitionsMatcher))));
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionsMatcher = anyPlanPartition();
     @Nonnull
-    private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(planPartitions(any(innerPlanPartitionsMatcher)));
+    private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(planPartitions(rollUp(all(innerPlanPartitionsMatcher))));
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(choose(outerQuantifierMatcher, innerQuantifierMatcher));
@@ -101,14 +103,23 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
+
+        final var hasPlansOnEveryLeg =
+                selectExpression.getQuantifiers()
+                        .stream()
+                        .allMatch(quantifier -> quantifier.getRangesOver().getMembers().stream().anyMatch(relationalExpression -> relationalExpression instanceof RecordQueryPlan));
+        if (!hasPlansOnEveryLeg) {
+            return;
+        }
+        Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("matched SelectExpression", "legs", selectExpression.getQuantifiers().size())));
+
         final var outerQuantifier = bindings.get(outerQuantifierMatcher);
         final var innerQuantifier = bindings.get(innerQuantifierMatcher);
 
         final var outerPartition = bindings.get(outerPlanPartitionsMatcher);
         final var innerPartition = bindings.get(innerPlanPartitionsMatcher);
 
-        final var joinName = Debugger.mapDebugger(debugger -> debugger.nameForObject(outerQuantifier) + " ⨝ " + debugger.nameForObject(innerQuantifier)).orElse("not in debug mode");
-
+        final var joinName = Debugger.mapDebugger(debugger -> debugger.nameForObject(call.getRoot()) + "[" + debugger.nameForObject(selectExpression) + "]: " + outerQuantifier.getAlias() + " ⨝ " + innerQuantifier.getAlias()).orElse("not in debug mode");
         Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("attempting join", "joinedTables", joinName, "requestedOrderings", requestedOrderings)));
 
         final var fullCorrelationOrder =
@@ -137,7 +148,7 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
         // as creating a join with that outer and inner combination would leave no place for the middle quantifier to
         // be planned.
         //
-        final var innerDependencies = fullCorrelationOrder.get(outerAlias);
+        final var innerDependencies = fullCorrelationOrder.get(innerAlias);
 
         for (final var quantifier : selectExpression.getQuantifiers()) {
             final var alias = quantifier.getAlias();
@@ -221,11 +232,22 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
         //                                              inner
         //
 
-        var newOuterQuantifier =
-                Quantifier.physicalBuilder().withAlias(outerAlias).build(GroupExpressionRef.from(outerPartition.getPlans()));
-        if (!outerPredicates.isEmpty()) {
+        final Quantifier.Physical newOuterQuantifier;
+        if (outerPredicates.isEmpty()) {
+            // create a new quantifier using the outer alias
             newOuterQuantifier =
-                    Quantifier.physical(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newOuterQuantifier, outerPredicates)));
+                    Quantifier.physicalBuilder().withAlias(outerAlias).build(GroupExpressionRef.from(outerPartition.getPlans()));
+        } else {
+            // create a new quantifier using a new alias
+            final var newOuterLowerQuantifier =
+                    Quantifier.physicalBuilder().build(GroupExpressionRef.from(outerPartition.getPlans()));
+            final var newOuterPredicates =
+                    QueryPredicate.translatePredicates(TranslationMap.rebaseWithAliasMap(AliasMap.of(outerAlias, newOuterLowerQuantifier.getAlias())), outerPredicates);
+            // create the new outer quantifier that uses the original outer alias
+            newOuterQuantifier =
+                    Quantifier.physicalBuilder()
+                            .withAlias(outerAlias)
+                            .build(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, newOuterPredicates)));
         }
 
         var newInnerQuantifier =
@@ -252,7 +274,7 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
         //
         // Translate all the references to outer to the joined alias
         //
-
+        
         final var remainingQuantifiers =
                 selectExpression.getQuantifiers()
                         .stream()

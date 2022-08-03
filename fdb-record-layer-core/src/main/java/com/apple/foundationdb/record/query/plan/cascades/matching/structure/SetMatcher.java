@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -30,8 +30,8 @@ import com.google.common.collect.Streams;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -60,19 +60,30 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
             return Stream.empty();
         }
 
-        final EnumeratingIterable<? extends T> permutations = TopologicalSort.permutations(ImmutableSet.copyOf(in));
+        //
+        // We don't know what kind of collection "in" is, however, we now need a set in order to form the permutations.
+        // That may be dangerous as the items in the collection may or may not implement proper hash code/equality.
+        // In an attempt to support both, we can use an identity-wrapped set.
+        //
+        final var identity = Equivalence.identity();
+        final var inAsWrappedSet = in.stream()
+                .map(identity::wrap)
+                .collect(ImmutableSet.toImmutableSet());
+
+        final var permutations = TopologicalSort.permutations(inAsWrappedSet);
         return StreamSupport.stream(permutations.spliterator(), false)
                 .flatMap(permutation -> bindMatchesForPermutation(outerBindings, permutation));
     }
 
     @Nonnull
     @SuppressWarnings("java:S3958")
-    public Stream<PlannerBindings> bindMatchesForPermutation(@Nonnull PlannerBindings outerBindings, @Nonnull List<? extends T> permutation) {
+    public Stream<PlannerBindings> bindMatchesForPermutation(@Nonnull PlannerBindings outerBindings, @Nonnull List<Equivalence.Wrapper<T>> permutation) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
-        final Iterator<? extends BindingMatcher<?>> downstreamIterator = downstreams.iterator();
-        for (final T item : permutation) {
-            final BindingMatcher<?> downstream = downstreamIterator.next();
-            final List<PlannerBindings> individualBindings = downstream.bindMatches(outerBindings, item).collect(Collectors.toList());
+        final var downstreamIterator = downstreams.iterator();
+        for (final var wrappedItem : permutation) {
+            final var item = Objects.requireNonNull(wrappedItem.get());
+            final var downstream = downstreamIterator.next();
+            final var individualBindings = downstream.bindMatches(outerBindings, item).collect(Collectors.toList());
             if (individualBindings.isEmpty()) {
                 return Stream.empty();
             } else {
@@ -85,10 +96,11 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
     @SuppressWarnings("UnstableApiUsage")
     @Override
     public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
-        final String nestedIndentation = indentation + INDENTATION;
+        final var nestedIndentation = indentation + INDENTATION;
 
-        final ImmutableList<String> downstreamIds = Streams.mapWithIndex(downstreams.stream(), (downstream, index) -> downstream.identifierFromMatcher() + index)
-                .collect(ImmutableList.toImmutableList());
+        final var downstreamIds =
+                Streams.mapWithIndex(downstreams.stream(), (downstream, index) -> downstream.identifierFromMatcher() + index)
+                        .collect(ImmutableList.toImmutableList());
 
         return "(" + String.join(", ", downstreamIds) + ") in permutations(" + boundId + ") match all {" + newLine(nestedIndentation) +
                Streams.zip(downstreams.stream(), downstreamIds.stream(),

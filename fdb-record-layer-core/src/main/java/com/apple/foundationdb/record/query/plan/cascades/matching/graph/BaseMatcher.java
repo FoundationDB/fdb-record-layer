@@ -264,39 +264,70 @@ public class BaseMatcher<T> {
 
         final List<CorrelationIdentifier> otherPermutation = otherOrderedOptional.orElse(ImmutableList.of());
 
+        final var maxMatchSize = Math.min(aliases.size(), otherPermutation.size());
         final Iterable<Set<CorrelationIdentifier>> otherCombinationsIterable =
                 isCompleteMatchesOnly
                 ? ImmutableList.of(getOtherAliases())
-                : otherCombinations(Math.min(aliases.size(), otherPermutation.size()));
+                : soundCombinations(getOtherAliases(), getOtherDependsOnMap(), 0, maxMatchSize);
 
         return IterableHelpers
                 .flatMap(otherCombinationsIterable,
                         otherCombination -> {
-                            final EnumeratingIterable<CorrelationIdentifier> permutationsIterable =
-                                    topologicalOrderPermutations(
-                                            getAliases(),
-                                            dependsOnMap);
                             final List<CorrelationIdentifier> otherFilteredPermutation =
                                     otherPermutation
                                             .stream()
                                             .filter(otherCombination::contains)
                                             .collect(ImmutableList.toImmutableList());
 
-                            return () -> enumerationFunction.apply(permutationsIterable.iterator(), otherFilteredPermutation);
+                            final Iterable<Set<CorrelationIdentifier>> combinationsIterable =
+                                    isCompleteMatchesOnly
+                                    ? ImmutableList.of(getAliases())
+                                    : soundCombinations(getAliases(), getDependsOnMap(), otherCombination.size(), otherCombination.size()); //  limit to the other combination's size
+
+                            return IterableHelpers.flatMap(combinationsIterable,
+                                    combination -> {
+                                        //System.out.println("this: " + combination + "; other: " + otherPermutation);
+                                        final EnumeratingIterable<CorrelationIdentifier> permutationsIterable =
+                                                topologicalOrderPermutations(
+                                                        combination,
+                                                        dependsOnMap);
+                                        return () -> enumerationFunction.apply(permutationsIterable.iterator(), otherFilteredPermutation);
+                                    });
                         });
+    }
+
+    /**
+     * Helper to determine whether this {@code set} is equals to {@code otherSet} after translation using the given
+     * {@link AliasMap}.
+     * @param aliasMap alias map defining a translation from this to other
+     * @param dependsOn this set
+     * @param otherDependsOn other set
+     * @return boolean equal to the result of {@code translate(set1, aliasMap).equals(otherSet)}
+     */
+    protected boolean isIsomorphic(@Nonnull final AliasMap aliasMap,
+                                   @Nonnull final Set<CorrelationIdentifier> dependsOn,
+                                   @Nonnull final Set<CorrelationIdentifier> otherDependsOn) {
+        final ImmutableSet<CorrelationIdentifier> mappedSet =
+                dependsOn.stream()
+                        .filter(aliasMap::containsSource)
+                        .map(dependentAlias -> Objects.requireNonNull(aliasMap.getTarget(dependentAlias)))
+                        .collect(ImmutableSet.toImmutableSet());
+
+        return otherDependsOn.containsAll(mappedSet);
     }
 
     @Nonnull
     @SuppressWarnings("java:S3776")
-    private Iterable<Set<CorrelationIdentifier>> otherCombinations(final int limitInclusive) {
-        final Set<CorrelationIdentifier> otherAliases = getOtherAliases();
-        final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap = getOtherDependsOnMap();
-        Preconditions.checkArgument(limitInclusive <= otherAliases.size());
-        return () -> IntStream.rangeClosed(0, limitInclusive)
+    private static Iterable<Set<CorrelationIdentifier>> soundCombinations(@Nonnull final Set<CorrelationIdentifier> aliases,
+                                                                          @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
+                                                                          final int startInclusive,
+                                                                          final int endInclusive) {
+        Preconditions.checkArgument(endInclusive <= aliases.size());
+        return () -> IntStream.rangeClosed(startInclusive, endInclusive)
                 .boxed()
                 .flatMap(k -> {
                     final EnumeratingIterator<CorrelationIdentifier> combinationsIterator =
-                            ChooseK.chooseK(otherAliases, k)
+                            ChooseK.chooseK(aliases, k)
                                     .iterator();
 
                     final Iterator<Set<CorrelationIdentifier>> filteredCombinationsIterator = new AbstractIterator<>() {
@@ -310,10 +341,23 @@ public class BaseMatcher<T> {
                                 for (i = 0; i < combination.size(); i++) {
                                     final CorrelationIdentifier alias = combination.get(i);
 
-                                    final boolean brokenCombination = otherDependsOnMap.get(alias)
+                                    //
+                                    // A broken combination is a combination where aliases contained in the combination
+                                    // depend on elements not contained in the combination which in turn again depend
+                                    // on elements contained in the combination.
+                                    //
+
+                                    // form the dependsOn set of aliases that are dependencies
+                                    // that are outside the current combination
+                                    final var outsideDependsOn = dependsOnMap.get(alias)
                                             .stream()
-                                            .anyMatch(dependsOnAlias -> otherAliases.contains(dependsOnAlias) && // not an external dependency
-                                                                        !combinationAsSet.contains(dependsOnAlias));
+                                            .filter(dependsOnAlias -> !combinationAsSet.contains(dependsOnAlias))
+                                            .flatMap(dependsOnAlias -> dependsOnMap.get(dependsOnAlias).stream())
+                                            .collect(ImmutableSet.toImmutableSet());
+
+                                    // if any of those aliases are in turn back inside the combination, the combination
+                                    // is considered to be broken (or unusable).
+                                    final boolean brokenCombination = outsideDependsOn.stream().anyMatch(combinationAsSet::contains);
                                     if (brokenCombination) {
                                         break;
                                     }
@@ -334,30 +378,6 @@ public class BaseMatcher<T> {
                             false);
                 })
                 .iterator();
-    }
-
-    /**
-     * Helper to determine whether this {@code set} is equals to {@code otherSet} after translation using the given
-     * {@link AliasMap}.
-     * @param aliasMap alias map defining a translation from this to other
-     * @param set this set
-     * @param otherSet other set
-     * @return boolean equal to the result of {@code translate(set1, aliasMap).equals(otherSet)}
-     */
-    protected boolean isIsomorphic(@Nonnull final AliasMap aliasMap,
-                                   @Nonnull final Set<CorrelationIdentifier> set,
-                                   @Nonnull final Set<CorrelationIdentifier> otherSet) {
-        // is the depends-on relationship isomorphic under matching?
-        if (set.size() != otherSet.size()) {
-            return false;
-        }
-
-        final ImmutableSet<CorrelationIdentifier> mappedSet =
-                set.stream()
-                        .map(dependentAlias -> Objects.requireNonNull(aliasMap.getTarget(dependentAlias)))
-                        .collect(ImmutableSet.toImmutableSet());
-
-        return mappedSet.equals(otherSet);
     }
 
     /**

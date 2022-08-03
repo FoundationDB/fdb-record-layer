@@ -322,4 +322,17 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                     .orElse(null);
         });
     }
+
+    @Nonnull
+    static List<QueryPredicate> translatePredicates(@Nonnull final TranslationMap translationMap,
+                                                    @Nonnull final List<QueryPredicate> predicates) {
+        final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
+        for (final var predicate : predicates) {
+            final var newOuterInnerPredicate =
+                    predicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap))
+                            .orElseThrow(() -> new RecordCoreException("unable to translate predicate"));
+            resultPredicatesBuilder.add(newOuterInnerPredicate);
+        }
+        return resultPredicatesBuilder.build();
+    }
 }

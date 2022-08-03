@@ -36,19 +36,20 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Sargable;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -83,6 +84,10 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Nonnull
     private final List<? extends QueryPredicate> predicates;
     @Nonnull
+    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
+    @Nonnull
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
+    @Nonnull
     private final Supplier<Map<CorrelationIdentifier, ? extends Quantifier>> aliasToQuantifierMapSupplier;
     @Nonnull
     private final Supplier<PartialOrder<CorrelationIdentifier>> correlationOrderSupplier;
@@ -95,7 +100,9 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
                           : partitionPredicates(predicates);
-        this.aliasToQuantifierMapSupplier = Suppliers.memoize(this::computeAliasToQuantifierMap);
+        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+        this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
+        this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
         this.correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
     }
 
@@ -135,6 +142,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return correlatedToWithoutChildrenSupplier.get();
+    }
+
+    @Nonnull
+    private Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return Streams.concat(predicates.stream().flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream()),
                         resultValue.getCorrelatedTo().stream())
                 .collect(ImmutableSet.toImmutableSet());
@@ -181,18 +193,16 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Override
     public int hashCodeWithoutChildren() {
+        return hashCodeWithoutChildrenSupplier.get();
+    }
+
+    private int computeHashCodeWithoutChildren() {
         return Objects.hash(getPredicates(), getResultValue());
     }
 
     @Nonnull
     public Map<CorrelationIdentifier, ? extends Quantifier> getAliasToQuantifierMap() {
         return aliasToQuantifierMapSupplier.get();
-    }
-
-    @Nonnull
-    private Map<CorrelationIdentifier, ? extends Quantifier> computeAliasToQuantifierMap() {
-        return getQuantifiers().stream()
-                .collect(ImmutableMap.toImmutableMap(Quantifier::getAlias, Function.identity()));
     }
 
     @Nonnull
@@ -256,16 +266,16 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             }
         }
         
-        final var matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
-        final var allNonMatchedQuantifiersIndependent =
-                getQuantifiers()
-                        .stream()
-                        .filter(quantifier -> !partialMatchMap.containsKeyUnwrapped(quantifier))
-                        .noneMatch(quantifier -> matchedCorrelatedTo.contains(quantifier.getAlias()));
-
-        if (!allNonMatchedQuantifiersIndependent) {
-            return ImmutableList.of();
-        }
+//        final var matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
+//        final var allNonMatchedQuantifiersIndependent =
+//                getQuantifiers()
+//                        .stream()
+//                        .filter(quantifier -> !partialMatchMap.containsKeyUnwrapped(quantifier))
+//                        .noneMatch(quantifier -> matchedCorrelatedTo.contains(quantifier.getAlias()));
+//
+//        if (!allNonMatchedQuantifiersIndependent) {
+//            return ImmutableList.of();
+//        }
 
         // Loop through all for-each quantifiers on the other side to ensure that they are all matched.
         // If any are not matched we cannot establish a match at all.
@@ -342,10 +352,35 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             }
         }
 
+        final var aliasToQuantifierMapping = Quantifiers.aliasToQuantifierMap(getQuantifiers());
+
         for (final QueryPredicate predicate : getPredicates()) {
-            final Set<PredicateMapping> impliedMappingsForPredicate =
-                    predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
-            predicateMappingsBuilder.add(impliedMappingsForPredicate);
+            // take the aliases the predicate is correlated to but remove the "deep" correlations.
+            final var predicateCorrelatedTo =
+                    Sets.filter(predicate.getCorrelatedTo(), aliasToQuantifierMapping::containsKey);
+
+            if (predicateCorrelatedTo.stream().anyMatch(aliasMap::containsSource)) {
+                final Set<PredicateMapping> impliedMappingsForPredicate =
+                        predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
+
+                if (predicateCorrelatedTo.stream().allMatch(aliasMap::containsSource)) {
+                    predicateMappingsBuilder.add(impliedMappingsForPredicate);
+                } else {
+                    //
+                    // The current predicate is a join predicate, thus want to create different ways of mapping it:
+                    // one where the data bound through other quantifiers is considered a bound constant value,
+                    // and one were there is no mapping at all. This may be used during the data access rules to
+                    // indicate that a particular quantifier is not available because it is not planned ahead of the
+                    // matched quantifiers.
+                    //
+                    predicateMappingsBuilder.add(ImmutableSet.<PredicateMapping>builder()
+                            .addAll(impliedMappingsForPredicate)
+                            .add(PredicateMapping.noMapping())
+                            .build());
+                }
+            } else {
+                predicateMappingsBuilder.add(ImmutableSet.of(PredicateMapping.noMapping()));
+            }
         }
 
         //
@@ -366,14 +401,16 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                     final var predicateMapBuilder = PredicateMap.builder();
 
                     for (final var predicateMapping : predicateMappings) {
-                        predicateMapBuilder.put(predicateMapping.getQueryPredicate(), predicateMapping);
-                        unmappedOtherPredicates.remove(predicateMapping.getCandidatePredicate());
+                        if (predicateMapping.hasMapping()) {
+                            predicateMapBuilder.put(predicateMapping.getQueryPredicate(), predicateMapping);
+                            unmappedOtherPredicates.remove(predicateMapping.getCandidatePredicate());
 
-                        final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
-                        final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
-                        if (parameterAliasOptional.isPresent() &&
+                            final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
+                            final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
+                            if (parameterAliasOptional.isPresent() &&
                                 comparisonRangeOptional.isPresent()) {
-                            parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
+                                parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
+                            }
                         }
                     }
 
@@ -515,7 +552,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         //
         // The partial match we are called with here has child matches that have compensations on their own.
-        // Given a pair of these matches that we reach along two for each quantifiers (forming a join) we have to
+        // Given a pair of these matches that we reach along two for-each quantifiers (forming a join) we have to
         // apply both compensations. The compensation class has a union method to combine two compensations in an
         // optimal way. We need to fold over all those compensations to form one child compensation. The tree that
         // is formed by partial matches therefore collapses into a chain of compensations.
@@ -541,16 +578,16 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         //
         for (final var predicate : getPredicates()) {
             final var predicateMappingOptional = predicateMap.getMappingOptional(predicate);
-            Verify.verify(predicateMappingOptional.isPresent());
+            if(predicateMappingOptional.isPresent()) {
+                final var predicateMapping = predicateMappingOptional.get();
 
-            final var predicateMapping = predicateMappingOptional.get();
+                final Optional<ExpandCompensationFunction> injectCompensationFunctionOptional =
+                        predicateMapping
+                                .compensatePredicateFunction()
+                                .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
 
-            final Optional<ExpandCompensationFunction> injectCompensationFunctionOptional =
-                    predicateMapping
-                            .compensatePredicateFunction()
-                            .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
-
-            injectCompensationFunctionOptional.ifPresent(injectCompensationFunction -> predicateCompensationMap.put(predicate, injectCompensationFunction));
+                injectCompensationFunctionOptional.ifPresent(injectCompensationFunction -> predicateCompensationMap.put(predicate, injectCompensationFunction));
+            }
         }
 
         final var unmatchedQuantifiers = partialMatch.computeUnmatchedQuantifiers(this);
@@ -576,7 +613,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         return Compensation.ofChildCompensationAndPredicateMap(childCompensation,
                 predicateCompensationMap,
-                computeMappedQuantifiers(partialMatch),
+                computeMatchedQuantifiers(partialMatch),
                 unmatchedQuantifiers,
                 matchInfo.getRemainingComputationValueOptional());
     }

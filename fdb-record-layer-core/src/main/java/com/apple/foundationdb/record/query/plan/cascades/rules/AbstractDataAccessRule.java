@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -181,40 +180,26 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * </li>
      * </ul>
      *
-     * @param call the call associated with this planner rule execution
+     * @param planContext the plan context associated with this planner rule execution
+     * @param requestedOrderings a set of requested orderings
+     * @param matchPartition a match partition of compatibly-matching {@link PartialMatch}es
      */
-    @Override
-    @SuppressWarnings("java:S135")
-    public void onMatch(@Nonnull PlannerRuleCall call) {
-        final var bindings = call.getBindings();
-        final var completeMatches = bindings.getAll(getCompleteMatchMatcher());
-        final var expression = bindings.get(getExpressionMatcher());
-
+    protected ExpressionRef<? extends RelationalExpression> dataAccessForMatchPartition(@Nonnull PlanContext planContext,
+                                                                                        @Nonnull Set<RequestedOrdering> requestedOrderings,
+                                                                                        @Nonnull Collection<? extends PartialMatch> matchPartition) {
         //
         // return if there are no complete matches
         //
-        if (completeMatches.isEmpty()) {
-            return;
-        }
+        Verify.verify(!matchPartition.isEmpty());
 
-        //
-        // return if there is no pre-determined interesting ordering
-        //
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
-        if (requestedOrderingsOptional.isEmpty()) {
-            return;
-        }
-
-        final var requestedOrderings = requestedOrderingsOptional.get();
-
-        final var bestMaximumCoverageMatches = maximumCoverageMatches(completeMatches, requestedOrderings);
+        final var bestMaximumCoverageMatches = maximumCoverageMatches(matchPartition, requestedOrderings);
         if (bestMaximumCoverageMatches.isEmpty()) {
-            return;
+            return GroupExpressionRef.empty();
         }
 
         // create scans for all best matches
         final var bestMatchToExpressionMap =
-                createScansForMatches(bestMaximumCoverageMatches, call.getContext());
+                createScansForMatches(bestMaximumCoverageMatches, planContext);
 
         final var toBeInjectedReference = GroupExpressionRef.empty();
 
@@ -253,25 +238,19 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     requestedOrderings).stream())
                     .forEach(toBeInjectedReference::insert);
         });
-        call.yield(inject(expression, completeMatches, toBeInjectedReference));
+        return toBeInjectedReference;
     }
-
-    @Nonnull
-    @SuppressWarnings("java:S1452")
-    protected abstract ExpressionRef<? extends RelationalExpression> inject(@Nonnull R expression,
-                                                                            @Nonnull List<? extends PartialMatch> completeMatches,
-                                                                            @Nonnull ExpressionRef<? extends RelationalExpression> compensatedScanGraph);
 
     /**
      * Private helper method to eliminate {@link PartialMatch}es whose coverage is entirely contained in other matches
      * (among the matches given).
      * @param matches candidate matches
      * @param interestedOrderings a set of interesting orderings
-     * @return a list of {@link PartialMatch}es that are the maximum coverage matches among the matches handed in
+     * @return a collection of {@link PartialMatch}es that are the maximum coverage matches among the matches handed in
      */
     @Nonnull
     @SuppressWarnings({"java:S1905", "java:S135"})
-    private static List<PartialMatchWithCompensation> maximumCoverageMatches(@Nonnull final List<? extends PartialMatch> matches,
+    private static List<PartialMatchWithCompensation> maximumCoverageMatches(@Nonnull final Collection<? extends PartialMatch> matches,
                                                                              @Nonnull final Set<RequestedOrdering> interestedOrderings) {
         final var partialMatchesWithCompensation =
                 matches

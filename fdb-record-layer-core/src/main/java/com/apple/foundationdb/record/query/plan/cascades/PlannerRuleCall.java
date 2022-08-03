@@ -70,6 +70,9 @@ public interface PlannerRuleCall {
     @Nonnull
     PlanContext getContext();
 
+    @Nonnull
+    ExpressionRef<? extends RelationalExpression> getRoot();
+
     /**
      * Return the bindable that is bound to the given key.
      *

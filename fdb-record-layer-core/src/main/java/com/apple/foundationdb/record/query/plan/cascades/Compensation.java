@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilt
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -673,7 +672,7 @@ public interface Compensation {
             Verify.verify(matchedForEachQuantifierAliases.size() <= 1);
             final var mappedForEachQuantifierAlias = Iterables.getOnlyElement(matchedForEachQuantifierAliases);
 
-            if (unmatchedQuantifiers.isEmpty() && predicateCompensationMap.isEmpty() && remainingComputationValueOptional.isEmpty()) {
+            if (predicateCompensationMap.isEmpty()) {
                 // no additional unmatched quantifiers, all predicates taken care of and no remaining computation
                 return relationalExpression;
             }
@@ -698,43 +697,10 @@ public interface Compensation {
                     GraphExpansion.ofOthers(compensationExpansionsBuilder.build()).seal();
             Verify.verify(compensatedPredicatesExpansion.getResultColumns().isEmpty());
 
-            final var compensatedPredicatesCorrelatedTo =
-                    compensatedPredicatesExpansion.getPredicates()
-                            .stream()
-                            .flatMap(predicate -> predicate.getCorrelatedTo().stream())
-                            .collect(ImmutableSet.toImmutableSet());
-
-            final var allQuantifiers = Iterables.concat(matchedQuantifiers, unmatchedQuantifiers);
-            final var allQuantifiersMap = Quantifiers.aliasToQuantifierMap(allQuantifiers);
-            final var unmatchedQuantifierMap = Quantifiers.aliasToQuantifierMap(unmatchedQuantifiers);
-
-            final var toBePulledUpQuantifiers =
-                    allQuantifiersMap
-                            .values()
-                            .stream()
-                            .filter(quantifier -> !mappedForEachQuantifierAlias.equals(quantifier.getAlias()))
-                            .filter(quantifier -> unmatchedQuantifierMap.containsKey(quantifier.getAlias()) ||
-                                                  compensatedPredicatesCorrelatedTo.contains(quantifier.getAlias()))
-                            .collect(LinkedIdentitySet.toLinkedIdentitySet());
-
-            if (!toBePulledUpQuantifiers.isEmpty()) {
-                final var pulledUpQuantifiers = Quantifiers.translateCorrelations(toBePulledUpQuantifiers, translationMap);
-                compensationExpansionsBuilder.add(GraphExpansion.builder().addAllQuantifiers(pulledUpQuantifiers).build());
-            }
-
             // add base quantifier
             compensationExpansionsBuilder.add(GraphExpansion.ofQuantifier(newBaseQuantifier));
 
             final var completeExpansion = GraphExpansion.ofOthers(compensationExpansionsBuilder.build());
-
-            if (remainingComputationValueOptional.isPresent()) {
-                final var remainingComputationValue = remainingComputationValueOptional.get();
-                if (!(remainingComputationValue instanceof QuantifiedValue) ||
-                        !((QuantifiedValue)remainingComputationValue).getAlias().equals(mappedForEachQuantifierAlias)) {
-                    final var rebasedRemainingComputationValue = remainingComputationValue.translateCorrelations(translationMap);
-                    return completeExpansion.buildSelectWithResultValue(rebasedRemainingComputationValue);
-                }
-            }
 
             return completeExpansion.buildSimpleSelectOverQuantifier(newBaseQuantifier);
         }

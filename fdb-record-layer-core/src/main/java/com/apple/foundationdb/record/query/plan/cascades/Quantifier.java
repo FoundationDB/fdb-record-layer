@@ -40,6 +40,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Models the concept of quantification.
@@ -397,12 +398,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
-        public String toString() {
-            return rangesOver.toString();
-        }
-
-        @Override
-        @Nonnull
         public Physical overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
             return Quantifier.physicalBuilder()
                     .from(this)
@@ -519,12 +514,18 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Override
     @Nonnull
     public String toString() {
-        return getShorthand() + " " + getRangesOver();
+        return getShorthand() + "(" + getAlias() + ") -> {" +
+               getCorrelatedTo().stream().map(CorrelationIdentifier::toString).collect(Collectors.joining(", ")) +
+               "}";
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
+//        final var cachedCorrelatedTo = correlatedToSupplier.get();
+//        final var correlatedTo = getRangesOver().getCorrelatedTo();
+//        Verify.verify(cachedCorrelatedTo.equals(correlatedTo));
+//        return correlatedTo;
         return correlatedToSupplier.get();
     }
 

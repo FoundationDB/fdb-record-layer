@@ -21,16 +21,35 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
@@ -47,6 +66,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpression> {
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(SelectDataAccessRule.class);
+
     private static final BindingMatcher<PartialMatch> completeMatchMatcher = completeMatch();
     private static final BindingMatcher<SelectExpression> expressionMatcher = ofType(SelectExpression.class);
 
@@ -57,11 +79,116 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
         super(rootMatcher, completeMatchMatcher, expressionMatcher);
     }
 
-    @Nonnull
     @Override
-    protected ExpressionRef<? extends RelationalExpression> inject(@Nonnull SelectExpression selectExpression,
-                                                                   @Nonnull List<? extends PartialMatch> completeMatches,
-                                                                   @Nonnull final ExpressionRef<? extends RelationalExpression> compensatedScanGraph) {
-        return compensatedScanGraph;
+    public void onMatch(@Nonnull final PlannerRuleCall call) {
+        final var bindings = call.getBindings();
+        final var completeMatches = bindings.getAll(getCompleteMatchMatcher());
+        if (completeMatches.isEmpty()) {
+            return;
+        }
+
+        final var expression = bindings.get(getExpressionMatcher());
+
+        //
+        // return if there is no pre-determined interesting ordering
+        //
+        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        if (requestedOrderingsOptional.isEmpty()) {
+            return;
+        }
+
+        final var requestedOrderings = requestedOrderingsOptional.get();
+
+        final Map<Set<CorrelationIdentifier>, ? extends List<? extends PartialMatch>> matchPartitionsByAliasesMap =
+                completeMatches
+                        .stream()
+                        .collect(Collectors.groupingBy(match -> expression.computeMatchedQuantifiers(match).stream()
+                                        .map(Quantifier::getAlias)
+                                        .collect(ImmutableSet.toImmutableSet()),
+                                LinkedHashMap::new,
+                                ImmutableList.toImmutableList()));
+
+        final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(expression.getQuantifiers());
+
+        for(final var matchPartitionByAliasesEntry : matchPartitionsByAliasesMap.entrySet()) {
+            final var matchedAliases = matchPartitionByAliasesEntry.getKey();
+            final var matchPartitionForAliases = matchPartitionByAliasesEntry.getValue();
+            Verify.verify(!matchedAliases.isEmpty());
+
+            final var matchedForEachAliases =
+                    matchedAliases.stream()
+                            .filter(matchedAlias -> Objects.requireNonNull(aliasToQuantifierMap.get(matchedAlias)) instanceof Quantifier.ForEach)
+                            .collect(ImmutableSet.toImmutableSet());
+
+            if (matchedForEachAliases.size() == 1) {
+                final var toBePulledUpQuantifiers =
+                        expression
+                                .getQuantifiers()
+                                .stream()
+                                .filter(quantifier -> !matchedAliases.contains(quantifier.getAlias()))
+                                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+
+                //
+                // We do know that local predicates (which includes predicates only using the matchedAlias quantifier)
+                // are definitely handled by the logic expressed by the partial matches of the current match partition.
+                // Join predicates are different in a sense that there will be matches that handle those predicates and
+                // there will be matches where these predicates will not be handled. We further need to sub-partition the
+                // current match partition, by the predicates that are being handled by the matches.
+                //
+                final var matchPartitionsForAliasesByPredicates =
+                        matchPartitionForAliases
+                                .stream()
+                                .collect(Collectors.groupingBy(match -> match.getMatchInfo().getPredicateMap().keySet(),
+                                        LinkedIdentityMap::new,
+                                        ImmutableList.toImmutableList()));
+
+                //
+                // Note that this works because there is only one for-each and potentially 0 - n existential quantifiers
+                // that are covered by the match partition. Even though that logically forms a join, the existential
+                // quantifiers do not mutate the result of the join, they only cause filtering, that is, the resulting
+                // record is exactly what the for each quantifier produced filtered by the predicates expressed on the
+                // existential quantifiers.
+                //
+                final var matchedAlias = Iterables.getOnlyElement(matchedForEachAliases);
+
+                for(final var matchPartitionEntry : matchPartitionsForAliasesByPredicates.entrySet()) {
+                    final var matchedPredicates = matchPartitionEntry.getKey();
+                    final var matchPartition = matchPartitionEntry.getValue();
+
+                    //
+                    // The current match partition covers all matches that match the aliases in matchedAliases
+                    // as well as all predicates in matchedPredicates. In other words we now have to compensate
+                    // for all the remaining quantifiers and all remaining predicates.
+                    //
+                    final var dataAccessReference =
+                            dataAccessForMatchPartition(call.getContext(),
+                                    requestedOrderings,
+                                    matchPartition);
+
+                    final var dataAccessQuantifier = Quantifier.forEachBuilder()
+                            .withAlias(matchedAlias)
+                            .build(dataAccessReference);
+
+                    final var toBePulledUpPredicates =
+                            expression.getPredicates()
+                                    .stream()
+                                    .filter(predicate -> !matchedPredicates.contains(predicate))
+                                    .collect(LinkedIdentitySet.toLinkedIdentitySet());
+
+                    final var compensatedDataAccessExpression =
+                            GraphExpansion.builder()
+                                    .addQuantifier(dataAccessQuantifier)
+                                    .addAllQuantifiers(toBePulledUpQuantifiers)
+                                    .addAllPredicates(toBePulledUpPredicates)
+                                    .build()
+                                    .buildSelectWithResultValue(expression.getResultValue());
+                    call.yield(GroupExpressionRef.of(compensatedDataAccessExpression));
+                }
+            } else {
+                if (logger.isWarnEnabled()) {
+                    logger.warn(KeyValueLogMessage.of("unable to plan join index yet"));
+                }
+            }
+        }
     }
 }

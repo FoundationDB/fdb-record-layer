@@ -661,7 +661,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                                     }
                                     // TODO improve
                                     if (fieldDescriptor.getType().getJavaType() ==
-                                            fieldDescriptor2.getType().getJavaType()) {
+                                        fieldDescriptor2.getType().getJavaType()) {
                                         return fieldDescriptor;
                                     }
 

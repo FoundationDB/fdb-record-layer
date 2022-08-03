@@ -20,10 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Sargable;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -75,6 +76,11 @@ public class PredicateMultiMap {
      */
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static class PredicateMapping {
+        private static PredicateMapping NO_MAPPING =
+                new PredicateMapping(new ConstantPredicate(false),
+                        new ConstantPredicate(false),
+                        (partialMatch, boundPrefixMap) -> { throw new RecordCoreException("should not be called"); });
+
         @Nonnull
         private final QueryPredicate queryPredicate;
         @Nonnull
@@ -107,6 +113,10 @@ public class PredicateMultiMap {
             this.parameterAliasOptional = parameterAlias;
         }
 
+        public boolean hasMapping() {
+            return this != NO_MAPPING;
+        }
+
         @Nonnull
         public QueryPredicate getQueryPredicate() {
             return queryPredicate;
@@ -137,6 +147,11 @@ public class PredicateMultiMap {
 
             return Optional.of(sargablePredicate.getComparisonRange());
         }
+
+        @Nonnull
+        public static PredicateMapping noMapping() {
+            return NO_MAPPING;
+        }
     }
 
     protected PredicateMultiMap(@Nonnull final SetMultimap<QueryPredicate, PredicateMapping> map) {
@@ -153,6 +168,10 @@ public class PredicateMultiMap {
 
     public Set<Map.Entry<QueryPredicate, PredicateMapping>> entries() {
         return map.entries();
+    }
+
+    public Set<QueryPredicate> keySet() {
+        return map.keySet();
     }
 
     @Nonnull
@@ -182,7 +201,7 @@ public class PredicateMultiMap {
         private final SetMultimap<QueryPredicate, PredicateMapping> map;
 
         public Builder() {
-            map = Multimaps.newSetMultimap(Maps.newIdentityHashMap(), Sets::newIdentityHashSet);
+            map = Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
         }
 
         protected SetMultimap<QueryPredicate, PredicateMapping> getMap() {

@@ -174,8 +174,9 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         Verify.verify(quantifiersOverFetches.size() == fetchPlans.size());
         Verify.verify(fetchPlans.size() == dependentFunctions.size());
 
-        final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(CorrelationIdentifier.uniqueID(), new Type.Any());
-        final Set<CorrelationIdentifier> pushableAliases = setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues);
+        final CorrelationIdentifier sourceAlias = CorrelationIdentifier.uniqueID();
+        final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(sourceAlias, new Type.Any());
+        final Set<CorrelationIdentifier> pushableAliases = setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues, sourceAlias);
 
         // if set operation is dynamic all aliases must be pushable
         if (setOperationPlan.isDynamic()) {

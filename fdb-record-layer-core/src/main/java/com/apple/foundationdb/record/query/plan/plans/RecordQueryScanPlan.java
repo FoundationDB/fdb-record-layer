@@ -263,15 +263,20 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return ImmutableSet.of();
+        return comparisons.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     public RecordQueryScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        // TODO make return this dependent on whether the index scan is correlated according to the translation map
-        return this;
+        return new RecordQueryScanPlan(recordTypes,
+                flowedType,
+                commonPrimaryKey,
+                comparisons.translateCorrelations(translationMap),
+                reverse,
+                strictlySorted,
+                matchCandidateOptional);
     }
 
     @Nonnull

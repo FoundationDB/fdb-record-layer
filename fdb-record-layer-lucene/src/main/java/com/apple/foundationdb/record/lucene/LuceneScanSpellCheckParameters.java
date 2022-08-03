@@ -27,14 +27,21 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.util.LogMessageKeys;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Scan parameters for making a {@link LuceneScanSpellCheck}.
@@ -96,21 +103,34 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters {
         }
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return super.toString() + " " + (isParameter ? "$" : "") + key;
+    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        return this;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+        return this;
     }
 
     @Override
-    public boolean equals(final Object o) {
-        if (this == o) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        if (this == other) {
             return true;
         }
-        if (!super.equals(o)) {
+        if (!super.equals(other)) {
             return false;
         }
 
-        final LuceneScanSpellCheckParameters that = (LuceneScanSpellCheckParameters)o;
+        final LuceneScanSpellCheckParameters that = (LuceneScanSpellCheckParameters)other;
 
         if (isParameter != that.isParameter) {
             return false;
@@ -119,10 +139,25 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters {
     }
 
     @Override
-    public int hashCode() {
+    public int semanticHashCode() {
         int result = super.hashCode();
         result = 31 * result + key.hashCode();
         result = 31 * result + (isParameter ? 1 : 0);
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + " " + (isParameter ? "$" : "") + key;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        return semanticEquals(o, AliasMap.emptyMap());
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 }

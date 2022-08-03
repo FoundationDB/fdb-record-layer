@@ -84,6 +84,12 @@ public class CascadesRuleCall implements PlannerRuleCall {
 
     @Nonnull
     @Override
+    public ExpressionRef<? extends RelationalExpression> getRoot() {
+        return root;
+    }
+
+    @Nonnull
+    @Override
     public AliasResolver getAliasResolver() {
         return aliasResolver;
     }

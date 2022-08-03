@@ -26,16 +26,22 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.search.Sort;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Scan parameters for making a {@link LuceneScanQuery}.
@@ -126,6 +132,48 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
         }
     }
 
+    @Nonnull
+    @Override
+    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        return this;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+    }
+
+    @Override
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        if (this == other) {
+            return true;
+        }
+        if (!super.equals(other)) {
+            return false;
+        }
+
+        final LuceneScanQueryParameters that = (LuceneScanQueryParameters)other;
+
+        return query.equals(that.query) && Objects.equals(sort, that.sort);
+    }
+
+    @Override
+    public int semanticHashCode() {
+        int result = super.hashCode();
+        result = 31 * result + query.hashCode();
+        if (sort != null) {
+            result = 31 * result + sort.hashCode();
+        }
+        return result;
+    }
+
     @Override
     public String toString() {
         return super.toString() + " " + query;
@@ -133,25 +181,11 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
 
     @Override
     public boolean equals(final Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!super.equals(o)) {
-            return false;
-        }
-
-        final LuceneScanQueryParameters that = (LuceneScanQueryParameters)o;
-
-        return query.equals(that.query) && Objects.equals(sort, that.sort);
+        return semanticEquals(o, AliasMap.emptyMap());
     }
 
     @Override
     public int hashCode() {
-        int result = super.hashCode();
-        result = 31 * result + query.hashCode();
-        if (sort != null) {
-            result = 31 * result + sort.hashCode();
-        }
-        return result;
+        return semanticHashCode();
     }
 }

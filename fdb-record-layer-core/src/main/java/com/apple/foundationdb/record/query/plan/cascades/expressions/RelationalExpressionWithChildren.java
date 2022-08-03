@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -34,7 +35,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -51,21 +51,21 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
     default Set<CorrelationIdentifier> getCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
         final List<? extends Quantifier> quantifiers = getQuantifiers();
+        final Map<CorrelationIdentifier, ? extends Quantifier> aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);
 
-        final Map<CorrelationIdentifier, ? extends Quantifier> aliasToQuantifierMap = quantifiers.stream()
-                        .collect(Collectors.toMap(Quantifier::getAlias, Function.identity()));
+        if (false) {
+            // We should check if the graph is sound here, if it is not we should throw an exception. This method
+            // will properly return with an empty. There are other algorithms that may not be as defensive and we
+            // must protect ourselves from illegal graphs (and bugs).
+            final Optional<List<CorrelationIdentifier>> orderedOptional =
+                    TopologicalSort.anyTopologicalOrderPermutation(
+                            quantifiers.stream()
+                                    .map(Quantifier::getAlias)
+                                    .collect(Collectors.toSet()),
+                            alias -> Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getCorrelatedTo());
 
-        // We should check if the graph is sound here, if it is not we should throw an exception. This method
-        // will properly return with an empty. There are other algorithms that may not be as defensive and we
-        // must protect ourselves from illegal graphs (and bugs).
-        final Optional<List<CorrelationIdentifier>> orderedOptional =
-                TopologicalSort.anyTopologicalOrderPermutation(
-                        quantifiers.stream()
-                                .map(Quantifier::getAlias)
-                                .collect(Collectors.toSet()),
-                        alias -> Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getCorrelatedTo());
-
-        orderedOptional.orElseThrow(() -> new IllegalArgumentException("correlations are cyclic"));
+            orderedOptional.orElseThrow(() -> new IllegalArgumentException("correlations are cyclic"));
+        }
 
         getCorrelatedToWithoutChildren()
                 .stream()
@@ -88,7 +88,7 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     @Nonnull
-    default Set<Quantifier> computeMappedQuantifiers(@Nonnull final PartialMatch partialMatch) {
+    default Set<Quantifier> computeMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var mappedForEachQuantifiers = new LinkedIdentitySet<Quantifier>();
         for (final Quantifier quantifier : getQuantifiers()) {

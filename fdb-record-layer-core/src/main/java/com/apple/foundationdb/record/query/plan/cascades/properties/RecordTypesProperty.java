@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -94,9 +95,12 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
                 }
             }
 
-            if (recordTypes.isEmpty()) {
-                throw new RecordCoreException("tried to find record types for a relational expression with no children" +
-                                              "but case wasn't handled");
+            //
+            // If we use an alias resolver we should find where the correlations come from, if not, everything is
+            // best-effort.
+            //
+            if (aliasResolverOptional.isPresent() && recordTypes.isEmpty()) {
+                throw new RecordCoreException("tried to find record types for a relational expression with no children but case wasn't handled");
             }
             return recordTypes;
         } else {
@@ -120,7 +124,8 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
                 if (expression instanceof RecordQueryUnionPlan ||
                         expression instanceof RecordQueryUnorderedUnionPlan ||
                         expression instanceof RecordQueryIntersectionPlan ||
-                        expression instanceof LogicalUnionExpression) {
+                        expression instanceof LogicalUnionExpression ||
+                        expression instanceof SelectExpression) {
                     final Set<String> union = new HashSet<>();
                     for (Set<String> childResulSet : childResults) {
                         union.addAll(childResulSet);

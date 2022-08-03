@@ -142,7 +142,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                 }
                                 return Pair.of(keyExpression, valueComparisonPair.getRight());
                             })
-                            .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));
+                            .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));                                        
 
             final var resultOrderingKeyParts =
                     childOrdering.getOrderingKeyParts()

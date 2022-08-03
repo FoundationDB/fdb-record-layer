@@ -189,7 +189,8 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
 
                     if (i == size) {
                         iterator.skip(i - 1);
-                        return BoundMatch.withAliasMapAndMatchResult(boundAliasesMap.combine(aliasMapBuilder.build()), result);
+                        final var finalAliasMap = aliasMapBuilder.build();
+                        return BoundMatch.withAliasMapAndMatchResult(boundAliasesMap.combine(finalAliasMap), result);
                     } else {
                         iterator.skip(i);
                     }

@@ -179,7 +179,7 @@ public class PushFilterThroughFetchRule extends PlannerRule<RecordQueryPredicate
 
         for (final QueryPredicate queryPredicate : queryPredicates) {
             final Optional<QueryPredicate> pushedPredicateOptional =
-                    queryPredicate.replaceLeavesMaybe(leafPredicate -> pushLeafPredicate(fetchPlan, newInnerAlias, leafPredicate));
+                    queryPredicate.replaceLeavesMaybe(leafPredicate -> pushLeafPredicate(fetchPlan, quantifierOverFetch.getAlias(), newInnerAlias, leafPredicate));
 
             if (pushedPredicateOptional.isPresent()) {
                 pushedPredicatesBuilder.add(pushedPredicateOptional.get());
@@ -229,6 +229,7 @@ public class PushFilterThroughFetchRule extends PlannerRule<RecordQueryPredicate
 
     @Nullable
     private QueryPredicate pushLeafPredicate(@Nonnull RecordQueryFetchFromPartialRecordPlan fetchPlan,
+                                             @Nonnull CorrelationIdentifier oldInnerAlias,
                                              @Nonnull CorrelationIdentifier newInnerAlias,
                                              @Nonnull final QueryPredicate leafPredicate) {
         if (leafPredicate instanceof QueryComponentPredicate) {
@@ -244,7 +245,7 @@ public class PushFilterThroughFetchRule extends PlannerRule<RecordQueryPredicate
         final PredicateWithValue predicateWithValue = (PredicateWithValue)leafPredicate;
 
         final Value value = predicateWithValue.getValue();
-        final Optional<Value> pushedValueOptional = fetchPlan.pushValue(value, newInnerAlias);
+        final Optional<Value> pushedValueOptional = fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias);
         // Something went wrong when attempting to push this value through the fetch.
         // We must return null to prevent pushing of this conjunct.
         return pushedValueOptional.map(predicateWithValue::withValue).orElse(null);

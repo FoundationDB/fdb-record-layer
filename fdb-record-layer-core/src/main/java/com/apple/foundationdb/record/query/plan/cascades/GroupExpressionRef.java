@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
@@ -33,6 +34,9 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
@@ -140,8 +144,19 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Override
     public boolean containsAllInMemo(@Nonnull final ExpressionRef<? extends RelationalExpression> otherRef,
                                      @Nonnull final AliasMap equivalenceMap) {
+        if (this == otherRef) {
+            return true;
+        }
+        
         for (final RelationalExpression otherMember : otherRef.getMembers()) {
-            if (!containsInMemo(otherMember, equivalenceMap)) {
+            final var quickLookup =
+                    Multimaps.<Integer, RelationalExpression>newListMultimap(Maps.newHashMap(), () -> Lists.newArrayListWithCapacity(members.size()));
+            for (final T member : members) {
+                quickLookup.put(member.hashCodeWithoutChildren(), member);
+            }
+
+            final var membersToSearch = quickLookup.get(otherMember.hashCodeWithoutChildren());
+            if (!containsInMemo(otherMember, equivalenceMap, members)) {
                 return false;
             }
         }
@@ -160,7 +175,13 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     private boolean containsInMemo(@Nonnull final RelationalExpression expression,
                                    @Nonnull final AliasMap equivalenceMap) {
-        for (final RelationalExpression member : members) {
+        return containsInMemo(expression, equivalenceMap, members);
+    }
+
+    private boolean containsInMemo(@Nonnull final RelationalExpression expression,
+                                   @Nonnull final AliasMap equivalenceMap,
+                                   @Nonnull final Iterable<? extends RelationalExpression> membersToSearch) {
+        for (final RelationalExpression member : membersToSearch) {
             if (containsInMember(member, expression, equivalenceMap)) {
                 return true;
             }
@@ -175,6 +196,12 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
             return false;
         }
 
+        final List<? extends Quantifier> quantifiers = member.getQuantifiers();
+        final List<? extends Quantifier> otherQuantifiers = otherMember.getQuantifiers();
+        if (member.getQuantifiers().size() != otherQuantifiers.size()) {
+            return false;
+        }
+
         if (member.hashCodeWithoutChildren() != otherMember.hashCodeWithoutChildren()) {
             return false;
         }
@@ -185,23 +212,35 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         // Bind all unbound correlated aliases in this member and otherMember that refer to the same
         // quantifier by alias.
         final AliasMap identitiesMap = member.bindIdentities(otherMember, equivalenceMap);
+        final AliasMap combinedEquivalenceMap = equivalenceMap.combine(identitiesMap);
 
-        // Use match the contained quantifier list against the quantifier list of other in order to find
-        // a correspondence between quantifiers and otherQuantifiers. While we match we recursively call
-        // containsAllInMemo() and early out on that map if such a correspondence cannot be established
-        // on the given pair of quantifiers. The result of this method is an iterable of matches. While it's
-        // possible that there is more than one match, this iterable should mostly contain at most one
-        // match.
-        final Iterable<AliasMap> aliasMapIterable =
-                Quantifiers.findMatches(
-                        equivalenceMap.combine(identitiesMap),
-                        member.getQuantifiers(),
-                        otherMember.getQuantifiers(),
-                        ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
-                            final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
-                            final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
-                            return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
-                        }));
+        final Iterable<AliasMap> aliasMapIterable;
+        if (member instanceof SelectExpression) {
+            // Use match the contained quantifier list against the quantifier list of other in order to find
+            // a correspondence between quantifiers and otherQuantifiers. While we match we recursively call
+            // containsAllInMemo() and early out on that map if such a correspondence cannot be established
+            // on the given pair of quantifiers. The result of this method is an iterable of matches. While it's
+            // possible that there is more than one match, this iterable should mostly contain at most one
+            // match.
+            aliasMapIterable =
+                    Quantifiers.findMatches(
+                            combinedEquivalenceMap,
+                            member.getQuantifiers(),
+                            otherMember.getQuantifiers(),
+                            ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
+                                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                                final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
+                                return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
+                            }));
+        } else {
+            final AliasMap.Builder aliasMapBuilder = combinedEquivalenceMap.derived(quantifiers.size());
+            for (int i = 0; i < quantifiers.size(); i++) {
+                final Quantifier quantifier = Objects.requireNonNull(quantifiers.get(i));
+                final Quantifier otherQuantifier = Objects.requireNonNull(otherQuantifiers.get(i));
+                aliasMapBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
+            }
+            aliasMapIterable = ImmutableList.of(aliasMapBuilder.build());
+        }
 
         // if there is more than one match we only need one such match that also satisfies the equality condition between
         // member and otherMember (no children considered).

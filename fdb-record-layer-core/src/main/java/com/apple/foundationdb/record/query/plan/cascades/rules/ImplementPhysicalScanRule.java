@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 
 import javax.annotation.Nonnull;
 
+import java.util.Optional;
+
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.primaryScanExpression;
 
 /**
