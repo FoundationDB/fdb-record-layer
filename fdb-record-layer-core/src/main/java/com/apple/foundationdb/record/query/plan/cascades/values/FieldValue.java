@@ -174,7 +174,7 @@ public class FieldValue implements ValueWithChild {
             }
              */
             boolean isWrappedArray = currentType.getTypeCode() == Type.TypeCode.ARRAY && ((Type.Array)currentType).needsWrapper();
-            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD || isWrappedArray, String.format("field type '%s' can only be resolved on records", fieldName));
+            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD, String.format("field type '%s' can only be resolved on records", fieldName));
             if (!isWrappedArray) {
                 final var recordType = (Type.Record)currentType;
                 final var fieldTypeMap = recordType.getFieldTypeMap();
