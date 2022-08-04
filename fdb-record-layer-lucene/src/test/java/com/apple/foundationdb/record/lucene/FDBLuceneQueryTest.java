@@ -843,7 +843,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     // TODO: This query does not have the proper correlation between the two children. An index that put the key into the name would be needed to tell that.
                     scanParams(query(hasToString("entry_key:STRING EQUALS b AND entry_value:TEXT TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean")))
-            ));
+                    ));
             if (shouldDeferFetch) {
                 matcher = fetch(primaryKeyDistinct(coveringIndexScan(matcher)));
             } else {
