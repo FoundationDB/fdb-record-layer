@@ -195,7 +195,7 @@ public class ArithmeticValue implements Value {
     public static class AddFn extends BuiltInFunction<Value> {
         public AddFn() {
             super("add",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (ignored, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 
@@ -206,7 +206,7 @@ public class ArithmeticValue implements Value {
     public static class SubFn extends BuiltInFunction<Value> {
         public SubFn() {
             super("sub",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (ignored, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 
@@ -217,7 +217,7 @@ public class ArithmeticValue implements Value {
     public static class MulFn extends BuiltInFunction<Value> {
         public MulFn() {
             super("mul",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (ignored, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 
@@ -228,7 +228,7 @@ public class ArithmeticValue implements Value {
     public static class DivFn extends BuiltInFunction<Value> {
         public DivFn() {
             super("div",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (ignored, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 
@@ -239,7 +239,7 @@ public class ArithmeticValue implements Value {
     public static class ModFn extends BuiltInFunction<Value> {
         public ModFn() {
             super("mod",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
+                    ImmutableList.of(new Type.Any(), new Type.Any()), (ignored, builtInFunction, arguments) -> encapsulateInternal(builtInFunction, arguments));
         }
     }
 

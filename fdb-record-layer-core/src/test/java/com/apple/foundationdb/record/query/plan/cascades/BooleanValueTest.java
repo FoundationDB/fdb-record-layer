@@ -81,9 +81,8 @@ class BooleanValueTest {
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
     private static final ThrowsValue THROWS_VALUE = new ThrowsValue();
+
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
-    @SuppressWarnings({"ConstantConditions"})
-    private static final ParserContext parserContext = new ParserContext(null, typeRepositoryBuilder);
 
     @SuppressWarnings("ConstantConditions")
     static class ThrowsValue implements BooleanValue {
@@ -585,51 +584,51 @@ class BooleanValueTest {
                     Arguments.of(List.of(F), new RelOpValue.NotNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),
 
                     /* AND */
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), new AndPredicate(List.of(new ValuePredicate(F,
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(F, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), new AndPredicate(List.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_NULL)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_NULL)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_2)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(F, INT_1))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_NULL)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_NULL)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     /* OR */
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_2))), new AndOrValue.OrFn(), new OrPredicate(List.of(new ValuePredicate(F,
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(F, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(F, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_2))), new AndOrValue.OrFn(), new OrPredicate(List.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.FALSE))),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(F, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_NULL)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_2)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_NULL))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_2)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(F, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_NULL)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_2)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_NULL))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_NULL, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.NULL),
 
                     /* NOT */
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1))), new NotValue.NotFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_2, INT_1))), new NotValue.NotFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_NULL, INT_1))), new NotValue.NotFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_1))), new NotValue.NotFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_2, INT_1))), new NotValue.NotFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_NULL, INT_1))), new NotValue.NotFn(), ConstantPredicate.NULL),
 
                     /* lazy evaluation tests */
-                    Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
+                    Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_1)),
                             THROWS_VALUE), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_1)),
                             THROWS_VALUE), new AndOrValue.OrFn(), ConstantPredicate.TRUE)
             );
         }
@@ -639,7 +638,7 @@ class BooleanValueTest {
     @SuppressWarnings({"rawtypes", "unchecked"})
     @ArgumentsSource(BinaryPredicateTestProvider.class)
     void testPredicate(List<Value> args, BuiltInFunction function, QueryPredicate result) {
-        Typed value = function.encapsulate(parserContext, args);
+        Typed value = function.encapsulate(typeRepositoryBuilder, args);
         Assertions.assertTrue(value instanceof BooleanValue);
         Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(CorrelationIdentifier.UNGROUNDED);
         Assertions.assertFalse(maybePredicate.isEmpty());

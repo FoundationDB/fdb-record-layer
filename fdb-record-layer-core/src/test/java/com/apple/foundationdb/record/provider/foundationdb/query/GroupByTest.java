@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -135,8 +136,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_3_indexed"))));
         final var groupingCols = RecordConstructorValue.ofColumns(List.of(groupingCol));
         final var aggregationCols = RecordConstructorValue.ofColumns(List.of(aggCol));
-        final var resultValue = RecordConstructorValue.ofColumns(List.of(aggCol, groupingCol));
-        final var groupByExpression = new GroupByExpression(groupingCols, aggregationCols, resultValue, qun);
+        final var groupByExpression = new GroupByExpression(aggregationCols, groupingCols, CorrelationIdentifier.UNGROUNDED, CorrelationIdentifier.UNGROUNDED, qun); // fixme
         qun = Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
 
         final var topSelectBuilder = GraphExpansion.builder();
