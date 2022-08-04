@@ -164,7 +164,7 @@ public class FieldValue implements ValueWithChild {
             SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD, String.format("field type '%s' can only be resolved on records", fieldName));
             final var recordType = (Type.Record)currentType;
             final var fieldTypeMap = recordType.getFieldTypeMap();
-            SemanticException.check(fieldTypeMap != null && fieldTypeMap.containsKey(fieldName), "record does not contain specified field");
+            SemanticException.check(fieldTypeMap.containsKey(fieldName), "record does not contain specified field");
             currentType = fieldTypeMap.get(fieldName);
         }
         return currentType;
