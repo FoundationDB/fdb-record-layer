@@ -350,7 +350,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                                                     valuePredicate(fieldValue("reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
             assertEquals(-83822384, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(2065397699, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(451655116, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(446113990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     context -> TestHelpers.assertDiscardedAtMost(5, context)));
@@ -686,7 +686,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
             assertEquals(1553162232, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-1581979808, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(422663385, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(417122259, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
     }
 
