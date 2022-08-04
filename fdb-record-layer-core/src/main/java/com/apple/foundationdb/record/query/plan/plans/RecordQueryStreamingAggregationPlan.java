@@ -47,7 +47,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.OrdinalFieldValu
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -62,7 +61,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * A query plan that applies an aggregate function(s) to its inputs and also places them into groups.
@@ -323,20 +321,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
             valuesBuilder.add(aggregateValue);
         }
 
-        return RecordConstructorValue.ofUnnamed(flatten(valuesBuilder.build()));
-    }
-
-    @Nonnull
-    private static ImmutableList<Value> flatten(@Nonnull final ImmutableList<Value> values) {
-        var result = values.asList();
-        final int threshold = 10_000;
-        int counter = 0;
-        while (result.stream().anyMatch( v -> v.getResultType().getTypeCode() == Type.TypeCode.RECORD)) {
-            // can not reach fixpoint, could happen with (in)directly-recursive records I think.
-            Verify.verify(++counter < threshold, "could not flatten stream");
-            result = result.stream().flatMap(v -> v.getResultType().getTypeCode() == Type.TypeCode.RECORD ? Values.deconstructRecord(v).stream() : Stream.of(v)).collect(ImmutableList.toImmutableList());
-        }
-        return result;
+        return RecordConstructorValue.ofUnnamed(valuesBuilder.build());
     }
 
     @Nonnull

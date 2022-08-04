@@ -21,12 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -40,6 +42,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -51,7 +54,7 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class GroupByExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
 
-    @Nonnull
+    @Nullable
     private final Value groupingValue;
 
     @Nonnull
@@ -63,7 +66,14 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     private final Quantifier inner;
 
-    public GroupByExpression(@Nonnull final Value groupingValue, @Nonnull final AggregateValue aggregateValue, @Nonnull final Value resultValue, @Nonnull final Quantifier inner) {
+    /**
+     * Creates a new instance of {@link GroupByExpression}.
+     * @param groupingValue The grouping {@code Value} used to determine individual groups, can be {@code null} indicating no grouping.
+     * @param aggregateValue The aggregation {@code Value} applied to each group.
+     * @param resultValue The result {@code Value}.
+     * @param inner The underlying source of tuples to be grouped.
+     */
+    public GroupByExpression(@Nullable final Value groupingValue, @Nonnull final AggregateValue aggregateValue, @Nonnull final Value resultValue, @Nonnull final Quantifier inner) {
         this.groupingValue = groupingValue;
         this.aggregateValue = aggregateValue;
         this.resultValue = resultValue;
@@ -102,10 +112,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         if (getClass() != other.getClass()) {
             return false;
         }
-        if (!groupingValue.equals(((GroupByExpression)other).groupingValue)) {
+        if (!Objects.equals(groupingValue, ((GroupByExpression)other).groupingValue)) {
             return false;
         }
-
         if (!aggregateValue.equals(((GroupByExpression)other).aggregateValue)) {
             return false;
         }
@@ -135,7 +144,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
         final AggregateValue translatedAggregateValue = aggregateValue.translateCorrelations(translationMap);
-        final Value translatedGroupingValue = groupingValue.translateCorrelations(translationMap);
+        final Value translatedGroupingValue = groupingValue == null ? null : groupingValue.translateCorrelations(translationMap);
         if (translatedAggregateValue != aggregateValue || translatedResultValue != resultValue || translatedGroupingValue != groupingValue) {
             return new GroupByExpression(translatedGroupingValue, translatedAggregateValue, translatedResultValue, Iterables.getOnlyElement(translatedQuantifiers));
         }
@@ -144,21 +153,37 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Override
     public String toString() {
-        return "GroupBy(" + groupingValue + "), aggregationValue: " + aggregateValue + ", resultValue: " + resultValue;
+        if (groupingValue == null) {
+            return "GroupBy(" + groupingValue + "), aggregationValue: " + aggregateValue + ", resultValue: " + resultValue;
+        } else {
+            return "GroupBy(NULL), aggregationValue: " + aggregateValue + ", resultValue: " + resultValue;
+        }
     }
 
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        return PlannerGraph.fromNodeAndChildGraphs(
-                new PlannerGraph.LogicalOperatorNode(this,
-                        "GROUP BY " + groupingValue,
-                        List.of("AGG. " + aggregateValue, "RES. " + resultValue),
-                        ImmutableMap.of()),
-                childGraphs);
+        if (groupingValue == null) {
+            return PlannerGraph.fromNodeAndChildGraphs(
+                    new PlannerGraph.LogicalOperatorNode(this,
+                            "GROUP BY",
+                            List.of("AGG {{agg}}", "RESULT {{result}}"),
+                            ImmutableMap.of("agg", Attribute.gml(aggregateValue.toString()),
+                                    "result", Attribute.gml(resultValue.toString()))),
+                    childGraphs);
+        } else {
+            return PlannerGraph.fromNodeAndChildGraphs(
+                    new PlannerGraph.LogicalOperatorNode(this,
+                            "GROUP BY",
+                            List.of("AGG {{agg}}", "GROUP BY {{grouping}}", "RESULT {{result}}"),
+                            ImmutableMap.of("agg", Attribute.gml(aggregateValue.toString()),
+                                    "grouping", Attribute.gml(groupingValue.toString()),
+                                    "result", Attribute.gml(resultValue.toString()))),
+                    childGraphs);
+        }
     }
 
-    @Nonnull
+    @Nullable
     public Value getGroupingValue() {
         return groupingValue;
     }
