@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -94,11 +96,19 @@ public class OrdinalFieldValue implements ValueWithChild {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final Message childMessage = (Message)child.eval(store, context);
-        if (childMessage == null) {
+        final var result = child.eval(store, context);
+        if (result == null) {
             return null;
         }
-        return MessageValue.getFieldOnMessage(childMessage, field.getFieldIndex());
+        if (result instanceof QueryResult) {
+            final Message childMessage = (Message)((QueryResult)result).getDatum();
+            if (childMessage == null) {
+                return null;
+            }
+            return MessageValue.getFieldOnMessage(childMessage, field.getFieldIndex());
+        }
+        Verify.verify(result instanceof Message);
+        return MessageValue.getFieldOnMessage((Message)result, field.getFieldIndex());
     }
 
     @Override

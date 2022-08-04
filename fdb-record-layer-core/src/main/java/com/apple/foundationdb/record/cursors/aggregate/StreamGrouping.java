@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -176,7 +177,7 @@ public class StreamGrouping<M extends Message> {
         final EvaluationContext nestedContext = context.childBuilder()
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
-                .setBinding(alias, currentObject)
+                .setBinding(alias, currentObject instanceof QueryResult ? ((QueryResult)currentObject).getDatum() : currentObject)
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
 

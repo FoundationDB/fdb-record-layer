@@ -229,6 +229,6 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Nonnull
     private Value computeResultValue() {
-        return RecordQueryStreamingAggregationPlan.nestedResults(groupingValue, aggregateValue, groupingValueAlias, aggregateValueAlias);
+        return RecordQueryStreamingAggregationPlan.flattenedResults(groupingValue, aggregateValue, groupingValueAlias, aggregateValueAlias);
     }
 }
