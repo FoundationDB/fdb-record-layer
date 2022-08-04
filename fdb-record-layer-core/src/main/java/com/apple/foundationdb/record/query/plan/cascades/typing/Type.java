@@ -66,12 +66,14 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * Returns the {@link TypeCode} of the {@link Type} instance.
+     * 
      * @return The {@link TypeCode} of the {@link Type} instance.
      */
     TypeCode getTypeCode();
 
     /**
      * Returns the corresponding Java {@link Class} of the {@link Type} instance.
+     *
      * @return the corresponding Java {@link Class} of the {@link Type} instance.
      */
     default Class<?> getJavaClass() {
@@ -80,6 +82,7 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * Checks whether a {@link Type} is primitive or structured.
+     *
      * @return <code>true</code> if the {@link Type} is primitive, otherwise <code>false</code>.
      */
     default boolean isPrimitive() {
@@ -88,6 +91,7 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * Checks whether a {@link Type} is nullable.
+     *
      * @return <code>true</code> if the {@link Type} is nullable, otherwise <code>false</code>.
      */
     boolean isNullable();
@@ -145,7 +149,6 @@ public interface Type extends Narrowable<Type> {
      * Constructs a field name for a given field suffix.
      *
      * @param fieldSuffix The field suffix.
-     *
      * @return a field name generated using the field suffix.
      */
     static String fieldName(final Object fieldSuffix) {
@@ -155,6 +158,7 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * For a given {@link TypeCode}, it returns a corresponding <i>nullable</i> {@link Type}.
+     *
      * pre-condition: The {@link TypeCode} is primitive.
      *
      * @param typeCode The primitive type code.
@@ -167,6 +171,7 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * For a given {@link TypeCode}, it returns a corresponding {@link Type}.
+     *
      * pre-condition: The {@link TypeCode} is primitive.
      *
      * @param typeCode The primitive type code.
@@ -237,7 +242,6 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * Maps a {@link List} of {@link Typed} instances to a {@link List} of their {@link Type}s.
-     *
      * @param typedList The list of {@link Typed} objects.
      * @return The list of {@link Type}s.
      */
@@ -264,7 +268,6 @@ public interface Type extends Narrowable<Type> {
      * @param protoType The protobuf descriptor type.
      * @param protoLabel The protobuf descriptor label.
      * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise <code>false</code>.
-     *
      * @return A {@link Type} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
      */
     @Nonnull
@@ -432,6 +435,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Checks whether a {@link Type} is primitive or structured.
+         *
          * @return <code>true</code> if the {@link Type} is primitive, otherwise <code>false</code>.
          */
         public boolean isPrimitive() {
@@ -440,6 +444,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Checks whether a {@link Type} is numeric.
+         *
          * @return <code>true</code> if the {@link Type} is numeric, otherwise <code>false</code>.
          */
         public boolean isNumeric() {
@@ -464,7 +469,6 @@ public interface Type extends Narrowable<Type> {
         /**
          * Generates a {@link TypeCode} that corresponds to the given protobuf
          * {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type}.
-         *
          * @param protobufType The protobuf type.
          * @return A corresponding {@link TypeCode} instance.
          */
@@ -853,7 +857,6 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Checks whether the {@link Record} type instance is erased or not.
-         *
          * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
          */
         boolean isErased() {
@@ -953,7 +956,6 @@ public interface Type extends Narrowable<Type> {
          * Creates a new <i>nullable</i> {@link Record} type instance using the given list of {@link Field}s.
          *
          * @param fields The list of {@link Field}s used to create the new {@link Record} type instance.
-         *
          * @return a new <i>nullable</i> {@link Record} type instance using the given list of {@link Field}s.
          */
         @Nonnull
@@ -966,7 +968,6 @@ public interface Type extends Narrowable<Type> {
          *
          * @param isNullable True, if the {@link Record} type instance should be nullable, otherwise <code>false</code>.
          * @param fields The list of {@link Field}s used to create the new {@link Record} type instance.
-         *
          * @return a new {@link Record} type instance using the given list of {@link Field}s.
          */
         @Nonnull
@@ -983,8 +984,7 @@ public interface Type extends Narrowable<Type> {
          * Creates a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          *
-         * @param fieldDescriptorMap A map of field names to their protobuf
-         * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         * @param fieldDescriptorMap A map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          *
          * @return a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
@@ -995,11 +995,13 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * Creates a new {@link Record} type instance using the given map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         * Creates a new {@link Record} type instance using the given map of field names to their protobuf
+         * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          *
          * @param isNullable True, if the {@link Record} type instance should be nullable, otherwise <code>false</code>.
          * @param fieldDescriptorMap A map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
-         * @return a new {@link Record} type instance using the given map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         * @return a new {@link Record} type instance using the given map of field names to their protobuf
+         * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          */
         @Nonnull
         public static Record fromFieldDescriptorsMap(final boolean isNullable, @Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
@@ -1214,7 +1216,6 @@ public interface Type extends Narrowable<Type> {
              *
              * @param fieldType The field {@link Type}.
              * @param fieldNameOptional The field name.
-             *
              * @return a new field
              */
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional) {
@@ -1454,7 +1455,6 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Returns the array element {@link Type}.
-         *
          * @return The array element {@link Type}.
          */
         @Nullable
@@ -1556,8 +1556,7 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * Returns <code>true</code> if a nested protobuf message is required for the given type, otherwise
-         * <code>false</code>.
+         * Returns <code>true</code> if a nested protobuf message is required for the given type, otherwise <code>false</code>.
          *
          * @param elementType the type to check whether a nested protobuf message is required for.
          *
