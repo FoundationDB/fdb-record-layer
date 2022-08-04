@@ -49,11 +49,11 @@ import java.util.stream.Collectors;
 
 /**
  * Provides type information about the output of an expression such as {@link Value} in a QGM.
- *
+ * <p>
  * Types bear a resemblance to protobuf types; they are either primitive such as <code>boolean</code>, <code>int</code>,
  * and <code>string</code> or structured such as {@link Record} and {@link Array}. Moreover, it is possible to switch
  * between a {@link Type} instance and an equivalent protobuf {@link Descriptors} in a lossless manner.
- *
+ * <p>
  * Finally, {@link Type}s are non-referential, so two structural types are considered equal iff their structures
  * are equal.
  */
@@ -99,6 +99,7 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * Checks whether a {@link Type} is numeric.
+     *
      * @return <code>true</code> if the {@link Type} is numeric, otherwise <code>false</code>.
      */
     default boolean isNumeric() {
@@ -123,6 +124,7 @@ public interface Type extends Narrowable<Type> {
     /**
      * Creates a synthetic protobuf descriptor that is equivalent to the <code>this</code> {@link Type} within a given
      * protobuf descriptor.
+     *
      * @param typeRepositoryBuilder The type repository.
      * @param descriptorBuilder The parent descriptor into which the newly created descriptor will be created.
      * @param fieldNumber The field number of the descriptor.
@@ -150,6 +152,7 @@ public interface Type extends Narrowable<Type> {
      * Constructs a field name for a given field suffix.
      *
      * @param fieldSuffix The field suffix.
+     *
      * @return a field name generated using the field suffix.
      */
     static String fieldName(final Object fieldSuffix) {
@@ -159,10 +162,11 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * For a given {@link TypeCode}, it returns a corresponding <i>nullable</i> {@link Type}.
-     *
+     * <p>
      * pre-condition: The {@link TypeCode} is primitive.
      *
      * @param typeCode The primitive type code.
+     *
      * @return the corresponding {@link Type}.
      */
     @Nonnull
@@ -172,11 +176,12 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * For a given {@link TypeCode}, it returns a corresponding {@link Type}.
-     *
+     * <p>
      * pre-condition: The {@link TypeCode} is primitive.
      *
      * @param typeCode The primitive type code.
      * @param isNullable True, if the {@link Type} is supposed to be nullable, otherwise, false.
+     *
      * @return the corresponding {@link Type}.
      */
     @Nonnull
@@ -243,7 +248,9 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * Maps a {@link List} of {@link Typed} instances to a {@link List} of their {@link Type}s.
+     *
      * @param typedList The list of {@link Typed} objects.
+     *
      * @return The list of {@link Type}s.
      */
     @Nonnull
@@ -255,6 +262,7 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * Generates a JVM-wide unique type name.
+     *
      * @return a unique type name.
      */
     static String uniqueCompliantTypeName() {
@@ -268,7 +276,9 @@ public interface Type extends Narrowable<Type> {
      * @param descriptor The protobuf descriptor.
      * @param protoType The protobuf descriptor type.
      * @param protoLabel The protobuf descriptor label.
-     * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise <code>false</code>.
+     * @param isNullable <code>true</code> if the generated {@link Type} should be nullable, otherwise
+     * <code>false</code>.
+     *
      * @return A {@link Type} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
      */
     @Nonnull
@@ -356,17 +366,18 @@ public interface Type extends Narrowable<Type> {
      * descriptor if the field is a message or an enum, otherwise <code>null</code>.
      *
      * @param fieldDescriptor The descriptor.
+     *
      * @return the type-specific descriptor for the field, otherwise <code>null</code>.
      */
     @Nullable
     private static Descriptors.GenericDescriptor getTypeSpecificDescriptor(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
         switch (fieldDescriptor.getType()) {
-            case MESSAGE:
-                return fieldDescriptor.getMessageType();
-            case ENUM:
-                return fieldDescriptor.getEnumType();
-            default:
-                return null;
+        case MESSAGE:
+            return fieldDescriptor.getMessageType();
+        case ENUM:
+            return fieldDescriptor.getEnumType();
+        default:
+            return null;
         }
     }
 
@@ -413,8 +424,10 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Construct a new {@link TypeCode} instance.
+         *
          * @param javaClass Java {@link Class} that corresponds to the {@link TypeCode}.
-         * @param protoType Protobuf {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type} descriptor that corresponds
+         * @param protoType Protobuf {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type} descriptor
+         * that corresponds
          * @param isPrimitive <code>true</code> if a {@link TypeCode} is primitive, otherwise <code>false</code>.
          * @param isNumeric <code>true</code> if a {@link TypeCode} is numeric, otherwise <code>false</code>.
          */
@@ -470,6 +483,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Computes a mapping from Java {@link Class} to corresponding {@link TypeCode} instance.
+         *
          * @return a mapping from Java {@link Class} to corresponding {@link TypeCode} instance.
          */
         @Nonnull
@@ -486,41 +500,43 @@ public interface Type extends Narrowable<Type> {
         /**
          * Generates a {@link TypeCode} that corresponds to the given protobuf
          * {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type}.
+         *
          * @param protobufType The protobuf type.
+         *
          * @return A corresponding {@link TypeCode} instance.
          */
         @Nonnull
         public static TypeCode fromProtobufType(@Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
             switch (protobufType) {
-                case DOUBLE:
-                    return TypeCode.DOUBLE;
-                case FLOAT:
-                    return TypeCode.FLOAT;
-                case INT64:
-                case UINT64:
-                case FIXED64:
-                case SFIXED64:
-                case SINT64:
-                    return TypeCode.LONG;
-                case INT32:
-                case FIXED32:
-                case UINT32:
-                case SFIXED32:
-                case SINT32:
-                    return TypeCode.INT;
-                case BOOL:
-                    return TypeCode.BOOLEAN;
-                case STRING:
-                    return TypeCode.STRING;
-                case GROUP:
-                case ENUM:
-                    return TypeCode.ENUM;
-                case MESSAGE:
-                    return TypeCode.RECORD;
-                case BYTES:
-                    return TypeCode.BYTES;
-                default:
-                    throw new IllegalArgumentException("unknown protobuf type " + protobufType);
+            case DOUBLE:
+                return TypeCode.DOUBLE;
+            case FLOAT:
+                return TypeCode.FLOAT;
+            case INT64:
+            case UINT64:
+            case FIXED64:
+            case SFIXED64:
+            case SINT64:
+                return TypeCode.LONG;
+            case INT32:
+            case FIXED32:
+            case UINT32:
+            case SFIXED32:
+            case SINT32:
+                return TypeCode.INT;
+            case BOOL:
+                return TypeCode.BOOLEAN;
+            case STRING:
+                return TypeCode.STRING;
+            case GROUP:
+            case ENUM:
+                return TypeCode.ENUM;
+            case MESSAGE:
+                return TypeCode.RECORD;
+            case BYTES:
+                return TypeCode.BYTES;
+            default:
+                throw new IllegalArgumentException("unknown protobuf type " + protobufType);
             }
         }
     }
@@ -618,6 +634,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Checks whether the {@link Record} type instance is erased or not.
+         *
          * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
          */
         boolean isErased() {
@@ -781,6 +798,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Constructs a new {@link Record} using a list of {@link Field}s.
+         *
          * @param isNullable True if the record type is nullable, otherwise false.
          * @param fields The list of {@link Record} {@link Field}s.
          */
@@ -826,6 +844,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Returns the list of {@link Record} {@link Field}s.
+         *
          * @return the list of {@link Record} {@link Field}s.
          */
         @Nonnull
@@ -835,6 +854,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Returns the list of {@link Field} {@link Type}s.
+         *
          * @return the list of {@link Field} {@link Type}s.
          */
         @Nullable
@@ -844,6 +864,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Computes the list of {@link Field} {@link Type}s.
+         *
          * @return the list of {@link Field} {@link Type}s.
          */
         private List<Type> computeElementTypes() {
@@ -855,6 +876,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Returns a mapping from {@link Field} names to their {@link Type}s.
+         *
          * @return a mapping from {@link Field} names to their {@link Type}s.
          */
         @Nullable
@@ -864,6 +886,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Computes a mapping from {@link Field} names to their {@link Type}s.
+         *
          * @return a mapping from {@link Field} names to their {@link Type}s.
          */
         @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -875,6 +898,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Checks whether the {@link Record} type instance is erased or not.
+         *
          * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
          */
         boolean isErased() {
@@ -962,6 +986,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Creates a new erased {@link Record} type instance and returns it.
+         *
          * @return a new erased {@link Record} type instance.
          */
         @Nonnull
@@ -973,6 +998,7 @@ public interface Type extends Narrowable<Type> {
          * Creates a new <i>nullable</i> {@link Record} type instance using the given list of {@link Field}s.
          *
          * @param fields The list of {@link Field}s used to create the new {@link Record} type instance.
+         *
          * @return a new <i>nullable</i> {@link Record} type instance using the given list of {@link Field}s.
          */
         @Nonnull
@@ -985,6 +1011,7 @@ public interface Type extends Narrowable<Type> {
          *
          * @param isNullable True, if the {@link Record} type instance should be nullable, otherwise <code>false</code>.
          * @param fields The list of {@link Field}s used to create the new {@link Record} type instance.
+         *
          * @return a new {@link Record} type instance using the given list of {@link Field}s.
          */
         @Nonnull
@@ -998,10 +1025,13 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * Creates a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
+         * Creates a new <i>nullable</i> {@link Record} type instance using the given map of field names to their
+         * protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          *
-         * @param fieldDescriptorMap A map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         * @param fieldDescriptorMap A map of field names to their protobuf
+         * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         *
          * @return a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          */
@@ -1015,7 +1045,8 @@ public interface Type extends Narrowable<Type> {
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          *
          * @param isNullable True, if the {@link Record} type instance should be nullable, otherwise <code>false</code>.
-         * @param fieldDescriptorMap A map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         * @param fieldDescriptorMap A map of field names to their protobuf
+         * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          *
          * @return a new {@link Record} type instance using the given map of field names to their protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
@@ -1037,9 +1068,11 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * Translates a protobuf {@link com.google.protobuf.Descriptors.Descriptor} to a corresponding {@link Record} object.
+         * Translates a protobuf {@link com.google.protobuf.Descriptors.Descriptor} to a corresponding {@link Record}
+         * object.
          *
          * @param descriptor The protobuf {@link com.google.protobuf.Descriptors.Descriptor} to translate.
+         *
          * @return A {@link Record} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
          */
         @Nonnull
@@ -1048,10 +1081,13 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * Examines the given {@link com.google.protobuf.Descriptors.Descriptor}'s {@link Field}s and returns an {@link Optional}
-         * containing a field that can be used as an array element type, if possible, otherwise, an empty {@link Optional}.
+         * Examines the given {@link com.google.protobuf.Descriptors.Descriptor}'s {@link Field}s and returns an
+         * {@link Optional}
+         * containing a field that can be used as an array element type, if possible, otherwise, an empty
+         * {@link Optional}.
          *
          * @param descriptor The {@link com.google.protobuf.Descriptors.Descriptor} to examine.
+         *
          * @return Optionally, a field that can be used as an array element type.
          */
         @Nonnull
@@ -1071,6 +1107,7 @@ public interface Type extends Narrowable<Type> {
          * and the field itself.
          *
          * @param fieldDescriptors list of {@link com.google.protobuf.Descriptors.FieldDescriptor}s to map.
+         *
          * @return a mapping between field name and the field itself.
          */
         @Nonnull
@@ -1084,6 +1121,7 @@ public interface Type extends Narrowable<Type> {
          * Normalizes a list of {@link Field}s such that their names and indices are consistent.
          *
          * @param fields The list of {@link Field}s to normalize.
+         *
          * @return a list of normalized {@link Field}s.
          */
         @Nonnull
@@ -1151,6 +1189,7 @@ public interface Type extends Narrowable<Type> {
 
             /**
              * Returns the field {@link Type}.
+             *
              * @return The field {@link Type}.
              */
             @Nonnull
@@ -1160,6 +1199,7 @@ public interface Type extends Narrowable<Type> {
 
             /**
              * Returns the field name.
+             *
              * @return The field name.
              */
             @Nonnull
@@ -1169,6 +1209,7 @@ public interface Type extends Narrowable<Type> {
 
             /**
              * Returns the field name.
+             *
              * @return The field name.
              */
             @Nonnull
@@ -1178,6 +1219,7 @@ public interface Type extends Narrowable<Type> {
 
             /**
              * Returns the field index.
+             *
              * @return The field index.
              */
             @Nonnull
@@ -1187,6 +1229,7 @@ public interface Type extends Narrowable<Type> {
 
             /**
              * Returns the field index.
+             *
              * @return The field index.
              */
             public int getFieldIndex() {
@@ -1221,6 +1264,7 @@ public interface Type extends Narrowable<Type> {
              * @param fieldType The field {@link Type}.
              * @param fieldNameOptional The field name.
              * @param fieldIndexOptional The field index.
+             *
              * @return a new field
              */
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
@@ -1232,6 +1276,7 @@ public interface Type extends Narrowable<Type> {
              *
              * @param fieldType The field {@link Type}.
              * @param fieldNameOptional The field name.
+             *
              * @return a new field
              */
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional) {
@@ -1242,6 +1287,7 @@ public interface Type extends Narrowable<Type> {
              * Constructs a new field that has no name and no protobuf field index.
              *
              * @param fieldType The field {@link Type}.
+             *
              * @return a new field
              */
             public static Field unnamedOf(@Nonnull final Type fieldType) {
@@ -1312,6 +1358,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Returns the values {@link Type}.
+         *
          * @return The values {@link Type}.
          */
         @Nullable
@@ -1462,7 +1509,8 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * Returns <code>true</code> if a nested protobuf message is required for the array, otherwise <code>false</code>.
+         * Returns <code>true</code> if a nested protobuf message is required for the array, otherwise
+         * <code>false</code>.
          *
          * @return <code>true</code> if a nested protobuf message is required for the array, otherwise <code>false</code>.
          */
@@ -1472,6 +1520,7 @@ public interface Type extends Narrowable<Type> {
 
         /**
          * Returns the array element {@link Type}.
+         *
          * @return The array element {@link Type}.
          */
         @Nullable
@@ -1493,22 +1542,22 @@ public interface Type extends Narrowable<Type> {
          */
         @Override
         public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
-            final var typeName = uniqueCompliantTypeName();
-            typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
-            /*
             Objects.requireNonNull(elementType);
             final var typeName = uniqueCompliantTypeName();
-            final var helperDescriptorBuilder = DescriptorProto.newBuilder();
-            helperDescriptorBuilder.setName(typeName);
-            elementType.addProtoField(typeRepositoryBuilder,
-                    helperDescriptorBuilder,
-                    1, "value",
-                    typeRepositoryBuilder.defineAndResolveType(elementType),
-                    FieldDescriptorProto.Label.LABEL_OPTIONAL);
-            typeRepositoryBuilder.addMessageType(helperDescriptorBuilder.build());
             typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
-
-             */
+            if (needsWrapper && elementType.getTypeCode() != TypeCode.UNKNOWN) {
+                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of("values"))));
+                typeRepositoryBuilder.defineAndResolveType(wrapperType);
+            } else {
+                final var helperDescriptorBuilder = DescriptorProto.newBuilder();
+                helperDescriptorBuilder.setName(typeName);
+                elementType.addProtoField(typeRepositoryBuilder,
+                        helperDescriptorBuilder,
+                        1, "value",
+                        typeRepositoryBuilder.defineAndResolveType(elementType),
+                        FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                typeRepositoryBuilder.addMessageType(helperDescriptorBuilder.build());
+            }
         }
 
         /**
@@ -1522,7 +1571,6 @@ public interface Type extends Narrowable<Type> {
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
             Objects.requireNonNull(elementType);
-            // if inner type is not nullable we can just put the repeated field straight into its parent
             if (needsWrapper && elementType.getTypeCode() != TypeCode.UNKNOWN) {
                 Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of("values"))));
                 wrapperType.addProtoField(typeRepositoryBuilder,
@@ -1574,7 +1622,8 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * Returns <code>true</code> if a nested protobuf message is required for the given type, otherwise <code>false</code>.
+         * Returns <code>true</code> if a nested protobuf message is required for the given type, otherwise
+         * <code>false</code>.
          *
          * @param elementType the type to check whether a nested protobuf message is required for.
          *

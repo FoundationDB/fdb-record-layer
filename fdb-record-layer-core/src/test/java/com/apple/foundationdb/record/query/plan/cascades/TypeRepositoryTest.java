@@ -32,7 +32,6 @@ import com.google.protobuf.DynamicMessage;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -146,7 +145,6 @@ class TypeRepositoryTest {
         }
     }
 
-    @Disabled
     @Test
     void createTypeRepositoryFromRecordTypeWorks() {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
@@ -164,7 +162,6 @@ class TypeRepositoryTest {
         Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
 
-    @Disabled
     @Test
     void createTypeRepositoryFromArrayTypeWorks() {
         final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
@@ -179,18 +176,15 @@ class TypeRepositoryTest {
         Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
     }
 
-    @Disabled
     @Test
     void addSameTypeMultipleTimesShouldNotCreateMultipleMessageTypes() {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         final Type t = generateRandomStructuredType();
-        System.out.println("t:" + t);
         builder.addTypeIfNeeded(t);
         builder.addTypeIfNeeded(t);
         builder.addTypeIfNeeded(t);
         final TypeRepository actualRepository = builder.build();
         // there should be three types in the repository, but for different nested types within the tree
-        System.out.println("actual repository:" + actualRepository);
         Assertions.assertEquals(3, actualRepository.getMessageTypes().size());
     }
 
@@ -205,7 +199,6 @@ class TypeRepositoryTest {
         }
     }
 
-    @Disabled
     @Test
     void createArrayConstructorValueWorks() {
         final Typed value = new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, INT_2));
