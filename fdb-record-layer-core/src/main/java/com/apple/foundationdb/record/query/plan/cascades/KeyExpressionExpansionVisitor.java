@@ -177,31 +177,6 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         throw new RecordCoreException("expression should have been handled at top level");
     }
 
-    private NestingKeyExpression unwrapArray(NestingKeyExpression nestingKeyExpression) {
-        final FieldKeyExpression parent = nestingKeyExpression.getParent();
-        final KeyExpression child = nestingKeyExpression.getChild();
-        if (parent.getFanType().equals(KeyExpression.FanType.None) && child.toKeyExpression().hasNesting()) {
-            RecordMetaDataProto.Field firstChild = child.toKeyExpression().getNesting().getParent();
-            if (firstChild.getFieldName().equals("values") && firstChild.getFanType().equals(RecordMetaDataProto.Field.FanType.FAN_OUT)) {
-                // "values need to be removed
-                RecordMetaDataProto.KeyExpression newChild = child.toKeyExpression().getNesting().getChild();
-                RecordMetaDataProto.Nesting.Builder newNestingBuilder;
-                if (newChild.hasNesting()) {
-                    NestingKeyExpression unwrappedChild = unwrapArray(new NestingKeyExpression(newChild.getNesting()));
-                    newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
-                            .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
-                            .setChild(unwrappedChild.toKeyExpression());
-                } else {
-                    newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
-                            .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
-                            .setChild(newChild);
-                }
-                return new NestingKeyExpression(newNestingBuilder.build());
-            }
-        }
-        return nestingKeyExpression;
-    }
-
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final NestingKeyExpression original) {
@@ -280,6 +255,31 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      */
     protected static CorrelationIdentifier newParameterAlias() {
         return CorrelationIdentifier.uniqueID(Placeholder.class);
+    }
+
+    private NestingKeyExpression unwrapArray(NestingKeyExpression nestingKeyExpression) {
+        final FieldKeyExpression parent = nestingKeyExpression.getParent();
+        final KeyExpression child = nestingKeyExpression.getChild();
+        if (parent.getFanType().equals(KeyExpression.FanType.None) && child.toKeyExpression().hasNesting()) {
+            RecordMetaDataProto.Field firstChild = child.toKeyExpression().getNesting().getParent();
+            if (firstChild.getFieldName().equals("values") && firstChild.getFanType().equals(RecordMetaDataProto.Field.FanType.FAN_OUT)) {
+                // "values need to be removed
+                RecordMetaDataProto.KeyExpression newChild = child.toKeyExpression().getNesting().getChild();
+                RecordMetaDataProto.Nesting.Builder newNestingBuilder;
+                if (newChild.hasNesting()) {
+                    NestingKeyExpression unwrappedChild = unwrapArray(new NestingKeyExpression(newChild.getNesting()));
+                    newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
+                            .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
+                            .setChild(unwrappedChild.toKeyExpression());
+                } else {
+                    newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
+                            .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
+                            .setChild(newChild);
+                }
+                return new NestingKeyExpression(newNestingBuilder.build());
+            }
+        }
+        return nestingKeyExpression;
     }
 
     /**
