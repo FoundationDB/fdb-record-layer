@@ -100,8 +100,6 @@ public class FieldValue implements ValueWithChild {
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var childResult = inValue.eval(store, context);
-        System.out.println("FieldValue value:" + inValue);
-        System.out.println("FieldValue value eval:" + childResult);
         if (!(childResult instanceof Message)) {
             return null;
         }
