@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.typing;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -320,9 +321,9 @@ public interface Type extends Narrowable<Type> {
             } else if (typeCode == TypeCode.RECORD) {
                 Objects.requireNonNull(descriptor);
                 final var messageDescriptor = (Descriptors.Descriptor)descriptor;
-                if (isWrappedArray(messageDescriptor)) {
+                if (NullableArrayTypeUtils.describesWrappedArray(messageDescriptor)) {
                     // find TypeCode of array elements
-                    TypeCode t = TypeCode.fromProtobufType(messageDescriptor.findFieldByName("values").getType());
+                    TypeCode t = TypeCode.fromProtobufType(messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getType());
                     if (t.isPrimitive()) {
                         final var primitiveType = primitiveType(t, true);
                         return new Array(true, primitiveType, true);
@@ -332,7 +333,7 @@ public interface Type extends Narrowable<Type> {
                         return new Array(true, enumType, true);
                     } else {
                         // array elements is Record type
-                        Descriptors.Descriptor wrappedDescriptor = messageDescriptor.findFieldByName("values").getMessageType();
+                        Descriptors.Descriptor wrappedDescriptor = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
                         Objects.requireNonNull(wrappedDescriptor);
                         return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true), true);
                     }
@@ -343,22 +344,6 @@ public interface Type extends Narrowable<Type> {
         }
 
         throw new IllegalStateException("unable to translate protobuf descriptor to type");
-    }
-
-    /*
-    Message that looks like:
-    message M {
-      repeated R values = 1;
-    }
-    is considered to be a wrapped array
-     */
-    private static boolean isWrappedArray(Descriptors.Descriptor descriptor) {
-        if (descriptor.getFields().size() == 1) {
-            Descriptors.FieldDescriptor fieldDescriptor = descriptor.getFields().get(0);
-            return fieldDescriptor.isRepeated() && fieldDescriptor.getName().equals("values");
-        } else {
-            return false;
-        }
     }
 
     /**
@@ -372,12 +357,12 @@ public interface Type extends Narrowable<Type> {
     @Nullable
     private static Descriptors.GenericDescriptor getTypeSpecificDescriptor(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
         switch (fieldDescriptor.getType()) {
-        case MESSAGE:
-            return fieldDescriptor.getMessageType();
-        case ENUM:
-            return fieldDescriptor.getEnumType();
-        default:
-            return null;
+            case MESSAGE:
+                return fieldDescriptor.getMessageType();
+            case ENUM:
+                return fieldDescriptor.getEnumType();
+            default:
+                return null;
         }
     }
 
@@ -508,35 +493,35 @@ public interface Type extends Narrowable<Type> {
         @Nonnull
         public static TypeCode fromProtobufType(@Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
             switch (protobufType) {
-            case DOUBLE:
-                return TypeCode.DOUBLE;
-            case FLOAT:
-                return TypeCode.FLOAT;
-            case INT64:
-            case UINT64:
-            case FIXED64:
-            case SFIXED64:
-            case SINT64:
-                return TypeCode.LONG;
-            case INT32:
-            case FIXED32:
-            case UINT32:
-            case SFIXED32:
-            case SINT32:
-                return TypeCode.INT;
-            case BOOL:
-                return TypeCode.BOOLEAN;
-            case STRING:
-                return TypeCode.STRING;
-            case GROUP:
-            case ENUM:
-                return TypeCode.ENUM;
-            case MESSAGE:
-                return TypeCode.RECORD;
-            case BYTES:
-                return TypeCode.BYTES;
-            default:
-                throw new IllegalArgumentException("unknown protobuf type " + protobufType);
+                case DOUBLE:
+                    return TypeCode.DOUBLE;
+                case FLOAT:
+                    return TypeCode.FLOAT;
+                case INT64:
+                case UINT64:
+                case FIXED64:
+                case SFIXED64:
+                case SINT64:
+                    return TypeCode.LONG;
+                case INT32:
+                case FIXED32:
+                case UINT32:
+                case SFIXED32:
+                case SINT32:
+                    return TypeCode.INT;
+                case BOOL:
+                    return TypeCode.BOOLEAN;
+                case STRING:
+                    return TypeCode.STRING;
+                case GROUP:
+                case ENUM:
+                    return TypeCode.ENUM;
+                case MESSAGE:
+                    return TypeCode.RECORD;
+                case BYTES:
+                    return TypeCode.BYTES;
+                default:
+                    throw new IllegalArgumentException("unknown protobuf type " + protobufType);
             }
         }
     }
@@ -1546,7 +1531,7 @@ public interface Type extends Narrowable<Type> {
             final var typeName = uniqueCompliantTypeName();
             typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
             if (needsWrapper && elementType.getTypeCode() != TypeCode.UNKNOWN) {
-                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of("values"))));
+                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of(NullableArrayTypeUtils.getRepeatedFieldName()))));
                 typeRepositoryBuilder.defineAndResolveType(wrapperType);
             } else {
                 final var helperDescriptorBuilder = DescriptorProto.newBuilder();
@@ -1572,7 +1557,7 @@ public interface Type extends Narrowable<Type> {
                                   @Nonnull final FieldDescriptorProto.Label label) {
             Objects.requireNonNull(elementType);
             if (needsWrapper && elementType.getTypeCode() != TypeCode.UNKNOWN) {
-                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of("values"))));
+                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of(NullableArrayTypeUtils.getRepeatedFieldName()))));
                 wrapperType.addProtoField(typeRepositoryBuilder,
                         descriptorBuilder,
                         fieldNumber,
