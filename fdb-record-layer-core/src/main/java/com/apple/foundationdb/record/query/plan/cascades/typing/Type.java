@@ -50,9 +50,11 @@ import java.util.stream.Collectors;
 
 /**
  * Provides type information about the output of an expression such as {@link Value} in a QGM.
+ *
  * Types bear a resemblance to protobuf types; they are either primitive such as <code>boolean</code>, <code>int</code>,
  * and <code>string</code> or structured such as {@link Record} and {@link Array}. Moreover, it is possible to switch
  * between a {@link Type} instance and an equivalent protobuf {@link Descriptors} in a lossless manner.
+ *
  * Finally, {@link Type}s are non-referential, so two structural types are considered equal iff their structures
  * are equal.
  */
@@ -66,7 +68,7 @@ public interface Type extends Narrowable<Type> {
 
     /**
      * Returns the {@link TypeCode} of the {@link Type} instance.
-     * 
+     *
      * @return The {@link TypeCode} of the {@link Type} instance.
      */
     TypeCode getTypeCode();
@@ -314,16 +316,16 @@ public interface Type extends Narrowable<Type> {
                     TypeCode t = TypeCode.fromProtobufType(messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getType());
                     if (t.isPrimitive()) {
                         final var primitiveType = primitiveType(t, true);
-                        return new Array(true, primitiveType, true);
+                        return new Array(true, true, primitiveType);
                     } else if (t == TypeCode.ENUM) {
                         final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
                         final var enumType = new Enum(true, Enum.enumValuesFromProto(enumDescriptor.getValues()));
-                        return new Array(true, enumType, true);
+                        return new Array(true, true, enumType);
                     } else {
                         // array elements is Record type
                         Descriptors.Descriptor wrappedDescriptor = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
                         Objects.requireNonNull(wrappedDescriptor);
-                        return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true), true);
+                        return new Array(true, true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
                     }
                 } else {
                     return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
@@ -1412,10 +1414,10 @@ public interface Type extends Narrowable<Type> {
          * @param elementType the {@link Type} of the array type elements.
          */
         public Array(final boolean isNullable, @Nullable final Type elementType) {
-            this(isNullable, elementType, false);
+            this(isNullable, false, elementType);
         }
 
-        public Array(final boolean isNullable, @Nullable final Type elementType, final boolean needsWrapper) {
+        public Array(final boolean isNullable, final boolean needsWrapper, @Nullable final Type elementType) {
             this.isNullable = isNullable;
             this.elementType = elementType;
             this.needsWrapper = needsWrapper;

@@ -177,6 +177,20 @@ class TypeRepositoryTest {
     }
 
     @Test
+    void createTypeRepositoryFromNullableArrayTypeWorks() {
+        final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
+        final Type.Array array = new Type.Array(true, true, child);
+        final TypeRepository.Builder builder = TypeRepository.newBuilder();
+        builder.addTypeIfNeeded(array);
+        final TypeRepository actualSchemaBefore = builder.build();
+        Assertions.assertEquals(countTypes(array), actualSchemaBefore.getMessageTypes().size());
+        // add record type explicitly, this should NOT cause the addition of a new descriptor.
+        builder.addTypeIfNeeded(child);
+        final TypeRepository actualSchemaAfter = builder.build();
+        Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
+    }
+
+    @Test
     void addSameTypeMultipleTimesShouldNotCreateMultipleMessageTypes() {
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         final Type t = generateRandomStructuredType();
