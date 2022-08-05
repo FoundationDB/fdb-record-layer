@@ -233,6 +233,36 @@ public class QueryTest {
     }
 
     @Test
+    void selectWithNullInComparisonOperator() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                var insertedRecord = insertRestaurantComplexRecord(statement);
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 is null")) {
+                    ResultSetAssert.assertThat(resultSet).isEmpty();
+                }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 is not null")) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow().hasRow(insertedRecord);
+                }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 != null")) {
+                    ResultSetAssert.assertThat(resultSet).isEmpty();
+                }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 < null")) {
+                    ResultSetAssert.assertThat(resultSet).isEmpty();
+                }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE null > 1")) {
+                    ResultSetAssert.assertThat(resultSet).isEmpty();
+                }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 <= null")) {
+                    ResultSetAssert.assertThat(resultSet).isEmpty();
+                }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE null >= 1")) {
+                    ResultSetAssert.assertThat(resultSet).isEmpty();
+                }
+            }
+        }
+    }
+
+    @Test
     void selectWithFalsePredicate() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
