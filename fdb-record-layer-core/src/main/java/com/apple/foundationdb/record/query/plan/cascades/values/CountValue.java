@@ -116,7 +116,7 @@ public class CountValue implements Value, AggregateValue {
     @Override
     public CountValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 1);
-        return new CountValue(this.operator, Iterables.get(newChildren, 1));
+        return new CountValue(this.operator, Iterables.get(newChildren, 0));
     }
 
     @Override
