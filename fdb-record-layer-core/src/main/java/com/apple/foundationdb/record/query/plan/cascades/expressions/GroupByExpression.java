@@ -78,8 +78,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
      * Creates a new instance of {@link GroupByExpression}.
      *
      * @param aggregateValue The aggregation {@code Value} applied to each group.
-     * @param groupingValue The grouping {@code Value} used to determine individual groups, can be {@code null}
-     * indicating no grouping.
+     * @param groupingValue The grouping {@code Value} used to determine individual groups, can be {@code null} indicating no grouping.
+     * @param aggregateValueAlias The aggregate {@code Value} alias.
+     * @param groupingValueAlias The grouping {@code Value} alias.
      * @param inner The underlying source of tuples to be grouped.
      */
     public GroupByExpression(@Nonnull final AggregateValue aggregateValue,
@@ -126,14 +127,11 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         if (getClass() != other.getClass()) {
             return false;
         }
-        if (!Objects.equals(groupingValue, ((GroupByExpression)other).groupingValue)) {
-            return false;
-        }
-        if (!aggregateValue.equals(((GroupByExpression)other).aggregateValue)) {
-            return false;
-        }
-
-        return resultValue.equals(other.getResultValue());
+        final var otherGroupByExpr = ((GroupByExpression)other);
+        return Objects.equals(groupingValueAlias, otherGroupByExpr.groupingValueAlias) &&
+               Objects.equals(aggregateValueAlias, otherGroupByExpr.aggregateValueAlias) &&
+               Objects.equals(groupingValue, otherGroupByExpr.groupingValue) &&
+               Objects.equals(aggregateValue, otherGroupByExpr.aggregateValue);
     }
 
     @Override
@@ -157,16 +155,20 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final AggregateValue translatedAggregateValue = aggregateValue.translateCorrelations(translationMap);
+        final var translatedGroupingValueAlias = translationMap.getTargetAlias(groupingValueAlias);
+        final var translatedAggregateValueAlias = translationMap.getTargetAlias(aggregateValueAlias);
         final Value translatedGroupingValue = groupingValue == null ? null : groupingValue.translateCorrelations(translationMap);
-        if (translatedAggregateValue != aggregateValue || translatedGroupingValue != groupingValue) {
-            return new GroupByExpression(translatedAggregateValue, translatedGroupingValue, aggregateValueAlias, groupingValueAlias, Iterables.getOnlyElement(translatedQuantifiers));
+        if (translatedAggregateValueAlias != aggregateValueAlias || translatedGroupingValueAlias != groupingValueAlias ||
+                translatedAggregateValue != aggregateValue || translatedGroupingValue != groupingValue) {
+            return new GroupByExpression(translatedAggregateValue, translatedGroupingValue, translatedAggregateValueAlias,
+                    translatedGroupingValueAlias, Iterables.getOnlyElement(translatedQuantifiers));
         }
         return this;
     }
 
     @Override
     public String toString() {
-        if (groupingValue == null) {
+        if (groupingValue != null) {
             return "GroupBy(" + groupingValue + "), aggregationValue: " + aggregateValue + ", resultValue: " + resultValue.get();
         } else {
             return "GroupBy(NULL), aggregationValue: " + aggregateValue + ", resultValue: " + resultValue.get();
