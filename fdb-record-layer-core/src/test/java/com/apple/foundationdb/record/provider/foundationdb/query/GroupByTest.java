@@ -40,6 +40,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.OrdinalFieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.test.Tags;
@@ -89,8 +91,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                 mapPlan(
                                         indexPlan()
                                                 .where(scanComparisons(range("<,>")))
-                                )).where(aggregations(recordConstructorValue(exactly(numericAggregationValue("SUM"))))
-                                .and(groupings(recordConstructorValue(exactly(fieldValue("num_value_2"))))))));
+                                )).where(aggregations(recordConstructorValue(exactly(recordConstructorValue(exactly(numericAggregationValue("SUM"))))))
+                                .and(groupings(recordConstructorValue(exactly(fieldValue("select_grouping_cols"))))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -109,8 +111,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     private GroupExpressionRef<RelationalExpression> constructGroupByPlan() {
         final var cascadesPlanner = (CascadesPlanner)planner;
-        final var allRecordTypes =
-                ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
+        final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
                 Quantifier.forEach(GroupExpressionRef.of(
                         new FullUnorderedScanExpression(allRecordTypes,
@@ -122,29 +123,59 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                         qun,
                         Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
 
-        final var selectBuilder = GraphExpansion.builder();
         final var num2Value = new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_2"));
-        final var num3Value = new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_3_indexed"));
-        selectBuilder.addQuantifier(qun)
-                .addAllResultColumns(List.of(
-                        Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), num2Value),
-                        Column.of(Type.Record.Field.of(num3Value.getResultType(), Optional.of("num_value_3_indexed")), num3Value)));
-        qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect()));
 
-        final var groupingCol = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_2")));
-        final var aggCol = Column.of(Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.LONG)),
-                new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_3_indexed"))));
-        final var groupingCols = RecordConstructorValue.ofColumns(List.of(groupingCol));
-        final var aggregationCols = RecordConstructorValue.ofColumns(List.of(aggCol));
-        final var groupByExpression = new GroupByExpression(aggregationCols, groupingCols, CorrelationIdentifier.UNGROUNDED, CorrelationIdentifier.UNGROUNDED, qun); // fixme
-        qun = Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
+        final var scanAlias = qun.getAlias();
+        final var groupByColAlias = CorrelationIdentifier.of("select_grouping_cols");
+        final var groupingCol = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), num2Value);
+        final var groupingColGroup = RecordConstructorValue.ofColumns(ImmutableList.of(groupingCol));
 
-        final var topSelectBuilder = GraphExpansion.builder();
-        final var groupByQuantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
-        topSelectBuilder.addQuantifier(qun).addResultValue(groupByQuantifiedValue);
-        qun = Quantifier.forEach(GroupExpressionRef.of(topSelectBuilder.build().buildSelect()));
-        //return GroupExpressionRef.of(new LogicalSortExpression(null, false, qun));
-        return GroupExpressionRef.of(topSelectBuilder.build().buildSelect());
+        // 1. build the underlying select, result expr = ( ($qun as qun) <group1>, (num_value_2 as GB) <group2>)
+        {
+            final var selectBuilder = GraphExpansion.builder();
+
+            // <group1>
+            final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
+            final var col1 = Column.of(Type.Record.Field.of(quantifiedValue.getResultType(), Optional.of(qun.getAlias().getId())), quantifiedValue);
+
+            // <group2>
+            final var col2 = Column.of(Type.Record.Field.of(groupingColGroup.getResultType(), Optional.of(groupByColAlias.getId())), groupingColGroup);
+
+            selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col1, col2));
+            qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect()));
+        }
+
+        final var groupingExprAlias = CorrelationIdentifier.of("groupby_grouping_cols");
+        final var aggExprAlias = CorrelationIdentifier.of("groupby_agg_cols");
+
+        // 2. build the group by expression, for that we need the aggregation expression and the grouping expression.
+        {
+            // 2.1. construct aggregate expression.
+            final var aggCol = Column.of(Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.LONG)),
+                    new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_3_indexed"))));
+            final var aggExprInternal = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
+            final var aggExpr = RecordConstructorValue.ofColumns(ImmutableList.of(Column.of(Type.Record.Field.of(aggExprInternal.getResultType(), Optional.of(aggExprAlias.getId())), aggExprInternal)));
+
+            // 2.2. construct grouping columns expression.
+            final var groupingExpr = RecordConstructorValue.ofColumns(ImmutableList.of(Column.of(
+                    Type.Record.Field.of(groupingColGroup.getResultType(), Optional.of(groupingExprAlias.getId())),
+                    new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of(groupByColAlias.getId())))));
+
+            // 2.3. construct the group by expression
+            final var groupByExpression = new GroupByExpression(aggExpr, groupingExpr, aggExprAlias, groupingExprAlias, qun);
+            qun = Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
+        }
+
+        // 3. construct the select expression on top containing the final result set
+        {
+            // construct a result set that makes sense.
+            final var numValue2Reference = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")),
+                    new FieldValue(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), ImmutableList.of("_1", "num_value_2")));
+            final var aggregateReference = Column.unnamedOf(OrdinalFieldValue.of(OrdinalFieldValue.of(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
+
+            final var result = GraphExpansion.builder().addQuantifier(qun).addResultValue(RecordConstructorValue.ofColumns(ImmutableList.of(numValue2Reference,  aggregateReference))).build().buildSelect();
+            return GroupExpressionRef.of(result);
+        }
     }
 
     protected void setupHookAndAddData(boolean addIndex) throws Exception {
