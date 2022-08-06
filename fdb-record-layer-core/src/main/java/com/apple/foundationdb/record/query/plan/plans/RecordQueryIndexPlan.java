@@ -179,7 +179,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 logDebug("Index remote fetch cannot be used without a primary key. Falling back to regular scan.");
                 this.indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
             }
-            if (!scanParameters.getScanType().equals(IndexScanType.BY_VALUE)) {
+            if (!scanParameters.getScanType().equals(IndexScanType.BY_VALUE) && !scanParameters.getScanType().equals(IndexScanType.BY_VALUE_OVER_SCAN)) {
                 logDebug("Index remote fetch can only be used with VALUE index scan. Falling back to regular scan.");
                 this.indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
             }

@@ -150,7 +150,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                                                              @Nullable final byte[] continuation,
                                                              @Nonnull final ScanProperties scanProperties,
                                                              @Nonnull final KeyExpression commonPrimaryKey) {
-        if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE) || (!(scanBounds instanceof IndexScanRange))) {
+        if ((!scanBounds.getScanType().equals(IndexScanType.BY_VALUE) && !scanBounds.getScanType().equals(IndexScanType.BY_VALUE_OVER_SCAN))
+            || (!(scanBounds instanceof IndexScanRange))) {
             throw new RecordCoreArgumentException("scanRemoteFetch can only be used with VALUE index scan type and Range Scan");
         }
         IndexScanRange scanRange = (IndexScanRange)scanBounds;

@@ -1247,7 +1247,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
         }
-        if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE)) {
+        if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE) && !scanBounds.getScanType().equals(IndexScanType.BY_VALUE_OVER_SCAN)) {
             throw new RecordCoreArgumentException("Index remote fetch can only be used with VALUE index scan.",
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
