@@ -637,6 +637,13 @@ public class RecordQueryPlanner implements QueryPlanner {
                 if (p != null) {
                     p = computeIndexFilters(planContext, p);
                 }
+                if (p != null && p.getNumNonSargables() > 0) {
+                    PlanOrderingKey planOrderingKey = PlanOrderingKey.forPlan(metaData, p.plan, planContext.commonPrimaryKey);
+                    if (planOrderingKey != null && sort != null) {
+                        p.planOrderingKey = planOrderingKey;
+                        intersectionCandidates.add(p);
+                    }
+                }
                 return p;
             }
         }
