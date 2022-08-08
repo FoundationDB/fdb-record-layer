@@ -34,7 +34,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -45,6 +44,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.SQLException;
@@ -54,8 +54,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -345,6 +343,28 @@ public class QueryTest {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("SELECT * FROM RestaurantRecord USE INDEX (name) WHERE 11 <= rest_no"))
                         .hasErrorCode(ErrorCode.UNDEFINED_INDEX)
                         .hasMessage("Unknown index(es) NAME");
+            }
+        }
+    }
+
+    @Test
+    void testSelectWithCoveringIndexHint() throws Exception {
+        final String schema = "CREATE TABLE T1(COL1 int64, COL2 int64, COL3 int64, PRIMARY KEY(COL1, COL3))" +
+                " CREATE VALUE INDEX T1_IDX on T1(COL1, COL3) INCLUDE (COL2)";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                final Message row1 = statement.getDataBuilder("T1").setField("COL1", 42L).setField("COL2", 100L).setField("COL3", 200L).build();
+                int cnt = statement.executeInsert("T1", row1);
+                Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                final Message row2 = statement.getDataBuilder("T1").setField("COL1", 43L).setField("COL2", 101L).setField("COL3", 201L).build();
+                cnt = statement.executeInsert("T1", row2);
+                Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                Assertions.assertTrue(statement.execute("SELECT * from T1 USE INDEX (T1_IDX)"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(row1, row2);
+                }
             }
         }
     }
