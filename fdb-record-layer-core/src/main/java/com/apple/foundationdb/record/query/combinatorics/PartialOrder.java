@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.combinatorics;
 
+import com.apple.foundationdb.record.query.plan.cascades.matching.graph.DependencyUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -262,7 +263,7 @@ public class PartialOrder<T> {
     }
 
     public static <T> PartialOrder<T> of(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
-        return new PartialOrder<>(set, cleanseDependencyMap(set, dependencyMap));
+        return new PartialOrder<>(set, DependencyUtils.cleanseDependencyMap(set, dependencyMap));
     }
 
     @Nonnull
@@ -278,20 +279,6 @@ public class PartialOrder<T> {
     @Nonnull
     public static <T> PartialOrder<T> ofInverted(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
         return of(set, invertFromFunctionalDependencies(set, dependsOnFn));
-    }
-
-    @Nonnull
-    private static <T> SetMultimap<T, T> cleanseDependencyMap(@Nonnull  final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
-        final ImmutableSetMultimap.Builder<T, T> cleanDependencyMapBuilder = ImmutableSetMultimap.builder();
-
-        for (final Map.Entry<T, T> entry : dependencyMap.entries()) {
-            final T key = entry.getKey();
-            final T value = entry.getValue();
-            if (set.contains(key) && set.contains(value)) {
-                cleanDependencyMapBuilder.put(key, entry.getValue());
-            }
-        }
-        return cleanDependencyMapBuilder.build();
     }
 
     public static <T> PartialOrder.Builder<T> builder() {

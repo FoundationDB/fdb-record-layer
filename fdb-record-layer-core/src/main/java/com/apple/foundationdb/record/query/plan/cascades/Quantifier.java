@@ -522,10 +522,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-//        final var cachedCorrelatedTo = correlatedToSupplier.get();
-//        final var correlatedTo = getRangesOver().getCorrelatedTo();
-//        Verify.verify(cachedCorrelatedTo.equals(correlatedTo));
-//        return correlatedTo;
         return correlatedToSupplier.get();
     }
 

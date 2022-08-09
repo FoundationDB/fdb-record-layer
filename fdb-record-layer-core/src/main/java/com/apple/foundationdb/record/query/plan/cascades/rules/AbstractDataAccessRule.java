@@ -259,7 +259,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         .filter(partialMatch -> !satisfiedOrderings(partialMatch, interestedOrderings).isEmpty())
                         .map(partialMatch -> new PartialMatchWithCompensation(partialMatch, partialMatch.compensate()))
                         .filter(partialMatchWithCompensation -> !partialMatchWithCompensation.getCompensation().isImpossible())
-                        .sorted(Comparator.comparing((Function<PartialMatchWithCompensation, Integer>)p -> p.getPartialMatch().getBindingPredidcates().size()).reversed())
+                        .sorted(Comparator.comparing((Function<PartialMatchWithCompensation, Integer>)p -> p.getPartialMatch().getBindingPredicates().size()).reversed())
                         .collect(ImmutableList.toImmutableList());
 
         final var maximumCoverageMatchesBuilder = ImmutableList.<PartialMatchWithCompensation>builder();
@@ -267,13 +267,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             final var outerPartialMatchWithCompensation =
                     partialMatchesWithCompensation.get(i);
             final var outerMatch = outerPartialMatchWithCompensation.getPartialMatch();
-            final var outerBindingPredicates = outerMatch.getBindingPredidcates();
+            final var outerBindingPredicates = outerMatch.getBindingPredicates();
 
             var foundContainingInner = false;
             for (var j = 0; j < partialMatchesWithCompensation.size(); j++) {
                 final var innerPartialMatchWithCompensation =
                         partialMatchesWithCompensation.get(j);
-                final var innerBindingPredicates = innerPartialMatchWithCompensation.getPartialMatch().getBindingPredidcates();
+                final var innerBindingPredicates = innerPartialMatchWithCompensation.getPartialMatch().getBindingPredicates();
                 // check if outer is completely contained in inner
                 if (outerBindingPredicates.size() >= innerBindingPredicates.size()) {
                     break;

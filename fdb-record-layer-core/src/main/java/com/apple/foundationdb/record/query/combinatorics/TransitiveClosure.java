@@ -55,7 +55,7 @@ public class TransitiveClosure {
      * @param <T> type
      * @return the transitive closure
      */
-    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull Set<T> set, @Nonnull final ImmutableSetMultimap<T, T> dependsOnMap) {
+    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull Set<T> set, @Nonnull final SetMultimap<T, T> dependsOnMap) {
         return transitiveClosure(PartialOrder.of(set, dependsOnMap));
     }
 

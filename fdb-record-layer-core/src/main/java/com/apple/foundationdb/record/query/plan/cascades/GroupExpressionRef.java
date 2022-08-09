@@ -34,9 +34,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
@@ -149,13 +146,6 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         }
         
         for (final RelationalExpression otherMember : otherRef.getMembers()) {
-            final var quickLookup =
-                    Multimaps.<Integer, RelationalExpression>newListMultimap(Maps.newHashMap(), () -> Lists.newArrayListWithCapacity(members.size()));
-            for (final T member : members) {
-                quickLookup.put(member.hashCodeWithoutChildren(), member);
-            }
-
-            final var membersToSearch = quickLookup.get(otherMember.hashCodeWithoutChildren());
             if (!containsInMemo(otherMember, equivalenceMap, members)) {
                 return false;
             }
@@ -234,12 +224,19 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                             }));
         } else {
             final AliasMap.Builder aliasMapBuilder = combinedEquivalenceMap.derived(quantifiers.size());
+            var nestedEquivalencesMap = AliasMap.emptyMap();
             for (int i = 0; i < quantifiers.size(); i++) {
                 final Quantifier quantifier = Objects.requireNonNull(quantifiers.get(i));
                 final Quantifier otherQuantifier = Objects.requireNonNull(otherQuantifiers.get(i));
                 aliasMapBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
+                nestedEquivalencesMap = aliasMapBuilder.build();
+                if (!quantifier.getRangesOver()
+                        .containsAllInMemo(otherQuantifier.getRangesOver(), nestedEquivalencesMap)) {
+                    return false;
+                }
             }
-            aliasMapIterable = ImmutableList.of(aliasMapBuilder.build());
+
+            aliasMapIterable = ImmutableList.of(nestedEquivalencesMap);
         }
 
         // if there is more than one match we only need one such match that also satisfies the equality condition between

@@ -235,14 +235,14 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
                                                                               @Nonnull final Function<T, Set<CorrelationIdentifier>> otherDependsOnFn,
                                                                               @Nonnull final MatchFunction<T, M> matchFunction,
                                                                               @Nonnull final Supplier<MatchAccumulator<M, R>> matchAccumulatorSupplier) {
-        ImmutableSet<CorrelationIdentifier> aliases = BaseMatcher.computeAliases(elements, elementToAliasFn);
-        final ImmutableMap<CorrelationIdentifier, T> aliasToElementMap = BaseMatcher.computeAliasToElementMap(elements, elementToAliasFn);
+        ImmutableSet<CorrelationIdentifier> aliases = DependencyUtils.computeAliases(elements, elementToAliasFn);
+        final ImmutableMap<CorrelationIdentifier, T> aliasToElementMap = DependencyUtils.computeAliasToElementMap(elements, elementToAliasFn);
 
-        final ImmutableSet<CorrelationIdentifier> otherAliases = BaseMatcher.computeAliases(otherElements, otherElementToAliasFn);
-        final ImmutableMap<CorrelationIdentifier, T> otherAliasToElementMap = BaseMatcher.computeAliasToElementMap(otherElements, otherElementToAliasFn);
+        final ImmutableSet<CorrelationIdentifier> otherAliases = DependencyUtils.computeAliases(otherElements, otherElementToAliasFn);
+        final ImmutableMap<CorrelationIdentifier, T> otherAliasToElementMap = DependencyUtils.computeAliasToElementMap(otherElements, otherElementToAliasFn);
 
-        ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap = TransitiveClosure.transitiveClosure(aliases, BaseMatcher.computeDependsOnMapWithAliases(aliases, aliasToElementMap, dependsOnFn));
-        final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap = TransitiveClosure.transitiveClosure(otherAliases, BaseMatcher.computeDependsOnMapWithAliases(otherAliases, otherAliasToElementMap, otherDependsOnFn));
+        ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap = TransitiveClosure.transitiveClosure(aliases, DependencyUtils.computeDependsOnMapWithAliases(aliases, aliasToElementMap, dependsOnFn));
+        final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap = TransitiveClosure.transitiveClosure(otherAliases, DependencyUtils.computeDependsOnMapWithAliases(otherAliases, otherAliasToElementMap, otherDependsOnFn));
 
         return new ComputingMatcher<>(
                 boundAliasesMap,

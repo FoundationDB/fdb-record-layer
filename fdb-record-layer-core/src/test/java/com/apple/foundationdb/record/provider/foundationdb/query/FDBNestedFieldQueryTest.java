@@ -194,11 +194,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 TestHelpers::assertDiscardedNone));
     }
 
-    /**
-     * Verify that nested field comparisons with fanout can scan indexes.
-     */
-    @DualPlannerTest
-    void nested() throws Exception {
+    private void addDataForNested() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
 
@@ -241,17 +237,22 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
             commit(context);
         }
+    }
 
-        // TODO this was originally:
-        // QueryExpression.field("reviews").matches(QueryExpression.field("rating").greaterThan(5)),
-        // which should have failed validate
-        RecordQuery query = RecordQuery.newBuilder()
+    /**
+     * Verify that nested field comparisons with fanout can scan indexes.
+     */
+    @DualPlannerTest
+    void nested() throws Exception {
+        addDataForNested();
+
+        final var query = RecordQuery.newBuilder()
                 .setRecordType("RestaurantRecord")
                 .setFilter(Query.field("reviews").oneOfThem().matches(Query.field("rating").greaterThan(5)))
                 .build();
 
         // Index(review_rating ([5],>) | UnorderedPrimaryKeyDistinct()
-        RecordQueryPlan plan = planner.plan(query);
+        final var plan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     unorderedPrimaryKeyDistinctPlan(
@@ -276,8 +277,16 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(Collections.singletonList(101L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                 this::openNestedRecordStore,
                 TestHelpers::assertDiscardedNone));
+    }
 
-        query = RecordQuery.newBuilder()
+    /**
+     * Verify that nested field comparisons with fanout can scan indexes.
+     */
+    @DualPlannerTest
+    void nested2() throws Exception {
+        addDataForNested();
+
+        final var query = RecordQuery.newBuilder()
                 .setRecordType("RestaurantRecord")
                 .setFilter(Query.field("tags").oneOfThem().matches(
                         Query.and(
@@ -286,7 +295,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(tag [[Lilliput, 5],[Lilliput]]) | UnorderedPrimaryKeyDistinct()
-        plan = planner.plan(query);
+        final var plan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     unorderedPrimaryKeyDistinctPlan(
@@ -310,15 +319,23 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(Collections.singletonList(101L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                 this::openNestedRecordStore,
                 TestHelpers::assertDiscardedNone));
+    }
 
-        QueryComponent reviewFilter = Query.field("reviews").oneOfThem().matches(Query.and(
+    /**
+     * Verify that nested field comparisons with fanout can scan indexes.
+     */
+    @DualPlannerTest
+    void nested3() throws Exception {
+        addDataForNested();
+
+        final var reviewFilter = Query.field("reviews").oneOfThem().matches(Query.and(
                 Query.field("rating").equalsValue(5),
                 Query.field("reviewer").equalsValue(1L)));
-        query = RecordQuery.newBuilder()
+        final var query = RecordQuery.newBuilder()
                 .setRecordType("RestaurantRecord")
                 .setFilter(reviewFilter)
                 .build();
-        plan = planner.plan(query);
+        final var plan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     filterPlan(
@@ -361,55 +378,14 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that nested field comparisons with fanout can scan indexes.
      */
     @DualPlannerTest
-    void nested2() throws Exception {
+    void nested4() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.addIndex("RestaurantRecord", "complex", concat(field("name"), field("rest_no"), field("reviews", KeyExpression.FanType.FanOut).nest(concat(field("reviewer"), field("rating")))));
             metaData.addIndex("RestaurantRecord", "composite", concat(field("name"), field("rest_no")));
             metaData.addIndex("RestaurantRecord", "duplicates", concat(field("name"), field("name")));
         };
 
-        try (FDBRecordContext context = openContext()) {
-            openNestedRecordStore(context, hook);
-
-            TestRecords4Proto.RestaurantReviewer.Builder reviewerBuilder = TestRecords4Proto.RestaurantReviewer.newBuilder();
-            reviewerBuilder.setId(1);
-            reviewerBuilder.setName("Lemuel");
-            recordStore.saveRecord(reviewerBuilder.build());
-
-            reviewerBuilder.setId(2);
-            reviewerBuilder.setName("Gulliver");
-            recordStore.saveRecord(reviewerBuilder.build());
-
-            TestRecords4Proto.RestaurantRecord.Builder recBuilder = TestRecords4Proto.RestaurantRecord.newBuilder();
-            recBuilder.setRestNo(101);
-            recBuilder.setName("The Emperor's Three Tables");
-            TestRecords4Proto.RestaurantReview.Builder reviewBuilder = recBuilder.addReviewsBuilder();
-            reviewBuilder.setReviewer(1);
-            reviewBuilder.setRating(10);
-            reviewBuilder = recBuilder.addReviewsBuilder();
-            reviewBuilder.setReviewer(2);
-            reviewBuilder.setRating(3);
-            TestRecords4Proto.RestaurantTag.Builder tagBuilder = recBuilder.addTagsBuilder();
-            tagBuilder.setValue("Lilliput");
-            tagBuilder.setWeight(5);
-            recordStore.saveRecord(recBuilder.build());
-
-            recBuilder = TestRecords4Proto.RestaurantRecord.newBuilder();
-            recBuilder.setRestNo(102);
-            recBuilder.setName("Small Fry's Fried Victuals");
-            reviewBuilder = recBuilder.addReviewsBuilder();
-            reviewBuilder.setReviewer(1);
-            reviewBuilder.setRating(5);
-            reviewBuilder = recBuilder.addReviewsBuilder();
-            reviewBuilder.setReviewer(2);
-            reviewBuilder.setRating(5);
-            tagBuilder = recBuilder.addTagsBuilder();
-            tagBuilder.setValue("Lilliput");
-            tagBuilder.setWeight(1);
-            recordStore.saveRecord(recBuilder.build());
-
-            commit(context);
-        }
+        addDataForNested();
 
         final QueryComponent nestedComponent =
                 //Query.field("reviews").oneOfThem().matches(Query.field("reviewer").equalsValue(10L))
