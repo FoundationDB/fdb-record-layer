@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -37,6 +38,7 @@ import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
@@ -49,6 +51,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.inParameter;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.inValues;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
@@ -61,6 +65,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorde
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasToString;
 
 /**
@@ -72,6 +77,7 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
     private static final FunctionKeyExpression docIdSortKey = function(LuceneFunctionNames.LUCENE_SORTED, field("doc_id"));
     private static final FunctionKeyExpression text1Key = function(LuceneFunctionNames.LUCENE_TEXT, field("text"));
     private static final FunctionKeyExpression text2Key = function(LuceneFunctionNames.LUCENE_TEXT, field("text2"));
+    private static final FieldKeyExpression scoreKey = field("score");
 
     private static final Index COMPLEX_TEXT1_INDEX = new Index("Complex$text1",
             text1Key.groupBy(field("group")),
@@ -97,6 +103,10 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
             concat(docIdSortKey, text1Key, text2Key).groupBy(field("group")),
             LuceneIndexTypes.LUCENE);
 
+    private static final Index COMPLEX_SCORE_INDEX = new Index("Complex$score",
+            scoreKey.groupBy(field("group")),
+            LuceneIndexTypes.LUCENE);
+
     private static final RecordMetaDataHook separateHook = metaDataBuilder -> {
         metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_TEXT1_INDEX);
         metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_TEXT2_INDEX);
@@ -113,6 +123,10 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
 
     private static final RecordMetaDataHook combinedSortedHook = metaDataBuilder -> {
         metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_BOTH_SORTED_INDEX);
+    };
+
+    private static final RecordMetaDataHook scoreHook = metaDataBuilder -> {
+        metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_SCORE_INDEX);
     };
 
     private static final LuceneQueryComponent luceneSyntaxAnd =
@@ -166,6 +180,22 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
                     Query.or(luceneText1, luceneText2)
                     ))
             .setSort(field("doc_id"))
+            .build();
+
+    private static final RecordQuery inQuery = RecordQuery.newBuilder()
+            .setRecordType(COMPLEX_DOC)
+            .setFilter(Query.and(
+                    Query.field("group").equalsParameter("group_value"),
+                    Query.field("score").in(List.of(1, 3, 7))
+                    ))
+            .build();
+
+    private static final RecordQuery inParameterQuery = RecordQuery.newBuilder()
+            .setRecordType(COMPLEX_DOC)
+            .setFilter(Query.and(
+                    Query.field("group").equalsParameter("group_value"),
+                    Query.field("score").in("scores")
+                    ))
             .build();
 
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
@@ -299,6 +329,34 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
                             indexName(COMPLEX_TEXT2_INDEX.getName()),
                             indexScanType(LuceneScanTypes.BY_LUCENE),
                             scanParams(query(hasToString("text2:\"second\""))))));
+            assertThat(plan, matcher);
+        }
+    }
+
+    @Test
+    void testIn() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, scoreHook);
+            RecordQueryPlan plan = planner.plan(inQuery);
+            // TODO: Better might be to unroll as separate Lucene term queries.
+            Matcher<RecordQueryPlan> matcher = inValues(equalTo(Arrays.asList(1, 3, 7)), indexScan(allOf(
+                    indexName(COMPLEX_SCORE_INDEX.getName()),
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    scanParams(query(hasToString("score:INT EQUALS $__in_score__0"))))));
+            assertThat(plan, matcher);
+        }
+    }
+
+    @Test
+    void testInParameter() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, scoreHook);
+            RecordQueryPlan plan = planner.plan(inParameterQuery);
+            // TODO: Better might be a clause that expands into the necessary terms.
+            Matcher<RecordQueryPlan> matcher = inParameter(equalTo("scores"), indexScan(allOf(
+                    indexName(COMPLEX_SCORE_INDEX.getName()),
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    scanParams(query(hasToString("score:INT EQUALS $__in_score__0"))))));
             assertThat(plan, matcher);
         }
     }
