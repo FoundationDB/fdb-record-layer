@@ -322,6 +322,20 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (filter == null) {
             plan = planNoFilter(planContext, sort, sortReverse);
         } else {
+            if (configuration.shouldPlanOtherAttemptWholeFilter()) {
+                for (Index index : planContext.indexes) {
+                    if (!indexTypes.getValueTypes().contains(index.getType()) &&
+                            !indexTypes.getRankTypes().contains(index.getType()) &&
+                            !indexTypes.getTextTypes().contains(index.getType())) {
+                        final QueryComponent originalFilter = planContext.query.getFilter();
+                        final CandidateScan candidateScan = new CandidateScan(planContext, index, sortReverse);
+                        ScoredPlan wholePlan = planOther(candidateScan, index, originalFilter, sort, sortReverse, planContext.commonPrimaryKey);
+                        if (wholePlan != null && wholePlan.unsatisfiedFilters.isEmpty()) {
+                            return wholePlan.plan;
+                        }
+                    }
+                }
+            }
             ScoredPlan bestPlan = planFilter(planContext, filter);
             if (bestPlan != null) {
                 plan = bestPlan.plan;

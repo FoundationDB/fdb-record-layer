@@ -33,10 +33,12 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Arrays;
 import java.util.List;
@@ -199,13 +201,19 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
             .build();
 
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+        openRecordStore(context, hook, true);
+    }
+
+    protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook, boolean attemptWholeFilter) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(TextIndexTestUtils.COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);
-        recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
-                .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
-                .createOrOpen();
+        recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData()).createOrOpen();
         planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), PlannableIndexTypes.DEFAULT, recordStore.getTimer());
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setPlanOtherAttemptWholeFilter(attemptWholeFilter)
+                .build());
     }
 
     @Test
@@ -278,21 +286,29 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testOrCombined() {
+    @ParameterizedTest
+    @BooleanSource
+    void testOrCombined(boolean attemptWholeFilter) {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, combinedHook);
+            openRecordStore(context, combinedHook, attemptWholeFilter);
             RecordQueryPlan plan = planner.plan(orLuceneQuery);
-            // TODO: Better would be to combine in Lucene term queries, since it's the same index.
-            Matcher<RecordQueryPlan> matcher = primaryKeyDistinct(unorderedUnion(
-                    indexScan(allOf(
-                            indexName(COMPLEX_BOTH_INDEX.getName()),
-                            indexScanType(LuceneScanTypes.BY_LUCENE),
-                            scanParams(query(hasToString("text:\"first\""))))),
-                    indexScan(allOf(
-                            indexName(COMPLEX_BOTH_INDEX.getName()),
-                            indexScanType(LuceneScanTypes.BY_LUCENE),
-                            scanParams(query(hasToString("text2:\"second\"")))))));
+            Matcher<RecordQueryPlan> matcher;
+            if (attemptWholeFilter) {
+                matcher = indexScan(allOf(
+                        indexName(COMPLEX_BOTH_INDEX.getName()),
+                        indexScanType(LuceneScanTypes.BY_LUCENE),
+                        scanParams(query(hasToString("text:\"first\" OR text2:\"second\"")))));
+            } else {
+                matcher = primaryKeyDistinct(unorderedUnion(
+                        indexScan(allOf(
+                                indexName(COMPLEX_BOTH_INDEX.getName()),
+                                indexScanType(LuceneScanTypes.BY_LUCENE),
+                                scanParams(query(hasToString("text:\"first\""))))),
+                        indexScan(allOf(
+                                indexName(COMPLEX_BOTH_INDEX.getName()),
+                                indexScanType(LuceneScanTypes.BY_LUCENE),
+                                scanParams(query(hasToString("text2:\"second\"")))))));
+            }
             assertThat(plan, matcher);
         }
     }
@@ -318,7 +334,7 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
     @Test
     void testOrSeparateOrdered() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, separateSortedHook);
+            openRecordStore(context, separateSortedHook, false);
             RecordQueryPlan plan = planner.plan(orLuceneQueryOrdered);
             Matcher<RecordQueryPlan> matcher = union(
                     indexScan(allOf(
@@ -333,30 +349,46 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testIn() {
+    @ParameterizedTest
+    @BooleanSource
+    void testIn(boolean attemptWholeFilter) {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, scoreHook);
+            openRecordStore(context, scoreHook, attemptWholeFilter);
             RecordQueryPlan plan = planner.plan(inQuery);
-            // TODO: Better might be to unroll as separate Lucene term queries.
-            Matcher<RecordQueryPlan> matcher = inValues(equalTo(Arrays.asList(1, 3, 7)), indexScan(allOf(
-                    indexName(COMPLEX_SCORE_INDEX.getName()),
-                    indexScanType(LuceneScanTypes.BY_LUCENE),
-                    scanParams(query(hasToString("score:INT EQUALS $__in_score__0"))))));
+            Matcher<RecordQueryPlan> matcher;
+            if (attemptWholeFilter) {
+                matcher = indexScan(allOf(
+                        indexName(COMPLEX_SCORE_INDEX.getName()),
+                        indexScanType(LuceneScanTypes.BY_LUCENE),
+                        scanParams(query(hasToString("score:INT IN [1, 3, 7]")))));
+            } else {
+                matcher = inValues(equalTo(Arrays.asList(1, 3, 7)), indexScan(allOf(
+                        indexName(COMPLEX_SCORE_INDEX.getName()),
+                        indexScanType(LuceneScanTypes.BY_LUCENE),
+                        scanParams(query(hasToString("score:INT EQUALS $__in_score__0"))))));
+            }
             assertThat(plan, matcher);
         }
     }
 
-    @Test
-    void testInParameter() {
+    @ParameterizedTest
+    @BooleanSource
+    void testInParameter(boolean attemptWholeFilter) {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, scoreHook);
+            openRecordStore(context, scoreHook, attemptWholeFilter);
             RecordQueryPlan plan = planner.plan(inParameterQuery);
-            // TODO: Better might be a clause that expands into the necessary terms.
-            Matcher<RecordQueryPlan> matcher = inParameter(equalTo("scores"), indexScan(allOf(
-                    indexName(COMPLEX_SCORE_INDEX.getName()),
-                    indexScanType(LuceneScanTypes.BY_LUCENE),
-                    scanParams(query(hasToString("score:INT EQUALS $__in_score__0"))))));
+            Matcher<RecordQueryPlan> matcher;
+            if (attemptWholeFilter) {
+                matcher = indexScan(allOf(
+                        indexName(COMPLEX_SCORE_INDEX.getName()),
+                        indexScanType(LuceneScanTypes.BY_LUCENE),
+                        scanParams(query(hasToString("score:INT IN $scores")))));
+            } else {
+                matcher = inParameter(equalTo("scores"), indexScan(allOf(
+                        indexName(COMPLEX_SCORE_INDEX.getName()),
+                        indexScanType(LuceneScanTypes.BY_LUCENE),
+                        scanParams(query(hasToString("score:INT EQUALS $__in_score__0"))))));
+            }
             assertThat(plan, matcher);
         }
     }
