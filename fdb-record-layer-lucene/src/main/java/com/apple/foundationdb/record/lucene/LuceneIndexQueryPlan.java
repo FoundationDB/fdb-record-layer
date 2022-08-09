@@ -155,7 +155,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public void getStoredFields(@Nonnull List<KeyExpression> keyFields, @Nonnull List<KeyExpression> nonStoredFields) {
+    public void getStoredFields(@Nonnull List<KeyExpression> keyFields, @Nonnull List<KeyExpression> nonStoredFields,
+                                @Nonnull List<KeyExpression> otherFields) {
         int i = 0;
         while (i < nonStoredFields.size()) {
             KeyExpression field = nonStoredFields.get(i);
@@ -181,6 +182,14 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
                 nonStoredFields.remove(i);
             } else {
                 i++;
+            }
+        }
+        if (planOrderingKey != null) {
+            // These are available by extending the IndexEntry.
+            for (KeyExpression orderingKey : planOrderingKey.getKeys()) {
+                if (orderingKey instanceof LuceneFunctionKeyExpression.LuceneSortBy) {
+                    otherFields.add(orderingKey);
+                }
             }
         }
     }

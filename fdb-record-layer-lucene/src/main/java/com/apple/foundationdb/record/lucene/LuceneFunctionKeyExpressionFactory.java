@@ -46,7 +46,9 @@ public class LuceneFunctionKeyExpressionFactory implements FunctionKeyExpression
                 new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS, LuceneFunctionKeyExpression.LuceneFieldConfig::new),
                 new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS, LuceneFunctionKeyExpression.LuceneFieldConfig::new),
                 new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS, LuceneFunctionKeyExpression.LuceneFieldConfig::new),
-                new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS, LuceneFunctionKeyExpression.LuceneFieldConfig::new)
+                new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS, LuceneFunctionKeyExpression.LuceneFieldConfig::new),
+                new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_SORT_BY_RELEVANCE, LuceneFunctionKeyExpression.LuceneSortBy::new),
+                new FunctionKeyExpression.BiFunctionBuilder(LuceneFunctionNames.LUCENE_SORT_BY_DOCUMENT_NUMBER, LuceneFunctionKeyExpression.LuceneSortBy::new)
         );
     }
 }

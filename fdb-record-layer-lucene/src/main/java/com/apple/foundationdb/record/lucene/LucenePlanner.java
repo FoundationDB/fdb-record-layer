@@ -25,7 +25,9 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
@@ -126,7 +128,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             if (query == null) {
                 return null;
             }
-            if (sort != null && !getSort(state, sort, sortReverse, commonPrimaryKey, groupingKey)) {
+            if (!getSort(state, sort, sortReverse, commonPrimaryKey, groupingKey)) {
                 return null;
             }
             getStoredFields(state);
@@ -439,17 +441,28 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     private boolean getSort(@Nonnull LucenePlanState state,
-                            @Nonnull KeyExpression sort, boolean sortReverse,
+                            @Nullable KeyExpression sort, boolean sortReverse,
                             @Nullable KeyExpression commonPrimaryKey, @Nullable KeyExpression groupingKey) {
-        final List<KeyExpression> sorts = sort.normalizeKeyForPositions();
+        final List<KeyExpression> sorts = new ArrayList<>();
+        if (sort == null) {
+            // TODO: This isn't really right for a plan ordering key.
+            //  score depends on the query and so likely isn't the same for the same document.
+            //  doc is stable for the same IndexReader, that is, snapshot of a particular index.
+            sorts.add(FunctionKeyExpression.create(LuceneFunctionNames.LUCENE_SORT_BY_RELEVANCE, EmptyKeyExpression.EMPTY));
+            if (commonPrimaryKey != null) {
+                sorts.addAll(commonPrimaryKey.normalizeKeyForPositions());
+            }
+        } else {
+            sorts.addAll(sort.normalizeKeyForPositions());
+        }
         if (groupingKey != null) {
             sorts.removeAll(groupingKey.normalizeKeyForPositions());
         }
-        final SortField[] fields = new SortField[sorts.size()];
+        final List<SortField> sortFields = new ArrayList<>(sorts.size());
         List<KeyExpression> primaryKeys = null;
         int primaryKeyPosition = 0;
-        for (int i = 0; i < fields.length; i++) {
-            final KeyExpression sortItem = sorts.get(i);
+        boolean hasBuiltInSort = false;
+        for (KeyExpression sortItem : sorts) {
             if (primaryKeys != null && primaryKeyPosition < primaryKeys.size()) {
                 // Once we have started with the primary key, we need to finish all its fields in order.
                 if (!sortItem.equals(primaryKeys.get(primaryKeyPosition))) {
@@ -458,31 +471,39 @@ public class LucenePlanner extends RecordQueryPlanner {
                 primaryKeyPosition++;
                 continue;
             }
-            for (LuceneIndexExpressions.DocumentFieldDerivation documentField : state.documentFields.values()) {
-                if (recordFieldPathMatches(sortItem, documentField.getRecordFieldPath())) {
-                    final SortField.Type type;
-                    switch (documentField.getType()) {
-                        case STRING:
-                        case BOOLEAN:
-                            type = SortField.Type.STRING;
-                            break;
-                        case INT:
-                            type = SortField.Type.INT;
-                            break;
-                        case LONG:
-                            type = SortField.Type.LONG;
-                            break;
-                        case DOUBLE:
-                            type = SortField.Type.DOUBLE;
-                            break;
-                        default:
-                            throw new RecordCoreException("Unsupported document field type for sorting: " + documentField.getType() + ":" + documentField.getDocumentField());
+            SortField sortField = null;
+            if (sortItem instanceof LuceneFunctionKeyExpression.LuceneSortBy) {
+                sortField = ((LuceneFunctionKeyExpression.LuceneSortBy)sortItem).isRelevance() ? SortField.FIELD_SCORE : SortField.FIELD_DOC;
+                hasBuiltInSort = true;
+            } else {
+                for (LuceneIndexExpressions.DocumentFieldDerivation documentField : state.documentFields.values()) {
+                    if (documentField.isSorted() && recordFieldPathMatches(sortItem, documentField.getRecordFieldPath())) {
+                        final SortField.Type type;
+                        switch (documentField.getType()) {
+                            case STRING:
+                            case BOOLEAN:
+                                type = SortField.Type.STRING;
+                                break;
+                            case INT:
+                                type = SortField.Type.INT;
+                                break;
+                            case LONG:
+                                type = SortField.Type.LONG;
+                                break;
+                            case DOUBLE:
+                                type = SortField.Type.DOUBLE;
+                                break;
+                            default:
+                                throw new RecordCoreException("Unsupported document field type for sorting: " + documentField.getType() + ":" + documentField.getDocumentField());
+                        }
+                        sortField = new SortField(documentField.getDocumentField(), type, sortReverse);
+                        break;
                     }
-                    fields[i] = new SortField(documentField.getDocumentField(), type, sortReverse);
-                    break;
                 }
             }
-            if (fields[i] == null) {
+            if (sortField != null) {
+                sortFields.add(sortField);
+            } else {
                 if (primaryKeys == null && commonPrimaryKey != null) {
                     primaryKeys = commonPrimaryKey.normalizeKeyForPositions();
                     if (groupingKey != null) {
@@ -491,7 +512,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                     if (sortItem.equals(primaryKeys.get(primaryKeyPosition))) {
                         // First part of primary key, sort by internal field (binary encoding of entire pkey).
                         // Note that is it okay if the entire primary key is not all matched later; the query sort will just be overspecified.
-                        fields[i] = new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, sortReverse);
+                        sortFields.add(new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, sortReverse));
                         primaryKeyPosition++;
                         continue;
                     }
@@ -499,7 +520,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                 return false;
             }
         }
-        state.sort = new Sort(fields);
+        state.sort = new Sort(sortFields.toArray(new SortField[0]));
         // Unlike normal indexes, entries are not additionally ordered by the primary key,
         // except in the case where the query asked for a prefix of it and we used the whole internal field.
         List<KeyExpression> orderingKeys = new ArrayList<>(sorts.size());
@@ -513,7 +534,10 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (primaryKeys != null && primaryKeyPosition < primaryKeys.size()) {
             orderingKeys.addAll(primaryKeys.subList(primaryKeyPosition, primaryKeys.size()));
         }
-        state.planOrderingKey = new PlanOrderingKey(orderingKeys, prefixSize, primaryKeyStart, orderingKeys.size());
+        if (!hasBuiltInSort) {
+            // These are only sometimes compatible from one search scan to another; for now be conservative and don't claim anything.
+            state.planOrderingKey = new PlanOrderingKey(orderingKeys, prefixSize, primaryKeyStart, orderingKeys.size());
+        }
         return true;
     }
 

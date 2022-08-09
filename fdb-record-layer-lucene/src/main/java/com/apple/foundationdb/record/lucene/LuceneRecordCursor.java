@@ -35,10 +35,12 @@ import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
@@ -59,6 +61,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -239,7 +242,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                         if (limitRemaining != Integer.MAX_VALUE) {
                             limitRemaining--;
                         }
-                        nextResult = RecordCursorResult.withNextValue(result.get().indexEntry, continuationFromDoc);
+                        nextResult = RecordCursorResult.withNextValue(result.get(), continuationFromDoc);
                     } else if (exhausted) {
                         nextResult = RecordCursorResult.exhausted();
                     } else if (limitRemaining <= 0) {
@@ -285,7 +288,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         return newTopDocs;
     }
 
-    private CompletableFuture<ScoreDocAndIndexEntry> buildIndexEntryFromScoreDocAsync(@Nonnull ScoreDoc scoreDoc) {
+    private CompletableFuture<ScoreDocIndexEntry> buildIndexEntryFromScoreDocAsync(@Nonnull ScoreDoc scoreDoc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Document document = searcher.doc(scoreDoc.doc);
@@ -348,21 +351,43 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     tuple = Tuple.fromList(fieldValues).addAll(setPrimaryKey);
                 }
 
-                return new ScoreDocAndIndexEntry(scoreDoc, new IndexEntry(state.index,
-                        tuple, null));
+                return new ScoreDocIndexEntry(scoreDoc, state.index, tuple);
             } catch (Exception e) {
                 throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, "exception", e);
             }
         }, executor);
     }
 
-    private static final class ScoreDocAndIndexEntry {
+    protected static final class ScoreDocIndexEntry extends IndexEntry {
         private final ScoreDoc scoreDoc;
-        private final IndexEntry indexEntry;
 
-        private ScoreDocAndIndexEntry(ScoreDoc scoreDoc, IndexEntry indexEntry) {
+        public ScoreDoc getScoreDoc() {
+            return scoreDoc;
+        }
+
+        private ScoreDocIndexEntry(@Nonnull ScoreDoc scoreDoc, @Nonnull Index index, @Nonnull Tuple key) {
+            super(index, key, TupleHelpers.EMPTY);
             this.scoreDoc = scoreDoc;
-            this.indexEntry = indexEntry;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            if (!super.equals(o)) {
+                return false;
+            }
+            final ScoreDocIndexEntry that = (ScoreDocIndexEntry)o;
+            return scoreDoc.score == that.scoreDoc.score && scoreDoc.doc == that.scoreDoc.doc;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), scoreDoc.score, scoreDoc.doc);
         }
     }
 }

@@ -108,6 +108,7 @@ public class AvailableFields {
         final List<KeyExpression> keyFields = new ArrayList<>();
         final List<KeyExpression> valueFields = new ArrayList<>();
         final List<KeyExpression> nonStoredFields = new ArrayList<>();
+        final List<KeyExpression> otherFields = new ArrayList<>();
         if (indexTypes.getTextTypes().contains(index.getType())) {
             // Full text index entries have all of their fields except the tokenized one.
             keyFields.addAll(TextScanPlanner.getOtherFields(rootExpression));
@@ -124,7 +125,7 @@ public class AvailableFields {
                 nonStoredFields.removeAll(groupingKeyExpression.getGroupingSubKey().normalizeKeyForPositions());
             }
             if (indexPlan instanceof PlanWithStoredFields) {
-                ((PlanWithStoredFields)indexPlan).getStoredFields(keyFields, nonStoredFields);
+                ((PlanWithStoredFields)indexPlan).getStoredFields(keyFields, nonStoredFields, otherFields);
             }
         } else {
             // Aggregate index
@@ -157,6 +158,11 @@ public class AvailableFields {
                 fields.put(valueField, fieldData);
             }
         }
+        for (int i = 0; i < otherFields.size(); i++) {
+            KeyExpression valueField = otherFields.get(i);
+            FieldData fieldData = FieldData.of(IndexKeyValueToPartialRecord.TupleSource.OTHER, i);
+            fields.put(valueField, fieldData);
+        }
 
         if (!builder.isValid()) {
             return NO_FIELDS;
@@ -167,6 +173,9 @@ public class AvailableFields {
     public static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
                                            @Nonnull FieldData fieldData,
                                            @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
+        if (fieldData.source == IndexKeyValueToPartialRecord.TupleSource.OTHER) {
+            return true;
+        }
         while (requiredExpr instanceof NestingKeyExpression) {
             NestingKeyExpression nesting = (NestingKeyExpression)requiredExpr;
             String fieldName = nesting.getParent().getFieldName();

@@ -85,7 +85,7 @@ public class IndexKeyValueToPartialRecord {
      * Which side of the {@link IndexEntry} to take a field from.
      */
     public enum TupleSource {
-        KEY, VALUE
+        KEY, VALUE, OTHER
     }
 
     /**

@@ -27,15 +27,20 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithChildren;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.apache.lucene.search.ScoreDoc;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.apple.foundationdb.record.lucene.LuceneFunctionNames.LUCENE_SORT_BY_RELEVANCE;
 
 /**
  * Lucene function key expressions.
@@ -266,6 +271,53 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
         @Override
         public int getColumnSize() {
             return 1;
+        }
+    }
+
+    /**
+     * Key function representing one of the Lucene built-in sorting techniques.
+     */
+    public static class LuceneSortBy extends LuceneFunctionKeyExpression {
+        public LuceneSortBy(@Nonnull String name, @Nonnull KeyExpression arguments) {
+            super(name, arguments);
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 0;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 0;
+        }
+
+        @Override
+        public int getColumnSize() {
+            return 1;
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> rec, @Nullable final Message message, @Nonnull final Key.Evaluated argvals) {
+            Key.Evaluated result;
+            if (rec instanceof FDBQueriedRecord && ((FDBQueriedRecord<M>)rec).getIndexEntry() instanceof LuceneRecordCursor.ScoreDocIndexEntry) {
+                final ScoreDoc scoreDoc = ((LuceneRecordCursor.ScoreDocIndexEntry)((FDBQueriedRecord<M>)rec).getIndexEntry()).getScoreDoc();
+                final Object value;
+                if (isRelevance()) {
+                    value = scoreDoc.score;
+                } else {
+                    value = scoreDoc.doc;
+                }
+                result = Key.Evaluated.scalar(value);
+            } else {
+                result = Key.Evaluated.NULL;
+            }
+            return Collections.singletonList(result);
+        }
+
+        public boolean isRelevance() {
+            return LUCENE_SORT_BY_RELEVANCE.equals(getName());
         }
     }
 
