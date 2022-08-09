@@ -190,7 +190,7 @@ public class IndexingScrubMissing extends IndexingBase {
                                         return false;
                                     }
                                 }
-                                return !Objects.equals(cont, rangeEnd);
+                                return !allRangesExhausted(cont, rangeEnd);
                             }));
         });
     }

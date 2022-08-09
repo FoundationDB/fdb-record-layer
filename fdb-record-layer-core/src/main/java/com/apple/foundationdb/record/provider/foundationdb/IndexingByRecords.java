@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -77,7 +76,8 @@ public class IndexingByRecords extends IndexingBase {
 
     IndexingByRecords(@Nonnull IndexingCommon common, @Nonnull OnlineIndexer.IndexingPolicy policy) {
         super(common, policy);
-        this.recordsRange = computeRecordsRange();
+        final TupleRange range = common.computeRecordsRange();
+        this.recordsRange = range == null ? TupleRange.ALL : range;
     }
 
     @Override
@@ -111,35 +111,6 @@ public class IndexingByRecords extends IndexingBase {
                 return CompletableFuture.completedFuture(null);
             }
         });
-    }
-
-    @Nonnull
-    private TupleRange computeRecordsRange() {
-        Tuple low = null;
-        Tuple high = null;
-        for (RecordType recordType : common.getAllRecordTypes()) {
-            if (!recordType.primaryKeyHasRecordTypePrefix() || recordType.isSynthetic()) {
-                // If any of the types to build for does not have a prefix, give up.
-                return TupleRange.ALL;
-            }
-            Tuple prefix = recordType.getRecordTypeKeyTuple();
-            if (low == null) {
-                low = high = prefix;
-            } else {
-                if (low.compareTo(prefix) > 0) {
-                    low = prefix;
-                }
-                if (high.compareTo(prefix) < 0) {
-                    high = prefix;
-                }
-            }
-        }
-        if (low == null) {
-            return TupleRange.ALL;
-        } else {
-            // Both ends inclusive.
-            return new TupleRange(low, high, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
-        }
     }
 
     /**

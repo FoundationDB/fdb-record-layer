@@ -345,19 +345,15 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull
     private IndexingBase getIndexer() {
-        if (fallbackToRecordsScan) {
-            IndexingBase indexingBase = getIndexerByRecords();
-            indexingBase.enforceStampOverwrite();
-            return indexingBase;
-        }
-        if (common.isMultiTarget()) {
-            return getIndexerMultiTargetByRecords();
-        }
-        if (indexingPolicy.isByIndex()) {
+        if (indexingPolicy.isByIndex() && !common.isMultiTarget() && !fallbackToRecordsScan) {
             return getIndexerByIndex();
         }
         // default
-        return getIndexerByRecords();
+        IndexingBase indexingBase = getIndexerMultiTargetByRecords();
+        if (fallbackToRecordsScan) {
+            indexingBase.enforceStampOverwrite();
+        }
+        return indexingBase;
     }
 
     /**
@@ -604,6 +600,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a future that will contain the range of records in the interior of the record store
      */
     @Nonnull
+    @Deprecated
     public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store) {
         // endpoints only make sense in 'scan by records' mode.
         return getIndexerByRecordsOrThrow().buildEndpoints(store, null);
@@ -618,6 +615,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a future that will contain the range of records in the interior of the record store
      */
     @Nonnull
+    @Deprecated
     public CompletableFuture<TupleRange> buildEndpoints() {
         return getIndexerByRecordsOrThrow().buildEndpoints();
     }
@@ -742,6 +740,16 @@ public class OnlineIndexer implements AutoCloseable {
         asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexAsync());
     }
 
+    @VisibleForTesting
+    private CompletableFuture<Void> buildIndexAsyncSingleTarget(boolean markReadable) {
+        // Testing only - enforce the old by-records indexer
+        return indexingLauncher(() -> getIndexerByRecordsOrThrow().buildIndexAsync(markReadable));
+    }
+
+    @VisibleForTesting
+    protected void buildIndexSingleTarget() {
+        asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexAsyncSingleTarget(true));
+    }
 
     /**
      * Split the index build range to support building an index across multiple transactions in parallel if needed.

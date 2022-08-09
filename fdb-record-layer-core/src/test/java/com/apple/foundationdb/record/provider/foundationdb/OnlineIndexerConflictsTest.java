@@ -197,6 +197,7 @@ public class OnlineIndexerConflictsTest extends OnlineIndexerTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void testAddRecordOutsideRangeWhileIndexedIdempotent() {
 
         List<TestRecords1Proto.MySimpleRecord> records =

@@ -2596,6 +2596,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         runLocalityTest(() -> testBoundaryPrimaryKeysImpl());
     }
 
+    @SuppressWarnings("deprecation")
     public void testBoundaryPrimaryKeysImpl() {
         final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
@@ -2674,6 +2675,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         runLocalityTest(() -> testNoBoundaryPrimaryKeysImpl());
     }
 
+    @SuppressWarnings("deprecation")
     public void testNoBoundaryPrimaryKeysImpl() {
         final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setLocalityProvider(MockedLocalityUtil.instance());

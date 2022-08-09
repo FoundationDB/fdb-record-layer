@@ -48,7 +48,6 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -192,7 +191,7 @@ public class IndexingByIndex extends IndexingBase {
                                           lastResult.get().get().getIndexEntry().getKey() :
                                           rangeEnd)
                     .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
-                                .thenApply(ignore -> !Objects.equals(cont, rangeEnd)));
+                                .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
 
         });
     }

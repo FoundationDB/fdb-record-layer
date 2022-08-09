@@ -43,7 +43,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -74,6 +73,15 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     @Nonnull
     private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(List<String> targetIndexes) {
 
+        if (targetIndexes.isEmpty()) {
+            throw new ValidationException("No target index was set");
+        }
+        if (targetIndexes.size() == 1) {
+            // backward compatibility
+            return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                    .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS)
+                    .build();
+        }
         return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
                 .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)
                 .addAllTargetIndex(targetIndexes)
@@ -102,20 +110,49 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                                 SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                 // validation checks, if any, will be performed here
                                 return subspaceProvider.getSubspaceAsync(context)
-                                        .thenCompose(subspace -> buildMultiTargetIndex(subspaceProvider, subspace, null, null));
+                                        .thenCompose(subspace -> buildMultiTargetIndex(subspaceProvider, subspace));
                             })
                 ), common.indexLogMessageKeyValues("IndexingMultiTargetByRecords::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildMultiTargetIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace, @Nullable byte[] start, @Nullable byte[] end) {
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex",
-                LogMessageKeys.RANGE_START, start,
-                LogMessageKeys.RANGE_END, end);
+    private CompletableFuture<Void> buildMultiTargetIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+        final TupleRange tupleRange = common.computeRecordsRange();
+        final byte[] rangeStart;
+        final byte[] rangeEnd;
+        if (tupleRange == null) {
+            rangeStart = rangeEnd = null;
+        } else {
+            final Range range = tupleRange.toRange();
+            rangeStart = range.begin;
+            rangeEnd = range.end;
+        }
 
-        return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> buildRangeOnly(store, start, end , recordsScanned),
-                subspaceProvider, subspace);
+        final CompletableFuture<FDBRecordStore> maybePresetRangeFuture =
+                rangeStart == null ?
+                CompletableFuture.completedFuture(null) :
+                buildCommitRetryAsync((store, recordsScanned) -> {
+                    // Here: only records inside the defined records-range are relevant to the index. Hence, the completing range
+                    // can be preemptively marked as indexed.
+                    final List<Index> targetIndexes = common.getTargetIndexes();
+                    final List<RangeSet> targetRangeSets = targetIndexes.stream()
+                            .map(targetIndex -> new RangeSet(store.indexRangeSubspace(targetIndex)))
+                            .collect(Collectors.toList());
+                    final Transaction tr = store.ensureContextActive();
+                    return CompletableFuture.allOf(
+                            insertRanges(tr, targetRangeSets, null, rangeStart),
+                                    insertRanges(tr, targetRangeSets, rangeEnd, null))
+                            .thenApply(ignore -> null);
+                }, false, null);
+
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex",
+                LogMessageKeys.RANGE_START, rangeStart,
+                LogMessageKeys.RANGE_END, rangeEnd);
+
+        return maybePresetRangeFuture.thenCompose(ignore ->
+                iterateAllRanges(additionalLogMessageKeyValues,
+                        (store, recordsScanned) -> buildRangeOnly(store, rangeStart, rangeEnd , recordsScanned),
+                subspaceProvider, subspace));
     }
 
     @Nonnull
@@ -165,8 +202,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                                           lastResult.get().get().getPrimaryKey() :
                                           rangeEnd)
                     .thenCompose(cont -> insertRanges(store.ensureContextActive(), targetRangeSets, packOrNull(rangeStart), packOrNull(cont))
-                                .thenApply(ignore -> !Objects.equals(cont, rangeEnd)));
-
+                                .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
         });
     }
 
@@ -188,10 +224,17 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     @Nonnull
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
-        AtomicReference<Tuple> nextResultCont = new AtomicReference<>(null);
+        final TupleRange tupleRange = common.computeRecordsRange();
+        // if non-null, the tupleRange contains the range of all the records need indexing (in practice,
+        // the type keys containing the lexicographically first to last types). Hence, we can skip indexing records
+        // that are outside this range.
+        final Tuple rangeStart = tupleRange == null ? null : tupleRange.getLow();
+        final Tuple rangeEndInclusive = tupleRange == null ? null : tupleRange.getHigh();
+
+        AtomicReference<Tuple> nextResultCont = new AtomicReference<>(rangeStart);
         AtomicLong recordScanned = new AtomicLong();
         return AsyncUtil.whileTrue(() ->
-                rebuildRangeOnly(store, nextResultCont.get(), recordScanned).thenApply(cont -> {
+                rebuildRangeOnly(store, nextResultCont.get(), recordScanned, rangeEndInclusive).thenApply(cont -> {
                     if (cont == null) {
                         return false;
                     }
@@ -202,8 +245,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
-
+    private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned, @Nullable Tuple rangeEndInclusive) {
         validateSameMetadataOrThrow(store);
         final boolean isIdempotent = areTheyAllIdempotent(store, common.getTargetIndexes());
 
@@ -215,7 +257,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(isolationLevel);
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
-        final TupleRange tupleRange = TupleRange.between(cont, null);
+        final TupleRange tupleRange = TupleRange.betweenInclusive(cont, rangeEndInclusive);
 
         RecordCursor<FDBStoredRecord<Message>> cursor =
                 store.scanRecords(tupleRange, null, scanProperties);

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import org.junit.jupiter.api.Test;
@@ -660,6 +661,105 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords + numRecordsOther, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         validateIndexes(Arrays.asList(indexMyA, indexMyB, indexOtherA, indexOtherB));
+    }
+
+    @Test
+    public void testSingleTargetContinuation() {
+        // Build a single target with the old module, crash halfway, then continue indexing as a single index in the Multi Target module
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 107;
+        final int chunkSize = 17;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        final AtomicLong counter = new AtomicLong(0);
+        final String testThrowMsg = "Intentionally crash during test";
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .setIndex(indexes.get(0))
+                .setConfigLoader(old -> {
+                    if (counter.incrementAndGet() > 2) {
+                        throw new RecordCoreException(testThrowMsg);
+                    }
+                    return old;
+                })
+                .build()) {
+
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndexSingleTarget);
+            assertTrue(e.getMessage().contains(testThrowMsg));
+        }
+        // expecting an extra range, because the old indexer is building endpoints
+        assertEquals(3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        // Here: the index should be partially built by the single target module
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .setTimer(timer)
+                .build()) {
+            // Finish building the single index with the multi target indexer
+            indexBuilder.buildIndex(true);
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    public void testSingleTargetCompletion() {
+        // Build few single target ranges with the old module, then complete indexing as a single index with the Multi Target module
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 107;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexWriteOnly(indexes.get(0)).join();
+            context.commit();
+        }
+
+        for (long i = 0; (i + 1) * 10 < numRecords; i ++) {
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                    .setTimer(timer)
+                    .setIndex(indexes.get(0))
+                    .build()) {
+
+                // Build just a small segment of the index, using the old module
+                indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(i * 10 + 5), Key.Evaluated.scalar(i * 10 + 8)).join();
+            }
+            assertEquals((i + 1) * 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+            assertEquals((i + 1) * 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        }
+        // Here: the index has multiple built chunks
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .setTimer(timer)
+                .build()) {
+            // Finish building the single index with the multi target indexer
+            indexBuilder.buildIndex(true);
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
     }
 
     // uncomment to compare

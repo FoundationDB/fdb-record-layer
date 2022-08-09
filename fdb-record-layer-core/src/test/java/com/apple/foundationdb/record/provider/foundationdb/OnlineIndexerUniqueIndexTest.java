@@ -807,7 +807,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             context.commit();
         }
 
-        // build target index from source index
+        // build target index from source index (note - may fall back to by-records)
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).addTargetIndex(tgtIndex).setSubspace(subspace)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
