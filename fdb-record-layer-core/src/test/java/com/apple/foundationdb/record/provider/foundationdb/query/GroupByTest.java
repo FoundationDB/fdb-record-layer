@@ -170,8 +170,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         {
             // construct a result set that makes sense.
             final var numValue2Reference = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")),
-                    new FieldValue(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), ImmutableList.of("_1", "num_value_2")));
-            final var aggregateReference = Column.unnamedOf(OrdinalFieldValue.of(OrdinalFieldValue.of(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
+                    new FieldValue(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), ImmutableList.of("_0", "num_value_2")));
+            final var aggregateReference = Column.unnamedOf(OrdinalFieldValue.of(OrdinalFieldValue.of(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 1), 0));
 
             final var result = GraphExpansion.builder().addQuantifier(qun).addResultValue(RecordConstructorValue.ofColumns(ImmutableList.of(numValue2Reference,  aggregateReference))).build().buildSelect();
             return GroupExpressionRef.of(result);

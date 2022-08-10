@@ -161,7 +161,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Nonnull
     @Override
     public String toString() {
-        return "aggregate(" + getInnerPlan() + ") [aggregation: " + aggregateValue + ", group by " + groupingKeyValue + "]";
+        return getInnerPlan() + " | AGGREGATE BY " + aggregateValue + ", GROUP BY " + groupingKeyValue;
     }
 
     @Nonnull
@@ -289,25 +289,11 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
     }
 
-    @Nonnull
     public static Value flattenedResults(@Nullable final Value groupingKeyValue,
                                          @Nonnull final AggregateValue aggregateValue,
                                          @Nonnull final CorrelationIdentifier groupingKeyAlias,
                                          @Nonnull final CorrelationIdentifier aggregateAlias) {
         final var valuesBuilder = ImmutableList.<Value>builder();
-
-        final var aggregateResultType = aggregateValue.getResultType();
-        if (aggregateResultType.getTypeCode() == Type.TypeCode.RECORD) {
-            Verify.verify(aggregateResultType instanceof Type.Record);
-            final var aggregateResultRecordType = (Type.Record)aggregateResultType;
-            List<Type.Record.Field> fields = aggregateResultRecordType.getFields();
-            for (var i = 0; i < fields.size(); i++) {
-                valuesBuilder.add(OrdinalFieldValue.of(ObjectValue.of(aggregateAlias, aggregateResultRecordType), i));
-            }
-        } else {
-            valuesBuilder.add(aggregateValue);
-        }
-
         if (groupingKeyValue != null) {
             final var groupingResultType = groupingKeyValue.getResultType();
             if (groupingResultType.getTypeCode() == Type.TypeCode.RECORD) {
@@ -322,6 +308,18 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
             }
         }
 
+        final var aggregateResultType = aggregateValue.getResultType();
+        if (aggregateResultType.getTypeCode() == Type.TypeCode.RECORD) {
+            Verify.verify(aggregateResultType instanceof Type.Record);
+            final var aggregateResultRecordType = (Type.Record)aggregateResultType;
+            List<Type.Record.Field> fields = aggregateResultRecordType.getFields();
+            for (var i = 0; i < fields.size(); i++) {
+                valuesBuilder.add(OrdinalFieldValue.of(ObjectValue.of(aggregateAlias, aggregateResultRecordType), i));
+            }
+        } else {
+            valuesBuilder.add(aggregateValue);
+        }
+
         return RecordConstructorValue.ofUnnamed(valuesBuilder.build());
     }
 
@@ -332,12 +330,12 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                       @Nonnull final CorrelationIdentifier aggregateAlias) {
         if (groupingKeyValue != null) {
             return RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType()),
-                    ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType())));
+                    ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
+                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
         } else {
             return RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                    QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType()),
-                    RecordConstructorValue.ofUnnamed(ImmutableList.of())));
+                    RecordConstructorValue.ofUnnamed(ImmutableList.of()),
+                    QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
         }
     }
 

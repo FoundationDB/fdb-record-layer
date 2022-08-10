@@ -115,12 +115,12 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                    .withGroupCriterion("num_value_3_indexed")
-                    .build(useNestedResult);
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withGroupCriterion("num_value_3_indexed")
+                            .build(useNestedResult);
 
             final var result = executePlan(plan);
-            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(1, 0), resultOf(5, 1), resultOf(9, 2));
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, 1), resultOf(1, 5), resultOf(2, 9));
         }
     }
 
@@ -170,7 +170,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .build(useNestedResult);
 
             final var result = executePlan(plan);
-            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(1, 0, "0"), resultOf(2, 1, "0"), resultOf(3, 1, "1"), resultOf(9, 2, "1"));
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1), resultOf(1, "0", 2), resultOf(1, "1", 3), resultOf(2, "1", 9));
         }
     }
 
@@ -189,7 +189,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .build(useNestedResult);
 
             final var result = executePlan(plan);
-            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(1, 0, 0, "0"), resultOf(2, 2, 1, "0"), resultOf(3, 3, 1, "1"), resultOf(9, 4, 2, "1"));
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1, 0), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 9, 4));
         }
     }
 
@@ -209,7 +209,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .build(useNestedResult);
 
             final var result = executePlan(plan);
-            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(1, 0, 0.5, 0, "0"), resultOf(2, 2, 2.0, 1, "0"), resultOf(3, 3, 3.0, 1, "1"), resultOf(9, 4, 4.5, 2, "1"));
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1, 0, 0.5), resultOf(1, "0", 2, 2, 2.0), resultOf(1, "1", 3, 3, 3.0), resultOf(2, "1", 9, 4, 4.5));
         }
     }
 
