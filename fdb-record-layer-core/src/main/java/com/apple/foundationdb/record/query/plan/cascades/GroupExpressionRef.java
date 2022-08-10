@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
@@ -109,28 +109,33 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return constraintsMap;
     }
 
-    public synchronized boolean replace(@Nonnull T newValue) {
+    public synchronized void replace(@Nonnull T newValue) {
         clear();
-        return insert(newValue);
+        insertUnchecked(newValue);
     }
 
     @Override
     public boolean insert(@Nonnull T newValue) {
         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.BEGIN)));
+        final boolean containsInMemo;
         try {
-            final boolean containsInMemo = containsInMemo(newValue);
-            if (!containsInMemo) {
-                // Call debugger hook to potentially register this new expression.
-                Debugger.registerExpression(newValue);
-                members.add(newValue);
-                if (newValue instanceof RecordQueryPlan) {
-                    Verify.verify(propertiesMap.insert(newValue)); // this must return true
-                }
-                return true;
-            }
-            return false;
+            containsInMemo = containsInMemo(newValue);
         } finally {
             Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.END)));
+        }
+        if (!containsInMemo) {
+            insertUnchecked(newValue);
+            return true;
+        }
+        return false;
+    }
+
+    public void insertUnchecked(final @Nonnull T newValue) {
+        // Call debugger hook to potentially register this new expression.
+        Debugger.registerExpression(newValue);
+        members.add(newValue);
+        if (newValue instanceof RecordQueryPlan) {
+            Verify.verify(propertiesMap.insert(newValue)); // this must return true
         }
     }
 
@@ -139,6 +144,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean containsAllInMemo(@Nonnull final ExpressionRef<? extends RelationalExpression> otherRef,
                                      @Nonnull final AliasMap equivalenceMap) {
         if (this == otherRef) {
@@ -205,7 +211,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         final AliasMap combinedEquivalenceMap = equivalenceMap.combine(identitiesMap);
 
         final Iterable<AliasMap> aliasMapIterable;
-        if (member instanceof SelectExpression) {
+        if (member instanceof RelationalExpressionWithChildren.ChildrenAsSet) {
             // Use match the contained quantifier list against the quantifier list of other in order to find
             // a correspondence between quantifiers and otherQuantifiers. While we match we recursively call
             // containsAllInMemo() and early out on that map if such a correspondence cannot be established

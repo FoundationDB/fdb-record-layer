@@ -56,6 +56,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
@@ -195,8 +196,12 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     private void addDataForNested() throws Exception {
+        addDataForNested(null);
+    }
+
+    private void addDataForNested(@Nullable final RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openNestedRecordStore(context);
+            openNestedRecordStore(context, hook);
 
             TestRecords4Proto.RestaurantReviewer.Builder reviewerBuilder = TestRecords4Proto.RestaurantReviewer.newBuilder();
             reviewerBuilder.setId(1);
@@ -385,11 +390,9 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             metaData.addIndex("RestaurantRecord", "duplicates", concat(field("name"), field("name")));
         };
 
-        addDataForNested();
+        addDataForNested(hook);
 
         final QueryComponent nestedComponent =
-                //Query.field("reviews").oneOfThem().matches(Query.field("reviewer").equalsValue(10L))
-                //Query.field("reviews").oneOfThem().matches(Query.field("rating").equalsValue(20))
                 Query.field("reviews").oneOfThem().matches(Query.and(Query.field("reviewer").equalsValue(10L), Query.field("rating").equalsValue(20)));
         final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("RestaurantRecord")

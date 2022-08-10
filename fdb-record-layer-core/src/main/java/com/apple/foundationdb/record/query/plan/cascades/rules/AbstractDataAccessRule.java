@@ -183,6 +183,9 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * @param planContext the plan context associated with this planner rule execution
      * @param requestedOrderings a set of requested orderings
      * @param matchPartition a match partition of compatibly-matching {@link PartialMatch}es
+     * @return an expression reference that contains all compensated data access plans for the given match partition.
+     *         Note that the reference can also include index-ANDed plans for match intersections and that other matches
+     *         contained in the match partition passed in may not be planned at all.
      */
     protected ExpressionRef<? extends RelationalExpression> dataAccessForMatchPartition(@Nonnull PlanContext planContext,
                                                                                         @Nonnull Set<RequestedOrdering> requestedOrderings,
@@ -206,7 +209,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         // create single scan accesses
         for (final var bestMatch : bestMaximumCoverageMatches) {
             applyCompensationForSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch.getPartialMatch()))
-                    .ifPresent(toBeInjectedReference::insert);
+                    .ifPresent(toBeInjectedReference::insertUnchecked);
         }
 
         final Map<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
@@ -236,7 +239,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     bestMatchToDistinctExpressionMap,
                                     partition,
                                     requestedOrderings).stream())
-                    .forEach(toBeInjectedReference::insert);
+                    .forEach(toBeInjectedReference::insertUnchecked);
         });
         return toBeInjectedReference;
     }

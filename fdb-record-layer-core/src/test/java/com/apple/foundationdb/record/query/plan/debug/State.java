@@ -346,7 +346,9 @@ class State {
         stringBuilder.append("<th scope=\"col\">Location</th>");
         stringBuilder.append("<th scope=\"col\">Count</th>");
         stringBuilder.append("<th scope=\"col\">Total Time (micros)</th>");
-        stringBuilder.append("<th scope=\"col\">Own Time (micros)</th>");
+        stringBuilder.append("<th scope=\"col\">Average Time (micros)</th>");
+        stringBuilder.append("<th scope=\"col\">Total Own Time (micros)</th>");
+        stringBuilder.append("<th scope=\"col\">Average Own Time (micros)</th>");
         stringBuilder.append("</tr>");
         stringBuilder.append("</thead>");
     }
@@ -366,7 +368,9 @@ class State {
                 stringBuilder.append("<td class=\"text-end\">").append(locationEntry.getValue()).append("</td>");
                 if (locationEntry.getKey() == Debugger.Location.BEGIN) {
                     stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getTotalTimeInNs())).append("</td>");
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getTotalTimeInNs() / stats.getCount(Debugger.Location.BEGIN))).append("</td>");
                     stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getOwnTimeInNs())).append("</td>");
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getOwnTimeInNs() / stats.getCount(Debugger.Location.BEGIN))).append("</td>");
                 } else {
                     stringBuilder.append("<td></td>");
                     stringBuilder.append("<td></td>");

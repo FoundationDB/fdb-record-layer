@@ -308,6 +308,7 @@ public interface Compensation {
      *        used for compensation
      * @param matchedQuantifiers a set of quantifiers that are mapped in the original {@link PartialMatch}
      * @param unmatchedQuantifiers a set of quantifiers that are not mapped in the original {@link PartialMatch}
+     * @param compensatedAliases a set of aliases this compensation covers and compensates for
      * @param remainingComputationOptional an optional containing (if not empty) a {@link Value} that needs to be
      *        computed by some means when this compensation is applied
      * @return a new compensation

@@ -76,7 +76,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
-    private Map<String, Index> universalIndexes;
+    private final Map<String, Index> universalIndexes;
     @Nonnull
     private final List<FormerIndex> formerIndexes;
     private final boolean splitLongRecords;
@@ -661,7 +661,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                                     }
                                     // TODO improve
                                     if (fieldDescriptor.getType().getJavaType() ==
-                                        fieldDescriptor2.getType().getJavaType()) {
+                                            fieldDescriptor2.getType().getJavaType()) {
                                         return fieldDescriptor;
                                     }
 

@@ -283,7 +283,6 @@ public class BaseMatcher<T> {
 
                             return IterableHelpers.flatMap(combinationsIterable,
                                     combination -> {
-                                        //System.out.println("this: " + combination + "; other: " + otherPermutation);
                                         final EnumeratingIterable<CorrelationIdentifier> permutationsIterable =
                                                 topologicalOrderPermutations(
                                                         combination,

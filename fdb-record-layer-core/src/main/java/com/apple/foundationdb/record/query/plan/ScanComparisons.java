@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -251,6 +252,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         }
 
         @Nonnull
+        @Override
         protected ScanComparisons.Builder withComparisons(@Nonnull List<Comparisons.Comparison> equalityComparisons,
                                                           @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
             return new Builder().addAll(equalityComparisons, inequalityComparisons);
@@ -344,8 +346,8 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Override
+    @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
@@ -396,6 +398,8 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     }
 
     @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object o) {
         return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
     }

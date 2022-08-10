@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableList;
@@ -76,18 +77,19 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
     }
 
     @Nonnull
-    @SuppressWarnings("java:S3958")
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+    @SuppressWarnings({"java:S3958", "UnstableApiUsage"})
     public Stream<PlannerBindings> bindMatchesForPermutation(@Nonnull PlannerBindings outerBindings, @Nonnull List<Equivalence.Wrapper<T>> permutation) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
         final var downstreamIterator = downstreams.iterator();
         for (final var wrappedItem : permutation) {
             final var item = Objects.requireNonNull(wrappedItem.get());
             final var downstream = downstreamIterator.next();
-            final var individualBindings = downstream.bindMatches(outerBindings, item).collect(Collectors.toList());
-            if (individualBindings.isEmpty()) {
+            final var individualBindingsIterator = downstream.bindMatches(outerBindings, item).iterator();
+            if (!individualBindingsIterator.hasNext()) {
                 return Stream.empty();
             } else {
-                bindingStream = bindingStream.flatMap(existing -> individualBindings.stream().map(existing::mergedWith));
+                bindingStream = bindingStream.flatMap(existing -> Streams.stream(individualBindingsIterator).map(existing::mergedWith));
             }
         }
         return bindingStream;

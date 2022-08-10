@@ -38,8 +38,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.tuple.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -56,16 +54,14 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
  * expressions for data access specifically for a {@link SelectExpression}. A {@link SelectExpression} is behaves
- * different than essentially all other expressions in a way that we can break such an expression on the fly
- * and only replace the matched part of the original expression with the scan over the materialized view. That allows
- * us to relax restrictions (.e.g. to match all quantifiers the select expression owns) while matching select expressions.
+ * different compared to essentially all other expressions in a way that we can conceptually deconstruct such an expression
+ * on the fly and only replace the matched part of the original expression with the scan over the materialized view.
+ * That allows us to relax restrictions (.e.g. to match all quantifiers the select expression owns) while matching
+ * select expressions.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpression> {
-    @Nonnull
-    private static final Logger logger = LoggerFactory.getLogger(SelectDataAccessRule.class);
-
     private static final BindingMatcher<PartialMatch> completeMatchMatcher = completeMatch();
     private static final BindingMatcher<SelectExpression> expressionMatcher = ofType(SelectExpression.class);
 
@@ -97,6 +93,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
         final var requestedOrderings = requestedOrderingsOptional.get();
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(expression.getQuantifiers());
 
+        // group all successful matches by their sets of compensated aliases
         final var matchPartitionsByAliasesMap =
                 completeMatches
                         .stream()
@@ -115,13 +112,18 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                                 LinkedHashMap::new,
                                 Collectors.mapping(Pair::getLeft, ImmutableList.toImmutableList())));
 
-
+        // loop through all compensated alias sets and their associated match partitions
         for (final var matchPartitionByAliasesEntry : matchPartitionsByAliasesMap.entrySet()) {
             final var entryKey = matchPartitionByAliasesEntry.getKey();
             final var compensatedAliases = entryKey.getLeft();
             final var matchedAlias = entryKey.getRight();
             final var matchPartitionForAliases = matchPartitionByAliasesEntry.getValue();
 
+            //
+            // Compute the set of quantifiers that needs to be pulled up to the new expression. These are the quantifiers
+            // that the match partition does not cover. This set is constant for the inner loop and can be computed
+            // outside it.
+            //
             final var toBePulledUpQuantifiers =
                     expression
                             .getQuantifiers()

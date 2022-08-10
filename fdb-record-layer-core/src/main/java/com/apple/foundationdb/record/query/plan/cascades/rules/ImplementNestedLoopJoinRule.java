@@ -50,7 +50,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -70,6 +69,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.canBeImplemented;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.owning;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -90,8 +91,12 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(planPartitions(rollUp(all(innerPlanPartitionsMatcher))));
     @Nonnull
+    private static final BindingMatcher<SelectExpression> selectExpression = selectExpression();
+    @Nonnull
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(choose(outerQuantifierMatcher, innerQuantifierMatcher));
+            selectExpression
+                    .where(canBeImplemented())
+                    .and(owning(choose(outerQuantifierMatcher, innerQuantifierMatcher)));
 
     @Nonnull
     private static final String outerFieldName = "outer";
@@ -111,18 +116,8 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
             return;
         }
         final var requestedOrderings = requestedOrderingsOptional.get();
-
         final var bindings = call.getBindings();
-
         final var selectExpression = bindings.get(root);
-
-        final var hasPlansOnEveryLeg =
-                selectExpression.getQuantifiers()
-                        .stream()
-                        .allMatch(quantifier -> quantifier.getRangesOver().getMembers().stream().anyMatch(relationalExpression -> relationalExpression instanceof RecordQueryPlan));
-        if (!hasPlansOnEveryLeg) {
-            return;
-        }
         Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("matched SelectExpression", "legs", selectExpression.getQuantifiers().size())));
 
         final var outerQuantifier = bindings.get(outerQuantifierMatcher);
@@ -345,7 +340,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
             final var newOuterInnerPredicate =
                     predicate.replaceLeavesMaybe(leafPredicate -> {
                         if (leafPredicate instanceof ExistsPredicate &&
-                            ((ExistsPredicate)leafPredicate).getExistentialAlias().equals(innerAlias)) {
+                                ((ExistsPredicate)leafPredicate).getExistentialAlias().equals(innerAlias)) {
                             leafPredicate = rewrittenExistsPredicateSupplier.get();
                         }
                         return leafPredicate.translateLeafPredicate(translationMap);
