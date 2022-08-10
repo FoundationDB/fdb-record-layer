@@ -262,7 +262,7 @@ class ArithmeticValueTest {
     }
 
     @ParameterizedTest
-    @SuppressWarnings({"rawtypes", "unchecked", "ConstantConditions"})
+    @SuppressWarnings({"rawtypes", "unchecked"})
     @ArgumentsSource(BinaryPredicateTestProvider.class)
     void testPredicate(List<Value> args, BuiltInFunction function, Object result, boolean shouldFail) {
         if (shouldFail) {

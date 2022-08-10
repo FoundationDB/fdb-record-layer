@@ -20,11 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Optional;
 
 /**
@@ -41,7 +47,27 @@ public interface BooleanValue extends Value {
      * Translates the {@link BooleanValue} into a {@link QueryPredicate}.
      *
      * @param innermostAlias An alias immediately visible to the expression.
+     * @param typeRepository The type repository used to assist evaluating compile-time expressions (if any).
+     *
      * @return A {@link QueryPredicate} that is equivalent to this {@link BooleanValue} expression.
      */
-    Optional<QueryPredicate> toQueryPredicate(@Nonnull CorrelationIdentifier innermostAlias);
+    Optional<QueryPredicate> toQueryPredicate(@Nonnull CorrelationIdentifier innermostAlias, @Nonnull final TypeRepository typeRepository);
+
+    /**
+     * Boxes a {@code Boolean} value into a constant {@link QueryPredicate}. It also handles {@code null} value properly.
+     * @param constantValue The boolean value.
+     * @return The corresponding {@link QueryPredicate}.
+     */
+    @Nonnull
+    static QueryPredicate boxConstantBoolean(@Nullable final Object constantValue) {
+        if (constantValue == null) {
+            return ConstantPredicate.NULL;
+        }
+        Verify.verify(constantValue instanceof Boolean);
+        if ((boolean)constantValue) {
+            return ConstantPredicate.TRUE;
+        } else {
+            return ConstantPredicate.FALSE;
+        }
+    }
 }

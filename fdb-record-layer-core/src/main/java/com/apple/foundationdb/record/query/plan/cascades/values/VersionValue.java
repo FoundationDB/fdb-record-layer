@@ -32,7 +32,7 @@ import javax.annotation.Nonnull;
  * A value representing a version stamp.
  */
 @API(API.Status.EXPERIMENTAL)
-public class VersionValue implements LeafValue, Value.CompileTimeValue {
+public class VersionValue implements LeafValue, Value.PlannerValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
     public VersionValue() {

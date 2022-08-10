@@ -122,21 +122,18 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
     }
 
-    /**
-     * evaluates computation of the expression at compile time and returns the result immediately.
-     *
-     * @param context The execution context.
-     * @return The expression output.
-     */
     @Nullable
-    @SuppressWarnings({"java:S2637", "ConstantConditions"})
-    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
-    default Object compileTimeEval(@Nonnull final EvaluationContext context) {
-        return eval(null, context);
-    }
+    <M extends Message> Object eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 
-    @Nullable
-    <M extends Message> Object eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
+    /**
+     * Checks whether a {@link Value} can be evaluated at query compile time.
+     *
+     * @return True whether the {@link Value} is compile-time, i.e. all of its leaves are constant expressions, otherwise
+     *         false.
+     */
+    default boolean isCompileTimeEvaluable() {
+        return StreamSupport.stream(filter(LeafValue.class::isInstance).spliterator(), false).allMatch(CompileTimeValue.class::isInstance);
+    }
 
     /**
      * Method to create a {@link QueryPredicate} that is based on this value and a
@@ -353,15 +350,16 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     /**
-     * A scalar value type that cannot be evaluated.
+     * A scalar value type that is used by {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} for
+     * matching purposes, it cannot be evaluated.
      */
     @API(API.Status.EXPERIMENTAL)
-    interface CompileTimeValue extends Value {
+    interface PlannerValue extends Value {
         @Nullable
         @Override
-        default <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+        default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                                 @Nonnull final EvaluationContext context) {
-            throw new RecordCoreException("value is compile-time only and cannot be evaluated");
+            throw new RecordCoreException("value is a planner-value and cannot be evaluated");
         }
     }
 
@@ -373,9 +371,28 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     interface IndexOnlyValue extends Value {
         @Nullable
         @Override
-        default <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+        default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                                 @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value is index-only and cannot be evaluated");
+        }
+    }
+
+    /**
+     * A {@link Value} that can be evaluated during query compilation.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface CompileTimeValue extends Value {
+        /**
+         * evaluates computation of the expression at compile time and returns the result immediately.
+         *
+         * @param context The execution context.
+         * @return The expression output.
+         */
+        @Nullable
+        @SuppressWarnings({"java:S2637", "ConstantConditions"})
+        @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
+        default Object compileTimeEval(@Nonnull final EvaluationContext context) {
+            return eval(null, context);
         }
     }
 }

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -47,7 +49,7 @@ import java.util.Optional;
  * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsValue implements BooleanValue, ValueWithChild, Value.CompileTimeValue {
+public class ExistsValue implements BooleanValue, ValueWithChild, Value.PlannerValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Value");
     @Nonnull
     private final QuantifiedObjectValue child;
@@ -59,7 +61,11 @@ public class ExistsValue implements BooleanValue, ValueWithChild, Value.CompileT
     @Override
     @SuppressWarnings({"java:S2637", "ConstantConditions"}) // TODO the alternative component should not be null
     @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias, @Nonnull final TypeRepository typeRepository) {
+        if (isCompileTimeEvaluable()) {
+            return Optional.of(BooleanValue.boxConstantBoolean(eval(null, EvaluationContext.forTypeRepository(typeRepository))));
+        }
+
         return Optional.of(new ExistsPredicate(child.getAlias()));
     }
 

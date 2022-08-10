@@ -95,7 +95,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nonnull final @Nullable FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var queryResult = (QueryResult)context.getBinding(alias);
         if (queryResult.getDatum() == null) {
             return null; // NULL OUT ON NULL IN

@@ -41,7 +41,7 @@ import java.util.List;
  * of their {@link Value}s
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValuePickerValue implements Value.CompileTimeValue {
+public class ValuePickerValue implements Value.PlannerValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Value-Picker-Value");
 
     private int selectedAlternative;

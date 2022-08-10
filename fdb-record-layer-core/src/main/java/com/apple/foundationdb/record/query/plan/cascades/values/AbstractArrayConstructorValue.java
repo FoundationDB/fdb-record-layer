@@ -170,7 +170,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
         @Nullable
         @Override
         @SuppressWarnings("java:S6213")
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
             return StreamSupport.stream(getChildren().spliterator(), false)
                     .map(child -> child.eval(store, context))
                     .collect(ImmutableList.toImmutableList());
@@ -198,7 +198,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
         @Nullable
         @Override
         @SuppressWarnings("java:S6213")
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(@Nullable final  FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
             final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(context.getTypeRepository());
             final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
 

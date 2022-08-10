@@ -51,6 +51,8 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -85,6 +87,14 @@ class BooleanValueTest {
     @SuppressWarnings({"ConstantConditions"})
     private static final ParserContext parserContext = new ParserContext(null, typeRepositoryBuilder);
 
+    private static final Iterable<? extends Value> EMPTY_ITERABLE = new Iterable<>() {
+        @Nonnull
+        @Override
+        public Iterator<Value> iterator() {
+            return Collections.emptyIterator();
+        }
+    };
+
     @SuppressWarnings("ConstantConditions")
     static class ThrowsValue implements BooleanValue {
 
@@ -101,7 +111,7 @@ class BooleanValueTest {
         @Nonnull
         @Override
         public Iterable<? extends Value> getChildren() {
-            return null;
+            return EMPTY_ITERABLE;
         }
 
         @Nonnull
@@ -112,12 +122,12 @@ class BooleanValueTest {
 
         @Nullable
         @Override
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
             throw new RuntimeException("Should not be called!");
         }
 
         @Override
-        public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+        public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias, @Nonnull final TypeRepository typeRepository) {
             return Optional.empty();
         }
     }
@@ -272,12 +282,12 @@ class BooleanValueTest {
                     Arguments.of(List.of(UNKNOWN, STRING_2), new RelOpValue.LteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(UNKNOWN, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(UNKNOWN, STRING_2), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    
+
                     Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(BOOL_FALSE, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(BOOL_FALSE, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
-                    
+
                     Arguments.of(List.of(INT_1, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_1, INT_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
@@ -292,7 +302,7 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_1, INT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_2, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
-                    
+
                     Arguments.of(List.of(LONG_1, LONG_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, LONG_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(LONG_1, LONG_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
@@ -630,7 +640,12 @@ class BooleanValueTest {
                     Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
                             THROWS_VALUE), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(parserContext, List.of(INT_1, INT_1)),
-                            THROWS_VALUE), new AndOrValue.OrFn(), ConstantPredicate.TRUE)
+                            THROWS_VALUE), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+
+                    /* non-trivial constant folding tests */
+                    Arguments.of(List.of(new RelOpValue.GteFn().encapsulate(parserContext, List.of(INT_1, INT_2)), BOOL_TRUE), new AndOrValue.AndFn(), ConstantPredicate.FALSE), // ((1 >= 2) && TRUE) <=> FALSE
+                    Arguments.of(List.of(BOOL_TRUE, new RelOpValue.GteFn().encapsulate(parserContext, List.of(INT_1, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE), // (TRUE && (1 >= 2)) <=> FALSE
+                    Arguments.of(List.of(BOOL_TRUE, new AndOrValue.OrFn().encapsulate(parserContext, List.of(new RelOpValue.GteFn().encapsulate(parserContext, List.of(INT_1, INT_2)), BOOL_TRUE))), new AndOrValue.AndFn(), ConstantPredicate.TRUE) // (TRUE && ((1 >= 2) OR TRUE)) <=> TRUE
             );
         }
     }
@@ -641,7 +656,7 @@ class BooleanValueTest {
     void testPredicate(List<Value> args, BuiltInFunction function, QueryPredicate result) {
         Typed value = function.encapsulate(parserContext, args);
         Assertions.assertTrue(value instanceof BooleanValue);
-        Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(CorrelationIdentifier.UNGROUNDED);
+        Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(CorrelationIdentifier.UNGROUNDED, parserContext.getTypeRepositoryBuilder().build());
         Assertions.assertFalse(maybePredicate.isEmpty());
         Assertions.assertEquals(result, maybePredicate.get());
     }

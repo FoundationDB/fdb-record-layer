@@ -59,7 +59,7 @@ public class NullValue implements LeafValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nonnull final @Nullable FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return null;
     }
 

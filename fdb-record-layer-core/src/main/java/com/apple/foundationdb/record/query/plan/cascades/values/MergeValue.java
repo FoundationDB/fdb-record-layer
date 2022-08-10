@@ -76,7 +76,7 @@ public class MergeValue implements Value {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         // TODO For now we'll just go through all the quantifiers and see if they have been bound by the caller.
         //      If they are set, we happily use their value in the merge. If they are unset, we just skip that reference.
         //      This can happen in the context of a set operation as the cursors over the e.g. union may only be

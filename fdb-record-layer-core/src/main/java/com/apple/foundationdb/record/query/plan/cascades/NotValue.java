@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -68,9 +69,13 @@ public class NotValue implements BooleanValue {
     }
 
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias, @Nonnull final TypeRepository typeRepository) {
+        if (isCompileTimeEvaluable()) {
+            return Optional.of(BooleanValue.boxConstantBoolean(eval(null, EvaluationContext.forTypeRepository(typeRepository))));
+        }
+        // not constant, then it must be a BooleanValue
         Verify.verify(child instanceof BooleanValue);
-        final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(innermostAlias);
+        final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(innermostAlias, typeRepository);
         if (predicateOptional.isPresent()) {
             QueryPredicate queryPredicate = predicateOptional.get();
             if (queryPredicate.equals(ConstantPredicate.FALSE)) {
@@ -102,7 +107,7 @@ public class NotValue implements BooleanValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
         final Object result = child.eval(store, context);
         if (result == null) {

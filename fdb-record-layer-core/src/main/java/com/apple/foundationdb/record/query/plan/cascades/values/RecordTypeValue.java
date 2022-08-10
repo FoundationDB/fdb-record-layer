@@ -59,7 +59,7 @@ public class RecordTypeValue implements QuantifiedValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nonnull final @Nullable FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final QueryResult binding = (QueryResult)context.getBinding(alias);
 
         final var messageOptional = binding.getMessageMaybe();

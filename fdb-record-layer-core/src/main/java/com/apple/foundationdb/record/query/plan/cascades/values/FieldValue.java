@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -98,7 +99,7 @@ public class FieldValue implements ValueWithChild {
     }
 
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var childResult = inValue.eval(store, context);
         if (!(childResult instanceof Message)) {
             return null;

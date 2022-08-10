@@ -37,7 +37,7 @@ import java.util.Set;
  * A value representing the source of a value derivation.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueriedValue implements LeafValue, Value.CompileTimeValue {
+public class QueriedValue implements LeafValue, Value.PlannerValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Queried-Value");
 
     @Nonnull

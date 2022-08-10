@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -77,8 +76,6 @@ public class RelOpValue implements BooleanValue {
     @Nonnull
     private final Iterable<? extends Value> children;
     @Nonnull
-    private final Function<Value, Object> compileTimeEvalFn;
-    @Nonnull
     private final Function<Iterable<Object>, Object> physicalEvalFn;
 
     @Nonnull
@@ -91,21 +88,19 @@ public class RelOpValue implements BooleanValue {
 
     /**
      * Creates a new instance of {@link RelOpValue}.
+     *
      * @param functionName The function name.
      * @param comparisonType The comparison type.
      * @param children The child expression(s).
-     * @param compileTimeEvalFn The compile-time function used to evaluate the expression.
      * @param physicalEvalFn The physical comparison function.
      */
     private RelOpValue(@Nonnull final String functionName,
                        @Nonnull final Comparisons.Type comparisonType,
                        @Nonnull final Iterable<? extends Value> children,
-                       @Nonnull final Function<Value, Object> compileTimeEvalFn,
                        @Nonnull final Function<Iterable<Object>, Object> physicalEvalFn) {
         this.functionName = functionName;
         this.comparisonType = comparisonType;
         this.children = children;
-        this.compileTimeEvalFn = compileTimeEvalFn;
         this.physicalEvalFn = physicalEvalFn;
     }
 
@@ -122,13 +117,12 @@ public class RelOpValue implements BooleanValue {
         return new RelOpValue(this.functionName,
                 this.comparisonType,
                 newChildren,
-                compileTimeEvalFn,
                 physicalEvalFn);
     }
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return physicalEvalFn.apply(StreamSupport.stream(children.spliterator(), false)
                 .map(v -> v.eval(store, context))
                 .collect(Collectors.toList())
@@ -137,7 +131,11 @@ public class RelOpValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias, @Nonnull final TypeRepository typeRepository) {
+        if (isCompileTimeEvaluable()) {
+            return Optional.of(BooleanValue.boxConstantBoolean(eval(null, EvaluationContext.forTypeRepository(typeRepository))));
+        }
+
         final Set<CorrelationIdentifier> innermostAliasSet = Set.of(innermostAlias);
         final Iterator<? extends Value> it = children.iterator();
         int childrenCount = Iterables.size(children);
@@ -148,8 +146,7 @@ public class RelOpValue implements BooleanValue {
                 // AFAIU [NOT] NULL are the only unary predicates
                 return Optional.of(new ValuePredicate(child, new Comparisons.NullComparison(comparisonType)));
             } else {
-                // it seems this is a constant expression, try to evaluate it.
-                return tryBoxSelfAsConstantPredicate();
+                return Optional.empty();
             }
         } else if (childrenCount == 2) {
             // only binary comparison functions are commutative.
@@ -160,33 +157,23 @@ public class RelOpValue implements BooleanValue {
             final Set<CorrelationIdentifier> leftChildCorrelatedTo = leftChild.getCorrelatedTo();
             final Set<CorrelationIdentifier> rightChildCorrelatedTo = rightChild.getCorrelatedTo();
             if (leftChildCorrelatedTo.equals(innermostAliasSet) && !rightChildCorrelatedTo.contains(innermostAlias)) {
-                final Object comparand = compileTimeEvalFn.apply(rightChild);
-                return comparand == null
-                        ? Optional.empty()
-                        : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
+                if (rightChild.isCompileTimeEvaluable()) {
+                    final Object comparand = rightChild.eval(null, EvaluationContext.forTypeRepository(typeRepository));
+                    return Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, Objects.requireNonNull(comparand))));
+                } else {
+                    return Optional.empty();
+                }
             } else if (rightChildCorrelatedTo.equals(innermostAliasSet) && !leftChildCorrelatedTo.contains(innermostAlias)) {
-                final Object comparand = compileTimeEvalFn.apply(leftChild);
-                return comparand == null
-                        ? Optional.empty()
-                        : Optional.of(new ValuePredicate(rightChild, new Comparisons.SimpleComparison(swapBinaryComparisonOperator(comparisonType), comparand)));
+                if (leftChild.isCompileTimeEvaluable()) {
+                    final Object comparand = leftChild.eval(null, EvaluationContext.forTypeRepository(typeRepository));
+                    return Optional.of(new ValuePredicate(rightChild, new Comparisons.SimpleComparison(swapBinaryComparisonOperator(comparisonType), Objects.requireNonNull(comparand))));
+                } else {
+                    return Optional.empty();
+                }
             } else if (!rightChildCorrelatedTo.contains(innermostAlias) && !leftChildCorrelatedTo.contains(innermostAlias)) {
-                return tryBoxSelfAsConstantPredicate();
+                return Optional.empty();
             }
         } // TODO support predicates with more arguments.
-        return Optional.empty();
-    }
-
-    Optional<QueryPredicate> tryBoxSelfAsConstantPredicate() {
-        Object constantValue = compileTimeEvalFn.apply(this);
-        if (constantValue instanceof Boolean) {
-            if ((boolean)constantValue) {
-                return Optional.of(ConstantPredicate.TRUE);
-            } else {
-                return Optional.of(ConstantPredicate.FALSE);
-            }
-        } else if (constantValue == null) {
-            return Optional.of(ConstantPredicate.NULL);
-        }
         return Optional.empty();
     }
 
@@ -256,7 +243,6 @@ public class RelOpValue implements BooleanValue {
             return new RelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)),
                     objects -> {
                         Verify.verify(Iterables.size(objects) == 1);
                         return physicalOperator.eval(objects.iterator().next());
@@ -274,7 +260,6 @@ public class RelOpValue implements BooleanValue {
             return new RelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)),
                     objects -> {
                         Verify.verify(Iterables.size(objects) == 2);
                         Iterator<Object> it = objects.iterator();

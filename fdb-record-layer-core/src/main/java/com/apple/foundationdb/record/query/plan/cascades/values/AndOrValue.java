@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -138,7 +139,7 @@ public class AndOrValue implements BooleanValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
         final Object leftResult = leftChild.eval(store, context);
         if (operator == Operator.AND && Boolean.FALSE.equals(leftResult)) {
@@ -165,45 +166,59 @@ public class AndOrValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
-        Verify.verify(leftChild instanceof BooleanValue);
-        Verify.verify(rightChild instanceof BooleanValue);
-        final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
-        if (leftPredicateOptional.isPresent()) {
-            final QueryPredicate leftPredicate = leftPredicateOptional.get();
-            if (operator == Operator.AND && leftPredicate.equals(ConstantPredicate.FALSE)) {
-                return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
-            }
-            if (operator == Operator.OR && leftPredicate.equals(ConstantPredicate.TRUE)) {
-                return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
-            }
-            final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
-            if (rightPredicateOptional.isPresent()) {
-                final QueryPredicate rightPredicate = rightPredicateOptional.get();
-                if (operator == Operator.AND && rightPredicate.equals(ConstantPredicate.FALSE)) {
-                    return rightPredicateOptional;
-                }
-                if (operator == Operator.OR && rightPredicate.equals(ConstantPredicate.TRUE)) {
-                    return rightPredicateOptional;
-                }
-                if (leftPredicate.equals(ConstantPredicate.NULL) || rightPredicate.equals(ConstantPredicate.NULL)) {
-                    return Optional.of(ConstantPredicate.NULL);
-                }
-                if (leftPredicate instanceof ConstantPredicate && rightPredicate instanceof ConstantPredicate) { // aggressive eval
-                    if (operator == Operator.AND) {
-                        return Optional.of((leftPredicate.isTautology() && rightPredicate.isTautology()) ? ConstantPredicate.TRUE : ConstantPredicate.FALSE);
-                    } else {
-                        return Optional.of((leftPredicate.isTautology() || rightPredicate.isTautology()) ? ConstantPredicate.TRUE : ConstantPredicate.FALSE);
-                    }
-                }
+    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias, @Nonnull final TypeRepository typeRepository) {
+        if (isCompileTimeEvaluable()) {
+            return Optional.of(BooleanValue.boxConstantBoolean(eval(null, EvaluationContext.forTypeRepository(typeRepository))));
+        } else if (leftChild.isCompileTimeEvaluable()) {
+            final Object leftObj = leftChild.eval(null, EvaluationContext.forTypeRepository(typeRepository));
+            if (leftObj == null) {
+                return Optional.of(ConstantPredicate.NULL);
+            } else if (operator == Operator.AND && Boolean.FALSE.equals(leftObj)) {
+                return Optional.of(ConstantPredicate.FALSE); // short-cut, even if RHS evaluates to null.
+            } else if (operator == Operator.OR && Boolean.TRUE.equals(leftObj)) {
+                return Optional.of(ConstantPredicate.TRUE); // short-cut, even if RHS evaluates to null.
+            } else {
+                Verify.verify(rightChild instanceof BooleanValue);
+                final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias, typeRepository);
                 if (operator == Operator.AND) {
-                    return Optional.of(AndPredicate.and(leftPredicate, rightPredicate));
+                    return Optional.of(AndPredicate.and(BooleanValue.boxConstantBoolean(leftObj), rightPredicateOptional.get()));
                 } else {
-                    return Optional.of(OrPredicate.or(leftPredicate, rightPredicate));
+                    return Optional.of(OrPredicate.or(BooleanValue.boxConstantBoolean(leftObj), rightPredicateOptional.get()));
+                }
+            }
+        } else if (rightChild.isCompileTimeEvaluable()) {
+            final Object rightObj = rightChild.eval(null, EvaluationContext.forTypeRepository(typeRepository));
+            if (rightObj == null) {
+                return Optional.of(ConstantPredicate.NULL);
+            } else if (operator == Operator.AND && Boolean.FALSE.equals(rightObj)) {
+                return Optional.of(ConstantPredicate.FALSE); // short-cut, even if RHS evaluates to null.
+            } else if (operator == Operator.OR && Boolean.TRUE.equals(rightObj)) {
+                return Optional.of(ConstantPredicate.TRUE); // short-cut, even if RHS evaluates to null.
+            } else {
+                Verify.verify(leftChild instanceof BooleanValue);
+                final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias, typeRepository);
+                if (operator == Operator.AND) {
+                    return Optional.of(AndPredicate.and(leftPredicateOptional.get(), BooleanValue.boxConstantBoolean(rightObj)));
+                } else {
+                    return Optional.of(OrPredicate.or(leftPredicateOptional.get(), BooleanValue.boxConstantBoolean(rightObj)));
+                }
+            }
+        } else {
+            // no literals nor constant expressions, left and right must be BooleanValue.
+            Verify.verify(leftChild instanceof BooleanValue);
+            Verify.verify(rightChild instanceof BooleanValue);
+            final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias, typeRepository);
+            final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias, typeRepository);
+            if (leftPredicateOptional.isEmpty() || rightPredicateOptional.isEmpty()) {
+                return Optional.empty();
+            } else {
+                if (operator == Operator.AND) {
+                    return Optional.of(AndPredicate.and(leftPredicateOptional.get(), rightPredicateOptional.get()));
+                } else {
+                    return Optional.of(OrPredicate.or(leftPredicateOptional.get(), rightPredicateOptional.get()));
                 }
             }
         }
-        return Optional.empty();
     }
 
     @Nonnull
