@@ -62,6 +62,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query,
                                                              @Nonnull Options options) throws RelationalException, SQLException {
         ensureTransactionActive();
+        if (conn.getSchema() == null) {
+            throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
+        }
         final FDBRecordStore store = conn.getRecordLayerDatabase().loadSchema(conn.getSchema()).loadStore();
         final var planContext = PlanContext.Builder.create().fromRecordStore(store).fromDatabase(conn.getRecordLayerDatabase()).build();
         final Plan<?> plan = Plan.generate(query, planContext);

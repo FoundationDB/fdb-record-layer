@@ -47,6 +47,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
@@ -82,6 +83,20 @@ public class QueryTest {
             Debugger.setDebugger(new DebuggerWithSymbolTables());
         }
         Debugger.setup();
+    }
+
+    @Test
+    void failsToQueryWithoutASchema() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (Connection conn = ddl.getConnection()) {
+                conn.setSchema(null);
+
+                try (Statement s = conn.createStatement()) {
+                    RelationalAssertions.assertThrowsSqlException(() -> s.executeQuery("select * from RestaurantComplexRecord"))
+                            .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
+                }
+            }
+        }
     }
 
     @Test
