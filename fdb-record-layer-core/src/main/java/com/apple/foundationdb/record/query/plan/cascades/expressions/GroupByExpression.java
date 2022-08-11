@@ -63,13 +63,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     private final AggregateValue aggregateValue;
 
     @Nonnull
-    private final CorrelationIdentifier groupingValueAlias;
-
-    @Nonnull
-    private final CorrelationIdentifier aggregateValueAlias;
-
-    @Nonnull
     private final Supplier<Value> resultValue = Suppliers.memoize(this::computeResultValue);
+
+    @Nonnull
+    private final Supplier<CorrelationIdentifier> groupingValueAlias;
+
+    @Nonnull
+    private final Supplier<CorrelationIdentifier> aggregateValueAlias;
 
     @Nonnull
     private final Quantifier inner;
@@ -79,20 +79,16 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
      *
      * @param aggregateValue The aggregation {@code Value} applied to each group.
      * @param groupingValue The grouping {@code Value} used to determine individual groups, can be {@code null} indicating no grouping.
-     * @param aggregateValueAlias The aggregate {@code Value} alias.
-     * @param groupingValueAlias The grouping {@code Value} alias.
      * @param inner The underlying source of tuples to be grouped.
      */
     public GroupByExpression(@Nonnull final AggregateValue aggregateValue,
                              @Nullable final Value groupingValue,
-                             @Nonnull final CorrelationIdentifier aggregateValueAlias,
-                             @Nonnull final CorrelationIdentifier groupingValueAlias,
                              @Nonnull final Quantifier inner) {
         this.groupingValue = groupingValue;
         this.aggregateValue = aggregateValue;
-        this.aggregateValueAlias = aggregateValueAlias;
-        this.groupingValueAlias = groupingValueAlias;
         this.inner = inner;
+        this.groupingValueAlias = Suppliers.memoize(() -> groupingValue == null ? null : getAlias(groupingValue));
+        this.aggregateValueAlias = Suppliers.memoize(() -> getAlias(aggregateValue));
     }
 
     @Override
@@ -128,9 +124,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return false;
         }
         final var otherGroupByExpr = ((GroupByExpression)other);
-        return Objects.equals(groupingValueAlias, otherGroupByExpr.groupingValueAlias) &&
-               Objects.equals(aggregateValueAlias, otherGroupByExpr.aggregateValueAlias) &&
-               Objects.equals(groupingValue, otherGroupByExpr.groupingValue) &&
+        return Objects.equals(groupingValue, otherGroupByExpr.groupingValue) &&
                Objects.equals(aggregateValue, otherGroupByExpr.aggregateValue);
     }
 
@@ -155,13 +149,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final AggregateValue translatedAggregateValue = aggregateValue.translateCorrelations(translationMap);
-        final var translatedGroupingValueAlias = translationMap.getTargetAlias(groupingValueAlias);
-        final var translatedAggregateValueAlias = translationMap.getTargetAlias(aggregateValueAlias);
         final Value translatedGroupingValue = groupingValue == null ? null : groupingValue.translateCorrelations(translationMap);
-        if (translatedAggregateValueAlias != aggregateValueAlias || translatedGroupingValueAlias != groupingValueAlias ||
-                translatedAggregateValue != aggregateValue || translatedGroupingValue != groupingValue) {
-            return new GroupByExpression(translatedAggregateValue, translatedGroupingValue, translatedAggregateValueAlias,
-                    translatedGroupingValueAlias, Iterables.getOnlyElement(translatedQuantifiers));
+        if (translatedAggregateValue != aggregateValue || translatedGroupingValue != groupingValue) {
+            return new GroupByExpression(translatedAggregateValue, translatedGroupingValue, Iterables.getOnlyElement(translatedQuantifiers));
         }
         return this;
     }
@@ -203,9 +193,19 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         return groupingValue;
     }
 
+    @Nullable
+    public CorrelationIdentifier getGroupingValueAlias() {
+        return groupingValueAlias.get();
+    }
+
     @Nonnull
     public AggregateValue getAggregateValue() {
         return aggregateValue;
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getAggregateValueAlias() {
+        return aggregateValueAlias.get();
     }
 
     /**
@@ -231,6 +231,15 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Nonnull
     private Value computeResultValue() {
-        return RecordQueryStreamingAggregationPlan.flattenedResults(groupingValue, aggregateValue, groupingValueAlias, aggregateValueAlias);
+        return RecordQueryStreamingAggregationPlan.flattenedResults(groupingValue, aggregateValue, getGroupingValueAlias(), getAggregateValueAlias());
+    }
+
+    @Nonnull
+    private static CorrelationIdentifier getAlias(@Nonnull final Value value) {
+        Verify.verify(value.getResultType().getTypeCode() == Type.TypeCode.RECORD);
+        Type.Record resultType = (Type.Record)value.getResultType();
+        Verify.verify(resultType.getFields().size() == 1);
+        Verify.verify(resultType.getFields().get(0).getFieldNameOptional().isPresent());
+        return CorrelationIdentifier.of(resultType.getFields().get(0).getFieldName());
     }
 }

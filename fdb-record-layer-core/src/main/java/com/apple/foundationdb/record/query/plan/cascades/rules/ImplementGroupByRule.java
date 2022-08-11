@@ -36,15 +36,13 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -52,7 +50,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.groupByExpression;
 
 /**
- * Rule for implementing logical {@code GROUP BY} into a physical streaming aggregate operator.
+ * Rule for implementing logical {@code GROUP BY} into a physical streaming aggregate operator {@link RecordQueryStreamingAggregationPlan}.
  */
 public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
 
@@ -78,7 +76,7 @@ public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
 
-        for (final var planPartition  : planPartitions) {
+        for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
             for (final RequestedOrdering requestedOrdering : requestedOrderings) {
                 if (Ordering.satisfiesRequestedOrdering(providedOrdering, requestedOrdering)) {
@@ -86,27 +84,22 @@ public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
                     final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
                     final var aliasMap = AliasMap.of(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
                     final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);
-                    final var rebasedGroupingValue = groupByExpression.getGroupingValue().rebase(aliasMap);
+                    final var rebaseAggregatedAlias = aliasMap.getTargetOrDefault(groupByExpression.getAggregateValueAlias(), groupByExpression.getAggregateValueAlias());
+                    final var rebasedGroupingValue = groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().rebase(aliasMap);
+                    // The runtime (i.e. StreamGrouping) expects to have a correlation identifier for grouping value even if it is null.
+                    final var groupingValueAlias = groupByExpression.getGroupingValue() == null ? CorrelationIdentifier.uniqueID() : Objects.requireNonNull(groupByExpression.getGroupingValueAlias());
+                    final var rebaseGroupingAlias = aliasMap.getTargetOrDefault(groupingValueAlias, groupingValueAlias);
                     final var rebasedResultValue = groupByExpression.getResultValue().rebase(aliasMap);
                     final var result = RecordQueryStreamingAggregationPlan.of(
                             newPlanQuantifier,
                             rebasedGroupingValue,
                             (AggregateValue)rebasedAggregatedValue,
-                            getAlias(rebasedGroupingValue),
-                            getAlias(groupByExpression.getAggregateValue().rebase(aliasMap)),
+                            rebaseGroupingAlias,
+                            rebaseAggregatedAlias,
                             rebasedResultValue);
                     call.yield(GroupExpressionRef.of(result));
                 }
             }
         }
-    }
-
-    @Nonnull
-    private static CorrelationIdentifier getAlias(@Nonnull final Value value) {
-        Verify.verify(value.getResultType().getTypeCode() == Type.TypeCode.RECORD);
-        Type.Record resultType = (Type.Record)value.getResultType();
-        Verify.verify(resultType.getFields().size() == 1);
-        Verify.verify(resultType.getFields().get(0).getFieldNameOptional().isPresent());
-        return CorrelationIdentifier.of(resultType.getFields().get(0).getFieldName());
     }
 }

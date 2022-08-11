@@ -162,7 +162,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of(groupByColAlias.getId())))));
 
             // 2.3. construct the group by expression
-            final var groupByExpression = new GroupByExpression(aggExpr, groupingExpr, aggExprAlias, groupingExprAlias, qun);
+            final var groupByExpression = new GroupByExpression(aggExpr, groupingExpr, qun);
             qun = Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
         }
 
