@@ -91,7 +91,7 @@ public class CorrelationIdentifier {
         final CorrelationIdentifier id =
                 Debugger.getIndexOptional(clazz)
                         .map(i -> CorrelationIdentifier.of(prefix + i))
-                        .orElseGet(() -> new CorrelationIdentifier("ci" + UUID.randomUUID().toString().replace("-", "_")));
+                        .orElseGet(() -> new CorrelationIdentifier(UUID.randomUUID().toString()));
         Debugger.updateIndex(clazz, i -> i + 1);
 
         return id;

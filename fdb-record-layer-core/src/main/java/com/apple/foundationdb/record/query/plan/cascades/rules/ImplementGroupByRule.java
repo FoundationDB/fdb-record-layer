@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
@@ -42,7 +41,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -86,10 +84,8 @@ public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
                     final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);
                     final var rebaseAggregatedAlias = aliasMap.getTargetOrDefault(groupByExpression.getAggregateValueAlias(), groupByExpression.getAggregateValueAlias());
                     final var rebasedGroupingValue = groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().rebase(aliasMap);
-                    // The runtime (i.e. StreamGrouping) expects to have a correlation identifier for grouping value even if it is null.
-                    final var groupingValueAlias = groupByExpression.getGroupingValue() == null ? CorrelationIdentifier.uniqueID() : Objects.requireNonNull(groupByExpression.getGroupingValueAlias());
-                    final var rebaseGroupingAlias = aliasMap.getTargetOrDefault(groupingValueAlias, groupingValueAlias);
-                    final var rebasedResultValue = groupByExpression.getResultValue().rebase(aliasMap);
+                    final var rebaseGroupingAlias = aliasMap.getTargetOrDefault(groupByExpression.getGroupingValueAlias(), groupByExpression.getGroupingValueAlias());
+                    final var rebasedResultValue = groupByExpression.getRuntimeValue().rebase(aliasMap);
                     final var result = RecordQueryStreamingAggregationPlan.of(
                             newPlanQuantifier,
                             rebasedGroupingValue,

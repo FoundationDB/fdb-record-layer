@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -127,17 +126,15 @@ public class StreamGrouping<M extends Message> {
      * </UL>
      *
      * @param currentObject the next object to process
-     * @param previousResult the previous object, used to construct base record of finalized group.
-     *
      * @return true if and only if the next object provided constitutes a group break
      */
-    public boolean apply(@Nullable Object currentObject, @Nullable Object previousResult) {
+    public boolean apply(@Nullable Object currentObject) {
         final boolean groupBreak;
         if (groupingKeyValue != null) {
             Object nextGroup = evalGroupingKey(currentObject);
             groupBreak = isGroupBreak(currentGroup, nextGroup);
             if (groupBreak) {
-                finalizeGroup(previousResult, nextGroup);
+                finalizeGroup(nextGroup);
             } else {
                 // for the case where we have no current group. In most cases, this changes nothing
                 currentGroup = nextGroup;
@@ -169,15 +166,14 @@ public class StreamGrouping<M extends Message> {
         }
     }
 
-    public void finalizeGroup(final Object currentObject) {
-        finalizeGroup(currentObject, null);
+    public void finalizeGroup() {
+        finalizeGroup(null);
     }
 
-    private void finalizeGroup(final Object currentObject, Object nextGroup) {
+    private void finalizeGroup(Object nextGroup) {
         final EvaluationContext nestedContext = context.childBuilder()
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
-                .setBinding(alias, currentObject instanceof QueryResult ? ((QueryResult)currentObject).getDatum() : currentObject)
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
 
