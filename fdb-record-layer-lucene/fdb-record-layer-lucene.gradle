@@ -22,6 +22,10 @@ apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 if (!hasProperty('coreNotStrict')) {
     apply from: rootProject.file('gradle/strict.gradle')
+    tasks.withType(JavaCompile) {
+        // also generates redundant casts for bytes fields
+        options.compilerArgs += ["-Xlint:-cast"]
+    }
 }
 
 def coreProject = ":${ext.coreProjectName}"

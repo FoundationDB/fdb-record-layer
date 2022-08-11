@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
@@ -64,6 +66,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -74,6 +77,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1122,6 +1126,36 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 assertEquals(List.of(1L, 2L, 4L, 5L), primaryKeys);
             } else {
                 assertEquals(Set.of(1L, 2L, 4L, 5L), new HashSet<>(primaryKeys));
+            }
+        }
+    }
+
+    @ParameterizedTest(name = "continuations[sorted={0}]")
+    @BooleanSource
+    void continuations(boolean sorted) throws Exception {
+        initializeFlat();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("parents", Lists.newArrayList("text"), true);
+            RecordQuery.Builder query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(filter1);
+            if (sorted) {
+                query.setSort(field("doc_id"));
+            }
+            RecordQueryPlan plan = planner.plan(query.build());
+            ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setReturnedRowLimit(2).build();
+            List<Long> primaryKeys = new ArrayList<>();
+            byte[] continuation = null;
+            AtomicReference<RecordCursorResult<Long>> holder = new AtomicReference<>();
+            do {
+                primaryKeys.addAll(recordStore.executeQuery(plan, continuation, executeProperties).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList(holder).get());
+                continuation = holder.get().getContinuation().toBytes();
+            } while (continuation != null);
+            if (sorted) {
+                assertEquals(List.of(2L, 4L, 5L), primaryKeys);
+            } else {
+                assertEquals(Set.of(2L, 4L, 5L), new HashSet<>(primaryKeys));
             }
         }
     }

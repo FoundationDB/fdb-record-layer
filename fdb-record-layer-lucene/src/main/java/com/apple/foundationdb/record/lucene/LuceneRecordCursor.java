@@ -143,8 +143,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.sort = sort;
         if (continuation != null) {
             try {
-                LuceneContinuationProto.LuceneIndexContinuation luceneIndexContinuation = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(continuation);
-                searchAfter = new ScoreDoc((int)luceneIndexContinuation.getDoc(), luceneIndexContinuation.getScore(), (int)luceneIndexContinuation.getShard());
+                LuceneContinuationProto.LuceneIndexContinuation parsed = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(continuation);
+                searchAfter = LuceneCursorContinuation.toScoreDoc(parsed);
             } catch (Exception e) {
                 throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, e);
             }

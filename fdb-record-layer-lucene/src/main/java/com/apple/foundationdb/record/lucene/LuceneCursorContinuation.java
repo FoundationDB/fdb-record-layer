@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.google.protobuf.ByteString;
+import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.util.BytesRef;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,11 +72,72 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
     }
 
     public static LuceneCursorContinuation fromScoreDoc(ScoreDoc scoreDoc) {
-        return new LuceneCursorContinuation(LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
+        LuceneContinuationProto.LuceneIndexContinuation.Builder builder = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                 .setDoc(scoreDoc.doc)
                 .setShard(scoreDoc.shardIndex)
-                .setScore(scoreDoc.score)
-                .build()
-        );
+                .setScore(scoreDoc.score);
+        if (scoreDoc instanceof FieldDoc) {
+            for (Object field : ((FieldDoc)scoreDoc).fields) {
+                final LuceneContinuationProto.LuceneIndexContinuation.Field.Builder value = builder.addFieldsBuilder();
+                if (field instanceof BytesRef) {
+                    value.setB(ByteString.copyFrom(((BytesRef)field).bytes));
+                } else if (field instanceof String) {
+                    value.setS((String)field);
+                } else if (field instanceof Float) {
+                    value.setF((Float)field);
+                } else if (field instanceof Double) {
+                    value.setD((Double)field);
+                } else if (field instanceof Integer) {
+                    value.setI((Integer)field);
+                } else if (field instanceof Long) {
+                    value.setL((Long)field);
+                } else {
+                    throw new RecordCoreException("Unknown sort field type");
+                }
+            }
+        }
+        return new LuceneCursorContinuation(builder.build());
+    }
+
+    @Nonnull
+    public static ScoreDoc toScoreDoc(@Nonnull LuceneContinuationProto.LuceneIndexContinuation luceneIndexContinuation) {
+        int doc = (int)luceneIndexContinuation.getDoc();
+        float score = luceneIndexContinuation.getScore();
+        int shard = (int)luceneIndexContinuation.getShard();
+        int nfields = luceneIndexContinuation.getFieldsCount();
+        if (nfields == 0) {
+            return new ScoreDoc(doc, score, shard);
+        }
+        Object[] fields = new Object[nfields];
+        for (int i = 0; i < nfields; i++) {
+            Object value;
+            LuceneContinuationProto.LuceneIndexContinuation.Field field = luceneIndexContinuation.getFields(i);
+            switch (field.getValueCase()) {
+                case I:
+                    value = field.getI();
+                    break;
+                case L:
+                    value = field.getL();
+                    break;
+                case F:
+                    value = field.getF();
+                    break;
+                case D:
+                    value = field.getD();
+                    break;
+                case S:
+                    value = field.getS();
+                    break;
+                case B:
+                    value = new BytesRef(field.getB().toByteArray());
+                    break;
+                case VALUE_NOT_SET:
+                default:
+                    value = null;
+                    break;
+            }
+            fields[i] = value;
+        }
+        return new FieldDoc(doc, score, fields, shard);
     }
 }
