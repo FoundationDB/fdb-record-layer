@@ -109,7 +109,7 @@ public class BasicMetadataTest {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
-        try (final RelationalResultSet tables = metaData.getTables(null, "TEST_SCHEMA", null, null)) {
+        try (final RelationalResultSet tables = metaData.getTables(database.getDatabasePath().getPath(), "TEST_SCHEMA", null, null)) {
             Assertions.assertNotNull(tables, "Null tables returned");
             List<String> retTableNames = new ArrayList<>();
             while (tables.next()) {
@@ -124,7 +124,7 @@ public class BasicMetadataTest {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
-        RelationalAssertions.assertThrowsSqlException(() -> metaData.getTables(null, "missingSchema", null, null))
+        RelationalAssertions.assertThrowsSqlException(() -> metaData.getTables(database.getDatabasePath().getPath(), "missingSchema", null, null))
                 .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
     }
 
@@ -133,7 +133,7 @@ public class BasicMetadataTest {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
-        try (final RelationalResultSet tableData = metaData.getColumns(null, "TEST_SCHEMA", "RESTAURANT", null)) {
+        try (final RelationalResultSet tableData = metaData.getColumns(database.getDatabasePath().getPath(), "TEST_SCHEMA", "RESTAURANT", null)) {
             List<Tuple> rows = new ArrayList<>();
             while (tableData.next()) {
                 rows.add(new Tuple()
@@ -160,10 +160,10 @@ public class BasicMetadataTest {
     void canGetTableIndexes() throws SQLException {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
-        try (final RelationalResultSet tableData = metaData.getIndexInfo(null, "TEST_SCHEMA", "RESTAURANT_REVIEWER", false, false)) {
+        try (final RelationalResultSet tableData = metaData.getIndexInfo("/basic_metadata_test", "TEST_SCHEMA", "RESTAURANT_REVIEWER", false, false)) {
             ResultSetAssert.assertThat(tableData).hasNextRow()
                     .hasRowExactly(
-                            URI.create("/basic_metadata_test"), //table_cat
+                            "/basic_metadata_test", //table_cat
                             "TEST_SCHEMA", //table_schem
                             "RESTAURANT_REVIEWER", //table_name
                             false, //non_unique

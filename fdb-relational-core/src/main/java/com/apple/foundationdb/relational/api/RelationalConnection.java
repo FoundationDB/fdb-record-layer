@@ -198,7 +198,6 @@ public interface RelationalConnection extends java.sql.Connection {
     @ExcludeFromJacocoGeneratedReport
     default void setCatalog(String catalog) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override

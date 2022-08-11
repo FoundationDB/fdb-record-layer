@@ -101,13 +101,15 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
 
     @Nonnull
     @Override
-    public RelationalResultSet getTables(String catalog, String schema, String tableName, String[] types) throws SQLException {
+    public RelationalResultSet getTables(String database, String schema, String tableName, String[] types) throws SQLException {
         /*
          * The following are feature blocks, where the SQL spec calls for specific behavior that we either don't support
          * yet (or do not plan to ever support), so we through UNSUPPORTED_OPERATION errors for these. As we add in the
          * feature support, we should remove these checks.
          */
-        URI catalogUri = catalog == null ? conn.frl.getURI() : URI.create(catalog);
+        if (database == null) {
+            throw new SQLFeatureNotSupportedException("Cannot scan across Databases yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
         if (schema == null) {
             throw new SQLFeatureNotSupportedException("Cannot scan across Schemas yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
@@ -119,10 +121,10 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         }
         ensureActiveTransaction();
         try {
-            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, catalogUri, schema).getMetaData();
+            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, URI.create(database), schema).getMetaData();
             List<Row> tableList = schemaInfo.getRecordTypesList().stream()
                     .map(type -> new Object[]{
-                            catalogUri.getPath(),  //TABLE_CAT
+                            database,  //TABLE_CAT
                             schema,  //TABLE_SCHEM
                             type.getName(), //TABLE_NAME
                             type.hasSinceVersion() ? type.getSinceVersion() : null //TABLE_VERSION
@@ -143,10 +145,10 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     }
 
     @Override
-    public RelationalResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
+    public RelationalResultSet getPrimaryKeys(String database, String schema, String table) throws SQLException {
         ensureActiveTransaction();
         try {
-            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, URI.create(catalog), schema).getMetaData();
+            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, URI.create(database), schema).getMetaData();
             Stream<Row> rows = schemaInfo.getRecordTypesList().stream()
                     .filter(type -> type.getName().equals(table))
                     .map(type -> {
@@ -154,7 +156,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                         return new AbstractMap.SimpleEntry<>(type.getName(), keyExpressionToPrimaryKey(ke));
                     }).flatMap(pks -> IntStream.range(0, pks.getValue().length)
                     .mapToObj(pos -> new ArrayRow(new Object[]{
-                            catalog,
+                            database,
                             schema,
                             pks.getKey(),
                             pks.getValue()[pos],
@@ -180,13 +182,15 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     @Nonnull
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //we actually can't here, it will violate RecordLayer isolation laws
-    public RelationalResultSet getColumns(String catalog, String schema, String tablePattern, String columnPattern) throws SQLException {
+    public RelationalResultSet getColumns(String database, String schema, String tablePattern, String columnPattern) throws SQLException {
         /*
          * The following are feature blocks, where the SQL spec calls for specific behavior that we either don't support
          * yet (or do not plan to ever support), so we through UNSUPPORTED_OPERATION errors for these. As we add in the
          * feature support, we should remove these checks.
          */
-        URI catalogUri = catalog == null ? conn.frl.getURI() : URI.create(catalog);
+        if (database == null || database.isEmpty()) {
+            throw new SQLFeatureNotSupportedException("Cannot scan across Databases yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
         if (schema == null || schema.isEmpty()) {
             throw new SQLFeatureNotSupportedException("Cannot scan across Schemas yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
@@ -199,7 +203,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         ensureActiveTransaction();
         try {
             //TODO(bfines) this is a weird way of doing this, is there a better way?
-            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, catalogUri, schema, conn.transaction).getRecordMetaData();
+            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, URI.create(database), schema, conn.transaction).getRecordMetaData();
             Descriptors.FileDescriptor fileDesc = rmd.getRecordsDescriptor();
             //verify that it is in fact a table
             try {
@@ -212,7 +216,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             final List<Row> columnDefs = tableDescriptor.getFields().stream()
                     .map(field -> {
                         Object[] row = new Object[]{
-                                catalogUri.getPath(),
+                                database,
                                 schema,
                                 tablePattern,
                                 field.getName(),
@@ -276,14 +280,14 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     //TODO(bfines) I suspect that this interface will be insufficiently rich for our index structures, but hey, it's a start
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //we actually can't here, it will violate RecordLayer isolation laws
-    public RelationalResultSet getIndexInfo(String catalog, String schema, String tablePattern, boolean unique, boolean approximate) throws SQLException {
+    public RelationalResultSet getIndexInfo(String database, String schema, String tablePattern, boolean unique, boolean approximate) throws SQLException {
         /*
          * The following are feature blocks, where the SQL spec calls for specific behavior that we either don't support
          * yet (or do not plan to ever support), so we through UNSUPPORTED_OPERATION errors for these. As we add in the
          * feature support, we should remove these checks.
          */
-        if (catalog != null) {
-            throw new SQLFeatureNotSupportedException("Specified catalogs not supported", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        if (database == null || database.isEmpty()) {
+            throw new SQLFeatureNotSupportedException("Cannot scan across Databases yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
         if (schema == null || schema.isEmpty()) {
             throw new SQLFeatureNotSupportedException("Cannot scan across Schemas yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
@@ -293,7 +297,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         }
         ensureActiveTransaction();
         try {
-            RecordMetaData rmd = RecordMetaData.build(this.catalog.loadSchema(conn.transaction, conn.frl.getURI(), schema).getMetaData());
+            RecordMetaData rmd = RecordMetaData.build(this.catalog.loadSchema(conn.transaction, URI.create(database), schema).getMetaData());
             //verify that it is in fact a table
             List<Row> indexDefs;
             try {
@@ -302,7 +306,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                 indexDefs = indexes.stream()
                         .map(index -> {
                             Object[] row = new Object[]{
-                                    conn.frl.getURI(),
+                                    database,
                                     schema,
                                     recordType.getName(),
                                     index.isUnique(),
