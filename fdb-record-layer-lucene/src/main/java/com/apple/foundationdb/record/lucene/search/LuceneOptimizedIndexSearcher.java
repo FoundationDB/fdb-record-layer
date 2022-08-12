@@ -85,7 +85,11 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         if (executor == null) {
             search(leafContexts, weight, results);
         } else {
-            searchOptimized(executor, weight, leafContexts, results).join();
+            try {
+                searchOptimized(executor, weight, leafContexts, results).join();
+            } catch (WrapperException we) {
+                throw we.unwrap();
+            }
         }
     }
 
@@ -153,14 +157,18 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
                     throw new ThreadInterruptedException(e);
                 } catch (ExecutionException e) {
                     throw new RuntimeException(e);
+                } catch (WrapperException we) {
+                    throw we.unwrap();
                 }
             }
             return collectorManager.reduce(collectors);
         }
     }
 
+    /**
+     * WrapperException used for retrieving an {@link IOException} from an asynchronous execution block.
+     */
     private static class WrapperException extends RuntimeException {
-
         @Nonnull
         private final IOException ioe;
 
@@ -188,27 +196,23 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         }, executor)).collect(Collectors.toList());
 
         // 2. once we finish processing all of them, we can proceed with the final scoring task.
-        try {
-            return AsyncUtil.whenAll(dependencies).thenApplyAsync(ignored -> {
-                dependencies.stream().map(CompletableFuture::join).collect(Collectors.toList())
-                        .forEach((Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>> result) -> {
-                            final Pair<LeafCollector, BulkScorer> scorer = result.getRight();
-                            final LeafReaderContext ctx = result.getLeft();
-                            if (scorer != null && scorer.getLeft() != null && scorer.getRight() != null) {
-                                try {
-                                    scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());
-                                } catch (CollectionTerminatedException cte) {
-                                    // no-op just ignore.
-                                } catch (IOException ioe) {
-                                    throw new WrapperException(ioe); // to be cascaded.
-                                }
+        return AsyncUtil.whenAll(dependencies).thenApplyAsync(ignored -> {
+            dependencies.stream().map(CompletableFuture::join).collect(Collectors.toList())
+                    .forEach((Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>> result) -> {
+                        final Pair<LeafCollector, BulkScorer> scorer = result.getRight();
+                        final LeafReaderContext ctx = result.getLeft();
+                        if (scorer != null && scorer.getLeft() != null && scorer.getRight() != null) {
+                            try {
+                                scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());
+                            } catch (CollectionTerminatedException cte) {
+                                // no-op just ignore.
+                            } catch (IOException ioe) {
+                                throw new WrapperException(ioe); // to be cascaded.
                             }
-                        });
-                return collector;
-            }, executor);
-        } catch (WrapperException we) {
-            throw we.unwrap();
-        }
+                        }
+                    });
+            return collector;
+        }, executor);
     }
 
     /**
