@@ -169,6 +169,7 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
      * WrapperException used for retrieving an {@link IOException} from an asynchronous execution block.
      */
     private static class WrapperException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
         @Nonnull
         private final IOException ioe;
 
