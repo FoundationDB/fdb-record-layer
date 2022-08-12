@@ -196,13 +196,11 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
                             final LeafReaderContext ctx = result.getLeft();
                             if (scorer != null && scorer.getLeft() != null && scorer.getRight() != null) {
                                 try {
-                                    try {
-                                        scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());
-                                    } catch (IOException e) {
-                                        throw new WrapperException(e);
-                                    }
+                                    scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());
                                 } catch (CollectionTerminatedException cte) {
                                     // no-op just ignore.
+                                } catch (IOException ioe) {
+                                    throw new WrapperException(ioe); // to be cascaded.
                                 }
                             }
                         });
