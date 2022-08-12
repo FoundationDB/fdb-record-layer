@@ -29,6 +29,7 @@ import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BulkScorer;
+import org.apache.lucene.search.CollectionTerminatedException;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
@@ -158,9 +159,24 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         }
     }
 
+    private static class WrapperException extends RuntimeException {
+
+        @Nonnull
+        private final IOException ioe;
+
+        WrapperException(@Nonnull final IOException ioe) {
+            this.ioe = ioe;
+        }
+
+        @Nonnull
+        public IOException unwrap() {
+            return ioe;
+        }
+    }
+
     @Nonnull
     @SuppressWarnings({"PMD.EmptyCatchBlock"})
-    private <C extends Collector> CompletableFuture<C> searchOptimized(@Nonnull final Executor executor, @Nonnull final Weight weight, @Nonnull final List<LeafReaderContext> leaves, @Nonnull final C collector) {
+    private <C extends Collector> CompletableFuture<C> searchOptimized(@Nonnull final Executor executor, @Nonnull final Weight weight, @Nonnull final List<LeafReaderContext> leaves, @Nonnull final C collector) throws IOException {
         // 1. spawn a list of parallel tasks that interact with the DB for better throughput.
         final List<CompletableFuture<Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>>>> dependencies = leaves.stream().map(ctx -> CompletableFuture.supplyAsync(() -> {
             try {
@@ -172,21 +188,29 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         }, executor)).collect(Collectors.toList());
 
         // 2. once we finish processing all of them, we can proceed with the final scoring task.
-        return AsyncUtil.whenAll(dependencies).thenApplyAsync(ignored -> {
-            dependencies.stream().map(CompletableFuture::join).collect(Collectors.toList())
-                    .forEach((Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>> result) -> {
-                        final Pair<LeafCollector, BulkScorer> scorer = result.getRight();
-                        final LeafReaderContext ctx = result.getLeft();
-                        if (scorer != null && scorer.getLeft() != null && scorer.getRight() != null) {
-                            try {
-                                scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());
-                            } catch (IOException e) {
-                                // no-op just ignore.
+        try {
+            return AsyncUtil.whenAll(dependencies).thenApplyAsync(ignored -> {
+                dependencies.stream().map(CompletableFuture::join).collect(Collectors.toList())
+                        .forEach((Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>> result) -> {
+                            final Pair<LeafCollector, BulkScorer> scorer = result.getRight();
+                            final LeafReaderContext ctx = result.getLeft();
+                            if (scorer != null && scorer.getLeft() != null && scorer.getRight() != null) {
+                                try {
+                                    try {
+                                        scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());
+                                    } catch (IOException e) {
+                                        throw new WrapperException(e);
+                                    }
+                                } catch (CollectionTerminatedException cte) {
+                                    // no-op just ignore.
+                                }
                             }
-                        }
-                    });
-            return collector;
-        }, executor);
+                        });
+                return collector;
+            }, executor);
+        } catch (WrapperException we) {
+            throw we.unwrap();
+        }
     }
 
     /**
