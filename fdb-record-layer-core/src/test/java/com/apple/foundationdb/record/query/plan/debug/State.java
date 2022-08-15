@@ -289,8 +289,8 @@ class State {
     private void updateCounts(@Nonnull final Debugger.Event event) {
         final Stats forEventClass = getEventStatsForEventClass(event.getClass());
         forEventClass.increaseCount(event.getLocation(), 1L);
-        if (event instanceof Debugger.TransformRuleCallEvent) {
-            final PlannerRule<?> rule = ((Debugger.TransformRuleCallEvent)event).getRule();
+        if (event instanceof Debugger.EventWithRule) {
+            final PlannerRule<?> rule = ((Debugger.EventWithRule)event).getRule();
             final Class<? extends PlannerRule<?>> ruleClass = (Class<? extends PlannerRule<?>>)rule.getClass();
             final Stats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
             forPlannerRuleClass.increaseCount(event.getLocation(), 1L);

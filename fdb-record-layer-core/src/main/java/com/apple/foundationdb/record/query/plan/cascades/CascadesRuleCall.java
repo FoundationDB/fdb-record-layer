@@ -110,7 +110,7 @@ public class CascadesRuleCall implements PlannerRuleCall {
     @Override
     public <T> Optional<T> getPlannerConstraint(@Nonnull final PlannerConstraint<T> plannerConstraint) {
         if (rule.getConstraintDependencies().contains(plannerConstraint)) {
-            return root.getRequirementsMap().getConstraintOptional(plannerConstraint);
+            return root.getConstraintsMap().getConstraintOptional(plannerConstraint);
         }
 
         throw new RecordCoreArgumentException("rule is not dependent on requested planner requirement");
@@ -163,7 +163,7 @@ public class CascadesRuleCall implements PlannerRuleCall {
                                    @Nonnull final PlannerConstraint<T> plannerConstraint,
                                    @Nonnull final T requirement) {
         Verify.verify(root != reference);
-        final ConstraintsMap requirementsMap = reference.getRequirementsMap();
+        final ConstraintsMap requirementsMap = reference.getConstraintsMap();
         if (requirementsMap.pushProperty(plannerConstraint, requirement).isPresent()) {
             referencesWithPushedRequirements.add(reference);
         }

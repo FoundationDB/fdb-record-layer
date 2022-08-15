@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -163,15 +162,15 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
         final var otherPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
         for (final var predicate : selectExpression.getPredicates()) {
-            final var correlatedToInExpression =
+            final var localCorrelatedTo =
                     Sets.intersection(predicate.getCorrelatedTo(), aliasToQuantifierMap.keySet());
             final var isEligible =
-                    correlatedToInExpression.stream()
+                    localCorrelatedTo.stream()
                             .allMatch(alias -> alias.equals(outerAlias) ||
                                                alias.equals(innerAlias));
             if (isEligible) {
                 final var residualPredicate = predicate.toResidualPredicate();
-                if (correlatedToInExpression.contains(innerAlias)) {
+                if (localCorrelatedTo.contains(innerAlias)) {
                     if (!(predicate instanceof ExistsPredicate)) {
                         if (logger.isWarnEnabled()) {
                             logger.warn(KeyValueLogMessage.of("predicate depends on existential but it is not an exist()"));
@@ -182,11 +181,11 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
                     }
                     outerInnerPredicatesBuilder.add(residualPredicate);
                 } else {
-                    Verify.verify(correlatedToInExpression.contains(outerAlias) || correlatedToInExpression.isEmpty());
+                    Verify.verify(localCorrelatedTo.contains(outerAlias) || localCorrelatedTo.isEmpty());
                     outerPredicatesBuilder.add(residualPredicate);
                 }
             } else {
-                if (correlatedToInExpression.stream()
+                if (localCorrelatedTo.stream()
                         .anyMatch(alias -> alias.equals(innerAlias))) {
                     //
                     // We cannot do this join in an existential way because some predicate(s) depending on the
@@ -227,7 +226,9 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
         //                                              inner
         //
 
+        // alias and quantifier going into the nested loop join
         final Quantifier.Physical newOuterQuantifier;
+
         if (outerPredicates.isEmpty()) {
             // create a new quantifier using the outer alias
             newOuterQuantifier =
@@ -259,17 +260,12 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
 
         final var joinedResultValue = outerQuantifier.getFlowedObjectValue();
 
-        final var joinedAlias = CorrelationIdentifier.uniqueID();
         final var joinedQuantifier =
                 Quantifier.forEachBuilder()
-                        .withAlias(joinedAlias)
+                        .withAlias(outerAlias)
                         .build(GroupExpressionRef.of(
                                 new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, joinedResultValue, true)));
 
-        //
-        // Translate all the references to outer to the joined alias
-        //
-        
         final var remainingQuantifiers =
                 selectExpression.getQuantifiers()
                         .stream()
@@ -277,27 +273,15 @@ public class ImplementExistentialNestedLoopJoinRule extends PlannerRule<SelectEx
                         .map(quantifier -> (Quantifier)quantifier)
                         .collect(ImmutableList.toImmutableList());
 
-        final var translationMap = TranslationMap.rebaseWithAliasMap(AliasMap.of(outerAlias, joinedAlias));
-
-        final var translatedQuantifiers = Quantifiers.translateCorrelations(remainingQuantifiers, translationMap);
-
         final var newQuantifiers =
                 ImmutableList.<Quantifier>builder()
-                        .addAll(translatedQuantifiers)
+                        .addAll(remainingQuantifiers)
                         .add(joinedQuantifier)
                         .build();
 
-        final var newPredicates =
-                otherPredicates.stream()
-                        .map(otherPredicate ->
-                                otherPredicate.translateCorrelations(translationMap))
-                        .collect(ImmutableList.toImmutableList());
-
         final var resultValue = selectExpression.getResultValue();
-        final var newResultValue =
-                resultValue.translateCorrelations(translationMap);
 
-        call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates)));
+        call.yield(GroupExpressionRef.of(new SelectExpression(resultValue, newQuantifiers, otherPredicates)));
     }
 
     @Nonnull

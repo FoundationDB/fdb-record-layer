@@ -383,10 +383,10 @@ public class BaseMatcher<T> {
      * @param aliasMap alias map to define the translation
      * @param alias alias on this side
      * @param otherAlias alias on the other side
-     * @return {@code Optional.empty()} if the dependsOn functions for the given aliases sets is are isomorphic under
-     *         translation using {@code aliasMap},
+     * @return {@code Optional.empty()} if the dependsOn functions for the given aliases sets is are not isomorphic
+     *         under translation using {@code aliasMap},
      *         {@code Optional.of(resultMap)} where {@code resultMap} is an {@link AliasMap} only containing mappings
-     *         from the dependsOn set of {@code alias} that are also contained i {@code aliasMap}, otherwise.
+     *         from the dependsOn set of {@code alias} that are also contained in {@code aliasMap}, otherwise.
      */
     @Nonnull
     protected Optional<AliasMap> mapDependenciesToOther(@Nonnull AliasMap aliasMap,

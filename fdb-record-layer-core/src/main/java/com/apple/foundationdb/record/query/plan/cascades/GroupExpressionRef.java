@@ -105,7 +105,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @Nonnull
     @Override
-    public ConstraintsMap getRequirementsMap() {
+    public ConstraintsMap getConstraintsMap() {
         return constraintsMap;
     }
 
@@ -230,19 +230,17 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                             }));
         } else {
             final AliasMap.Builder aliasMapBuilder = combinedEquivalenceMap.derived(quantifiers.size());
-            var nestedEquivalencesMap = AliasMap.emptyMap();
             for (int i = 0; i < quantifiers.size(); i++) {
                 final Quantifier quantifier = Objects.requireNonNull(quantifiers.get(i));
                 final Quantifier otherQuantifier = Objects.requireNonNull(otherQuantifiers.get(i));
-                aliasMapBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
-                nestedEquivalencesMap = aliasMapBuilder.build();
                 if (!quantifier.getRangesOver()
-                        .containsAllInMemo(otherQuantifier.getRangesOver(), nestedEquivalencesMap)) {
+                        .containsAllInMemo(otherQuantifier.getRangesOver(), aliasMapBuilder.build())) {
                     return false;
                 }
+                aliasMapBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
             }
 
-            aliasMapIterable = ImmutableList.of(nestedEquivalencesMap);
+            aliasMapIterable = ImmutableList.of(aliasMapBuilder.build());
         }
 
         // if there is more than one match we only need one such match that also satisfies the equality condition between

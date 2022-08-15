@@ -39,6 +39,10 @@ import java.util.stream.StreamSupport;
  */
 public class DependencyUtils {
 
+    private DependencyUtils() {
+        // nothing
+    }
+
     /**
      * Static helper to compute a set of {@link CorrelationIdentifier}s from a collection of elements of type {@code T}
      * using the given element-to-alias function. Note that we allow a collection of elements to be passed in, we

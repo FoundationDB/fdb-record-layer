@@ -112,7 +112,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
     boolean addPartialMatchForCandidate(MatchCandidate candidate, PartialMatch partialMatch);
 
     @Nonnull
-    ConstraintsMap getRequirementsMap();
+    ConstraintsMap getConstraintsMap();
 
     /**
      * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.

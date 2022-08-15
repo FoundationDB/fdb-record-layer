@@ -106,8 +106,6 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final Value resultValue = getResultValue();
-
         return RecordCursor.flatMapPipelined(
                 outerContinuation ->
                         outerQuantifier.getRangesOverPlan().executePlan(store, context, continuation, executeProperties),

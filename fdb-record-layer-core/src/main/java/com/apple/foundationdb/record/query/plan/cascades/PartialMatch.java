@@ -217,7 +217,6 @@ public class PartialMatch {
     private Set<CorrelationIdentifier> computeCompensatedAliases() {
         final var compensatedAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
 
-        final var queryExpression = getQueryExpression();
         final var matchedAliases =
                 queryExpression.computeMatchedQuantifiers(this)
                         .stream()
@@ -225,9 +224,7 @@ public class PartialMatch {
                         .collect(ImmutableSet.toImmutableSet());
         compensatedAliasesBuilder.addAll(matchedAliases);
 
-        final var matchInfo = getMatchInfo();
         final var predicatesMap = matchInfo.getPredicateMap();
-
         for (final QueryPredicate queryPredicate : predicatesMap.keySet()) {
             final Iterable<? extends QueryPredicate> existsPredicates =
                     queryPredicate.filter(predicate -> predicate instanceof ExistsPredicate);

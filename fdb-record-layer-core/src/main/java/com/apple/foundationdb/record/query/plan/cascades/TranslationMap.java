@@ -35,6 +35,8 @@ import java.util.Optional;
  * Map used to specify translations.
  */
 public class TranslationMap {
+    @Nonnull
+    private static final TranslationMap EMPTY = new TranslationMap(ImmutableMap.of());
 
     @Nonnull
     private final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap;
@@ -81,6 +83,11 @@ public class TranslationMap {
     @Nonnull
     public static Builder builder() {
         return new Builder();
+    }
+
+    @Nonnull
+    public static TranslationMap empty() {
+        return EMPTY;
     }
 
     @Nonnull

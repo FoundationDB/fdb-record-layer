@@ -402,7 +402,7 @@ public interface Compensation {
         @Override
         default Compensation union(@Nonnull Compensation otherCompensation) {
             if (!(otherCompensation instanceof WithSelectCompensation)) {
-                return Compensation.super.union(otherCompensation);
+                return otherCompensation.union(this);
             }
 
             final WithSelectCompensation otherWithSelectCompensation = (WithSelectCompensation)otherCompensation;
@@ -494,7 +494,6 @@ public interface Compensation {
         @Override
         default Compensation intersect(@Nonnull Compensation otherCompensation) {
             if (!(otherCompensation instanceof WithSelectCompensation)) {
-                //return Compensation.super.intersect(otherCompensation);
                 return otherCompensation.intersect(this);
             }
             final var otherWithSelectCompensation = (WithSelectCompensation)otherCompensation;
@@ -707,16 +706,13 @@ public interface Compensation {
             //
             // At this point we definitely need a new SELECT expression.
             //
-            final var newBaseQuantifier = Quantifier.forEach(GroupExpressionRef.of(relationalExpression));
+            final var newBaseQuantifier = Quantifier.forEach(GroupExpressionRef.of(relationalExpression), matchedForEachQuantifierAlias);
             final var compensationExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
-
-            final var translationMap =
-                    TranslationMap.rebaseWithAliasMap(AliasMap.of(matchedForEachQuantifierAlias, newBaseQuantifier.getAlias()));
 
             final var injectCompensationFunctions = predicateCompensationMap.values();
             if (!injectCompensationFunctions.isEmpty()) {
                 for (final var injectCompensationFunction : injectCompensationFunctions) {
-                    compensationExpansionsBuilder.add(injectCompensationFunction.applyCompensation(translationMap));
+                    compensationExpansionsBuilder.add(injectCompensationFunction.applyCompensation(TranslationMap.empty()));
                 }
             }
 
@@ -741,10 +737,8 @@ public interface Compensation {
                             .filter(quantifier -> compensatedPredicatesCorrelatedTo.contains(quantifier.getAlias()))
                             .collect(LinkedIdentitySet.toLinkedIdentitySet());
 
-            if (!toBePulledUpQuantifiers.isEmpty()) {
-                final var pulledUpQuantifiers = Quantifiers.translateCorrelations(toBePulledUpQuantifiers, translationMap);
-                compensationExpansionsBuilder.add(GraphExpansion.builder().addAllQuantifiers(pulledUpQuantifiers).build());
-            }
+            compensationExpansionsBuilder.add(
+                    GraphExpansion.builder().addAllQuantifiers(toBePulledUpQuantifiers).build());
 
             // add base quantifier
             compensationExpansionsBuilder.add(GraphExpansion.ofQuantifier(newBaseQuantifier));
