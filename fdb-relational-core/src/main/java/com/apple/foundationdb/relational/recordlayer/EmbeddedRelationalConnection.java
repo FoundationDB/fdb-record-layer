@@ -65,7 +65,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public RelationalStatement createStatement() throws SQLException {
-        return new EmbeddedRelationalStatement(this);
+        return new ErrorCapturingStatement(new EmbeddedRelationalStatement(this));
     }
 
     @Override

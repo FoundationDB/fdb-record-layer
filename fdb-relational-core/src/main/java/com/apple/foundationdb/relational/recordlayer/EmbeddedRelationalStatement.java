@@ -36,16 +36,18 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
+
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.Set;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class EmbeddedRelationalStatement implements RelationalStatement {
 
@@ -83,7 +85,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             Assert.notNull(sql);
             Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.NONE);
             if (resultSet.isPresent()) {
-                currentResultSet = resultSet.get();
+                currentResultSet = new ErrorCapturingResultSet(resultSet.get());
                 return true;
             } else {
                 currentResultSet = null;
@@ -103,7 +105,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             Assert.notNull(sql);
             Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.NONE);
             if (resultSet.isPresent()) {
-                return resultSet.get();
+                return new ErrorCapturingResultSet(resultSet.get());
             } else {
                 throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.INVALID_PARAMETER.getErrorCode());
             }
@@ -171,8 +173,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         Row end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), false);
 
         StructMetaData sourceMetaData = source.getMetaData();
-        return new RecordLayerResultSet(sourceMetaData,
-                source.openScan(conn.transaction, start, end, options), conn);
+        return new ErrorCapturingResultSet(new RecordLayerResultSet(sourceMetaData,
+                source.openScan(conn.transaction, start, end, options), conn));
     }
 
     @Override
@@ -196,7 +198,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         final Row row = source.get(conn.transaction, tuple, options);
 
         final Iterator<Row> rowIter = row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator();
-        return new IteratorResultSet(table.getMetaData(), rowIter, 0);
+        return new ErrorCapturingResultSet(new IteratorResultSet(table.getMetaData(), rowIter, 0));
     }
 
     @Override

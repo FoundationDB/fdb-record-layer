@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -159,7 +160,7 @@ public class InsertTest {
                 long id = System.currentTimeMillis();
                 Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", id).setField("NAME", "restRecord" + id).build();
                 RelationalAssertions.assertThrows(
-                                () -> s.executeInsert("RESTAURANT_REVIEWER", record))
+                        () -> s.executeInsert("RESTAURANT_REVIEWER", record))
                         .hasErrorCode(ErrorCode.INVALID_PARAMETER);
             }
         }
