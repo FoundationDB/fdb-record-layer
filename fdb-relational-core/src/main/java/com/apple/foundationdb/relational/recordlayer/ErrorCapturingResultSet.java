@@ -26,10 +26,12 @@ import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.sql.Array;
 import java.sql.SQLException;
 
+@ExcludeFromJacocoGeneratedReport //there's nothing to test, just exception translation
 public class ErrorCapturingResultSet implements RelationalResultSet {
     private final RelationalResultSet delegate;
 

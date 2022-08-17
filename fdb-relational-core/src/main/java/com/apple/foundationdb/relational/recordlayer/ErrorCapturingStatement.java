@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.google.protobuf.Message;
 
 import java.sql.SQLException;
@@ -40,6 +41,7 @@ import javax.annotation.Nonnull;
  * A Delegating statement whose job is just to catch Runtime exceptions that don't match our expected
  * usage of Statements, and translate them to the corrent SQL/Relational exceptions instead.
  */
+@ExcludeFromJacocoGeneratedReport
 public class ErrorCapturingStatement implements RelationalStatement {
     private final RelationalStatement delegate;
 
