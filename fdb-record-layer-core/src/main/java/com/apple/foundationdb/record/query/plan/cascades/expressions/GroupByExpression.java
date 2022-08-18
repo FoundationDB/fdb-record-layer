@@ -72,7 +72,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     private final Supplier<Value> computeRuntimeResultSupplier;
 
     @Nonnull
-    private final Supplier<Optional<RequestedOrdering>> computeRequestedOrderingSupplier;
+    private final Supplier<RequestedOrdering> computeRequestedOrderingSupplier;
 
     @Nonnull
     private final CorrelationIdentifier groupingValueAlias;
@@ -235,7 +235,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
      * @return The ordering requirements.
      */
     @Nonnull
-    public Optional<RequestedOrdering> getOrderingRequirement() {
+    public RequestedOrdering getOrderingRequirement() {
         return computeRequestedOrderingSupplier.get();
     }
 
@@ -278,9 +278,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     }
 
     @Nonnull
-    private Optional<RequestedOrdering> computeRequestOrdering() {
+    private RequestedOrdering computeRequestOrdering() {
         if (getGroupingValue() == null) {
-            return Optional.empty();
+            return RequestedOrdering.preserve();
         }
         // deriving the ordering columns correctly requires fix for https://github.com/FoundationDB/fdb-record-layer/issues/1212
         // perform pseudo-derivation until we have a fix.
@@ -288,8 +288,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var groupingValueType = getGroupingValue().getResultType();
         Verify.verify(groupingValueType instanceof Type.Record);
         final var recordType = (Type.Record)groupingValueType;
-        return Optional.of(new RequestedOrdering(
+        return new RequestedOrdering(
                 recordType.getFields().stream().map(innerField -> KeyPart.of(KeyExpression.fromPath(List.of(innerField.getFieldName())))).collect(Collectors.toList()),
-                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
     }
 }

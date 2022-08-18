@@ -73,13 +73,9 @@ public class ImplementStreamingAggregationRule extends PlannerRule<GroupByExpres
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
 
         for (final var planPartition : planPartitions) {
-            if (requestedOrdering.isEmpty()) { // any partition would suffice
+            final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
+            if (Ordering.satisfiesRequestedOrdering(providedOrdering, requestedOrdering)) {
                 call.yield(implementGroupBy(planPartition, groupByExpression));
-            } else {
-                final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-                if (Ordering.satisfiesRequestedOrdering(providedOrdering, requestedOrdering.get())) {
-                    call.yield(implementGroupBy(planPartition, groupByExpression));
-                }
             }
         }
     }
