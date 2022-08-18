@@ -183,16 +183,35 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         }
     }
 
+    /**
+     * An optimized version that performs the search on parallel.
+     * @param executor The task executor.
+     * @param weight Weight of the query.
+     * @param leaves List of leaves reader contexts.
+     * @param collector Collector that gathers the results.
+     * @return a {@code Future} that can be waited upon for the parallel search tasks to finish.
+     *
+     * @implNote it is possible that an {@link IOException} is thrown during parallel execution of task. Since Java does
+     * not permit throwing a checked exception from a lambda, and we need to cascade this exception to the caller, we wrap
+     * it using a custom, unchecked {@link WrapperException} and rethrow it. Therefore, the caller of this method should catch
+     * {@link WrapperException} and call {@link WrapperException#unwrap()} to get to the underlying {@link IOException}.
+     * Similar to {@link IndexSearcher#search(List, Weight, Collector)}, the {@link CollectionTerminatedException} is
+     * caught and ignored. For more information about this please have a look at the implementation of the above method,
+     * and read the documentation of {@link CollectionTerminatedException}.
+     */
     @Nonnull
     @SuppressWarnings({"PMD.EmptyCatchBlock"})
-    private <C extends Collector> CompletableFuture<C> searchOptimized(@Nonnull final Executor executor, @Nonnull final Weight weight, @Nonnull final List<LeafReaderContext> leaves, @Nonnull final C collector) throws IOException {
+    private <C extends Collector> CompletableFuture<C> searchOptimized(@Nonnull final Executor executor, @Nonnull final Weight weight, @Nonnull final List<LeafReaderContext> leaves, @Nonnull final C collector) {
         // 1. spawn a list of parallel tasks that interact with the DB for better throughput.
         final List<CompletableFuture<Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>>>> dependencies = leaves.stream().map(ctx -> CompletableFuture.supplyAsync(() -> {
             try {
                 final var result = Pair.of(collector.getLeafCollector(ctx), weight.bulkScorer(ctx));
                 return Pair.of(ctx, result);
-            } catch (IOException e) {
-                return null;
+            } catch (CollectionTerminatedException cte) {
+                // bail out.
+                return Pair.of(ctx, (Pair<LeafCollector, BulkScorer>)null);
+            } catch (IOException ioe) {
+                throw new WrapperException(ioe); // to be cascaded.
             }
         }, executor)).collect(Collectors.toList());
 
