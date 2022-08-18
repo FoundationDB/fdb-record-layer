@@ -131,7 +131,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                             })
                             .map(valueComparisonPair -> {
                                 final var fieldValue = valueComparisonPair.getLeft();
-                                KeyExpression keyExpression = fieldValue.toKeyExpression();
+                                KeyExpression keyExpression = KeyExpression.fromPath(fieldValue.getFieldPath());
                                 return Pair.of(keyExpression, valueComparisonPair.getRight());
                             })
                             .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));

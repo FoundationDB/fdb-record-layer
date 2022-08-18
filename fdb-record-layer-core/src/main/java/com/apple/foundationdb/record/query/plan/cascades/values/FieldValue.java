@@ -170,9 +170,4 @@ public class FieldValue implements ValueWithChild {
         }
         return currentType;
     }
-
-    @Nonnull
-    public KeyExpression toKeyExpression() {
-        return KeyExpression.fromPath(fieldPath);
-    }
 }

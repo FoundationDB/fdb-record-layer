@@ -92,7 +92,6 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Nonnull
     private final Value completeResultValue;
 
-
     /**
      * Construct a new plan.
      *

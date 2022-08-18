@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -41,7 +42,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -60,16 +60,19 @@ import java.util.stream.Collectors;
 public class GroupByExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
 
     @Nullable
-    private final Value groupingValue;
+    private final FieldValue groupingValue;
 
     @Nonnull
     private final AggregateValue aggregateValue;
 
     @Nonnull
-    private final Supplier<Value> resultValue = Suppliers.memoize(this::computeResultValue);
+    private final Supplier<Value> computeResultSupplier;
 
     @Nonnull
-    private final Supplier<Value> runtimeResultValue = Suppliers.memoize(this::computeRuntimeValue);
+    private final Supplier<Value> computeRuntimeResultSupplier;
+
+    @Nonnull
+    private final Supplier<Optional<RequestedOrdering>> computeRequestedOrderingSupplier;
 
     @Nonnull
     private final CorrelationIdentifier groupingValueAlias;
@@ -88,10 +91,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
      * @param inner The underlying source of tuples to be grouped.
      */
     public GroupByExpression(@Nonnull final AggregateValue aggregateValue,
-                             @Nullable final Value groupingValue,
+                             @Nullable final FieldValue groupingValue,
                              @Nonnull final Quantifier inner) {
         this.groupingValue = groupingValue;
         this.aggregateValue = aggregateValue;
+        this.computeResultSupplier = Suppliers.memoize(this::computeResultValue);
+        this.computeRuntimeResultSupplier = Suppliers.memoize(this::computeRuntimeValue);
+        this.computeRequestedOrderingSupplier = Suppliers.memoize(this::computeRequestOrdering);
         this.inner = inner;
         this.groupingValueAlias = CorrelationIdentifier.uniqueID();
         this.aggregateValueAlias = CorrelationIdentifier.uniqueID();
@@ -105,13 +111,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
+        return getResultValue().getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return resultValue.get();
+        return computeResultSupplier.get();
     }
 
     @Nonnull
@@ -130,13 +136,22 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return false;
         }
         final var otherGroupByExpr = ((GroupByExpression)other);
-        return Objects.equals(getGroupingValue(), otherGroupByExpr.getGroupingValue()) &&
-               Objects.equals(getAggregateValue(), otherGroupByExpr.getAggregateValue());
+
+        if ( (otherGroupByExpr.getGroupingValue() == null) ^ (getGroupingValue() == null) ) {
+            return false;
+        }
+
+        if (otherGroupByExpr.getGroupingValue() != null) {
+            return Objects.requireNonNull(getGroupingValue()).semanticEquals(otherGroupByExpr.getGroupingValue(), equivalences)
+                   && getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
+        } else {
+            return getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
+        }
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(resultValue, getGroupingValue(), getAggregateValue());
+        return Objects.hash(computeResultSupplier, getGroupingValue(), getAggregateValue());
     }
 
     @Override
@@ -156,8 +171,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final AggregateValue translatedAggregateValue = getAggregateValue().translateCorrelations(translationMap);
         final Value translatedGroupingValue = getGroupingValue() == null ? null : getGroupingValue().translateCorrelations(translationMap);
+        Verify.verify(translatedGroupingValue instanceof FieldValue);
         if (translatedAggregateValue != getAggregateValue() || translatedGroupingValue != getGroupingValue()) {
-            return new GroupByExpression(translatedAggregateValue, translatedGroupingValue, Iterables.getOnlyElement(translatedQuantifiers));
+            return new GroupByExpression(translatedAggregateValue, (FieldValue)translatedGroupingValue, Iterables.getOnlyElement(translatedQuantifiers));
         }
         return this;
     }
@@ -165,9 +181,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Override
     public String toString() {
         if (getGroupingValue() != null) {
-            return "GroupBy(" + getGroupingValue() + "), aggregationValue: " + getAggregateValue() + ", resultValue: " + resultValue.get();
+            return "GroupBy(" + getGroupingValue() + "), aggregationValue: " + getAggregateValue() + ", resultValue: " + computeResultSupplier.get();
         } else {
-            return "GroupBy(NULL), aggregationValue: " + getAggregateValue() + ", resultValue: " + resultValue.get();
+            return "GroupBy(NULL), aggregationValue: " + getAggregateValue() + ", resultValue: " + computeResultSupplier.get();
         }
     }
 
@@ -193,7 +209,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     }
 
     @Nullable
-    public Value getGroupingValue() {
+    public FieldValue getGroupingValue() {
         return groupingValue;
     }
 
@@ -219,28 +235,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
      * @return The ordering requirements.
      */
     @Nonnull
-    public RequestedOrdering getOrderingRequirement() {
-        Verify.verify(getGroupingValue() instanceof FieldValue);
-        // deriving the ordering columns correctly requires fix for https://github.com/FoundationDB/fdb-record-layer/issues/1212
-        // perform pseudo-derivation until we have a fix.
-        final var groupingValueType = getGroupingValue().getResultType();
-        Verify.verify(groupingValueType instanceof Type.Record);
-        final var recordType = (Type.Record)groupingValueType;
-        return new RequestedOrdering(
-                recordType.getFields().stream().map(innerField -> KeyPart.of(innerField.toKeyExpression())).collect(Collectors.toList()),
-                RequestedOrdering.Distinctness.NOT_DISTINCT);
-    }
-
-    @Nonnull
-    private Value computeResultValue() {
-        final var aggregateColumn = Column.of(Type.Record.Field.of(getAggregateValue().getResultType(), Optional.of(getAggregateValueAlias().getId())), getAggregateValue());
-        if (getGroupingValue() == null) {
-            return RecordConstructorValue.ofColumns(ImmutableList.of(aggregateColumn));
-        } else {
-            final var groupingColumn = Column.of(Type.Record.Field.of(getGroupingValue().getResultType(), Optional.of(getGroupingValueAlias().getId())), getGroupingValue());
-            return RecordConstructorValue.ofColumns(ImmutableList.of(groupingColumn, aggregateColumn));
-        }
-
+    public Optional<RequestedOrdering> getOrderingRequirement() {
+        return computeRequestedOrderingSupplier.get();
     }
 
     /**
@@ -252,7 +248,18 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
      */
     @Nonnull
     public Value getRuntimeValue() {
-        return runtimeResultValue.get();
+        return computeRuntimeResultSupplier.get();
+    }
+
+    @Nonnull
+    private Value computeResultValue() {
+        final var aggregateColumn = Column.of(Type.Record.Field.of(getAggregateValue().getResultType(), Optional.of(getAggregateValueAlias().getId())), getAggregateValue());
+        if (getGroupingValue() == null) {
+            return RecordConstructorValue.ofColumns(ImmutableList.of(aggregateColumn));
+        } else {
+            final var groupingColumn = Column.of(Type.Record.Field.of(getGroupingValue().getResultType(), Optional.of(getGroupingValueAlias().getId())), getGroupingValue());
+            return RecordConstructorValue.ofColumns(ImmutableList.of(groupingColumn, aggregateColumn));
+        }
     }
 
     @Nonnull
@@ -268,6 +275,21 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                     ObjectValue.of(Objects.requireNonNull(getGroupingValueAlias()), getGroupingValue().getResultType()));
             return RecordConstructorValue.ofColumns(ImmutableList.of(groupingColumn, aggregateColumn));
         }
+    }
 
+    @Nonnull
+    private Optional<RequestedOrdering> computeRequestOrdering() {
+        if (getGroupingValue() == null) {
+            return Optional.empty();
+        }
+        // deriving the ordering columns correctly requires fix for https://github.com/FoundationDB/fdb-record-layer/issues/1212
+        // perform pseudo-derivation until we have a fix.
+        // TODO (yhatem) check and handle case when the grouping value is constant expression.
+        final var groupingValueType = getGroupingValue().getResultType();
+        Verify.verify(groupingValueType instanceof Type.Record);
+        final var recordType = (Type.Record)groupingValueType;
+        return Optional.of(new RequestedOrdering(
+                recordType.getFields().stream().map(innerField -> KeyPart.of(KeyExpression.fromPath(List.of(innerField.getFieldName())))).collect(Collectors.toList()),
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
     }
 }

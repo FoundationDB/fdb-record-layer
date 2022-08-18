@@ -1160,11 +1160,6 @@ public interface Type extends Narrowable<Type> {
                 return getFieldIndexOptional().orElseThrow(() -> new RecordCoreException("field index should have been set"));
             }
 
-            @Nonnull
-            public KeyExpression toKeyExpression() {
-                return KeyExpression.fromPath(List.of(getFieldName()));
-            }
-
             @Override
             public boolean equals(final Object o) {
                 if (o == null) {

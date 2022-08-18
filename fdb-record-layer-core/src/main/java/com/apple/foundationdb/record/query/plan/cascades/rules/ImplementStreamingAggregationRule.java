@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -41,7 +40,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -50,7 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * Rule for implementing logical {@code GROUP BY} into a physical streaming aggregate operator {@link RecordQueryStreamingAggregationPlan}.
  */
-public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
+public class ImplementStreamingAggregationRule extends PlannerRule<GroupByExpression> {
 
     @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
@@ -60,7 +58,7 @@ public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
     private static final BindingMatcher<GroupByExpression> root =
             groupByExpression(any(innerQuantifierMatcher));
 
-    public ImplementGroupByRule() {
+    public ImplementStreamingAggregationRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
@@ -69,33 +67,42 @@ public class ImplementGroupByRule extends PlannerRule<GroupByExpression> {
         final var bindings = call.getBindings();
 
         final var groupByExpression = bindings.get(root);
-        final var requestedOrderings = Set.of(groupByExpression.getOrderingRequirement());
+        final var requestedOrdering = groupByExpression.getOrderingRequirement();
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
 
         for (final var planPartition : planPartitions) {
-            final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-            for (final RequestedOrdering requestedOrdering : requestedOrderings) {
-                if (Ordering.satisfiesRequestedOrdering(providedOrdering, requestedOrdering)) {
-                    final var newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
-                    final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
-                    final var aliasMap = AliasMap.of(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
-                    final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);
-                    final var rebaseAggregatedAlias = aliasMap.getTargetOrDefault(groupByExpression.getAggregateValueAlias(), groupByExpression.getAggregateValueAlias());
-                    final var rebasedGroupingValue = groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().rebase(aliasMap);
-                    final var rebaseGroupingAlias = aliasMap.getTargetOrDefault(groupByExpression.getGroupingValueAlias(), groupByExpression.getGroupingValueAlias());
-                    final var rebasedResultValue = groupByExpression.getRuntimeValue().rebase(aliasMap);
-                    final var result = RecordQueryStreamingAggregationPlan.of(
-                            newPlanQuantifier,
-                            rebasedGroupingValue,
-                            (AggregateValue)rebasedAggregatedValue,
-                            rebaseGroupingAlias,
-                            rebaseAggregatedAlias,
-                            rebasedResultValue);
-                    call.yield(GroupExpressionRef.of(result));
+            if (requestedOrdering.isEmpty()) { // any partition would suffice
+                call.yield(implementGroupBy(planPartition, groupByExpression));
+            } else {
+                final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
+                if (Ordering.satisfiesRequestedOrdering(providedOrdering, requestedOrdering.get())) {
+                    call.yield(implementGroupBy(planPartition, groupByExpression));
                 }
             }
         }
+    }
+
+    @Nonnull
+    private GroupExpressionRef<RecordQueryStreamingAggregationPlan> implementGroupBy(@Nonnull final PlanPartition planPartition,
+                                                                                     @Nonnull final GroupByExpression groupByExpression) {
+        final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
+        final var newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
+        final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
+        final var aliasMap = AliasMap.of(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
+        final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);
+        final var rebaseAggregatedAlias = aliasMap.getTargetOrDefault(groupByExpression.getAggregateValueAlias(), groupByExpression.getAggregateValueAlias());
+        final var rebasedGroupingValue = groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().rebase(aliasMap);
+        final var rebaseGroupingAlias = aliasMap.getTargetOrDefault(groupByExpression.getGroupingValueAlias(), groupByExpression.getGroupingValueAlias());
+        final var rebasedResultValue = groupByExpression.getRuntimeValue().rebase(aliasMap);
+        final var result = RecordQueryStreamingAggregationPlan.of(
+                newPlanQuantifier,
+                rebasedGroupingValue,
+                (AggregateValue)rebasedAggregatedValue,
+                rebaseGroupingAlias,
+                rebaseAggregatedAlias,
+                rebasedResultValue);
+        return GroupExpressionRef.of(result);
     }
 }

@@ -79,12 +79,17 @@ public class PushRequestedOrderingThroughGroupByRule extends PlannerRule<GroupBy
     @Nonnull
     private Set<RequestedOrdering> collectCompatibleOrderings(@Nonnull final GroupByExpression groupByExpression, @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var groupByOrdering = groupByExpression.getOrderingRequirement();
-        // case 1: if no ordering is required, simply specify the group by ordering as a requirement.
-        if (requestedOrderings.isEmpty()) {
-            return Set.of(groupByOrdering);
+        // case 1: if the group-by does not have ordering requirement (because grouping value is empty) return the requestedOrderings as-is (no-op).
+        if (groupByOrdering.isEmpty()) {
+            return requestedOrderings;
         }
-        final var groupByOrderingAsSet = new LinkedHashSet<>(groupByOrdering.getOrderingKeyParts());
-        ImmutableSet.Builder<RequestedOrdering> result = ImmutableSet.builder();
+
+        // case 2: if no ordering is required, specify the group-by ordering as a requirement.
+        if (requestedOrderings.isEmpty()) {
+            return ImmutableSet.of();
+        }
+        final var groupByOrderingAsSet = new LinkedHashSet<>(groupByOrdering.get().getOrderingKeyParts());
+        final var result = ImmutableSet.<RequestedOrdering>builder();
         for (final var requestedOrdering : requestedOrderings) {
             if (requestedOrdering.getDistinctness() == RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS) {
                 // ignore preserve as it might cause e.g. an underlying FUSE operator to be substituted with an access path that is incompatibly-ordered.
@@ -92,14 +97,14 @@ public class PushRequestedOrderingThroughGroupByRule extends PlannerRule<GroupBy
             }
             // todo this looks too strict, if requested ordering is more specific (e.g. (a,b,c)) than the requested group by ordering (e.g. (a,b)) should still be accepted.
             if (!new LinkedHashSet<>(requestedOrdering.getOrderingKeyParts()).equals(groupByOrderingAsSet)) {
-                // case 2: if an incompatible ordering is found, fail.
-                return Set.of(); // fail
+                // case 3: if an incompatible ordering is found, fail.
+                return ImmutableSet.of(); // fail
             } else {
                 result.add(requestedOrdering);
             }
         }
-        result.add(groupByOrdering);
-        // case 3: return the group by ordering in addition to any other compatible ordering required from earlier steps.
+        result.add(groupByOrdering.get());
+        // case 3: return the group-by ordering in addition to any other compatible ordering required from earlier steps.
         return result.build();
     }
 }
