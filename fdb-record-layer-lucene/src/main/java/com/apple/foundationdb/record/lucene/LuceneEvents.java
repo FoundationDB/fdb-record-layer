@@ -46,8 +46,16 @@ public class LuceneEvents {
         LUCENE_LIST_ALL("lucene list all"),
         /** Time to load the file cache for Lucene's FDBDirectory. */
         LUCENE_LOAD_FILE_CACHE("lucene load file cache"),
+        /** Number of increment new file counter. */
+        LUCENE_GET_INCREMENT("lucene file counter increment"),
         /** Number of file length calls in the FDBDirectory. */
         LUCENE_GET_FILE_LENGTH("lucene get file length"),
+        /** Number of writeFileReference calls in the FDBDirectory.*/
+        LUCENE_WRITE_FILE_REFERENCE("lucene write file references"),
+        /** Number of deleteFile calls in the FDBDirectory.*/
+        LUCENE_DELETE_FILE("lucene delete file"),
+        /** Number of rename calls in the FDBDirectory.*/
+        LUCENE_RENAME("lucene rename"),
         /** Number of documents returned from a single Lucene Index Scan. */
         LUCENE_INDEX_SCAN("lucene search returned documents"),
         /** Number of suggestions returned from a single Lucene Auto Complete Scan. */
@@ -118,12 +126,6 @@ public class LuceneEvents {
      * Wait events.
      */
     public enum Waits implements StoreTimer.Wait {
-        /** Wait to delete a file from Lucene's FDBDirectory.*/
-        WAIT_LUCENE_DELETE_FILE("lucene delete file"),
-        /** Wait to get the length of the a file in Lucene's FDBDirectory.*/
-        WAIT_LUCENE_FILE_LENGTH("lucene file length"),
-        /** Wait to rename a file in Lucene's FDBDirectory.*/
-        WAIT_LUCENE_RENAME("lucene rename"),
         /** Wait to get a new file counter increment. */
         WAIT_LUCENE_GET_INCREMENT("lucene file counter increment"),
         /** Wait to read a file reference. */
@@ -162,10 +164,6 @@ public class LuceneEvents {
      * Count events.
      */
     public enum Counts implements StoreTimer.Count {
-        /** Number of times the getIncrement() function is called in the FDBDirectory. */
-        LUCENE_GET_INCREMENT_CALLS("lucene increments", false),
-        /** Number of writeFileReference calls in the FDBDirectory.*/
-        LUCENE_WRITE_FILE_REFERENCE_CALL("lucene write file references", false),
         /** Total number of bytes that were attempted to be written (not necessarily committed) for file references in the FDBDirectory. */
         LUCENE_WRITE_FILE_REFERENCE_SIZE("lucene write file reference size", true),
         /** Count of writeData calls in FDBDirectory. */
@@ -174,8 +172,6 @@ public class LuceneEvents {
         LUCENE_WRITE_SIZE("lucene index size", true),
         /** The number of block reads that occur against the FDBDirectory.*/
         LUCENE_BLOCK_READS("lucene block reads", false),
-        /** Time to write a file references in Lucene's FDBDirectory.*/
-        LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" , false),
         /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
         /** Matched auto complete suggestions returned from lucene auto complete suggestion lookup. **/

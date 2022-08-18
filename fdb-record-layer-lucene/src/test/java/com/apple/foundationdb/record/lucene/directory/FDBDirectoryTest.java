@@ -68,7 +68,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     public void testGetIncrement() {
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
-        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, 2);
+        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_GET_INCREMENT, 2);
         directory.getContext().commit();
 
         try (FDBRecordContext context = fdb.openContext()) {
@@ -86,7 +86,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         }
         List<Long> values = AsyncUtil.getAll(futures).join();
         assertThat(values, containsInAnyOrder(LongStream.range(1, threads + 1).mapToObj(Matchers::equalTo).collect(Collectors.toList())));
-        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, threads);
+        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_GET_INCREMENT, threads);
         assertMetricCountAtMost(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT, threads);
         directory.getContext().commit();
 
@@ -120,7 +120,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE,
                 LuceneSerializer.encode(reference1.getBytes(), true, false).length + LuceneSerializer.encode(reference2.getBytes(), true, false).length);
-        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL, 2);
+        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_WRITE_FILE_REFERENCE, 2);
     }
 
     @Test
@@ -161,6 +161,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, 1);
         directory.getContext().ensureActive().cancel();
 
+        // Again in a fresh transaction.
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
             directory = new FDBDirectory(subspace, context);
@@ -177,10 +178,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.writeFDBLuceneFileReference("test1", reference1);
         directory.deleteFile("test1");
         assertEquals(directory.listAll().length, 0);
-
-        // WAIT only gets called if there's a future to wait on, and so this value can be less than 2 if
-        // the futures complete quickly
-        assertMetricCountAtMost(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, 2);
+        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_DELETE_FILE, 2);
     }
 
     @Test
@@ -192,15 +190,6 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertEquals(expectedSize, fileSize);
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_GET_FILE_LENGTH, 1);
         directory.getContext().commit();
-
-        final FDBStoreTimer timer = new FDBStoreTimer();
-        try (FDBRecordContext context = fdb.openContext(null, timer)) {
-            directory = new FDBDirectory(subspace, context);
-            long fileSize2 = directory.fileLength("test1");
-            assertEquals(expectedSize, fileSize2);
-            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_GET_FILE_LENGTH));
-            assertEquals(1, timer.getCount(LuceneEvents.Waits.WAIT_LUCENE_FILE_LENGTH));
-        }
     }
 
     @SuppressWarnings("unused") // used to provide arguments for parameterized test
@@ -219,7 +208,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     public void testRename() {
         assertThrows(RecordCoreArgumentException.class, () -> directory.rename("NoExist", "newName"));
 
-        assertCorrectMetricCount(LuceneEvents.Waits.WAIT_LUCENE_RENAME, 1);
+        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_RENAME, 1);
     }
 
 
