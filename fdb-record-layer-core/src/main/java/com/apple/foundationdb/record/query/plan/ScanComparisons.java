@@ -381,14 +381,30 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ScanComparisons translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        final List<Comparisons.Comparison> translatedEqualityComparisons = equalityComparisons.stream()
-                .map(comparison -> comparison.translateCorrelations(translationMap))
-                .collect(ImmutableList.toImmutableList());
-        final Set<Comparisons.Comparison> translatedInequalityComparisons = inequalityComparisons.stream()
-                .map(comparison -> comparison.translateCorrelations(translationMap))
-                .collect(ImmutableSet.toImmutableSet());
-        return withComparisons(translatedEqualityComparisons, translatedInequalityComparisons);
+        boolean needsCopy = false;
+        final var translatedEqualityComparisonsBuilder = ImmutableList.<Comparisons.Comparison>builder();
+        for (final var comparison : equalityComparisons) {
+            final var translatedComparison = comparison.translateCorrelations(translationMap);
+            translatedEqualityComparisonsBuilder.add(translatedComparison);
+            if (translatedComparison != comparison) {
+                needsCopy = true;
+            }
+        }
+
+        final var translatedInequalityComparisonsBuilder = ImmutableSet.<Comparisons.Comparison>builder();
+        for (final var comparison : inequalityComparisons) {
+            final var translatedComparison = comparison.translateCorrelations(translationMap);
+            translatedInequalityComparisonsBuilder.add(translatedComparison);
+            if (translatedComparison != comparison) {
+                needsCopy = true;
+            }
+        }
+        if (needsCopy) {
+            return withComparisons(translatedEqualityComparisonsBuilder.build(), translatedInequalityComparisonsBuilder.build());
+        }
+        return this;
     }
 
     @Nonnull

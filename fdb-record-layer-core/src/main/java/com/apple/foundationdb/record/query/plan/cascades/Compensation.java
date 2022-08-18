@@ -576,6 +576,13 @@ public interface Compensation {
         private final Set<Quantifier> matchedQuantifiers;
         @Nonnull
         private final Set<Quantifier> unmatchedQuantifiers;
+
+        /**
+         * We keep track of compensated aliases which define a kind of responsibility for this compensation,
+         * that is, when the compensation is applied, the caller can be ensured that the match replacement
+         * together with the compensation can replace those quantifiers. Normally the set of compensated aliases
+         * comprises all matched quantifiers and existential non-matched quantifiers.
+         */
         @Nonnull
         private final Set<CorrelationIdentifier> compensatedAliases;
         @Nonnull
@@ -683,6 +690,11 @@ public interface Compensation {
                 relationalExpression = childCompensation.apply(relationalExpression);
             }
 
+            if (predicateCompensationMap.isEmpty()) {
+                // all predicates taken care of and no remaining computation
+                return relationalExpression;
+            }
+
             final var matchedQuantifierMap =
                     Quantifiers.aliasToQuantifierMap(matchedQuantifiers);
 
@@ -697,12 +709,7 @@ public interface Compensation {
 
             Verify.verify(matchedForEachQuantifierAliases.size() <= 1);
             final var matchedForEachQuantifierAlias = Iterables.getOnlyElement(matchedForEachQuantifierAliases);
-
-            if (predicateCompensationMap.isEmpty()) {
-                // all predicates taken care of and no remaining computation
-                return relationalExpression;
-            }
-
+            
             //
             // At this point we definitely need a new SELECT expression.
             //

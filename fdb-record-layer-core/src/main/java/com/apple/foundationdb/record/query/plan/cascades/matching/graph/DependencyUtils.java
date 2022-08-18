@@ -137,6 +137,7 @@ public class DependencyUtils {
 
     @Nonnull
     public static <T> SetMultimap<T, T> cleanseDependencyMap(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
+        boolean needsCopy = false;
         final ImmutableSetMultimap.Builder<T, T> cleanDependencyMapBuilder = ImmutableSetMultimap.builder();
 
         for (final Map.Entry<T, T> entry : dependencyMap.entries()) {
@@ -144,8 +145,14 @@ public class DependencyUtils {
             final T value = entry.getValue();
             if (set.contains(key) && set.contains(value)) {
                 cleanDependencyMapBuilder.put(key, entry.getValue());
+            } else {
+                // There is an entry we don't want in the dependency map.
+                needsCopy = true;
             }
         }
-        return cleanDependencyMapBuilder.build();
+        if (needsCopy) {
+            return cleanDependencyMapBuilder.build();
+        }
+        return dependencyMap;
     }
 }

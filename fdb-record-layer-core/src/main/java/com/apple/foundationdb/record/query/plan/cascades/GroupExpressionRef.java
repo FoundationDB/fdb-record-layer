@@ -114,6 +114,13 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         insertUnchecked(newValue);
     }
 
+    /**
+     * Inserts a new expression into this reference. This method checks for prior memoization of the expression passed
+     * in within the reference. If the expression is already contained in this reference, the reference is not modified.
+     * @param newValue new expression to be inserted
+     * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
+     *         otherwise.
+     */
     @Override
     public boolean insert(@Nonnull T newValue) {
         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.BEGIN)));
@@ -130,6 +137,13 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return false;
     }
 
+    /**
+     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression)}}, this method does
+     * not check for prior memoization of the expression passed in within the reference. The caller needs to exercise
+     * caution to only call this method on a reference if it is known that the reference cannot possibly already have
+     * the expression memoized.
+     * @param newValue new expression to be inserted (without check)
+     */
     public void insertUnchecked(final @Nonnull T newValue) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(newValue);
@@ -185,9 +199,13 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return false;
     }
 
-    private static boolean containsInMember(@Nonnull RelationalExpression member,
-                                            @Nonnull RelationalExpression otherMember,
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private static boolean containsInMember(@Nonnull final RelationalExpression member,
+                                            @Nonnull final RelationalExpression otherMember,
                                             @Nonnull final AliasMap equivalenceMap) {
+        if (member == otherMember) {
+            return true;
+        }
         if (member.getClass() != otherMember.getClass()) {
             return false;
         }

@@ -53,7 +53,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
- * expressions for data access specifically for a {@link SelectExpression}. A {@link SelectExpression} is behaves
+ * expressions for data access specifically for a {@link SelectExpression}. A {@link SelectExpression} behaves
  * different compared to essentially all other expressions in a way that we can conceptually deconstruct such an expression
  * on the fly and only replace the matched part of the original expression with the scan over the materialized view.
  * That allows us to relax restrictions (.e.g. to match all quantifiers the select expression owns) while matching

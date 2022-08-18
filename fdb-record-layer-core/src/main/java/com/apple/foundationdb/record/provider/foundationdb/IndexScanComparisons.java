@@ -162,8 +162,13 @@ public class IndexScanComparisons implements IndexScanParameters {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        return withScanComparisons(scanComparisons.translateCorrelations(translationMap));
+        final var translatedScanComparisons = scanComparisons.translateCorrelations(translationMap);
+        if (translatedScanComparisons != scanComparisons) {
+            return withScanComparisons(translatedScanComparisons);
+        }
+        return this;
     }
 
     @Nonnull

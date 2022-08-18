@@ -179,14 +179,14 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                         merge.add(Pair.of(orderings.get(0), orderings.get(0)));
                     } else {
                         //
-                        // TODO We currently are unable to incrementally compute a merged order as the operation is
+                        //TODO We currently are unable to incrementally compute a merged order as the operation is
                         //  not associative in all cases. The reason for that is that orderings are not represented
                         //  as PartialOrder<KeyPart> but as List<KeyPart>. While we do the reasoning for all
                         //  ordering-related logic in PartialOrder space, we transform back to a list which proves
                         //  to be lossy in some cases causing associativity to not hold).
                         //  https://github.com/FoundationDB/fdb-record-layer/issues/1618
                         
-                        // TODO
+                        //TODO
                         //  final var lastMerged = merge.size() - 1;
                         //  final Ordering mergedOrdering =
                         //      OrderingVisitor.deriveForUnionFromOrderings(ImmutableList.of(merge.get(lastMerged).getKey(), orderings.get(merge.size())),
