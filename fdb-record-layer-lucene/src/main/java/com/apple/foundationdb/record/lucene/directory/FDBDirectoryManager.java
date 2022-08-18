@@ -163,4 +163,9 @@ public class FDBDirectoryManager implements AutoCloseable {
                 LogMessageKeys.INDEX_NAME, state.index.getName(),
                 LogMessageKeys.INDEX_SUBSPACE, state.indexSubspace);
     }
+
+    @Nonnull
+    public FDBDirectoryWithSeparateContext getDirectoryWithSeparateContext(@Nullable Tuple groupingKey) {
+        return new FDBDirectoryWithSeparateContext(state.indexSubspace.subspace(groupingKey), state.context);
+    }
 }

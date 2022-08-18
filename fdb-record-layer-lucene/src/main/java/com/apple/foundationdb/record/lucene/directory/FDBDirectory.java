@@ -131,7 +131,7 @@ public class FDBDirectory extends Directory {
      */
     private final AtomicReference<Map<String, FDBLuceneFileReference>> fileReferenceCache;
 
-    private final AtomicLong fileSequenceCounter;
+    protected final AtomicLong fileSequenceCounter;
     private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
 
     private final boolean compressionEnabled;
