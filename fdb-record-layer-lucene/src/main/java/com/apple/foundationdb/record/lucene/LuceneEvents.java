@@ -62,6 +62,8 @@ public class LuceneEvents {
         LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN("lucene search returned auto complete suggestions"),
         /** Number of documents returned from a single Lucene spellcheck scan. */
         LUCENE_SPELLCHECK_SCAN("lucene search returned spellcheck suggestions"),
+        /** Time optimizing segments manually. */
+        LUCENE_INDEX_FORCE_MERGE("lucene index force merge"),
         ;
 
         private final String title;

@@ -34,10 +34,12 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWithSeparateContext;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -48,7 +50,9 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexE
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
@@ -409,7 +413,44 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     public CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation) {
         LOG.trace("performOperation operation={}", operation);
-        return CompletableFuture.completedFuture(new IndexOperationResult() {
-        });
+        CompletableFuture<IndexOperationResult> result;
+        StoreTimer.Event event = null;
+        if (operation instanceof LuceneIndexForceMerge) {
+            final LuceneIndexForceMerge forceMerge = (LuceneIndexForceMerge)operation;
+            result = CompletableFuture.supplyAsync(() -> {
+                try (FDBDirectoryWithSeparateContext directory = getDirectoryWithSeparateContext(forceMerge.getGroupingKey())) {
+                    return performForceMerge(directory, forceMerge);
+                }
+            }, executor);
+            event = LuceneEvents.Events.LUCENE_INDEX_FORCE_MERGE;
+        } else {
+            result = super.performOperation(operation);
+        }
+        if (event != null && getTimer() != null) {
+            result = getTimer().instrument(event, result, getExecutor());
+        }
+        return result;
+    }
+
+    @VisibleForTesting
+    @Nonnull
+    protected FDBDirectoryWithSeparateContext getDirectoryWithSeparateContext(@Nullable Tuple groupingKey) {
+        return directoryManager.getDirectoryWithSeparateContext(groupingKey);
+    }
+
+    @VisibleForTesting
+    @Nonnull
+    protected LuceneIndexForceMergeResult performForceMerge(@Nonnull FDBDirectoryWithSeparateContext directory,
+                                                            @Nonnull LuceneIndexForceMerge forceMerge) {
+        final Pair<Integer, Long> sizesBefore = directory.getSizes();
+        directory.setCommitAfterLimits(forceMerge.getCommitAfterBytesLimit(), forceMerge.getCommitAfterMillisLimit());
+        try (IndexWriter writer = directory.getIndexWriter(state.context.getPropertyStorage(), indexAnalyzerSelector.provideIndexAnalyzer(""))) {
+            writer.forceMerge(forceMerge.getMaxNumSegments());
+            writer.commit();
+        } catch (IOException ex) {
+            throw new RecordCoreException(ex);
+        }
+        final Pair<Integer, Long> sizesAfter = directory.getSizes();
+        return new LuceneIndexForceMergeResult(sizesBefore.getKey(), sizesBefore.getValue(), sizesAfter.getKey(), sizesAfter.getValue());
     }
 }

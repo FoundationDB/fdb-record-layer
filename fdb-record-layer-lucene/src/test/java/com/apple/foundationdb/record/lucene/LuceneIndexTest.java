@@ -1984,6 +1984,36 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void forceMerge() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            recordStore.saveRecord(createSimpleDocument(1234L, ENGINEER_JOKE, 1));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            recordStore.saveRecord(createSimpleDocument(2345L, WAYLON, 2));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            timer.reset();
+            LuceneIndexForceMergeResult result = (LuceneIndexForceMergeResult)
+                    recordStore.performIndexOperation(SIMPLE_TEXT_SUFFIXES.getName(),
+                            new LuceneIndexForceMerge(TupleHelpers.EMPTY, 1, 10000, 2000));
+            context.commit();
+            assertThat(result.getNumberOfFilesAfter(), Matchers.lessThan(result.getNumberOfFilesBefore()));
+            assertThat(timer.getCount(FDBStoreTimer.Events.COMMITS), Matchers.greaterThan(5));
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            assertIndexEntryPrimaryKeys(List.of(1234L, 2345L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "way"), null, ScanProperties.FORWARD_SCAN));
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_2.cfs", true);
+        }
+    }
+
     public static String[] generateRandomWords(int numberOfWords) {
         assert numberOfWords > 0 : "Number of words have to be greater than 0";
         StringBuilder builder = new StringBuilder();
