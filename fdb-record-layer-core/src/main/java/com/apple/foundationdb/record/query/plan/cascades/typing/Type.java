@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;

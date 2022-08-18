@@ -275,7 +275,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         // if we do not have any grouping value, we will apply the aggregation(s) over the entire child result set
         // and return a single row comprising the aggregation(s) result
         if (element.getGroupingValue() == null) {
-            new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
+            return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
         }
         // TODO (yhatem): if the grouping value is constant, we could either return no result or a single row depending
         //  on whether the child result set is empty or not.
@@ -382,7 +382,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         // if we do not have any grouping value, we will apply the aggregation(s) over the entire child result set
         // and return a single row comprising the aggregation(s) result
         if (element.getGroupingValue() == null) {
-            new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
+            return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
         }
         // TODO (yhatem): if the grouping value is constant, we could either return no result or a single row depending
         //  on whether the child result set is empty or not.
