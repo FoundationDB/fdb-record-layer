@@ -50,6 +50,8 @@ public interface PlanWithStoredFields {
      *
      * @param keyFields all of the fields of the index definition (root key expression), normalized and in order
      * @param nonStoredFields the fields that <em>are not</em> stored, that is, available in the index entry, even though they are part of the index definition
+     * @param otherFields fields that come from the index entry in a special way
      */
-    void getStoredFields(@Nonnull List<KeyExpression> keyFields, @Nonnull List<KeyExpression> nonStoredFields);
+    void getStoredFields(@Nonnull List<KeyExpression> keyFields, @Nonnull List<KeyExpression> nonStoredFields,
+                         @Nonnull List<KeyExpression> otherFields);
 }

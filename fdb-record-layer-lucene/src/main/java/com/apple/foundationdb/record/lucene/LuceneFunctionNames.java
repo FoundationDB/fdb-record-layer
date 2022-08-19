@@ -35,6 +35,8 @@ public class LuceneFunctionNames {
     public static final String LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS = "lucene_full_text_field_with_term_vectors";
     public static final String LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS = "lucene_full_text_field_with_term_vector_positions";
     public static final String LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS = "lucene_auto_complete_field_index_options";
+    public static final String LUCENE_SORT_BY_RELEVANCE = "lucene_sort_by_relevance";
+    public static final String LUCENE_SORT_BY_DOCUMENT_NUMBER = "lucene_sort_by_document_number";
 
     private LuceneFunctionNames() {
     }
