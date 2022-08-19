@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Sargable;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -56,6 +56,11 @@ public class PredicateMultiMap {
      */
     @FunctionalInterface
     public interface CompensatePredicateFunction {
+        CompensatePredicateFunction UNDEFINED =
+                (partialMatch, boundPrefixMap) -> {
+                    throw new RecordCoreException("should not be called");
+                };
+        
         @Nonnull
         Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull PartialMatch partialMatch,
                                                                              @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap);
@@ -78,7 +83,7 @@ public class PredicateMultiMap {
         @Nonnull
         private final QueryPredicate queryPredicate;
         @Nonnull
-        private final QueryPredicate candidatePredicate;
+        private final Optional<QueryPredicate> candidatePredicateOptional;
         @Nonnull
         private final CompensatePredicateFunction compensatePredicateFunction;
         @Nonnull
@@ -87,24 +92,28 @@ public class PredicateMultiMap {
         public PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                 @Nonnull final QueryPredicate candidatePredicate,
                                 @Nonnull final CompensatePredicateFunction compensatePredicateFunction) {
-            this(queryPredicate, candidatePredicate, compensatePredicateFunction, Optional.empty());
+            this(queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, Optional.empty());
         }
 
         public PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                 @Nonnull final QueryPredicate candidatePredicate,
                                 @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                 @Nonnull final CorrelationIdentifier parameterAlias) {
-            this(queryPredicate, candidatePredicate, compensatePredicateFunction, Optional.of(parameterAlias));
+            this(queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, Optional.of(parameterAlias));
         }
 
         private PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
-                                 @Nonnull final QueryPredicate candidatePredicate,
+                                 @Nonnull final Optional<QueryPredicate> candidatePredicateOptional,
                                  @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                  @Nonnull final Optional<CorrelationIdentifier> parameterAlias) {
             this.queryPredicate = queryPredicate;
-            this.candidatePredicate = candidatePredicate;
+            this.candidatePredicateOptional = candidatePredicateOptional;
             this.compensatePredicateFunction = compensatePredicateFunction;
             this.parameterAliasOptional = parameterAlias;
+        }
+
+        public boolean hasMapping() {
+            return candidatePredicateOptional.isPresent();
         }
 
         @Nonnull
@@ -114,7 +123,7 @@ public class PredicateMultiMap {
 
         @Nonnull
         public QueryPredicate getCandidatePredicate() {
-            return candidatePredicate;
+            return candidatePredicateOptional.orElseThrow(() -> new IllegalArgumentException("check if mapping is mapped to candidate predicate first"));
         }
 
         @Nonnull
@@ -129,13 +138,18 @@ public class PredicateMultiMap {
 
         @NonNull
         public Optional<ComparisonRange> getComparisonRangeOptional() {
-            if (!parameterAliasOptional.isPresent() || !(queryPredicate instanceof Sargable)) {
+            if (parameterAliasOptional.isEmpty() || !(queryPredicate instanceof Sargable)) {
                 return Optional.empty();
             }
 
             final Sargable sargablePredicate = (Sargable)this.queryPredicate;
 
             return Optional.of(sargablePredicate.getComparisonRange());
+        }
+
+        @Nonnull
+        public static PredicateMapping noMapping(@Nonnull final QueryPredicate queryPredicate) {
+            return new PredicateMapping(queryPredicate, Optional.empty(), CompensatePredicateFunction.UNDEFINED, Optional.empty());
         }
     }
 
@@ -153,6 +167,10 @@ public class PredicateMultiMap {
 
     public Set<Map.Entry<QueryPredicate, PredicateMapping>> entries() {
         return map.entries();
+    }
+
+    public Set<QueryPredicate> keySet() {
+        return map.keySet();
     }
 
     @Nonnull
@@ -182,7 +200,7 @@ public class PredicateMultiMap {
         private final SetMultimap<QueryPredicate, PredicateMapping> map;
 
         public Builder() {
-            map = Multimaps.newSetMultimap(Maps.newIdentityHashMap(), Sets::newIdentityHashSet);
+            map = Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
         }
 
         protected SetMultimap<QueryPredicate, PredicateMapping> getMap() {

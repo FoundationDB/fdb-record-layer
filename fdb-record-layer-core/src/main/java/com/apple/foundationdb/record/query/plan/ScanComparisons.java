@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -30,7 +31,11 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.Correlated;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Extractor;
@@ -38,6 +43,9 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ProtocolMessageEnum;
@@ -48,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -62,7 +71,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * inequality comparisons to be applied to the next field.
  */
 @API(API.Status.INTERNAL)
-public class ScanComparisons implements PlanHashable {
+public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons> {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Scan-Comparisons");
 
     @Nonnull
@@ -235,6 +244,21 @@ public class ScanComparisons implements PlanHashable {
         }
 
         @Nonnull
+        public Builder addAll(@Nonnull List<Comparisons.Comparison> newEqualityComparisons,
+                              @Nonnull Set<Comparisons.Comparison> newInequalityComparisons) {
+            equalityComparisons.addAll(newEqualityComparisons);
+            inequalityComparisons.addAll(newInequalityComparisons);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        protected ScanComparisons.Builder withComparisons(@Nonnull List<Comparisons.Comparison> equalityComparisons,
+                                                          @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
+            return new Builder().addAll(equalityComparisons, inequalityComparisons);
+        }
+
+        @Nonnull
         public ScanComparisons build() {
             return new ScanComparisons(equalityComparisons, inequalityComparisons);
         }
@@ -305,23 +329,100 @@ public class ScanComparisons implements PlanHashable {
         }
     }
 
+    @Nonnull
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> resultBuilder = ImmutableSet.builder();
+
+        equalityComparisons.forEach(comparison -> resultBuilder.addAll(comparison.getCorrelatedTo()));
+        inequalityComparisons.forEach(comparison -> resultBuilder.addAll(comparison.getCorrelatedTo()));
+
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    public ScanComparisons rebase(@Nonnull final AliasMap translationMap) {
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+    }
+
+    @Override
+    @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        if (this == other) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (other == null || getClass() != other.getClass()) {
             return false;
         }
 
-        ScanComparisons that = (ScanComparisons)o;
-        return this.equalityComparisons.equals(that.equalityComparisons) &&
-               this.inequalityComparisons.equals(that.inequalityComparisons);
+        ScanComparisons that = (ScanComparisons)other;
+
+        if (this.equalityComparisons.size() != that.equalityComparisons.size()) {
+            return false;
+        }
+
+        if (this.inequalityComparisons.size() != that.inequalityComparisons.size()) {
+            return false;
+        }
+
+        return Streams.zip(this.equalityComparisons.stream(), that.equalityComparisons.stream(), (a, b) -> a.semanticEquals(b, aliasMap)).allMatch(e -> e) &&
+               this.inequalityComparisons.stream()
+                       .allMatch(thisComparison -> that.inequalityComparisons.stream().anyMatch(thatComparison -> thisComparison.semanticEquals(thatComparison, aliasMap)));
+    }
+
+    @Override
+    public int semanticHashCode() {
+        final int equalityComparisonsHash =
+                equalityComparisons.stream().map(Comparisons.Comparison::semanticHashCode).collect(ImmutableList.toImmutableList()).hashCode();
+        final int inequalityComparisonsHash =
+                inequalityComparisons.stream().map(Comparisons.Comparison::semanticHashCode).collect(ImmutableSet.toImmutableSet()).hashCode();
+        return Objects.hash(equalityComparisonsHash, inequalityComparisonsHash);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public ScanComparisons translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        boolean needsCopy = false;
+        final var translatedEqualityComparisonsBuilder = ImmutableList.<Comparisons.Comparison>builder();
+        for (final var comparison : equalityComparisons) {
+            final var translatedComparison = comparison.translateCorrelations(translationMap);
+            translatedEqualityComparisonsBuilder.add(translatedComparison);
+            if (translatedComparison != comparison) {
+                needsCopy = true;
+            }
+        }
+
+        final var translatedInequalityComparisonsBuilder = ImmutableSet.<Comparisons.Comparison>builder();
+        for (final var comparison : inequalityComparisons) {
+            final var translatedComparison = comparison.translateCorrelations(translationMap);
+            translatedInequalityComparisonsBuilder.add(translatedComparison);
+            if (translatedComparison != comparison) {
+                needsCopy = true;
+            }
+        }
+        if (needsCopy) {
+            return withComparisons(translatedEqualityComparisonsBuilder.build(), translatedInequalityComparisonsBuilder.build());
+        }
+        return this;
+    }
+
+    @Nonnull
+    protected ScanComparisons withComparisons(@Nonnull List<Comparisons.Comparison> equalityComparisons,
+                                              @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
+        return new ScanComparisons(equalityComparisons, inequalityComparisons);
+    }
+
+    @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    public boolean equals(Object o) {
+        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
     @Override
     public int hashCode() {
-        return equalityComparisons.hashCode() + inequalityComparisons.hashCode();
+        return semanticHashCode();
     }
 
     @Override

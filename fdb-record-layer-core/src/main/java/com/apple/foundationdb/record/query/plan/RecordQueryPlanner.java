@@ -322,6 +322,20 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (filter == null) {
             plan = planNoFilter(planContext, sort, sortReverse);
         } else {
+            if (configuration.shouldPlanOtherAttemptWholeFilter()) {
+                for (Index index : planContext.indexes) {
+                    if (!indexTypes.getValueTypes().contains(index.getType()) &&
+                            !indexTypes.getRankTypes().contains(index.getType()) &&
+                            !indexTypes.getTextTypes().contains(index.getType())) {
+                        final QueryComponent originalFilter = planContext.query.getFilter();
+                        final CandidateScan candidateScan = new CandidateScan(planContext, index, sortReverse);
+                        ScoredPlan wholePlan = planOther(candidateScan, index, originalFilter, sort, sortReverse, planContext.commonPrimaryKey);
+                        if (wholePlan != null && wholePlan.unsatisfiedFilters.isEmpty()) {
+                            return wholePlan.plan;
+                        }
+                    }
+                }
+            }
             ScoredPlan bestPlan = planFilter(planContext, filter);
             if (bestPlan != null) {
                 plan = bestPlan.plan;
@@ -636,6 +650,13 @@ public class RecordQueryPlanner implements QueryPlanner {
                 }
                 if (p != null) {
                     p = computeIndexFilters(planContext, p);
+                }
+                if (p != null && p.getNumNonSargables() > 0) {
+                    PlanOrderingKey planOrderingKey = PlanOrderingKey.forPlan(metaData, p.plan, planContext.commonPrimaryKey);
+                    if (planOrderingKey != null && sort != null) {
+                        p.planOrderingKey = planOrderingKey;
+                        intersectionCandidates.add(p);
+                    }
                 }
                 return p;
             }

@@ -33,9 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Tests for {@link TransitiveClosure}.
  */
-public class TransitiveClosureTest {
+class TransitiveClosureTest {
     @Test
-    public void testChainedDependencies() {
+    void testChainedDependencies() {
         final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("a"), of("b"), of("c"), of("d"), of("e"));
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder =
                 ImmutableSetMultimap.builder();
@@ -60,7 +60,7 @@ public class TransitiveClosureTest {
     }
 
     @Test
-    public void testNoDependencies() {
+    void testNoDependencies() {
         final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("a"), of("b"), of("c"), of("d"), of("e"));
         final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap = ImmutableSetMultimap.of();
 
@@ -73,7 +73,7 @@ public class TransitiveClosureTest {
     }
 
     @Test
-    public void testSomeDependencies1() {
+    void testSomeDependencies1() {
         final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("a"), of("b"), of("c"), of("d"), of("e"));
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder =
                 ImmutableSetMultimap.builder();
@@ -98,7 +98,7 @@ public class TransitiveClosureTest {
     }
 
     @Test
-    public void testSomeDependencies2() {
+    void testSomeDependencies2() {
         final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("a"), of("b"), of("c"), of("d"), of("e"));
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder =
                 ImmutableSetMultimap.builder();
@@ -121,7 +121,7 @@ public class TransitiveClosureTest {
     }
 
     @Test
-    public void testSomeDependencies3() {
+    void testSomeDependencies3() {
         final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("a"), of("b"), of("c"), of("d"), of("e"));
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder =
                 ImmutableSetMultimap.builder();
@@ -142,7 +142,7 @@ public class TransitiveClosureTest {
     }
 
     @Test
-    public void testSomeDependencies4() {
+    void testSomeDependencies4() {
         final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("a"), of("b"), of("c"), of("d"), of("e"));
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder =
                 ImmutableSetMultimap.builder();
@@ -168,7 +168,7 @@ public class TransitiveClosureTest {
     }
 
     @Test
-    public void testCircularDependencies1() {
+    void testCircularDependencies1() {
         final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("a"), of("b"), of("c"), of("d"), of("e"));
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder =
                 ImmutableSetMultimap.builder();
@@ -186,7 +186,7 @@ public class TransitiveClosureTest {
     }
 
     @Test
-    public void testCircularDependencies2() {
+    void testCircularDependencies2() {
         final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("a"), of("b"), of("c"), of("d"), of("e"));
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder =
                 ImmutableSetMultimap.builder();
@@ -200,5 +200,26 @@ public class TransitiveClosureTest {
         final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap = builder.build();
 
         assertThrows(IllegalArgumentException.class, () -> TransitiveClosure.transitiveClosure(set, dependsOnMap));
+    }
+
+    @Test
+    void testDoublyUsedDependencies() {
+        final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("c11"), of("c53"), of("c69"), of("c88"));
+        final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder =
+                ImmutableSetMultimap.builder();
+
+        builder.putAll(of("c11"), of("c88"), of("c53"));
+        builder.putAll(of("c88"), of("c69"), of("c53"));
+        final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap = builder.build();
+
+        final SetMultimap<CorrelationIdentifier, CorrelationIdentifier> transitiveClosure =
+                TransitiveClosure.transitiveClosure(set, dependsOnMap);
+
+        assertEquals(
+                ImmutableSetMultimap.<CorrelationIdentifier, CorrelationIdentifier>builder()
+                        .putAll(of("c88"), of("c69"), of("c53"))
+                        .putAll(of("c11"), of("c69"), of("c53"), of("c88"))
+                        .build(),
+                transitiveClosure);
     }
 }

@@ -105,7 +105,7 @@ public class ReferenceMatchers {
     @SuppressWarnings("unchecked")
     public static BindingMatcher<Collection<PlanPartition>> rollUpTo(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream, @Nonnull final Set<PlanProperty<?>> interestingAttributes) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
-                Extractor.of(planPartitions -> PlanPartition.rollUpTo(planPartitions, interestingAttributes), name -> "filtered planPartitions(" + name + ")"),
+                Extractor.of(planPartitions -> PlanPartition.rollUpTo(planPartitions, interestingAttributes), name -> "rolled up planPartitions(" + name + ")"),
                 downstream);
     }
 

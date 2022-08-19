@@ -22,20 +22,21 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
@@ -72,11 +73,42 @@ public class DataAccessRule extends AbstractDataAccessRule<RelationalExpression>
         super(rootMatcher, completeMatchMatcher, expressionMatcher);
     }
 
-    @Nonnull
     @Override
-    protected ExpressionRef<? extends RelationalExpression> inject(@Nonnull RelationalExpression expression,
-                                                                   @Nonnull List<? extends PartialMatch> completeMatches,
-                                                                   @Nonnull final ExpressionRef<? extends RelationalExpression> compensatedScanGraph) {
-        return compensatedScanGraph;
+    public void onMatch(@Nonnull final PlannerRuleCall call) {
+        final var bindings = call.getBindings();
+        final var completeMatches = bindings.getAll(getCompleteMatchMatcher());
+        if (completeMatches.isEmpty()) {
+            return;
+        }
+
+        final var expression = bindings.get(getExpressionMatcher());
+
+        if (expression.getQuantifiers().size() != 1) {
+            return;
+        }
+
+        //
+        // return if there is no pre-determined interesting ordering
+        //
+        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        if (requestedOrderingsOptional.isEmpty()) {
+            return;
+        }
+
+        final var requestedOrderings = requestedOrderingsOptional.get();
+
+        final var matchPartition =
+                completeMatches
+                        .stream()
+                        .filter(match -> {
+                            final var matchedQuantifiers =
+                                    expression.computeMatchedQuantifiers(match);
+                            return matchedQuantifiers.size() == 1;
+                        })
+                        .collect(ImmutableList.toImmutableList());
+
+        call.yield(dataAccessForMatchPartition(call.getContext(),
+                requestedOrderings,
+                matchPartition));
     }
 }

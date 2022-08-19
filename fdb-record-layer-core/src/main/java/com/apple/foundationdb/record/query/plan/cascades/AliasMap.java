@@ -162,8 +162,10 @@ import java.util.function.Function;
  *
  */
 public class AliasMap {
+    @Nonnull
     private static final AliasMap EMPTY = new AliasMap(ImmutableBiMap.of());
 
+    @Nonnull
     private final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map;
 
     /**

@@ -42,7 +42,7 @@ public class PlanPartition {
 
     public PlanPartition(final Map<PlanProperty<?>, ?> attributesMap, final Collection<RecordQueryPlan> plans) {
         this.attributesMap = ImmutableMap.copyOf(attributesMap);
-        this.plans = ImmutableSet.copyOf(plans);
+        this.plans = new LinkedIdentitySet<>(plans);
     }
 
     public Map<PlanProperty<?>, ?> getAttributesMap() {

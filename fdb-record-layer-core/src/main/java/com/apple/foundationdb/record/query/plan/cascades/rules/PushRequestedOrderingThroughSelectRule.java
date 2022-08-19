@@ -77,6 +77,7 @@ public class PushRequestedOrderingThroughSelectRule extends PlannerRule<SelectEx
                         .orElse(ImmutableSet.of());
 
         if (isInnerQuantifierOnlyForEach) {
+            // TODO we can only really do this if the SELECT is a SELECT *
             call.pushConstraint(lowerRef,
                     RequestedOrderingConstraint.REQUESTED_ORDERING,
                     requestedOrderings);

@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryPlanUtils;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -202,5 +204,14 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), planOrderingKey, storedFields);
+    }
+
+    @Nonnull
+    @Override
+    protected RecordQueryIndexPlan withIndexScanParameters(@Nonnull final IndexScanParameters newIndexScanParameters) {
+        Verify.verify(newIndexScanParameters instanceof LuceneScanParameters);
+
+        // TODO this seems to be too simplistic
+        return new LuceneIndexQueryPlan(getIndexName(), (LuceneScanParameters)newIndexScanParameters, reverse, planOrderingKey, storedFields);
     }
 }

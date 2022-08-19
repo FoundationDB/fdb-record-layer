@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,7 +50,7 @@ public class PrimitiveMatchers {
             @Nonnull
             @Override
             public Class<T> getRootClass() {
-                // Note: We should have the caller pass in a class object as we for many other matchers. However,
+                // Note: We should have the caller pass in a class object as we do for many other matchers. However,
                 // this is not needed as this matcher is not used on top level purposes. Thus, we can avoid that additional
                 // parameter for the sake of readability of the matcher API.
                 throw new RecordCoreException("this should return T.class");
@@ -106,6 +107,46 @@ public class PrimitiveMatchers {
             @Override
             public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
                 return "match " + boundId + " { case {" + elements.stream().map(Object::toString).collect(Collectors.joining(", ")) + "} in " + boundId + " => success }";
+            }
+        };
+    }
+
+    @Nonnull
+    public static <T> BindingMatcher<T> satisfies(@Nonnull final Predicate<T> predicate) {
+        return new BindingMatcher<>() {
+            @Nonnull
+            @Override
+            public Class<T> getRootClass() {
+                // Note: We should have the caller pass in a class object as we do for many other matchers. However,
+                // this is not needed as this matcher is not used on top level purposes. Thus, we can avoid that additional
+                // parameter for the sake of readability of the matcher API.
+                throw new RecordCoreException("this should return T.class");
+            }
+
+            @Nonnull
+            @Override
+            @SuppressWarnings("unchecked")
+            public Stream<PlannerBindings> bindMatches(@Nonnull final PlannerBindings outerBindings, @Nonnull final Object object) {
+                final T in = (T)object;
+                return bindMatchesSafely(outerBindings, in);
+            }
+
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+                return Stream.of(PlannerBindings.from(this, in))
+                        .flatMap(bindings -> {
+                            if (predicate.test(in)) {
+                                return Stream.of(bindings);
+                            } else {
+                                return Stream.empty();
+                            }
+                        });
+            }
+
+            @Override
+            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+                return "match " + boundId + " { case { predicate.test(" + boundId + ") => success }";
             }
         };
     }

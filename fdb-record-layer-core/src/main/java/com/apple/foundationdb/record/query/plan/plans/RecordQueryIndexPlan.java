@@ -70,9 +70,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -115,7 +115,7 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable {
+public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable, RecordQueryPlanWithMatchCandidate {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIndexPlan.class);
     protected static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
 
@@ -400,15 +400,27 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return ImmutableSet.of();
+        return scanParameters.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     public RecordQueryIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        // TODO make return this dependent on whether the index scan is correlated according to the translation map
-        return this;
+        Verify.verify(translatedQuantifiers.isEmpty());
+        return withIndexScanParameters(scanParameters.translateCorrelations(translationMap));
+    }
+
+    @Nonnull
+    protected RecordQueryIndexPlan withIndexScanParameters(@Nonnull final IndexScanParameters newIndexScanParameters) {
+        return new RecordQueryIndexPlan(indexName,
+                commonPrimaryKey,
+                newIndexScanParameters,
+                indexFetchMethod,
+                reverse,
+                strictlySorted,
+                matchCandidateOptional,
+                resultType);
     }
 
     @Nonnull

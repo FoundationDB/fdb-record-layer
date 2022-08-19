@@ -361,21 +361,12 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     @Override
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
+                                                 @Nonnull CorrelationIdentifier sourceAlias,
                                                  @Nonnull CorrelationIdentifier targetAlias) {
-
-        final Set<Value> quantifiedObjectValues = ImmutableSet.copyOf(value.filter(v -> v instanceof QuantifiedObjectValue));
-
-        // if this is a value that is referring to more than one value from its quantifier or two multiple quantifiers
-        if (quantifiedObjectValues.size() != 1) {
-            return Optional.empty();
-        }
-
-        final QuantifiedObjectValue quantifiedObjectValue = (QuantifiedObjectValue)Iterables.getOnlyElement(quantifiedObjectValues);
-
         // replace the quantified column value inside the given value with the quantified value in the match candidate
         final var baseObjectValue = QuantifiedObjectValue.of(baseAlias);
         final Value translatedValue =
-                value.rebase(AliasMap.of(quantifiedObjectValue.getAlias(), baseAlias));
+                value.rebase(AliasMap.of(sourceAlias, baseAlias));
         final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseAlias));
 
         for (final Value matchResultValue : Iterables.concat(ImmutableList.of(baseObjectValue), indexKeyValues)) {
