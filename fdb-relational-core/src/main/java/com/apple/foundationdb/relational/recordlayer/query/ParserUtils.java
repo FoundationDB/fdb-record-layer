@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -184,7 +185,7 @@ public final class ParserUtils {
             matchFound = true;
         }
         Scopes.Scope scope = parserContext.getCurrentScope();
-        for (final var qun : scope.getAllQuantifiers()) {
+        for (final var qun : scope.getAllQuantifiers().stream().filter(q -> q instanceof Quantifier.ForEach).collect(Collectors.toList())) {
             for (final Column<? extends Value> column : qun.getFlowedColumns()) {
                 if (column.getField().getFieldName().equals(topLevelFieldPart)) {
                     if (matchFound) {

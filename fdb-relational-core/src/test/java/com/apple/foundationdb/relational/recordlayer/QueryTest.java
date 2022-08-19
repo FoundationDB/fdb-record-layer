@@ -31,10 +31,10 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -45,6 +45,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
@@ -55,8 +56,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -664,6 +663,95 @@ public class QueryTest {
                                         Pair.of(401L, "wow")))));
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.\"endorsementText\"='wow'))")) {
                     ResultSetAssert.assertThat(resultSet).containsRowsExactly(l42);
+                }
+            }
+        }
+    }
+
+    @Test
+    void testSubquery() throws Exception {
+        final String schema = "CREATE STRUCT customer_detail(name string, phone_number string, address string) " +
+                "CREATE STRUCT messages(\"TEXT\" string, timestamp int64,sent boolean) " +
+                "CREATE TABLE conversations(id int64, other_party CONTACT_DETAIL, messages MESSAGES ARRAY,primary key(id))";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                final Message row1 = statement.getDataBuilder("CONVERSATIONS")
+                        .setField("ID", 0L)
+                        .setField("OTHER_PARTY", statement.getDataBuilder("CONTACT_DETAIL")
+                                .setField("NAME", "Arnaud")
+                                .setField("PHONE_NUMBER", 12345)
+                                .setField("ADDRESS", "6 Part Road")
+                                .build())
+                        .addRepeatedField("MESSAGES", statement.getDataBuilder("MESSAGES")
+                                .setField("TEXT", "Hello there!")
+                                .setField("TIMESTAMP", 10000)
+                                .setField("SENT", true)
+                                .build())
+                        .addRepeatedField("MESSAGES", statement.getDataBuilder("MESSAGES")
+                                .setField("TEXT", "Hi Scott!")
+                                .setField("TIMESTAMP", 20000)
+                                .setField("SENT", false)
+                                .build())
+                        .build();
+                int cnt = statement.executeInsert("CONVERSATIONS", row1);
+                Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                final Message row2 = statement.getDataBuilder("CONVERSATIONS")
+                        .setField("ID", 1L)
+                        .setField("OTHER_PARTY", statement.getDataBuilder("CONTACT_DETAIL")
+                                .setField("NAME", "Bri")
+                                .setField("PHONE_NUMBER", 9876543)
+                                .setField("ADDRESS", "10 Chancery Lane")
+                                .build())
+                        .addRepeatedField("MESSAGES", statement.getDataBuilder("MESSAGES")
+                                .setField("TEXT", "Hello there")
+                                .setField("TIMESTAMP", 30000)
+                                .setField("SENT", true)
+                                .build())
+                        .addRepeatedField("MESSAGES", statement.getDataBuilder("MESSAGES")
+                                .setField("TEXT", "What a nice weather today!")
+                                .setField("TIMESTAMP", 40000)
+                                .setField("SENT", true)
+                                .build())
+                        .build();
+                cnt = statement.executeInsert("CONVERSATIONS", row2);
+                Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                var query = "select other_party.name, msg_texts.text, msg_texts.timestamp from conversations c, (select text, timestamp from c.messages where timestamp > 25000) as msg_texts";
+                try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals("Bri", resultSet.getString(1));
+                    Assertions.assertEquals("Hello there", resultSet.getString(2));
+                    Assertions.assertEquals("30000", resultSet.getString(3)); // no support yet for getInt
+
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals("Bri", resultSet.getString(1));
+                    Assertions.assertEquals("What a nice weather today!", resultSet.getString(2));
+                    Assertions.assertEquals("40000", resultSet.getString(3)); // no support yet for getInt
+                    
+                    Assertions.assertFalse(resultSet.next());
+                }
+
+                query = "select other_party.name, msg_texts.text, msg_texts.timestamp from conversations c, (select text, timestamp from c.messages where timestamp > 19000 and timestamp < 32000) as msg_texts";
+                try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals("Arnaud", resultSet.getString(1));
+                    Assertions.assertEquals("Hi Scott!", resultSet.getString(2));
+                    Assertions.assertEquals("20000", resultSet.getString(3)); // no support yet for getInt
+
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals("Bri", resultSet.getString(1));
+                    Assertions.assertEquals("Hello there", resultSet.getString(2));
+                    Assertions.assertEquals("30000", resultSet.getString(3)); // no support yet for getInt
+
+                    Assertions.assertFalse(resultSet.next());
+                }
+
+                query = "select other_party.name from conversations c where exists (select * from c.messages where text = 'What a nice weather today!')";
+                try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals("Bri", resultSet.getString(1));
+                    Assertions.assertFalse(resultSet.next());
                 }
             }
         }
