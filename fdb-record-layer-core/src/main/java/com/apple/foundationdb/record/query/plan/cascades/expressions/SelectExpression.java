@@ -429,11 +429,11 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     //
                     predicateMappingsBuilder.add(ImmutableSet.<PredicateMapping>builder()
                             .addAll(impliedMappingsForPredicate)
-                            .add(PredicateMapping.noMapping(predicate))
+                            .add(PredicateMapping.noMappingCorrelated(predicate))
                             .build());
                 }
             } else {
-                predicateMappingsBuilder.add(ImmutableSet.of(PredicateMapping.noMapping(predicate)));
+                predicateMappingsBuilder.add(ImmutableSet.of(PredicateMapping.noMappingUncorrelated(predicate)));
             }
         }
 
@@ -515,7 +515,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     // Go through the set of predicates a second time to check if using this match may not be optimal.
                     //
                     for (final var predicateMapping : predicateMappings) {
-                        if (!predicateMapping.hasMapping()) {
+                        if (!predicateMapping.hasMapping() &&
+                                predicateMapping.getMappingKind() == PredicateMapping.Kind.CORRELATED) {
                             //
                             // We didn't record a mapping for this particular predicate. That can only have happened
                             // because we didn't want to repossess the predicate for this candidate for this set of
@@ -526,10 +527,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                             // current predicate has lesser requirements, that is, its correlations are a subset of the
                             // alias we already know are free to use, we reject this match as it is not optimal.
                             //
+                            final var predicate = predicateMapping.getQueryPredicate();
+
                             if (StreamSupport.stream(computeLocalNonMatchedCorrelations(aliasMap,
                                                     aliasToQuantifierMap,
                                                     dependsOnMap,
-                                                    predicateMapping.getQueryPredicate()).spliterator(),
+                                                    predicate).spliterator(),
                                             false)
                                     .allMatch(allLocalNonMatchedCorrelations::contains)) {
                                 // This match is not optimal and could be better
