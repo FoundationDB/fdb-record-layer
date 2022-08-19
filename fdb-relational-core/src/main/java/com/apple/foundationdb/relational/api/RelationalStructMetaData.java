@@ -123,7 +123,7 @@ public class RelationalStructMetaData implements StructMetaData {
             int adjustedColPosition = leadingPhantomColumnOffset + (oneBasedColumn - 1);
             return columns[adjustedColPosition];
         } catch (ArrayIndexOutOfBoundsException aie) {
-            throw new InvalidColumnReferenceException("Position <" + oneBasedColumn + "> is not valid. Struct has " + getColumnCount() + " fields")
+            throw new InvalidColumnReferenceException("Position <" + oneBasedColumn + "> is not valid. Struct has " + getColumnCount() + " columns")
                     .toSqlException();
         }
     }
