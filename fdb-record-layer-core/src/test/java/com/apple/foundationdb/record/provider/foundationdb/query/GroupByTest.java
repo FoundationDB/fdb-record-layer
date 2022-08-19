@@ -79,7 +79,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
                 this::constructGroupByPlan,
-                Optional.of(ImmutableSet.of("MySimpleRecord")),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
@@ -101,7 +100,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         final var cascadesPlanner = (CascadesPlanner)planner;
         Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
                 this::constructGroupByPlan,
-                Optional.of(ImmutableSet.of("MySimpleRecord")),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
