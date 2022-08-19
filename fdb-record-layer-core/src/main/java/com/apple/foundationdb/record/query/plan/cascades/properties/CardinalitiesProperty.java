@@ -277,8 +277,10 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         if (element.getGroupingValue() == null) {
             return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
         }
-        // TODO (yhatem): if the grouping value is constant, we could either return no result or a single row depending
-        //  on whether the child result set is empty or not.
+        // if the grouping value is constant, the cardinality ranges between 0 and 1.
+        if (element.getGroupingValue().isConstant()) {
+            return new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(1L));
+        }
         return Cardinalities.unknownCardinalities();
     }
 
@@ -384,8 +386,10 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         if (element.getGroupingValue() == null) {
             return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
         }
-        // TODO (yhatem): if the grouping value is constant, we could either return no result or a single row depending
-        //  on whether the child result set is empty or not.
+        // if the grouping value is constant, the cardinality ranges between 0 and 1.
+        if (element.getGroupingValue().isConstant()) {
+            return new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(1L));
+        }
         return Cardinalities.unknownCardinalities();
     }
 

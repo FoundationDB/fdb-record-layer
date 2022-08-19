@@ -279,7 +279,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Nonnull
     private RequestedOrdering computeRequestOrdering() {
-        if (getGroupingValue() == null) {
+        if (getGroupingValue() == null || getGroupingValue().isConstant()) {
             return RequestedOrdering.preserve();
         }
         // deriving the ordering columns correctly requires fix for https://github.com/FoundationDB/fdb-record-layer/issues/1212
