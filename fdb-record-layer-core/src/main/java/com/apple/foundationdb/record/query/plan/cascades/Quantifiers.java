@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Physical;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.ComputingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.graph.DependencyUtils;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.FindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.GenericMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
@@ -46,6 +47,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -72,12 +74,12 @@ public class Quantifiers {
 
     @Nonnull
     public static Set<CorrelationIdentifier> aliases(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
-        return StreamSupport.stream(quantifiers.spliterator(), false).map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
+        return DependencyUtils.computeAliases(quantifiers, Quantifier::getAlias);
     }
 
     @Nonnull
     public static Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
-        return StreamSupport.stream(quantifiers.spliterator(), false).collect(ImmutableMap.toImmutableMap(Quantifier::getAlias, Function.identity()));
+        return DependencyUtils.computeAliasToElementMap(quantifiers, Quantifier::getAlias);
     }
 
     /**
@@ -186,6 +188,16 @@ public class Quantifiers {
         return quantifiers.stream()
                 .map(narrowedClass::cast)
                 .collect(Collectors.toSet());
+    }
+
+    @Nonnull
+    public static SetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMap(@Nonnull Iterable<? extends Quantifier> quantifiers) {
+        return computeDependsOnMap(quantifiers, aliasToQuantifierMap(quantifiers));
+    }
+
+    @Nonnull
+    public static SetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMap(@Nonnull Iterable<? extends Quantifier> quantifiers, @Nonnull Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap) {
+        return DependencyUtils.computeDependsOnMapWithAliases(aliasToQuantifierMap.keySet(), aliasToQuantifierMap, Quantifier::getCorrelatedTo);
     }
 
     /**

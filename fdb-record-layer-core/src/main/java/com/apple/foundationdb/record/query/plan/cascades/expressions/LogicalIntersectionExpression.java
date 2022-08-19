@@ -52,7 +52,7 @@ import java.util.stream.Collectors;
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
 @API(API.Status.INTERNAL)
-public class LogicalIntersectionExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+public class LogicalIntersectionExpression implements RelationalExpressionWithChildren.ChildrenAsSet, InternalPlannerGraphRewritable {
     public static final Logger LOGGER = LoggerFactory.getLogger(LogicalIntersectionExpression.class);
 
     private static final String INTERSECT = "∩"; // U+2229

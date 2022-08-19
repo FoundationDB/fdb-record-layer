@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -63,11 +62,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.choose;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.canBeImplemented;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.owning;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -82,19 +84,23 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> outerPlanPartitionsMatcher = anyPlanPartition();
     @Nonnull
-    private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(planPartitions(any(outerPlanPartitionsMatcher)));
+    private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(planPartitions(rollUp(all(outerPlanPartitionsMatcher))));
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionsMatcher = anyPlanPartition();
     @Nonnull
-    private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(planPartitions(any(innerPlanPartitionsMatcher)));
+    private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(planPartitions(rollUp(all(innerPlanPartitionsMatcher))));
+    @Nonnull
+    private static final BindingMatcher<SelectExpression> selectExpression = selectExpression();
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(choose(outerQuantifierMatcher, innerQuantifierMatcher));
+            selectExpression
+                    .where(canBeImplemented())
+                    .and(owning(choose(outerQuantifierMatcher, innerQuantifierMatcher)));
 
     @Nonnull
-    private static final String outerFieldName = "outer";
+    private static final String OUTER_FIELD_NAME = "outer";
     @Nonnull
-    private static final String innerFieldName = "inner";
+    private static final String INNER_FIELD_NAME = "inner";
 
     public ImplementNestedLoopJoinRule() {
         // TODO figure out which constraints this rule should be sensitive to
@@ -109,17 +115,17 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
             return;
         }
         final var requestedOrderings = requestedOrderingsOptional.get();
-
         final var bindings = call.getBindings();
-
         final var selectExpression = bindings.get(root);
+        Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("matched SelectExpression", "legs", selectExpression.getQuantifiers().size())));
+
         final var outerQuantifier = bindings.get(outerQuantifierMatcher);
         final var innerQuantifier = bindings.get(innerQuantifierMatcher);
 
         final var outerPartition = bindings.get(outerPlanPartitionsMatcher);
         final var innerPartition = bindings.get(innerPlanPartitionsMatcher);
 
-        final var joinName = Debugger.mapDebugger(debugger -> debugger.nameForObject(outerQuantifier) + " ⨝ " + debugger.nameForObject(innerQuantifier)).orElse("not in debug mode");
+        final var joinName = Debugger.mapDebugger(debugger -> debugger.nameForObject(call.getRoot()) + "[" + debugger.nameForObject(selectExpression) + "]: " + outerQuantifier.getAlias() + " ⨝ " + innerQuantifier.getAlias()).orElse("not in debug mode");
         Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("attempting join", "joinedTables", joinName, "requestedOrderings", requestedOrderings)));
 
         final var fullCorrelationOrder =
@@ -144,7 +150,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         // as creating a join with that outer and inner combination would leave no place for the middle to be planned.
         //
 
-        final var innerDependencies = fullCorrelationOrder.get(outerAlias);
+        final var innerDependencies = fullCorrelationOrder.get(innerAlias);
 
         for (final var quantifier : selectExpression.getQuantifiers()) {
             final var alias = quantifier.getAlias();
@@ -183,8 +189,8 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
             }
         }
 
-        List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
-        List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
+        final List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
+        final List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
         final List<QueryPredicate> otherPredicates = otherPredicatesBuilder.build();
 
         if (innerQuantifier instanceof Quantifier.Existential) {
@@ -194,9 +200,39 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
             //
             if (otherPredicates.stream()
                     .flatMap(otherPredicate -> otherPredicate.getCorrelatedTo().stream())
-                    .anyMatch(alias -> alias.equals(innerAlias))) {
+                    .noneMatch(alias -> alias.equals(innerAlias))) {
                 return;
             }
+        }
+
+        final var remainingQuantifiers =
+                selectExpression.getQuantifiers()
+                        .stream()
+                        .filter(quantifier -> quantifier != innerQuantifier && quantifier != outerQuantifier)
+                        .map(quantifier -> (Quantifier)quantifier)
+                        .collect(ImmutableList.toImmutableList());
+
+        final var remainingQuantifiersCorrelatedTo =
+                remainingQuantifiers
+                        .stream()
+                        .flatMap(quantifier -> quantifier.getCorrelatedTo().stream())
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final var remainingAreCorrelatedToOuter = remainingQuantifiersCorrelatedTo.contains(outerAlias);
+        final var remainingAreCorrelatedToInner = remainingQuantifiersCorrelatedTo.contains(innerAlias);
+        if (remainingAreCorrelatedToOuter || remainingAreCorrelatedToInner) {
+            //
+            // We don't want to implement such a join. The reasoning is that the remaining quantifiers would have
+            // to be translated to deconstruct a tuple (outer, inner) in a way that a previous straight reference
+            // to an alias would now be a FieldValue(newAlias, "outer") which is fine by itself but does require
+            // re-exploration of the translated (rebased graph) which we want to avoid if possible.
+            // By returning here we simply disallow such plans and only allow plans to be implemented which are
+            // right-deep such that the remaining quantifiers can consume outer and inner as correlations without
+            // translations.
+            // Note this is not detrimental to index planning as that is implemented through a different set of rules
+            // entirely.
+            //
+            return;
         }
 
         //
@@ -218,11 +254,22 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         //     outer                                    inner
         //
 
-        var newOuterQuantifier =
-                Quantifier.physicalBuilder().withAlias(outerAlias).build(GroupExpressionRef.from(outerPartition.getPlans()));
-        if (!outerPredicates.isEmpty()) {
+        final Quantifier.Physical newOuterQuantifier;
+        if (outerPredicates.isEmpty()) {
+            // create a new quantifier using the outer alias
             newOuterQuantifier =
-                    Quantifier.physical(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newOuterQuantifier, outerPredicates)));
+                    Quantifier.physicalBuilder().withAlias(outerAlias).build(GroupExpressionRef.from(outerPartition.getPlans()));
+        } else {
+            // create a new quantifier using a new alias
+            final var newOuterLowerQuantifier =
+                    Quantifier.physicalBuilder().build(GroupExpressionRef.from(outerPartition.getPlans()));
+            final var newOuterPredicates =
+                    QueryPredicate.translatePredicates(TranslationMap.rebaseWithAliasMap(AliasMap.of(outerAlias, newOuterLowerQuantifier.getAlias())), outerPredicates);
+            // create the new outer quantifier that uses the original outer alias
+            newOuterQuantifier =
+                    Quantifier.physicalBuilder()
+                            .withAlias(outerAlias)
+                            .build(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, newOuterPredicates)));
         }
 
         var newInnerQuantifier =
@@ -230,18 +277,22 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
 
         if (innerQuantifier instanceof Quantifier.Existential) {
             newInnerQuantifier =
-                    Quantifier.physical(GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(newInnerQuantifier, new NullValue(innerQuantifier.getFlowedObjectType()))));
+                    Quantifier.physicalBuilder()
+                            .withAlias(innerAlias)
+                            .build(GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(newInnerQuantifier, new NullValue(innerQuantifier.getFlowedObjectType()))));
         }
 
         if (!outerInnerPredicates.isEmpty()) {
-            outerInnerPredicates =
+            final var newOuterInnerPredicates =
                     rewritePredicates(TranslationMap.rebaseWithAliasMap(AliasMap.of(innerAlias, newInnerQuantifier.getAlias())),
                             innerAlias,
                             newInnerQuantifier.getFlowedObjectType(),
                             outerInnerPredicates);
 
             newInnerQuantifier =
-                    Quantifier.physical(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newInnerQuantifier, outerInnerPredicates)));
+                    Quantifier.physicalBuilder()
+                            .withAlias(innerAlias)
+                            .build(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newInnerQuantifier, newOuterInnerPredicates)));
         }
 
         final var outerValue = QuantifiedObjectValue.of(newOuterQuantifier.getAlias(), outerQuantifier.getFlowedObjectType());
@@ -250,8 +301,8 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         final var joinedResultValue =
                 RecordConstructorValue.ofColumns(
                         ImmutableList.of(
-                                Column.of(Type.Record.Field.of(outerValue.getResultType(), Optional.of(outerFieldName)), outerValue),
-                                Column.of(Type.Record.Field.of(innerValue.getResultType(), Optional.of(innerFieldName)), innerValue)));
+                                Column.of(Type.Record.Field.of(outerValue.getResultType(), Optional.of(OUTER_FIELD_NAME)), outerValue),
+                                Column.of(Type.Record.Field.of(innerValue.getResultType(), Optional.of(INNER_FIELD_NAME)), innerValue)));
 
         final var joinedAlias = CorrelationIdentifier.uniqueID();
         final var joinedQuantifier =
@@ -266,23 +317,15 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
         final var translationMap =
                 TranslationMap.builder()
                         .when(outerAlias).then(joinedAlias, (sourceAlias, targetAlias, leafValue) ->
-                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), outerFieldName, leafValue))
+                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), OUTER_FIELD_NAME, leafValue))
                         .when(innerAlias).then(joinedAlias, (sourceAlias, targetAlias, leafValue) ->
-                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), innerFieldName, leafValue))
+                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), INNER_FIELD_NAME, leafValue))
                         .build();
 
-        final var remainingQuantifiers =
-                selectExpression.getQuantifiers()
-                        .stream()
-                        .filter(quantifier -> quantifier != innerQuantifier && quantifier != outerQuantifier)
-                        .map(quantifier -> (Quantifier)quantifier)
-                        .collect(ImmutableList.toImmutableList());
-
-        final var translatedQuantifiers = Quantifiers.translateCorrelations(remainingQuantifiers, translationMap);
 
         final var newQuantifiers =
                 ImmutableList.<Quantifier>builder()
-                        .addAll(translatedQuantifiers)
+                        .addAll(remainingQuantifiers)
                         .add(joinedQuantifier)
                         .build();
 

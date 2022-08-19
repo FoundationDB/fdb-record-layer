@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.query.plan.cascades.Correlated;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,7 +38,7 @@ import javax.annotation.Nonnull;
  * These parameters are stored in the plan and then bound to the context before passing on to the index maintainer.
  */
 @API(API.Status.UNSTABLE)
-public interface IndexScanParameters extends PlanHashable {
+public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanParameters> {
     /**
      * Get the type of index scan to be performed.
      * @return the scan type
@@ -77,4 +79,7 @@ public interface IndexScanParameters extends PlanHashable {
      * @param attributeMapBuilder builder into which to put attributes
      */
     void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder);
+
+    @Nonnull
+    IndexScanParameters translateCorrelations(@Nonnull TranslationMap translationMap);
 }

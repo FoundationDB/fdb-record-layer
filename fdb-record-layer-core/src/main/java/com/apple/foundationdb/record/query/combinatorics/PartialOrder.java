@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.combinatorics;
 
+import com.apple.foundationdb.record.query.plan.cascades.matching.graph.DependencyUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -68,7 +69,7 @@ public class PartialOrder<T> {
     @Nonnull
     private final Supplier<ImmutableSetMultimap<T, T>> transitiveClosureSupplier;
 
-    public PartialOrder(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
+    private PartialOrder(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
         this.set = ImmutableSet.copyOf(set);
         this.dependencyMap = ImmutableSetMultimap.copyOf(dependencyMap);
         this.dualSupplier = Suppliers.memoize(() -> PartialOrder.of(set, this.dependencyMap.inverse()));
@@ -262,7 +263,7 @@ public class PartialOrder<T> {
     }
 
     public static <T> PartialOrder<T> of(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
-        return new PartialOrder<>(set, dependencyMap);
+        return new PartialOrder<>(set, DependencyUtils.cleanseDependencyMap(set, dependencyMap));
     }
 
     @Nonnull

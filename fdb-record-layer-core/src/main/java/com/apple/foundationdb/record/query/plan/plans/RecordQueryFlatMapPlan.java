@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,6 +51,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A query plan that applies the values it contains over the incoming ones. In a sense, this is similar to the {@code Stream.map()}
@@ -66,6 +68,10 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     @Nonnull
     private final Value resultValue;
     private final boolean inheritOuterRecordProperties;
+    @Nonnull
+    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
+    @Nonnull
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
 
     public RecordQueryFlatMapPlan(@Nonnull final Quantifier.Physical outerQuantifier,
                                   @Nonnull final Quantifier.Physical innerQuantifier,
@@ -75,6 +81,8 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
         this.innerQuantifier = innerQuantifier;
         this.resultValue = resultValue;
         this.inheritOuterRecordProperties = inheritOuterRecordProperties;
+        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+        this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
     }
 
     @Nonnull
@@ -98,8 +106,6 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final Value resultValue = getResultValue();
-
         return RecordCursor.flatMapPipelined(
                 outerContinuation ->
                         outerQuantifier.getRangesOverPlan().executePlan(store, context, continuation, executeProperties),
@@ -145,6 +151,11 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return correlatedToWithoutChildrenSupplier.get();
+    }
+
+    @Nonnull
+    private Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return resultValue.getCorrelatedTo();
     }
 
@@ -212,6 +223,10 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
 
     @Override
     public int hashCodeWithoutChildren() {
+        return hashCodeWithoutChildrenSupplier.get();
+    }
+
+    private int computeHashCodeWithoutChildren() {
         return Objects.hash(getResultValue(), inheritOuterRecordProperties);
     }
 

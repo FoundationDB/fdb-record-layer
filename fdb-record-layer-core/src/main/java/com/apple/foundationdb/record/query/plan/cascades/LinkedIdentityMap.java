@@ -30,6 +30,7 @@ import java.util.AbstractSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 /**
@@ -120,6 +121,11 @@ public class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
     @Override
     public Set<Entry<K, V>> entrySet() {
         return entrySetSupplier.get();
+    }
+
+    @Override
+    public void replaceAll(final BiFunction<? super K, ? super V, ? extends V> function) {
+        map.replaceAll((wrappedK, v) -> function.apply(wrappedK.get(), v));
     }
 
     @Override

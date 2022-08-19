@@ -21,12 +21,13 @@
 package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.cache.Cache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +40,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntUnaryOperator;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of a debugger that maintains symbol tables for easier human consumption e.g. in test cases and/or
@@ -129,6 +131,18 @@ public class DebuggerWithSymbolTables implements Debugger {
             return;
         }
         getCurrentState().addCurrentEvent(event);
+        if (logger.isDebugEnabled()) {
+            if (event.getLocation() == Location.END && event instanceof TransformRuleCallEvent) {
+                final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
+                final CascadesRuleCall ruleCall = transformRuleCallEvent.getRuleCall();
+                final var newExpressions = ruleCall.getNewExpressions();
+                if (!newExpressions.isEmpty()) {
+                    logger.debug(KeyValueLogMessage.of("rule yielded new expression(s)",
+                            "rule", transformRuleCallEvent.getRule().getClass().getSimpleName(),
+                            "expressions", newExpressions.stream().map(this::nameForObject).collect(Collectors.joining(", "))));
+                }
+            }
+        }
     }
 
     @Nullable
@@ -187,7 +201,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     public void onDone() {
         if (!stateStack.isEmpty() && queryAsString != null) {
             final var state = Objects.requireNonNull(stateStack.peek());
-            logger.debug(KeyValueLogMessage.of("planning done",
+            logger.info(KeyValueLogMessage.of("planning done",
                     "query", Objects.requireNonNull(queryAsString).substring(0, 30),
                     "duration-in-ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - state.getStartTs()),
                     "ticks", state.getCurrentTick()));

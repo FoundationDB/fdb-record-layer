@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
@@ -39,6 +40,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -60,7 +63,7 @@ import java.util.stream.StreamSupport;
  * e.g. filter a record out of a set of records, etc.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, PlanHashable {
+public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, PlanHashable, Narrowable<QueryPredicate> {
 
     @Nonnull
     @Override
@@ -321,5 +324,27 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                     .map(predicateWithValue::withValue)
                     .orElse(null);
         });
+    }
+
+    @Nonnull
+    default Set<CorrelationIdentifier> getTransitivelyCorrelatedTo(@Nonnull final Set<CorrelationIdentifier> aliases, @Nonnull final SetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap) {
+        final var predicateCorrelatedToBuilder = ImmutableSet.<CorrelationIdentifier>builder();
+        final var predicateDirectlyCorrelatedTo = Sets.filter(getCorrelatedTo(), aliases::contains);
+        predicateCorrelatedToBuilder.addAll(predicateDirectlyCorrelatedTo);
+        predicateDirectlyCorrelatedTo.forEach(alias -> predicateCorrelatedToBuilder.addAll(dependsOnMap.get(alias)));
+        return predicateCorrelatedToBuilder.build();
+    }
+
+    @Nonnull
+    static List<QueryPredicate> translatePredicates(@Nonnull final TranslationMap translationMap,
+                                                    @Nonnull final List<QueryPredicate> predicates) {
+        final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
+        for (final var predicate : predicates) {
+            final var newOuterInnerPredicate =
+                    predicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap))
+                            .orElseThrow(() -> new RecordCoreException("unable to translate predicate"));
+            resultPredicatesBuilder.add(newOuterInnerPredicate);
+        }
+        return resultPredicatesBuilder.build();
     }
 }

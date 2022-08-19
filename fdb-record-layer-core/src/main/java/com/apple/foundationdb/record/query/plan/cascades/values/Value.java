@@ -258,6 +258,10 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             if (value instanceof LeafValue) {
                 final var leafValue = (LeafValue)value;
                 final var correlatedTo = value.getCorrelatedTo();
+                if (correlatedTo.isEmpty()) {
+                    return leafValue;
+                }
+
                 Verify.verify(correlatedTo.size() == 1);
                 final var sourceAlias = Iterables.getOnlyElement(correlatedTo);
                 if (translationMap.containsSourceAlias(sourceAlias)) {

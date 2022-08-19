@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -181,47 +180,36 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * </li>
      * </ul>
      *
-     * @param call the call associated with this planner rule execution
+     * @param planContext the plan context associated with this planner rule execution
+     * @param requestedOrderings a set of requested orderings
+     * @param matchPartition a match partition of compatibly-matching {@link PartialMatch}es
+     * @return an expression reference that contains all compensated data access plans for the given match partition.
+     *         Note that the reference can also include index-ANDed plans for match intersections and that other matches
+     *         contained in the match partition passed in may not be planned at all.
      */
-    @Override
-    @SuppressWarnings("java:S135")
-    public void onMatch(@Nonnull PlannerRuleCall call) {
-        final var bindings = call.getBindings();
-        final var completeMatches = bindings.getAll(getCompleteMatchMatcher());
-        final var expression = bindings.get(getExpressionMatcher());
-
+    protected ExpressionRef<? extends RelationalExpression> dataAccessForMatchPartition(@Nonnull PlanContext planContext,
+                                                                                        @Nonnull Set<RequestedOrdering> requestedOrderings,
+                                                                                        @Nonnull Collection<? extends PartialMatch> matchPartition) {
         //
         // return if there are no complete matches
         //
-        if (completeMatches.isEmpty()) {
-            return;
-        }
+        Verify.verify(!matchPartition.isEmpty());
 
-        //
-        // return if there is no pre-determined interesting ordering
-        //
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
-        if (requestedOrderingsOptional.isEmpty()) {
-            return;
-        }
-
-        final var requestedOrderings = requestedOrderingsOptional.get();
-
-        final var bestMaximumCoverageMatches = maximumCoverageMatches(completeMatches, requestedOrderings);
+        final var bestMaximumCoverageMatches = maximumCoverageMatches(matchPartition, requestedOrderings);
         if (bestMaximumCoverageMatches.isEmpty()) {
-            return;
+            return GroupExpressionRef.empty();
         }
 
         // create scans for all best matches
         final var bestMatchToExpressionMap =
-                createScansForMatches(bestMaximumCoverageMatches, call.getContext());
+                createScansForMatches(bestMaximumCoverageMatches, planContext);
 
         final var toBeInjectedReference = GroupExpressionRef.empty();
 
         // create single scan accesses
         for (final var bestMatch : bestMaximumCoverageMatches) {
             applyCompensationForSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch.getPartialMatch()))
-                    .ifPresent(toBeInjectedReference::insert);
+                    .ifPresent(toBeInjectedReference::insertUnchecked);
         }
 
         final Map<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
@@ -251,27 +239,21 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     bestMatchToDistinctExpressionMap,
                                     partition,
                                     requestedOrderings).stream())
-                    .forEach(toBeInjectedReference::insert);
+                    .forEach(toBeInjectedReference::insertUnchecked);
         });
-        call.yield(inject(expression, completeMatches, toBeInjectedReference));
+        return toBeInjectedReference;
     }
-
-    @Nonnull
-    @SuppressWarnings("java:S1452")
-    protected abstract ExpressionRef<? extends RelationalExpression> inject(@Nonnull R expression,
-                                                                            @Nonnull List<? extends PartialMatch> completeMatches,
-                                                                            @Nonnull ExpressionRef<? extends RelationalExpression> compensatedScanGraph);
 
     /**
      * Private helper method to eliminate {@link PartialMatch}es whose coverage is entirely contained in other matches
      * (among the matches given).
      * @param matches candidate matches
      * @param interestedOrderings a set of interesting orderings
-     * @return a list of {@link PartialMatch}es that are the maximum coverage matches among the matches handed in
+     * @return a collection of {@link PartialMatch}es that are the maximum coverage matches among the matches handed in
      */
     @Nonnull
     @SuppressWarnings({"java:S1905", "java:S135"})
-    private static List<PartialMatchWithCompensation> maximumCoverageMatches(@Nonnull final List<? extends PartialMatch> matches,
+    private static List<PartialMatchWithCompensation> maximumCoverageMatches(@Nonnull final Collection<? extends PartialMatch> matches,
                                                                              @Nonnull final Set<RequestedOrdering> interestedOrderings) {
         final var partialMatchesWithCompensation =
                 matches
@@ -280,7 +262,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         .filter(partialMatch -> !satisfiedOrderings(partialMatch, interestedOrderings).isEmpty())
                         .map(partialMatch -> new PartialMatchWithCompensation(partialMatch, partialMatch.compensate()))
                         .filter(partialMatchWithCompensation -> !partialMatchWithCompensation.getCompensation().isImpossible())
-                        .sorted(Comparator.comparing((Function<PartialMatchWithCompensation, Integer>)p -> p.getPartialMatch().getBindingPredidcates().size()).reversed())
+                        .sorted(Comparator.comparing((Function<PartialMatchWithCompensation, Integer>)p -> p.getPartialMatch().getBindingPredicates().size()).reversed())
                         .collect(ImmutableList.toImmutableList());
 
         final var maximumCoverageMatchesBuilder = ImmutableList.<PartialMatchWithCompensation>builder();
@@ -288,13 +270,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             final var outerPartialMatchWithCompensation =
                     partialMatchesWithCompensation.get(i);
             final var outerMatch = outerPartialMatchWithCompensation.getPartialMatch();
-            final var outerBindingPredicates = outerMatch.getBindingPredidcates();
+            final var outerBindingPredicates = outerMatch.getBindingPredicates();
 
             var foundContainingInner = false;
             for (var j = 0; j < partialMatchesWithCompensation.size(); j++) {
                 final var innerPartialMatchWithCompensation =
                         partialMatchesWithCompensation.get(j);
-                final var innerBindingPredicates = innerPartialMatchWithCompensation.getPartialMatch().getBindingPredidcates();
+                final var innerBindingPredicates = innerPartialMatchWithCompensation.getPartialMatch().getBindingPredicates();
                 // check if outer is completely contained in inner
                 if (outerBindingPredicates.size() >= innerBindingPredicates.size()) {
                     break;

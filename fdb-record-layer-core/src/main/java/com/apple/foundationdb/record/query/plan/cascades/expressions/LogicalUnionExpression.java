@@ -39,7 +39,7 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalUnionExpression implements RelationalExpressionWithChildren {
+public class LogicalUnionExpression implements RelationalExpressionWithChildren.ChildrenAsSet {
     @Nonnull
     private final List<? extends Quantifier> quantifiers;
     @Nonnull

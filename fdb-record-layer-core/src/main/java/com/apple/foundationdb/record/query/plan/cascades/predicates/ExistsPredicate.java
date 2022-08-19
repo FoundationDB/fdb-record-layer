@@ -169,9 +169,6 @@ public class ExistsPredicate implements LeafQueryPredicate {
     private GraphExpansion injectCompensation(@Nonnull final PartialMatch partialMatch, @Nonnull final TranslationMap translationMap) {
         Verify.verify(!translationMap.containsSourceAlias(existentialAlias));
 
-        //
-        // Find the quantifier referenced by this exists(), translate the graph underneath and recreate a new exists on top
-        //
         final var containingExpression = partialMatch.getQueryExpression();
         Verify.verify(containingExpression.canCorrelate());
 

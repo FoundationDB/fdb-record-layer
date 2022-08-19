@@ -69,11 +69,11 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
     @Nonnull
     default TranslateValueFunction pushValueFunction(final List<TranslateValueFunction> dependentFunctions) {
         Verify.verify(!dependentFunctions.isEmpty());
-        return (value, newBaseQuantifiedValue) -> {
+        return (value, sourceAlias, targetAlias) -> {
             @Nullable Value previousPushedValue = null;
             @Nullable AliasMap equivalencesMap = null;
             for (final TranslateValueFunction dependentFunction : dependentFunctions) {
-                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseQuantifiedValue);
+                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, sourceAlias, targetAlias);
                 if (pushedValueOptional.isEmpty()) {
                     return Optional.empty();
                 }
@@ -94,7 +94,8 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
     @SuppressWarnings("java:S135")
     default Set<CorrelationIdentifier> tryPushValues(@Nonnull final List<TranslateValueFunction> dependentFunctions,
                                                      @Nonnull final List<? extends Quantifier> quantifiers,
-                                                     @Nonnull final Iterable<? extends Value> values) {
+                                                     @Nonnull final Iterable<? extends Value> values,
+                                                     @Nonnull final CorrelationIdentifier sourceAlias) {
         Verify.verify(!dependentFunctions.isEmpty());
         Verify.verify(dependentFunctions.size() == quantifiers.size());
 
@@ -103,10 +104,10 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                         .map(Quantifier::getAlias)
                         .collect(Collectors.toSet());
 
-        final CorrelationIdentifier newBaseAlias = CorrelationIdentifier.uniqueID();
+        final CorrelationIdentifier targetAlias = CorrelationIdentifier.uniqueID();
 
         for (final Value value : values) {
-            final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(newBaseAlias));
+            final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(targetAlias));
             @Nullable Value previousPushedValue = null;
 
             for (int i = 0; i < dependentFunctions.size(); i++) {
@@ -117,7 +118,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                     continue;
                 }
 
-                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseAlias);
+                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, sourceAlias, targetAlias);
 
                 if (pushedValueOptional.isEmpty()) {
                     candidatesAliases.remove(quantifier.getAlias());

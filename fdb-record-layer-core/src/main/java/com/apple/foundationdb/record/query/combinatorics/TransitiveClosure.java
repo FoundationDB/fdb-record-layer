@@ -55,8 +55,8 @@ public class TransitiveClosure {
      * @param <T> type
      * @return the transitive closure
      */
-    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull Set<T> set, @Nonnull final ImmutableSetMultimap<T, T> dependsOnMap) {
-        return transitiveClosure(new PartialOrder<>(set, dependsOnMap));
+    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull Set<T> set, @Nonnull final SetMultimap<T, T> dependsOnMap) {
+        return transitiveClosure(PartialOrder.of(set, dependsOnMap));
     }
 
 
@@ -96,7 +96,7 @@ public class TransitiveClosure {
                     deque.add(using);
                     final ImmutableSet<T> dependsOnSet = dependsOnMap.get(using);
                     for (final T dependsOn : dependsOnSet) {
-                        Verify.verify(resultMap.put(using, dependsOn));
+                        resultMap.put(using, dependsOn);
                         resultMap.get(dependsOn).forEach(ancestor -> resultMap.put(using, ancestor));
                     }
                 }

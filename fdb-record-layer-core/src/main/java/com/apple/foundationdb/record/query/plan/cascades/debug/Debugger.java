@@ -165,6 +165,7 @@ public interface Debugger {
 
     void onQuery(String queryAsString, PlanContext planContext);
 
+    @SuppressWarnings("unused") // only used by debugger
     String showStats();
 
     /**
@@ -179,7 +180,9 @@ public interface Debugger {
         MATCHEXPCAND,
         OPTINPUTS,
         RULECALL,
-        TRANSFORM
+        TRANSFORM,
+        INSERT_INTO_MEMO,
+        TRANSLATE_CORRELATIONS,
     }
 
     /**
@@ -191,7 +194,8 @@ public interface Debugger {
         END,
         MATCH_PRE,
         YIELD,
-        FAILURE
+        FAILURE,
+        COUNT
     }
 
     /**
@@ -244,6 +248,30 @@ public interface Debugger {
     }
 
     /**
+     * Interface for events that hold a group ref.
+     */
+    interface EventWithCurrentGroupReference extends EventWithState {
+        /**
+         * Getter.
+         * @return the current reference of the event.
+         */
+        @Nonnull
+        ExpressionRef<? extends RelationalExpression> getCurrentGroupReference();
+    }
+
+    /**
+     * Events that are created by a or as part of a transformation rule.
+     */
+    interface EventWithRule {
+        /**
+         * Return the rule.
+         * @return the rule
+         */
+        @Nonnull
+        PlannerRule<?> getRule();
+    }
+
+    /**
      * Abstract event class to capture {@code rootReference} amd {@code taskStack}.
      */
     abstract class AbstractEventWithState implements EventWithState {
@@ -284,18 +312,6 @@ public interface Debugger {
     }
 
     /**
-     * Interface for events that hold a group ref.
-     */
-    interface EventWithCurrentGroupReference extends EventWithState {
-        /**
-         * Getter.
-         * @return the current reference of the event.
-         */
-        @Nonnull
-        ExpressionRef<? extends RelationalExpression> getCurrentGroupReference();
-    }
-
-    /**
      * Events of this class are generated every time the planner executes a task.
      */
     class ExecutingTaskEvent extends AbstractEventWithState {
@@ -305,7 +321,7 @@ public interface Debugger {
         public ExecutingTaskEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
                                   @Nonnull final Deque<Task> taskStack,
                                   @Nonnull final Task task) {
-            super(rootReference, taskStack, Location.ANY);
+            super(rootReference, taskStack, Location.COUNT);
             this.task = task;
         }
 
@@ -441,7 +457,7 @@ public interface Debugger {
     /**
      * Events of this class are generated when the planner transforms an expression using a rule.
      */
-    class TransformEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
+    class TransformEvent extends AbstractEventWithState implements EventWithCurrentGroupReference, EventWithRule {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
         @Nonnull
@@ -485,6 +501,7 @@ public interface Debugger {
         }
 
         @Nonnull
+        @Override
         public PlannerRule<?> getRule() {
             return rule;
         }
@@ -657,13 +674,54 @@ public interface Debugger {
         @Override
         @Nonnull
         public String getDescription() {
-            return "optimize inputs";
+            return "insert into memo";
         }
 
         @Nonnull
         @Override
         public Shorthand getShorthand() {
-            return Shorthand.OPTINPUTS;
+            return Shorthand.INSERT_INTO_MEMO;
+        }
+
+        @Nonnull
+        public RelationalExpression getExpression() {
+            return expression;
+        }
+
+        @Nonnull
+        @Override
+        public Location getLocation() {
+            return location;
+        }
+    }
+
+    /**
+     * Events of this class are generated when the planner creates new expressions as part of rebasing or as part of
+     * a translation of correlations in a graph.
+     */
+    class TranslateCorrelationsEvent implements Event {
+        @Nonnull
+        private final RelationalExpression expression;
+
+        @Nonnull
+        private final Location location;
+
+        public TranslateCorrelationsEvent(@Nonnull final RelationalExpression expression,
+                                          @Nonnull final Location location) {
+            this.expression = expression;
+            this.location = location;
+        }
+
+        @Override
+        @Nonnull
+        public String getDescription() {
+            return "translate correlations";
+        }
+
+        @Nonnull
+        @Override
+        public Shorthand getShorthand() {
+            return Shorthand.TRANSLATE_CORRELATIONS;
         }
 
         @Nonnull

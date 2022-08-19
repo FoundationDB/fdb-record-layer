@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -63,11 +64,12 @@ public class MergeProjectionAndFetchRule extends PlannerRule<LogicalProjectionEx
 
         // if the fetch is able to push all values we can eliminate the fetch as well
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = call.get(innerPlanMatcher);
+        final CorrelationIdentifier oldInnerAlias = Iterables.getOnlyElement(projectionExpression.getQuantifiers()).getAlias();
         final CorrelationIdentifier newInnerAlias = CorrelationIdentifier.uniqueID();
         final List<? extends Value> projectedValues = projectionExpression.getProjectedValues();
         final boolean allPushable = projectedValues
                 .stream()
-                .allMatch(value -> fetchPlan.pushValue(value, newInnerAlias).isPresent());
+                .allMatch(value -> fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias).isPresent());
         if (allPushable) {
             // all fields in the projection are already available underneath the fetch
             // we don't need the projection nor the fetch
