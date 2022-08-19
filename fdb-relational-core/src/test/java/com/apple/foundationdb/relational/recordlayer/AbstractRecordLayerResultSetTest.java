@@ -20,13 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -84,7 +86,7 @@ class AbstractRecordLayerResultSetTest {
             Pair.of(Float.class, "getObject"),
             Pair.of(Double.class, "getObject"),
             Pair.of(String.class, "getObject"),
-            Pair.of(Restaurant.RestaurantRecord.class, "getObject"),
+            Pair.of(DynamicMessage.class, "getObject"),
             Pair.of(ArrayList.class, "getObject"));
 
     static Stream<Object> allTypes() {
@@ -96,7 +98,7 @@ class AbstractRecordLayerResultSetTest {
                 0.0,
                 0.0f,
                 "0",
-                Restaurant.RestaurantRecord.newBuilder().setRestNo(39).build(),
+                buildGenericMessage(),
                 new ArrayList<>(List.of(0, 0L, 0.0, 0.0f)));
     }
 
@@ -151,7 +153,7 @@ class AbstractRecordLayerResultSetTest {
                 TestCaseWithResult.of("getObject", 1d, 1d),
                 TestCaseWithResult.of("getObject", 1L, 1L),
                 TestCaseWithResult.of("getObject", "abc", "abc"),
-                TestCaseWithResult.of("getObject", Restaurant.RestaurantRecord.newBuilder().setRestNo(23).build(), Restaurant.RestaurantRecord.newBuilder().setRestNo(23).build()),
+                TestCaseWithResult.of("getObject", buildGenericMessage(), buildGenericMessage()),
                 TestCaseWithResult.of("getObject", List.of(1, 2, 3, 4), List.of(1, 2, 3, 4)));
     }
 
@@ -324,5 +326,9 @@ class AbstractRecordLayerResultSetTest {
         public String toString() {
             return super.toString() + " == " + expected;
         }
+    }
+
+    private static Message buildGenericMessage() {
+        return DynamicMessage.newBuilder(DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(DescriptorProtos.DescriptorProto.newBuilder().build()).build()).build();
     }
 }

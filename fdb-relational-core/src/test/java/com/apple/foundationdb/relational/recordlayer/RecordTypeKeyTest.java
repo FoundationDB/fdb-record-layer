@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.TableScan;
@@ -91,19 +90,17 @@ public class RecordTypeKeyTest {
 
     @Test
     void testScanningWithUnknownKeys() throws RelationalException {
-        Restaurant.RestaurantReview review = Restaurant.RestaurantReview.newBuilder()
-                .setReviewer(678910)
-                .setRating(2)
+        Message review = statement.getDataBuilder("RESTAURANT_REVIEW")
+                .setField("REVIEWER", 678910)
+                .setField("RATING", 2)
                 .build();
-        int count = statement.executeInsert("RESTAURANT_REVIEW",
-                statement.getDataBuilder("RESTAURANT_REVIEW").convertMessage(review)
-        );
+        int count = statement.executeInsert("RESTAURANT_REVIEW", review);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
         TableScan scan = TableScan.newBuilder()
                 .withTableName("RESTAURANT_REVIEW")
-                .setStartKey("REVIEWER", review.getReviewer())
-                .setEndKey("REVIEWER", review.getReviewer() + 1)
+                .setStartKey("REVIEWER", 678910)
+                .setEndKey("REVIEWER", 678911)
                 .build();
         // Scan is expected to rejected because it uses fields which are not included in primary key
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> statement.executeScan(scan, Options.NONE))
