@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -117,7 +116,7 @@ public class CountValue implements Value, AggregateValue {
     @Override
     public CountValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 1);
-        return new CountValue(this.operator, Iterables.get(newChildren, 1));
+        return new CountValue(this.operator, Iterables.get(newChildren, 0));
     }
 
     @Override
@@ -159,7 +158,7 @@ public class CountValue implements Value, AggregateValue {
         }
 
         @Nonnull
-        private static AggregateValue encapsulate(@Nonnull ParserContext parserContext,
+        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
                                                   @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
                                                   @Nonnull final List<Typed> arguments) {
             final Typed arg0 = arguments.get(0);
@@ -179,7 +178,7 @@ public class CountValue implements Value, AggregateValue {
         }
 
         @Nonnull
-        private static AggregateValue encapsulate(@Nonnull ParserContext parserContext,
+        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
                                                   @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
                                                   @Nonnull final List<Typed> arguments) {
             return new CountValue(PhysicalOperator.COUNT_STAR, null);

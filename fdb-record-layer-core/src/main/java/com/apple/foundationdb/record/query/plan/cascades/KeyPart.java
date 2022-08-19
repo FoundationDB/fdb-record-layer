@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -87,5 +89,11 @@ public class KeyPart {
     public static KeyPart of(@Nonnull final KeyExpression normalizedKeyExpression,
                              final boolean isReverse) {
         return new KeyPart(normalizedKeyExpression, isReverse);
+    }
+
+    @Nonnull
+    public static KeyPart of(@Nonnull final Type.Record.Field field) {
+        final var keyExpression = Key.Expressions.field(field.getFieldName());
+        return of(keyExpression, false);
     }
 }

@@ -25,7 +25,7 @@ import java.util.Optional;
 
 /**
  * Base interface to capture constraints for the planner.
- * An instance of this usually class serves as a key in maps, e.g. {@link ConstraintsMap}, much like an
+ * An instance of this class usually serves as a key in maps, e.g. {@link ConstraintsMap}, much like an
  * enum, but provides strong typing.
  * @param <T> the type representing the actual property
  */

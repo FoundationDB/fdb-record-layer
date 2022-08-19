@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-
 import java.util.Arrays;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -74,9 +74,31 @@ public class ValueMatchers {
                 typedWithDownstream(FieldValue.class,
                         Extractor.of(FieldValue::getFieldPath, name -> "fieldPath(" + name + ")"),
                         downstreamFieldPath);
+
         return typedWithDownstream(FieldValue.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<NumericAggregationValue> numericAggregationValue(@Nonnull final String operatorName) {
+        return numericAggregationValue(anyValue(), operatorName);
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<NumericAggregationValue> numericAggregationValue(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                                    @Nonnull final String operatorName) {
+        final TypedMatcherWithExtractAndDownstream<NumericAggregationValue> downstreamValueMatcher =
+                typedWithDownstream(NumericAggregationValue.class,
+                        Extractor.of(NumericAggregationValue::getChild, name -> "child(" + name + ")"),
+                        downstreamValue);
+        final TypedMatcherWithExtractAndDownstream<NumericAggregationValue> downstreamOperatorMatcher =
+                typedWithDownstream(NumericAggregationValue.class,
+                        Extractor.of(NumericAggregationValue::getOperatorName, name -> "operator(" + name + ")"),
+                        PrimitiveMatchers.equalsObject(operatorName));
+        return typedWithDownstream(NumericAggregationValue.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(NumericAggregationValue.class, ImmutableList.of(downstreamValueMatcher, downstreamOperatorMatcher)));
     }
 
     @Nonnull

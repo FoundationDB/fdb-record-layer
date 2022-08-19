@@ -126,7 +126,6 @@ public class StreamGrouping<M extends Message> {
      * </UL>
      *
      * @param currentObject the next object to process
-     *
      * @return true if and only if the next object provided constitutes a group break
      */
     public boolean apply(@Nullable Object currentObject) {

@@ -202,7 +202,7 @@ public class DebuggerWithSymbolTables implements Debugger {
         if (!stateStack.isEmpty() && queryAsString != null) {
             final var state = Objects.requireNonNull(stateStack.peek());
             logger.info(KeyValueLogMessage.of("planning done",
-                    "query", Objects.requireNonNull(queryAsString).substring(0, 30),
+                    "query", Objects.requireNonNull(queryAsString).substring(0, Math.min(queryAsString.length(), 30)),
                     "duration-in-ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - state.getStartTs()),
                     "ticks", state.getCurrentTick()));
         }

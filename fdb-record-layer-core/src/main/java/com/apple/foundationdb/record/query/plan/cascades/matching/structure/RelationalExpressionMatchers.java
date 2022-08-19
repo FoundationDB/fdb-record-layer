@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
@@ -227,5 +228,10 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<ExplodeExpression> explodeExpression() {
         return ofTypeOwning(ExplodeExpression.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(GroupByExpression.class, downstream);
     }
 }

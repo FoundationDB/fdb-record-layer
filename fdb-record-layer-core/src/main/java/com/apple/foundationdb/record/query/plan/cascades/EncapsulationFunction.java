@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 
 import javax.annotation.Nonnull;
@@ -34,10 +35,10 @@ public interface EncapsulationFunction<T extends Typed> {
     /**
      * Produces a {@link Typed} object that is able to carry out a computation against a list of arguments.
      *
-     * @param parserContext The parsing context.
+     * @param typeRepositoryBuilder The type repository builder.
      * @param builtInFunction The function that refers to the computation.
      * @param arguments The arguments needed by the computation.
      * @return A {@link Typed} object capable of doing a runtime computation against a list of arguments.
      */
-    T encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<T> builtInFunction, List<Typed> arguments);
+    T encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<T> builtInFunction, List<Typed> arguments);
 }

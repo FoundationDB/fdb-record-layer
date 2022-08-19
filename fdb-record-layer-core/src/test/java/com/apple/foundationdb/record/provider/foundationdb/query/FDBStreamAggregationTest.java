@@ -115,9 +115,9 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                    .withGroupCriterion("num_value_3_indexed")
-                    .build(useNestedResult);
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withGroupCriterion("num_value_3_indexed")
+                            .build(useNestedResult);
 
             final var result = executePlan(plan);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, 1), resultOf(1, 5), resultOf(2, 9));

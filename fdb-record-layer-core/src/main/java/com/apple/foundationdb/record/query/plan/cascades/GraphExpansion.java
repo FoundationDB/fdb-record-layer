@@ -435,7 +435,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         @Nonnull
         public Builder addAllResultColumns(@Nonnull final Iterable<Column<? extends Value>> addResultColumns) {
             addResultColumns.forEach(this::addResultColumn);
-            return builder();
+            return this;
         }
 
         @Nonnull
