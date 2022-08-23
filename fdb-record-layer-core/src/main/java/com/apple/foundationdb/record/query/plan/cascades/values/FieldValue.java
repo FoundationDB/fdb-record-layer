@@ -104,9 +104,6 @@ public class FieldValue implements ValueWithChild {
         if (!(childResult instanceof Message)) {
             return null;
         }
-        System.out.println("FieldValue childResult:" + (Message)childResult);
-        System.out.println("FieldValue fieldPath:" + fieldPath);
-        // return MessageValue.getFieldValue((Message)childResult, fieldPath);
         final var fieldValue = MessageValue.getFieldValue((Message)childResult, fieldPath);
         //
         // If the last step in the field path is an array that is also nullable, then we need to unwrap the value

@@ -99,7 +99,6 @@ public class OrdinalFieldValue implements ValueWithChild {
         if (childMessage == null) {
             return null;
         }
-        // return MessageValue.getFieldOnMessage(childMessage, field.getFieldIndex());
         final var fieldValue = MessageValue.getFieldOnMessage(childMessage, field.getFieldIndex());
 
         //

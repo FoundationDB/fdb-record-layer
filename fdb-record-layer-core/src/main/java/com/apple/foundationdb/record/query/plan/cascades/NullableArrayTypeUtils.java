@@ -67,6 +67,15 @@ public class NullableArrayTypeUtils {
         }
     }
 
+    public static boolean isArrayWrapper(NestingKeyExpression nestingKeyExpression) {
+        KeyExpression child = nestingKeyExpression.getChild();
+        if (child.toKeyExpression().hasNesting()) {
+            RecordMetaDataProto.Field firstChild = child.toKeyExpression().getNesting().getParent();
+            return repeatedFieldName.equals(firstChild.getFieldName()) && RecordMetaDataProto.Field.FanType.FAN_OUT.equals(firstChild.getFanType());
+        }
+        return false;
+    }
+
     /**
      * Unwrap nested array in keyExpression.
      *
@@ -77,27 +86,11 @@ public class NullableArrayTypeUtils {
     public static NestingKeyExpression unwrapArrayInKeyExpression(NestingKeyExpression nestingKeyExpression) {
         final FieldKeyExpression parent = nestingKeyExpression.getParent();
         final KeyExpression child = nestingKeyExpression.getChild();
-        if (KeyExpression.FanType.None.equals(parent.getFanType()) && child.toKeyExpression().hasNesting()) {
-            RecordMetaDataProto.Field firstChild = child.toKeyExpression().getNesting().getParent();
-            if (repeatedFieldName.equals(firstChild.getFieldName()) && RecordMetaDataProto.Field.FanType.FAN_OUT.equals(firstChild.getFanType())) {
-                // remove firstChild from the KeyExpression
-                RecordMetaDataProto.KeyExpression newChild = child.toKeyExpression().getNesting().getChild();
-                RecordMetaDataProto.Nesting.Builder newNestingBuilder;
-                if (newChild.hasNesting()) {
-                    // recursively remove all wrapped array
-                    NestingKeyExpression unwrappedChild = unwrapArrayInKeyExpression(new NestingKeyExpression(newChild.getNesting()));
-                    newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
-                            .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
-                            .setChild(unwrappedChild.toKeyExpression());
-                } else {
-                    newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
-                            .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
-                            .setChild(newChild);
-                }
-                return new NestingKeyExpression(newNestingBuilder.build());
-            }
-        }
-        return nestingKeyExpression;
+
+        RecordMetaDataProto.Nesting.Builder newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
+                .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
+                .setChild(child.toKeyExpression().getNesting().getChild());
+        return new NestingKeyExpression(newNestingBuilder.build());
     }
 
     @Nullable

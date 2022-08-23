@@ -176,30 +176,22 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
 
     @Nonnull
     @Override
-    public GraphExpansion visitExpression(@Nonnull final NestingKeyExpression original) {
+    public GraphExpansion visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
         final Quantifier.ForEach baseQuantifier = state.getBaseQuantifier();
 
-        final FieldKeyExpression parent = original.getParent();
-        final KeyExpression child = original.getChild();
-
+        final FieldKeyExpression parent = nestingKeyExpression.getParent();
+        final KeyExpression child = nestingKeyExpression.getChild();
         switch (parent.getFanType()) {
             case None:
                 List<String> newPrefix = ImmutableList.<String>builder()
                         .addAll(fieldNamePrefix)
                         .add(parent.getFieldName())
                         .build();
-                final var childProto = child.toKeyExpression();
-                if (childProto.hasNesting()) {
-                    final var firstChild = childProto.getNesting().getParent();
-                    if ("values".equals(firstChild.getFieldName()) && RecordMetaDataProto.Field.FanType.FAN_OUT.equals(firstChild.getFanType())) {
-                        // remove firstChild from the KeyExpression
-                        RecordMetaDataProto.Field newParent = parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT).build();
-                        RecordMetaDataProto.KeyExpression newChild = child.toKeyExpression().getNesting().getChild();
-                        RecordMetaDataProto.Nesting newExpression = RecordMetaDataProto.Nesting.newBuilder().setParent(newParent).setChild(newChild).build();
-                        return visitExpression(new NestingKeyExpression(newExpression));
-                    }
+                if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression)) {
+                    NestingKeyExpression newExpression = NullableArrayTypeUtils.unwrapArrayInKeyExpression(nestingKeyExpression);
+                    return visitExpression(newExpression);
                 }
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
             case FanOut:

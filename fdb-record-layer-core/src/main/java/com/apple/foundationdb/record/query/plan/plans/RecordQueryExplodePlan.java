@@ -81,10 +81,6 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final var result = collectionValue.eval(store, context);
-        System.out.println("collection value class:" + collectionValue.getClass());
-        System.out.println("result class:" + (result instanceof DynamicMessage));
-        System.out.println("result is null:" + (result == null));
-        System.out.println("result:" + result);
         if (result == null) {
             return RecordCursor.fromList(List.of())
                     .map(QueryResult::ofComputed);
