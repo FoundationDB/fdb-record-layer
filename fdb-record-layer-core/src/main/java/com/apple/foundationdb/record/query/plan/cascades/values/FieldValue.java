@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -105,7 +106,13 @@ public class FieldValue implements ValueWithChild {
         }
         System.out.println("FieldValue childResult:" + (Message)childResult);
         System.out.println("FieldValue fieldPath:" + fieldPath);
-        return MessageValue.getFieldValue((Message)childResult, fieldPath);
+        // return MessageValue.getFieldValue((Message)childResult, fieldPath);
+        final var fieldValue = MessageValue.getFieldValue((Message)childResult, fieldPath);
+        //
+        // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
+        // wrapper.
+        //
+        return NullableArrayTypeUtils.unwrapIfArray(fieldValue, getResultType());
     }
 
     @Override

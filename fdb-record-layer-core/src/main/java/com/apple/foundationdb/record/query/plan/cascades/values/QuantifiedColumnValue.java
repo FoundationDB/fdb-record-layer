@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.collect.ImmutableSet;
@@ -103,7 +104,14 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
         final var message = queryResult.getMessage(); // we must be able to distill a message from the result
 
-        return MessageValue.getFieldOnMessage(message, getFieldForOrdinal().getFieldIndex());
+        // return MessageValue.getFieldOnMessage(message, getFieldForOrdinal().getFieldIndex());
+        final var fieldValue = MessageValue.getFieldOnMessage(message, getFieldForOrdinal().getFieldIndex());
+
+        //
+        // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
+        // wrapper.
+        //
+        return NullableArrayTypeUtils.unwrapIfArray(fieldValue, getResultType());
     }
 
     @Nonnull
