@@ -116,7 +116,6 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         for (final var child : getChildren()) {
             var childResultElement = child.eval(store, context);
             if (childResultElement != null) {
-                // resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), childResultElement);
                 final var field = fields.get(i);
                 final var fieldType = field.getFieldType();
                 final var fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());

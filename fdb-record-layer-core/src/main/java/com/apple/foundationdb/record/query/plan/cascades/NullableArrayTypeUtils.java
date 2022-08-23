@@ -36,7 +36,11 @@ import javax.annotation.Nullable;
  * A Utils class that holds logic related to nullable arrays.
  */
 public class NullableArrayTypeUtils {
-    private static final String repeatedFieldName = "values";
+    private static final String REPEATED_FIELD_NAME = "values";
+
+    private NullableArrayTypeUtils() {
+        throw new IllegalStateException("Utility class");
+    }
 
     /**
      * Get the fieldName of the repeated field.
@@ -44,7 +48,7 @@ public class NullableArrayTypeUtils {
      * @return fieldName of the repeated field
      */
     public static String getRepeatedFieldName() {
-        return repeatedFieldName;
+        return REPEATED_FIELD_NAME;
     }
 
     /**
@@ -58,20 +62,27 @@ public class NullableArrayTypeUtils {
      *
      * @return <code>true</code> if it describes a wrapped array, otherwise <code>false</code>.
      */
-    public static boolean describesWrappedArray(Descriptors.Descriptor descriptor) {
+    public static boolean describesWrappedArray(@Nonnull Descriptors.Descriptor descriptor) {
         if (descriptor.getFields().size() == 1) {
             Descriptors.FieldDescriptor fieldDescriptor = descriptor.getFields().get(0);
-            return fieldDescriptor.isRepeated() && repeatedFieldName.equals(fieldDescriptor.getName());
+            return fieldDescriptor.isRepeated() && REPEATED_FIELD_NAME.equals(fieldDescriptor.getName());
         } else {
             return false;
         }
     }
 
-    public static boolean isArrayWrapper(NestingKeyExpression nestingKeyExpression) {
+    /**
+     * Check whether a nesting keyExpression is a wrapped array field.
+     *
+     * @param nestingKeyExpression the nesting keyExpression.
+     *
+     * @return <code>true</code> if it describes a wrapped array, otherwise <code>false</code>.
+     */
+    public static boolean isArrayWrapper(@Nonnull NestingKeyExpression nestingKeyExpression) {
         KeyExpression child = nestingKeyExpression.getChild();
         if (child.toKeyExpression().hasNesting()) {
             RecordMetaDataProto.Field firstChild = child.toKeyExpression().getNesting().getParent();
-            return repeatedFieldName.equals(firstChild.getFieldName()) && RecordMetaDataProto.Field.FanType.FAN_OUT.equals(firstChild.getFanType());
+            return REPEATED_FIELD_NAME.equals(firstChild.getFieldName()) && RecordMetaDataProto.Field.FanType.FAN_OUT.equals(firstChild.getFanType());
         }
         return false;
     }
@@ -83,7 +94,8 @@ public class NullableArrayTypeUtils {
      *
      * @return a keyExpression without wrapped array
      */
-    public static NestingKeyExpression unwrapArrayInKeyExpression(NestingKeyExpression nestingKeyExpression) {
+    @Nonnull
+    public static NestingKeyExpression unwrapArrayInKeyExpression(@Nonnull NestingKeyExpression nestingKeyExpression) {
         final FieldKeyExpression parent = nestingKeyExpression.getParent();
         final KeyExpression child = nestingKeyExpression.getChild();
 
