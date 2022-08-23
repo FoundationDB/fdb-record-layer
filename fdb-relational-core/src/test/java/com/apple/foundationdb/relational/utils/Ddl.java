@@ -25,15 +25,13 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
-
 import org.junit.jupiter.api.extension.ExtensionContext;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.sql.SQLException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
 
 public class Ddl implements AutoCloseable {
     @Nonnull
@@ -59,20 +57,30 @@ public class Ddl implements AutoCloseable {
         this.relationalExtension = relationalExtension;
         this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", templateDefinition);
         this.databaseRule = new DatabaseRule(this.relationalExtension, dbPath);
+        this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
+        this.extensionContext = extensionContext;
+
         try {
-            this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
-            this.extensionContext = extensionContext;
-
             templateRule.beforeEach(extensionContext);
-            databaseRule.beforeEach(extensionContext);
-            schemaRule.beforeEach(extensionContext);
-
-            this.connection = Relational.connect(URI.create("jdbc:embed://" + databaseRule.getDbUri()), Options.NONE);
-            this.connection.beginTransaction();
+            try {
+                databaseRule.beforeEach(extensionContext);
+                try {
+                    schemaRule.beforeEach(extensionContext);
+                } catch (Exception e) {
+                    schemaRule.afterEach(extensionContext);
+                    throw e;
+                }
+            } catch (Exception e) {
+                databaseRule.afterEach(extensionContext);
+                throw e;
+            }
         } catch (Exception e) {
-            this.databaseRule.afterEach(extensionContext);
+            templateRule.afterEach(extensionContext);
             throw e;
         }
+
+        this.connection = Relational.connect(URI.create("jdbc:embed://" + databaseRule.getDbUri()), Options.NONE);
+        this.connection.beginTransaction();
     }
 
     @Nonnull
@@ -159,7 +167,7 @@ public class Ddl implements AutoCloseable {
             Assert.notNull(database);
             Assert.notNull(templateDefinition);
             if (schemaName == null) {
-                schemaName = "TEST_SCHEMA";
+                schemaName = "testSchema";
             }
             Assert.notNull(extension);
             return new Ddl(extension, database, schemaName, templateDefinition, extensionContext);
