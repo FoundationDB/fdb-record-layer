@@ -44,6 +44,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -80,6 +81,10 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final var result = collectionValue.eval(store, context);
+        System.out.println("collection value class:" + collectionValue.getClass());
+        System.out.println("result class:" + (result instanceof DynamicMessage));
+        System.out.println("result is null:" + (result == null));
+        System.out.println("result:" + result);
         if (result == null) {
             return RecordCursor.fromList(List.of())
                     .map(QueryResult::ofComputed);

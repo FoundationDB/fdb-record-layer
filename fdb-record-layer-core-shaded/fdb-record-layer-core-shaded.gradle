@@ -23,7 +23,7 @@ apply plugin: 'com.github.johnrengelman.shadow'
 def coreProject = ":${ext.coreProjectName}"
 
 dependencies {
-  implementation project(coreProject)
+    implementation project(coreProject)
 }
 
 shadowJar {

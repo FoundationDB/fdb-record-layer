@@ -24,7 +24,14 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageValue;
+import com.google.common.base.Verify;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A Utils class that holds logic related to nullable arrays.
@@ -92,5 +99,20 @@ public class NullableArrayTypeUtils {
             }
         }
         return nestingKeyExpression;
+    }
+
+    @Nullable
+    public static Object unwrapIfArray(@Nullable Object wrappedValue, @Nonnull Type type) {
+        //
+        // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
+        // wrapper.
+        //
+        if (wrappedValue != null && type.getTypeCode() == Type.TypeCode.ARRAY && type.isNullable()) {
+            final var arrayType = (Type.Array)type;
+            Verify.verify(arrayType.needsWrapper());
+
+            return MessageValue.getFieldOnMessage((Message)wrappedValue, NullableArrayTypeUtils.getRepeatedFieldName());
+        }
+        return wrappedValue;
     }
 }

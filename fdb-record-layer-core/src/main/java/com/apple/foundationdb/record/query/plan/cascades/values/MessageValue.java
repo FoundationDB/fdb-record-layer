@@ -94,6 +94,8 @@ public class MessageValue {
 
     @Nullable
     private static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull Descriptors.FieldDescriptor field) {
+        System.out.println("getFieldOnMessage field name:" + field.getName());
+        System.out.println("getFieldOnMessage field isRepeated:" + field.isRepeated());
         if (field.isRepeated()) {
             int count = message.getRepeatedFieldCount(field);
             List<Object> list = new ArrayList<>(count);

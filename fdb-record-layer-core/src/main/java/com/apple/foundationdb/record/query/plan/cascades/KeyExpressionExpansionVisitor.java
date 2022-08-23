@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -176,19 +177,30 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final NestingKeyExpression original) {
-        final NestingKeyExpression nestingKeyExpression = NullableArrayTypeUtils.unwrapArrayInKeyExpression(original);
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
         final Quantifier.ForEach baseQuantifier = state.getBaseQuantifier();
 
-        final FieldKeyExpression parent = nestingKeyExpression.getParent();
-        final KeyExpression child = nestingKeyExpression.getChild();
+        final FieldKeyExpression parent = original.getParent();
+        final KeyExpression child = original.getChild();
+
         switch (parent.getFanType()) {
             case None:
                 List<String> newPrefix = ImmutableList.<String>builder()
                         .addAll(fieldNamePrefix)
                         .add(parent.getFieldName())
                         .build();
+                final var childProto = child.toKeyExpression();
+                if (childProto.hasNesting()) {
+                    final var firstChild = childProto.getNesting().getParent();
+                    if ("values".equals(firstChild.getFieldName()) && RecordMetaDataProto.Field.FanType.FAN_OUT.equals(firstChild.getFanType())) {
+                        // remove firstChild from the KeyExpression
+                        RecordMetaDataProto.Field newParent = parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT).build();
+                        RecordMetaDataProto.KeyExpression newChild = child.toKeyExpression().getNesting().getChild();
+                        RecordMetaDataProto.Nesting newExpression = RecordMetaDataProto.Nesting.newBuilder().setParent(newParent).setChild(newChild).build();
+                        return visitExpression(new NestingKeyExpression(newExpression));
+                    }
+                }
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
             case FanOut:
                 // explode the parent field(s) also depending on the prefix

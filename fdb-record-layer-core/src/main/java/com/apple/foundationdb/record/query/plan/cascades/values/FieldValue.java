@@ -103,6 +103,8 @@ public class FieldValue implements ValueWithChild {
         if (!(childResult instanceof Message)) {
             return null;
         }
+        System.out.println("FieldValue childResult:" + (Message)childResult);
+        System.out.println("FieldValue fieldPath:" + fieldPath);
         return MessageValue.getFieldValue((Message)childResult, fieldPath);
     }
 
