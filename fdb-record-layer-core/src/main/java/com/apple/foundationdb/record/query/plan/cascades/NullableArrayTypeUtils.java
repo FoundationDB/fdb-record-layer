@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageValue;
-import com.google.common.base.Verify;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -107,10 +106,7 @@ public class NullableArrayTypeUtils {
         // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
         // wrapper.
         //
-        if (wrappedValue != null && type.getTypeCode() == Type.TypeCode.ARRAY && type.isNullable()) {
-            final var arrayType = (Type.Array)type;
-            Verify.verify(arrayType.needsWrapper());
-
+        if (wrappedValue != null && type.getTypeCode() == Type.TypeCode.ARRAY && type.isNullable() && ((Type.Array)type).needsWrapper()) {
             return MessageValue.getFieldOnMessage((Message)wrappedValue, NullableArrayTypeUtils.getRepeatedFieldName());
         }
         return wrappedValue;
