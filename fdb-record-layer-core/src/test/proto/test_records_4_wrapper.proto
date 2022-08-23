@@ -70,6 +70,10 @@ message StringList {
   repeated string values = 1;
 }
 
+message RestaurantTagList {
+  repeated RestaurantTag values = 1;
+}
+
 message RestaurantReviewList {
   repeated RestaurantReview values = 1;
 }
@@ -82,7 +86,7 @@ message RestaurantRecord {
   required int64 rest_no = 1 [(com.apple.foundationdb.record.field).primary_key = true];
   optional string name = 2 [(com.apple.foundationdb.record.field).index = {}];
   optional RestaurantReviewList reviews = 3;
-  // repeated RestaurantTag tags = 4;
+  optional RestaurantTagList tags = 4;
   optional StringList customer = 5;
 }
 
