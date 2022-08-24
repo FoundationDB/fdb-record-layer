@@ -87,13 +87,6 @@ public final class ParserUtils {
         }
     }
 
-    @Nonnull
-    public static String trimStartingDot(@Nonnull final String in) {
-        Assert.thatUnchecked(in.length() > 0);
-        Assert.thatUnchecked(in.charAt(0) == '.');
-        return in.substring(1);
-    }
-
     /**
      * Checks whether a string is properly quoted (same quote markers at the beginning and at the end).
      * @param str The input string.
