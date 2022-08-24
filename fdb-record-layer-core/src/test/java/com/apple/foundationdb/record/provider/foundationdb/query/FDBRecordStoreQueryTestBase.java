@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.TestRecords5Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsTupleFieldsProto;
@@ -275,6 +276,30 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         metaDataBuilder.addIndex("CalendarEvent", "versions", concat(field("alarmIndex").nest("version"),
                 field("eventIndex").nest("version")));
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+    }
+
+    protected void openNestedWrappedArrayRecordStore(FDBRecordContext context) throws Exception {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4WrapperProto.getDescriptor());
+        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.None).nest(field("values", FanType.FanOut).nest("rating")));
+        metaDataBuilder.addIndex("RestaurantRecord", "tag", field("tags", FanType.FanOut).nest(field("values", FanType.FanOut).nest(
+                concatenateFields("value", "weight"))));
+        metaDataBuilder.addIndex("RestaurantRecord", "customers", field("customer", FanType.None).nest(field("values", FanType.FanOut)));
+        metaDataBuilder.addIndex("RestaurantRecord", "customers-name", concat(field("customer", FanType.None).nest(field("values", FanType.FanOut)), field("name")));
+        metaDataBuilder.addIndex("RestaurantReviewer", "stats$school", field("stats").nest(field("start_date")));
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+    }
+
+    protected RecordMetaData nestedWrappedArrayMetaData() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4Proto.getDescriptor());
+        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.None).nest(field("values", FanType.FanOut).nest("rating")));
+        metaDataBuilder.addIndex("RestaurantRecord", "tag", field("tags", FanType.FanOut).nest(field("values", FanType.FanOut).nest(
+                concatenateFields("value", "weight"))));
+        metaDataBuilder.addIndex("RestaurantRecord", "customers", field("customer", FanType.None).nest(field("values", FanType.FanOut)));
+        metaDataBuilder.addIndex("RestaurantRecord", "customers-name", concat(field("customer", FanType.None).nest(field("values", FanType.FanOut)), field("name")));
+        metaDataBuilder.addIndex("RestaurantReviewer", "stats$school", field("stats").nest(field("start_date")));
+        return metaDataBuilder.getRecordMetaData();
     }
 
     protected List<Object> fetchResultValues(RecordQueryPlan plan, final int fieldNumber, Opener opener,

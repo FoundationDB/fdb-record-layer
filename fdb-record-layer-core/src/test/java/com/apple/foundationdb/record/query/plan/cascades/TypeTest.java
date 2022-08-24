@@ -165,7 +165,7 @@ class TypeTest {
                                  final Descriptors.Descriptor actualDescriptor) {
         Assertions.assertEquals(expected.getAllFields().size(), actual.getAllFields().size());
         // assert metadata equality
-        areEqual(new ArrayList<>(expected.getAllFields().keySet()), actualDescriptor.getFields());
+        areEqual(new ArrayList<>(expected.getDescriptorForType().getFields()), actualDescriptor.getFields());
         // assert data equality
         areEqual(expected.getAllFields(), actualDescriptor, actual);
     }

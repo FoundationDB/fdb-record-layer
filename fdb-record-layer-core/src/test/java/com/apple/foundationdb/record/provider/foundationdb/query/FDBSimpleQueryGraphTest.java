@@ -406,7 +406,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         final CascadesPlanner cascadesPlanner;
 
         try (FDBRecordContext context = openContext()) {
-            openNestedRecordStore(context);
+            openNestedWrappedArrayRecordStore(context);
 
             cascadesPlanner = (CascadesPlanner)planner;
 
