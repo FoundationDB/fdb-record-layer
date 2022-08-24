@@ -133,9 +133,9 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         this.excludedFieldNames = new HashSet<>();
         final String excludedFields = this.state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS);
         if (excludedFields != null) {
-            String[] elements = excludedFields.split("/");
-            for (String element : elements) {
-                excludedFieldNames.add(element);
+            String[] fieldNames = excludedFields.strip().split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
+            for (String fieldName : fieldNames) {
+                excludedFieldNames.add(fieldName.strip());
             }
         }
     }

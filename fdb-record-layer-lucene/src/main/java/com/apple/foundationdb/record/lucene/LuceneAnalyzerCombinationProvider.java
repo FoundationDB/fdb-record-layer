@@ -37,6 +37,9 @@ import java.util.stream.Collectors;
  * The default analyzer chooser is used for all fields of one Lucene index except the fields which has overrides in the analyzer chooser per field mapping.
  */
 public class LuceneAnalyzerCombinationProvider {
+    public static final String DELINEATOR_BETWEEN_KEY_AND_VALUE = ":";
+
+    public static final String DELINEATOR_BETWEEN_KEY_VALUE_PAIRS = ",";
     private AnalyzerChooser defaultIndexAnalyzerChooser;
     private AnalyzerChooser defaultQueryAnalyzerChooser;
     private Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride;
@@ -88,7 +91,7 @@ public class LuceneAnalyzerCombinationProvider {
         final StringBuilder builder = new StringBuilder();
         builder.append(defaultAnalyzerWrapper.getUniqueIdentifier());
         for (String id : analyzerWrapperMap.keySet()) {
-            builder.append("/");
+            builder.append(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
             builder.append(id);
         }
         return builder.toString();

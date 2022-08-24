@@ -28,6 +28,14 @@ import com.apple.foundationdb.annotation.API;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneIndexOptions {
     /**
+     * The delimiter by which the key and value of one key-value pair within the option's value is split.
+     */
+    public static final String DELIMITER_BETWEEN_KEY_AND_VALUE = ":";
+    /**
+     * The delimiter by which the elements are split if the option's value has multiple elements or key-value pairs.
+     */
+    public static final String DELIMITER_BETWEEN_ELEMENTS = ",";
+    /**
      * Whether indexed for auto complete search.
      */
     public static final String AUTO_COMPLETE_ENABLED = "autoCompleteEnabled";
@@ -63,7 +71,7 @@ public class LuceneIndexOptions {
     public static final String LUCENE_ANALYZER_NAME_OPTION = "luceneAnalyzerName";
     /**
      * The override mapping from fields to Lucene analyzers, if they want to use different analyzer than the default one.
-     * The format of the value should be "fieldName1/analyzerName1/fieldName2/analyzerName2...".
+     * The format of the value should be "fieldName1:analyzerName1,fieldName2:analyzerName2...", with key-value pairs split by "," and each key and value split by ":".
      */
     public static final String LUCENE_ANALYZER_NAME_PER_FIELD_OPTION = "luceneAnalyzerNamePerField";
     /**
@@ -72,7 +80,7 @@ public class LuceneIndexOptions {
     public static final String AUTO_COMPLETE_ANALYZER_NAME_OPTION = "autoCompleteAnalyzerName";
     /**
      * The override mapping from fields to Lucene analyzers for auto-complete query, if they want to use different analyzers than the default one.
-     * The format of the value should be "fieldName1/analyzerName1/fieldName2/analyzerName2...", with keys and values splitted by "/".
+     * The format of the value should be "fieldName1:analyzerName1,fieldName2:analyzerName2...", with key-value pairs split by "," and each key and value split by ":".
      */
     public static final String AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION = "autoCompleteAnalyzerNamePerField";
     /**
@@ -82,7 +90,7 @@ public class LuceneIndexOptions {
 
     /**
      * A list of fields to be excluded for auto-complete query.
-     * The format of the value should be "fieldName1/fieldName2/...", with field names splitted by "/".
+     * The format of the value should be "fieldName1,fieldName2,...", with field names split by ",".
      */
     public static final String AUTO_COMPLETE_EXCLUDED_FIELDS = "autoCompleteExcludedFields";
 
