@@ -82,6 +82,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * This class is a Record Cursor implementation for Lucene auto complete suggestion lookup.
@@ -107,6 +108,8 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     private final boolean highlight;
     private final Analyzer queryAnalyzer;
 
+    private final Set<String> excludedFieldNames;
+
     public LuceneAutoCompleteResultCursor(@Nonnull String query,
                                           @Nonnull Executor executor, @Nonnull ScanProperties scanProperties,
                                           @Nonnull Analyzer queryAnalyzer, @Nonnull IndexMaintainerState state,
@@ -127,6 +130,14 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         this.state = state;
         this.groupingKey = groupingKey;
         this.queryAnalyzer = queryAnalyzer;
+        this.excludedFieldNames = new HashSet<>();
+        final String excludedFields = this.state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS);
+        if (excludedFields != null) {
+            String[] elements = excludedFields.split("/");
+            for (String element : elements) {
+                excludedFieldNames.add(element);
+            }
+        }
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {
@@ -324,8 +335,9 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     private Set<String> getAllIndexedFieldNames(IndexReader indexReader) {
         Set<String> fieldNames = new HashSet<>();
         indexReader.leaves().forEach(leaf -> leaf.reader().getFieldInfos().forEach(fieldInfo -> {
-            // Exclude any field where the field's IndexOptions indicate that the field data is not indexed
-            if (fieldInfo.getIndexOptions() != IndexOptions.NONE) {
+            // Exclude the fields where the field's IndexOptions indicate that the field data is not indexed,
+            // and the ones which are excluded by the index's options in the schema
+            if (fieldInfo.getIndexOptions() != IndexOptions.NONE && !excludedFieldNames.contains(fieldInfo.name)) {
                 fieldNames.add(fieldInfo.name);
             }
         }));
@@ -506,7 +518,10 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     private RecordCursor<IndexEntry> findIndexEntriesInRecord(ScoreDocAndRecord scoreDocAndRecord, Set<String> queryTokens, @Nullable String prefixToken, @Nullable byte[] continuation) {
         // Extract the indexed fields from the document again
         final List<LuceneDocumentFromRecord.DocumentField> documentFields = LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), scoreDocAndRecord.rec)
-                .get(groupingKey == null ? TupleHelpers.EMPTY : groupingKey);
+                .get(groupingKey == null ? TupleHelpers.EMPTY : groupingKey)
+                .stream()
+                .filter(f -> !excludedFieldNames.contains(f.getFieldName()))
+                .collect(Collectors.toList());
         return RecordCursor.fromList(executor, documentFields, continuation).map(documentField -> {
             // Search each field to find the first match.
             final int maxTextLength = Objects.requireNonNull(state.context.getPropertyStorage()

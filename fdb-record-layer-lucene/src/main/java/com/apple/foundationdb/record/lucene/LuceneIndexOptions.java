@@ -60,15 +60,31 @@ public class LuceneIndexOptions {
     /**
      * The name of the Lucene analyzer to use for full-text search.
      */
-    public static final String TEXT_ANALYZER_NAME_OPTION = "textAnalyzerName";
+    public static final String LUCENE_ANALYZER_NAME_OPTION = "luceneAnalyzerName";
     /**
-     * The name of the Lucene analyzer to use for auto-complete suggestions.
+     * The override mapping from fields to Lucene analyzers, if they want to use different analyzer than the default one.
+     * The format of the value should be "fieldName1/analyzerName1/fieldName2/analyzerName2...".
+     */
+    public static final String LUCENE_ANALYZER_NAME_PER_FIELD_OPTION = "luceneAnalyzerNamePerField";
+    /**
+     * The name of the Lucene analyzer to use for auto-complete query.
      */
     public static final String AUTO_COMPLETE_ANALYZER_NAME_OPTION = "autoCompleteAnalyzerName";
+    /**
+     * The override mapping from fields to Lucene analyzers for auto-complete query, if they want to use different analyzers than the default one.
+     * The format of the value should be "fieldName1/analyzerName1/fieldName2/analyzerName2...", with keys and values splitted by "/".
+     */
+    public static final String AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION = "autoCompleteAnalyzerNamePerField";
     /**
      * The name of the synonym set to use in Lucene.
      */
     public static final String TEXT_SYNONYM_SET_NAME_OPTION = "textSynonymSetName";
+
+    /**
+     * A list of fields to be excluded for auto-complete query.
+     * The format of the value should be "fieldName1/fieldName2/...", with field names splitted by "/".
+     */
+    public static final String AUTO_COMPLETE_EXCLUDED_FIELDS = "autoCompleteExcludedFields";
 
     private LuceneIndexOptions() {
     }

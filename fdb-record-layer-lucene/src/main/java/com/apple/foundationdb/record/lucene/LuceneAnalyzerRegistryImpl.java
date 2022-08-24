@@ -28,11 +28,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
+import java.util.TreeMap;
 
 /**
  * Default implementation of the {@link LuceneAnalyzerRegistry}. It uses the class
@@ -86,17 +88,41 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
 
     @Nonnull
     @Override
-    public Pair<AnalyzerChooser, AnalyzerChooser> getLuceneAnalyzerChooserPair(@Nonnull Index index, @Nonnull LuceneAnalyzerType type) {
-        final String name = index.getOption(type.getIndexOptionKey());
+    public LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull Index index, @Nonnull LuceneAnalyzerType type) {
+        final String defaultAnalyzerName = index.getOption(type.getAnalyzerOptionKey());
+        final String analyzerPerFieldName = index.getOption(type.getAnalyzerPerFieldOptionKey());
+        Pair<AnalyzerChooser, AnalyzerChooser> defaultAnalyzerChooserPair = getAnalyzerChooser(index, defaultAnalyzerName, type);
+
+        if (analyzerPerFieldName == null) {
+            return new LuceneAnalyzerCombinationProvider(defaultAnalyzerChooserPair.getLeft(), defaultAnalyzerChooserPair.getRight(),
+                    null, null);
+        }
+
+        Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride = new TreeMap<>();
+        Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride = new TreeMap<>();
+        String[] elements = analyzerPerFieldName.split("/");
+
+        for (int i = 0; i < elements.length / 2; i++) {
+            String fieldName = elements[2 * i];
+            Pair<AnalyzerChooser, AnalyzerChooser> perFieldAnalyzerChooserPair = getAnalyzerChooser(index, elements[2 * i + 1], type);
+            indexAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getLeft());
+            queryAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getRight());
+        }
+
+        return new LuceneAnalyzerCombinationProvider(defaultAnalyzerChooserPair.getLeft(), defaultAnalyzerChooserPair.getRight(),
+                indexAnalyzerChooserPerFieldOverride, queryAnalyzerChooserPerFieldOverride);
+    }
+
+    private Pair<AnalyzerChooser, AnalyzerChooser> getAnalyzerChooser(@Nonnull Index index, @Nullable String analyzerName, @Nonnull LuceneAnalyzerType type) {
         final Map<String, LuceneAnalyzerFactory> registryForType = Objects.requireNonNullElse(registry.get(type), Collections.emptyMap());
-        if (name == null || !registryForType.containsKey(name)) {
+        if (analyzerName == null || !registryForType.containsKey(analyzerName)) {
             return Pair.of(t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
                     t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper());
         } else {
-            LuceneAnalyzerFactory analyzerFactory = registryForType.get(name);
+            LuceneAnalyzerFactory analyzerFactory = registryForType.get(analyzerName);
             if (analyzerFactory == null) {
                 throw new MetaDataException("unrecognized lucene analyzer for tokenizer",
-                        LuceneLogMessageKeys.ANALYZER_NAME, name,
+                        LuceneLogMessageKeys.ANALYZER_NAME, analyzerName,
                         LuceneLogMessageKeys.ANALYZER_TYPE, type.name());
             }
             final AnalyzerChooser indexAnalyzerChooser = analyzerFactory.getIndexAnalyzerChooser(index);

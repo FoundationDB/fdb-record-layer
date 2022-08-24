@@ -170,25 +170,25 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
 
     private static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME,
+            ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
                     IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
 
     private static final Index QUERY_ONLY_SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
-                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
 
     private static final Index AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
-                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.AuthoritativeSynonymOnlyAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.AuthoritativeSynonymOnlyAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.AuthoritativeOnlyEnglishSynonymMapConfig.CONFIG_NAME));
 
     private static final String COMBINED_SYNONYM_SETS = "COMBINED_SYNONYM_SETS";
 
     private static final Index QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX = new Index("synonym_combined_sets_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
-                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, COMBINED_SYNONYM_SETS));
 
     private static final Index SPELLCHECK_INDEX = new Index(
@@ -218,7 +218,16 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index ANALYZER_CHOOSER_TEST_LUCENE_INDEX = new Index("analyzer_chooser_test_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
-                    LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, TestAnalyzerFactory.ANALYZER_FACTORY_NAME));
+                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, TestAnalyzerFactory.ANALYZER_FACTORY_NAME));
+
+    private static final Index MULTIPLE_ANALYZER_LUCENE_INDEX = new Index("Complex$multiple_analyzer_autocomplete",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text2/" + NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2",
+                    LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
+                    LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
 
     private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
                                                 "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
@@ -1714,6 +1723,32 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     }
                 }
             }
+        }
+    }
+
+    @Test
+    void analyzerPerFieldWithAutoCompleteExcludedList() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, MULTIPLE_ANALYZER_LUCENE_INDEX);
+            recordStore.saveRecord(createComplexDocument(1623L, "Hello, I am working on record layer", "Hello, I am working on FoundationDB", 1));
+            // text field uses the default SYNONYM analyzer, so "hullo" should have match
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(1L, 1623L)),
+                    recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, fullTextSearch(MULTIPLE_ANALYZER_LUCENE_INDEX, "text:hullo"), null, ScanProperties.FORWARD_SCAN));
+            // text2 field has NGRAM analyzer override, so "hullo" should not have match
+            assertIndexEntryPrimaryKeyTuples(Collections.emptyList(),
+                    recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, fullTextSearch(MULTIPLE_ANALYZER_LUCENE_INDEX, "text2:hullo"), null, ScanProperties.FORWARD_SCAN));
+            // text field uses the default SYNONYM analyzer, so "orkin" should not have match
+            assertIndexEntryPrimaryKeyTuples(Collections.emptyList(),
+                    recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, fullTextSearch(MULTIPLE_ANALYZER_LUCENE_INDEX, "text:orkin"), null, ScanProperties.FORWARD_SCAN));
+            // text2 field has NGRAM analyzer override, so "orkin" should have match
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(1L, 1623L)),
+                    recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, fullTextSearch(MULTIPLE_ANALYZER_LUCENE_INDEX, "text2:orkin"), null, ScanProperties.FORWARD_SCAN));
+            // text field has auto-complete enabled, so the auto-complete query for "record layer" should have match
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(1L, 1623L)),
+                    recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, autoComplete(MULTIPLE_ANALYZER_LUCENE_INDEX, "record layer", false), null, ScanProperties.FORWARD_SCAN));
+            // text2 field is excluded for auto-complete, so the auto-complete query for "FoundationDB" should not have match
+            assertIndexEntryPrimaryKeyTuples(Collections.emptyList(),
+                    recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, autoComplete(MULTIPLE_ANALYZER_LUCENE_INDEX, "FoundationDB", false), null, ScanProperties.FORWARD_SCAN));
         }
     }
 

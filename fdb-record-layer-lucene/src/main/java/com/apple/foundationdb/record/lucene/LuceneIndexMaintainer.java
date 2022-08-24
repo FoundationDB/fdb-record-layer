@@ -91,8 +91,8 @@ import java.util.stream.Collectors;
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
     private final FDBDirectoryManager directoryManager;
-    private final AnalyzerChooser indexAnalyzerChooser;
-    private final AnalyzerChooser autoCompleteQueryAnalyzerChooser;
+    private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
+    private final LuceneAnalyzerCombinationProvider autoCompleteQueryAnalyzerSelector;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
@@ -102,8 +102,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         super(state);
         this.executor = executor;
         this.directoryManager = FDBDirectoryManager.getManager(state);
-        this.indexAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.FULL_TEXT).getLeft();
-        this.autoCompleteQueryAnalyzerChooser = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(state.index, LuceneAnalyzerType.AUTO_COMPLETE).getRight();
+        this.indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT);
+        this.autoCompleteQueryAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE);
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
     }
 
@@ -146,7 +146,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
             }
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
-            Analyzer analyzer = autoCompleteQueryAnalyzerChooser.chooseAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
+            Analyzer analyzer = autoCompleteQueryAnalyzerSelector.provideQueryAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
             return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
                     executor, scanProperties, analyzer, state, scanAutoComplete.getGroupKey(), scanAutoComplete.isHighlight());
         }
@@ -223,8 +223,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
                 .map(f -> (String) f.getValue()).collect(Collectors.toList());
         Document document = new Document();
-        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey,
-                indexAnalyzerChooser.chooseAnalyzer(texts));
+        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(texts));
         BytesRef ref = new BytesRef(primaryKey);
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
@@ -252,7 +251,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @SuppressWarnings("PMD.CloseResource")
     private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
-        final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerChooser.chooseAnalyzer(""));
+        final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
         Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
         oldWriter.deleteDocuments(query);
     }
