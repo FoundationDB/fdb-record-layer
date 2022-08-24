@@ -1,5 +1,5 @@
 /*
- * QueryTest.java
+ * StandardQueryTests.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
@@ -31,6 +31,8 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -62,7 +64,7 @@ import javax.annotation.Nonnull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
-public class QueryTest {
+public class StandardQueryTests {
 
     private static final String schemaTemplate =
             "CREATE STRUCT Location (address string, latitude string, longitude string)" +
@@ -81,7 +83,7 @@ public class QueryTest {
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
-    public QueryTest() {
+    public StandardQueryTests() {
         if (Debugger.getDebugger() == null) {
             Debugger.setDebugger(new DebuggerWithSymbolTables());
         }
@@ -730,7 +732,7 @@ public class QueryTest {
                     Assertions.assertEquals("Bri", resultSet.getString(1));
                     Assertions.assertEquals("What a nice weather today!", resultSet.getString(2));
                     Assertions.assertEquals("40000", resultSet.getString(3)); // no support yet for getInt
-                    
+
                     Assertions.assertFalse(resultSet.next());
                 }
 
@@ -754,6 +756,45 @@ public class QueryTest {
                     Assert.that(resultSet.next());
                     Assertions.assertEquals("Bri", resultSet.getString(1));
                     Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void aliasingColumnsWorks() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT Y.M FROM (SELECT X.N AS M FROM (SELECT name AS N FROM RestaurantComplexRecord WHERE 11 <= rest_no) X) Y")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
+                }
+            }
+        }
+    }
+
+    @Test
+    void aliasingTableToResolveAmbiguityWorks() throws Exception {
+        final String schema = "CREATE TABLE FOO(FOO int64, PRIMARY KEY(FOO))";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                final Message row1 = statement.getDataBuilder("FOO").setField("FOO", 42L).build();
+                int cnt = statement.executeInsert("FOO", row1);
+                Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                final Message row2 = statement.getDataBuilder("FOO").setField("FOO", 43L).build();
+                cnt = statement.executeInsert("FOO", row2);
+                Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+
+                Assertions.assertTrue(statement.execute("SELECT * from FOO f WHERE f.FOO > 42"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(row2);
+                }
+
+                Assertions.assertTrue(statement.execute("SELECT * from FOO f WHERE FOO > 42"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(row2);
                 }
             }
         }

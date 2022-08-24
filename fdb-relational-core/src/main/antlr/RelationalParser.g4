@@ -508,9 +508,9 @@ selectElements // done
 // done
 selectElement
     : fullId '.' '*'                                                #selectStarElement // done (unsupported)
-    | fullColumnName (AS? uid)?                                     #selectColumnElement // done (w/o alias)
-    | functionCall (AS? uid)?                                       #selectFunctionElement // done (unsupported)
-    | (LOCAL_ID VAR_ASSIGN)? expression (AS? uid)?                  #selectExpressionElement // done (w/o alias)
+    | fullColumnName (AS? uid)?                                     #selectColumnElement // done
+    | functionCall (AS? uid)?                                       #selectFunctionElement // done (partially supported)
+    | (LOCAL_ID VAR_ASSIGN)? expression (AS? uid)?                  #selectExpressionElement // done
     ;
 
 selectIntoExpression
@@ -545,10 +545,9 @@ fromClause // done
       (WHERE whereExpr=expression)?
     ;
 
-groupByClause
+groupByClause // done
     :  GROUP BY
-        groupByItem (',' groupByItem)*
-        (WITH ROLLUP)?
+       groupByItem (',' groupByItem)*
     ;
 
 havingClause
@@ -560,7 +559,7 @@ windowClause
     ;
 
 groupByItem
-    : expression order=(ASC | DESC)?
+    : expression (AS? uid)? order=(ASC | DESC)? // in Relational we support named grouping columns.
     ;
 
 limitClause
@@ -1626,12 +1625,12 @@ ifNotExists
 //    Functions
 
 functionCall
-    : specificFunction                                              #specificFunctionCall
-    | aggregateWindowedFunction                                     #aggregateFunctionCall
-    | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall
-    | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall
-    | fullId '(' functionArgs? ')'                                  #udfFunctionCall
-    | passwordFunctionClause                                        #passwordFunctionCall
+    : specificFunction                                              #specificFunctionCall // done (unsupported)
+    | aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
+    | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall // done (unsupported)
+    | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
+    | fullId '(' functionArgs? ')'                                  #udfFunctionCall // done (unsupported)
+    | passwordFunctionClause                                        #passwordFunctionCall // done (unsupported)
     ;
 
 specificFunction
@@ -1749,14 +1748,14 @@ levelInWeightListElement
     ;
 
 aggregateWindowedFunction
-    : (AVG | MAX | MIN | SUM)
+    : functionName=(AVG | MAX | MIN | SUM)
       '(' aggregator=(ALL | DISTINCT)? functionArg ')' overClause?
-    | COUNT '(' (starArg='*' | aggregator=ALL? functionArg | aggregator=DISTINCT functionArgs) ')' overClause?
-    | (
+    | functionName=COUNT '(' (starArg='*' | aggregator=ALL? functionArg | aggregator=DISTINCT functionArgs) ')' overClause?
+    | functionName=(
         BIT_AND | BIT_OR | BIT_XOR | STD | STDDEV | STDDEV_POP
         | STDDEV_SAMP | VAR_POP | VAR_SAMP | VARIANCE
       ) '(' aggregator=ALL? functionArg ')' overClause?
-    | GROUP_CONCAT '('
+    | functionName=GROUP_CONCAT '('
         aggregator=DISTINCT? functionArgs
         (ORDER BY
           orderByExpression (',' orderByExpression)*
@@ -1867,7 +1866,7 @@ predicate
 expressionAtom
     : constant                                                      #constantExpressionAtom // done
     | fullColumnName                                                #fullColumnNameExpressionAtom // done
-    | functionCall                                                  #functionCallExpressionAtom // done (unsupported)
+    | functionCall                                                  #functionCallExpressionAtom // done
     | expressionAtom COLLATE collationName                          #collateExpressionAtom // done (unsupported)
     | mysqlVariable                                                 #mysqlVariableExpressionAtom // done (unsupported)
     | unaryOperator expressionAtom                                  #unaryExpressionAtom // done (unsupported)

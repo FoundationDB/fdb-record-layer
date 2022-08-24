@@ -21,28 +21,22 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
-import com.apple.foundationdb.record.query.plan.cascades.Scopes;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
 
+// TODO(yhatem) unify with ParserContext now that is moved from RecordLayer to Relational.
+
 public class RelationalParserContext extends ParserContext {
 
     @Nonnull
     private final ImmutableSet.Builder<CorrelationIdentifier> aliases;
-
-    // this field holds all the relations (record types) that we want to filter-scan from. Currently, it is needed
-    // upfront by the planner, and it should become unnecessary later on.
-    @Nonnull
-    private final Set<String> filteredRecords;
 
     @Nonnull
     private final Set<String> scannableRecordTypeNames;
@@ -55,13 +49,11 @@ public class RelationalParserContext extends ParserContext {
     private RelationalParserContext(@Nonnull final Scopes scopes,
                                   @Nonnull final TypeRepository.Builder typeRepositoryBuilder,
                                   @Nonnull final ImmutableSet.Builder<CorrelationIdentifier> aliases,
-                                  @Nonnull final Set<String> filteredRecords,
                                   @Nonnull final Set<String> scannableRecordTypeNames,
                                   @Nonnull final Map<String, Descriptors.FieldDescriptor> scannabledRecordTypes,
                                   @Nonnull final Set<String> indexNames) {
         super(scopes, typeRepositoryBuilder);
         this.aliases = aliases;
-        this.filteredRecords = filteredRecords;
         this.scannableRecordTypeNames = scannableRecordTypeNames;
         this.scannabledRecordTypes = scannabledRecordTypes;
         this.indexNames = indexNames;
@@ -72,31 +64,22 @@ public class RelationalParserContext extends ParserContext {
                                  @Nonnull final Set<String> scannableRecordTypeNames,
                                  @Nonnull final Map<String, Descriptors.FieldDescriptor> scannabledRecordTypes,
                                  @Nonnull final Set<String> indexNames) {
-        this(scopes, typeRepositoryBuilder, ImmutableSet.builder(), new HashSet<>(), scannableRecordTypeNames, scannabledRecordTypes, indexNames);
-    }
-
-    public void addFilteredRecord(@Nonnull final String recordType) {
-        filteredRecords.add(recordType);
-    }
-
-    @Nonnull
-    public Set<String> getFilteredRecords() {
-        return filteredRecords;
+        this(scopes, typeRepositoryBuilder, ImmutableSet.builder(), scannableRecordTypeNames, scannabledRecordTypes, indexNames);
     }
 
     @Nonnull
     public RelationalParserContext withTypeRepositoryBuilder(@Nonnull TypeRepository.Builder builder) {
-        return new RelationalParserContext(getScopes(), builder, aliases, filteredRecords, scannableRecordTypeNames, scannabledRecordTypes, indexNames);
+        return new RelationalParserContext(getScopes(), builder, aliases, scannableRecordTypeNames, scannabledRecordTypes, indexNames);
     }
 
     @Nonnull
     public RelationalParserContext withScannableRecordTypes(@Nonnull final Set<String> scannableRecordTypeNames, @Nonnull final Map<String, Descriptors.FieldDescriptor> scannabledRecordTypes) {
-        return new RelationalParserContext(getScopes(), getTypeRepositoryBuilder(), aliases, filteredRecords, scannableRecordTypeNames, scannabledRecordTypes, indexNames);
+        return new RelationalParserContext(getScopes(), getTypeRepositoryBuilder(), aliases, scannableRecordTypeNames, scannabledRecordTypes, indexNames);
     }
 
     @Nonnull
     public RelationalParserContext withIndexNames(@Nonnull final Set<String> indexNames) {
-        return new RelationalParserContext(getScopes(), getTypeRepositoryBuilder(), aliases, filteredRecords, scannableRecordTypeNames, scannabledRecordTypes, indexNames);
+        return new RelationalParserContext(getScopes(), getTypeRepositoryBuilder(), aliases, scannableRecordTypeNames, scannabledRecordTypes, indexNames);
     }
 
     @Nonnull
@@ -113,4 +96,5 @@ public class RelationalParserContext extends ParserContext {
     public Set<String> getIndexNames() {
         return indexNames;
     }
+
 }

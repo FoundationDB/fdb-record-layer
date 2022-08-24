@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
@@ -37,6 +39,7 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import java.net.URI;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
@@ -71,6 +74,13 @@ public class PlanGenerationStackTest {
     @RegisterExtension
     @Order(4)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
+
+    public PlanGenerationStackTest() {
+        if (Debugger.getDebugger() == null) {
+            Debugger.setDebugger(new DebuggerWithSymbolTables());
+        }
+        Debugger.setup();
+    }
 
     static class RandomQueryProvider implements ArgumentsProvider {
 
@@ -141,17 +151,21 @@ public class PlanGenerationStackTest {
                     Arguments.of(62, "select * from restaurant USE INDEX (record_name_idx) where rest_no > 10 ", null),
                     Arguments.of(63, "select * from restaurant USE INDEX (record_name_idx, reviewer_name_idx) where rest_no > 10 ", null),
                     Arguments.of(64, "select * from restaurant USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx) where rest_no > 10 ", null),
+                    Arguments.of(61, "select * from restaurant with continuation", "Syntax error at line 1 position 42"),
                     Arguments.of(66, "select X.rest_no from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) X", null),
                     Arguments.of(67, "select X.UNKNOWN from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) X", "attempting to query non existing field 'UNKNOWN'"),
                     Arguments.of(68, "select X.rest_no from (select Y.rest_no from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) Y where 42 >= Y.rest_no OR 42 > Y.rest_no) X", null),
-                    Arguments.of(69, "select X.rating from restaurant AS Rec, (select rating from Rec.reviews) X", null)
+                    Arguments.of(69, "select X.rating from restaurant AS Rec, (select rating from Rec.reviews) X", null),
+                    Arguments.of(70, "select COUNT(MAX(Y.rating)) FROM (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY Y.rest_no", "nested aggregate 'count(max_l([[]].Y.RATING))' is not supported"),
+                    Arguments.of(71, "select rating from restaurant GROUP BY rest_no", "could not find field name 'RATING'"),
+                    Arguments.of(72, "select rating + rest_no, MAX(rest_no) from (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY rest_no, rating", null)
             );
         }
     }
 
     @ParameterizedTest(name = "[{0}] {1}")
     @ArgumentsSource(RandomQueryProvider.class)
-    void queryTestHarness(@Nonnull final int index, @Nonnull final String query, @Nullable String error) throws Exception {
+    void queryTestHarness(final int index, @Nonnull final String query, @Nullable String error) throws Exception {
         final String schemaName = connection.getSchema();
         final AbstractDatabase database = ((EmbeddedRelationalConnection) connection.connection).frl;
         final FDBRecordStore store = database.loadSchema(schemaName).loadStore();
@@ -163,7 +177,11 @@ public class PlanGenerationStackTest {
                 Plan.generate(query, planContext);
                 Assertions.fail("expected an exception to be thrown");
             } catch (RelationalException e) {
-                assertThat(e.getMessage()).contains(error);
+                // there is probably a more intelligent way to do this e.g. via Regex.
+                final var parts = error.split(Pattern.quote("[[]]"));
+                for (final var part : parts) {
+                    assertThat(e.getMessage()).contains(part);
+                }
             } catch (Exception e) {
                 Assertions.fail("unexpected exception type " + e);
             }

@@ -181,7 +181,8 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                     Assertions.assertThat(o).isInstanceOf(Array.class);
                     ArrayAssert.assertThat((Array) o).isEqualTo((Array) expected);
                 } else {
-                    Assertions.assertThat(o).isEqualTo(expected);
+                    Assertions.assertThat(o).as("checking column %d (zero-based) of expected row (%s)", i,
+                            Arrays.stream(colValues).map(colValue -> colValue == null ? "<NULL>" : colValue.toString()).collect(Collectors.joining(","))).isEqualTo(expected);
                 }
             }
         } catch (SQLException se) {

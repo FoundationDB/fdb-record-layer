@@ -24,22 +24,24 @@ import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Scopes;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -49,6 +51,7 @@ import com.google.protobuf.Descriptors;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -65,7 +68,7 @@ import javax.annotation.Nullable;
  */
 public final class ParserUtils {
 
-    private static final Map<String, BuiltInFunction<Value>> infixToFunction = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    private static final Map<String, BuiltInFunction<? extends Value>> functionMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
     private ParserUtils() {
     }
@@ -98,27 +101,34 @@ public final class ParserUtils {
     }
 
     static {
-        infixToFunction.put("=", new RelOpValue.EqualsFn());
-        infixToFunction.put(">", new RelOpValue.GtFn());
-        infixToFunction.put("<", new RelOpValue.LtFn());
-        infixToFunction.put("<=", new RelOpValue.LteFn());
-        infixToFunction.put(">=", new RelOpValue.GteFn());
-        infixToFunction.put("<>", new RelOpValue.NotEqualsFn());
-        infixToFunction.put("!=", new RelOpValue.NotEqualsFn());
+        functionMap.put("=", new RelOpValue.EqualsFn());
+        functionMap.put(">", new RelOpValue.GtFn());
+        functionMap.put("<", new RelOpValue.LtFn());
+        functionMap.put("<=", new RelOpValue.LteFn());
+        functionMap.put(">=", new RelOpValue.GteFn());
+        functionMap.put("<>", new RelOpValue.NotEqualsFn());
+        functionMap.put("!=", new RelOpValue.NotEqualsFn());
 
-        infixToFunction.put("*", new ArithmeticValue.MulFn());
-        infixToFunction.put("/", new ArithmeticValue.DivFn());
-        infixToFunction.put("DIV", new ArithmeticValue.DivFn()); // should be case-insensitive
-        infixToFunction.put("%", new ArithmeticValue.ModFn());
-        infixToFunction.put("MOD", new ArithmeticValue.ModFn()); // should be case-insensitive
-        infixToFunction.put("+", new ArithmeticValue.AddFn());
-        infixToFunction.put("-", new ArithmeticValue.SubFn());
+        functionMap.put("*", new ArithmeticValue.MulFn());
+        functionMap.put("/", new ArithmeticValue.DivFn());
+        functionMap.put("DIV", new ArithmeticValue.DivFn()); // should be case-insensitive
+        functionMap.put("%", new ArithmeticValue.ModFn());
+        functionMap.put("MOD", new ArithmeticValue.ModFn()); // should be case-insensitive
+        functionMap.put("+", new ArithmeticValue.AddFn());
+        functionMap.put("-", new ArithmeticValue.SubFn());
+
+        functionMap.put("MAX", new NumericAggregationValue.MaxFn());
+        functionMap.put("MIN", new NumericAggregationValue.MinFn());
+        functionMap.put("AVG", new NumericAggregationValue.AvgFn());
+        functionMap.put("SUM", new NumericAggregationValue.SumFn());
+        functionMap.put("COUNT", new CountValue.CountFn());
+        functionMap.put("COUNT*", new CountValue.CountStarFn()); // small hack done here, should be fixed in RL.
     }
 
     @Nonnull
-    public static BuiltInFunction<Value> getFunction(@Nonnull final String infixNotation) {
-        BuiltInFunction<Value> result = infixToFunction.get(infixNotation);
-        Assert.notNullUnchecked(result, String.format("unsupported function '%s'", infixNotation));
+    public static BuiltInFunction<? extends Value> getFunction(@Nonnull final String functionName) {
+        BuiltInFunction<? extends Value> result = functionMap.get(functionName);
+        Assert.notNullUnchecked(result, String.format("unsupported function '%s'", functionName));
         return result;
     }
 
@@ -153,45 +163,101 @@ public final class ParserUtils {
     }
 
     @Nonnull
-    public static FieldValue getFieldValue(@Nonnull final List<String> fieldName, @Nonnull final Value identifier) {
-        Assert.thatUnchecked(identifier.getResultType() instanceof Type.Record);
-        try {
-            return new FieldValue(identifier, fieldName);
-        } catch (SemanticException se) {
-            if (se.getMessage().contains("record does not contain specified field")) { // todo exchange error codes
-                Assert.failUnchecked(String.format("attempting to query non existing field '%s'", fieldName.get(fieldName.size() - 1)));
-            } else {
-                Assert.failUnchecked(se.getMessage());
+    public static FieldValue resolveField(@Nonnull final List<String> fieldPath, @Nonnull final ParserContext parserContext) {
+        Assert.thatUnchecked(!fieldPath.isEmpty());
+        var matchFound = false; // used to detect ambiguous results (e.g. if field name is found multiple times).
+        final var isResolvingAggregations = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.RESOLVING_AGGREGATION);
+        final var isUnderlyingSelectGroupBy = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.WITH_GROUP_BY_CLAUSE);
+        final var topLevelFieldPath = fieldPath.get(0);
+        final var scope = parserContext.getCurrentScope();
+
+        final var adjustedFieldPath = new ArrayList<>(fieldPath);
+        Quantifier candidateQuantifier = null;
+
+        // 1. Search quantifiers that might have a match.
+        if (isUnderlyingSelectGroupBy) { // Quantifiers { GB, {...rest} }
+            Assert.thatUnchecked(scope.getForEachQuantifiers().size() == 1);
+            final var qun = scope.getForEachQuantifiers().get(0);
+            Assert.thatUnchecked(!qun.getFlowedColumns().isEmpty());
+            if (isResolvingAggregations) { // { GB,  > {... rest} }
+                final var underlyingSelectQuantifiers = qun.getFlowedColumns().subList(qun.getFlowedColumns().size() - 1, qun.getFlowedColumns().size());
+                final var matches = underlyingSelectQuantifiers.stream().filter(q -> q.getField().getFieldNameOptional().isPresent() && q.getField().getFieldName().equals(topLevelFieldPath)).collect(Collectors.toList());
+                Assert.thatUnchecked(matches.size() < 2, String.format("ambiguous column name '%s'", topLevelFieldPath), ErrorCode.AMBIGUOUS_COLUMN);
+                if (!matches.isEmpty()) {
+                    //adjustedFieldPath.add(0, qun.getAlias().getId());
+                    candidateQuantifier = qun;
+                    matchFound = true;
+                }
+            } else { // { > GB, {... rest} }
+                final var groupingColumnName = qun.getFlowedColumns().get(0).getField().getFieldNameOptional();
+                if (groupingColumnName.isPresent() && groupingColumnName.get().equals(topLevelFieldPath)) {
+                    adjustedFieldPath.add(0, qun.getAlias().getId());
+                    candidateQuantifier = qun;
+                    matchFound = true;
+                }
+            }
+        } else {
+            final var quantifier = parserContext.getCurrentScope().getQuantifier(topLevelFieldPath);
+            if (quantifier.isPresent()) {
+                adjustedFieldPath.remove(0);
+                candidateQuantifier = quantifier.get();
+                matchFound = true;
             }
         }
-        assert false; // unreachable, but we should make the compiler happy.
-        return null;
-    }
 
-    @Nonnull
-    public static Quantifier findFieldPath(@Nonnull final String topLevelFieldPart, @Nonnull final ParserContext parserContext) {
-        Quantifier result = null;
-        boolean matchFound = false;
-        final var quantifier = parserContext.getCurrentScope().getQuantifier(topLevelFieldPart);
-        if (quantifier.isPresent()) {
-            result = quantifier.get();
-            matchFound = true;
-        }
-        Scopes.Scope scope = parserContext.getCurrentScope();
-        for (final var qun : scope.getAllQuantifiers().stream().filter(q -> q instanceof Quantifier.ForEach).collect(Collectors.toList())) {
-            for (final Column<? extends Value> column : qun.getFlowedColumns()) {
-                if (column.getField().getFieldName().equals(topLevelFieldPart)) {
-                    if (matchFound) {
-                        Assert.failUnchecked(String.format("ambiguous column name '%s'", topLevelFieldPart), ErrorCode.AMBIGUOUS_COLUMN);
-                    } else {
-                        matchFound = true;
-                        result = qun;
+        // 2. Check whether any of the currently visible quantifiers has a top-level field part in its list of flown columns matching the queried field.
+        if (isUnderlyingSelectGroupBy) {
+            for (final var qun : scope.getForEachQuantifiers()) {
+                final var columnsToCheck = isResolvingAggregations ?
+                        qun.getFlowedColumns().subList(qun.getFlowedColumns().size() - 1, qun.getFlowedColumns().size()) :
+                        qun.getFlowedColumns().subList(0, qun.getFlowedColumns().size() - 1);
+                for (final Column<? extends Value> column : columnsToCheck) {
+                    if (column.getValue().getResultType() instanceof Type.Record) {
+                        final var record = (Type.Record) (column.getValue().getResultType());
+                        for (final var field : record.getFields()) {
+                            final var maybeFieldName = field.getFieldNameOptional();
+                            if (maybeFieldName.isPresent() && maybeFieldName.get().equals(topLevelFieldPath)) {
+                                if (matchFound) {
+                                    Assert.failUnchecked(String.format("ambiguous column name '%s'", topLevelFieldPath), ErrorCode.AMBIGUOUS_COLUMN);
+                                } else {
+                                    matchFound = true;
+                                    candidateQuantifier = qun;
+                                    adjustedFieldPath.add(0, column.getField().getFieldName());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            for (final var qun : scope.getForEachQuantifiers()) {
+                for (final Column<? extends Value> column : qun.getFlowedColumns()) {
+                    if (column.getField().getFieldName().equals(topLevelFieldPath)) {
+                        if (matchFound) {
+                            Assert.failUnchecked(String.format("ambiguous column name '%s'", topLevelFieldPath), ErrorCode.AMBIGUOUS_COLUMN);
+                        } else {
+                            matchFound = true;
+                            candidateQuantifier = qun;
+                        }
                     }
                 }
             }
         }
-        Assert.notNullUnchecked(result, String.format("could not find field name '%s'", topLevelFieldPart));
-        return result;
+
+        // 3. we have everything we need. create the FieldValue reference.
+        Assert.thatUnchecked(matchFound, String.format("could not find field name '%s'", topLevelFieldPath));
+        Assert.thatUnchecked(candidateQuantifier.getFlowedObjectValue().getResultType() instanceof Type.Record);
+        try {
+            return new FieldValue(candidateQuantifier.getFlowedObjectValue(), adjustedFieldPath);
+        } catch (SemanticException se) {
+            if (se.getMessage().contains("record does not contain specified field")) { // todo exchange error codes
+                Assert.failUnchecked(String.format("attempting to query non existing field '%s'", String.join(".", adjustedFieldPath)));
+            } else {
+                Assert.failUnchecked(se.getMessage());
+            }
+        }
+        assert false; // should never happen.
+        return null;
     }
 
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, the analyzer " +
@@ -213,7 +279,6 @@ public final class ParserUtils {
             Assert.thatUnchecked(recordType.isPresent(), String.format("Unknown table %s", recordTypeName), ErrorCode.UNDEFINED_TABLE);
             Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), String.format("attempt to scan non existing record type %s from record store containing (%s)",
                     recordTypeName, String.join(",", allAvailableRecordTypeNames)));
-            parserContext.addFilteredRecord(recordTypeName);
             return new LogicalTypeFilterExpression(recordTypeNameSet,
                     Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypeNames,
                             Type.Record.fromFieldDescriptorsMap(allAvailableRecordTypes),
@@ -283,13 +348,48 @@ public final class ParserUtils {
         return normalizeString(path).matches("/\\w[a-zA-Z0-9_/]*\\w");
     }
 
-    public static boolean requiresCanonicalSubSelect(@Nonnull final Quantifier quantifier, @Nonnull final ParserContext parserContext) {
-        final var correlatesTo = quantifier.getCorrelatedTo();
-        if (correlatesTo.isEmpty()) {
-            return false; // all good.
+    @Nonnull
+    public static Column<Value> toColumn(@Nonnull final Value value) {
+        if (value instanceof FieldValue) {
+            return toColumn(value, ((FieldValue) value).getFieldName());
+        } else {
+            return Column.unnamedOf(value);
         }
-        // if one of the correlations is NOT found in parents, it means the correlation _might_ belong to a same-level subquery,
-        // in that case, push it down via canonical select to be sure we do not have same-level correlations.
-        return correlatesTo.stream().anyMatch(correlation -> parserContext.getCurrentScope().getQuantifier(correlation).isPresent());
+    }
+
+    @Nonnull
+    public static Column<Value> toColumn(@Nonnull final Value value, @Nonnull final String name) {
+        return Column.of(Type.Record.Field.of(value.getResultType(), Optional.of(name)), value);
+    }
+
+    @Nonnull
+    public static String toProtoBufCompliantName(@Nonnull final String input) {
+        Assert.thatUnchecked(input.length() > 0);
+        final var modified = input.replace("-", "_");
+        final char c = input.charAt(0);
+        if (c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) {
+            return modified;
+        }
+        return "id" + modified;
+    }
+
+    public static void verifyAggregateValue(@Nonnull final AggregateValue value) {
+        final var iterator = value.filter(c -> c instanceof AggregateValue).iterator();
+        iterator.next();
+        Assert.thatUnchecked(!iterator.hasNext(),
+                String.format("nested aggregate '%s' is not supported", value),
+                ErrorCode.UNSUPPORTED_OPERATION);
+    }
+
+    public static boolean hasAggregation(@Nonnull final RelationalParser.SelectElementsContext selectElementsContext) {
+        return selectElementsContext.selectElement().stream().anyMatch(element -> element.getChildCount() > 0 &&
+                element.getChild(0) instanceof RelationalParser.AggregateFunctionCallContext);
+    }
+
+    public static int getLastFieldIndex(@Nonnull final Type type) {
+        Assert.thatUnchecked(type instanceof Type.Record);
+        final Type.Record record = (Type.Record) type;
+        Assert.thatUnchecked(!record.getFields().isEmpty());
+        return record.getFields().size() - 1;
     }
 }

@@ -57,10 +57,8 @@ import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.sql.Types;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -100,10 +98,8 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         @VisibleForTesting
         private static RecordQueryPlan generatePhysicalPlan(@Nonnull final String query, @Nonnull final PlanContext planContext) throws RelationalException {
             final CascadesPlanner planner = new CascadesPlanner(planContext.getMetaData(), planContext.getStoreState());
-            final Collection<String> recordTypeNames = new LinkedHashSet<>();
             // need to do this step, so we can populate the record type names.
-            final var planContextWithPostProcessing = PlanContext.Builder.unapply(planContext).withPostProcessor(astWalker -> recordTypeNames.addAll(astWalker.getFilteredRecords())).build();
-            final Plan<?> plan = Plan.generate(query, planContextWithPostProcessing);
+            final Plan<?> plan = Plan.generate(query, planContext);
             try {
                 return planner.planGraph(
                         () -> {
@@ -117,7 +113,6 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                             final Quantifier qun = Quantifier.forEach(GroupExpressionRef.of(relationalExpression));
                             return GroupExpressionRef.of(new LogicalSortExpression(null, false, qun));
                         },
-                        Optional.ofNullable(recordTypeNames.isEmpty() ? null : recordTypeNames),
                         Optional.empty(),
                         IndexQueryabilityFilter.TRUE,
                         false, ParameterRelationshipGraph.empty());
