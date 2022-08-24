@@ -27,19 +27,29 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Tests for {@link LuceneIndexValidator}'s validation for Lucene index options.
+ */
 public class LuceneIndexValidatorTest {
     @Test
     void testInvalidIndexOptions() {
         // valid options
-        final Map<String, String> options = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text1:NGRAM,text2:SYNONYM",
-                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text3");
-        validateIndexOptions(options);
+        final Map<String, String> options = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, " text1 :NGRAM,text2: SYNONYM",
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2, text3");
+        assertDoesNotThrow(() -> validateIndexOptions(options), "Whitespaces should be stripped out they are valid option values");
+        Map<String, String> parsedMap = LuceneIndexOptions.parseKeyValuePairOptionValue(" text1 :NGRAM,text2:SYNONYM");
+        Set<String> parsedSet = LuceneIndexOptions.parseMultipleElementsOptionValue("text2, text3");
+        assertEquals(parsedMap, Map.of("text1", "NGRAM", "text2", "SYNONYM"));
+        assertEquals(parsedSet, Set.of("text2", "text3"));
 
         // invalid options
         final Map<String, String> options2 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text1:NGRAM,text2:SYNONYM,",

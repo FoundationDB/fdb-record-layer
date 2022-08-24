@@ -75,6 +75,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -130,14 +131,8 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         this.state = state;
         this.groupingKey = groupingKey;
         this.queryAnalyzer = queryAnalyzer;
-        this.excludedFieldNames = new HashSet<>();
         final String excludedFields = this.state.index.getOption(LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS);
-        if (excludedFields != null) {
-            String[] fieldNames = excludedFields.strip().split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
-            for (String fieldName : fieldNames) {
-                excludedFieldNames.add(fieldName.strip());
-            }
-        }
+        this.excludedFieldNames = excludedFields == null ? Collections.emptySet() : LuceneIndexOptions.parseMultipleElementsOptionValue(excludedFields);
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {

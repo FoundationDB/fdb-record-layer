@@ -100,16 +100,12 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
 
         Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride = new TreeMap<>();
         Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride = new TreeMap<>();
-        final String[] elements = analyzerPerFieldName.strip().split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
 
-        for (String element : elements) {
-            final String[] keyValuePair = element.strip().split(LuceneIndexOptions.DELIMITER_BETWEEN_KEY_AND_VALUE);
-            final String fieldName = keyValuePair[0];
-            final String analyzerName = keyValuePair[1];
+        LuceneIndexOptions.parseKeyValuePairOptionValue(analyzerPerFieldName).forEach((fieldName, analyzerName) -> {
             Pair<AnalyzerChooser, AnalyzerChooser> perFieldAnalyzerChooserPair = getAnalyzerChooser(index, analyzerName, type);
             indexAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getLeft());
             queryAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getRight());
-        }
+        });
 
         return new LuceneAnalyzerCombinationProvider(defaultAnalyzerChooserPair.getLeft(), defaultAnalyzerChooserPair.getRight(),
                 indexAnalyzerChooserPerFieldOverride, queryAnalyzerChooserPerFieldOverride);

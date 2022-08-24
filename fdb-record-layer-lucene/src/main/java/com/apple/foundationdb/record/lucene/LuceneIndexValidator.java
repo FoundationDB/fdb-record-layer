@@ -60,40 +60,16 @@ public class LuceneIndexValidator extends IndexValidator {
     private static void validateAnalyzerNamePerFieldOption(@Nonnull String optionKey, @Nonnull Index index) {
         String analyzerNamePerFieldOption = index.getOption(optionKey);
         if (analyzerNamePerFieldOption != null) {
-            analyzerNamePerFieldOption = analyzerNamePerFieldOption.strip();
-            if (analyzerNamePerFieldOption.startsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)
-                    || analyzerNamePerFieldOption.endsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)) {
-                throw new MetaDataException("Index " + index.getName() + " has invalid option value for " + optionKey + ": " + analyzerNamePerFieldOption);
-            }
-            final String[] keyValuePairs = analyzerNamePerFieldOption.split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
-            for (int i = 0 ; i < keyValuePairs.length; i++) {
-                final String keyValue = keyValuePairs[i].strip();
-                int firstIndex = keyValue.indexOf(LuceneIndexOptions.DELIMITER_BETWEEN_KEY_AND_VALUE);
-                if (keyValue.isEmpty()
-                        || firstIndex < 1 || firstIndex > keyValue.length() - 2
-                        || firstIndex != keyValue.lastIndexOf(LuceneIndexOptions.DELIMITER_BETWEEN_KEY_AND_VALUE)) {
-                    throw new MetaDataException("Index " + index.getName() + " has invalid option value for " + optionKey + ": " + analyzerNamePerFieldOption);
-                }
-            }
+            LuceneIndexOptions.validateKeyValuePairOptionValue(analyzerNamePerFieldOption,
+                    new MetaDataException("Index " + index.getName() + " has invalid option value for " + optionKey + ": " + analyzerNamePerFieldOption));
         }
     }
 
     private static void validateAutoCompleteExcludedFields(@Nonnull Index index) {
         String autoCompleteExcludedFieldsOption = index.getOption(LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS);
         if (autoCompleteExcludedFieldsOption != null) {
-            autoCompleteExcludedFieldsOption = autoCompleteExcludedFieldsOption.strip();
-            if (autoCompleteExcludedFieldsOption.startsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)
-                    || autoCompleteExcludedFieldsOption.endsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)
-                    || autoCompleteExcludedFieldsOption.contains(LuceneIndexOptions.DELIMITER_BETWEEN_KEY_AND_VALUE)) {
-                throw new MetaDataException("Index " + index.getName() + " has invalid option value for " + LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS + ": " + autoCompleteExcludedFieldsOption);
-            }
-            final String[] fieldNames = autoCompleteExcludedFieldsOption.split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
-            for (int i = 0; i < fieldNames.length; i++) {
-                final String fieldName = fieldNames[i].strip();
-                if (fieldName.isEmpty()) {
-                    throw new MetaDataException("Index " + index.getName() + " has invalid option value for " + LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS + ": " + autoCompleteExcludedFieldsOption);
-                }
-            }
+            LuceneIndexOptions.validateMultipleElementsOptionValue(autoCompleteExcludedFieldsOption,
+                    new MetaDataException("Index " + index.getName() + " has invalid option value for " + LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS + ": " + autoCompleteExcludedFieldsOption));
         }
     }
 }

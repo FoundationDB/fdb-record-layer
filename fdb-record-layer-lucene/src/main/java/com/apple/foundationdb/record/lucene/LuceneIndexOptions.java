@@ -21,6 +21,13 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
+
+import javax.annotation.Nonnull;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Options for use with Lucene indexes.
@@ -95,5 +102,78 @@ public class LuceneIndexOptions {
     public static final String AUTO_COMPLETE_EXCLUDED_FIELDS = "autoCompleteExcludedFields";
 
     private LuceneIndexOptions() {
+    }
+
+    /**
+     * Parse an option's value to a key-value map.
+     * @param optionValue the raw string for option's value
+     * @return the map
+     */
+    public static Map<String, String> parseKeyValuePairOptionValue(@Nonnull String optionValue) {
+        final String[] elements = optionValue.strip().split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
+        final Map<String, String> map = new HashMap<>();
+        for (String element : elements) {
+            final String[] keyValuePair = element.split(LuceneIndexOptions.DELIMITER_BETWEEN_KEY_AND_VALUE);
+            final String key = keyValuePair[0].strip();
+            final String value = keyValuePair[1].strip();
+            map.put(key, value);
+        }
+        return map;
+    }
+
+    /**
+     * Parse an option's value to a set of strings.
+     * @param optionValue the raw string for option's value
+     * @return map
+     */
+    public static Set<String> parseMultipleElementsOptionValue(@Nonnull String optionValue) {
+        final String[] elements = optionValue.strip().split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
+        final Set<String> list = new HashSet<>();
+        for (String fieldName : elements) {
+            list.add(fieldName.strip());
+        }
+        return list;
+    }
+
+    /**
+     * Validate the raw string for an option's value has valid format for a key-value map.
+     * @param optionValue the raw string for option's value
+     * @param exceptionToThrow the exception to throw if it is invalid
+     */
+    public static void validateKeyValuePairOptionValue(@Nonnull String optionValue, @Nonnull RecordCoreException exceptionToThrow) {
+        optionValue = optionValue.strip();
+        if (optionValue.startsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS) || optionValue.endsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)) {
+            throw exceptionToThrow;
+        }
+        final String[] keyValuePairs = optionValue.split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
+        for (String rawString : keyValuePairs) {
+            final String keyValue = rawString.strip();
+            int firstIndex = keyValue.indexOf(LuceneIndexOptions.DELIMITER_BETWEEN_KEY_AND_VALUE);
+            if (keyValue.isEmpty()
+                    || firstIndex < 1 || firstIndex > keyValue.length() - 2
+                    || firstIndex != keyValue.lastIndexOf(LuceneIndexOptions.DELIMITER_BETWEEN_KEY_AND_VALUE)) {
+                throw exceptionToThrow;
+            }
+        }
+    }
+
+    /**
+     * Validate the raw string for an option's value has valid format for multiple-elements.
+     * @param optionValue the raw string for option's value
+     * @param exceptionToThrow the exception to throw if it is invalid
+     */
+    public static void validateMultipleElementsOptionValue(@Nonnull String optionValue, @Nonnull RecordCoreException exceptionToThrow) {
+        optionValue = optionValue.strip();
+        if (optionValue.startsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)
+                || optionValue.endsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)
+                || optionValue.contains(LuceneIndexOptions.DELIMITER_BETWEEN_KEY_AND_VALUE)) {
+            throw exceptionToThrow;
+        }
+        final String[] fieldNames = optionValue.split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
+        for (String rawString : fieldNames) {
+            if (rawString.isBlank()) {
+                throw exceptionToThrow;
+            }
+        }
     }
 }
