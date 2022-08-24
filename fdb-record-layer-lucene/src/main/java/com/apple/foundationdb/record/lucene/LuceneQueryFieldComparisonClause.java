@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
@@ -239,8 +238,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                 case TEXT_CONTAINS_PHRASE:
                     // PhraseQuery will require tokenizing, so may as well just use parser.
                     try {
-                        final Pair<AnalyzerChooser, AnalyzerChooser> analyzerChooserPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index, LuceneAnalyzerType.FULL_TEXT);
-                        final QueryParser parser = new QueryParser(field, analyzerChooserPair.getRight().chooseAnalyzer((String) comparand).getAnalyzer());
+                        final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT);
+                        final QueryParser parser = new QueryParser(field, analyzerSelector.provideQueryAnalyzer((String) comparand).getAnalyzer());
                         return parser.parse("\"" + comparand + "\"");
                     } catch (Exception ex) {
                         throw new RecordCoreArgumentException("Unable to parse phrase for query", ex);

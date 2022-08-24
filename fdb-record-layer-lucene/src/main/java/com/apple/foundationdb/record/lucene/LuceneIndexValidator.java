@@ -23,8 +23,10 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 
@@ -43,6 +45,31 @@ public class LuceneIndexValidator extends IndexValidator {
         validateNotVersion();
         for (RecordType recordType : metaDataValidator.getRecordMetaData().recordTypesForIndex(index)) {
             LuceneIndexExpressions.validate(index.getRootExpression(), recordType.getDescriptor());
+        }
+
+        validateIndexOptions(index);
+    }
+
+    @VisibleForTesting
+    public static void validateIndexOptions(@Nonnull Index index) {
+        validateAnalyzerNamePerFieldOption(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, index);
+        validateAnalyzerNamePerFieldOption(LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION, index);
+        validateAutoCompleteExcludedFields(index);
+    }
+
+    private static void validateAnalyzerNamePerFieldOption(@Nonnull String optionKey, @Nonnull Index index) {
+        String analyzerNamePerFieldOption = index.getOption(optionKey);
+        if (analyzerNamePerFieldOption != null) {
+            LuceneIndexOptions.validateKeyValuePairOptionValue(analyzerNamePerFieldOption,
+                    new MetaDataException("Index " + index.getName() + " has invalid option value for " + optionKey + ": " + analyzerNamePerFieldOption));
+        }
+    }
+
+    private static void validateAutoCompleteExcludedFields(@Nonnull Index index) {
+        String autoCompleteExcludedFieldsOption = index.getOption(LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS);
+        if (autoCompleteExcludedFieldsOption != null) {
+            LuceneIndexOptions.validateMultipleElementsOptionValue(autoCompleteExcludedFieldsOption,
+                    new MetaDataException("Index " + index.getName() + " has invalid option value for " + LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS + ": " + autoCompleteExcludedFieldsOption));
         }
     }
 }

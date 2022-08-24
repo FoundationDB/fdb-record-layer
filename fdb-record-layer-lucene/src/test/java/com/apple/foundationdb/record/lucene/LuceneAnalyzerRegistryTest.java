@@ -42,13 +42,13 @@ public class LuceneAnalyzerRegistryTest {
                 function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
                 LuceneIndexTypes.LUCENE,
                 ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
-                        LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                        LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                         LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
         // Assert the synonym analyzer is used for query analyzer for full-text search
         Assertions.assertEquals(SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
-                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index, LuceneAnalyzerType.FULL_TEXT).getRight().chooseAnalyzer("").getUniqueIdentifier());
+                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT).provideQueryAnalyzer("").getUniqueIdentifier());
         // Assert the standard analyzer is used for query analyzer for auto-complete suggestions
         Assertions.assertEquals(LuceneAnalyzerWrapper.STANDARD_ANALYZER_NAME,
-                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerChooserPair(index, LuceneAnalyzerType.AUTO_COMPLETE).getRight().chooseAnalyzer("").getUniqueIdentifier());
+                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE).provideQueryAnalyzer("").getUniqueIdentifier());
     }
 }
