@@ -282,7 +282,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4WrapperProto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.None).nest(field("values", FanType.FanOut).nest("rating")));
-        metaDataBuilder.addIndex("RestaurantRecord", "tag", field("tags", FanType.FanOut).nest(field("values", FanType.FanOut).nest(
+        metaDataBuilder.addIndex("RestaurantRecord", "tag", field("tags", FanType.None).nest(field("values", FanType.FanOut).nest(
                 concatenateFields("value", "weight"))));
         metaDataBuilder.addIndex("RestaurantRecord", "customers", field("customer", FanType.None).nest(field("values", FanType.FanOut)));
         metaDataBuilder.addIndex("RestaurantRecord", "customers-name", concat(field("customer", FanType.None).nest(field("values", FanType.FanOut)), field("name")));
