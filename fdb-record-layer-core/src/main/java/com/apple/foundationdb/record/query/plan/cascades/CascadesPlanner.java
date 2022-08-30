@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
@@ -77,7 +78,7 @@ import java.util.function.Supplier;
  * </p>
  *
  * <p>
- * Like many optimization frameworks, Cascades is driven by sets of {@link PlannerRule}s that can be defined for
+ * Like many optimization frameworks, Cascades is driven by sets of {@link CascadesRule}s that can be defined for
  * {@link RelationalExpression}s, {@link PartialMatch}es and {@link MatchPartition}s, each of which describes a
  * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
  * searches through its {@link PlannerRuleSet} to find a matching rule and then executes that rule, creating zero or
@@ -90,7 +91,7 @@ import java.util.function.Supplier;
  *         of the current planner expression, the current partial match, or the current match partition.
  *     </li>
  *     <li>
- *         A {@link PlannerRule#onMatch(PlannerRuleCall)} method that is run for each successful match, producing zero
+ *         A {@link CascadesRule#onMatch(PlannerRuleCall)} method that is run for each successful match, producing zero
  *         or more new expressions and/or zero or more new partial matches.
  *     </li>
  * </ul>
@@ -187,7 +188,7 @@ import java.util.function.Supplier;
  *
  * @see GroupExpressionRef
  * @see RelationalExpression
- * @see PlannerRule
+ * @see CascadesRule
  * @see CascadesCostModel
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -650,7 +651,7 @@ public class CascadesPlanner implements QueryPlanner {
             // right here to determine the set of all possible rules that could ever be applied here, regardless of
             // what happens towards the leaves of the tree.
             ruleSet.getExpressionRules(getExpression(), rule -> configuration.isRuleEnabled(rule))
-                    .filter(rule -> !(rule instanceof PlannerRule.PreOrderRule) &&
+                    .filter(rule -> !(rule instanceof PreOrderRule) &&
                                     shouldEnqueueRule(rule))
                     .forEach(this::enqueueTransformTask);
 
@@ -662,18 +663,18 @@ public class CascadesPlanner implements QueryPlanner {
                     .forEach(this::enqueueExploreGroup);
 
             ruleSet.getExpressionRules(getExpression(), rule -> configuration.isRuleEnabled(rule))
-                    .filter(rule -> rule instanceof PlannerRule.PreOrderRule &&
+                    .filter(rule -> rule instanceof PreOrderRule &&
                                     shouldEnqueueRule(rule))
                     .forEach(this::enqueueTransformTask);
         }
 
-        protected abstract boolean shouldEnqueueRule(@Nonnull PlannerRule<?> rule);
+        protected abstract boolean shouldEnqueueRule(@Nonnull CascadesRule<?> rule);
 
-        private void enqueueTransformTask(@Nonnull PlannerRule<? extends RelationalExpression> rule) {
+        private void enqueueTransformTask(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
             taskStack.push(new TransformExpression(getContext(), getGroup(), getExpression(), rule));
         }
 
-        private void enqueueTransformMatchPartition(PlannerRule<? extends MatchPartition> rule) {
+        private void enqueueTransformMatchPartition(CascadesRule<? extends MatchPartition> rule) {
             taskStack.push(new TransformMatchPartition(getContext(), getGroup(), getExpression(), rule));
         }
 
@@ -711,7 +712,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Override
-        protected boolean shouldEnqueueRule(@Nonnull PlannerRule<?> rule) {
+        protected boolean shouldEnqueueRule(@Nonnull CascadesRule<?> rule) {
             final Set<PlannerConstraint<?>> requirementDependencies = rule.getConstraintDependencies();
             final GroupExpressionRef<RelationalExpression> group = getGroup();
             if (!group.isExploring()) {
@@ -742,7 +743,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Override
-        protected boolean shouldEnqueueRule(@Nonnull PlannerRule<?> rule) {
+        protected boolean shouldEnqueueRule(@Nonnull CascadesRule<?> rule) {
             return true;
         }
 
@@ -765,12 +766,12 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final RelationalExpression expression;
         @Nonnull
-        private final PlannerRule<?> rule;
+        private final CascadesRule<?> rule;
 
         protected AbstractTransform(@Nonnull PlanContext context,
                                     @Nonnull GroupExpressionRef<RelationalExpression> group,
                                     @Nonnull RelationalExpression expression,
-                                    @Nonnull PlannerRule<?> rule) {
+                                    @Nonnull CascadesRule<?> rule) {
             this.context = context;
             this.group = group;
             this.expression = expression;
@@ -793,7 +794,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Nonnull
-        public PlannerRule<?> getRule() {
+        public CascadesRule<?> getRule() {
             return rule;
         }
 
@@ -875,7 +876,7 @@ public class CascadesPlanner implements QueryPlanner {
                 // (2) the rule is not a pre-order rule -- we need to push a new task onto the stack after the
                 //     re-exploration using the newly pushed requirement.
                 //
-                if (!(rule instanceof PlannerRule.PreOrderRule)) {
+                if (!(rule instanceof PreOrderRule)) {
                     taskStack.push(this);
                 }
                 for (final ExpressionRef<? extends RelationalExpression> reference : referencesWithPushedRequirements) {
@@ -902,7 +903,7 @@ public class CascadesPlanner implements QueryPlanner {
         public TransformExpression(@Nonnull PlanContext context,
                                    @Nonnull GroupExpressionRef<RelationalExpression> group,
                                    @Nonnull RelationalExpression expression,
-                                   @Nonnull PlannerRule<? extends RelationalExpression> rule) {
+                                   @Nonnull CascadesRule<? extends RelationalExpression> rule) {
             super(context, group, expression, rule);
         }
 
@@ -937,7 +938,7 @@ public class CascadesPlanner implements QueryPlanner {
         public TransformMatchPartition(@Nonnull PlanContext context,
                                        @Nonnull GroupExpressionRef<RelationalExpression> group,
                                        @Nonnull RelationalExpression expression,
-                                       @Nonnull PlannerRule<? extends MatchPartition> rule) {
+                                       @Nonnull CascadesRule<? extends MatchPartition> rule) {
             super(context, group, expression, rule);
             this.matchPartitionSupplier = Suppliers.memoize(() -> MatchPartition.of(group, expression));
         }
@@ -960,7 +961,7 @@ public class CascadesPlanner implements QueryPlanner {
                                      @Nonnull GroupExpressionRef<RelationalExpression> group,
                                      @Nonnull RelationalExpression expression,
                                      @Nonnull PartialMatch partialMatch,
-                                     @Nonnull PlannerRule<? extends PartialMatch> rule) {
+                                     @Nonnull CascadesRule<? extends PartialMatch> rule) {
             super(context, group, expression, rule);
             this.partialMatch = partialMatch;
         }

@@ -33,11 +33,13 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -48,6 +50,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Case class to represent a match candidate that is backed by an index.
@@ -71,10 +74,16 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     private final List<CorrelationIdentifier> parameters;
 
     /**
-     * Base quantifier.
+     * Base type.
      */
     @Nonnull
-    private final Quantifier.ForEach baseQuantifier;
+    private final Type baseType;
+
+    /**
+     * Base alias.
+     */
+    @Nonnull
+    private final CorrelationIdentifier baseAlias;
 
     /**
      * List of values that represent the key parts of the index represented by the candidate in the expanded graph.
@@ -95,29 +104,35 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     private final ExpressionRefTraversal traversal;
 
     @Nonnull
-    private final KeyExpression alternativeKeyExpression;
+    private final KeyExpression fullKeyExpression;
 
     @Nullable
     private final KeyExpression primaryKey;
+
+    @Nonnull
+    private final Supplier<Optional<List<Value>>> primaryKeyValuesSupplier;
 
     public ValueIndexScanMatchCandidate(@Nonnull Index index,
                                         @Nonnull Collection<RecordType> queriedRecordTypes,
                                         @Nonnull final ExpressionRefTraversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
-                                        @Nonnull final Quantifier.ForEach baseQuantifier,
+                                        @Nonnull final Type baseType,
+                                        @Nonnull final CorrelationIdentifier baseAlias,
                                         @Nonnull final List<Value> indexKeyValues,
                                         @Nonnull final List<Value> indexValueValues,
-                                        @Nonnull final KeyExpression alternativeKeyExpression,
+                                        @Nonnull final KeyExpression fullKeyExpression,
                                         @Nullable final KeyExpression primaryKey) {
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
-        this.baseQuantifier = baseQuantifier;
+        this.baseType = baseType;
+        this.baseAlias = baseAlias;
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
         this.indexValueValues = ImmutableList.copyOf(indexValueValues);
-        this.alternativeKeyExpression = alternativeKeyExpression;
+        this.fullKeyExpression = fullKeyExpression;
         this.primaryKey = primaryKey;
+        this.primaryKeyValuesSupplier = Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
     }
 
     @Nonnull
@@ -157,8 +172,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     }
 
     @Nonnull
-    public Quantifier.ForEach getBaseQuantifier() {
-        return baseQuantifier;
+    public Type getBaseType() {
+        return baseType;
     }
 
     @Nonnull
@@ -173,14 +188,19 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
-    public KeyExpression getAlternativeKeyExpression() {
-        return alternativeKeyExpression;
+    public KeyExpression getFullKeyExpression() {
+        return fullKeyExpression;
     }
-    
+
+    @Override
+    public boolean createsDuplicates() {
+        return index.getRootExpression().createsDuplicates();
+    }
+
     @Nonnull
     @Override
-    public Optional<KeyExpression> getPrimaryKeyMaybe() {
-        return Optional.ofNullable(primaryKey);
+    public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
+        return primaryKeyValuesSupplier.get();
     }
 
     @Nonnull
@@ -220,7 +240,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
         final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
-        final Value baseObjectValue = baseQuantifier.getFlowedObjectValue();
+        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
             if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
@@ -271,12 +291,12 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
                                                  @Nonnull CorrelationIdentifier sourceAlias,
                                                  @Nonnull CorrelationIdentifier targetAlias) {
-        final Value baseObjectValue = baseQuantifier.getFlowedObjectValue();
+        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
 
         // replace the quantified column value inside the given value with the quantified value in the match candidate
         final Value translatedValue =
-                value.rebase(AliasMap.of(sourceAlias, baseQuantifier.getAlias()));
-        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseQuantifier.getAlias()));
+                value.rebase(AliasMap.of(sourceAlias, baseAlias));
+        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseAlias));
 
         for (final Value matchResultValue : Iterables.concat(ImmutableList.of(baseObjectValue), indexKeyValues, indexValueValues)) {
             final Set<CorrelationIdentifier> resultValueCorrelatedTo = matchResultValue.getCorrelatedTo();
@@ -284,7 +304,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 continue;
             }
             if (translatedValue.semanticEquals(matchResultValue, equivalenceMap)) {
-                return Optional.of(matchResultValue.rebase(AliasMap.of(baseQuantifier.getAlias(), targetAlias)));
+                return Optional.of(matchResultValue.rebase(AliasMap.of(baseAlias, targetAlias)));
             }
         }
 

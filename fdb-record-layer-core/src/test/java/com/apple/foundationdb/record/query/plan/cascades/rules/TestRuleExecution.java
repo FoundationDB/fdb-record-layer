@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -67,7 +67,7 @@ public class TestRuleExecution {
     }
 
     public static TestRuleExecution applyRule(@Nonnull PlanContext context,
-                                              @Nonnull PlannerRule<? extends RelationalExpression> rule,
+                                              @Nonnull CascadesRule<? extends RelationalExpression> rule,
                                               @Nonnull GroupExpressionRef<RelationalExpression> group) {
         boolean ruleMatched = false;
         for (RelationalExpression expression : group.getMembers()) {

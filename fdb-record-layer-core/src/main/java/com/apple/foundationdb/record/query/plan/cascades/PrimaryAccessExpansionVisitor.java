@@ -84,6 +84,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                 parameters,
                 availableRecordTypes,
                 recordTypes,
-                primaryKey);
+                primaryKey,
+                baseQuantifier.getFlowedObjectType());
     }
 }

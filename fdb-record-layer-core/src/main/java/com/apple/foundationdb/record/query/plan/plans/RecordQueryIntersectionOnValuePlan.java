@@ -45,10 +45,10 @@ public class RecordQueryIntersectionOnValuePlan extends RecordQueryIntersectionP
     @Nonnull
     private final CorrelationIdentifier baseAlias;
 
-    private RecordQueryIntersectionOnValuePlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                               @Nonnull final CorrelationIdentifier baseAlias,
-                                               @Nonnull final Value comparisonKeyValue,
-                                               final boolean reverse) {
+    public RecordQueryIntersectionOnValuePlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                              @Nonnull final CorrelationIdentifier baseAlias,
+                                              @Nonnull final Value comparisonKeyValue,
+                                              final boolean reverse) {
         super(quantifiers,
                 new ComparisonKeyFunction.OnValue(baseAlias, comparisonKeyValue),
                 reverse);

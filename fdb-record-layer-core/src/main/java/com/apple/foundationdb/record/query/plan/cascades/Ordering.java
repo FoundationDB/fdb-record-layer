@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -35,7 +35,6 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -80,7 +79,7 @@ import java.util.stream.StreamSupport;
  */
 public class Ordering {
     /**
-     * Multimap from {@link KeyExpression} to a set of {@link Comparison}s to capture all expressions that are
+     * Multimap from {@link Value} to a set of {@link Comparison}s to capture all expressions that are
      * bound through equality. This needs to be a multimap to accommodate for the case where an expression is
      * bound multiple times independently and where it is not immediately clear that both bound locations are
      * redundant or contradictory. For instance {@code x = 5} and {@code x = 6} together are effectively a
@@ -89,10 +88,10 @@ public class Ordering {
      * if the predicate is just redundant (where {@code $p} is bound to {@code 5} when the query is executed).
      */
     @Nonnull
-    private final SetMultimap<KeyExpression, Comparison> equalityBoundKeyMap;
+    private final SetMultimap<Value, Comparison> equalityBoundKeyMap;
 
     /**
-     * A list of {@link KeyExpression}s where none of the contained expressions is equality-bound. This list
+     * A list of {@link KeyPart}s where none of the contained expressions is equality-bound. This list
      * defines the actual order of records.
      */
     @Nonnull
@@ -103,7 +102,7 @@ public class Ordering {
     @Nonnull
     private final Supplier<PartialOrder<KeyPart>> partialOrderSupplier;
 
-    public Ordering(@Nonnull final SetMultimap<KeyExpression, Comparison> equalityBoundKeyMap,
+    public Ordering(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
                     @Nonnull final List<KeyPart> orderingKeyParts,
                     final boolean isDistinct) {
         this.orderingKeyParts = ImmutableList.copyOf(orderingKeyParts);
@@ -113,12 +112,12 @@ public class Ordering {
     }
 
     @Nonnull
-    public SetMultimap<KeyExpression, Comparison> getEqualityBoundKeyMap() {
+    public SetMultimap<Value, Comparison> getEqualityBoundKeyMap() {
         return equalityBoundKeyMap;
     }
 
     @Nonnull
-    public Set<KeyExpression> getEqualityBoundKeys() {
+    public Set<Value> getEqualityBoundKeys() {
         return equalityBoundKeyMap.keySet();
     }
 
@@ -208,7 +207,7 @@ public class Ordering {
 
     @Nonnull
     public Optional<List<KeyPart>> satisfiesRequestedOrdering(@Nonnull final List<KeyPart> requiredOrderingKeyParts,
-                                                              @Nonnull final Set<KeyExpression> comparablyBoundKeys) {
+                                                              @Nonnull final Set<Value> comparablyBoundKeys) {
         final var partialOrder =
                 PartialOrder.<KeyPart>builder()
                         .addListWithDependencies(this.getOrderingKeyParts())
@@ -383,8 +382,8 @@ public class Ordering {
      * @return a new combined multimap of equality-bound keys (and their bindings) for all the orderings passed in
      */
     @Nonnull
-    public static Optional<SetMultimap<KeyExpression, Comparison>> combineEqualityBoundKeys(@Nonnull final Collection<Ordering> orderings,
-                                                                                            @Nonnull final BinaryOperator<SetMultimap<KeyExpression, Comparison>> combineFn) {
+    public static Optional<SetMultimap<Value, Comparison>> combineEqualityBoundKeys(@Nonnull final Collection<Ordering> orderings,
+                                                                                    @Nonnull final BinaryOperator<SetMultimap<Value, Comparison>> combineFn) {
         final Iterator<Ordering> membersIterator = orderings.iterator();
         if (!membersIterator.hasNext()) {
             // don't bail on incorrect graph structure, just return empty()
@@ -392,12 +391,12 @@ public class Ordering {
         }
 
         final var commonOrderingInfo = membersIterator.next();
-        SetMultimap<KeyExpression, Comparison> commonEqualityBoundKeyMap = commonOrderingInfo.getEqualityBoundKeyMap();
+        var commonEqualityBoundKeyMap = commonOrderingInfo.getEqualityBoundKeyMap();
 
         while (membersIterator.hasNext()) {
             final var currentOrdering = membersIterator.next();
 
-            final SetMultimap<KeyExpression, Comparison> currentEqualityBoundKeyMap = currentOrdering.getEqualityBoundKeyMap();
+            final var currentEqualityBoundKeyMap = currentOrdering.getEqualityBoundKeyMap();
             commonEqualityBoundKeyMap = combineFn.apply(commonEqualityBoundKeyMap, currentEqualityBoundKeyMap);
         }
 
@@ -412,9 +411,9 @@ public class Ordering {
      * @return new combined multimap of equality-bound keys (and their bindings)
      */
     @Nonnull
-    public static SetMultimap<KeyExpression, Comparison> unionEqualityBoundKeys(@Nonnull SetMultimap<KeyExpression, Comparison> left,
-                                                                                @Nonnull SetMultimap<KeyExpression, Comparison> right) {
-        final ImmutableSetMultimap.Builder<KeyExpression, Comparison> resultBuilder = ImmutableSetMultimap.builder();
+    public static SetMultimap<Value, Comparison> unionEqualityBoundKeys(@Nonnull SetMultimap<Value, Comparison> left,
+                                                                        @Nonnull SetMultimap<Value, Comparison> right) {
+        final var resultBuilder = ImmutableSetMultimap.<Value, Comparison>builder();
         resultBuilder.putAll(left);
         resultBuilder.putAll(right);
         return resultBuilder.build();
@@ -428,12 +427,12 @@ public class Ordering {
      * @return new combined multimap of equality-bound keys (and their bindings)
      */
     @Nonnull
-    public static SetMultimap<KeyExpression, Comparison> intersectEqualityBoundKeys(@Nonnull SetMultimap<KeyExpression, Comparison> left,
-                                                                                    @Nonnull SetMultimap<KeyExpression, Comparison> right) {
-        final ImmutableSetMultimap.Builder<KeyExpression, Comparison> resultBuilder = ImmutableSetMultimap.builder();
+    public static SetMultimap<Value, Comparison> intersectEqualityBoundKeys(@Nonnull SetMultimap<Value, Comparison> left,
+                                                                            @Nonnull SetMultimap<Value, Comparison> right) {
+        final var resultBuilder = ImmutableSetMultimap.<Value, Comparison>builder();
         
-        for (final Map.Entry<KeyExpression, Collection<Comparison>> rightEntry : right.asMap().entrySet()) {
-            final KeyExpression rightKey = rightEntry.getKey();
+        for (final var rightEntry : right.asMap().entrySet()) {
+            final var rightKey = rightEntry.getKey();
             if (left.containsKey(rightKey)) {
                 //
                 // Left side contains the same key. We can only retain this key in the result, however, if at least

@@ -45,6 +45,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueCompari
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRule;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleSet;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -58,6 +61,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -356,11 +360,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return other.getClass() == getClass();
     }
 
-    static List<? extends Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final Quantifier quantifier) {
+    static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final Quantifier quantifier) {
         return fromKeyExpressions(expressions, quantifier.getAlias(), quantifier.getFlowedObjectType());
     }
 
-    static List<? extends Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
+    static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
         return expressions
                 .stream()
                 .map(keyExpression -> new ScalarTranslationVisitor(keyExpression).toResultValue(alias, inputType))
@@ -401,4 +405,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      */
     @API(API.Status.EXPERIMENTAL)
     interface NondeterministicValue extends Value {}
+
+    @Nonnull
+    default Value simplify(@Nonnull final ValueSimplificationRuleSet ruleSet,
+                           @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                           @Nonnull final Predicate<ValueSimplificationRule<? extends Value>> rulePredicate) {
+        return Simplification.simplify(this, constantAliases, ruleSet, rulePredicate);
+    }
 }

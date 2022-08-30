@@ -22,11 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -129,7 +129,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> extends PlannerRule<P> {
+public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> extends CascadesRule<P> {
     @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
             fetchFromPartialRecordPlan(anyPlan());
@@ -149,7 +149,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
     @Override
     @SuppressWarnings("java:S1905")
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQuerySetPlan setOperationPlan = bindings.get(getMatcher());

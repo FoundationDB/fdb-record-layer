@@ -21,14 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
@@ -58,7 +58,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
+public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
@@ -76,7 +76,7 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var logicalTypeFilterExpression = call.get(root);
         final var planPartition = call.get(innerPlanPartitionMatcher);
         final var noTypeFilterNeededBuilder = ImmutableList.<RecordQueryPlan>builder();
@@ -101,7 +101,7 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
         }
 
         for (Map.Entry<Set<String>, Collection<RecordQueryPlan>> unsatisfiedEntry : unsatisfiedMap.asMap().entrySet()) {
-            call.yield(call.ref(
+            call.yield(GroupExpressionRef.of(
                     new RecordQueryTypeFilterPlan(
                             Quantifier.physical(GroupExpressionRef.from(unsatisfiedEntry.getValue())),
                             unsatisfiedEntry.getKey(),

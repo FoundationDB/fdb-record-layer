@@ -22,8 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -39,7 +40,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * {@link com.apple.foundationdb.record.query.plan.ScanComparisons} to be used during query execution.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ImplementPhysicalScanRule extends PlannerRule<PrimaryScanExpression> {
+public class ImplementPhysicalScanRule extends CascadesRule<PrimaryScanExpression> {
     private static final BindingMatcher<PrimaryScanExpression> root = primaryScanExpression();
 
     public ImplementPhysicalScanRule() {
@@ -47,9 +48,9 @@ public class ImplementPhysicalScanRule extends PlannerRule<PrimaryScanExpression
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PrimaryScanExpression logical = call.get(root);
-        call.yield(call.ref(new RecordQueryScanPlan(
+        call.yield(GroupExpressionRef.of(new RecordQueryScanPlan(
                 logical.getRecordTypes(),
                 logical.getResultValue().getResultType().narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
                 logical.getPrimaryKey(),

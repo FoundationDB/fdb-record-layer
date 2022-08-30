@@ -102,7 +102,7 @@ public class ExpressionMatcherTest {
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalFilterExpression(
-                        ImmutableList.of(new QueryComponentPredicate(Query.field("test").equalsValue(5), CorrelationIdentifier.UNGROUNDED)),
+                        ImmutableList.of(new QueryComponentPredicate(Query.field("test").equalsValue(5), CorrelationIdentifier.CURRENT)),
                         quantifier));
         // try to match to expression
         Optional<PlannerBindings> newBindings = matcher.bindMatches(PlannerBindings.empty(), root).findFirst();

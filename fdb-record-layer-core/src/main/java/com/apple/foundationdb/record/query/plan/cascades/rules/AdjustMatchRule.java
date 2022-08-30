@@ -21,12 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers;
@@ -53,7 +53,7 @@ import java.util.Optional;
  * provided properties guaranteed by the candidate side.
  */
 @API(API.Status.EXPERIMENTAL)
-public class AdjustMatchRule extends PlannerRule<PartialMatch> {
+public class AdjustMatchRule extends CascadesRule<PartialMatch> {
     private static final BindingMatcher<PartialMatch> rootMatcher = PartialMatchMatchers.incompleteMatch();
 
     public AdjustMatchRule() {
@@ -62,7 +62,7 @@ public class AdjustMatchRule extends PlannerRule<PartialMatch> {
 
     @Override
     @SuppressWarnings("java:S135")
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final PartialMatch incompleteMatch = bindings.get(rootMatcher);
 

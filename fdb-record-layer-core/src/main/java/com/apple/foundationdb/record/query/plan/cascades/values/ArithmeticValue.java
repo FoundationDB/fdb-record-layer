@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Enums;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -82,6 +83,11 @@ public class ArithmeticValue implements Value {
         this.operation = operation;
         this.leftChild = leftChild;
         this.rightChild = rightChild;
+    }
+
+    @Nonnull
+    public LogicalOperator getLogicalOperator() {
+        return operation.getLogicalOperator();
     }
 
     @Nullable
@@ -243,7 +249,10 @@ public class ArithmeticValue implements Value {
         }
     }
 
-    private enum LogicalOperator {
+    /**
+     * Logical operator.
+     */
+    public enum LogicalOperator {
         ADD("+"),
         SUB("-"),
         MUL("*"),
@@ -263,7 +272,11 @@ public class ArithmeticValue implements Value {
         }
     }
 
-    private enum PhysicalOperator {
+    /**
+     * Physical operators.
+     */
+    @VisibleForTesting
+    public enum PhysicalOperator {
         ADD_II(LogicalOperator.ADD, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.addExact((int)l, (int)r)),
         ADD_IL(LogicalOperator.ADD, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> Math.addExact((int)l, (long)r)),
         ADD_IF(LogicalOperator.ADD, TypeCode.INT, TypeCode.FLOAT, TypeCode.FLOAT, (l, r) -> (int)l + (float)r),

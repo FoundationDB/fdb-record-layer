@@ -62,7 +62,7 @@ class BooleanPredicateNormalizerTest {
     private static final QueryPredicate P5 = new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5));
     private static final QueryPredicate P6 = new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 6));
     private static final QueryPredicate P7 = new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 7));
-    
+
     @Test
     void atomic() {
         assertExpectedDnf(P1, P1);
@@ -210,12 +210,12 @@ class BooleanPredicateNormalizerTest {
                         or(IntStream.rangeClosed(1, 9).boxed()
                                 .map(j -> and(
                                         new ValuePredicate(FieldValue.ofFieldName(
-                                                QuantifiedObjectValue.of(CorrelationIdentifier.UNGROUNDED,
+                                                QuantifiedObjectValue.of(CorrelationIdentifier.CURRENT,
                                                         Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("num_value_3_indexed"))))),
                                                 "num_value_3_indexed"),
                                                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, i * 9 + j)),
                                         new ValuePredicate(FieldValue.ofFieldName(
-                                                QuantifiedObjectValue.of(CorrelationIdentifier.UNGROUNDED,
+                                                QuantifiedObjectValue.of(CorrelationIdentifier.CURRENT,
                                                         Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("str_value_indexed"))))),
                                                 "str_value_indexed"),
                                                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "foo"))))

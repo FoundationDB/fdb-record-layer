@@ -21,15 +21,15 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.PropertiesMap;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.PropertiesMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -56,7 +56,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Store
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementIntersectionRule extends PlannerRule<LogicalIntersectionExpression> {
+public class ImplementIntersectionRule extends CascadesRule<LogicalIntersectionExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> intersectionLegPlanPartitionMatcher = anyPlanPartition();
 
@@ -74,7 +74,7 @@ public class ImplementIntersectionRule extends PlannerRule<LogicalIntersectionEx
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var logicalIntersectionExpression = bindings.get(root);
         final var planPartitionsByQuantifier = bindings.getAll(intersectionLegPlanPartitionMatcher);
@@ -89,6 +89,6 @@ public class ImplementIntersectionRule extends PlannerRule<LogicalIntersectionEx
                 .map(Quantifier::physical)
                 .collect(ImmutableList.toImmutableList());
 
-        call.yield(call.ref(RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, logicalIntersectionExpression.getComparisonKey())));
+        call.yield(GroupExpressionRef.of(RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, logicalIntersectionExpression.getComparisonKeyValue())));
     }
 }

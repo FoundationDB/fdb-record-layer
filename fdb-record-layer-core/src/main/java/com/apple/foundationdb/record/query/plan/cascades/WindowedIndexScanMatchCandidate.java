@@ -55,11 +55,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Case class to represent a match candidate that is backed by a windowed index such as a rank index.
  */
-public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandidate {
+public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
      * Index metadata structure.
      */
@@ -72,7 +73,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     private final List<RecordType> queriedRecordTypes;
 
     /**
-     * Base quantifier.
+     * Base type.
+     */
+    @Nonnull
+    private final Type baseType;
+
+    /**
+     * Base alias.
      */
     @Nonnull
     private final CorrelationIdentifier baseAlias;
@@ -114,33 +121,39 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     private final ExpressionRefTraversal traversal;
 
     @Nonnull
-    private final KeyExpression alternativeKeyExpression;
+    private final KeyExpression fullKeyExpression;
 
     @Nullable
     private final KeyExpression primaryKey;
 
+    @Nonnull
+    private final Supplier<Optional<List<Value>>> primaryKeyValuesSupplier;
+
     public WindowedIndexScanMatchCandidate(@Nonnull Index index,
                                            @Nonnull Collection<RecordType> queriedRecordTypes,
                                            @Nonnull final ExpressionRefTraversal traversal,
+                                           @Nonnull final Type baseType,
                                            @Nonnull final CorrelationIdentifier baseAlias,
                                            @Nonnull final List<CorrelationIdentifier> groupingAliases,
                                            @Nonnull final CorrelationIdentifier scoreAlias,
                                            @Nonnull final CorrelationIdentifier rankAlias,
                                            @Nonnull final List<CorrelationIdentifier> primaryKeyAliases,
                                            @Nonnull final List<Value> indexKeyValues,
-                                           @Nonnull final KeyExpression alternativeKeyExpression,
+                                           @Nonnull final KeyExpression fullKeyExpression,
                                            @Nullable final KeyExpression primaryKey) {
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.traversal = traversal;
+        this.baseType = baseType;
         this.baseAlias = baseAlias;
         this.groupingAliases = ImmutableList.copyOf(groupingAliases);
         this.scoreAlias = scoreAlias;
         this.rankAlias = rankAlias;
         this.primaryKeyAliases = ImmutableList.copyOf(primaryKeyAliases);
         this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
-        this.alternativeKeyExpression = alternativeKeyExpression;
+        this.fullKeyExpression = fullKeyExpression;
         this.primaryKey = primaryKey;
+        this.primaryKeyValuesSupplier = Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
     }
 
     @Nonnull
@@ -180,8 +193,9 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     }
 
     @Nonnull
-    public CorrelationIdentifier getBaseAlias() {
-        return baseAlias;
+    @Override
+    public Type getBaseType() {
+        return baseType;
     }
 
     @Nonnull
@@ -191,14 +205,19 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public KeyExpression getAlternativeKeyExpression() {
-        return alternativeKeyExpression;
+    public KeyExpression getFullKeyExpression() {
+        return fullKeyExpression;
+    }
+
+    @Override
+    public boolean createsDuplicates() {
+        return index.getRootExpression().createsDuplicates();
     }
 
     @Nonnull
     @Override
-    public Optional<KeyExpression> getPrimaryKeyMaybe() {
-        return Optional.ofNullable(primaryKey);
+    public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
+        return primaryKeyValuesSupplier.get();
     }
 
     @Nonnull
@@ -210,7 +229,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
 
         final var normalizedKeys =
-                getAlternativeKeyExpression().normalizeKeyForPositions();
+                getFullKeyExpression().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<BoundKeyPart>builder();
         final var candidateParameterIds = getOrderingAliases();
@@ -226,6 +245,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(normalizedKey).toResultValue(CorrelationIdentifier.CURRENT,
+                            getBaseType());
+
             if (parameterId.equals(scoreAlias)) {
                 //
                 // This is the score field of the index which is returned at this ordinal position.
@@ -237,13 +260,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 @Nullable final var rankQueryPredicate = parameterBindingPredicateMap.get(rankAlias);
 
                 builder.add(
-                        BoundKeyPart.of(normalizedKey,
+                        BoundKeyPart.of(normalizedValue,
                                 rankComparisonRange == null ? ComparisonRange.Type.EMPTY : rankComparisonRange.getRangeType(),
                                 rankQueryPredicate,
                                 isReverse));
             } else {
                 builder.add(
-                        BoundKeyPart.of(normalizedKey,
+                        BoundKeyPart.of(normalizedValue,
                                 comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
                                 queryPredicate,
                                 isReverse));
@@ -256,8 +279,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
-        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<KeyExpression, Comparisons.Comparison>builder();
-        final var normalizedKeyExpressions = getAlternativeKeyExpression().normalizeKeyForPositions();
+        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
         final var groupingExpression = (GroupingKeyExpression)index.getRootExpression();
         final var scoreOrdinal = groupingExpression.getGroupingCount();
@@ -266,10 +289,14 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
             final var comparison = equalityComparisons.get(i);
 
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(CorrelationIdentifier.CURRENT,
+                            getBaseType());
+
             if (i == scoreOrdinal) {
-                equalityBoundKeyMapBuilder.put(normalizedKeyExpression, new Comparisons.OpaqueEqualityComparison());
+                equalityBoundKeyMapBuilder.put(normalizedValue, new Comparisons.OpaqueEqualityComparison());
             } else {
-                equalityBoundKeyMapBuilder.put(normalizedKeyExpression, comparison);
+                equalityBoundKeyMapBuilder.put(normalizedValue, comparison);
             }
         }
 
@@ -277,13 +304,17 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final KeyExpression currentKeyExpression = normalizedKeyExpressions.get(i);
 
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(CorrelationIdentifier.CURRENT,
+                            getBaseType());
+
             //
             // Note that it is not really important here if the keyExpression can be normalized in a lossless way
             // or not. A key expression containing repeated fields is sort-compatible with its normalized key
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            result.add(KeyPart.of(currentKeyExpression, isReverse));
+            result.add(KeyPart.of(normalizedValue, isReverse));
         }
 
         return new Ordering(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct);

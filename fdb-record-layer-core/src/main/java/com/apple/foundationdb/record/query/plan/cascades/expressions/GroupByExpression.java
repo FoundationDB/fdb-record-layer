@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -51,7 +50,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
@@ -235,7 +233,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
      * @return The ordering requirements.
      */
     @Nonnull
-    public RequestedOrdering getOrderingRequirement() {
+    public RequestedOrdering getRequestedOrdering() {
         return computeRequestedOrderingSupplier.get();
     }
 
@@ -279,17 +277,15 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Nonnull
     private RequestedOrdering computeRequestOrdering() {
-        if (getGroupingValue() == null || getGroupingValue().isConstant()) {
+        if (groupingValue == null || groupingValue.isConstant()) {
             return RequestedOrdering.preserve();
         }
-        // deriving the ordering columns correctly requires fix for https://github.com/FoundationDB/fdb-record-layer/issues/1212
-        // perform pseudo-derivation until we have a fix.
-        // TODO (yhatem) check and handle case when the grouping value is constant expression.
-        final var groupingValueType = getGroupingValue().getResultType();
+
+        final var groupingValueType = groupingValue.getResultType();
         Verify.verify(groupingValueType instanceof Type.Record);
-        final var recordType = (Type.Record)groupingValueType;
+
         return new RequestedOrdering(
-                recordType.getFields().stream().map(innerField -> KeyPart.of(KeyExpression.fromPath(List.of(innerField.getFieldName())))).collect(Collectors.toList()),
+                ImmutableList.of(KeyPart.of(groupingValue)),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
     }
 }

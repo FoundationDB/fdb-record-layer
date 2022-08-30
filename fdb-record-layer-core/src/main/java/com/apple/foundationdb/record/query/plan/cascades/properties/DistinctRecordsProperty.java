@@ -176,8 +176,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
             }
 
             final var matchCandidate = matchCandidateOptional.get();
-
-            return !matchCandidate.getAlternativeKeyExpression().createsDuplicates();
+            return !matchCandidate.createsDuplicates();
         }
 
         @Nonnull

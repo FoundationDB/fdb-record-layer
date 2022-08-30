@@ -216,6 +216,11 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     }
 
     @Nonnull
+    public Quantifier.Physical getInner() {
+        return inner;
+    }
+
+    @Nonnull
     @Override
     public abstract RecordQueryInUnionPlan withChild(@Nonnull RecordQueryPlan child);
 
@@ -315,6 +320,31 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
         return new RecordQueryInUnionOnKeyExpressionPlan(inner,
                 inSources,
                 comparisonKey,
+                Quantifiers.isReversed(ImmutableList.of(inner)),
+                maxNumberOfValuesAllowed,
+                internal);
+    }
+
+    /**
+     * Construct a new in-union plan based on an existing physical quantifier.
+     *
+     * @param inner the input/inner plan to this in-union
+     * @param inSources a list of outer in-sources
+     * @param comparisonKeyValue a value by which the results of both plans are ordered
+     * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
+     * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
+     * @return a new plan that will return the union of all results from both child plans
+     */
+    @Nonnull
+    public static RecordQueryInUnionOnValuePlan from(@Nonnull final Quantifier.Physical inner,
+                                                     @Nonnull final List<? extends InSource> inSources,
+                                                     @Nonnull Value comparisonKeyValue,
+                                                     final int maxNumberOfValuesAllowed,
+                                                     @Nonnull final Bindings.Internal internal) {
+        return new RecordQueryInUnionOnValuePlan(inner,
+                inSources,
+                CorrelationIdentifier.CURRENT,
+                comparisonKeyValue,
                 Quantifiers.isReversed(ImmutableList.of(inner)),
                 maxNumberOfValuesAllowed,
                 internal);

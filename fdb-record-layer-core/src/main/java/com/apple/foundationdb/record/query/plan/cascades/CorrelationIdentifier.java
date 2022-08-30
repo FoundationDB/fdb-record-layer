@@ -40,7 +40,7 @@ import java.util.UUID;
 @API(API.Status.EXPERIMENTAL)
 public class CorrelationIdentifier {
     @Nonnull
-    public static final CorrelationIdentifier UNGROUNDED = uniqueID();
+    public static final CorrelationIdentifier CURRENT = uniqueID();
 
     @Nonnull
     private final String id;

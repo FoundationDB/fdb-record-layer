@@ -20,32 +20,32 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * A key expression that can be bound by a comparison.
+ * A value that is used to express ordered-ness.
  */
 public class KeyPart {
     @Nonnull
-    private final KeyExpression normalizedKeyExpression;
+    private final Value value;
 
     private final boolean isReverse;
 
-    protected KeyPart(@Nonnull final KeyExpression normalizedKeyExpression, final boolean isReverse) {
-        this.normalizedKeyExpression = normalizedKeyExpression;
+    protected KeyPart(@Nonnull final Value value, final boolean isReverse) {
+        this.value = checkValue(value);
         this.isReverse = isReverse;
     }
 
     @Nonnull
-    public KeyExpression getNormalizedKeyExpression() {
-        return normalizedKeyExpression;
+    public Value getValue() {
+        return value;
     }
 
     public boolean isReverse() {
@@ -61,18 +61,18 @@ public class KeyPart {
             return false;
         }
         final var keyPart = (KeyPart)o;
-        return getNormalizedKeyExpression().equals(keyPart.getNormalizedKeyExpression()) &&
+        return getValue().equals(keyPart.getValue()) &&
                isReverse() == keyPart.isReverse();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getNormalizedKeyExpression(), isReverse());
+        return Objects.hash(getValue(), isReverse());
     }
 
     @Override
     public String toString() {
-        return "(" + getNormalizedKeyExpression() + ", " + isReverse() + ')';
+        return "(" + getValue() + ", " + isReverse() + ')';
     }
 
     @Nonnull
@@ -81,19 +81,21 @@ public class KeyPart {
     }
 
     @Nonnull
-    public static KeyPart of(@Nonnull final KeyExpression normalizedKeyExpression) {
-        return KeyPart.of(normalizedKeyExpression, false);
+    public static KeyPart of(@Nonnull final Value orderByValue) {
+        return KeyPart.of(orderByValue, false);
     }
 
     @Nonnull
-    public static KeyPart of(@Nonnull final KeyExpression normalizedKeyExpression,
+    public static KeyPart of(@Nonnull final Value orderByValue,
                              final boolean isReverse) {
-        return new KeyPart(normalizedKeyExpression, isReverse);
+        return new KeyPart(orderByValue, isReverse);
     }
 
     @Nonnull
-    public static KeyPart of(@Nonnull final Type.Record.Field field) {
-        final var keyExpression = Key.Expressions.field(field.getFieldName());
-        return of(keyExpression, false);
+    private static Value checkValue(@Nonnull final Value value) {
+        final var correlatedTo = value.getCorrelatedTo();
+        Verify.verify(correlatedTo.size() <= 1);
+        Verify.verify(correlatedTo.isEmpty() || Iterables.getOnlyElement(correlatedTo).equals(CorrelationIdentifier.CURRENT));
+        return value;
     }
 }

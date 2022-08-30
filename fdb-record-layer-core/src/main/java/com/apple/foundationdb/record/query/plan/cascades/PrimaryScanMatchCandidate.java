@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -36,6 +38,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Case class to represent a match candidate that is backed by an index.
@@ -68,16 +71,25 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     @Nonnull
     private final KeyExpression primaryKey;
 
+    @Nonnull
+    private final Type baseType;
+
+    @Nonnull
+    private final Supplier<Optional<List<Value>>> primaryKeyValuesSupplier;
+
     public PrimaryScanMatchCandidate(@Nonnull final ExpressionRefTraversal traversal,
                                      @Nonnull final List<CorrelationIdentifier> parameters,
                                      @Nonnull final Collection<RecordType> availableRecordTypes,
                                      @Nonnull final Collection<RecordType> queriedRecordTypes,
-                                     @Nonnull final KeyExpression primaryKey) {
+                                     @Nonnull final KeyExpression primaryKey,
+                                     @Nonnull final Type baseType) {
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
         this.availableRecordTypes = ImmutableList.copyOf(availableRecordTypes);
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.primaryKey = primaryKey;
+        this.baseType = baseType;
+        this.primaryKeyValuesSupplier = Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
     }
 
     @Nonnull
@@ -105,6 +117,12 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     }
 
     @Nonnull
+    @Override
+    public Type getBaseType() {
+        return baseType;
+    }
+
+    @Nonnull
     public List<RecordType> getAvailableRecordTypes() {
         return availableRecordTypes;
     }
@@ -124,14 +142,19 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
-    public Optional<KeyExpression> getPrimaryKeyMaybe() {
-        return Optional.of(primaryKey);
+    public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
+        return primaryKeyValuesSupplier.get();
     }
 
     @Nonnull
     @Override
-    public KeyExpression getAlternativeKeyExpression() {
+    public KeyExpression getFullKeyExpression() {
         return primaryKey;
+    }
+
+    @Override
+    public boolean createsDuplicates() {
+        return false;
     }
 
     @Nonnull

@@ -43,11 +43,11 @@ public class RecordQueryUnionOnValuePlan extends RecordQueryUnionPlan {
     @Nonnull
     private final CorrelationIdentifier baseAlias;
 
-    private RecordQueryUnionOnValuePlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                        @Nonnull final CorrelationIdentifier baseAlias,
-                                        @Nonnull final Value comparisonKeyValue,
-                                        final boolean reverse,
-                                        final boolean showComparisonKey) {
+    public RecordQueryUnionOnValuePlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                       @Nonnull final CorrelationIdentifier baseAlias,
+                                       @Nonnull final Value comparisonKeyValue,
+                                       final boolean reverse,
+                                       final boolean showComparisonKey) {
         super(quantifiers,
                 new ComparisonKeyFunction.OnValue(baseAlias, comparisonKeyValue),
                 reverse,

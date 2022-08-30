@@ -91,20 +91,20 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class PlannerRuleSet {
-    private static final List<PlannerRule<? extends RelationalExpression>> NORMALIZATION_RULES = ImmutableList.of(
+    private static final List<CascadesRule<? extends RelationalExpression>> NORMALIZATION_RULES = ImmutableList.of(
             new NormalizePredicatesRule()
     );
-    private static final List<PlannerRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
+    private static final List<CascadesRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
             new OrToLogicalUnionRule(),
             new InComparisonToExplodeRule(),
             new SplitSelectExtractIndependentQuantifiersRule()
     );
-    private static final List<PlannerRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableList.of(
+    private static final List<CascadesRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableList.of(
             new MatchLeafRule(),
             new MatchIntermediateRule()
     );
-    private static final List<PlannerRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableList.of(
+    private static final List<CascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableList.of(
             new PushReferencedFieldsThroughDistinctRule(),
             new PushReferencedFieldsThroughFilterRule(),
             new PushReferencedFieldsThroughSelectRule(),
@@ -117,7 +117,7 @@ public class PlannerRuleSet {
             new PushRequestedOrderingThroughGroupByRule()
     );
 
-    private static final List<PlannerRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
+    private static final List<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
@@ -148,21 +148,21 @@ public class PlannerRuleSet {
             new ImplementStreamingAggregationRule()
     );
 
-    private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =
-            ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()
+    private static final List<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =
+            ImmutableList.<CascadesRule<? extends RelationalExpression>>builder()
                     .addAll(NORMALIZATION_RULES)
                     .addAll(MATCHING_RULES)
                     .addAll(REWRITE_RULES)
                     .build();
-    private static final List<PlannerRule<? extends PartialMatch>> PARTIAL_MATCH_RULES = ImmutableList.of(
+    private static final List<CascadesRule<? extends PartialMatch>> PARTIAL_MATCH_RULES = ImmutableList.of(
             new AdjustMatchRule()
     );
-    private static final List<PlannerRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableList.of(
+    private static final List<CascadesRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableList.of(
             new DataAccessRule(),
             new SelectDataAccessRule()
     );
-    private static final List<PlannerRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
-            ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()
+    private static final List<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
+            ImmutableList.<CascadesRule<? extends RelationalExpression>>builder()
                     .addAll(PREORDER_RULES)
                     .addAll(EXPLORATION_RULES)
                     .addAll(IMPLEMENTATION_RULES)
@@ -171,14 +171,14 @@ public class PlannerRuleSet {
     public static final PlannerRuleSet DEFAULT = new PlannerRuleSet(ALL_EXPRESSION_RULES);
 
     @Nonnull
-    private final Multimap<Class<?>, PlannerRule<? extends RelationalExpression>> ruleIndex =
+    private final Multimap<Class<?>, CascadesRule<? extends RelationalExpression>> ruleIndex =
             MultimapBuilder.hashKeys().arrayListValues().build();
     @Nonnull
-    private final List<PlannerRule<? extends RelationalExpression>> alwaysRules = new ArrayList<>();
+    private final List<CascadesRule<? extends RelationalExpression>> alwaysRules = new ArrayList<>();
 
     @VisibleForTesting
-    PlannerRuleSet(@Nonnull List<PlannerRule<? extends RelationalExpression>> rules) {
-        for (PlannerRule<? extends RelationalExpression> rule : rules) {
+    PlannerRuleSet(@Nonnull List<CascadesRule<? extends RelationalExpression>> rules) {
+        for (CascadesRule<? extends RelationalExpression> rule : rules) {
             Optional<Class<?>> root = rule.getRootOperator();
             if (root.isPresent()) {
                 ruleIndex.put(root.get(), rule);
@@ -189,40 +189,40 @@ public class PlannerRuleSet {
     }
 
     @Nonnull
-    public Stream<PlannerRule<? extends RelationalExpression>> getExpressionRules(@Nonnull RelationalExpression expression) {
+    public Stream<CascadesRule<? extends RelationalExpression>> getExpressionRules(@Nonnull RelationalExpression expression) {
         return getExpressionRules(expression, r -> true);
     }
 
     @Nonnull
-    public Stream<PlannerRule<? extends RelationalExpression>> getExpressionRules(@Nonnull RelationalExpression expression,
-                                                                                  @Nonnull final Predicate<PlannerRule<? extends RelationalExpression>> rulePredicate) {
+    public Stream<CascadesRule<? extends RelationalExpression>> getExpressionRules(@Nonnull RelationalExpression expression,
+                                                                                   @Nonnull final Predicate<CascadesRule<? extends RelationalExpression>> rulePredicate) {
         return Streams.concat(ruleIndex.get(expression.getClass()).stream(), alwaysRules.stream()).filter(rulePredicate);
     }
 
     @Nonnull
-    public Stream<PlannerRule<? extends PartialMatch>> getPartialMatchRules() {
+    public Stream<CascadesRule<? extends PartialMatch>> getPartialMatchRules() {
         return getPartialMatchRules(t -> true);
     }
 
     @Nonnull
-    public Stream<PlannerRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<PlannerRule<? extends PartialMatch>> rulePredicate) {
+    public Stream<CascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<CascadesRule<? extends PartialMatch>> rulePredicate) {
         return PARTIAL_MATCH_RULES.stream()
                 .filter(rulePredicate);
     }
 
     @Nonnull
-    public Stream<PlannerRule<? extends MatchPartition>> getMatchPartitionRules() {
+    public Stream<CascadesRule<? extends MatchPartition>> getMatchPartitionRules() {
         return getMatchPartitionRules(t -> true);
     }
 
     @Nonnull
-    public Stream<PlannerRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<PlannerRule<? extends MatchPartition>> rulePredicate) {
+    public Stream<CascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<CascadesRule<? extends MatchPartition>> rulePredicate) {
         return MATCH_PARTITION_RULES.stream()
                 .filter(rulePredicate);
     }
 
     @Nonnull
-    public Stream<? extends PlannerRule<?>> getAllRules() {
+    public Stream<? extends CascadesRule<?>> getAllRules() {
         return Streams.concat(ALL_EXPRESSION_RULES.stream(), PARTIAL_MATCH_RULES.stream(), MATCH_PARTITION_RULES.stream());
     }
 }

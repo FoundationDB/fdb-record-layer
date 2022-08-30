@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -37,10 +36,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A relational planner expression that represents an unimplemented sort on the records produced by its inner
@@ -48,18 +47,18 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalSortExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
-    @Nullable
-    private final KeyExpression sort;
+    @Nonnull
+    private final List<Value> sortValues;
 
     private final boolean reverse;
 
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalSortExpression(@Nullable final KeyExpression sort,
+    public LogicalSortExpression(@Nonnull List<Value> sortValues,
                                  final boolean reverse,
                                  @Nonnull final Quantifier inner) {
-        this.sort = sort;
+        this.sortValues = ImmutableList.copyOf(sortValues);
         this.reverse = reverse;
         this.inner = inner;
     }
@@ -75,9 +74,9 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
         return 1;
     }
 
-    @Nullable
-    public KeyExpression getSort() {
-        return sort;
+    @Nonnull
+    public List<Value> getSortValues() {
+        return sortValues;
     }
 
     public boolean isReverse() {
@@ -99,7 +98,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     @Override
     public LogicalSortExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new LogicalSortExpression(getSort(),
+        return new LogicalSortExpression(getSortValues(),
                 isReverse(),
                 Iterables.getOnlyElement(translatedQuantifiers));
     }
@@ -124,7 +123,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
 
         final LogicalSortExpression other = (LogicalSortExpression) otherExpression;
 
-        return reverse == other.reverse && !Objects.equals(sort, other.sort);
+        return reverse == other.reverse && sortValues.equals(other.sortValues);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -140,26 +139,27 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getSort(), isReverse());
+        return Objects.hash(getSortValues(), isReverse());
     }
 
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        if (sort != null) {
-            return PlannerGraph.fromNodeAndChildGraphs(
-                    new PlannerGraph.LogicalOperatorNodeWithInfo(this,
-                            NodeInfo.SORT_OPERATOR,
-                            ImmutableList.of("BY {{expression}}"),
-                            ImmutableMap.of("expression", Attribute.gml(sort.toString()))),
-                    childGraphs);
-        } else {
+        if (sortValues.isEmpty()) {
             return PlannerGraph.fromNodeAndChildGraphs(
                     new PlannerGraph.LogicalOperatorNodeWithInfo(this,
                             NodeInfo.SORT_OPERATOR,
                             ImmutableList.of("PRESERVE ORDER"),
                             ImmutableMap.of()),
                     childGraphs);
+        } else {
+            return PlannerGraph.fromNodeAndChildGraphs(
+                    new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                            NodeInfo.SORT_OPERATOR,
+                            ImmutableList.of("BY {{expression}}"),
+                            ImmutableMap.of("expression", Attribute.gml(sortValues.stream().map(Value::toString).collect(Collectors.joining(", "))))),
+                    childGraphs);
+
         }
     }
 }

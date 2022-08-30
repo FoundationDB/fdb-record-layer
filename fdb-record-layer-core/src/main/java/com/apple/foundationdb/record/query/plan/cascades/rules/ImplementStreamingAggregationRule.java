@@ -21,12 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
@@ -48,7 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * Rule for implementing logical {@code GROUP BY} into a physical streaming aggregate operator {@link RecordQueryStreamingAggregationPlan}.
  */
-public class ImplementStreamingAggregationRule extends PlannerRule<GroupByExpression> {
+public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpression> {
 
     @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
@@ -63,11 +63,11 @@ public class ImplementStreamingAggregationRule extends PlannerRule<GroupByExpres
     }
 
     @Override
-    public void onMatch(@Nonnull final PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var groupByExpression = bindings.get(root);
-        final var requestedOrdering = groupByExpression.getOrderingRequirement();
+        final var requestedOrdering = groupByExpression.getRequestedOrdering();
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);

@@ -150,4 +150,9 @@ public class PrimitiveMatchers {
             }
         };
     }
+
+    @Nonnull
+    public static <T> BindingMatcher<T> anyObject() {
+        return satisfies(t -> true);
+    }
 }

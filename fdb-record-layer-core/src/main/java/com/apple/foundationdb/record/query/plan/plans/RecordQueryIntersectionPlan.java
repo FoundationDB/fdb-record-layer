@@ -263,6 +263,15 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
                 Quantifiers.isReversed(quantifiers));
     }
 
+    @Nonnull
+    public static RecordQueryIntersectionOnValuePlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
+                                                                     @Nonnull final Value comparisonKeyValue) {
+        return new RecordQueryIntersectionOnValuePlan(quantifiers,
+                CorrelationIdentifier.CURRENT,
+                comparisonKeyValue,
+                Quantifiers.isReversed(quantifiers));
+    }
+
     /**
      * Construct a new union of two compatibly-ordered plans. The resulting plan will return all results that are
      * returned by both the {@code left} or {@code right} child plans. Each plan should return results in the same

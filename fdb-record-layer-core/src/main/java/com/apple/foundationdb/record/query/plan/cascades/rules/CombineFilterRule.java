@@ -21,13 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -37,13 +38,13 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalFilterExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalFilterExpression;
 
 /**
  * A simple rule that combines two nested filter plans and combines them into a single filter plan with a conjunction
@@ -82,7 +83,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
+public class CombineFilterRule extends CascadesRule<LogicalFilterExpression> {
     private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerMatcher = anyRef();
     private static final BindingMatcher<Quantifier.ForEach> lowerQunMatcher = forEachQuantifierOverRef(innerMatcher);
     private static final BindingMatcher<QueryPredicate> lowerMatcher = anyPredicate();
@@ -102,7 +103,7 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final ExpressionRef<?> inner = bindings.get(innerMatcher);
         final Quantifier.ForEach lowerQun = bindings.get(lowerQunMatcher);
@@ -117,7 +118,7 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
                 lowerPreds.stream()
                         .map(lowerPred -> lowerPred.rebase(Quantifiers.translate(lowerQun, newUpperQun)))
                         .collect(ImmutableList.toImmutableList());
-        call.yield(call.ref(
+        call.yield(GroupExpressionRef.of(
                 new LogicalFilterExpression(Iterables.concat(upperPreds, newLowerPred),
                         newUpperQun)));
     }

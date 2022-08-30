@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
@@ -31,10 +32,12 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
-import com.apple.foundationdb.record.query.plan.cascades.ValueIndexLikeMatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -77,6 +80,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
@@ -112,7 +116,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
             final var childOrdering = orderingFromSingleChild(predicatesFilterPlan);
 
-            final SetMultimap<KeyExpression, Comparisons.Comparison> equalityBoundFileKeyExpressions =
+            final SetMultimap<Value, Comparisons.Comparison> equalityBoundValues =
                     predicatesFilterPlan.getPredicates()
                             .stream()
                             .flatMap(queryPredicate -> {
@@ -137,23 +141,26 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
                                 return Stream.of(Pair.of(fieldValue, valuePredicate.getComparison()));
                             })
+                            // filter out predicates that are not really equality binding like x = f(x)
+                            .filter(fieldValueComparisonPair ->
+                                    !fieldValueComparisonPair.getRight().getCorrelatedTo().contains(predicatesFilterPlan.getInner().getAlias()))
                             .map(valueComparisonPair -> {
                                 final var fieldValue = valueComparisonPair.getLeft();
-                                KeyExpression keyExpression = KeyExpression.fromPath(fieldValue.getFieldPathNames());
-                                return Pair.of(keyExpression, valueComparisonPair.getRight());
+                                final var translationMap = AliasMap.of(predicatesFilterPlan.getInner().getAlias(), CorrelationIdentifier.CURRENT);
+                                return Pair.of(fieldValue.rebase(translationMap), valueComparisonPair.getRight());
                             })
-                            .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));                                        
+                            .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));
 
             final var resultOrderingKeyParts =
                     childOrdering.getOrderingKeyParts()
                             .stream()
-                            .filter(keyPart -> !equalityBoundFileKeyExpressions.containsKey(keyPart.getNormalizedKeyExpression()))
+                            .filter(keyPart -> !equalityBoundValues.containsKey(keyPart.getValue()))
                             .collect(ImmutableList.toImmutableList());
 
-            final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap =
+            final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap =
                     HashMultimap.create(childOrdering.getEqualityBoundKeyMap());
 
-            equalityBoundFileKeyExpressions.forEach(resultEqualityBoundKeyMap::put);
+            equalityBoundValues.forEach(resultEqualityBoundKeyMap::put);
 
             return new Ordering(resultEqualityBoundKeyMap, resultOrderingKeyParts, childOrdering.isDistinct());
         }
@@ -180,8 +187,11 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan) {
             final var orderings = orderingsFromChildren(intersectionPlan);
-            final var requestedOrdering = requestedOrderingFromComparisonKey(intersectionPlan.getComparisonKeyExpression(), intersectionPlan.isReverse());
-            final Optional<SetMultimap<KeyExpression, Comparisons.Comparison>> commonEqualityBoundKeysMapOptional =
+            final var requestedOrdering =
+                    requestedOrderingFromComparisonKey(intersectionPlan.getComparisonKeyExpression(),
+                            Objects.requireNonNull(Objects.requireNonNull(intersectionPlan.getResultType()).getInnerType()),
+                            intersectionPlan.isReverse());
+            final Optional<SetMultimap<Value, Comparisons.Comparison>> commonEqualityBoundKeysMapOptional =
                     Ordering.combineEqualityBoundKeys(orderings, Ordering::unionEqualityBoundKeys);
             if (commonEqualityBoundKeysMapOptional.isEmpty()) {
                 return Ordering.emptyOrder();
@@ -196,7 +206,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var commonOrderingKeys =
                     commonOrderingKeysOptional.get()
                             .stream()
-                            .filter(keyPart -> !commonEqualityBoundKeysMap.containsKey(keyPart.getNormalizedKeyExpression()))
+                            .filter(keyPart -> !commonEqualityBoundKeysMap.containsKey(keyPart.getValue()))
                             .collect(ImmutableList.toImmutableList());
 
             final boolean allAreDistinct =
@@ -273,9 +283,9 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var inSource = inJoinPlan.getInSource();
             final var inAlias = inJoinPlan.getInAlias();
 
-            final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap =
+            final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap =
                     HashMultimap.create(equalityBoundKeyMap);
-            KeyExpression inKeyExpression = null;
+            Value inValue = null;
             for (final var entry : equalityBoundKeyMap.entries()) {
                 // TODO we only look for the first entry that matches. That is enough for the in-to-join case,
                 //      however, it is possible that more than one different key expressions are equality-bound
@@ -288,13 +298,13 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                 }
 
                 if (inAlias.equals(Iterables.getOnlyElement(correlatedTo))) {
-                    inKeyExpression = entry.getKey();
-                    resultEqualityBoundKeyMap.removeAll(inKeyExpression);
+                    inValue = entry.getKey();
+                    resultEqualityBoundKeyMap.removeAll(inValue);
                     break;
                 }
             }
 
-            if (inKeyExpression == null || !inSource.isSorted()) {
+            if (inValue == null || !inSource.isSorted()) {
                 //
                 // This can only really happen if the inSource is not sorted.
                 // We can only propagate equality-bound information. Everything related to order and
@@ -307,7 +317,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             // Prepend the existing order with the key expression we just found.
             //
             final var resultOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
-            resultOrderingKeyPartsBuilder.add(KeyPart.of(inKeyExpression, inSource.isReverse()));
+            resultOrderingKeyPartsBuilder.add(KeyPart.of(inValue, inSource.isReverse()));
             resultOrderingKeyPartsBuilder.addAll(childOrdering.getOrderingKeyParts());
 
             return new Ordering(resultEqualityBoundKeyMap,
@@ -332,7 +342,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
             return deriveForUnionFromOrderings(
                     orderingsFromChildren(unionOnKeyExpressionPlan),
-                    requestedOrderingFromComparisonKey(unionOnKeyExpressionPlan.getComparisonKeyExpression(), unionOnKeyExpressionPlan.isReverse()),
+                    requestedOrderingFromComparisonKey(unionOnKeyExpressionPlan.getComparisonKeyExpression(), Objects.requireNonNull(Objects.requireNonNull(unionOnKeyExpressionPlan.getResultType()).getInnerType()), unionOnKeyExpressionPlan.isReverse()),
                     Ordering::intersectEqualityBoundKeys);
         }
 
@@ -361,11 +371,15 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var equalityBoundKeyMap = childOrdering.getEqualityBoundKeyMap();
             final var comparisonKey = inUnionOnKeyExpressionPlan.getComparisonKeyExpression();
 
-            final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(equalityBoundKeyMap);
+            final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(equalityBoundKeyMap);
             final var resultKeyPartBuilder = ImmutableList.<KeyPart>builder();
             final List<KeyExpression> normalizedComparisonKeys = comparisonKey.normalizeKeyForPositions();
             for (final var normalizedKeyExpression : normalizedComparisonKeys) {
-                resultKeyPartBuilder.add(KeyPart.of(normalizedKeyExpression, inUnionOnKeyExpressionPlan.isReverse()));
+                final var normalizedValue =
+                        new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(CorrelationIdentifier.CURRENT,
+                                inUnionOnKeyExpressionPlan.getInner().getFlowedObjectType());
+
+                resultKeyPartBuilder.add(KeyPart.of(normalizedValue, inUnionOnKeyExpressionPlan.isReverse()));
             }
 
             final var sourceAliases =
@@ -441,14 +455,15 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
-            final var commonPrimaryKey = scanPlan.getCommonPrimaryKey();
-            if (commonPrimaryKey == null) {
+            final var primaryMatchCandidate = scanPlan.getMatchCandidateMaybe();
+            if (primaryMatchCandidate.isEmpty()) {
                 return Ordering.emptyOrder();
             }
-            return ValueIndexLikeMatchCandidate.computeOrderingFromKeyAndScanComparisons(commonPrimaryKey,
-                    scanPlan.getComparisons(),
-                    scanPlan.isReverse(),
-                    false);
+            return primaryMatchCandidate.get()
+                    .computeOrderingFromScanComparisons(
+                            scanPlan.getComparisons(),
+                            scanPlan.isReverse(),
+                            false);
         }
 
         @Nonnull
@@ -478,12 +493,13 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         }
 
         @Nonnull
-        private RequestedOrdering requestedOrderingFromComparisonKey(@Nonnull final KeyExpression comparisonKey, final boolean isReverse) {
+        private RequestedOrdering requestedOrderingFromComparisonKey(@Nonnull final KeyExpression comparisonKey, @Nonnull final Type type, final boolean isReverse) {
             return new RequestedOrdering(
                     comparisonKey
                             .normalizeKeyForPositions()
                             .stream()
-                            .map(normalizedKeyExpression -> KeyPart.of(normalizedKeyExpression, isReverse))
+                            .map(normalizedKeyExpression -> new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(CorrelationIdentifier.CURRENT, type))
+                            .map(orderByValue -> KeyPart.of(orderByValue, isReverse))
                             .collect(Collectors.toList()),
                     RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
         }
@@ -515,7 +531,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var memberOrderings =
                     reference.getPlannerAttributeForMembers(ORDERING).values();
 
-            final Optional<SetMultimap<KeyExpression, Comparisons.Comparison>> commonEqualityBoundKeysMapOptional =
+            final Optional<SetMultimap<Value, Comparisons.Comparison>> commonEqualityBoundKeysMapOptional =
                     Ordering.combineEqualityBoundKeys(memberOrderings, Ordering::intersectEqualityBoundKeys);
             if (commonEqualityBoundKeysMapOptional.isEmpty()) {
                 return Ordering.emptyOrder();
@@ -530,7 +546,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var commonOrderingKeys =
                     commonOrderingKeysOptional.get()
                             .stream()
-                            .filter(keyPart -> !commonEqualityBoundKeysMap.containsKey(keyPart.getNormalizedKeyExpression()))
+                            .filter(keyPart -> !commonEqualityBoundKeysMap.containsKey(keyPart.getValue()))
                             .collect(ImmutableList.toImmutableList());
 
             final var allAreDistinct =
@@ -543,8 +559,8 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         public static Ordering deriveForUnionFromOrderings(@Nonnull final List<Ordering> orderings,
                                                            @Nonnull final RequestedOrdering requestedOrdering,
-                                                           @Nonnull final BinaryOperator<SetMultimap<KeyExpression, Comparisons.Comparison>> combineFn) {
-            final Optional<SetMultimap<KeyExpression, Comparisons.Comparison>> commonEqualityBoundKeysMapOptional =
+                                                           @Nonnull final BinaryOperator<SetMultimap<Value, Comparisons.Comparison>> combineFn) {
+            final Optional<SetMultimap<Value, Comparisons.Comparison>> commonEqualityBoundKeysMapOptional =
                     Ordering.combineEqualityBoundKeys(orderings, combineFn);
             if (commonEqualityBoundKeysMapOptional.isEmpty()) {
                 return Ordering.emptyOrder();
@@ -559,7 +575,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var commonOrderingKeys =
                     commonOrderingKeysOptional.get()
                             .stream()
-                            .filter(keyPart -> !commonEqualityBoundKeysMap.containsKey(keyPart.getNormalizedKeyExpression()))
+                            .filter(keyPart -> !commonEqualityBoundKeysMap.containsKey(keyPart.getValue()))
                             .collect(ImmutableList.toImmutableList());
 
             return new Ordering(commonEqualityBoundKeysMap, commonOrderingKeys, false);

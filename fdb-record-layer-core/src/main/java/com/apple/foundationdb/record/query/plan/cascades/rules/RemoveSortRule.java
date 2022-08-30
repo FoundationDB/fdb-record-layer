@@ -21,20 +21,19 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
-import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -56,7 +55,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
+public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = ReferenceMatchers.anyPlanPartition();
 
@@ -73,27 +72,26 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
-        final LogicalSortExpression sortExpression = call.get(root);
-        final PlanPartition innerPlanPartition = call.get(innerPlanPartitionMatcher);
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
+        final var sortExpression = call.get(root);
+        final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
 
-        final GroupExpressionRef<? extends RecordQueryPlan> referenceOverPlans = GroupExpressionRef.from(innerPlanPartition.getPlans());
+        final var referenceOverPlans = GroupExpressionRef.from(innerPlanPartition.getPlans());
 
-        final KeyExpression sortKeyExpression = sortExpression.getSort();
-        if (sortKeyExpression == null) {
+        final var sortValues = sortExpression.getSortValues();
+        if (sortValues.isEmpty()) {
             call.yield(referenceOverPlans);
             return;
         }
 
-        final Ordering ordering = innerPlanPartition.getAttributeValue(OrderingProperty.ORDERING);
-        final Set<KeyExpression> equalityBoundKeys = ordering.getEqualityBoundKeys();
+        final var ordering = innerPlanPartition.getAttributeValue(OrderingProperty.ORDERING);
+        final Set<Value> equalityBoundKeys = ordering.getEqualityBoundKeys();
         int equalityBoundUnsorted = equalityBoundKeys.size();
         final List<KeyPart> orderingKeys = ordering.getOrderingKeyParts();
         final Iterator<KeyPart> orderingKeysIterator = orderingKeys.iterator();
 
-        final List<KeyExpression> normalizedSortExpressions = sortKeyExpression.normalizeKeyForPositions();
-        for (final KeyExpression normalizedSortExpression : normalizedSortExpressions) {
-            if (equalityBoundKeys.contains(normalizedSortExpression)) {
+        for (final var sortValue : sortValues) {
+            if (equalityBoundKeys.contains(sortValue)) {
                 equalityBoundUnsorted--;
                 continue;
             }
@@ -103,7 +101,7 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
 
             final KeyPart currentOrderingKeyPart = orderingKeysIterator.next();
 
-            if (!normalizedSortExpression.equals(currentOrderingKeyPart.getNormalizedKeyExpression())) {
+            if (!sortValue.equals(currentOrderingKeyPart.getValue())) {
                 return;
             }
         }
@@ -115,7 +113,7 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
                     // If we have exhausted the ordering info's keys, too, then its constituents are strictly ordered.
                     !orderingKeysIterator.hasNext() ||
                     // Also a unique index if have gone through declared fields.
-                    strictlyOrderedIfUnique(innerPlan, normalizedSortExpressions.size() + equalityBoundUnsorted);
+                    strictlyOrderedIfUnique(innerPlan, sortValues.size() + equalityBoundUnsorted);
 
             if (strictOrdered) {
                 resultExpressionsBuilder.add(innerPlan.strictlySorted());

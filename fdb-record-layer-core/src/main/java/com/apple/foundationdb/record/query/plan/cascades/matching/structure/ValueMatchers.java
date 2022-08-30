@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.OrdinalFieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -49,7 +51,7 @@ public class ValueMatchers {
     }
 
     @Nonnull
-    public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final String fieldPathAsString) {
+    public static BindingMatcher<FieldValue> fieldValue(@Nonnull final String fieldPathAsString) {
         return fieldValue(anyValue(), fieldPathAsString);
     }
 
@@ -81,7 +83,35 @@ public class ValueMatchers {
     }
 
     @Nonnull
-    public static <V extends Value> BindingMatcher<NumericAggregationValue> numericAggregationValue(@Nonnull final String operatorName) {
+    public static BindingMatcher<OrdinalFieldValue> ordinalFieldValue(final int ordinalPosition) {
+        return ordinalFieldValue(anyValue(), ordinalPosition);
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<OrdinalFieldValue> ordinalFieldValue(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                        final int ordinalPosition) {
+        return ordinalFieldValue(downstreamValue, PrimitiveMatchers.equalsObject(ordinalPosition));
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<OrdinalFieldValue> ordinalFieldValue(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                        @Nonnull final BindingMatcher<Integer> downstreamFieldOrdinalPosition) {
+        final TypedMatcherWithExtractAndDownstream<OrdinalFieldValue> downstreamValueMatcher =
+                typedWithDownstream(OrdinalFieldValue.class,
+                        Extractor.of(OrdinalFieldValue::getChild, name -> "child(" + name + ")"),
+                        downstreamValue);
+        final TypedMatcherWithExtractAndDownstream<OrdinalFieldValue> downstreamFieldPathMatcher =
+                typedWithDownstream(OrdinalFieldValue.class,
+                        Extractor.of(OrdinalFieldValue::getOrdinalPosition, name -> "ordinal(" + name + ")"),
+                        downstreamFieldOrdinalPosition);
+
+        return typedWithDownstream(OrdinalFieldValue.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(OrdinalFieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
+    }
+
+    @Nonnull
+    public static BindingMatcher<NumericAggregationValue> numericAggregationValue(@Nonnull final String operatorName) {
         return numericAggregationValue(anyValue(), operatorName);
     }
 
@@ -105,6 +135,13 @@ public class ValueMatchers {
     public static BindingMatcher<RecordConstructorValue> recordConstructorValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
         return typedWithDownstream(RecordConstructorValue.class,
                 Extractor.of(RecordConstructorValue::getChildren, name -> "children(" + name + ")"),
+                downstreamValues);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ArithmeticValue> arithmeticValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
+        return typedWithDownstream(ArithmeticValue.class,
+                Extractor.of(ArithmeticValue::getChildren, name -> "children(" + name + ")"),
                 downstreamValues);
     }
 }

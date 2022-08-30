@@ -78,6 +78,11 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     }
 
     @Nonnull
+    public List<Column<? extends Value>> getColumns() {
+        return columns;
+    }
+
+    @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
         return childrenSupplier.get();

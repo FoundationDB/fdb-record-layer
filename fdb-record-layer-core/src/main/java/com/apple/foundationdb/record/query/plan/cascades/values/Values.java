@@ -38,14 +38,14 @@ public class Values {
      * @return a list of field values
      */
     @Nonnull
-    public static List<? extends Value> deconstructRecord(@Nonnull Value recordValue) {
+    public static List<Value> deconstructRecord(@Nonnull Value recordValue) {
         Verify.verify(recordValue.getResultType().getTypeCode() == Type.TypeCode.RECORD);
         Verify.verify(recordValue.getResultType() instanceof Type.Record);
         final Type.Record resultType = (Type.Record)recordValue.getResultType();
 
         if (recordValue instanceof RecordConstructorValue) {
             final var recordConstructorValue = (RecordConstructorValue)recordValue;
-            final List<? extends Value> children = ImmutableList.copyOf(recordConstructorValue.getChildren());
+            final List<Value> children = ImmutableList.copyOf(recordConstructorValue.getChildren());
             Verify.verify(Objects.requireNonNull(resultType.getFields()).size() == children.size());
             return children;
         }

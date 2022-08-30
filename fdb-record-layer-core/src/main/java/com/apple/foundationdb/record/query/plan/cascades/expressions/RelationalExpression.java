@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
@@ -157,9 +158,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         }
 
         if (query.getSort() != null) {
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(query.getSort(), query.isSortReverse(), quantifier)));
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(
+                    new LogicalSortExpression(ScalarTranslationVisitor.translateKeyExpression(query.getSort(), quantifier.getFlowedObjectType()),
+                            query.isSortReverse(),
+                            quantifier)));
         } else {
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(null, false, quantifier)));
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, quantifier)));
         }
 
         if (query.getRequiredResults() != null) {

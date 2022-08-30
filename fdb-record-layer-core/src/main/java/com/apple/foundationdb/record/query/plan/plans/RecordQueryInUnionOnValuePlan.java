@@ -43,13 +43,13 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
     @Nonnull
     private final CorrelationIdentifier baseAlias;
 
-    private RecordQueryInUnionOnValuePlan(@Nonnull final Quantifier.Physical inner,
-                                          @Nonnull final List<? extends InSource> inSources,
-                                          @Nonnull final CorrelationIdentifier baseAlias,
-                                          @Nonnull final Value comparisonKeyValue,
-                                          final boolean reverse,
-                                          final int maxNumberOfValuesAllowed,
-                                          @Nonnull final Bindings.Internal internal) {
+    public RecordQueryInUnionOnValuePlan(@Nonnull final Quantifier.Physical inner,
+                                         @Nonnull final List<? extends InSource> inSources,
+                                         @Nonnull final CorrelationIdentifier baseAlias,
+                                         @Nonnull final Value comparisonKeyValue,
+                                         final boolean reverse,
+                                         final int maxNumberOfValuesAllowed,
+                                         @Nonnull final Bindings.Internal internal) {
         super(inner,
                 inSources,
                 new ComparisonKeyFunction.OnValue(baseAlias, comparisonKeyValue),

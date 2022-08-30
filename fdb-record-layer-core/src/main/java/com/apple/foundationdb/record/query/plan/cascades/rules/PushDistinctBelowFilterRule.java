@@ -20,17 +20,18 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -76,7 +77,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  * where pred' is rebased along the translation from qun to newQun.
  */
-public class PushDistinctBelowFilterRule extends PlannerRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
+public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     @Nonnull
     private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerRefMatcher = anyRefOverOnlyPlans();
     @Nonnull
@@ -92,20 +93,20 @@ public class PushDistinctBelowFilterRule extends PlannerRule<RecordQueryUnordere
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final ExpressionRef<? extends RelationalExpression> inner = call.get(innerRefMatcher);
         final Quantifier.Physical qun = call.get(innerQuantifierMatcher);
         final RecordQueryPredicatesFilterPlan filterPlan = call.get(filterPlanMatcher);
 
         final RecordQueryUnorderedPrimaryKeyDistinctPlan newDistinctPlan =
                 new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(inner));
-        final Quantifier.Physical newQun = Quantifier.physical(call.ref(newDistinctPlan));
+        final Quantifier.Physical newQun = Quantifier.physical(GroupExpressionRef.of(newDistinctPlan));
         final List<QueryPredicate> rebasedPredicates =
                 filterPlan.getPredicates()
                         .stream()
                         .map(queryPredicate -> queryPredicate.rebase(Quantifiers.translate(qun, newQun)))
                         .collect(ImmutableList.toImmutableList());
-        call.yield(call.ref(
+        call.yield(GroupExpressionRef.of(
                 new RecordQueryPredicatesFilterPlan(newQun,
                         rebasedPredicates)));
     }

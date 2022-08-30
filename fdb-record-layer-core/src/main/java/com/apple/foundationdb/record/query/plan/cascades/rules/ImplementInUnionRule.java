@@ -21,17 +21,15 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -45,6 +43,8 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyPr
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
@@ -77,7 +77,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.PushReques
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
+public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 
@@ -90,7 +90,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
 
     @SuppressWarnings({"unchecked", "java:S135"})
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
@@ -173,7 +173,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         for (final var planPartition : planPartitions) {
             for (final var requestedOrdering : requestedOrderings) {
                 final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-                final var matchingKeyExpressionsBuilder = ImmutableSet.<KeyExpression>builder();
+                final var matchingKeyExpressionsBuilder = ImmutableSet.<Value>builder();
                 for (final var expressionComparisonEntry : providedOrdering.getEqualityBoundKeyMap().entries()) {
                     final var comparison = expressionComparisonEntry.getValue();
                     if (comparison.getType() == Comparisons.Type.EQUALS && comparison instanceof Comparisons.ParameterComparison) {
@@ -194,22 +194,22 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                 final Ordering combinedOrdering = combinedOrderingOptional.get();
                 final List<KeyPart> orderingKeyParts = combinedOrdering.getOrderingKeyParts();
 
-                final List<KeyExpression> orderingKeys =
+                final List<Value> orderingKeys =
                         orderingKeyParts
                                 .stream()
-                                .map(KeyPart::getNormalizedKeyExpression)
+                                .map(KeyPart::getValue)
                                 .collect(ImmutableList.toImmutableList());
 
                 //
                 // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
                 //
-                final KeyExpression comparisonKey =
+                final var comparisonKey =
                         orderingKeys.size() == 1
-                        ? Iterables.getOnlyElement(orderingKeys) : Key.Expressions.concat(orderingKeys);
+                        ? Iterables.getOnlyElement(orderingKeys) : RecordConstructorValue.ofUnnamed(orderingKeys);
 
                 final GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
                 final Quantifier.Physical newInnerQuantifier = Quantifier.physical(newInnerPlanReference);
-                call.yield(call.ref(
+                call.yield(GroupExpressionRef.of(
                         RecordQueryInUnionPlan.from(newInnerQuantifier,
                                 inSources,
                                 comparisonKey,
@@ -238,7 +238,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
 
     private static Optional<Ordering> orderingForInUnion(@Nonnull Ordering providedOrdering,
                                                          @Nonnull RequestedOrdering requestedOrdering,
-                                                         @Nonnull Set<KeyExpression> innerBoundExpressions) {
+                                                         @Nonnull Set<Value> innerBoundExpressions) {
         final var providedKeyPartIterator = Iterators.peekingIterator(providedOrdering.getOrderingKeyParts().iterator());
         final ImmutableList.Builder<KeyPart> resultingOrderingKeyPartBuilder = ImmutableList.builder();
 
@@ -254,7 +254,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
             }
 
             if (toBeAdded == null) {
-                final var requestedKeyExpression = requestedKeyPart.getNormalizedKeyExpression();
+                final var requestedKeyExpression = requestedKeyPart.getValue();
                 if (innerBoundExpressions.contains(requestedKeyExpression)) {
                     toBeAdded = requestedKeyPart;
                 }
@@ -281,7 +281,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
             resultingOrderingKeyPartBuilder.add(providedKeyPart);
         }
 
-        final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(providedOrdering.getEqualityBoundKeyMap());
+        final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(providedOrdering.getEqualityBoundKeyMap());
         innerBoundExpressions.forEach(resultEqualityBoundKeyMap::removeAll);
 
         return Optional.of(new Ordering(resultEqualityBoundKeyMap, resultingOrderingKeyPartBuilder.build(), providedOrdering.isDistinct()));
