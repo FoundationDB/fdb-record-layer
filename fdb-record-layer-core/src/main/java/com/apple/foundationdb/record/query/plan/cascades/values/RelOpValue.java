@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -321,8 +320,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), EqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
+        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
         }
     }
 
@@ -336,8 +335,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), NotEqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
+        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
         }
     }
 
@@ -351,8 +350,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), LtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
+        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
         }
     }
 
@@ -366,8 +365,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), LteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
+        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
         }
     }
 
@@ -381,8 +380,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), GtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
+        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
         }
     }
 
@@ -396,8 +395,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), GteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
+        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
         }
     }
 
@@ -411,8 +410,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any()), IsNullFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.IS_NULL, arguments);
+        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.IS_NULL, arguments);
         }
     }
 
@@ -426,8 +425,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any()), NotNullFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(parserContext.getTypeRepositoryBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_NULL, arguments);
+        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_NULL, arguments);
         }
     }
 

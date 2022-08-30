@@ -64,6 +64,7 @@ public class RecordQueryPlannerConfiguration {
      * {@link com.apple.foundationdb.record.IndexScanType#BY_VALUE_OVER_SCAN} is preferred to use.
      */
     private final Set<String> valueIndexesOverScanNeeded;
+    private final boolean planOtherAttemptWholeFilter;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -79,7 +80,8 @@ public class RecordQueryPlannerConfiguration {
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
                                             @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules,
                                             @Nonnull final IndexFetchMethod indexFetchMethod,
-                                            @Nonnull final Set<String> valueIndexesOverScanNeeded) {
+                                            @Nonnull final Set<String> valueIndexesOverScanNeeded,
+                                            boolean planOtherAttemptWholeFilter) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -95,6 +97,7 @@ public class RecordQueryPlannerConfiguration {
         this.disabledTransformationRules = ImmutableSet.copyOf(disabledTransformationRules);
         this.indexFetchMethod = indexFetchMethod;
         this.valueIndexesOverScanNeeded = valueIndexesOverScanNeeded;
+        this.planOtherAttemptWholeFilter = planOtherAttemptWholeFilter;
     }
 
     /**
@@ -247,6 +250,10 @@ public class RecordQueryPlannerConfiguration {
         return valueIndexesOverScanNeeded.contains(indexName);
     }
 
+    public boolean shouldPlanOtherAttemptWholeFilter() {
+        return planOtherAttemptWholeFilter;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -282,6 +289,7 @@ public class RecordQueryPlannerConfiguration {
 
         @Nonnull
         private Set<String> valueIndexesOverScanNeeded = Sets.newHashSet();
+        private boolean planOtherAttemptWholeFilter;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -465,6 +473,17 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set whether the planner attempts to plan a complex filter using non-VALUE indexes before splitting it up.
+         * @param planOtherAttemptWholeFilter whether to attempt planning the whole filter
+         * @return this builder
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public Builder setPlanOtherAttemptWholeFilter(final boolean planOtherAttemptWholeFilter) {
+            this.planOtherAttemptWholeFilter = planOtherAttemptWholeFilter;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
             return new RecordQueryPlannerConfiguration(indexScanPreference,
                     attemptFailedInJoinAsOr,
@@ -480,7 +499,8 @@ public class RecordQueryPlannerConfiguration {
                     sortConfiguration,
                     disabledTransformationRules,
                     indexFetchMethod,
-                    valueIndexesOverScanNeeded);
+                    valueIndexesOverScanNeeded,
+                    planOtherAttemptWholeFilter);
         }
     }
 }

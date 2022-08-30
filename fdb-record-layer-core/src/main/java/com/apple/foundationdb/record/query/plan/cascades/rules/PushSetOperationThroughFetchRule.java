@@ -21,20 +21,21 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
-import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
+import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -164,6 +165,10 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
                 return;
             }
         }
+        if (setOperationPlan.getRequiredFields().stream().anyMatch(KeyExpression::createsDuplicates)) {
+            // there are nested repeateds in the required fields which we currently cannot handle
+            return;
+        }
 
         final List<? extends RecordQueryFetchFromPartialRecordPlan> fetchPlans = bindings.getAll(fetchPlanMatcher);
         final ImmutableList<TranslateValueFunction> dependentFunctions =
@@ -174,8 +179,10 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         Verify.verify(quantifiersOverFetches.size() == fetchPlans.size());
         Verify.verify(fetchPlans.size() == dependentFunctions.size());
 
-        final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(CorrelationIdentifier.uniqueID(), new Type.Any());
-        final Set<CorrelationIdentifier> pushableAliases = setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues);
+        final CorrelationIdentifier sourceAlias = CorrelationIdentifier.uniqueID();
+
+        final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(sourceAlias, new Type.Any());
+        final Set<CorrelationIdentifier> pushableAliases = setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues, sourceAlias);
 
         // if set operation is dynamic all aliases must be pushable
         if (setOperationPlan.isDynamic()) {

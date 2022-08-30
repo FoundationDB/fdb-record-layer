@@ -56,6 +56,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
@@ -194,180 +195,11 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 TestHelpers::assertDiscardedNone));
     }
 
-    /**
-     * Verify that nested field comparisons with fanout can scan indexes.
-     */
-    @DualPlannerTest
-    void nested() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openNestedRecordStore(context);
-
-            TestRecords4Proto.RestaurantReviewer.Builder reviewerBuilder = TestRecords4Proto.RestaurantReviewer.newBuilder();
-            reviewerBuilder.setId(1);
-            reviewerBuilder.setName("Lemuel");
-            recordStore.saveRecord(reviewerBuilder.build());
-
-            reviewerBuilder.setId(2);
-            reviewerBuilder.setName("Gulliver");
-            recordStore.saveRecord(reviewerBuilder.build());
-
-            TestRecords4Proto.RestaurantRecord.Builder recBuilder = TestRecords4Proto.RestaurantRecord.newBuilder();
-            recBuilder.setRestNo(101);
-            recBuilder.setName("The Emperor's Three Tables");
-            TestRecords4Proto.RestaurantReview.Builder reviewBuilder = recBuilder.addReviewsBuilder();
-            reviewBuilder.setReviewer(1);
-            reviewBuilder.setRating(10);
-            reviewBuilder = recBuilder.addReviewsBuilder();
-            reviewBuilder.setReviewer(2);
-            reviewBuilder.setRating(3);
-            TestRecords4Proto.RestaurantTag.Builder tagBuilder = recBuilder.addTagsBuilder();
-            tagBuilder.setValue("Lilliput");
-            tagBuilder.setWeight(5);
-            recordStore.saveRecord(recBuilder.build());
-
-            recBuilder = TestRecords4Proto.RestaurantRecord.newBuilder();
-            recBuilder.setRestNo(102);
-            recBuilder.setName("Small Fry's Fried Victuals");
-            reviewBuilder = recBuilder.addReviewsBuilder();
-            reviewBuilder.setReviewer(1);
-            reviewBuilder.setRating(5);
-            reviewBuilder = recBuilder.addReviewsBuilder();
-            reviewBuilder.setReviewer(2);
-            reviewBuilder.setRating(5);
-            tagBuilder = recBuilder.addTagsBuilder();
-            tagBuilder.setValue("Lilliput");
-            tagBuilder.setWeight(1);
-            recordStore.saveRecord(recBuilder.build());
-
-            commit(context);
-        }
-
-        // TODO this was originally:
-        // QueryExpression.field("reviews").matches(QueryExpression.field("rating").greaterThan(5)),
-        // which should have failed validate
-        RecordQuery query = RecordQuery.newBuilder()
-                .setRecordType("RestaurantRecord")
-                .setFilter(Query.field("reviews").oneOfThem().matches(Query.field("rating").greaterThan(5)))
-                .build();
-
-        // Index(review_rating ([5],>) | UnorderedPrimaryKeyDistinct()
-        RecordQueryPlan plan = planner.plan(query);
-        if (planner instanceof RecordQueryPlanner) {
-            assertMatchesExactly(plan,
-                    unorderedPrimaryKeyDistinctPlan(
-                            indexPlan()
-                                    .where(indexName("review_rating"))
-                                    .and(scanComparisons(range("([5],>")))));
-            assertEquals(1378568952, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-2085209333, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(2129300140, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        } else {
-            assertMatchesExactly(plan,
-                    fetchFromPartialRecordPlan(
-                            unorderedPrimaryKeyDistinctPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("review_rating"))
-                                                    .and(scanComparisons(range("([5],>"))))))));
-            assertEquals(1060048085, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1589243362, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1669701185, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        }
-
-        assertEquals(Collections.singletonList(101L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
-                this::openNestedRecordStore,
-                TestHelpers::assertDiscardedNone));
-
-        query = RecordQuery.newBuilder()
-                .setRecordType("RestaurantRecord")
-                .setFilter(Query.field("tags").oneOfThem().matches(
-                        Query.and(
-                                Query.field("value").equalsValue("Lilliput"),
-                                Query.field("weight").greaterThanOrEquals(5))))
-                .build();
-
-        // Index(tag [[Lilliput, 5],[Lilliput]]) | UnorderedPrimaryKeyDistinct()
-        plan = planner.plan(query);
-        if (planner instanceof RecordQueryPlanner) {
-            assertMatchesExactly(plan,
-                    unorderedPrimaryKeyDistinctPlan(
-                            indexPlan()
-                                    .where(indexName("tag"))
-                                    .and(scanComparisons(range("[[Lilliput, 5],[Lilliput]]")))));
-            assertEquals(-1197819382, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1570485504, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1584619812, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        } else {
-            assertMatchesExactly(plan,
-                    fetchFromPartialRecordPlan(
-                            unorderedPrimaryKeyDistinctPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("tag"))
-                                                    .and(scanComparisons(range("[[Lilliput, 5],[Lilliput]]"))))))));
-            assertEquals(205198931, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2066451475, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(2080585783, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        }
-        assertEquals(Collections.singletonList(101L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
-                this::openNestedRecordStore,
-                TestHelpers::assertDiscardedNone));
-
-        QueryComponent reviewFilter = Query.field("reviews").oneOfThem().matches(Query.and(
-                Query.field("rating").equalsValue(5),
-                Query.field("reviewer").equalsValue(1L)));
-        query = RecordQuery.newBuilder()
-                .setRecordType("RestaurantRecord")
-                .setFilter(reviewFilter)
-                .build();
-        plan = planner.plan(query);
-        if (planner instanceof RecordQueryPlanner) {
-            assertMatchesExactly(plan,
-                    filterPlan(
-                            unorderedPrimaryKeyDistinctPlan(
-                                    indexPlan()
-                                            .where(indexName("review_rating"))
-                                            .and(scanComparisons(range("[[5],[5]]")))))
-                            .where(queryComponents(only(equalsObject(reviewFilter)))));
-            assertEquals(1252155441, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-2056078191, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1471222808, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
-                    this::openNestedRecordStore,
-                    TestHelpers::assertDiscardedNone));
-        } else {
-            // Note that in cascades the index plan has a "higher cost" than the primary scan plan (per conf flag to
-            // prefer primary scans when comparing equal-ish index and scan plans).
-            assertMatchesExactly(plan,
-                    unorderedPrimaryKeyDistinctPlan(
-                            flatMapPlan(
-                                    indexPlan()
-                                            .where(indexName("review_rating"))
-                                            .and(scanComparisons(range("[[5],[5]]"))),
-                                    descendantPlans(
-                                            predicatesFilterPlan(anyPlan())
-                                                    .where(predicates(
-                                                            SetMatcher.exactlyInAnyOrder(
-                                                                    valuePredicate(fieldValue("rating"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)),
-                                                                    valuePredicate(fieldValue("reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
-            assertEquals(-83822384, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2065397699, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(446113990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
-                    this::openNestedRecordStore,
-                    context -> TestHelpers.assertDiscardedAtMost(5, context)));
-        }
+    private void addDataForNested() throws Exception {
+        addDataForNested(null);
     }
 
-    /**
-     * Verify that nested field comparisons with fanout can scan indexes.
-     */
-    @DualPlannerTest
-    void nested2() throws Exception {
-        RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex("RestaurantRecord", "complex", concat(field("name"), field("rest_no"), field("reviews", KeyExpression.FanType.FanOut).nest(concat(field("reviewer"), field("rating")))));
-            metaData.addIndex("RestaurantRecord", "composite", concat(field("name"), field("rest_no")));
-            metaData.addIndex("RestaurantRecord", "duplicates", concat(field("name"), field("name")));
-        };
-
+    private void addDataForNested(@Nullable final RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context, hook);
 
@@ -410,10 +242,157 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
             commit(context);
         }
+    }
+
+    /**
+     * Verify that nested field comparisons with fanout can scan indexes.
+     */
+    @DualPlannerTest
+    void nested() throws Exception {
+        addDataForNested();
+
+        final var query = RecordQuery.newBuilder()
+                .setRecordType("RestaurantRecord")
+                .setFilter(Query.field("reviews").oneOfThem().matches(Query.field("rating").greaterThan(5)))
+                .build();
+
+        // Index(review_rating ([5],>) | UnorderedPrimaryKeyDistinct()
+        final var plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            assertMatchesExactly(plan,
+                    unorderedPrimaryKeyDistinctPlan(
+                            indexPlan()
+                                    .where(indexName("review_rating"))
+                                    .and(scanComparisons(range("([5],>")))));
+            assertEquals(1378568952, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2085209333, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(2129300140, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertMatchesExactly(plan,
+                    fetchFromPartialRecordPlan(
+                            unorderedPrimaryKeyDistinctPlan(
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("review_rating"))
+                                                    .and(scanComparisons(range("([5],>"))))))));
+            assertEquals(1060048085, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1589243362, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1669701185, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+
+        assertEquals(Collections.singletonList(101L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
+                this::openNestedRecordStore,
+                TestHelpers::assertDiscardedNone));
+    }
+
+    /**
+     * Verify that nested field comparisons with fanout can scan indexes.
+     */
+    @DualPlannerTest
+    void nested2() throws Exception {
+        addDataForNested();
+
+        final var query = RecordQuery.newBuilder()
+                .setRecordType("RestaurantRecord")
+                .setFilter(Query.field("tags").oneOfThem().matches(
+                        Query.and(
+                                Query.field("value").equalsValue("Lilliput"),
+                                Query.field("weight").greaterThanOrEquals(5))))
+                .build();
+
+        // Index(tag [[Lilliput, 5],[Lilliput]]) | UnorderedPrimaryKeyDistinct()
+        final var plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            assertMatchesExactly(plan,
+                    unorderedPrimaryKeyDistinctPlan(
+                            indexPlan()
+                                    .where(indexName("tag"))
+                                    .and(scanComparisons(range("[[Lilliput, 5],[Lilliput]]")))));
+            assertEquals(-1197819382, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1570485504, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1584619812, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertMatchesExactly(plan,
+                    fetchFromPartialRecordPlan(
+                            unorderedPrimaryKeyDistinctPlan(
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("tag"))
+                                                    .and(scanComparisons(range("[[Lilliput, 5],[Lilliput]]"))))))));
+            assertEquals(205198931, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(2066451475, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(2080585783, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+        assertEquals(Collections.singletonList(101L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
+                this::openNestedRecordStore,
+                TestHelpers::assertDiscardedNone));
+    }
+
+    /**
+     * Verify that nested field comparisons with fanout can scan indexes.
+     */
+    @DualPlannerTest
+    void nested3() throws Exception {
+        addDataForNested();
+
+        final var reviewFilter = Query.field("reviews").oneOfThem().matches(Query.and(
+                Query.field("rating").equalsValue(5),
+                Query.field("reviewer").equalsValue(1L)));
+        final var query = RecordQuery.newBuilder()
+                .setRecordType("RestaurantRecord")
+                .setFilter(reviewFilter)
+                .build();
+        final var plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            assertMatchesExactly(plan,
+                    filterPlan(
+                            unorderedPrimaryKeyDistinctPlan(
+                                    indexPlan()
+                                            .where(indexName("review_rating"))
+                                            .and(scanComparisons(range("[[5],[5]]")))))
+                            .where(queryComponents(only(equalsObject(reviewFilter)))));
+            assertEquals(1252155441, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2056078191, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1471222808, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
+                    this::openNestedRecordStore,
+                    TestHelpers::assertDiscardedNone));
+        } else {
+            // Note that in cascades the index plan has a "higher cost" than the primary scan plan (per conf flag to
+            // prefer primary scans when comparing equal-ish index and scan plans).
+            assertMatchesExactly(plan,
+                    unorderedPrimaryKeyDistinctPlan(
+                            flatMapPlan(
+                                    indexPlan()
+                                            .where(indexName("review_rating"))
+                                            .and(scanComparisons(range("[[5],[5]]"))),
+                                    descendantPlans(
+                                            predicatesFilterPlan(anyPlan())
+                                                    .where(predicates(
+                                                            SetMatcher.exactlyInAnyOrder(
+                                                                    valuePredicate(fieldValue("rating"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)),
+                                                                    valuePredicate(fieldValue("reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
+            assertEquals(-83822384, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(2065397699, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(446113990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
+                    this::openNestedRecordStore,
+                    context -> TestHelpers.assertDiscardedAtMost(5, context)));
+        }
+    }
+
+    /**
+     * Verify that nested field comparisons with fanout can scan indexes.
+     */
+    @DualPlannerTest
+    void nested4() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("RestaurantRecord", "complex", concat(field("name"), field("rest_no"), field("reviews", KeyExpression.FanType.FanOut).nest(concat(field("reviewer"), field("rating")))));
+            metaData.addIndex("RestaurantRecord", "composite", concat(field("name"), field("rest_no")));
+            metaData.addIndex("RestaurantRecord", "duplicates", concat(field("name"), field("name")));
+        };
+
+        addDataForNested(hook);
 
         final QueryComponent nestedComponent =
-                //Query.field("reviews").oneOfThem().matches(Query.field("reviewer").equalsValue(10L))
-                //Query.field("reviews").oneOfThem().matches(Query.field("rating").equalsValue(20))
                 Query.field("reviews").oneOfThem().matches(Query.and(Query.field("reviewer").equalsValue(10L), Query.field("rating").equalsValue(20)));
         final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("RestaurantRecord")

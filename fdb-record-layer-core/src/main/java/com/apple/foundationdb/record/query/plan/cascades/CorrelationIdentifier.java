@@ -81,7 +81,7 @@ public class CorrelationIdentifier {
     /**
      * Create a new correlation identifier. The returned correlation identifier can be assumed
      * to be unique.
-     * @param clazz to specify the kind of ewntity this identifier is going to be used for. This is really only useful
+     * @param clazz to specify the kind of entity this identifier is going to be used for. This is really only useful
      *        if a {@link Debugger} is set.
      * @param prefix a prefix for the returned identifier
      * @return a new unique {@link CorrelationIdentifier}

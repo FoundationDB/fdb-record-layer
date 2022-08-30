@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
@@ -104,32 +105,51 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @Nonnull
     @Override
-    public ConstraintsMap getRequirementsMap() {
+    public ConstraintsMap getConstraintsMap() {
         return constraintsMap;
     }
 
-    public synchronized boolean replace(@Nonnull T newValue) {
+    public synchronized void replace(@Nonnull T newValue) {
         clear();
-        return insert(newValue);
+        insertUnchecked(newValue);
     }
 
+    /**
+     * Inserts a new expression into this reference. This method checks for prior memoization of the expression passed
+     * in within the reference. If the expression is already contained in this reference, the reference is not modified.
+     * @param newValue new expression to be inserted
+     * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
+     *         otherwise.
+     */
     @Override
     public boolean insert(@Nonnull T newValue) {
         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.BEGIN)));
+        final boolean containsInMemo;
         try {
-            final boolean containsInMemo = containsInMemo(newValue);
-            if (!containsInMemo) {
-                // Call debugger hook to potentially register this new expression.
-                Debugger.registerExpression(newValue);
-                members.add(newValue);
-                if (newValue instanceof RecordQueryPlan) {
-                    Verify.verify(propertiesMap.insert(newValue)); // this must return true
-                }
-                return true;
-            }
-            return false;
+            containsInMemo = containsInMemo(newValue);
         } finally {
             Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.END)));
+        }
+        if (!containsInMemo) {
+            insertUnchecked(newValue);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression)}}, this method does
+     * not check for prior memoization of the expression passed in within the reference. The caller needs to exercise
+     * caution to only call this method on a reference if it is known that the reference cannot possibly already have
+     * the expression memoized.
+     * @param newValue new expression to be inserted (without check)
+     */
+    public void insertUnchecked(final @Nonnull T newValue) {
+        // Call debugger hook to potentially register this new expression.
+        Debugger.registerExpression(newValue);
+        members.add(newValue);
+        if (newValue instanceof RecordQueryPlan) {
+            Verify.verify(propertiesMap.insert(newValue)); // this must return true
         }
     }
 
@@ -138,10 +158,15 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean containsAllInMemo(@Nonnull final ExpressionRef<? extends RelationalExpression> otherRef,
                                      @Nonnull final AliasMap equivalenceMap) {
+        if (this == otherRef) {
+            return true;
+        }
+        
         for (final RelationalExpression otherMember : otherRef.getMembers()) {
-            if (!containsInMemo(otherMember, equivalenceMap)) {
+            if (!containsInMemo(otherMember, equivalenceMap, members)) {
                 return false;
             }
         }
@@ -160,7 +185,13 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     private boolean containsInMemo(@Nonnull final RelationalExpression expression,
                                    @Nonnull final AliasMap equivalenceMap) {
-        for (final RelationalExpression member : members) {
+        return containsInMemo(expression, equivalenceMap, members);
+    }
+
+    private boolean containsInMemo(@Nonnull final RelationalExpression expression,
+                                   @Nonnull final AliasMap equivalenceMap,
+                                   @Nonnull final Iterable<? extends RelationalExpression> membersToSearch) {
+        for (final RelationalExpression member : membersToSearch) {
             if (containsInMember(member, expression, equivalenceMap)) {
                 return true;
             }
@@ -168,10 +199,20 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return false;
     }
 
-    private static boolean containsInMember(@Nonnull RelationalExpression member,
-                                            @Nonnull RelationalExpression otherMember,
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private static boolean containsInMember(@Nonnull final RelationalExpression member,
+                                            @Nonnull final RelationalExpression otherMember,
                                             @Nonnull final AliasMap equivalenceMap) {
+        if (member == otherMember) {
+            return true;
+        }
         if (member.getClass() != otherMember.getClass()) {
+            return false;
+        }
+
+        final List<? extends Quantifier> quantifiers = member.getQuantifiers();
+        final List<? extends Quantifier> otherQuantifiers = otherMember.getQuantifiers();
+        if (member.getQuantifiers().size() != otherQuantifiers.size()) {
             return false;
         }
 
@@ -185,23 +226,40 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         // Bind all unbound correlated aliases in this member and otherMember that refer to the same
         // quantifier by alias.
         final AliasMap identitiesMap = member.bindIdentities(otherMember, equivalenceMap);
+        final AliasMap combinedEquivalenceMap = equivalenceMap.combine(identitiesMap);
 
-        // Use match the contained quantifier list against the quantifier list of other in order to find
-        // a correspondence between quantifiers and otherQuantifiers. While we match we recursively call
-        // containsAllInMemo() and early out on that map if such a correspondence cannot be established
-        // on the given pair of quantifiers. The result of this method is an iterable of matches. While it's
-        // possible that there is more than one match, this iterable should mostly contain at most one
-        // match.
-        final Iterable<AliasMap> aliasMapIterable =
-                Quantifiers.findMatches(
-                        equivalenceMap.combine(identitiesMap),
-                        member.getQuantifiers(),
-                        otherMember.getQuantifiers(),
-                        ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
-                            final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
-                            final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
-                            return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
-                        }));
+        final Iterable<AliasMap> aliasMapIterable;
+        if (member instanceof RelationalExpressionWithChildren.ChildrenAsSet) {
+            // Use match the contained quantifier list against the quantifier list of other in order to find
+            // a correspondence between quantifiers and otherQuantifiers. While we match we recursively call
+            // containsAllInMemo() and early out on that map if such a correspondence cannot be established
+            // on the given pair of quantifiers. The result of this method is an iterable of matches. While it's
+            // possible that there is more than one match, this iterable should mostly contain at most one
+            // match.
+            aliasMapIterable =
+                    Quantifiers.findMatches(
+                            combinedEquivalenceMap,
+                            member.getQuantifiers(),
+                            otherMember.getQuantifiers(),
+                            ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
+                                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                                final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
+                                return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
+                            }));
+        } else {
+            final AliasMap.Builder aliasMapBuilder = combinedEquivalenceMap.derived(quantifiers.size());
+            for (int i = 0; i < quantifiers.size(); i++) {
+                final Quantifier quantifier = Objects.requireNonNull(quantifiers.get(i));
+                final Quantifier otherQuantifier = Objects.requireNonNull(otherQuantifiers.get(i));
+                if (!quantifier.getRangesOver()
+                        .containsAllInMemo(otherQuantifier.getRangesOver(), aliasMapBuilder.build())) {
+                    return false;
+                }
+                aliasMapBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
+            }
+
+            aliasMapIterable = ImmutableList.of(aliasMapBuilder.build());
+        }
 
         // if there is more than one match we only need one such match that also satisfies the equality condition between
         // member and otherMember (no children considered).

@@ -21,21 +21,19 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * A parent interface for {@link RelationalExpression}s that have relational children (as opposed to non-relation
@@ -51,21 +49,7 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
     default Set<CorrelationIdentifier> getCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
         final List<? extends Quantifier> quantifiers = getQuantifiers();
-
-        final Map<CorrelationIdentifier, ? extends Quantifier> aliasToQuantifierMap = quantifiers.stream()
-                        .collect(Collectors.toMap(Quantifier::getAlias, Function.identity()));
-
-        // We should check if the graph is sound here, if it is not we should throw an exception. This method
-        // will properly return with an empty. There are other algorithms that may not be as defensive and we
-        // must protect ourselves from illegal graphs (and bugs).
-        final Optional<List<CorrelationIdentifier>> orderedOptional =
-                TopologicalSort.anyTopologicalOrderPermutation(
-                        quantifiers.stream()
-                                .map(Quantifier::getAlias)
-                                .collect(Collectors.toSet()),
-                        alias -> Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getCorrelatedTo());
-
-        orderedOptional.orElseThrow(() -> new IllegalArgumentException("correlations are cyclic"));
+        final Map<CorrelationIdentifier, ? extends Quantifier> aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);
 
         getCorrelatedToWithoutChildren()
                 .stream()
@@ -88,7 +72,8 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     @Nonnull
-    default Set<Quantifier> computeMappedQuantifiers(@Nonnull final PartialMatch partialMatch) {
+    @Override
+    default Set<Quantifier> computeMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var mappedForEachQuantifiers = new LinkedIdentitySet<Quantifier>();
         for (final Quantifier quantifier : getQuantifiers()) {
@@ -97,5 +82,32 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
             }
         }
         return mappedForEachQuantifiers;
+    }
+
+    @Nonnull
+    @Override
+    default PartialOrder<CorrelationIdentifier> getCorrelationOrder() {
+        if (canCorrelate()) {
+            final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
+            return PartialOrder.of(
+                    getQuantifiers().stream()
+                            .map(Quantifier::getAlias)
+                            .collect(ImmutableSet.toImmutableSet()),
+                    alias -> Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getCorrelatedTo());
+        } else {
+            return PartialOrder.empty();
+        }
+    }
+
+    /**
+     * Tag interface to signal that the children this expression owns, that is the owned {@link Quantifier}s, are
+     * to be treated as an unordered set. This is true for implementors like {@link SelectExpression} or
+     * {@link LogicalUnionExpression}, but not
+     * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan}.
+     * This interface allows the respective classes to announce their behavior which may impact matching performance
+     * drastically.
+     */
+    interface ChildrenAsSet extends RelationalExpressionWithChildren {
+        // nothing
     }
 }

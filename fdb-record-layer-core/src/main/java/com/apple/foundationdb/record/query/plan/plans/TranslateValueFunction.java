@@ -33,22 +33,24 @@ import java.util.Optional;
  */
 @FunctionalInterface
 public interface TranslateValueFunction {
-    TranslateValueFunction UNABLE_TO_TRANSLATE = (v, i) -> Optional.empty();
+    TranslateValueFunction UNABLE_TO_TRANSLATE = (v, o, n) -> Optional.empty();
 
     /**
      * Translate a value to an equivalent value that can be evaluated prior to the operation that we are trying to push
      * through. That operation normally is a {@link RecordQueryFetchFromPartialRecordPlan} but could potentially be
      * any {@link RelationalExpression}.
-     * @param value a value that is correlated to a quantifier ranging over the current expression or that is
-     *        only externally correlated. External correlations do not matter for translations as they are still
+     * @param value a value that is correlated to a quantifier ranging over the current expression via
+     *        {@code sourceAlias}. External correlations do not matter for translations as they are still
      *        valid after pushing the value though the current operation.
-     * @param baseAlias an alias that the referencing sub-values should be rebased to
+     * @param sourceAlias an alias that the referencing sub-values need to be rebased from
+     * @param targetAlias an alias that the referencing sub-values should be rebased to
      * @return an optional containing the translated value if this method is successful in translating the {@code value}
      *         passed in, {@code Optional.empty()} if the value passed in could not be translated.
      */
     @Nonnull
     Optional<Value> translateValue(@Nonnull Value value,
-                                   @Nonnull CorrelationIdentifier baseAlias);
+                                   @Nonnull CorrelationIdentifier sourceAlias,
+                                   @Nonnull CorrelationIdentifier targetAlias);
 
     /**
      * Shorthand for a function that never translates any value successfully.

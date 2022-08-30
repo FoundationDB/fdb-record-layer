@@ -59,6 +59,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -320,10 +321,9 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-        final PlanContext context = new MetaDataPlanContext(configuration, metaData, recordStoreState, query);
         try {
-            planPartial(context,
-                    () -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(context, metaData, query)));
+            planPartial(() -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(metaData, query)),
+                    rootReference -> MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, query));
             return resultOrFail();
         } finally {
             Debugger.withDebugger(Debugger::onDone);
@@ -333,20 +333,20 @@ public class CascadesPlanner implements QueryPlanner {
 
     @Nonnull
     public RecordQueryPlan planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier,
-                                     @Nonnull final Optional<Collection<String>> recordTypeNamesOptional,
                                      @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                      @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                      final boolean isSortReverse,
                                      @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-        final PlanContext context = new MetaDataPlanContext(configuration,
-                metaData,
-                recordStoreState,
-                recordTypeNamesOptional,
-                allowedIndexesOptional,
-                indexQueryabilityFilter,
-                isSortReverse);
         try {
-            planPartial(context, expressionRefSupplier);
+            planPartial(expressionRefSupplier,
+                    rootReference ->
+                            MetaDataPlanContext.forRootReference(configuration,
+                                    metaData,
+                                    recordStoreState,
+                                    rootReference,
+                                    allowedIndexesOptional,
+                                    indexQueryabilityFilter,
+                                    isSortReverse));
             return resultOrFail();
         } finally {
             Debugger.withDebugger(Debugger::onDone);
@@ -369,8 +369,10 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier) {
+    private void planPartial(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier, @Nonnull Function<GroupExpressionRef<RelationalExpression>, PlanContext> contextCreatorFunction) {
         currentRoot = expressionRefSupplier.get();
+        final var context = contextCreatorFunction.apply(currentRoot);
+
         final RelationalExpression expression = currentRoot.get();
         Debugger.withDebugger(debugger -> debugger.onQuery(expression.toString(), context));
         aliasResolver = AliasResolver.withRoot(currentRoot);
@@ -512,7 +514,8 @@ public class CascadesPlanner implements QueryPlanner {
                     throw new RecordCoreException("there we no members in a group expression used by the Cascades planner");
                 }
                 group.clear();
-                group.insert(bestMember);
+                // call unchecked as this is the first expression to be inserted
+                group.insertUnchecked(bestMember);
                 group.commitExploration();
             }
         }

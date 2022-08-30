@@ -29,6 +29,7 @@ import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BulkScorer;
+import org.apache.lucene.search.CollectionTerminatedException;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.IndexSearcher;
@@ -84,7 +85,11 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         if (executor == null) {
             search(leafContexts, weight, results);
         } else {
-            searchOptimized(executor, weight, leafContexts, results).join();
+            try {
+                searchOptimized(executor, weight, leafContexts, results).join();
+            } catch (WrapperException we) {
+                throw we.unwrap();
+            }
         }
     }
 
@@ -152,12 +157,48 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
                     throw new ThreadInterruptedException(e);
                 } catch (ExecutionException e) {
                     throw new RuntimeException(e);
+                } catch (WrapperException we) {
+                    throw we.unwrap();
                 }
             }
             return collectorManager.reduce(collectors);
         }
     }
 
+    /**
+     * WrapperException used for retrieving an {@link IOException} from an asynchronous execution block.
+     */
+    private static class WrapperException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        @Nonnull
+        private final IOException ioe;
+
+        WrapperException(@Nonnull final IOException ioe) {
+            this.ioe = ioe;
+        }
+
+        @Nonnull
+        public IOException unwrap() {
+            return ioe;
+        }
+    }
+
+    /**
+     * An optimized version that performs the search on parallel.
+     * @param executor The task executor.
+     * @param weight Weight of the query.
+     * @param leaves List of leaves reader contexts.
+     * @param collector Collector that gathers the results.
+     * @return a {@code Future} that can be waited upon for the parallel search tasks to finish.
+     *
+     * @implNote it is possible that an {@link IOException} is thrown during parallel execution of task. Since Java does
+     * not permit throwing a checked exception from a lambda, and we need to cascade this exception to the caller, we wrap
+     * it using a custom, unchecked {@link WrapperException} and rethrow it. Therefore, the caller of this method should catch
+     * {@link WrapperException} and call {@link WrapperException#unwrap()} to get to the underlying {@link IOException}.
+     * Similar to {@link IndexSearcher#search(List, Weight, Collector)}, the {@link CollectionTerminatedException} is
+     * caught and ignored. For more information about this please have a look at the implementation of the above method,
+     * and read the documentation of {@link CollectionTerminatedException}.
+     */
     @Nonnull
     @SuppressWarnings({"PMD.EmptyCatchBlock"})
     private <C extends Collector> CompletableFuture<C> searchOptimized(@Nonnull final Executor executor, @Nonnull final Weight weight, @Nonnull final List<LeafReaderContext> leaves, @Nonnull final C collector) {
@@ -166,8 +207,11 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
             try {
                 final var result = Pair.of(collector.getLeafCollector(ctx), weight.bulkScorer(ctx));
                 return Pair.of(ctx, result);
-            } catch (IOException e) {
-                return null;
+            } catch (CollectionTerminatedException cte) {
+                // bail out.
+                return Pair.of(ctx, (Pair<LeafCollector, BulkScorer>)null);
+            } catch (IOException ioe) {
+                throw new WrapperException(ioe); // to be cascaded.
             }
         }, executor)).collect(Collectors.toList());
 
@@ -180,8 +224,10 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
                         if (scorer != null && scorer.getLeft() != null && scorer.getRight() != null) {
                             try {
                                 scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());
-                            } catch (IOException e) {
+                            } catch (CollectionTerminatedException cte) {
                                 // no-op just ignore.
+                            } catch (IOException ioe) {
+                                throw new WrapperException(ioe); // to be cascaded.
                             }
                         }
                     });

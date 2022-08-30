@@ -21,17 +21,22 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * {@link ScanComparisons} for use in an index scan.
@@ -118,32 +123,73 @@ public class IndexScanComparisons implements IndexScanParameters {
         }
     }
 
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return scanComparisons.getCorrelatedTo();
+    }
+
+    @Nonnull
+    @Override
+    public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+    }
+
+    @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+
+        final IndexScanComparisons that = (IndexScanComparisons)other;
+
+        if (!scanType.equals(that.scanType)) {
+            return false;
+        }
+        return scanComparisons.semanticEquals(that.scanComparisons, aliasMap);
+    }
+
+    @Override
+    public int semanticHashCode() {
+        int result = scanType.hashCode();
+        result = 31 * result + scanComparisons.semanticHashCode();
+        return result;
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        final var translatedScanComparisons = scanComparisons.translateCorrelations(translationMap);
+        if (translatedScanComparisons != scanComparisons) {
+            return withScanComparisons(translatedScanComparisons);
+        }
+        return this;
+    }
+
+    @Nonnull
+    protected IndexScanParameters withScanComparisons(@Nonnull final ScanComparisons newScanComparisons) {
+        return new IndexScanComparisons(scanType, newScanComparisons);
+    }
+
     @Override
     public String toString() {
         return scanType + ":" + scanComparisons;
     }
 
     @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(final Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        final IndexScanComparisons that = (IndexScanComparisons)o;
-
-        if (!scanType.equals(that.scanType)) {
-            return false;
-        }
-        return scanComparisons.equals(that.scanComparisons);
+        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
     @Override
     public int hashCode() {
-        int result = scanType.hashCode();
-        result = 31 * result + scanComparisons.hashCode();
-        return result;
+        return semanticHashCode();
     }
 }

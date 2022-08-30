@@ -188,7 +188,7 @@ class SpecificMatchingTest {
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
                         r -> r,
-                        r -> dependenciesLeft.getOrDefault(r, ImmutableSet.of()),
+                        r -> dependenciesRight.getOrDefault(r, ImmutableSet.of()),
                         (l, r, aliasMap) -> {
                             if (l.toString().substring(1).equals(r.toString().substring(1))) {
                                 return ImmutableList.of(l + " + " + r);
@@ -209,33 +209,69 @@ class SpecificMatchingTest {
         assertEquals(distinctMatches.size(), matches.size());
 
         assertEquals(ImmutableSet.of(
-                AliasMap.emptyMap(),
-                AliasMap.builder()
-                        .put(of("m2"), of("m2"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("m1"), of("m1"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("m3"), of("m3"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("m2"), of("m2"))
-                        .put(of("m1"), of("m1"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("m2"), of("m2"))
-                        .put(of("m3"), of("m3"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("m1"), of("m1"))
-                        .put(of("m3"), of("m3"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("m2"), of("m2"))
-                        .put(of("m1"), of("m1"))
-                        .put(of("m3"), of("m3"))
-                        .build()),
+                        AliasMap.emptyMap(),
+                        AliasMap.builder()
+                                .put(of("m2"), of("m2"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("a"), of("x"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m1"), of("m1"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m3"), of("m3"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m2"), of("m2"))
+                                .put(of("a"), of("x"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m1"), of("m1"))
+                                .put(of("m2"), of("m2"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m2"), of("m2"))
+                                .put(of("m3"), of("m3"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m1"), of("m1"))
+                                .put(of("a"), of("x"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m3"), of("m3"))
+                                .put(of("a"), of("x"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m1"), of("m1"))
+                                .put(of("m3"), of("m3"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m1"), of("m1"))
+                                .put(of("m2"), of("m2"))
+                                .put(of("a"), of("x"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m2"), of("m2"))
+                                .put(of("m3"), of("m3"))
+                                .put(of("a"), of("x"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m1"), of("m1"))
+                                .put(of("m2"), of("m2"))
+                                .put(of("m3"), of("m3"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m1"), of("m1"))
+                                .put(of("m3"), of("m3"))
+                                .put(of("a"), of("x"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("m2"), of("m2"))
+                                .put(of("m1"), of("m1"))
+                                .put(of("m3"), of("m3"))
+                                .put(of("a"), of("x"))
+                                .build()),
                 distinctMatches);
     }
 
@@ -454,5 +490,64 @@ class SpecificMatchingTest {
                         .put(of("c"), of("z"))
                         .build()),
                 matches);
+    }
+
+    @Test
+    void testMatchElementsWithMismatchingCorrelations() {
+        final Set<CorrelationIdentifier> left = ImmutableSet.of(of("l1"), of("l2"), of("l3"), of("ll4"), of("ll5"), of("ll6"), of("ll7"));
+        final Set<CorrelationIdentifier> right = ImmutableSet.of(of("r1"), of("r2"), of("r3"), of("rr4"), of("rr5"), of("rr6"), of("rr7"));
+
+        final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependenciesLeft =
+                ImmutableMap.of(of("l2"), ImmutableSet.of(of("l1")),
+                        of("l3"), ImmutableSet.of(of("l2")));
+
+        final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependenciesRight =
+                ImmutableMap.of(of("r3"), ImmutableSet.of(of("r2")));
+
+        final GenericMatcher<BoundMatch<EnumeratingIterable<String>>> matcher =
+                ComputingMatcher.onAliasDependencies(
+                        AliasMap.emptyMap(),
+                        left,
+                        l -> l,
+                        l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
+                        right,
+                        r -> r,
+                        r -> dependenciesRight.getOrDefault(r, ImmutableSet.of()),
+                        (l, r, aliasMap) -> {
+                            if (l.toString().substring(1).equals(r.toString().substring(1))) {
+                                return ImmutableList.of(l + " + " + r);
+                            }
+                            return ImmutableList.of();
+                        },
+                        ComputingMatcher::productAccumulator);
+        
+        final Iterable<BoundMatch<EnumeratingIterable<String>>> matchIterable = matcher.match();
+
+        final List<AliasMap> matches =
+                StreamSupport.stream(matchIterable.spliterator(), false)
+                        .map(BoundMatch::getAliasMap)
+                        .collect(ImmutableList.toImmutableList());
+
+        final Set<AliasMap> distinctMatches = ImmutableSet.copyOf(matches);
+
+        assertEquals(distinctMatches.size(), matches.size());
+
+        assertEquals(ImmutableSet.of(
+                        AliasMap.emptyMap(),
+                        AliasMap.builder()
+                                .put(of("l1"), of("r1"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("l2"), of("r2"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("l3"), of("r3"))
+                                .build(),
+                        AliasMap.builder()
+                                .put(of("l2"), of("r2"))
+                                .put(of("l3"), of("r3"))
+                                .build()),
+                distinctMatches);
+
     }
 }

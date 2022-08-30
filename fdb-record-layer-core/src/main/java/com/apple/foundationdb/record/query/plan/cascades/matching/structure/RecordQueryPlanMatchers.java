@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithCompari
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
@@ -567,6 +568,25 @@ public class RecordQueryPlanMatchers {
     public static BindingMatcher<RecordQueryFirstOrDefaultPlan> onEmptyResult(@Nonnull BindingMatcher<? extends Value> downstream) {
         return typedWithDownstream(RecordQueryFirstOrDefaultPlan.class,
                 Extractor.of(RecordQueryFirstOrDefaultPlan::getOnEmptyResultValue, name -> "onEmptyResult(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryStreamingAggregationPlan> streamingAggregationPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryStreamingAggregationPlan.class, all(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryStreamingAggregationPlan> aggregations(@Nonnull BindingMatcher<? extends Value> downstream) {
+        return typedWithDownstream(RecordQueryStreamingAggregationPlan.class,
+                Extractor.of(RecordQueryStreamingAggregationPlan::getAggregateValue, name -> "aggregation(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryStreamingAggregationPlan> groupings(@Nonnull BindingMatcher<? extends Value> downstream) {
+        return typedWithDownstream(RecordQueryStreamingAggregationPlan.class,
+                Extractor.of(RecordQueryStreamingAggregationPlan::getGroupingValue, name -> "grouping(" + name + ")"),
                 downstream);
     }
 }

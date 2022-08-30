@@ -154,8 +154,8 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     @Nonnull
-    public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier targetAlias) {
-        return translateValueFunction.translateValue(value, targetAlias);
+    public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier sourceAlias, @Nonnull CorrelationIdentifier targetAlias) {
+        return translateValueFunction.translateValue(value, sourceAlias, targetAlias);
     }
 
     @Nonnull

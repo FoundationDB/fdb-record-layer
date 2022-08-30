@@ -36,24 +36,26 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Sargable;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
@@ -70,18 +72,23 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * A select expression.
  */
 @API(API.Status.EXPERIMENTAL)
-public class SelectExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicates, InternalPlannerGraphRewritable {
+public class SelectExpression implements RelationalExpressionWithChildren.ChildrenAsSet, RelationalExpressionWithPredicates, InternalPlannerGraphRewritable {
     @Nonnull
     private final Value resultValue;
     @Nonnull
     private final List<Quantifier> children;
     @Nonnull
     private final List<? extends QueryPredicate> predicates;
+    @Nonnull
+    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
+    @Nonnull
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, ? extends Quantifier>> aliasToQuantifierMapSupplier;
     @Nonnull
@@ -95,7 +102,9 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
                           : partitionPredicates(predicates);
-        this.aliasToQuantifierMapSupplier = Suppliers.memoize(this::computeAliasToQuantifierMap);
+        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+        this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
+        this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
         this.correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
     }
 
@@ -135,6 +144,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return correlatedToWithoutChildrenSupplier.get();
+    }
+
+    @Nonnull
+    private Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return Streams.concat(predicates.stream().flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream()),
                         resultValue.getCorrelatedTo().stream())
                 .collect(ImmutableSet.toImmutableSet());
@@ -181,6 +195,10 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Override
     public int hashCodeWithoutChildren() {
+        return hashCodeWithoutChildrenSupplier.get();
+    }
+
+    private int computeHashCodeWithoutChildren() {
         return Objects.hash(getPredicates(), getResultValue());
     }
 
@@ -190,26 +208,16 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     }
 
     @Nonnull
-    private Map<CorrelationIdentifier, ? extends Quantifier> computeAliasToQuantifierMap() {
-        return getQuantifiers().stream()
-                .collect(ImmutableMap.toImmutableMap(Quantifier::getAlias, Function.identity()));
-    }
-
-    @Nonnull
+    @Override
     public PartialOrder<CorrelationIdentifier> getCorrelationOrder() {
         return correlationOrderSupplier.get();
     }
 
     @Nonnull
     private PartialOrder<CorrelationIdentifier> computeCorrelationOrder() {
-        final var aliasToQuantifierMap = getAliasToQuantifierMap();
-        return PartialOrder.of(
-                getQuantifiers().stream()
-                        .map(Quantifier::getAlias)
-                        .collect(ImmutableSet.toImmutableSet()),
-                alias -> Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getCorrelatedTo());
+        return RelationalExpressionWithChildren.ChildrenAsSet.super.getCorrelationOrder();
     }
-
+    
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -234,7 +242,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                         .collect(ImmutableList.toImmutableList());
         final var mergedParameterBindingMapOptional =
                 MatchInfo.tryMergeParameterBindings(parameterBindingMaps);
-        if (!mergedParameterBindingMapOptional.isPresent()) {
+        if (mergedParameterBindingMapOptional.isEmpty()) {
             return ImmutableList.of();
         }
         final var mergedParameterBindingMap = mergedParameterBindingMapOptional.get();
@@ -254,17 +262,6 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
                 matchedCorrelatedToBuilder.addAll(quantifier.getCorrelatedTo());
             }
-        }
-        
-        final var matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
-        final var allNonMatchedQuantifiersIndependent =
-                getQuantifiers()
-                        .stream()
-                        .filter(quantifier -> !partialMatchMap.containsKeyUnwrapped(quantifier))
-                        .noneMatch(quantifier -> matchedCorrelatedTo.contains(quantifier.getAlias()));
-
-        if (!allNonMatchedQuantifiersIndependent) {
-            return ImmutableList.of();
         }
 
         // Loop through all for-each quantifiers on the other side to ensure that they are all matched.
@@ -342,15 +339,107 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             }
         }
 
+        //
+        // Go through each predicate on the query side in an attempt to find predicates on the candidate side that
+        // can subsume the current predicate. For instance, `x < 5` on the query side can be subsumed by a placeholder
+        // for x in the candidate. A predicate `x < 5' is not subsumed by 'x = 10' as the set of records retained by
+        // applying 'x = 10' does not contain all of those retained after applying 'x < 5'.
+        // Predicates on the query side can at least be subsumed by a tautology 'true' which should always be possible.
+        // Whenever the pairing is lossy, for instance `x < 5' is subsumed by 'x < 10', the query side predicate needs
+        // to be compensated if and when the match is realized. Compensating a predicate usually means its reapplication
+        // as a residual filter. If a predicate is matched to a placeholder, the match is considered lossless as the
+        // placeholder can be morphed into the right lossless pairing.
+        //
+        // Join predicates: Join predicates are matched the same way as local predicates with a complication.
+        // If a join come across a join predicate we need to consider the potential other application of this predicate
+        // in another match and/or match candidate.
+        //
+        // Example:
+        //
+        // SELECT *
+        // FROM R r, S s
+        // WHERE r.a < 5 AND s.b = 10 AND r.x = s.y
+        //
+        // The predicate 'r.x = r.y' can be used as a predicate for matching an index on R(x, a) or for
+        // matching an index on S(b, y). In fact the predicate needs to be shared in some way such that the planner
+        // can later on make the right decision based on cost, etc.
+        //
+        // The way this is implemented is to create two matches one where the predicate is repossessed to the match
+        // at hand. When we match R(x, a) we repossess r.x = r.y to be subsumed by r.x = ? on
+        // the candidate side. Vica versa, when we match S(b, y) we repossess s.y = r.x to be subsumed by s.y = ? on the
+        // candidate side.
+        //
+        // Using this approach we create a problem that these two matches cannot coexist in a way that they cannot
+        // be realized, that is planned together at all as both matches provide the other's placeholder value. In fact,
+        // we have forced the match to (if it were to be planned) become the inner of a join. It would be beneficial,
+        // however, to also create a version of the match that does not consider the join predicate at all.
+        // This would allow a match on S(b, y) to only consider the s.b = 10 predicate and would allow us to use the
+        // same index but plan its access as the outer. This match is then planned together with the match using the
+        // repossessed predicate:
+        //
+        // FLATMAP(INDEXSCAN(S(b, y, [10, -inf], [10, inf]) s, INDEXSCAN(R(x, a) [s.y, -inf], [s.y, 5]))
+        //
+
+        final var correlationOrder = getCorrelationOrder();
+        final var localAliases = correlationOrder.getSet();
+        final var dependsOnMap = correlationOrder.getTransitiveClosure();
+        final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
+
         for (final QueryPredicate predicate : getPredicates()) {
-            final Set<PredicateMapping> impliedMappingsForPredicate =
-                    predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
-            predicateMappingsBuilder.add(impliedMappingsForPredicate);
+            // find all local correlations
+            final var predicateCorrelatedTo =
+                    predicate.getCorrelatedTo()
+                            .stream()
+                            .filter(localAliases::contains)
+                            .collect(ImmutableSet.toImmutableSet());
+
+            boolean correlatedToMatchedAliases = false;
+            boolean correlatedToUnmatchedAliases = false;
+            for (final var correlatedAlias : predicateCorrelatedTo) {
+                if (aliasMap.containsSource(correlatedAlias)) {
+                    // definitely correlated to local alias
+                    correlatedToMatchedAliases = true;
+                } else if (aliasToQuantifierMap.get(correlatedAlias) instanceof Quantifier.Existential) {
+                    final var correlatedDependsOn = dependsOnMap.get(correlatedAlias);
+                    for (final var dependsOnAlias : correlatedDependsOn) {
+                        if (!correlatedToMatchedAliases && aliasMap.containsSource(dependsOnAlias)) {
+                            correlatedToMatchedAliases = true;
+                        } else {
+                            correlatedToUnmatchedAliases = true;
+                        }
+                    }
+                } else {
+                    correlatedToUnmatchedAliases = true;
+                }
+            }
+
+            if (correlatedToMatchedAliases) {
+                final Set<PredicateMapping> impliedMappingsForPredicate =
+                        predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
+
+                if (!correlatedToUnmatchedAliases) {
+                    predicateMappingsBuilder.add(impliedMappingsForPredicate);
+                } else {
+                    //
+                    // The current predicate is a join predicate, thus we want to create different ways of mapping it:
+                    // one where the data bound through other quantifiers is considered a bound constant value,
+                    // and one were there is no mapping at all. This may be used during the data access rules to
+                    // indicate that a particular quantifier is not available because it is not planned ahead of the
+                    // matched quantifiers.
+                    //
+                    predicateMappingsBuilder.add(ImmutableSet.<PredicateMapping>builder()
+                            .addAll(impliedMappingsForPredicate)
+                            .add(PredicateMapping.noMappingCorrelated(predicate))
+                            .build());
+                }
+            } else {
+                predicateMappingsBuilder.add(ImmutableSet.of(PredicateMapping.noMappingUncorrelated(predicate)));
+            }
         }
 
         //
         // We now have a multimap from predicates on the query side to predicates on the candidate side. In the trivial
-        // case this multimap only contains singular mappings for a query predicate. If it doesn't we need to enumerate
+        // case, this multimap only contains singular mappings for a query predicate. If it doesn't, we need to enumerate
         // through their cross product exhaustively. Each complete and non-contradictory element of that cross product
         // can lead to a match.
         //
@@ -364,16 +453,91 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
                     final var parameterBindingMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
                     final var predicateMapBuilder = PredicateMap.builder();
+                    final var allLocalNonMatchedCorrelationsBuilder = ImmutableSet.<CorrelationIdentifier>builder();
 
                     for (final var predicateMapping : predicateMappings) {
-                        predicateMapBuilder.put(predicateMapping.getQueryPredicate(), predicateMapping);
-                        unmappedOtherPredicates.remove(predicateMapping.getCandidatePredicate());
+                        if (predicateMapping.hasMapping()) {
+                            predicateMapBuilder.put(predicateMapping.getQueryPredicate(), predicateMapping);
+                            unmappedOtherPredicates.remove(predicateMapping.getCandidatePredicate());
 
-                        final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
-                        final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
-                        if (parameterAliasOptional.isPresent() &&
-                                comparisonRangeOptional.isPresent()) {
-                            parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
+                            final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
+                            final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
+                            if (parameterAliasOptional.isPresent() &&
+                                    comparisonRangeOptional.isPresent()) {
+                                parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
+                            }
+                            
+                            final var predicate = predicateMapping.getQueryPredicate();
+
+                            allLocalNonMatchedCorrelationsBuilder
+                                    .addAll(computeLocalNonMatchedCorrelations(aliasMap, aliasToQuantifierMap, dependsOnMap, predicate));
+                        }
+                    }
+
+                    //
+                    // This holds all correlations to things outside the matched quantifier set.
+                    //
+                    final var allLocalNonMatchedCorrelations = allLocalNonMatchedCorrelationsBuilder.build();
+
+                    //
+                    // It is possible that we created a mapping that can never be planned due to the
+                    // potential introduction of a circular dependencies for join predicates. For instance,
+                    //
+                    // SELECT *
+                    // FROM (SELECT * FROM T1) AS c1,
+                    //      (SELECT * FROM T2 WHERE c1.a < T2.b) as c2
+                    // WHERE c1.x > 5 AND c1.x = c2.y
+                    //
+                    // should not yield a predicate map that covers both
+                    // c1.x > 5 AND c1.x = c2.y
+                    // as that would later result in a graph like this:
+                    //
+                    // SELECT *
+                    // FROM (SELECT * FROM T1 c1.x > 5 AND c1.x = c2.y) AS c1',
+                    //      (SELECT * FROM T2 WHERE c1'.a < T2.b) as c2
+                    //
+                    // which introduces a circular dependency on c1 <- c1' <- c2 <- c1.
+                    //
+
+                    //
+                    // Check if any of these aliases is in turn correlated to anything in the matched
+                    // quantifier set.
+                    //
+                    for (final CorrelationIdentifier alias : allLocalNonMatchedCorrelations) {
+                        if (dependsOnMap.get(alias)
+                                .stream()
+                                .anyMatch(aliasMap::containsSource)) {
+                            return ImmutableList.of();
+                        }
+                    }
+                    
+                    //
+                    // Go through the set of predicates a second time to check if using this match may not be optimal.
+                    //
+                    for (final var predicateMapping : predicateMappings) {
+                        if (!predicateMapping.hasMapping() &&
+                                predicateMapping.getMappingKind() == PredicateMapping.Kind.CORRELATED) {
+                            //
+                            // We didn't record a mapping for this particular predicate. That can only have happened
+                            // because we didn't want to repossess the predicate for this candidate for this set of
+                            // mappings.
+                            // What can happen, though, is that there are other predicate mappings in this set that
+                            // have repossessed predicates thus creating dependencies to set of aliases the
+                            // respective predicate is correlated to. That set of aliases is free to use and if the
+                            // current predicate has lesser requirements, that is, its correlations are a subset of the
+                            // alias we already know are free to use, we reject this match as it is not optimal.
+                            //
+                            final var predicate = predicateMapping.getQueryPredicate();
+
+                            if (StreamSupport.stream(computeLocalNonMatchedCorrelations(aliasMap,
+                                                    aliasToQuantifierMap,
+                                                    dependsOnMap,
+                                                    predicate).spliterator(),
+                                            false)
+                                    .allMatch(allLocalNonMatchedCorrelations::contains)) {
+                                // This match is not optimal and could be better
+                                return ImmutableList.of();
+                            }
                         }
                     }
 
@@ -402,6 +566,18 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                             })
                             .orElse(ImmutableList.of());
                 });
+    }
+
+    private Iterable<CorrelationIdentifier> computeLocalNonMatchedCorrelations(@Nonnull final AliasMap aliasMap,
+                                                                               @Nonnull final Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap,
+                                                                               @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
+                                                                               @Nonnull final QueryPredicate predicate) {
+        final var localAliases = aliasToQuantifierMap.keySet();
+        return () -> predicate.getTransitivelyCorrelatedTo(localAliases, dependsOnMap)
+                .stream()
+                .filter(alias -> !(aliasToQuantifierMap.get(alias) instanceof Quantifier.Existential))
+                .filter(alias -> !aliasMap.containsSource(alias))
+                .iterator();
     }
 
     @Nonnull
@@ -515,7 +691,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         //
         // The partial match we are called with here has child matches that have compensations on their own.
-        // Given a pair of these matches that we reach along two for each quantifiers (forming a join) we have to
+        // Given a pair of these matches that we reach along two for-each quantifiers (forming a join) we have to
         // apply both compensations. The compensation class has a union method to combine two compensations in an
         // optimal way. We need to fold over all those compensations to form one child compensation. The tree that
         // is formed by partial matches therefore collapses into a chain of compensations.
@@ -541,16 +717,16 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         //
         for (final var predicate : getPredicates()) {
             final var predicateMappingOptional = predicateMap.getMappingOptional(predicate);
-            Verify.verify(predicateMappingOptional.isPresent());
+            if (predicateMappingOptional.isPresent()) {
+                final var predicateMapping = predicateMappingOptional.get();
 
-            final var predicateMapping = predicateMappingOptional.get();
+                final Optional<ExpandCompensationFunction> injectCompensationFunctionOptional =
+                        predicateMapping
+                                .compensatePredicateFunction()
+                                .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
 
-            final Optional<ExpandCompensationFunction> injectCompensationFunctionOptional =
-                    predicateMapping
-                            .compensatePredicateFunction()
-                            .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
-
-            injectCompensationFunctionOptional.ifPresent(injectCompensationFunction -> predicateCompensationMap.put(predicate, injectCompensationFunction));
+                injectCompensationFunctionOptional.ifPresent(injectCompensationFunction -> predicateCompensationMap.put(predicate, injectCompensationFunction));
+            }
         }
 
         final var unmatchedQuantifiers = partialMatch.computeUnmatchedQuantifiers(this);
@@ -576,8 +752,9 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         return Compensation.ofChildCompensationAndPredicateMap(childCompensation,
                 predicateCompensationMap,
-                computeMappedQuantifiers(partialMatch),
+                computeMatchedQuantifiers(partialMatch),
                 unmatchedQuantifiers,
+                partialMatch.getCompensatedAliases(),
                 matchInfo.getRemainingComputationValueOptional());
     }
 }

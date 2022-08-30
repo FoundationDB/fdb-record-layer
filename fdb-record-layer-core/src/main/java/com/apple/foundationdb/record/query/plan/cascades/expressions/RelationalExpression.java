@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
+import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -41,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -112,8 +112,7 @@ import java.util.stream.StreamSupport;
 @GenerateVisitor
 public interface RelationalExpression extends Correlated<RelationalExpression>, Typed, Narrowable<RelationalExpression> {
     @Nonnull
-    static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
-                                                @Nonnull RecordMetaData recordMetaData,
+    static RelationalExpression fromRecordQuery(@Nonnull RecordMetaData recordMetaData,
                                                 @Nonnull RecordQuery query) {
         query.validate(recordMetaData);
         final var allRecordTypes = recordMetaData.getRecordTypes().keySet();
@@ -239,6 +238,16 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      */
     default boolean canCorrelate() {
         return false;
+    }
+
+    /**
+     * Method to compute the correlation order as a {@link com.apple.foundationdb.record.query.combinatorics.PartialOrder}.
+     * @return a partial order representing the transitive closure of all dependencies between quantifiers in this
+     *         expression.
+     */
+    @Nonnull
+    default PartialOrder<CorrelationIdentifier> getCorrelationOrder() {
+        return PartialOrder.empty();
     }
 
     boolean equalsWithoutChildren(@Nonnull RelationalExpression other,
@@ -745,6 +754,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     @Nonnull
     RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap, @Nonnull List<? extends Quantifier> translatedQuantifiers);
+
+    @Nonnull
+    default Set<Quantifier> computeMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {
+        return ImmutableSet.of();
+    }
 
     /**
      * Compute the semantic hash code of this expression. The logic computing the hash code is agnostic to the order

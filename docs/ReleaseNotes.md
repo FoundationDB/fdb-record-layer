@@ -52,6 +52,14 @@ This release also updates downstream dependency versions. Most notably, the prot
 // end next release
 -->
 
+### 3.2.287.0
+
+* **Feature** Use different analyzers for different fields in one Lucene index, and enable exclusion of fields for auto-complete [(Issue #1824)](https://github.com/FoundationDB/fdb-record-layer/issues/1824)
+
+### 3.2.286.0
+
+* **Feature** Cascades planning of logical group by [(Issue #1791)](https://github.com/FoundationDB/fdb-record-layer/issues/1791)
+
 ### 3.2.285.0
 
 * **Bug fix** Fix flaky test by allowing larger than expected scans [(Issue #1788)](https://github.com/FoundationDB/fdb-record-layer/issues/1788)

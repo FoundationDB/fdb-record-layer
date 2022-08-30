@@ -288,7 +288,6 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
     }
 
-    @Nonnull
     public static Value flattenedResults(@Nullable final Value groupingKeyValue,
                                          @Nonnull final AggregateValue aggregateValue,
                                          @Nonnull final CorrelationIdentifier groupingKeyAlias,
@@ -346,12 +345,32 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
         final var aggregateAlias = CorrelationIdentifier.uniqueID();
 
-        return new RecordQueryStreamingAggregationPlan(inner,
+        return RecordQueryStreamingAggregationPlan.of(inner,
                 groupingKeyValue,
                 aggregateValue,
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValueSupplier.supply(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
+    }
+
+    @Nonnull
+    public static RecordQueryStreamingAggregationPlan of(@Nonnull final Quantifier.Physical inner,
+                                                         @Nullable final Value groupingKeyValue,
+                                                         @Nonnull final AggregateValue aggregateValue,
+                                                         @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                                                         @Nonnull final CorrelationIdentifier aggregateAlias,
+                                                         @Nonnull final Value completeResultValue) {
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue);
+    }
+
+    @Nonnull
+    public AggregateValue getAggregateValue() {
+        return aggregateValue;
+    }
+
+    @Nullable
+    public Value getGroupingValue() {
+        return groupingKeyValue;
     }
 
     /**

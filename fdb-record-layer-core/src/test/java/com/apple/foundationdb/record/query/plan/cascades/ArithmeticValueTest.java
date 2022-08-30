@@ -60,9 +60,9 @@ class ArithmeticValueTest {
     private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 2.0);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
+
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
-    private static final ParserContext parserContext = new ParserContext(null, typeRepositoryBuilder);
     private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.Internal.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()));
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
@@ -267,14 +267,14 @@ class ArithmeticValueTest {
     void testPredicate(List<Value> args, BuiltInFunction function, Object result, boolean shouldFail) {
         if (shouldFail) {
             try {
-                function.encapsulate(parserContext, args);
+                function.encapsulate(typeRepositoryBuilder, args);
                 Assertions.fail("expected an exception to be thrown");
             } catch (Exception e) {
                 Assertions.assertTrue(e instanceof VerifyException);
                 Assertions.assertTrue(e.getMessage().contains("unable to encapsulate arithmetic operation due to type mismatch(es)"));
             }
         } else {
-            Typed value = function.encapsulate(parserContext, args);
+            Typed value = function.encapsulate(typeRepositoryBuilder, args);
             Assertions.assertTrue(value instanceof ArithmeticValue);
             Object actualValue = ((ArithmeticValue)value).eval(null, evaluationContext);
             Assertions.assertEquals(result, actualValue);

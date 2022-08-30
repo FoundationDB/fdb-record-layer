@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.ParserContext;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
@@ -109,6 +108,10 @@ public class NumericAggregationValue implements ValueWithChild, AggregateValue {
         return Type.primitiveType(operator.getResultTypeCode());
     }
 
+    @Nonnull
+    public String getOperatorName() {
+        return operator.logicalOperator.name();
+    }
 
     @Nonnull
     @Override
@@ -156,7 +159,7 @@ public class NumericAggregationValue implements ValueWithChild, AggregateValue {
 
     @Nonnull
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    private static AggregateValue encapsulate(@Nonnull ParserContext parserContext,
+    private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
                                               @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
                                               @Nonnull final List<Typed> arguments) {
         return encapsulate(builtInFunction.getFunctionName(), arguments);

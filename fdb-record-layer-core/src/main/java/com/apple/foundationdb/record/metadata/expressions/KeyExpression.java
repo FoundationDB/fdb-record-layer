@@ -386,6 +386,26 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     }
 
     /**
+     * Constructs a {@link KeyExpression} from a path.
+     *
+     * @param path The path to use for constructing the {@link KeyExpression}.
+     * @return The resulting {@link KeyExpression}.
+     */
+    @Nonnull
+    static KeyExpression fromPath(@Nonnull final List<String> path) {
+        if (path.isEmpty()) {
+            throw new InvalidExpressionException("attempt to create key expression using empty path");
+        }
+        final String fieldName = path.get(path.size() - 1);
+        KeyExpression keyExpression = Key.Expressions.field(fieldName);
+        final List<String> fieldPrefix = path.subList(0, path.size() - 1);
+        for (int i = fieldPrefix.size() - 1; i >= 0; i --) {
+            keyExpression = Key.Expressions.field(fieldPrefix.get(i)).nest(keyExpression);
+        }
+        return keyExpression;
+    }
+
+    /**
      * Exception thrown when there is a problem serializing a key expression.
      */
     @SuppressWarnings("serial")

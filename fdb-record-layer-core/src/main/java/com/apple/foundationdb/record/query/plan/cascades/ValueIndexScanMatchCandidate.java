@@ -31,14 +31,13 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -177,7 +176,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     public KeyExpression getAlternativeKeyExpression() {
         return alternativeKeyExpression;
     }
-
+    
     @Nonnull
     @Override
     public Optional<KeyExpression> getPrimaryKeyMaybe() {
@@ -266,21 +265,13 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     @Override
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
+                                                 @Nonnull CorrelationIdentifier sourceAlias,
                                                  @Nonnull CorrelationIdentifier targetAlias) {
-
-        final Set<Value> quantifiedObjectValues = ImmutableSet.copyOf(value.filter(v -> v instanceof QuantifiedObjectValue));
-
-        // if this is a value that is referring to more than one value from its quantifier or two multiple quantifiers
-        if (quantifiedObjectValues.size() != 1) {
-            return Optional.empty();
-        }
-
-        final QuantifiedObjectValue quantifiedObjectValue = (QuantifiedObjectValue)Iterables.getOnlyElement(quantifiedObjectValues);
         final Value baseObjectValue = baseQuantifier.getFlowedObjectValue();
 
         // replace the quantified column value inside the given value with the quantified value in the match candidate
         final Value translatedValue =
-                value.rebase(AliasMap.of(quantifiedObjectValue.getAlias(), baseQuantifier.getAlias()));
+                value.rebase(AliasMap.of(sourceAlias, baseQuantifier.getAlias()));
         final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseQuantifier.getAlias()));
 
         for (final Value matchResultValue : Iterables.concat(ImmutableList.of(baseObjectValue), indexKeyValues, indexValueValues)) {

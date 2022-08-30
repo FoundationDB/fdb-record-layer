@@ -123,6 +123,17 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     /**
+     * Checks whether this {@link Value} is compile-time constant.
+     *
+     * @return {@code true} if {@link Value} is compile-time constant, otherwise {@code false}.
+     */
+    default boolean isConstant() {
+        return getCorrelatedTo().isEmpty()
+               && StreamSupport.stream(filter(NondeterministicValue.class::isInstance).spliterator(), false)
+                       .findAny().isEmpty(); // TODO: use CompileTime tag interface.
+    }
+
+    /**
      * evaluates computation of the expression at compile time and returns the result immediately.
      *
      * @param context The execution context.
@@ -258,6 +269,10 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             if (value instanceof LeafValue) {
                 final var leafValue = (LeafValue)value;
                 final var correlatedTo = value.getCorrelatedTo();
+                if (correlatedTo.isEmpty()) {
+                    return leafValue;
+                }
+
                 Verify.verify(correlatedTo.size() == 1);
                 final var sourceAlias = Iterables.getOnlyElement(correlatedTo);
                 if (translationMap.containsSourceAlias(sourceAlias)) {
@@ -378,4 +393,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             throw new RecordCoreException("value is index-only and cannot be evaluated");
         }
     }
+
+    /**
+     * Tag interface for marking a {@link Value} that is non-deterministic, i.e. each time we call
+     * {@link Value#eval(FDBRecordStoreBase, EvaluationContext)} it might produce a different
+     * result.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface NondeterministicValue extends Value {}
 }

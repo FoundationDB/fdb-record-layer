@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -85,6 +87,18 @@ public class RelationalExpressionMatchers {
         return typedWithDownstream(bindableClass,
                 Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
                 downstream);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <R extends RelationalExpression, C extends Collection<? extends Quantifier>> BindingMatcher<R> owning(@Nonnull final BindingMatcher<C> downstream) {
+        return ofTypeOwning((Class<R>)(Class<?>)RelationalExpression.class, downstream);
+    }
+
+    public static <R extends RelationalExpression> BindingMatcher<R> canBeImplemented() {
+        return PrimitiveMatchers.satisfies(relationalExpression ->
+                relationalExpression.getQuantifiers()
+                        .stream()
+                        .allMatch(quantifier -> quantifier.getRangesOver().getMembers().stream().anyMatch(innerExpression -> innerExpression instanceof RecordQueryPlan)));
     }
 
     public static <R extends RelationalExpressionWithPredicates, C1 extends Collection<? extends QueryPredicate>, C2 extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicatesAndOwning(@Nonnull final Class<R> bindableClass,
@@ -185,6 +199,11 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<SelectExpression> selectExpression() {
+        return ofType(SelectExpression.class);
+    }
+
+    @Nonnull
     public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(SelectExpression.class, AnyMatcher.any(downstream));
     }
@@ -209,5 +228,10 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<ExplodeExpression> explodeExpression() {
         return ofTypeOwning(ExplodeExpression.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(GroupByExpression.class, downstream);
     }
 }

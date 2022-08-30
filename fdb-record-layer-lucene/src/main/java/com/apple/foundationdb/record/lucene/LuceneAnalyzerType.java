@@ -28,17 +28,24 @@ import javax.annotation.Nonnull;
  * The type used to determine how the {@link Analyzer} built by {@link LuceneAnalyzerFactory} is used.
  */
 public enum LuceneAnalyzerType {
-    FULL_TEXT(LuceneIndexOptions.TEXT_ANALYZER_NAME_OPTION),
-    AUTO_COMPLETE(LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_OPTION);
+    FULL_TEXT(LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION),
+    AUTO_COMPLETE(LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_OPTION, LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION);
 
-    private String indexOptionKey;
+    private String analyzerOptionKey;
+    private String analyzerPerFieldOptionKey;
 
-    LuceneAnalyzerType(@Nonnull String indexOptionKey) {
-        this.indexOptionKey = indexOptionKey;
+    LuceneAnalyzerType(@Nonnull String indexOptionKey, @Nonnull String analyzerPerFieldOptionKey) {
+        this.analyzerOptionKey = indexOptionKey;
+        this.analyzerPerFieldOptionKey = analyzerPerFieldOptionKey;
     }
 
     @Nonnull
-    public String getIndexOptionKey() {
-        return indexOptionKey;
+    public String getAnalyzerOptionKey() {
+        return analyzerOptionKey;
+    }
+
+    @Nonnull
+    public String getAnalyzerPerFieldOptionKey() {
+        return analyzerPerFieldOptionKey;
     }
 }

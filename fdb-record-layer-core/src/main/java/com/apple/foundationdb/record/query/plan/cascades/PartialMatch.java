@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -92,6 +95,9 @@ public class PartialMatch {
     @Nonnull
     private final Supplier<Set<QueryPredicate>> bindingPredicatesSupplier;
 
+    @Nonnull
+    private final Supplier<Set<CorrelationIdentifier>> compensatedAliasesSupplier;
+
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
                         @Nonnull final ExpressionRef<? extends RelationalExpression> queryRef,
@@ -106,6 +112,7 @@ public class PartialMatch {
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
         this.bindingPredicatesSupplier = Suppliers.memoize(this::computeBindingQueryPredicates);
+        this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
     }
 
     @Nonnull
@@ -191,8 +198,45 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public final Set<QueryPredicate> getBindingPredidcates() {
+    public final Set<QueryPredicate> getBindingPredicates() {
         return bindingPredicatesSupplier.get();
+    }
+
+
+    /**
+     * Return a set of aliases that this partial match is responsible for covering, that is either the matches
+     * replacement or compensation will take care of the aliases in the returned set.
+     * @return a set of compensated aliases
+     */
+    @Nonnull
+    public final Set<CorrelationIdentifier> getCompensatedAliases() {
+        return compensatedAliasesSupplier.get();
+    }
+
+    @Nonnull
+    private Set<CorrelationIdentifier> computeCompensatedAliases() {
+        final var compensatedAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
+
+        final var matchedAliases =
+                queryExpression.computeMatchedQuantifiers(this)
+                        .stream()
+                        .map(Quantifier::getAlias)
+                        .collect(ImmutableSet.toImmutableSet());
+        compensatedAliasesBuilder.addAll(matchedAliases);
+
+        final var predicatesMap = matchInfo.getPredicateMap();
+        for (final QueryPredicate queryPredicate : predicatesMap.keySet()) {
+            final Iterable<? extends QueryPredicate> existsPredicates =
+                    queryPredicate.filter(predicate -> predicate instanceof ExistsPredicate);
+
+            for (final var predicate : existsPredicates) {
+                final var existsPredicate =
+                        predicate.narrowMaybe(ExistsPredicate.class).orElseThrow(() -> new RecordCoreException("cast expected to succeed"));
+                compensatedAliasesBuilder.add(existsPredicate.getExistentialAlias());
+            }
+        }
+
+        return compensatedAliasesBuilder.build();
     }
 
     @Nonnull

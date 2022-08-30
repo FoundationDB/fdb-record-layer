@@ -72,6 +72,12 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
         attributeMapBuilder.put("timeWindowTimestamp", Attribute.gml(timeWindow.leaderboardTimestampString()));
     }
 
+    @Nonnull
+    @Override
+    protected TimeWindowScanComparisons withScanComparisons(@Nonnull final ScanComparisons newScanComparisons) {
+        return new TimeWindowScanComparisons(timeWindow, newScanComparisons);
+    }
+
     @Override
     public String toString() {
         return super.toString() + "@" + timeWindow;

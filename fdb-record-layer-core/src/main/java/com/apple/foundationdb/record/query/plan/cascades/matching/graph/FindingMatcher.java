@@ -212,11 +212,11 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
                 aliases,
                 Function.identity(),
                 identityMappingMap,
-                TransitiveClosure.transitiveClosure(aliases, BaseMatcher.computeDependsOnMap(aliases, Function.identity(), identityMappingMap, dependsOnFn)),
+                TransitiveClosure.transitiveClosure(aliases, DependencyUtils.computeDependsOnMap(aliases, Function.identity(), identityMappingMap, dependsOnFn)),
                 otherAliases,
                 Function.identity(),
                 otherIdentityMappingMap,
-                TransitiveClosure.transitiveClosure(otherAliases, BaseMatcher.computeDependsOnMap(otherAliases, Function.identity(), otherIdentityMappingMap, otherDependsOnFn)),
+                TransitiveClosure.transitiveClosure(otherAliases, DependencyUtils.computeDependsOnMap(otherAliases, Function.identity(), otherIdentityMappingMap, otherDependsOnFn)),
                 matchPredicate);
     }
 
@@ -249,21 +249,21 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
                                                             @Nonnull final Function<T, CorrelationIdentifier> otherElementToAliasFn,
                                                             @Nonnull final Function<T, Set<CorrelationIdentifier>> otherDependsOnFn,
                                                             @Nonnull final MatchPredicate<T> matchPredicate) {
-        final ImmutableSet<CorrelationIdentifier> aliases = BaseMatcher.computeAliases(elements, elementToAliasFn);
-        final ImmutableMap<CorrelationIdentifier, T> aliasToElementMap = BaseMatcher.computeAliasToElementMap(elements, elementToAliasFn);
+        final ImmutableSet<CorrelationIdentifier> aliases = DependencyUtils.computeAliases(elements, elementToAliasFn);
+        final ImmutableMap<CorrelationIdentifier, T> aliasToElementMap = DependencyUtils.computeAliasToElementMap(elements, elementToAliasFn);
 
-        final ImmutableSet<CorrelationIdentifier> otherAliases = BaseMatcher.computeAliases(otherElements, otherElementToAliasFn);
-        final ImmutableMap<CorrelationIdentifier, T> otherAliasToElementMap = BaseMatcher.computeAliasToElementMap(otherElements, otherElementToAliasFn);
+        final ImmutableSet<CorrelationIdentifier> otherAliases = DependencyUtils.computeAliases(otherElements, otherElementToAliasFn);
+        final ImmutableMap<CorrelationIdentifier, T> otherAliasToElementMap = DependencyUtils.computeAliasToElementMap(otherElements, otherElementToAliasFn);
         return new FindingMatcher<>(
                 boundAliasesMap,
                 aliases,
                 elementToAliasFn,
                 aliasToElementMap,
-                TransitiveClosure.transitiveClosure(aliases, BaseMatcher.computeDependsOnMapWithAliases(aliases, aliasToElementMap, dependsOnFn)),
+                TransitiveClosure.transitiveClosure(aliases, DependencyUtils.computeDependsOnMapWithAliases(aliases, aliasToElementMap, dependsOnFn)),
                 otherAliases,
                 otherElementToAliasFn,
                 otherAliasToElementMap,
-                TransitiveClosure.transitiveClosure(otherAliases, BaseMatcher.computeDependsOnMapWithAliases(otherAliases, otherAliasToElementMap, otherDependsOnFn)),
+                TransitiveClosure.transitiveClosure(otherAliases, DependencyUtils.computeDependsOnMapWithAliases(otherAliases, otherAliasToElementMap, otherDependsOnFn)),
                 matchPredicate);
     }
 }
