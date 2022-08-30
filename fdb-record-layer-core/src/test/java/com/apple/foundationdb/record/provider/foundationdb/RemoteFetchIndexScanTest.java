@@ -416,7 +416,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     }
 
     /**
-     * This test uses an index type that does not support remote fetch (BITMAP)
+     * This test uses an index type that does not support remote fetch (BITMAP).
      */
     @ParameterizedTest(name = "testScanUnsupportedIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
