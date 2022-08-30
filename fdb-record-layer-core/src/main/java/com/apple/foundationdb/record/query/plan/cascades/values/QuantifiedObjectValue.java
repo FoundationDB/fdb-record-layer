@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.collect.ImmutableSet;
@@ -133,8 +134,8 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     }
 
     @Nonnull
-    public static QuantifiedObjectValue of(@Nonnull final CorrelationIdentifier alias) {
-        return new QuantifiedObjectValue(alias, Type.primitiveType(Type.TypeCode.UNKNOWN));
+    public static QuantifiedObjectValue of(@Nonnull final Quantifier quantifier) {
+        return new QuantifiedObjectValue(quantifier.getAlias(), quantifier.getFlowedObjectType());
     }
 
     @Nonnull

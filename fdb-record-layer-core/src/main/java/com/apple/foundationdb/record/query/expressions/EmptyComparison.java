@@ -91,7 +91,7 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return GraphExpansion.ofPredicate(new FieldValue(baseQuantifier.getFlowedObjectValue(), fieldNames).withComparison(Comparisons.LIST_EMPTY));
+        return GraphExpansion.ofPredicate(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames).withComparison(Comparisons.LIST_EMPTY));
     }
 
     @Override

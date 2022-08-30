@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -142,7 +143,8 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      * @param matchCandidateOptional a match candidate optional that if not empty contains the match candidate that was
      *        matched and resulted in this scan plan
      */
-    private RecordQueryScanPlan(@Nullable Set<String> recordTypes,
+    @VisibleForTesting
+    public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
                                 @Nonnull Type flowedType,
                                 @Nullable KeyExpression commonPrimaryKey,
                                 @Nonnull ScanComparisons comparisons,

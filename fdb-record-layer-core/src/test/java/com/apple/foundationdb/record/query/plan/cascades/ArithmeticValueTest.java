@@ -42,13 +42,14 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
  * Tests evaluation of {@link ArithmeticValue}.
  */
 class ArithmeticValueTest {
-    private static final FieldValue F = new FieldValue(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident"), new Type.Any()), ImmutableList.of("rec_no"), Type.primitiveType(Type.TypeCode.LONG));
+    private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident"), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("rec_no"))))), "rec_no");
     private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
     private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
     private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);

@@ -154,6 +154,6 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     public static ExplodeExpression explodeField(@Nonnull final Quantifier.ForEach baseQuantifier,
                                                  @Nonnull final List<String> fieldNames) {
-        return new ExplodeExpression(new FieldValue(baseQuantifier.getFlowedObjectValue(), fieldNames));
+        return new ExplodeExpression(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
     }
 }

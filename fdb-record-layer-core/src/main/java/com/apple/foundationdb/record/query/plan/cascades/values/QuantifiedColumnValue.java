@@ -90,7 +90,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     @Nonnull
     @Override
     public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return OrdinalFieldValue.of(fieldValue, getOrdinalPosition());
+        return FieldValue.ofOrdinalNumber(fieldValue, getOrdinalPosition());
     }
 
     @Nullable

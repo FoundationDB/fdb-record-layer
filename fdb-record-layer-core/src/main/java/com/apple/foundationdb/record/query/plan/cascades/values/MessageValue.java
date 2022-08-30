@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
@@ -48,7 +49,7 @@ public class MessageValue {
      * @return the value at the end of hte path
      */
     @Nullable
-    public static Object getFieldValue(@Nonnull MessageOrBuilder message, @Nonnull List<String> fieldNames) {
+    public static Object getFieldValueForFieldNames(@Nonnull MessageOrBuilder message, @Nonnull List<String> fieldNames) {
         if (fieldNames.isEmpty()) {
             throw new RecordCoreException("empty list of field names");
         }
@@ -63,6 +64,33 @@ public class MessageValue {
         }
         return getFieldOnMessage(current, fieldNames.get(fieldNames.size() - 1));
     }
+
+    /**
+     * Get the value of the (nested) field on the path from the message defined by {@code fieldNames}.
+     * The given field names define a path through the nested structure of the given message; this method traverses
+     * that path and returns the value at the leaf, using the return semantics of {@link #getFieldOnMessage(MessageOrBuilder, String)}.
+     *
+     * @param message a message
+     * @param fields a list of field defining a path starting at {@code message}
+     * @return the value at the end of hte path
+     */
+    @Nullable
+    public static Object getFieldValueForFields(@Nonnull MessageOrBuilder message, @Nonnull List<Type.Record.Field> fields) {
+        if (fields.isEmpty()) {
+            throw new RecordCoreException("empty list of fields");
+        }
+        MessageOrBuilder current = message;
+        int fieldNamesIndex;
+        // Notice that up to fieldNames.size() - 2 are calling getFieldMessageOnMessage, and fieldNames.size() - 1 is calling getFieldOnMessage
+        for (fieldNamesIndex = 0; fieldNamesIndex < fields.size() - 1; fieldNamesIndex++) {
+            current = getFieldMessageOnMessage(current, fields.get(fieldNamesIndex).getFieldIndex());
+            if (current == null) {
+                return null;
+            }
+        }
+        return getFieldOnMessage(current, fields.get(fields.size() - 1).getFieldIndex());
+    }
+
 
     /**
      * Get the value of the field with the given field name on the given message.
@@ -135,6 +163,17 @@ public class MessageValue {
     @Nullable
     private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldName);
+        return getFieldMessageOnMessage(message, field);
+    }
+
+    @Nullable
+    private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, int fieldNumber) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldNumber);
+        return getFieldMessageOnMessage(message, field);
+    }
+
+    @Nullable
+    private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, final Descriptors.FieldDescriptor field) {
         if (!field.isRepeated() &&
                 (field.hasDefaultValue() || message.hasField(field)) &&
                 field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {

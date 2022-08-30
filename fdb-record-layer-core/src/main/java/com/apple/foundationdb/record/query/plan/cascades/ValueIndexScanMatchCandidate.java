@@ -226,7 +226,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
             if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
                 final AvailableFields.FieldData fieldData =
                         AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
-                addCoveringField(builder, (FieldValue)keyValue, fieldData);
+                if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
+                    return Optional.empty();
+                }
             }
         }
 
@@ -235,7 +237,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
             if (valueValue instanceof FieldValue && valueValue.isFunctionallyDependentOn(baseObjectValue)) {
                 final AvailableFields.FieldData fieldData =
                         AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i);
-                addCoveringField(builder, (FieldValue)valueValue, fieldData);
+                if (!addCoveringField(builder, (FieldValue)valueValue, fieldData)) {
+                    return Optional.empty();
+                }
             }
         }
 
@@ -296,18 +300,26 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return builder.build();
     }
 
-    private static void addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                         @Nonnull FieldValue fieldValue,
-                                         @Nonnull AvailableFields.FieldData fieldData) {
-        for (final String fieldName : fieldValue.getFieldPrefix()) {
-            builder = builder.getFieldBuilder(fieldName);
+    private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
+                                            @Nonnull FieldValue fieldValue,
+                                            @Nonnull AvailableFields.FieldData fieldData) {
+        for (final Type.Record.Field field : fieldValue.getFieldPrefix()) {
+            if (field.getFieldNameOptional().isEmpty()) {
+                return false;
+            }
+            builder = builder.getFieldBuilder(field.getFieldName());
         }
 
         // TODO not sure what to do with the null standing requirement
 
-        final String fieldName = fieldValue.getFieldName();
+        final Type.Record.Field field = fieldValue.getLastField();
+        if (field.getFieldNameOptional().isEmpty()) {
+            return false;
+        }
+        final String fieldName = field.getFieldName();
         if (!builder.hasField(fieldName)) {
             builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
         }
+        return true;
     }
 }
