@@ -189,7 +189,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .add(parent.getFieldName())
                         .build();
                 if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression)) {
-                    NestingKeyExpression newExpression = NullableArrayTypeUtils.unwrapArrayInKeyExpression(nestingKeyExpression);
+                    KeyExpression newExpression = NullableArrayTypeUtils.unwrapArrayInKeyExpression(nestingKeyExpression);
                     return visitExpression(newExpression);
                 }
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));

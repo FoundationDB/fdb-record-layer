@@ -280,27 +280,17 @@ public interface Type extends Narrowable<Type> {
         final var typeCode = TypeCode.fromProtobufType(protoType);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
-            // case 1: primitive types -- assumed to be non-nullable array of that type
+            // case 1: primitive types, array elements are not-nullable
             if (typeCode.isPrimitive()) {
-                final var primitiveType = primitiveType(typeCode, true);
+                final var primitiveType = primitiveType(typeCode, false);
                 return new Array(primitiveType);
             } else if (typeCode == TypeCode.ENUM) {
                 final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
                 final var enumType = new Enum(false, Enum.enumValuesFromProto(enumDescriptor.getValues()));
                 return new Array(enumType);
             } else {
-                Objects.requireNonNull(descriptor);
-                final var messageDescriptor = (Descriptors.Descriptor)descriptor;
-                // case 2: helper type to model null-ed out array elements
-                final Optional<Descriptors.FieldDescriptor> elementFieldDescriptorMaybe =
-                        Record.arrayElementFieldDescriptorMaybe(messageDescriptor);
-                if (elementFieldDescriptorMaybe.isPresent()) {
-                    final var elementFieldDescriptor = elementFieldDescriptorMaybe.get();
-                    return new Array(fromProtoType(getTypeSpecificDescriptor(elementFieldDescriptor), elementFieldDescriptor.getType(), FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
-                } else {
-                    // case 3: any arbitrary sub message we don't understand
-                    return new Array(fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
-                }
+                // case 2: any arbitrary sub message we don't understand
+                return new Array(fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
             }
         } else {
             if (typeCode.isPrimitive()) {
@@ -1032,25 +1022,6 @@ public interface Type extends Narrowable<Type> {
         @Nonnull
         public static Record fromDescriptor(final Descriptors.Descriptor descriptor) {
             return fromFieldDescriptorsMap(toFieldDescriptorMap(descriptor.getFields()));
-        }
-
-        /**
-         * Examines the given {@link com.google.protobuf.Descriptors.Descriptor}'s {@link Field}s and returns an {@link Optional}
-         * containing a field that can be used as an array element type, if possible, otherwise, an empty {@link Optional}.
-         *
-         * @param descriptor The {@link com.google.protobuf.Descriptors.Descriptor} to examine.
-         * @return Optionally, a field that can be used as an array element type.
-         */
-        @Nonnull
-        private static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(@Nonnull final Descriptors.Descriptor descriptor) {
-            final var fields = descriptor.getFields();
-            if (fields.size() == 1) {
-                final var field0 = fields.get(0);
-                if (field0.isOptional() && !field0.isRepeated() && field0.getNumber() == 1 && "values".equals(field0.getName())) {
-                    return Optional.of(field0);
-                }
-            }
-            return Optional.empty();
         }
 
         /**

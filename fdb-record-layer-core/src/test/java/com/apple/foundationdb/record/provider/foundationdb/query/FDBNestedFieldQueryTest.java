@@ -370,9 +370,9 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                                             SetMatcher.exactlyInAnyOrder(
                                                                     valuePredicate(fieldValue("rating"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)),
                                                                     valuePredicate(fieldValue("reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
-            assertEquals(-83822384, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2065397699, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(446113990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-83643638, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(2070938825, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(451655116, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     context -> TestHelpers.assertDiscardedAtMost(5, context)));
@@ -663,9 +663,9 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                                                     valuePredicate(fieldValue("key"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "alpha")),
                                                                     valuePredicate(fieldValue("value"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "test")))))))));
 
-            assertEquals(1553162232, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1581979808, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(417122259, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1553340978, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1576438682, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(422663385, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
     }
 
@@ -973,8 +973,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     scanPlan()
                             .where(scanComparisons(range("[[a, 2],[a, 2]]"))));
             assertEquals(1265534819, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-2081530776, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1268205705, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2075989650, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1273746831, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
