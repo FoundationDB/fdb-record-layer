@@ -22,13 +22,13 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -86,13 +86,13 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * As a quantifier is immutable, the columns that flow along the quantifier can be lazily computed.
      */
     @Nonnull
-    private final Supplier<List<Column<? extends QuantifiedColumnValue>>> flowedColumnsSupplier;
+    private final Supplier<List<Column<? extends FieldValue>>> flowedColumnsSupplier;
 
     /**
      * As a quantifier is immutable, the values that flow along the quantifier can be lazily computed.
      */
     @Nonnull
-    private final Supplier<List<? extends QuantifiedColumnValue>> flowedValuesSupplier;
+    private final Supplier<List<? extends FieldValue>> flowedValuesSupplier;
 
     /**
      * Builder class for quantifiers.
@@ -174,7 +174,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public List<Column<? extends QuantifiedColumnValue>> computeFlowedColumns() {
+        public List<Column<? extends FieldValue>> computeFlowedColumns() {
             return pullUpResultColumns(getFlowedObjectType(), getAlias());
         }
     }
@@ -216,7 +216,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * A quantifier that conceptually flows exactly one item containing a boolean to the owning
      * expression indicating whether the sub-graph that the quantifier ranges over produced a non-empty or an empty
-     * result. When the semantics of this quantifiers are realized in an execution strategy that strategy should
+     * result. When the semantics of these quantifiers are realized in an execution strategy that strategy should
      * facilitate a boolean "short-circuit" mechanism as the result will be {@code true} as soon as the sub-graph produces
      * the first item.
      */
@@ -272,7 +272,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public List<Column<? extends QuantifiedColumnValue>> computeFlowedColumns() {
+        public List<Column<? extends FieldValue>> computeFlowedColumns() {
             throw new IllegalStateException("should not be called");
         }
     }
@@ -406,7 +406,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public List<Column<? extends QuantifiedColumnValue>> computeFlowedColumns() {
+        public List<Column<? extends FieldValue>> computeFlowedColumns() {
             return pullUpResultColumns(getFlowedObjectType(), getAlias());
         }
     }
@@ -456,7 +456,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public abstract ExpressionRef<? extends RelationalExpression> getRangesOver();
 
     /**
-     * Return a short hand string for the quantifier. As a quantifier's semantics is usually quite subtle and should
+     * Return a shorthand string for the quantifier. As a quantifier's semantics is usually quite subtle and should
      * not distract from expressions. For example, when a data flow is visualized the returned string should be <em>short</em>.
      * @return a short string representing the quantifier.
      */
@@ -555,15 +555,15 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     @Nonnull
-    public List<Column<? extends QuantifiedColumnValue>> getFlowedColumns() {
+    public List<Column<? extends FieldValue>> getFlowedColumns() {
         return flowedColumnsSupplier.get();
     }
 
     @Nonnull
-    protected abstract List<Column<? extends QuantifiedColumnValue>> computeFlowedColumns();
+    protected abstract List<Column<? extends FieldValue>> computeFlowedColumns();
 
     @Nonnull
-    protected static List<Column<? extends QuantifiedColumnValue>> pullUpResultColumns(@Nonnull final Type type, @Nonnull CorrelationIdentifier alias) {
+    protected static List<Column<? extends FieldValue>> pullUpResultColumns(@Nonnull final Type type, @Nonnull CorrelationIdentifier alias) {
         final List<Field> fields;
         if (type instanceof Type.Record) {
             fields = Objects.requireNonNull(((Type.Record)type).getFields());
@@ -572,21 +572,21 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         }
 
         final var recordType = (Type.Record)type;
-        final var resultBuilder = ImmutableList.<Column<? extends QuantifiedColumnValue>>builder();
+        final var resultBuilder = ImmutableList.<Column<? extends FieldValue>>builder();
         for (var i = 0; i < fields.size(); i++) {
             final var field = fields.get(i);
-            resultBuilder.add(Column.of(field, QuantifiedColumnValue.of(alias, Math.toIntExact(i), recordType)));
+            resultBuilder.add(Column.of(field, FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(alias, recordType), Math.toIntExact(i))));
         }
         return resultBuilder.build();
     }
 
     @Nonnull
-    public List<? extends QuantifiedColumnValue> getFlowedValues() {
+    public List<? extends FieldValue> getFlowedValues() {
         return flowedValuesSupplier.get();
     }
 
     @Nonnull
-    private List<? extends QuantifiedColumnValue> computeFlowedValues() {
+    private List<? extends FieldValue> computeFlowedValues() {
         return getFlowedColumns()
                 .stream()
                 .map(Column::getValue)
