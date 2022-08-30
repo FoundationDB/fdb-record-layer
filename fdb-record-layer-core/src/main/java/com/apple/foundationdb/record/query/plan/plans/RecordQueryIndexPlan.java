@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
+import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -219,6 +220,14 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                     return new FallbackCursor<>(
                             executeUsingRemoteFetch(store, context, continuation, executeProperties),
                             lastSuccessfulResult -> fallBackContinueFrom(store, context, continuation, executeProperties, lastSuccessfulResult));
+                } catch (UnsupportedRemoteFetchIndexException ex) {
+                    // In this case (e.g. the index maintainer does not support remote fetch), log as info
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info(KeyValueLogMessage.of("Remote fetch unsupported, continuing with Index scan",
+                                LogMessageKeys.MESSAGE, ex.getMessage(),
+                                LogMessageKeys.INDEX_NAME, indexName));
+                    }
+                    return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
                 } catch (Exception ex) {
                     if (LOGGER.isWarnEnabled()) {
                         LOGGER.warn(KeyValueLogMessage.of("Remote Fetch execution failed, falling back to Index scan",
