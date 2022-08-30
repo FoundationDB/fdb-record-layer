@@ -24,10 +24,14 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -43,11 +47,13 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -409,6 +415,33 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         }
     }
 
+    /**
+     * This test uses an index type that does not support remote fetch (BITMAP)
+     */
+    @ParameterizedTest(name = "testScanUnsupportedIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void testScanUnsupportedIndex(IndexFetchMethod fetchMethod) throws Exception {
+        assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, splitRecordsHook);
+
+            IndexScanRange scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
+                // USE_REMOTE_FETCH should fail with UnsupportedRemoteFetchIndexException since the BitmapValueIndexMaintainer
+                // does not support remote fetch
+                assertThrows(UnsupportedRemoteFetchIndexException.class,
+                        () -> scanToList(context, "bitmap_index", fetchMethod, scanBounds, ScanProperties.FORWARD_SCAN, primaryKey(), null));
+            } else {
+                // SCAN_AND_FETCH and USE_REMOTE_FETCH_WITH_FALLBACK should fail with RecordCoreException
+                // since the type of scan is wrong (BY_VALUE - should be BY_GROUP). The point though is that the failure
+                // happens in the fallback path
+                assertThrows(RecordCoreException.class,
+                        () -> scanToList(context, "bitmap_index", fetchMethod, scanBounds, ScanProperties.FORWARD_SCAN, primaryKey(), null));
+            }
+        }
+    }
+
     @Test
     void testOrphanPolicyError() throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
@@ -510,6 +543,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         // UseSplitRecords can be set to different values to impact the way the store is opened
         metaDataBuilder.setSplitLongRecords(isUseSplitRecords());
         metaDataBuilder.addIndex("MySimpleRecord", "PrimaryKeyIndex", "rec_no");
+        metaDataBuilder.addIndex("MySimpleRecord", new Index("bitmap_index", concatenateFields("str_value_indexed", "num_value_2", "rec_no").group(1), IndexTypes.BITMAP_VALUE, Collections.singletonMap(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, "16")));
     };
 
     private void assertRecordWithPrimaryKeyIndex(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, final Object indexedValue) {
